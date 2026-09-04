@@ -17,14 +17,14 @@ func TestSchedule(t *testing.T) {
 
 	// Test GetByHari
 	seninResult := cfg.GetByHari("senin")
-	if !strings.Contains(seninResult, "Matematika Diskrit Dasar") {
-		t.Errorf("Expected 'Matematika Diskrit Dasar' in Senin schedule, got: %s", seninResult)
+	if !strings.Contains(seninResult, "Aljabar Linear") {
+		t.Errorf("Expected 'Aljabar Linear' in Senin schedule, got: %s", seninResult)
 	}
 
 	// Test SearchDosen yang ada jadwal
-	dosenResult := cfg.SearchDosen("YD")
-	if !strings.Contains(dosenResult, "Yudi Widhiyasana") {
-		t.Errorf("Expected dosen Yudi Widhiyasana for YD, got: %s", dosenResult)
+	dosenResult := cfg.SearchDosen("MR")
+	if !strings.Contains(dosenResult, "Muhammad Rizqi Sholahuddin") {
+		t.Errorf("Expected dosen Muhammad Rizqi Sholahuddin for MR, got: %s", dosenResult)
 	}
 
 	// Test SearchDosen master JTK tanpa jadwal di kelas ini
