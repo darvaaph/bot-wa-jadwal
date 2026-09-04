@@ -72,42 +72,8 @@ func main() {
 			// Log pesan yang diterima di konsol
 			fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
-			lowerText := strings.ToLower(msgText)
-			var replyText string
-
-			// Routing perintah: mendukung awalan "!" maupun "/"
-			if strings.HasPrefix(lowerText, "!menu") || strings.HasPrefix(lowerText, "/menu") ||
-				strings.HasPrefix(lowerText, "!help") || strings.HasPrefix(lowerText, "/help") {
-				replyText = jadwalData.GetMenu()
-			} else if strings.HasPrefix(lowerText, "!jadwal") || strings.HasPrefix(lowerText, "/jadwal") {
-				parts := strings.SplitN(msgText, " ", 2)
-				arg := ""
-				if len(parts) > 1 {
-					arg = parts[1]
-				}
-				replyText = jadwalData.GetByHari(arg)
-			} else if strings.HasPrefix(lowerText, "!dosen") || strings.HasPrefix(lowerText, "/dosen") {
-				parts := strings.SplitN(msgText, " ", 2)
-				arg := ""
-				if len(parts) > 1 {
-					arg = parts[1]
-				}
-				replyText = jadwalData.SearchDosen(arg)
-			} else if strings.HasPrefix(lowerText, "!ruang") || strings.HasPrefix(lowerText, "/ruang") {
-				parts := strings.SplitN(msgText, " ", 2)
-				arg := ""
-				if len(parts) > 1 {
-					arg = parts[1]
-				}
-				replyText = jadwalData.SearchRuangan(arg)
-			} else if strings.HasPrefix(lowerText, "!cari") || strings.HasPrefix(lowerText, "/cari") {
-				parts := strings.SplitN(msgText, " ", 2)
-				arg := ""
-				if len(parts) > 1 {
-					arg = parts[1]
-				}
-				replyText = jadwalData.SearchGlobal(arg)
-			}
+			// Proses pesan masuk dengan parser perintah & pintasan kata kunci
+			replyText := jadwalData.ProcessMessage(msgText)
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {

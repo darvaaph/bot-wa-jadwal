@@ -65,6 +65,15 @@ func getHariIndonesia(t time.Time) string {
 	}
 }
 
+// getBulanIndonesia mengonversi bulan ke bahasa Indonesia
+func getBulanIndonesia(t time.Time) string {
+	bulan := []string{
+		"", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+		"Juli", "Agustus", "September", "Oktober", "November", "Desember",
+	}
+	return bulan[t.Month()]
+}
+
 // FormatList merapikan daftar item jadwal menjadi teks WhatsApp yang estetik dan mudah dibaca
 func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 	if len(items) == 0 {
@@ -73,7 +82,7 @@ func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("📅 *%s*\n", judul))
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n\n")
+	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 	for i, item := range items {
 		sb.WriteString(fmt.Sprintf("*%d. %s* (%s)\n", i+1, item.NamaMatkul, item.KodeMatkul))
@@ -82,7 +91,7 @@ func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 		sb.WriteString(fmt.Sprintf("   👨‍🏫 Dosen  : %s (%s)\n\n", item.Dosen, item.InisialDosen))
 	}
 
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n")
 	sb.WriteString("_Ketik *!menu* untuk melihat daftar perintah._")
 	return sb.String()
 }
@@ -93,10 +102,12 @@ func (j *JadwalConfig) GetByHari(hariInput string) string {
 	waktuSekarang := time.Now()
 
 	switch hariInput {
-	case "hari ini", "today", "":
+	case "hari ini", "hariini", "today", "now", "":
 		hariInput = strings.ToLower(getHariIndonesia(waktuSekarang))
 	case "besok", "tomorrow":
 		hariInput = strings.ToLower(getHariIndonesia(waktuSekarang.Add(24 * time.Hour)))
+	case "jum'at":
+		hariInput = "jumat"
 	}
 
 	var hasil []JadwalItem
@@ -120,7 +131,7 @@ func (j *JadwalConfig) GetByHari(hariInput string) string {
 func (j *JadwalConfig) SearchDosen(keyword string) string {
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Mohon sertakan nama atau kode dosen.\nContoh: `!dosen YD` atau `!dosen Yudi`"
+		return "⚠️ Mohon sertakan nama atau kode dosen.\nContoh: `!dosen MR` atau `!dosen Rizqi`"
 	}
 
 	var hasil []JadwalItem
@@ -140,11 +151,11 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 		if strings.ToLower(id) == keyword || strings.Contains(strings.ToLower(nama), keyword) {
 			var sb strings.Builder
 			sb.WriteString("👨‍🏫 *INFORMASI DOSEN JTK*\n")
-			sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+			sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n")
 			sb.WriteString(fmt.Sprintf("• *Nama*: %s\n", nama))
 			sb.WriteString(fmt.Sprintf("• *ID / Inisial*: %s\n\n", id))
 			sb.WriteString("ℹ️ _Dosen terdaftar di JTK, namun tidak memiliki jadwal perkuliahan di kelas ini._\n")
-			sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+			sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n")
 			sb.WriteString("_Ketik *!menu* untuk melihat daftar perintah._")
 			return sb.String()
 		}
@@ -157,7 +168,7 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 func (j *JadwalConfig) SearchRuangan(keyword string) string {
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Mohon sertakan nama atau kode ruangan.\nContoh: `!ruang Lab 2` atau `!ruang 402`"
+		return "⚠️ Mohon sertakan nama atau kode ruangan.\nContoh: `!ruang Lab` atau `!ruang D105`"
 	}
 
 	var hasil []JadwalItem
@@ -174,7 +185,7 @@ func (j *JadwalConfig) SearchRuangan(keyword string) string {
 func (j *JadwalConfig) SearchGlobal(keyword string) string {
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Mohon sertakan kata kunci pencarian.\nContoh: `!cari Algoritma`"
+		return "⚠️ Mohon sertakan kata kunci pencarian.\nContoh: `!cari basis data`"
 	}
 
 	var hasil []JadwalItem
@@ -194,24 +205,154 @@ func (j *JadwalConfig) SearchGlobal(keyword string) string {
 	return j.FormatList(hasil, fmt.Sprintf("HASIL PENCARIAN: \"%s\"", keyword))
 }
 
+// ProcessMessage memproses pesan masuk dan mengembalikan pesan balasan yang sesuai
+func (j *JadwalConfig) ProcessMessage(rawMsg string) string {
+	trimmed := strings.TrimSpace(rawMsg)
+	if trimmed == "" {
+		return ""
+	}
+
+	hasPrefix := false
+	clean := trimmed
+
+	// Deteksi prefix perintah (! / #)
+	if strings.HasPrefix(clean, "!") || strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, "#") {
+		hasPrefix = true
+		clean = strings.TrimSpace(clean[1:])
+	}
+
+	lower := strings.ToLower(clean)
+
+	// 1. Menu & Bantuan
+	if lower == "menu" || lower == "help" || lower == "info" || lower == "bantuan" {
+		return j.GetMenu()
+	}
+
+	// 2. Pintasan Waktu Cepat (Hari Ini & Besok)
+	if lower == "hari ini" || lower == "hariini" || lower == "today" || lower == "now" {
+		return j.GetByHari("hari ini")
+	}
+	if lower == "besok" || lower == "tomorrow" {
+		return j.GetByHari("besok")
+	}
+
+	// 3. Pintasan Nama Hari Langsung (misal: "!senin", "senin", "!jumat")
+	namaHari := map[string]string{
+		"senin":     "senin",
+		"monday":    "senin",
+		"selasa":    "selasa",
+		"tuesday":   "selasa",
+		"rabu":      "rabu",
+		"wednesday": "rabu",
+		"kamis":     "kamis",
+		"thursday":  "kamis",
+		"jumat":     "jumat",
+		"jum'at":    "jumat",
+		"friday":    "jumat",
+		"sabtu":     "sabtu",
+		"saturday":  "sabtu",
+		"minggu":    "minggu",
+		"sunday":    "minggu",
+	}
+
+	if targetHari, ok := namaHari[lower]; ok {
+		return j.GetByHari(targetHari)
+	}
+
+	// 4. Perintah Jadwal Lengkap (misal: "!jadwal", "!jadwal senin", "!jadwal besok")
+	if strings.HasPrefix(lower, "jadwal") {
+		parts := strings.SplitN(clean, " ", 2)
+		arg := ""
+		if len(parts) > 1 {
+			arg = parts[1]
+		}
+		return j.GetByHari(arg)
+	}
+
+	// 5. Perintah Dosen (misal: "!dosen MR", "dosen Rizqi")
+	if strings.HasPrefix(lower, "dosen") {
+		parts := strings.SplitN(clean, " ", 2)
+		arg := ""
+		if len(parts) > 1 {
+			arg = parts[1]
+		}
+		return j.SearchDosen(arg)
+	}
+
+	// 6. Perintah Ruang / Ruangan / Lab (misal: "!ruang D105", "!lab")
+	if strings.HasPrefix(lower, "ruang") || strings.HasPrefix(lower, "ruangan") || strings.HasPrefix(lower, "lab") {
+		parts := strings.SplitN(clean, " ", 2)
+		arg := ""
+		if len(parts) > 1 {
+			arg = parts[1]
+		}
+		if arg == "" && (lower == "lab" || lower == "ruang" || lower == "ruangan") {
+			return j.SearchRuangan("lab")
+		}
+		return j.SearchRuangan(arg)
+	}
+
+	// 7. Perintah Cari Global (misal: "!cari sistem operasi")
+	if strings.HasPrefix(lower, "cari") || strings.HasPrefix(lower, "search") {
+		parts := strings.SplitN(clean, " ", 2)
+		arg := ""
+		if len(parts) > 1 {
+			arg = parts[1]
+		}
+		return j.SearchGlobal(arg)
+	}
+
+	// 8. Fallback jika diawali prefix perintah tetapi tidak dikenali
+	if hasPrefix {
+		return fmt.Sprintf("⚠️ Perintah *\"%s\"* tidak dikenali.\n\nKetik *!menu* untuk melihat panduan perintah yang tersedia.", trimmed)
+	}
+
+	return ""
+}
+
 // GetMenu mengembalikan pesan bantuan dan daftar perintah bot
 func (j *JadwalConfig) GetMenu() string {
+	now := time.Now()
+	hariStr := getHariIndonesia(now)
+	tanggalStr := fmt.Sprintf("%s, %02d %s %d", hariStr, now.Day(), getBulanIndonesia(now), now.Year())
+
+	// Hitung ringkasan jumlah matkul hari ini
+	todayDayLower := strings.ToLower(hariStr)
+	var todayCount int
+	for _, item := range j.Jadwal {
+		if strings.ToLower(item.Hari) == todayDayLower {
+			todayCount++
+		}
+	}
+
+	var statusHariIni string
+	if todayCount > 0 {
+		statusHariIni = fmt.Sprintf("%d Mata Kuliah Hari Ini", todayCount)
+	} else {
+		statusHariIni = "Libur / Tidak Ada Perkuliahan"
+	}
+
 	var sb strings.Builder
-	sb.WriteString("🤖 *BOT JADWAL KULIAH OTOMATIS*\n")
-	sb.WriteString(fmt.Sprintf("_%s_\n", j.Kampus))
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n\n")
-	sb.WriteString("Gunakan perintah berikut untuk mencari informasi:\n\n")
-	sb.WriteString("📌 *Cek Jadwal Harian:*\n")
-	sb.WriteString("• `!jadwal senin` (atau hari lainnya)\n")
-	sb.WriteString("• `!jadwal hari ini`\n")
-	sb.WriteString("• `!jadwal besok`\n\n")
-	sb.WriteString("📌 *Pencarian Khusus:*\n")
-	sb.WriteString("• `!dosen [inisial/nama]`\n  _Contoh: `!dosen BDS` atau `!dosen Bambang`_\n")
-	sb.WriteString("• `!ruang [nama/nomor]`\n  _Contoh: `!ruang Lab` atau `!ruang 402`_\n")
-	sb.WriteString("• `!cari [kata kunci]`\n  _Contoh: `!cari jaringan`_\n\n")
-	sb.WriteString("📌 *Lainnya:*\n")
-	sb.WriteString("• `!menu` atau `!help` (Tampilkan menu ini)\n\n")
-	sb.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
-	sb.WriteString("💡 *Catatan:* Perintah juga mendukung prefiks garis miring (contoh: `/jadwal senin`).")
+	sb.WriteString("🤖 *ASISTEN JADWAL KULIAH JTK*\n")
+	sb.WriteString(fmt.Sprintf("🎓 *Kelas:* %s\n", j.Kampus))
+	sb.WriteString(fmt.Sprintf("📅 *Waktu:* %s\n", tanggalStr))
+	sb.WriteString(fmt.Sprintf("⚡ *Status:* _%s_\n", statusHariIni))
+	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	sb.WriteString("⚡ *JADWAL CEPAT (Sering Dipakai)*\n")
+	sb.WriteString("  • `!hari ini`  ➜ Jadwal kuliah hari ini\n")
+	sb.WriteString("  • `!besok`     ➜ Jadwal kuliah esok hari\n")
+	sb.WriteString("  • `!senin` s/d `!jumat` ➜ Jadwal hari tertentu\n\n")
+
+	sb.WriteString("🔍 *PENCARIAN SPESIFIK*\n")
+	sb.WriteString("  • `!dosen MR`   ➜ Cari jadwal dosen (Pak Rizqi)\n")
+	sb.WriteString("  • `!ruang Lab`  ➜ Cari jadwal di Lab tertentu\n")
+	sb.WriteString("  • `!cari basis` ➜ Cari matkul / kata kunci apa pun\n\n")
+
+	sb.WriteString("ℹ️ *TIPS PENGGUNAAN*\n")
+	sb.WriteString("• Bisa tanpa tanda seru (contoh ketik: `hari ini` atau `senin`)\n")
+	sb.WriteString("• Perintah bantuan: `!menu` atau `!help`\n")
+	sb.WriteString("━━━━━━━━━━━━━━━━━━━━━━\n")
+	sb.WriteString("_Bot Asisten Kelas JTK Polban_")
 	return sb.String()
 }
