@@ -208,4 +208,29 @@ func TestTaskManager(t *testing.T) {
 	if !strings.Contains(badIDEdit, "tidak ditemukan") {
 		t.Errorf("Expected non-existent task to report not found, got: %s", badIDEdit)
 	}
+
+	// 18. Test Filter Tugas per Mata Kuliah (!tugas sbd, !tugas aljabar, !tugas matkul sbd)
+	// Filter tugas SBD (harus memunculkan tugas SBD dan tidak memunculkan Aljabar)
+	filterSBD := tm.HandleCommand(groupJID, true, userJID, false, "!tugas sbd", cfg, tSabtu)
+	if !strings.Contains(filterSBD, "SISTEM BASIS DATA") || strings.Contains(filterSBD, "ALJABAR LINEAR") {
+		t.Errorf("Expected filter SBD to only show SBD tasks, got:\n%s", filterSBD)
+	}
+
+	// Filter tugas Aljabar
+	filterAljabar := tm.HandleCommand(groupJID, true, userJID, false, "!tugas aljabar", cfg, tSabtu)
+	if !strings.Contains(filterAljabar, "ALJABAR LINEAR") || strings.Contains(filterAljabar, "SISTEM BASIS DATA") {
+		t.Errorf("Expected filter Aljabar to only show Aljabar tasks, got:\n%s", filterAljabar)
+	}
+
+	// Filter matkul yang belum ada tugas aktifnya (misal Sistem Operasi / SO)
+	filterSO := tm.HandleCommand(groupJID, true, userJID, false, "!tugas so", cfg, tSabtu)
+	if !strings.Contains(filterSO, "Tidak ada tugas aktif") || !strings.Contains(filterSO, "SISTEM OPERASI") {
+		t.Errorf("Expected empty message for SO filter, got:\n%s", filterSO)
+	}
+
+	// Sub-perintah !tugas matkul sbd
+	filterMatkulSBD := tm.HandleCommand(groupJID, true, userJID, false, "!tugas matkul sbd", cfg, tSabtu)
+	if !strings.Contains(filterMatkulSBD, "SISTEM BASIS DATA") {
+		t.Errorf("Expected !tugas matkul sbd to work, got:\n%s", filterMatkulSBD)
+	}
 }

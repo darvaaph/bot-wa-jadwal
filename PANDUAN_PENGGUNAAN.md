@@ -257,7 +257,25 @@ _Tips: Di grup, tugas tetap terpajang sampai tenggatnya selesai._
   ```
   *(Hanya menampilkan tugas yang jatuh tempo besok / H-1)*
 
-### E. Mengubah / Memperpanjang Tenggat Tugas (`!tugas edit` / `!tugas mundur`)
+### E. Filter Tugas per Mata Kuliah & Pencarian Cepat (`!tugas [matkul]` / `!tugas cari [kata]`)
+Saat mahasiswa ingin fokus belajar atau mengecek progres 1 mata kuliah tertentu saja (misal menjelang praktikum SBD besok atau kuis Aljabar):
+* **Cukup ketik nama atau singkatan matkul:**
+  ```text
+  !tugas sbd
+  !tugas aljabar
+  !tugas mtk
+  ```
+* **Pencarian bebas kata kunci:**
+  ```text
+  !tugas cari modul 3
+  !tugas praktikum
+  ```
+* **Format Tampilan Luaran:**
+  * Header otomatis menyesuaikan: `📋 *DAFTAR TUGAS KELAS: SISTEM BASIS DATA*`
+  * Jika belum ada tugas pada matkul tersebut, bot menampilkan pesan melegakan:
+    `🎉 *Tidak ada tugas aktif untuk kriteria ini!*`
+
+### F. Mengubah / Memperpanjang Tenggat Tugas (`!tugas edit` / `!tugas mundur`)
 Jika dosen memperpanjang atau memundurkan tenggat tugas, Komti tidak perlu menghapus dan membuat ulang tugas dari awal:
 * **Ubah Tenggat Waktu Saja:**
   ```text
@@ -277,7 +295,7 @@ Jika dosen memperpanjang atau memundurkan tenggat tugas, Komti tidak perlu mengh
   !tugas edit 1 | Revisi Lapres Modul 1 | Senin 12:00
   ```
 
-### F. Menyelesaikan & Menghapus Tugas
+### G. Menyelesaikan & Menghapus Tugas
 Jika seluruh mahasiswa satu kelas sudah mengumpulkan tugas atau tugas dibatalkan oleh dosen:
 * **Tandai Selesai:**
   ```text
