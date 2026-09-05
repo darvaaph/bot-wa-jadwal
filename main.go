@@ -34,6 +34,14 @@ func isSenderGroupAdmin(ctx context.Context, client *whatsmeow.Client, groupJID,
 	return false
 }
 
+// resolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA)
+func resolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup bool, groupJID, senderJID types.JID) bool {
+	if !isGroup {
+		return true
+	}
+	return isSenderGroupAdmin(ctx, client, groupJID, senderJID)
+}
+
 // replyWithTyping mengirimkan reaksi emoji, simulasi status mengetik, dan pesan balasan ke pengguna
 func replyWithTyping(
 	ctx context.Context,
@@ -196,35 +204,9 @@ func main() {
 			}
 			activeJadwal := classManager.GetClassOrDefault(activeClassID)
 
-			// Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
-			isClassCmd := false
-			for _, prefix := range []string{
-				"!kelas", "/kelas", "#kelas", "!daftarkelas", "/daftarkelas", "#daftarkelas",
-				"!setkelas", "/setkelas", "#setkelas", "!pilihkelas", "/pilihkelas", "#pilihkelas",
-				"!resetkelas", "/resetkelas", "#resetkelas",
-			} {
-				if strings.HasPrefix(lowerMsg, prefix) {
-					isClassCmd = true
-					break
-				}
-			}
-			if !v.Info.IsGroup && !isClassCmd {
-				for _, prefix := range []string{"kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas"} {
-					if strings.HasPrefix(lowerMsg, prefix) {
-						isClassCmd = true
-						break
-					}
-				}
-			}
-
-			if chatSettingsManager != nil && isClassCmd {
-				isAdmin := false
-				if v.Info.IsGroup {
-					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
-				} else {
-					isAdmin = true
-				}
-
+			// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
+			if chatSettingsManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
 				classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
 				if classReply != "" {
 					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
@@ -232,8 +214,8 @@ func main() {
 				}
 			}
 
-			// Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
-			if strings.HasPrefix(lowerMsg, "!reload") || (!v.Info.IsGroup && strings.HasPrefix(lowerMsg, "reload")) {
+			// 2. Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
+			if matchCommandPrefix(msgText, v.Info.IsGroup, "reload") {
 				count, errs := classManager.ReloadAll()
 				var reloadReply string
 				if len(errs) > 0 {
@@ -245,12 +227,8 @@ func main() {
 				return
 			}
 
-			// Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
-			if strings.HasPrefix(lowerMsg, "!reminder") || strings.HasPrefix(lowerMsg, "/reminder") ||
-				strings.HasPrefix(lowerMsg, "#reminder") || strings.HasPrefix(lowerMsg, "!pengingat") ||
-				strings.HasPrefix(lowerMsg, "/pengingat") || strings.HasPrefix(lowerMsg, "#pengingat") ||
-				(!v.Info.IsGroup && (strings.HasPrefix(lowerMsg, "reminder") || strings.HasPrefix(lowerMsg, "pengingat"))) {
-
+			// 3. Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
+			if matchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
 				parts := strings.Fields(lowerMsg)
 				subCmd := ""
 				if len(parts) > 1 {
@@ -285,53 +263,17 @@ func main() {
 				return
 			}
 
-			// Handler Khusus Perintah Tugas (!tugas)
-			if taskManager != nil && (strings.HasPrefix(lowerMsg, "!tugas") || strings.HasPrefix(lowerMsg, "/tugas") ||
-				strings.HasPrefix(lowerMsg, "#tugas") || (!v.Info.IsGroup && strings.HasPrefix(lowerMsg, "tugas"))) {
-
-				isAdmin := false
-				if v.Info.IsGroup {
-					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
-				} else {
-					isAdmin = true // Di DM setiap orang adalah admin catatan miliknya sendiri
-				}
-
+			// 4. Handler Khusus Perintah Tugas (!tugas)
+			if taskManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
 				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 				return
 			}
 
-			// Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
-			isOverrideCmd := false
-			for _, prefix := range []string{
-				"!pindah", "/pindah", "#pindah", "!ganti", "/ganti", "#ganti",
-				"!kosong", "/kosong", "#kosong", "!libur", "/libur", "#libur",
-				"!kuliahganti", "/kuliahganti", "#kuliahganti", "!tambahkelas", "/tambahkelas",
-				"!jadwalganti", "/jadwalganti", "#jadwalganti", "!overrides",
-				"!batalganti", "/batalganti", "#batalganti",
-			} {
-				if strings.HasPrefix(lowerMsg, prefix) {
-					isOverrideCmd = true
-					break
-				}
-			}
-			if !v.Info.IsGroup && !isOverrideCmd {
-				for _, prefix := range []string{"pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "batalganti"} {
-					if strings.HasPrefix(lowerMsg, prefix) {
-						isOverrideCmd = true
-						break
-					}
-				}
-			}
-
-			if overrideManager != nil && isOverrideCmd {
-				isAdmin := false
-				if v.Info.IsGroup {
-					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
-				} else {
-					isAdmin = true
-				}
-
+			// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
+			if overrideManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
 				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 				return

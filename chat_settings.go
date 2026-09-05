@@ -139,12 +139,15 @@ func (csm *ChatSettingsManager) HandleCommand(
 	}
 
 	cmd := strings.ToLower(fields[0])
+	hasSymbol := strings.HasPrefix(cmd, "!") || strings.HasPrefix(cmd, "/") || strings.HasPrefix(cmd, "#")
+	if isGroup && !hasSymbol {
+		return ""
+	}
 
-	// 1. Perintah Melihat Daftar Kelas (!daftarkelas / !kelas)
-	if cmd == "!daftarkelas" || cmd == "/daftarkelas" || cmd == "#daftarkelas" ||
-		cmd == "!kelas" || cmd == "/kelas" || cmd == "#kelas" ||
-		(!isGroup && (cmd == "daftarkelas" || cmd == "kelas")) {
+	cleanCmd := cleanCommandPrefix(cmd)
 
+	switch cleanCmd {
+	case "daftarkelas", "kelas":
 		active := csm.GetClass(chatJID)
 		var statusStr string
 		if active == "" {
@@ -189,13 +192,8 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		return sb.String()
-	}
 
-	// 2. Perintah Mengatur Kelas (!setkelas / !pilihkelas)
-	if cmd == "!setkelas" || cmd == "/setkelas" || cmd == "#setkelas" ||
-		cmd == "!pilihkelas" || cmd == "/pilihkelas" || cmd == "#pilihkelas" ||
-		(!isGroup && (cmd == "setkelas" || cmd == "pilihkelas")) {
-
+	case "setkelas", "pilihkelas":
 		if len(fields) < 2 {
 			available := strings.Join(classMgr.ListClasses(), ", ")
 			return fmt.Sprintf("ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas 3A`\n\nPilihan kelas yang tersedia:\n👉 *%s*\n\nKetik `!daftarkelas` untuk melihat rincian setiap kelas.", available)
@@ -222,20 +220,18 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", normClass, cfg.Kampus)
-	}
 
-	// 3. Perintah Reset Kelas (!resetkelas)
-	if cmd == "!resetkelas" || cmd == "/resetkelas" || cmd == "#resetkelas" ||
-		(!isGroup && cmd == "resetkelas") {
-
+	case "resetkelas", "hapuskelas":
 		if isGroup && !isAdmin {
 			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mereset pengaturan kelas untuk grup ini."
 		}
 
 		_ = csm.DeleteClass(chatJID)
 		return fmt.Sprintf("🔄 *PENGATURAN KELAS DIRESET*\n──────────\nChat/Grup ini telah dikembalikan ke kelas bawaan default (*%s*).", classMgr.GetDefaultClassID())
-	}
 
-	return ""
+	default:
+		return ""
+	}
 }
+
 
