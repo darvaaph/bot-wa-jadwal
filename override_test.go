@@ -11,11 +11,16 @@ func TestOverrideManager(t *testing.T) {
 	testDB := "test_overrides.db"
 	defer os.Remove(testDB)
 
-	om, err := NewOverrideManager(testDB)
+	db, err := InitDB(testDB)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi database SQLite: %v", err)
+	}
+	defer db.Close()
+
+	om, err := NewOverrideManager(db)
 	if err != nil {
 		t.Fatalf("Gagal inisialisasi NewOverrideManager: %v", err)
 	}
-	defer om.Close()
 
 	cfg, err := LoadJadwal("jadwal.json")
 	if err != nil {
