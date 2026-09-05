@@ -20,6 +20,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// isSenderGroupAdmin memeriksa apakah pengirim pesan merupakan admin atau superadmin di grup
+func isSenderGroupAdmin(ctx context.Context, client *whatsmeow.Client, groupJID, senderJID types.JID) bool {
+	info, err := client.GetGroupInfo(ctx, groupJID)
+	if err != nil || info == nil {
+		return false
+	}
+	for _, p := range info.Participants {
+		if p.JID.User == senderJID.User {
+			return p.IsAdmin || p.IsSuperAdmin
+		}
+	}
+	return false
+}
+
 func main() {
 	// 1. Muat data jadwal dari file JSON
 	jadwalData, err := LoadJadwal("jadwal.json")
@@ -33,7 +47,16 @@ func main() {
 	// 2. Setup Pengingat Otomatis (Reminder Manager)
 	reminderManager := LoadReminderManager("reminder_groups.json")
 
-	// 3. Setup Database Log & SQLite (Session Storage)
+	// 3. Setup Pengelola Tugas (Task Manager - SQLite)
+	taskManager, err := NewTaskManager("tugas.db")
+	if err != nil {
+		fmt.Printf("Peringatan inisialisasi database tugas: %v\n", err)
+	} else {
+		defer taskManager.Close()
+		fmt.Println("Berhasil menghubungkan database tugas (tugas.db)")
+	}
+
+	// 4. Setup Database Log & SQLite (Session Storage)
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	
 	// Gunakan driver "sqlite" (pure Go tanpa CGO/GCC)
@@ -42,17 +65,17 @@ func main() {
 		panic(err)
 	}
 
-	// 4. Ambil sesi dari database
+	// 5. Ambil sesi dari database
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	// 5. Setup Klien WhatsApp
+	// 6. Setup Klien WhatsApp
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// 6. Daftarkan Event Handler untuk memproses pesan masuk
+	// 7. Daftarkan Event Handler untuk memproses pesan masuk
 	client.AddEventHandler(func(evt interface{}) {
 		switch v := evt.(type) {
 		case *events.Message:
@@ -109,8 +132,7 @@ func main() {
 					_, reminderReply = reminderManager.RemoveGroup(chatJID)
 
 				case "test", "tes", "try":
-					jadwalPagi := jadwalData.GetByHari("hari ini")
-					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\nSelamat pagi! Berikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
+					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), jadwalData, taskManager, time.Now()))
 
 				default:
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
@@ -133,6 +155,40 @@ func main() {
 					fmt.Printf("Gagal mengirim balasan reminder: %v\n", err)
 				} else {
 					fmt.Printf("Sukses membalas perintah reminder ke %s\n", v.Info.Chat.User)
+				}
+				return
+			}
+
+			// Handler Khusus Perintah Tugas (!tugas)
+			if taskManager != nil && (strings.HasPrefix(lowerMsg, "!tugas") || strings.HasPrefix(lowerMsg, "/tugas") ||
+				strings.HasPrefix(lowerMsg, "#tugas") || (!v.Info.IsGroup && strings.HasPrefix(lowerMsg, "tugas"))) {
+
+				isAdmin := false
+				if v.Info.IsGroup {
+					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
+				} else {
+					isAdmin = true // Di DM setiap orang adalah admin catatan miliknya sendiri
+				}
+
+				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, time.Now())
+
+				// 1. Berikan reaksi emoji pada pesan tugas
+				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "📝")
+				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
+
+				// 2. Simulasi "sedang mengetik..." selama 600ms
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+				time.Sleep(600 * time.Millisecond)
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+				// 3. Kirim balasan tugas
+				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+					Conversation: proto.String(tugasReply),
+				})
+				if err != nil {
+					fmt.Printf("Gagal mengirim balasan tugas: %v\n", err)
+				} else {
+					fmt.Printf("Sukses membalas perintah tugas ke %s\n", v.Info.Chat.User)
 				}
 				return
 			}
@@ -191,7 +247,7 @@ func main() {
 	}
 
 	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB)
-	reminderManager.StartScheduler(client, jadwalData)
+	reminderManager.StartScheduler(client, jadwalData, taskManager)
 
 	// 9. Tahan program agar terus berjalan sampai ditekan Ctrl+C
 	c := make(chan os.Signal, 1)

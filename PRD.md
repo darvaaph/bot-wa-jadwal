@@ -18,7 +18,14 @@
 * ✅ **Strategi Hybrid (Anti-Spam Grup & Fleksibel di DM):** Di grup wajib menggunakan prefix (`!`), di chat pribadi bebas tanpa prefix.
 * ✅ **Simulasi Manusiawi (Anti-Ban):** Mengirim indikator *"sedang mengetik..."* (*Typing Presence*) dan reaksi emoji (*Message Reaction* `📅` / `⏰`).
 * ✅ **Reload On-The-Fly (`!reload`):** Memperbarui data jadwal tanpa me-restart server Go.
-* ✅ **Menu & Kamus Keyword Bertingkat (`!menu` & `!keyword`):** Tampilan ringkas di layar HP dan kamus keyword lengkap.
+* ✅ **Deadline Tracker & Pengingat Tugas Otomatis (`!tugas` - SQLite `tugas.db`):**
+  * Pencatatan tugas perkuliahan dengan parser tenggat waktu fleksibel (misal: `hari ini 23:59`, `besok 14:00`, `Jumat 23:59`).
+  * Badge urgensi otomatis (*countdown*): `🚨 DEADLINE HARI INI`, `⚠️ DEADLINE BESOK (H-1)`, `⚠️ H-X`.
+  * Filter cepat: `!tugas hari ini` dan `!tugas besok`.
+  * Tugas di grup tetap terpajang sampai tenggatnya lewat (auto-archive setelah H+2) sehingga mahasiswa yang belum mengumpulkan tidak kehilangan info tugas.
+  * Role-based access control (RBAC): Di grup hanya Admin grup (Komti/Wakil) yang dapat menambah, menyelesaikan, atau menghapus tugas. Di DM bebas untuk to-do list pribadi.
+  * Anti-duplikasi tugas cerdas untuk mencegah entri ganda.
+  * Integrasi otomatis peringatan tugas mendesak (*urgent*) ke dalam pesan pengingat jadwal pagi pukul 06:30 WIB.
 
 ## 4. Roadmap & Rencana Pengembangan Selanjutnya (Upcoming Development)
 ### 🎯 Tahap 1: Arsitektur Multi-Class / Multi-Tenant (Skala Jurusan)
@@ -28,8 +35,5 @@
   * Pengingat otomatis pagi jam 06:30 akan mengirimkan jadwal sesuai kelas yang dipilih oleh grup tersebut.
 * **Dukungan Cek Lintas Kelas (*On-Demand Override*):** Mahasiswa bisa mengintip jadwal kelas lain kapan saja (contoh: `!senin 3B` atau `!next 1A`).
 
-### 🎯 Tahap 2: Manajemen Tugas & Deadline Kuliah (`!tugas`)
-* Sistem pencatat tugas per mata kuliah/kelas berbasis SQLite/JSON (`!tugas tambah`, `!tugas list`, `!tugas selesai`).
-
-### 🎯 Tahap 3: Pengiriman Dokumen Modul & Silabus PDF (`!modul`)
+### 🎯 Tahap 2: Pengiriman Dokumen Modul & Silabus PDF (`!modul`)
 * Fitur pengiriman file PDF materi/silabus praktikum langsung dari penyimpanan bot ke chat mahasiswa.

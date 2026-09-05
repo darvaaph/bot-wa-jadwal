@@ -369,12 +369,15 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 }
 
 // GetByHari mencari jadwal berdasarkan hari tertentu, termasuk alias 'hari ini' dan 'besok'
-func (j *JadwalConfig) GetByHari(hariInput string) string {
+func (j *JadwalConfig) GetByHari(hariInput string, refTime ...time.Time) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
 	hariInput = strings.ToLower(strings.TrimSpace(hariInput))
 	waktuSekarang := time.Now()
+	if len(refTime) > 0 && !refTime[0].IsZero() {
+		waktuSekarang = refTime[0]
+	}
 
 	switch hariInput {
 	case "hari ini", "hariini", "today", "now", "":
@@ -674,7 +677,8 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
 	sb.WriteString("• `!hari ini` ➔ Jadwal hari ini\n")
 	sb.WriteString("• `!besok` ➔ Jadwal besok\n")
-	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n\n")
+	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n")
+	sb.WriteString("• `!tugas` ➔ Catatan tugas & deadline\n\n")
 
 	sb.WriteString("🔍 *Pencarian Cepat:*\n")
 	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
@@ -707,13 +711,19 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("3️⃣ *Kuliah Sedang/Berikutnya:*\n")
 	sb.WriteString("• `!next` / `!sekarang`\n\n")
 
-	sb.WriteString("4️⃣ *Informasi & Pencarian:*\n")
+	sb.WriteString("4️⃣ *Tugas & Deadline:*\n")
+	sb.WriteString("• `!tugas` ➔ Lihat daftar tugas aktif\n")
+	sb.WriteString("• `!tugas tambah SBD | Lapres | Jumat 23:59`\n")
+	sb.WriteString("• `!tugas selesai [ID]` ➔ Selesaikan tugas\n")
+	sb.WriteString("• `!tugas hapus [ID]` ➔ Hapus tugas\n\n")
+
+	sb.WriteString("5️⃣ *Informasi & Pencarian:*\n")
 	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
 	sb.WriteString("• `!dosen MR` ➔ Cari jadwal dosen inisial/nama\n")
 	sb.WriteString("• `!ruang lab` ➔ Cari jadwal ruangan\n")
 	sb.WriteString("• `!cari basis` ➔ Pencarian kata kunci global\n\n")
 
-	sb.WriteString("5️⃣ *Pengaturan Admin:*\n")
+	sb.WriteString("6️⃣ *Pengaturan Admin:*\n")
 	sb.WriteString("• `!reminder on` / `!reminder off` (grup)\n")
 	sb.WriteString("• `!reminder test` ➔ Simulasi pengingat pagi\n")
 	sb.WriteString("• `!reload` ➔ Segarkan data jadwal.json\n\n")

@@ -150,8 +150,32 @@ func (rm *ReminderManager) Status(currentJID string) string {
 	return sb.String()
 }
 
+// BuildMorningReminder menyusun pesan pengingat pagi lengkap dengan alert tugas mendesak
+func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *TaskManager, now time.Time) string {
+	jadwalPagi := config.GetByHari("hari ini", now)
+	pesan := fmt.Sprintf("🌅 *SELAMAT PAGI!*\nBerikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
+
+	if taskManager != nil {
+		urgentTasks, err := taskManager.GetDueTasks(chatJID, "urgent", now)
+		if err == nil && len(urgentTasks) > 0 {
+			var sb strings.Builder
+			sb.WriteString("\n\n──────────\n")
+			sb.WriteString("🚨 *PERINGATAN DEADLINE TUGAS:*\n")
+			for _, ut := range urgentTasks {
+				badge := GetUrgencyBadge(ut.DeadlineAt, now)
+				sb.WriteString(fmt.Sprintf("• [%s] %s\n  └ %s\n", strings.ToUpper(ut.Matkul), ut.Deskripsi, badge))
+			}
+			sb.WriteString("──────────\n")
+			sb.WriteString("_Ketik `!tugas` untuk detail instruksi tugas._")
+			pesan += sb.String()
+		}
+	}
+
+	return pesan
+}
+
 // StartScheduler menjalankan background goroutine untuk broadcast jadwal otomatis
-func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *JadwalConfig) {
+func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *JadwalConfig, taskManager *TaskManager) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
@@ -180,10 +204,10 @@ func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *Jadw
 				}
 
 				fmt.Printf("[Scheduler] Mengirim pengingat jadwal pagi (%s) ke %d grup...\n", todayStr, len(groups))
-				jadwalPagi := config.GetByHari("hari ini")
-				pesanBroadcast := fmt.Sprintf("🌅 *SELAMAT PAGI!*\nBerikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
 
 				for _, g := range groups {
+					pesanGrup := BuildMorningReminder(g.JID, config, taskManager, now)
+
 					targetJID, err := types.ParseJID(g.JID)
 					if err != nil {
 						fmt.Printf("[Scheduler] Error parse JID %s: %v\n", g.JID, err)
@@ -191,7 +215,7 @@ func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *Jadw
 					}
 
 					_, err = client.SendMessage(context.Background(), targetJID, &waE2E.Message{
-						Conversation: proto.String(pesanBroadcast),
+						Conversation: proto.String(pesanGrup),
 					})
 					if err != nil {
 						fmt.Printf("[Scheduler] Gagal kirim ke grup %s (%s): %v\n", g.Name, g.JID, err)
