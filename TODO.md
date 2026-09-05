@@ -52,9 +52,9 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
 - [x] **Fase 1: Multi-JSON Loader (`ClassManager`):** *(Selesai)*
   * Direktori [data/jadwal/](file:///f:/Project/bot-jadwal/data/jadwal/) berisi [3a.json](file:///f:/Project/bot-jadwal/data/jadwal/3a.json) dan [3b.json](file:///f:/Project/bot-jadwal/data/jadwal/3b.json).
   * [ClassManager](file:///f:/Project/bot-jadwal/class_manager.go) dengan in-memory cache, normalisasi cerdas, hot-reload, fallback otomatis, dan 100% lulus unit test ([class_manager_test.go](file:///f:/Project/bot-jadwal/class_manager_test.go)).
-- [ ] **Fase 2: Tabel `chat_settings` di SQLite:**
-  * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db`.
-  * Helper `GetChatClass(scopeJID)` dan `SetChatClass(scopeJID, classID)`.
+- [x] **Fase 2: Tabel `chat_settings` di SQLite (`ChatSettingsManager`):** *(Selesai)*
+  * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db` melalui [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go).
+  * Write-through cache in-memory untuk pembacaan instan O(1), aman konkurensi (`sync.RWMutex`), dan 100% lulus unit test ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
 - [ ] **Fase 3: Perintah `!setkelas` & `!daftarkelas`:**
   * Handler perintah untuk admin grup menyetel kelas aktif (`!setkelas 3A`).
   * Handler untuk melihat daftar kelas yang tersedia (`!daftarkelas`).
