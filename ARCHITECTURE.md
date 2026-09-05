@@ -48,12 +48,14 @@ Seluruh logika utama berada di dalam `package main` untuk menjaga kesederhanaan 
 | Berkas | Tanggung Jawab Utama | Rangkaian Uji Terkait |
 | :--- | :--- | :--- |
 | [main.go](file:///f:/Project/bot-jadwal/main.go) | Titik masuk utama (*entry point*), inisialisasi whatsmeow, dispatcher event pesan, helper respons terpadu `replyWithTyping`, supervisor rekoneksi (*watchdog*), dan pembersihan aman (*graceful shutdown*). | Manual / Integration |
+| [class_manager.go](file:///f:/Project/bot-jadwal/class_manager.go) | **Multi-Class Schedule Engine (`ClassManager`)**: Memindai direktori `data/jadwal/*.json`, mengelola in-memory cache jadwal multi-kelas, normalisasi case-insensitive, propagasi `OverrideManager`, dan hot-reload seluruh kelas (`ReloadAll`). | [class_manager_test.go](file:///f:/Project/bot-jadwal/class_manager_test.go) |
+| [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go) | **Multi-Tenant Chat Binding (`ChatSettingsManager`)**: Mengelola preferensi grup/chat (tabel `chat_settings`), write-through cache in-memory, dan handler perintah kelas (`!kelas`, `!setkelas`, `!resetkelas`). | [chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go) |
 | [db.go](file:///f:/Project/bot-jadwal/db.go) | **Unified SQLite Connection Pool (`InitDB`)**: Sentralisasi koneksi `*sql.DB` bersama dengan mode WAL (`journal_mode=WAL`), `busy_timeout=5000`, dan `foreign_keys=1` guna menjamin nol persaingan penguncian database pada Windows. | [db_test.go](file:///f:/Project/bot-jadwal/db_test.go) |
 | [utils.go](file:///f:/Project/bot-jadwal/utils.go) | **Single Source of Truth** untuk helper: lokalisasi hari/bulan Indonesia, parser tanggal alami (*relative date parser*), kalkulasi rentang jam, pembersih prefix perintah, dan pembacaan flexible time SQLite. | [utils_test.go](file:///f:/Project/bot-jadwal/utils_test.go) |
-| [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | Engine jadwal kuliah: parsing kurikulum `jadwal.json`, pencarian cerdas/alias (*fuzzy match*), kalkulasi kuliah aktif/berikutnya (`!next`), tampilan menu bot (`!menu`), dan kamus bantuan (`!keyword`). | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) |
+| [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | Engine jadwal kuliah: parsing kurikulum JSON, pencarian cerdas/alias (*fuzzy match*), kalkulasi kuliah aktif/berikutnya (`!next`), tampilan menu bot (`!menu`), dan kamus bantuan (`!keyword`). | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) |
 | [override.go](file:///f:/Project/bot-jadwal/override.go) | Engine jadwal pengganti sementara: perubahan jam (`!pindah`), pembatalan kelas (`!kosong`), kuliah pengganti (`!kuliahganti`), pengumuman hari libur (`!libur`), deteksi bentrok jadwal, dan pembatalan (`!batalganti`). | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) |
 | [task.go](file:///f:/Project/bot-jadwal/task.go) | Engine pelacak tugas SQLite: CRUD catatan tugas (`!tugas`), validasi matkul resmi, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) |
-| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat, pemformatan pesan harian terintegrasi tugas mendesak, dan pengelolaan daftar grup penerima di `reminder_groups.json`. | Terintegrasi di Schedule Test |
+| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat dengan personalisasi jadwal per kelas grup, pemformatan pesan harian terintegrasi tugas mendesak, dan daftar grup di `reminder_groups.json`. | [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) |
 
 ---
 
@@ -102,10 +104,24 @@ CREATE TABLE IF NOT EXISTS schedule_overrides (
 CREATE INDEX IF NOT EXISTS idx_overrides_scope ON schedule_overrides(scope_jid, target_date);
 ```
 
-### C. File Konfigurasi JSON
+### C. Tabel `chat_settings` (Database: `tugas.db`)
+Menyimpan binding relasi antara grup WhatsApp / chat pribadi terhadap jadwal kelas tertentu (*Multi-Tenant Support*):
 
-#### 1. `reminder_groups.json`
-Menyimpan konfigurasi pengingat otomatis dan daftar penerima:
+```sql
+CREATE TABLE IF NOT EXISTS chat_settings (
+    scope_jid TEXT PRIMARY KEY,       -- JID grup (120363xxx@g.us) atau JID user
+    class_id TEXT NOT NULL,           -- ID kelas huruf kapital (contoh: "3A", "3B")
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### D. File Konfigurasi & Master Data
+
+#### 1. Direktori Master Jadwal `data/jadwal/*.json`
+Menyimpan master data kurikulum modular per kelas (misal: `data/jadwal/3a.json`, `data/jadwal/3b.json`). Format berkas mempertahankan schema `JadwalConfig`: kampus, daftar dosen, kode matkul, dan jadwal perkuliahan. Bot juga mendukung *fallback* membaca `jadwal.json` di root jika direktori belum dibuat.
+
+#### 2. `reminder_groups.json`
+Menyimpan konfigurasi pengingat otomatis dan daftar grup penerima:
 ```json
 {
   "hour": 6,
@@ -119,9 +135,6 @@ Menyimpan konfigurasi pengingat otomatis dan daftar penerima:
   ]
 }
 ```
-
-#### 2. `jadwal.json`
-Menyimpan master data kurikulum kelas: nama kampus, jurusan, daftar dosen, ruangan, dan jadwal mingguan baku (Senin s.d. Jumat).
 
 ---
 

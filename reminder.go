@@ -190,8 +190,13 @@ func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *Tas
 	return pesan
 }
 
-// StartScheduler menjalankan background goroutine untuk broadcast jadwal otomatis
-func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *JadwalConfig, taskManager *TaskManager) {
+// StartScheduler menjalankan background goroutine untuk broadcast jadwal otomatis dengan dukungan multi-kelas
+func (rm *ReminderManager) StartScheduler(
+	client *whatsmeow.Client,
+	classMgr *ClassManager,
+	settingsMgr *ChatSettingsManager,
+	taskManager *TaskManager,
+) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
@@ -222,7 +227,18 @@ func (rm *ReminderManager) StartScheduler(client *whatsmeow.Client, config *Jadw
 				fmt.Printf("[Scheduler] Mengirim pengingat jadwal pagi (%s) ke %d grup...\n", todayStr, len(groups))
 
 				for _, g := range groups {
-					pesanGrup := BuildMorningReminder(g.JID, config, taskManager, now)
+					var classConfig *JadwalConfig
+					if settingsMgr != nil && classMgr != nil {
+						classID := settingsMgr.GetClass(g.JID)
+						classConfig = classMgr.GetClassOrDefault(classID)
+					} else if classMgr != nil {
+						classConfig = classMgr.GetDefaultClass()
+					}
+					if classConfig == nil {
+						continue
+					}
+
+					pesanGrup := BuildMorningReminder(g.JID, classConfig, taskManager, now)
 
 					targetJID, err := types.ParseJID(g.JID)
 					if err != nil {

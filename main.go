@@ -76,14 +76,14 @@ func replyWithTyping(
 }
 
 func main() {
-	// 1. Muat data jadwal dari file JSON
-	jadwalData, err := LoadJadwal("jadwal.json")
+	// 1. Muat seluruh data jadwal kelas (Multi-Class Manager)
+	classManager, err := NewClassManager("data/jadwal", "jadwal.json")
 	if err != nil {
 		fmt.Printf("Peringatan: %v\n", err)
-		fmt.Println("Pastikan file jadwal.json tersedia di direktori yang sama.")
+		fmt.Println("Pastikan direktori data/jadwal atau file jadwal.json tersedia.")
 		return
 	}
-	fmt.Printf("Berhasil memuat data jadwal: %s (%d jadwal mata kuliah)\n", jadwalData.Kampus, len(jadwalData.Jadwal))
+	fmt.Printf("Berhasil memuat %d kelas perkuliahan: %v (Kelas Default: %s)\n", len(classManager.ListClasses()), classManager.ListClasses(), classManager.GetDefaultClassID())
 
 	// 2. Setup Pengingat Otomatis (Reminder Manager)
 	reminderManager := LoadReminderManager("reminder_groups.json")
@@ -96,7 +96,18 @@ func main() {
 		fmt.Println("Berhasil menghubungkan database utama (tugas.db) [WAL Mode]")
 	}
 
-	// 4. Setup Pengelola Tugas (Task Manager - SQLite)
+	// 4. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager - SQLite)
+	var chatSettingsManager *ChatSettingsManager
+	if appDB != nil {
+		chatSettingsManager, err = NewChatSettingsManager(appDB)
+		if err != nil {
+			fmt.Printf("Peringatan inisialisasi modul chat_settings: %v\n", err)
+		} else {
+			fmt.Printf("Berhasil menginisialisasi modul setelan kelas (%d chat terhubung)\n", chatSettingsManager.CountSettings())
+		}
+	}
+
+	// 5. Setup Pengelola Tugas (Task Manager - SQLite)
 	var taskManager *TaskManager
 	if appDB != nil {
 		taskManager, err = NewTaskManager(appDB)
@@ -107,15 +118,15 @@ func main() {
 		}
 	}
 
-	// 5. Setup Pengelola Jadwal Pengganti (Override Manager - SQLite)
+	// 6. Setup Pengelola Jadwal Pengganti (Override Manager - SQLite)
 	var overrideManager *OverrideManager
 	if appDB != nil {
 		overrideManager, err = NewOverrideManager(appDB)
 		if err != nil {
 			fmt.Printf("Peringatan inisialisasi modul override: %v\n", err)
 		} else {
-			jadwalData.SetOverrideManager(overrideManager)
-			fmt.Println("Berhasil menginisialisasi modul jadwal pengganti")
+			classManager.SetOverrideManager(overrideManager)
+			fmt.Println("Berhasil menginisialisasi modul jadwal pengganti (terhubung ke seluruh kelas)")
 		}
 	}
 
@@ -178,6 +189,62 @@ func main() {
 
 			lowerMsg := strings.ToLower(msgText)
 
+			// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
+			var activeClassID string
+			if chatSettingsManager != nil {
+				activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
+			}
+			activeJadwal := classManager.GetClassOrDefault(activeClassID)
+
+			// Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
+			isClassCmd := false
+			for _, prefix := range []string{
+				"!kelas", "/kelas", "#kelas", "!daftarkelas", "/daftarkelas", "#daftarkelas",
+				"!setkelas", "/setkelas", "#setkelas", "!pilihkelas", "/pilihkelas", "#pilihkelas",
+				"!resetkelas", "/resetkelas", "#resetkelas",
+			} {
+				if strings.HasPrefix(lowerMsg, prefix) {
+					isClassCmd = true
+					break
+				}
+			}
+			if !v.Info.IsGroup && !isClassCmd {
+				for _, prefix := range []string{"kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas"} {
+					if strings.HasPrefix(lowerMsg, prefix) {
+						isClassCmd = true
+						break
+					}
+				}
+			}
+
+			if chatSettingsManager != nil && isClassCmd {
+				isAdmin := false
+				if v.Info.IsGroup {
+					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
+				} else {
+					isAdmin = true
+				}
+
+				classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
+				if classReply != "" {
+					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
+					return
+				}
+			}
+
+			// Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
+			if strings.HasPrefix(lowerMsg, "!reload") || (!v.Info.IsGroup && strings.HasPrefix(lowerMsg, "reload")) {
+				count, errs := classManager.ReloadAll()
+				var reloadReply string
+				if len(errs) > 0 {
+					reloadReply = fmt.Sprintf("⚠️ Berhasil memuat ulang %d kelas, namun terdapat error: %v", count, errs)
+				} else {
+					reloadReply = fmt.Sprintf("🔄 *BERHASIL MEMUAT ULANG JADWAL!*\n──────────\nSeluruh konfigurasi jadwal (%d kelas) berhasil disegarkan dari disk ke memori.", count)
+				}
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reloadReply, "🔄", 600*time.Millisecond, "perintah reload")
+				return
+			}
+
 			// Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
 			if strings.HasPrefix(lowerMsg, "!reminder") || strings.HasPrefix(lowerMsg, "/reminder") ||
 				strings.HasPrefix(lowerMsg, "#reminder") || strings.HasPrefix(lowerMsg, "!pengingat") ||
@@ -208,7 +275,7 @@ func main() {
 					_, reminderReply = reminderManager.RemoveGroup(chatJID)
 
 				case "test", "tes", "try":
-					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), jadwalData, taskManager, time.Now()))
+					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
 
 				default:
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
@@ -229,7 +296,7 @@ func main() {
 					isAdmin = true // Di DM setiap orang adalah admin catatan miliknya sendiri
 				}
 
-				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
+				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 				return
 			}
@@ -265,13 +332,13 @@ func main() {
 					isAdmin = true
 				}
 
-				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
+				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 				return
 			}
 
 			// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid & Override)
-			replyText := jadwalData.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
+			replyText := activeJadwal.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
@@ -306,8 +373,8 @@ func main() {
 		fmt.Println("Bot berhasil terhubung ke WhatsApp!")
 	}
 
-	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB)
-	reminderManager.StartScheduler(client, jadwalData, taskManager)
+	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB) dengan multi-kelas
+	reminderManager.StartScheduler(client, classManager, chatSettingsManager, taskManager)
 
 	// 9. Jalankan Watchdog Supervisor untuk auto-reconnect berkala dengan exponential backoff
 	watchdogCtx, cancelWatchdog := context.WithCancel(context.Background())
