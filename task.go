@@ -462,6 +462,43 @@ func (tm *TaskManager) CompleteTask(scopeJID string, taskID int) (bool, error) {
 	return affected > 0, nil
 }
 
+// GetCompletedTasks mengambil daftar riwayat tugas yang telah diselesaikan (arsip)
+func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Time) ([]TaskItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := tm.db.Query(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE scope_jid = ? AND is_done = 1
+		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC
+		LIMIT ?
+	`, scopeJID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TaskItem
+	for rows.Next() {
+		var item TaskItem
+		var rawDeadlineAt any
+		var rawCreatedAt any
+		err := rows.Scan(
+			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		item.DeadlineAt = parseFlexibleTime(rawDeadlineAt, now.Location())
+		item.CreatedAt = parseFlexibleTime(rawCreatedAt, now.Location())
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
 // DeleteTask menghapus tugas secara permanen dari database
 func (tm *TaskManager) DeleteTask(scopeJID string, taskID int) (bool, error) {
 	res, err := tm.db.Exec(`
@@ -612,6 +649,42 @@ func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.T
 	return sb.String()
 }
 
+// FormatCompletedTaskList menyusun tampilan riwayat tugas selesai secara rapi
+func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) string {
+	var sb strings.Builder
+
+	if isGroup {
+		sb.WriteString("📜 *ARSIP & RIWAYAT TUGAS SELESAI*\n")
+		sb.WriteString("_Daftar tugas kelas yang telah ditandai selesai_\n")
+	} else {
+		sb.WriteString("📜 *ARSIP TUGAS PRIBADI SELESAI*\n")
+		sb.WriteString("_Daftar catatan tugas pribadi yang telah selesai_\n")
+	}
+	sb.WriteString("──────────\n\n")
+
+	if len(tasks) == 0 {
+		sb.WriteString("Belum ada riwayat tugas yang diselesaikan.\n\n")
+		sb.WriteString("_Ketik `!tugas` untuk melihat daftar tugas aktif saat ini._")
+		return sb.String()
+	}
+
+	for idx, t := range tasks {
+		sb.WriteString(fmt.Sprintf("*%d. ✅ [%s] %s*\n", idx+1, strings.ToUpper(t.Matkul), t.Deskripsi))
+		sb.WriteString(fmt.Sprintf("   • Tenggat  : %s\n", t.Deadline))
+		sb.WriteString(fmt.Sprintf("   • ID Tugas : #%d\n", t.ID))
+		if isGroup && t.CreatedBy != "" {
+			author := strings.Split(t.CreatedBy, "@")[0]
+			author = strings.Split(author, ":")[0]
+			sb.WriteString(fmt.Sprintf("   • Oleh     : @%s\n", author))
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("──────────\n")
+	sb.WriteString(fmt.Sprintf("_Total: %d tugas telah diselesaikan sepanjang semester._", len(tasks)))
+	return sb.String()
+}
+
 // HandleCommand memproses seluruh sub-perintah tugas (!tugas, hari ini, besok, tambah, selesai, hapus, bantuan)
 func (tm *TaskManager) HandleCommand(
 	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
@@ -648,6 +721,13 @@ func (tm *TaskManager) HandleCommand(
 			return fmt.Sprintf("❌ Gagal memuat daftar tugas: %v", err)
 		}
 		return tm.FormatTaskList(tasks, isGroup, now)
+
+	case "riwayat", "arsip", "history":
+		tasks, err := tm.GetCompletedTasks(scopeJID, 50, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memuat riwayat tugas: %v", err)
+		}
+		return tm.FormatCompletedTaskList(tasks, isGroup)
 
 	case "hari ini", "hariini", "today":
 		tasks, err := tm.GetDueTasks(scopeJID, "hari_ini", now)
@@ -760,7 +840,7 @@ func (tm *TaskManager) HandleCommand(
 
 		taskID, err := strconv.Atoi(payload)
 		if err != nil || taskID <= 0 {
-			return "⚠️ Sertakan ID tugas yang ingin diselesaikan.\nContoh: `!tugas selesai 1`\n\nKetik `!tugas` untuk melihat nomor ID tugas."
+			return "⚠️ Sertakan ID tugas yang ingin diselesaikan.\nContoh: `!tugas selesai 1`\n\nKetik `!tugas` untuk melihat daftar tugas aktif, atau `!tugas riwayat` untuk melihat arsip tugas selesai."
 		}
 
 		ok, err := tm.CompleteTask(scopeJID, taskID)
@@ -859,6 +939,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
+		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
 		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
 		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
@@ -898,6 +979,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
+		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
 		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
 		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")

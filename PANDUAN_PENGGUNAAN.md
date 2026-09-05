@@ -165,11 +165,23 @@ Untuk perubahan mendadak yang **hanya berlaku pada satu tanggal/minggu saja**, g
   * `!kuliahganti matdis | sabtu 09:00 - 11:30 | D105`
 * **Efek:** Bot akan mengenali adanya kuliah tambahan pada hari tersebut dan menyertakannya di pengingat.
 
-#### 4. Cek dan Batalkan Perubahan Jadwal
-* `!jadwalganti` : Melihat daftar seluruh perubahan jadwal sementara yang masih aktif.
-* `!batalganti [ID]` : Membatalkan perubahan jadwal (jadwal langsung kembali normal seketika).
+#### 4. Menetapkan Hari Libur Seharian (`!libur`)
+* **Format:** `!libur [Hari/Tanggal] | [Keterangan/Nama Libur]`
+* **Contoh:**
+  * `!libur besok | Hari Kemerdekaan RI`
+  * `!libur senin | Libur Nasional Maulid Nabi`
+  * `!libur 17-08-2026 | HUT RI ke-81`
+* **Efek:**
+  * Seluruh perkuliahan pada tanggal tersebut otomatis ditiadakan.
+  * Mahasiswa yang mengecek jadwal (`!hari ini`, `!besok`, `!next`) langsung menerima kartu ucapan libur.
+  * Pengingat pagi otomatis (06:30 WIB) mengirimkan pesan ucapan selamat berlibur.
+  * Dapat dibatalkan kapan saja oleh Komti melalui `!batalganti [ID]`.
 
-#### 5. Deteksi Bentrok Jadwal Otomatis (*Conflict Warning*)
+#### 5. Cek dan Batalkan Perubahan Jadwal
+* `!jadwalganti` : Melihat daftar seluruh perubahan jadwal sementara dan status libur yang aktif.
+* `!batalganti [ID]` : Membatalkan perubahan jadwal / status libur (jadwal langsung kembali normal seketika).
+
+#### 6. Deteksi Bentrok Jadwal Otomatis (*Conflict Warning*)
 Saat memindahkan kelas (`!pindah`) atau membuat kuliah pengganti (`!kuliahganti`), bot secara otomatis memeriksa apakah jam yang dipilih bertabrakan dengan jadwal mata kuliah lain pada tanggal tersebut:
 * **Jika Terjadi Bentrok:** Bot membatalkan aksi dan menampilkan rincian mata kuliah, jam, ruangan, serta dosen yang bertabrakan.
 * **Opsi Konfirmasi Paksa:** Jika kelas tersebut memang sudah disepakati (misal kelas lain sudah kosong), Komti dapat menambahkan kata `paksa` di akhir:
@@ -307,6 +319,23 @@ Jika seluruh mahasiswa satu kelas sudah mengumpulkan tugas atau tugas dibatalkan
   ```
 *(Ganti angka `1` dengan nomor ID tugas yang tertera pada daftar)*
 
+### H. Riwayat & Arsip Tugas Selesai (`!tugas riwayat` / `!tugas arsip`)
+Tugas yang telah ditandai selesai (`!tugas selesai [ID]`) tidak hilang begitu saja, melainkan dipindahkan ke rekam jejak semester:
+* **Perintah:**
+  ```text
+  !tugas riwayat
+  !tugas arsip
+  ```
+* **Format Tampilan:**
+  ```text
+  📜 *ARSIP & RIWAYAT TUGAS SELESAI*
+  ──────────
+  *1. ✅ [ALJABAR LINEAR] Latihan Soal Nilai Eigen*
+     • Tenggat  : 05 Sep 2026, 23:59 WIB
+     • ID Tugas : #2
+     • Oleh     : @628123456789
+  ```
+* **Manfaat:** Sangat berguna bagi mahasiswa menjelang pekan **UTS** dan **UAS** untuk mengulang kembali latihan/tugas yang pernah dikerjakan.
 
 ---
 
@@ -354,19 +383,36 @@ go run .
 Jika baru pertama kali dijalankan atau sesi habis, terminal akan menampilkan **QR Code**. Pindai QR Code tersebut melalui menu **Linked Devices (Perangkat Tertaut)** di aplikasi WhatsApp ponsel Anda.
 
 ### Menjalankan Pengujian Otomatis (Unit Test):
-Untuk memastikan seluruh logika jadwal dan database tugas berfungsi sempurna:
+Untuk memastikan seluruh logika jadwal, database tugas, override, dan kestabilan sistem berfungsi sempurna:
 ```bash
 go test -v .
 ```
 Output yang diharapkan:
 ```text
+=== RUN   TestOverrideManager
+--- PASS: TestOverrideManager (0.03s)
 === RUN   TestSchedule
 --- PASS: TestSchedule (0.00s)
 === RUN   TestTaskManager
---- PASS: TestTaskManager (0.02s)
+--- PASS: TestTaskManager (0.04s)
 PASS
-ok  	bot-jadwal	1.415s
+ok  	bot-jadwal	1.276s
 ```
+
+---
+
+## 11. 🛡️ Kestabilan & Keamanan Sistem (*Technical Reliability*)
+
+### A. Pembersihan Database saat Bot Dimatikan (*Graceful Shutdown*)
+Saat bot dimatikan via terminal (`Ctrl + C` atau sinyal `SIGTERM`), bot tidak langsung keluar mendadak:
+1. Menghentikan background watchdog supervisor.
+2. Memutuskan sambungan WhatsApp secara teratur (`client.Disconnect()`).
+3. Menutup seluruh koneksi SQLite (`tugas.db`, `schedule_overrides.db`, dan `sesi_bot.db`) sehingga operasi commit/checkpoint tersimpan bersih dan aman dari risiko *database is locked* atau *WAL-file leak* di sistem operasi Windows.
+
+### B. Ketahanan Sambungan Internet (*Auto-Reconnect Resilience*)
+Koneksi jaringan internet seringkali mengalami gangguan sesaat (seperti socket timeout, WiFi kampus drop, atau EOF). Bot dilengkapi:
+* **Event Listener Cerdas:** Mendeteksi status putus (`*events.Disconnected`) dan memicu proses rekoneksi instan di latar belakang.
+* **Watchdog Supervisor Goroutine:** Rutinitas pengawas independen yang rutin memantau status aktif bot. Jika bot offline tanpa sengaja, supervisor akan mengeksekusi rekoneksi berkala dengan algoritma **Exponential Backoff** (3s ➔ 6s ➔ 12s ➔ maks 30s) hingga sambungan pulih sempurna.
 
 ---
 *Dokumentasi ini disusun dan diperbarui untuk Bot WhatsApp Jadwal Kuliah & Manajemen Tugas Mahasiswa.*

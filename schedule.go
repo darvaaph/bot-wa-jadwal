@@ -614,6 +614,24 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 		return j.GetByHari(hariInput, waktuSekarang)
 	}
 
+	// Periksa apakah seluruh hari ini dinyatakan LIBUR (HOLIDAY)
+	for _, o := range overrides {
+		if o.Type == "HOLIDAY" {
+			var sb strings.Builder
+			tglIndo := targetDate.Format("02-01-2006")
+			hariIndo := getHariIndonesia(targetDate)
+			sb.WriteString("🌴 *PENGUMUMAN HARI LIBUR*\n")
+			sb.WriteString("──────────\n")
+			sb.WriteString(fmt.Sprintf("📅 *%s, %s*\n", hariIndo, tglIndo))
+			sb.WriteString(fmt.Sprintf("📢 *Keterangan:* %s\n\n", o.Alasan))
+			sb.WriteString("Seluruh kegiatan perkuliahan pada hari ini ditiadakan.\n")
+			sb.WriteString("Selamat menikmati hari libur dan beristirahat! ✨\n")
+			sb.WriteString("──────────\n")
+			sb.WriteString(fmt.Sprintf("_Status libur diset oleh Admin (ID: #%d). Ketik `!batalganti %d` untuk membatalkan._", o.ID, o.ID))
+			return sb.String()
+		}
+	}
+
 	targetDateStr := targetDate.Format("2006-01-02")
 	hariTarget := getHariIndonesia(targetDate)
 
@@ -772,6 +790,12 @@ func (j *JadwalConfig) GetNextClassWithOverrides(
 	overrides, err := om.GetOverridesForDate(scopeJID, currentTime)
 	if err != nil || len(overrides) == 0 {
 		return j.GetNextClass(currentTime)
+	}
+
+	for _, o := range overrides {
+		if o.Type == "HOLIDAY" {
+			return fmt.Sprintf("🌴 *Hari Ini Libur Perkuliahan*\nKeterangan: *%s*\nTidak ada kuliah aktif maupun kelas berikutnya hari ini. Selamat berlibur! ✨", o.Alasan)
+		}
 	}
 
 	hariIndonesia := getHariIndonesia(currentTime)
@@ -1252,12 +1276,15 @@ func (j *JadwalConfig) GetKeywords() string {
 
 	sb.WriteString("4️⃣ *Tugas & Deadline:*\n")
 	sb.WriteString("• `!tugas` ➔ Lihat daftar tugas aktif\n")
+	sb.WriteString("• `!tugas sbd` ➔ Filter tugas per mata kuliah\n")
+	sb.WriteString("• `!tugas riwayat` ➔ Rekam jejak tugas selesai\n")
 	sb.WriteString("• `!tugas tambah SBD | Lapres | Jumat 23:59`\n")
 	sb.WriteString("• `!tugas edit [ID] | Minggu 23:59` ➔ Ubah tenggat\n")
 	sb.WriteString("• `!tugas selesai [ID]` ➔ Selesaikan tugas\n")
 	sb.WriteString("• `!tugas hapus [ID]` ➔ Hapus tugas\n\n")
 
 	sb.WriteString("5️⃣ *Jadwal Pengganti (Khusus Admin):*\n")
+	sb.WriteString("• `!libur besok | Hari Kemerdekaan RI` ➔ Libur seharian\n")
 	sb.WriteString("• `!pindah aljabar | besok 13:00 | Lab 312`\n")
 	sb.WriteString("• `!kosong sbd | besok | Dosen dinas luar`\n")
 	sb.WriteString("• `!kuliahganti matdis | sabtu 09:00 | D105`\n")

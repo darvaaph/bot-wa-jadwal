@@ -282,6 +282,71 @@ func (om *OverrideManager) CancelOverride(scopeJID string, id int) (bool, error)
 	return affected > 0, err
 }
 
+// AddHoliday menambahkan pengumuman libur harian (seluruh perkuliahan pada tanggal tersebut ditiadakan)
+func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, alasan string, createdBy string) (*ScheduleOverride, error) {
+	tglStr := targetDate.Format("2006-01-02")
+	if alasan == "" {
+		alasan = "Libur Perkuliahan"
+	}
+
+	res, err := om.db.Exec(`
+		INSERT INTO schedule_overrides (
+			scope_jid, override_type, kode_matkul, nama_matkul, dosen, inisial_dosen,
+			orig_date, orig_jam, target_date, new_jam, ruang, alasan, created_by
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, scopeJID, "HOLIDAY", "LIBUR", "LIBUR SEHARIAN", "-", "-", tglStr, "-", tglStr, "-", "-", alasan, createdBy)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScheduleOverride{
+		ID:           int(id),
+		ScopeJID:     scopeJID,
+		Type:         "HOLIDAY",
+		KodeMatkul:   "LIBUR",
+		NamaMatkul:   "LIBUR SEHARIAN",
+		Dosen:        "-",
+		InisialDosen: "-",
+		OrigDate:     tglStr,
+		OrigJam:      "-",
+		TargetDate:   tglStr,
+		NewJam:       "-",
+		Ruang:        "-",
+		Alasan:       alasan,
+		CreatedBy:    createdBy,
+		CreatedAt:    time.Now(),
+	}, nil
+}
+
+// GetHolidayOverride mengecek apakah tanggal tertentu ditandai sebagai hari libur
+func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *ScheduleOverride {
+	tglStr := date.Format("2006-01-02")
+	row := om.db.QueryRow(`
+		SELECT id, scope_jid, override_type, kode_matkul, nama_matkul, dosen, inisial_dosen,
+		       orig_date, orig_jam, target_date, new_jam, ruang, alasan, created_by, created_at
+		FROM schedule_overrides
+		WHERE scope_jid = ? AND target_date = ? AND override_type = 'HOLIDAY'
+		ORDER BY id DESC LIMIT 1
+	`, scopeJID, tglStr)
+
+	var o ScheduleOverride
+	var rawCreatedAt any
+	err := row.Scan(
+		&o.ID, &o.ScopeJID, &o.Type, &o.KodeMatkul, &o.NamaMatkul, &o.Dosen, &o.InisialDosen,
+		&o.OrigDate, &o.OrigJam, &o.TargetDate, &o.NewJam, &o.Ruang, &o.Alasan, &o.CreatedBy, &rawCreatedAt,
+	)
+	if err != nil {
+		return nil
+	}
+	o.CreatedAt = parseFlexibleTime(rawCreatedAt, date.Location())
+	return &o
+}
+
 // CalculateDurationInMinutes menghitung durasi rentang jam dalam satuan menit (cth: "07:00 - 08:40" -> 100)
 func CalculateDurationInMinutes(jamRange string) int {
 	parts := strings.Split(jamRange, "-")
@@ -445,6 +510,11 @@ func (om *OverrideManager) FormatActiveOverrides(overrides []ScheduleOverride) s
 		sb.WriteString(fmt.Sprintf("*%d. [%s] %s*\n", i+1, strings.ToUpper(o.Type), o.NamaMatkul))
 		sb.WriteString(fmt.Sprintf("   • ID Perubahan: #%d\n", o.ID))
 		switch o.Type {
+		case "HOLIDAY":
+			sb.WriteString(fmt.Sprintf("   • Tanggal Libur : %s (Seharian)\n", o.TargetDate))
+			if o.Alasan != "" {
+				sb.WriteString(fmt.Sprintf("   • Keterangan    : %s\n", o.Alasan))
+			}
 		case "CANCEL":
 			sb.WriteString(fmt.Sprintf("   • Tanggal Libur : %s (%s)\n", o.TargetDate, o.OrigJam))
 			if o.Alasan != "" {
@@ -734,7 +804,7 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString(fmt.Sprintf("_Tips: Jadwal ini otomatis kedaluwarsa setelah tanggal lewat. Ketik `!batalganti %d` jika ingin membatalkan._", override.ID))
 		return sb.String()
 
-	case "kosong", "batal", "libur", "cancel":
+	case "kosong", "batal", "cancel":
 		if isGroup && !isAdmin {
 			return "🔒 *Akses Ditolak*\nDi grup kelas, peniadaan jadwal kuliah hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
 		}
@@ -798,6 +868,52 @@ func (om *OverrideManager) HandleCommand(
 		}
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("_Jadwal pada tanggal tersebut akan dicoret. Ketik `!batalganti %d` untuk mengaktifkan kembali._", override.ID))
+		return sb.String()
+
+	case "libur", "holiday":
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, pengumuman libur harian hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
+		}
+
+		segments := strings.Split(payload, "|")
+		dayOrDate := strings.TrimSpace(segments[0])
+		if dayOrDate == "" {
+			return "⚠️ *Format Perintah Libur Kurang Tepat*\n\n" +
+				"Gunakan format pemisah pipa `|`:\n" +
+				"`!libur [Hari/Tanggal] | [Keterangan/Nama Libur]`\n\n" +
+				"*Contoh:*\n" +
+				"• `!libur besok | Hari Kemerdekaan RI`\n" +
+				"• `!libur senin | Libur Nasional Maulid Nabi`\n" +
+				"• `!libur 17-08-2026 | HUT RI`"
+		}
+
+		alasan := "Libur Perkuliahan"
+		if len(segments) > 1 {
+			if trimmed := strings.TrimSpace(segments[1]); trimmed != "" {
+				alasan = trimmed
+			}
+		}
+
+		targetDate := ParseOverrideDate(dayOrDate, now)
+
+		override, err := om.AddHoliday(scopeJID, targetDate, alasan, senderJID)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal menetapkan hari libur: %v", err)
+		}
+
+		hariTgt := getHariIndonesia(targetDate)
+		tglTgt := targetDate.Format("02-01-2006")
+
+		var sb strings.Builder
+		sb.WriteString("🌴 *PENGUMUMAN LIBUR BERHASIL DITETAPKAN*\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString(fmt.Sprintf("• ID Perubahan : #%d\n", override.ID))
+		sb.WriteString(fmt.Sprintf("• Tanggal Libur: %s, %s (Seharian)\n", hariTgt, tglTgt))
+		sb.WriteString(fmt.Sprintf("• Keterangan   : %s\n", override.Alasan))
+		sb.WriteString("──────────\n")
+		sb.WriteString("✨ Seluruh perkuliahan pada hari tersebut otomatis ditiadakan.\n")
+		sb.WriteString("⏰ Pengingat pagi pukul 06:30 WIB otomatis mengirimkan ucapan selamat libur.\n")
+		sb.WriteString(fmt.Sprintf("_Ketik `!batalganti %d` jika ingin membatalkan status libur._", override.ID))
 		return sb.String()
 
 	case "kuliahganti", "tambahkelas", "extraclass":
