@@ -376,6 +376,44 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 	return sb.String()
 }
 
+// FormatAvailableCourses menyusun daftar ringkas mata kuliah kelas beserta kata kunci/alias inputnya
+func (j *JadwalConfig) FormatAvailableCourses() string {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	var sb strings.Builder
+	sb.WriteString("📚 *Daftar Mata Kuliah Kelas:*\n")
+
+	var codes []string
+	for k := range j.MataKuliah {
+		codes = append(codes, k)
+	}
+	sort.Strings(codes)
+
+	aliasGuide := map[string]string{
+		"25TI2101": "`aok` / `arsitektur`",
+		"25TI2102": "`matdis` / `mtk` / `diskrit`",
+		"25TI2103": "`aljabar` / `al`",
+		"25TI2104": "`sbd` / `basis data`",
+		"25TI2105": "`pp` / `pragmatics`",
+		"25TI2106": "`so` / `os`",
+		"25TI2107": "`komdat` / `jaringan`",
+	}
+
+	for i, code := range codes {
+		name := j.MataKuliah[code]
+		guide := aliasGuide[code]
+		if guide != "" {
+			sb.WriteString(fmt.Sprintf("%d. *%s* (ketik: %s)\n", i+1, name, guide))
+		} else {
+			sb.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, name))
+		}
+	}
+	sb.WriteString("• *Umum* (ketik: `umum` untuk tugas/kegiatan non-matkul)\n")
+	return sb.String()
+}
+
+
 // GetByHari mencari jadwal berdasarkan hari tertentu, termasuk alias 'hari ini' dan 'besok'
 func (j *JadwalConfig) GetByHari(hariInput string, refTime ...time.Time) string {
 	j.mu.RLock()
@@ -429,6 +467,8 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 		"basisdata":  "25TI2104",
 		"matdis":     "25TI2102",
 		"diskrit":    "25TI2102",
+		"mtk":        "25TI2102",
+		"matematika": "25TI2102",
 		"aljabar":    "25TI2103",
 		"al":         "25TI2103",
 		"aok":        "25TI2101",
@@ -443,7 +483,7 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 
 	targetKode := ""
 	for alias, kode := range aliasMap {
-		if clean == alias || strings.HasPrefix(clean, alias+" ") || strings.HasSuffix(clean, " "+alias) || strings.Contains(clean, alias) {
+		if clean == alias || strings.HasPrefix(clean, alias+" ") || strings.HasSuffix(clean, " "+alias) || strings.Contains(clean, " "+alias+" ") || (len(alias) >= 3 && strings.Contains(clean, alias)) {
 			targetKode = kode
 			break
 		}

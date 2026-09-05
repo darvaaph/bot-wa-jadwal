@@ -78,9 +78,11 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 
 	// Cari jam (format HH:MM)
 	jamStr := "23:59"
+	hasExplicitTime := false
 	timeRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])[:.]([0-5][0-9])\b`)
 	if match := timeRe.FindString(clean); match != "" {
 		jamStr = strings.ReplaceAll(match, ".", ":")
+		hasExplicitTime = true
 	}
 
 	var jam, menit int
@@ -190,6 +192,20 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 			}
 			return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
 				getHariIndonesia(target), target.Day(), getBulanIndonesia(target), jam, menit)
+		}
+	}
+
+	// 6. Format Hanya Jam Tanpa Tanggal (cth: "22.22", "22:22", "jam 22.22", "pukul 15:00", "22:22 WIB")
+	// Jika pengguna hanya memasukkan jam, artikan sebagai tenggat hari ini
+	if hasExplicitTime {
+		rem := timeRe.ReplaceAllString(lower, "")
+		for _, w := range []string{"jam", "pukul", "wib", "wita", "wit", "pagi", "siang", "sore", "malam"} {
+			rem = strings.ReplaceAll(rem, w, "")
+		}
+		rem = strings.Trim(rem, " \t\r\n.,:-/")
+		if rem == "" {
+			target := time.Date(refNow.Year(), refNow.Month(), refNow.Day(), jam, menit, 0, 0, loc)
+			return target, fmt.Sprintf("Hari Ini (%s), %02d:%02d WIB", getHariIndonesia(target), jam, menit)
 		}
 	}
 
@@ -502,7 +518,9 @@ func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.T
 }
 
 // HandleCommand memproses seluruh sub-perintah tugas (!tugas, hari ini, besok, tambah, selesai, hapus, bantuan)
-func (tm *TaskManager) HandleCommand(scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, now time.Time) string {
+func (tm *TaskManager) HandleCommand(
+	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
+) string {
 	clean := strings.TrimSpace(rawMsg)
 	if strings.HasPrefix(clean, "!") || strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, "#") {
 		clean = strings.TrimSpace(clean[1:])
@@ -563,7 +581,7 @@ func (tm *TaskManager) HandleCommand(scopeJID string, isGroup bool, senderJID st
 				"`!tugas tambah [Matkul] | [Deskripsi Tugas] | [Tenggat Waktu]`\n\n" +
 				"*Contoh:*\n" +
 				"• `!tugas tambah SBD | Lapres Modul 2 | Jumat 23:59`\n" +
-				"• `!tugas tambah Aljabar | Latihan Bab 3 | Besok 12:00`"
+				"• `!tugas tambah Aljabar | Latihan Bab 3 | 22.22`"
 		}
 
 		matkul := strings.TrimSpace(segments[0])
@@ -572,6 +590,30 @@ func (tm *TaskManager) HandleCommand(scopeJID string, isGroup bool, senderJID st
 
 		if matkul == "" || deskripsi == "" || rawDeadline == "" {
 			return "⚠️ Seluruh kolom (Matkul, Deskripsi, dan Tenggat Waktu) wajib diisi."
+		}
+
+		// Validasi Mata Kuliah terhadap jadwal kelas
+		lowerMatkul := strings.ToLower(matkul)
+		isGeneral := lowerMatkul == "umum" || lowerMatkul == "lainnya" || lowerMatkul == "lain-lain" ||
+			lowerMatkul == "kegiatan" || lowerMatkul == "pribadi"
+
+		if cfg != nil && !isGeneral {
+			item, _ := cfg.FindMataKuliah(matkul, now)
+			if item == nil {
+				guide := cfg.FormatAvailableCourses()
+				return fmt.Sprintf("❌ *Mata Kuliah \"%s\" Tidak Terdaftar!*\n\n%s\n💡 *Format:* `!tugas tambah [Matkul] | [Deskripsi] | [Deadline]`\n_Contoh:_ `!tugas tambah SBD | Lapres Modul 2 | 22.22`", matkul, guide)
+			}
+			if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+				matkul = officialName
+			} else {
+				matkul = item.NamaMatkul
+			}
+		} else if isGeneral {
+			if lowerMatkul == "pribadi" {
+				matkul = "Pribadi"
+			} else {
+				matkul = "Umum"
+			}
 		}
 
 		// Pengecekan Anti-Duplikasi

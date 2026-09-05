@@ -180,7 +180,7 @@ func main() {
 					isAdmin = true // Di DM setiap orang adalah admin catatan miliknya sendiri
 				}
 
-				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, time.Now())
+				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
 
 				// 1. Berikan reaksi emoji pada pesan tugas
 				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "📝")
