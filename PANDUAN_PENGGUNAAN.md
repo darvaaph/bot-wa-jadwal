@@ -169,6 +169,15 @@ Untuk perubahan mendadak yang **hanya berlaku pada satu tanggal/minggu saja**, g
 * `!jadwalganti` : Melihat daftar seluruh perubahan jadwal sementara yang masih aktif.
 * `!batalganti [ID]` : Membatalkan perubahan jadwal (jadwal langsung kembali normal seketika).
 
+#### 5. Deteksi Bentrok Jadwal Otomatis (*Conflict Warning*)
+Saat memindahkan kelas (`!pindah`) atau membuat kuliah pengganti (`!kuliahganti`), bot secara otomatis memeriksa apakah jam yang dipilih bertabrakan dengan jadwal mata kuliah lain pada tanggal tersebut:
+* **Jika Terjadi Bentrok:** Bot membatalkan aksi dan menampilkan rincian mata kuliah, jam, ruangan, serta dosen yang bertabrakan.
+* **Opsi Konfirmasi Paksa:** Jika kelas tersebut memang sudah disepakati (misal kelas lain sudah kosong), Komti dapat menambahkan kata `paksa` di akhir:
+  ```text
+  !pindah aljabar | selasa 09:00 | paksa
+  !kuliahganti sbd | sabtu 10:00 | Lab 312 | paksa
+  ```
+
 ---
 
 ## 6. ⏰ Panduan Penggunaan Pengingat Otomatis Pagi (`!reminder`)
