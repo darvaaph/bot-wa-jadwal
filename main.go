@@ -116,11 +116,16 @@ func main() {
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
 				}
 
-				// Simulasi "sedang mengetik..." selama 600ms
+				// 1. Berikan reaksi emoji pada pesan pengingat
+				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "⏰")
+				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
+
+				// 2. Simulasi "sedang mengetik..." selama 600ms
 				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
 				time.Sleep(600 * time.Millisecond)
 				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
 
+				// 3. Kirim balasan perintah reminder
 				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 					Conversation: proto.String(reminderReply),
 				})
@@ -137,11 +142,16 @@ func main() {
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
-				// Simulasi "sedang mengetik..." selama 800ms
+				// 1. Berikan reaksi emoji pada pesan yang dikirim pengguna
+				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "📅")
+				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
+
+				// 2. Simulasi "sedang mengetik..." selama 800ms
 				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
 				time.Sleep(800 * time.Millisecond)
 				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
 
+				// 3. Kirim pesan balasan jadwal
 				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 					Conversation: proto.String(replyText),
 				})
