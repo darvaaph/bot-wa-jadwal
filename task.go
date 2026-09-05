@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -79,7 +78,6 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	// Cari jam (format HH:MM)
 	jamStr := "23:59"
 	hasExplicitTime := false
-	timeRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])[:.]([0-5][0-9])\b`)
 	if match := timeRe.FindString(clean); match != "" {
 		jamStr = strings.ReplaceAll(match, ".", ":")
 		hasExplicitTime = true
@@ -104,24 +102,6 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	}
 
 	// 3. Nama Hari (Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu)
-	namaHariMap := map[string]time.Weekday{
-		"senin":     time.Monday,
-		"monday":    time.Monday,
-		"selasa":    time.Tuesday,
-		"tuesday":   time.Tuesday,
-		"rabu":      time.Wednesday,
-		"wednesday": time.Wednesday,
-		"kamis":     time.Thursday,
-		"thursday":  time.Thursday,
-		"jumat":     time.Friday,
-		"jum'at":    time.Friday,
-		"friday":    time.Friday,
-		"sabtu":     time.Saturday,
-		"saturday":  time.Saturday,
-		"minggu":    time.Sunday,
-		"sunday":    time.Sunday,
-	}
-
 	for dayName, weekday := range namaHariMap {
 		if strings.Contains(lower, dayName) {
 			daysAhead := int(weekday - refNow.Weekday())
@@ -159,40 +139,10 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	}
 
 	// 5. Format Tanggal dengan Nama/Singkatan Bulan Indonesia (cth: "5 sep", "5 sep 22.15", "8 september", "25 Desember 2026")
-	bulanMap := map[string]time.Month{
-		"jan": time.January, "januari": time.January,
-		"feb": time.February, "februari": time.February,
-		"mar": time.March, "maret": time.March,
-		"apr": time.April, "april": time.April,
-		"mei": time.May,
-		"jun": time.June, "juni": time.June,
-		"jul": time.July, "juli": time.July,
-		"agu": time.August, "agustus": time.August, "ags": time.August,
-		"sep": time.September, "september": time.September, "sept": time.September,
-		"okt": time.October, "oktober": time.October,
-		"nov": time.November, "november": time.November,
-		"des": time.December, "desember": time.December,
-	}
-
-	dateWordRe := regexp.MustCompile(`\b(\d{1,2})[\s\-\/]+([a-zA-Z]+)(?:[\s\-\/]+(20\d{2}))?\b`)
-	if matches := dateWordRe.FindStringSubmatch(lower); len(matches) >= 3 {
-		day, _ := strconv.Atoi(matches[1])
-		bStr := strings.ToLower(matches[2])
-		year := refNow.Year()
-		hasYear := false
-		if len(matches) > 3 && matches[3] != "" {
-			fmt.Sscanf(matches[3], "%d", &year)
-			hasYear = true
-		}
-
-		if monthVal, ok := bulanMap[bStr]; ok && day >= 1 && day <= 31 {
-			target := time.Date(year, monthVal, day, jam, menit, 0, 0, loc)
-			if !hasYear && target.AddDate(0, 1, 0).Before(refNow) {
-				target = target.AddDate(1, 0, 0)
-			}
-			return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
-				getHariIndonesia(target), target.Day(), getBulanIndonesia(target), jam, menit)
-		}
+	if dateWord, ok := parseIndonesianDateWord(lower, refNow, loc); ok {
+		target := time.Date(dateWord.Year(), dateWord.Month(), dateWord.Day(), jam, menit, 0, 0, loc)
+		return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
+			getHariIndonesia(target), target.Day(), getBulanIndonesia(target), jam, menit)
 	}
 
 	// 6. Format Hanya Jam Tanpa Tanggal (cth: "22.22", "22:22", "jam 22.22", "pukul 15:00", "22:22 WIB")
@@ -215,53 +165,7 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	return defaultTarget, clean
 }
 
-// parseFlexibleTime membaca datetime SQLite baik yang bertipe string, []byte, maupun time.Time
-func parseFlexibleTime(val any, loc *time.Location) time.Time {
-	if val == nil {
-		return time.Time{}
-	}
-	switch v := val.(type) {
-	case time.Time:
-		if loc != nil {
-			// Driver sqlite sering mengembalikan wall-clock time sebagai UTC ("2026-09-09 23:59:00 UTC").
-			// Kita rekonsiliasi ke zona waktu lokal target tanpa pergeseran offset.
-			return time.Date(v.Year(), v.Month(), v.Day(), v.Hour(), v.Minute(), v.Second(), v.Nanosecond(), loc)
-		}
-		return v
-	case string:
-		return parseTimeString(v, loc)
-	case []byte:
-		return parseTimeString(string(v), loc)
-	}
-	return time.Time{}
-}
 
-func parseTimeString(s string, loc *time.Location) time.Time {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return time.Time{}
-	}
-	layouts := []string{
-		"2006-01-02 15:04:05",
-		time.RFC3339,
-		time.RFC3339Nano,
-		"2006-01-02T15:04:05",
-		"2006-01-02 15:04",
-		"2006-01-02",
-	}
-	for _, l := range layouts {
-		if t, err := time.ParseInLocation(l, s, loc); err == nil {
-			return t
-		}
-		if t, err := time.Parse(l, s); err == nil {
-			if loc != nil {
-				return t.In(loc)
-			}
-			return t
-		}
-	}
-	return time.Time{}
-}
 
 // GetUrgencyBadge menghasilkan label status hitung mundur berdasarkan selisih waktu nyata
 func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
@@ -689,10 +593,7 @@ func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) s
 func (tm *TaskManager) HandleCommand(
 	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
 ) string {
-	clean := strings.TrimSpace(rawMsg)
-	if strings.HasPrefix(clean, "!") || strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, "#") {
-		clean = strings.TrimSpace(clean[1:])
-	}
+	clean := cleanCommandPrefix(rawMsg)
 
 	parts := strings.SplitN(clean, " ", 2)
 	action := ""

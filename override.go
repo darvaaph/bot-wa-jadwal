@@ -347,73 +347,6 @@ func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *
 	return &o
 }
 
-// CalculateDurationInMinutes menghitung durasi rentang jam dalam satuan menit (cth: "07:00 - 08:40" -> 100)
-func CalculateDurationInMinutes(jamRange string) int {
-	parts := strings.Split(jamRange, "-")
-	if len(parts) < 2 {
-		return 100 // default 2 SKS jika tidak bisa dihitung
-	}
-
-	parseMinute := func(s string) int {
-		s = strings.TrimSpace(strings.ReplaceAll(s, ".", ":"))
-		var h, m int
-		fmt.Sscanf(s, "%d:%d", &h, &m)
-		return h*60 + m
-	}
-
-	startMin := parseMinute(parts[0])
-	endMin := parseMinute(parts[1])
-	if endMin > startMin {
-		return endMin - startMin
-	}
-	return 100
-}
-
-// AutoCompleteJamRange membuat rentang jam otomatis jika input hanya jam mulai (cth: "13:00" -> "13:00 - 14:40")
-func AutoCompleteJamRange(inputJam string, durationMinutes int) string {
-	clean := strings.TrimSpace(inputJam)
-	timeRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])[:.]([0-5][0-9])\b`)
-
-	// Jika input sudah menyertakan jam mulai dan jam selesai (cth: "09:00 - 11:30" atau "sabtu 09:00 - 11:30")
-	if strings.Contains(clean, "-") || strings.Contains(clean, "s/d") || strings.Contains(clean, "sampai") {
-		matches := timeRe.FindAllString(clean, -1)
-		if len(matches) >= 2 {
-			start := strings.ReplaceAll(matches[0], ".", ":")
-			end := strings.ReplaceAll(matches[1], ".", ":")
-			return fmt.Sprintf("%s - %s", start, end)
-		}
-	}
-
-	// Hanya jam mulai
-	match := timeRe.FindString(clean)
-	var startH, startM int
-	if match != "" {
-		match = strings.ReplaceAll(match, ".", ":")
-		fmt.Sscanf(match, "%d:%d", &startH, &startM)
-	} else {
-		// Cek format angka bulat "13" atau "jam 13"
-		numRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])\b`)
-		if m := numRe.FindString(clean); m != "" {
-			fmt.Sscanf(m, "%d", &startH)
-			startM = 0
-		} else {
-			startH = 13
-			startM = 0
-		}
-	}
-
-	if durationMinutes <= 0 {
-		durationMinutes = 100
-	}
-
-	startTotal := startH*60 + startM
-	endTotal := startTotal + durationMinutes
-	endH := (endTotal / 60) % 24
-	endM := endTotal % 60
-
-	return fmt.Sprintf("%02d:%02d - %02d:%02d", startH, startM, endH, endM)
-}
-
 // ParseOverrideDate mengekstrak tanggal target dari input teks fleksibel
 func ParseOverrideDate(rawInput string, refNow time.Time) time.Time {
 	clean := strings.ToLower(strings.TrimSpace(rawInput))
@@ -424,16 +357,6 @@ func ParseOverrideDate(rawInput string, refNow time.Time) time.Time {
 	}
 	if strings.Contains(clean, "besok") || strings.Contains(clean, "tomorrow") {
 		return refNow.Add(24 * time.Hour)
-	}
-
-	namaHariMap := map[string]time.Weekday{
-		"senin":  time.Monday,
-		"selasa": time.Tuesday,
-		"rabu":   time.Wednesday,
-		"kamis":  time.Thursday,
-		"jumat":  time.Friday,
-		"sabtu":  time.Saturday,
-		"minggu": time.Sunday,
 	}
 
 	for dayName, weekday := range namaHariMap {
@@ -457,39 +380,8 @@ func ParseOverrideDate(rawInput string, refNow time.Time) time.Time {
 		}
 	}
 
-	bulanMap := map[string]time.Month{
-		"jan": time.January, "januari": time.January,
-		"feb": time.February, "februari": time.February,
-		"mar": time.March, "maret": time.March,
-		"apr": time.April, "april": time.April,
-		"mei": time.May,
-		"jun": time.June, "juni": time.June,
-		"jul": time.July, "juli": time.July,
-		"agu": time.August, "agustus": time.August, "ags": time.August,
-		"sep": time.September, "september": time.September, "sept": time.September,
-		"okt": time.October, "oktober": time.October,
-		"nov": time.November, "november": time.November,
-		"des": time.December, "desember": time.December,
-	}
-
-	dateWordRe := regexp.MustCompile(`\b(\d{1,2})[\s\-\/]+([a-zA-Z]+)(?:[\s\-\/]+(20\d{2}))?\b`)
-	if matches := dateWordRe.FindStringSubmatch(clean); len(matches) >= 3 {
-		day, _ := strconv.Atoi(matches[1])
-		bStr := strings.ToLower(matches[2])
-		year := refNow.Year()
-		hasYear := false
-		if len(matches) > 3 && matches[3] != "" {
-			fmt.Sscanf(matches[3], "%d", &year)
-			hasYear = true
-		}
-
-		if monthVal, ok := bulanMap[bStr]; ok && day >= 1 && day <= 31 {
-			target := time.Date(year, monthVal, day, 0, 0, 0, 0, loc)
-			if !hasYear && target.AddDate(0, 1, 0).Before(refNow) {
-				target = target.AddDate(1, 0, 0)
-			}
-			return target
-		}
+	if target, ok := parseIndonesianDateWord(clean, refNow, loc); ok {
+		return target
 	}
 
 	return refNow.Add(24 * time.Hour)
@@ -539,50 +431,7 @@ func (om *OverrideManager) FormatActiveOverrides(overrides []ScheduleOverride) s
 	return sb.String()
 }
 
-// GetDateForDayName mencari tanggal untuk nama hari (cth: "Senin" dari waktu refNow)
-func GetDateForDayName(dayName string, refNow time.Time) time.Time {
-	clean := strings.ToLower(strings.TrimSpace(dayName))
-	loc := refNow.Location()
 
-	namaHariMap := map[string]time.Weekday{
-		"senin":  time.Monday,
-		"selasa": time.Tuesday,
-		"rabu":   time.Wednesday,
-		"kamis":  time.Thursday,
-		"jumat":  time.Friday,
-		"jum'at": time.Friday,
-		"sabtu":  time.Saturday,
-		"minggu": time.Sunday,
-	}
-
-	targetWeekday, ok := namaHariMap[clean]
-	if !ok {
-		return refNow
-	}
-
-	daysAhead := int(targetWeekday - refNow.Weekday())
-	if daysAhead < 0 {
-		daysAhead += 7
-	}
-	t := refNow.AddDate(0, 0, daysAhead)
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
-}
-
-func isDayName(s string) bool {
-	s = strings.ToLower(strings.TrimSpace(s))
-	days := []string{"senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu"}
-	for _, d := range days {
-		if strings.Contains(s, d) {
-			return true
-		}
-	}
-	return false
-}
-
-func isDatePattern(s string) bool {
-	re := regexp.MustCompile(`\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b`)
-	return re.MatchString(s)
-}
 
 // ScheduleConflict menyimpan informasi mata kuliah yang bertabrakan waktu
 type ScheduleConflict struct {
@@ -688,10 +537,7 @@ func (om *OverrideManager) CheckScheduleConflict(
 func (om *OverrideManager) HandleCommand(
 	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
 ) string {
-	clean := strings.TrimSpace(rawMsg)
-	if strings.HasPrefix(clean, "!") || strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, "#") {
-		clean = strings.TrimSpace(clean[1:])
-	}
+	clean := cleanCommandPrefix(rawMsg)
 
 	parts := strings.SplitN(clean, " ", 2)
 	cmd := strings.ToLower(parts[0])

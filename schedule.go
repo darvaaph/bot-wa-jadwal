@@ -85,68 +85,6 @@ func (j *JadwalConfig) Reload() (string, error) {
 	return fmt.Sprintf("✅ *Data jadwal berhasil dimuat ulang!*\n• Kampus: %s\n• Total Sesi: %d jadwal mata kuliah", j.Kampus, len(j.Jadwal)), nil
 }
 
-// getHariIndonesia mengonversi nama hari time.Weekday ke bahasa Indonesia
-func getHariIndonesia(t time.Time) string {
-	switch t.Weekday() {
-	case time.Monday:
-		return "Senin"
-	case time.Tuesday:
-		return "Selasa"
-	case time.Wednesday:
-		return "Rabu"
-	case time.Thursday:
-		return "Kamis"
-	case time.Friday:
-		return "Jumat"
-	case time.Saturday:
-		return "Sabtu"
-	case time.Sunday:
-		return "Minggu"
-	default:
-		return ""
-	}
-}
-
-// getBulanIndonesia mengonversi bulan ke singkatan bahasa Indonesia yang ringkas
-func getBulanIndonesia(t time.Time) string {
-	bulan := []string{
-		"", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-		"Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-	}
-	return bulan[t.Month()]
-}
-
-func contains(slice []string, val string) bool {
-	for _, item := range slice {
-		if strings.EqualFold(item, val) {
-			return true
-		}
-	}
-	return false
-}
-
-func parseJamRange(jamStr string, refDate time.Time) (time.Time, time.Time, error) {
-	parts := strings.Split(jamStr, "-")
-	if len(parts) != 2 {
-		return time.Time{}, time.Time{}, fmt.Errorf("format jam tidak valid: %s", jamStr)
-	}
-	startStr := strings.TrimSpace(parts[0])
-	endStr := strings.TrimSpace(parts[1])
-
-	startTime, err := time.ParseInLocation("15:04", startStr, refDate.Location())
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-	endTime, err := time.ParseInLocation("15:04", endStr, refDate.Location())
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-
-	start := time.Date(refDate.Year(), refDate.Month(), refDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, refDate.Location())
-	end := time.Date(refDate.Year(), refDate.Month(), refDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, refDate.Location())
-	return start, end, nil
-}
-
 func formatDurasi(menit int) string {
 	if menit < 60 {
 		return fmt.Sprintf("%d menit", menit)
