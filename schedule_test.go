@@ -41,11 +41,19 @@ func TestSchedule(t *testing.T) {
 
 	// 5. Test Menu
 	menuResult := cfg.GetMenu()
-	if !strings.Contains(menuResult, "!hari ini") {
-		t.Errorf("Expected menu to contain !hari ini, got: %s", menuResult)
+	if !strings.Contains(menuResult, "!hari ini") || !strings.Contains(menuResult, "!seminggu") {
+		t.Errorf("Expected menu to contain !hari ini and !seminggu, got: %s", menuResult)
 	}
 
-	// 6. Test ProcessMessage - Pintasan Cepat
+	// 6. Test GetJadwalSeminggu
+	semingguResult := cfg.GetJadwalSeminggu()
+	if !strings.Contains(semingguResult, "JADWAL SENIN - JUMAT") ||
+		!strings.Contains(semingguResult, "SENIN") ||
+		!strings.Contains(semingguResult, "JUMAT") {
+		t.Errorf("GetJadwalSeminggu invalid result, got: %s", semingguResult)
+	}
+
+	// 7. Test ProcessMessage - Pintasan Cepat
 	cases := []struct {
 		input       string
 		mustContain string
@@ -53,19 +61,26 @@ func TestSchedule(t *testing.T) {
 		{"!senin", "Aljabar Linear"},
 		{"/senin", "Aljabar Linear"},
 		{"senin", "Aljabar Linear"},
-		{"!hari ini", "JADWAL HARI"},
-		{"hariini", "JADWAL HARI"},
-		{"!today", "JADWAL HARI"},
-		{"!besok", "JADWAL HARI"},
-		{"besok", "JADWAL HARI"},
-		{"!jadwal", "JADWAL HARI"},
+		{"!hari ini", "JADWAL"},
+		{"hariini", "JADWAL"},
+		{"!today", "JADWAL"},
+		{"!besok", "JADWAL"},
+		{"besok", "JADWAL"},
+		{"!seminggu", "JADWAL SENIN - JUMAT"},
+		{"seminggu", "JADWAL SENIN - JUMAT"},
+		{"!senin-jumat", "JADWAL SENIN - JUMAT"},
+		{"senin-jumat", "JADWAL SENIN - JUMAT"},
+		{"!semua", "JADWAL SENIN - JUMAT"},
+		{"!all", "JADWAL SENIN - JUMAT"},
+		{"!jadwal seminggu", "JADWAL SENIN - JUMAT"},
+		{"!jadwal", "JADWAL"},
 		{"!jadwal selasa", "Matematika Diskrit Lanjut"},
 		{"!dosen MR", "Muhammad Rizqi Sholahuddin"},
 		{"dosen MR", "Muhammad Rizqi Sholahuddin"},
 		{"!ruang D105", "D105-Kelas"},
 		{"!cari sistem", "Sistem"},
-		{"!menu", "ASISTEN JADWAL KULIAH"},
-		{"menu", "ASISTEN JADWAL KULIAH"},
+		{"!menu", "Jadwal Kuliah"},
+		{"menu", "Jadwal Kuliah"},
 		{"!perintah_aneh", "tidak dikenali"},
 	}
 
