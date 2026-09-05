@@ -152,11 +152,24 @@ func (rm *ReminderManager) Status(currentJID string) string {
 
 // BuildMorningReminder menyusun pesan pengingat pagi lengkap dengan alert tugas mendesak
 func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *TaskManager, now time.Time) string {
-	jadwalPagi := config.GetByHari("hari ini", now)
+	var holiday *ScheduleOverride
 	if config.OverrideManager != nil {
-		jadwalPagi = config.GetByHariWithOverrides("hari ini", chatJID, config.OverrideManager, now)
+		holiday = config.OverrideManager.GetHolidayOverride(chatJID, now)
 	}
-	pesan := fmt.Sprintf("🌅 *SELAMAT PAGI!*\nBerikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
+
+	var pesan string
+	if holiday != nil {
+		hariIndo := getHariIndonesia(now)
+		tglIndo := now.Format("02-01-2006")
+		pesan = fmt.Sprintf("🌴 *SELAMAT PAGI & SELAMAT BERLIBUR!*\n──────────\nHari ini (*%s, %s*) perkuliahan diliburkan:\n📢 *%s*\n\nSeluruh jadwal perkuliahan ditiadakan. Selamat beristirahat dan menikmati hari libur! ✨",
+			hariIndo, tglIndo, holiday.Alasan)
+	} else {
+		jadwalPagi := config.GetByHari("hari ini", now)
+		if config.OverrideManager != nil {
+			jadwalPagi = config.GetByHariWithOverrides("hari ini", chatJID, config.OverrideManager, now)
+		}
+		pesan = fmt.Sprintf("🌅 *SELAMAT PAGI!*\nBerikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
+	}
 
 	if taskManager != nil {
 		urgentTasks, err := taskManager.GetDueTasks(chatJID, "urgent", now)

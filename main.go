@@ -52,7 +52,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("Peringatan inisialisasi database tugas: %v\n", err)
 	} else {
-		defer taskManager.Close()
 		fmt.Println("Berhasil menghubungkan database tugas (tugas.db)")
 	}
 
@@ -61,7 +60,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("Peringatan inisialisasi database override: %v\n", err)
 	} else {
-		defer overrideManager.Close()
 		jadwalData.SetOverrideManager(overrideManager)
 		fmt.Println("Berhasil menghubungkan database jadwal pengganti")
 	}
@@ -85,9 +83,22 @@ func main() {
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// 7. Daftarkan Event Handler untuk memproses pesan masuk
+	// Ketahanan Sambungan Internet (Auto-Reconnect Resilience)
+	client.EnableAutoReconnect = true
+	client.AutoReconnectHook = func(err error) bool {
+		fmt.Printf("⚠️ [Auto-Reconnect] Sambungan putus (%v). Mencoba menyambung kembali...\n", err)
+		return true // Pantang menyerah, terus mencoba terhubung
+	}
+
+	// 7. Daftarkan Event Handler untuk memproses pesan masuk dan status koneksi
 	client.AddEventHandler(func(evt interface{}) {
 		switch v := evt.(type) {
+		case *events.Connected:
+			fmt.Println("🟢 [Koneksi] Berhasil terhubung ke server WhatsApp!")
+		case *events.Disconnected:
+			fmt.Println("🟡 [Koneksi] Sambungan ke WhatsApp terputus. Sistem auto-reconnect aktif...")
+		case *events.LoggedOut:
+			fmt.Printf("🔴 [Koneksi] Sesi WhatsApp logout/unpaired: %s\n", v.PermanentDisconnectDescription())
 		case *events.Message:
 			// Abaikan pesan jika dikirim oleh bot sendiri
 			if v.Info.IsFromMe {
@@ -313,11 +324,74 @@ func main() {
 	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB)
 	reminderManager.StartScheduler(client, jadwalData, taskManager)
 
-	// 9. Tahan program agar terus berjalan sampai ditekan Ctrl+C
+	// 9. Jalankan Watchdog Supervisor untuk auto-reconnect berkala dengan exponential backoff
+	watchdogCtx, cancelWatchdog := context.WithCancel(context.Background())
+	go func() {
+		backoff := 3 * time.Second
+		maxBackoff := 30 * time.Second
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-watchdogCtx.Done():
+				return
+			case <-ticker.C:
+				if client.IsLoggedIn() && !client.IsConnected() {
+					fmt.Printf("⚠️ [Watchdog] Terdeteksi offline. Menjalankan auto-reconnect (jeda %v)...\n", backoff)
+					time.Sleep(backoff)
+					err := client.Connect()
+					if err != nil {
+						fmt.Printf("⚠️ [Watchdog] Gagal menyambung kembali: %v\n", err)
+						backoff *= 2
+						if backoff > maxBackoff {
+							backoff = maxBackoff
+						}
+					} else {
+						fmt.Println("🟢 [Watchdog] Koneksi WhatsApp berhasil dipulihkan!")
+						backoff = 3 * time.Second
+					}
+				} else if client.IsConnected() {
+					backoff = 3 * time.Second
+				}
+			}
+		}
+	}()
+
+	// 10. Tahan program sampai menerima sinyal interupsi (Ctrl+C / SIGTERM)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 
-	fmt.Println("\nMemutuskan koneksi bot...")
+	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
+	cancelWatchdog()
+
+	// 1. Putuskan koneksi WhatsApp
+	fmt.Println("⏳ Memutuskan koneksi WhatsApp...")
 	client.Disconnect()
+
+	// 2. Tutup database task dan override secara bersih untuk mencegah database lock / WAL leak
+	if taskManager != nil {
+		fmt.Println("⏳ Menutup koneksi database tugas (tugas.db)...")
+		if err := taskManager.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup tugas.db: %v\n", err)
+		}
+	}
+
+	if overrideManager != nil {
+		fmt.Println("⏳ Menutup koneksi database override...")
+		if err := overrideManager.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup database override: %v\n", err)
+		}
+	}
+
+	// 3. Tutup database sesi bot (sesi_bot.db)
+	if container != nil {
+		fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
+		if err := container.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+		}
+	}
+
+	fmt.Println("✅ [Graceful Shutdown Selesai] Semua database dan koneksi telah ditutup dengan bersih. Sampai jumpa!")
 }

@@ -182,6 +182,37 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected extra class conflict warning, got:\n%s", bentrokExtra)
 	}
 
+	// 16. Test Fitur Pengumuman Hari Libur (!libur)
+	// Non-admin mencoba menetapkan libur (Harus Ditolak)
+	nonAdminLibur := om.HandleCommand(groupJID, true, userJID, false, "!libur besok | Hari Kemerdekaan RI", cfg, refNow)
+	if !strings.Contains(nonAdminLibur, "Akses Ditolak") {
+		t.Errorf("Expected non-admin holiday command to be rejected, got: %s", nonAdminLibur)
+	}
+
+	// Admin menetapkan hari libur untuk besok (Selasa)
+	adminLibur := om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Hari Kemerdekaan RI", cfg, refNow)
+	if !strings.Contains(adminLibur, "PENGUMUMAN LIBUR BERHASIL DITETAPKAN") || !strings.Contains(adminLibur, "Hari Kemerdekaan RI") {
+		t.Errorf("Expected holiday announcement to succeed, got:\n%s", adminLibur)
+	}
+
+	// Cek jadwal hari Selasa dengan override libur (harus menampilkan pengumuman libur)
+	selasaLiburSchedule := cfg.GetByHariWithOverrides("besok", groupJID, om, refNow)
+	if !strings.Contains(selasaLiburSchedule, "PENGUMUMAN HARI LIBUR") || !strings.Contains(selasaLiburSchedule, "Hari Kemerdekaan RI") {
+		t.Errorf("Expected holiday card on Tuesday, got:\n%s", selasaLiburSchedule)
+	}
+
+	// Cek pengingat pagi hari Selasa (BuildMorningReminder)
+	reminderLibur := BuildMorningReminder(groupJID, cfg, nil, tSelasaPagi)
+	if !strings.Contains(reminderLibur, "SELAMAT BERLIBUR") || !strings.Contains(reminderLibur, "Hari Kemerdekaan RI") {
+		t.Errorf("Expected holiday morning reminder on Tuesday, got:\n%s", reminderLibur)
+	}
+
+	// Cek status !next pada hari libur
+	nextLibur := cfg.GetNextClassWithOverrides(tSelasaPagi, groupJID, om)
+	if !strings.Contains(nextLibur, "Hari Ini Libur Perkuliahan") || !strings.Contains(nextLibur, "Hari Kemerdekaan RI") {
+		t.Errorf("Expected next class on holiday to report holiday, got:\n%s", nextLibur)
+	}
+
 	_ = selasaDate
 	_ = sabtuDate
 }

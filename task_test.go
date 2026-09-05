@@ -233,4 +233,29 @@ func TestTaskManager(t *testing.T) {
 	if !strings.Contains(filterMatkulSBD, "SISTEM BASIS DATA") {
 		t.Errorf("Expected !tugas matkul sbd to work, got:\n%s", filterMatkulSBD)
 	}
+
+	// 19. Test Riwayat Tugas Selesai (!tugas riwayat / !tugas arsip)
+	// Tugas ID #1 sudah diselesaikan pada step 11 di atas, verifikasi muncul di !tugas riwayat
+	riwayatResp := tm.HandleCommand(groupJID, true, userJID, false, "!tugas riwayat", cfg, tSabtu)
+	if !strings.Contains(riwayatResp, "ARSIP & RIWAYAT TUGAS SELESAI") || !strings.Contains(riwayatResp, "#1") || !strings.Contains(riwayatResp, "✅") {
+		t.Errorf("Expected task #1 in riwayat, got: %s", riwayatResp)
+	}
+
+	// Alias !tugas arsip
+	arsipResp := tm.HandleCommand(groupJID, true, userJID, false, "!tugas arsip", cfg, tSabtu)
+	if !strings.Contains(arsipResp, "ARSIP & RIWAYAT TUGAS SELESAI") || !strings.Contains(arsipResp, "#1") {
+		t.Errorf("Expected task #1 in arsip, got: %s", arsipResp)
+	}
+
+	// Selesaikan tugas ID #2
+	doneResp2 := tm.HandleCommand(groupJID, true, userJID, true, "!tugas selesai 2", cfg, tSabtu)
+	if !strings.Contains(doneResp2, "TUGAS SELESAI") || !strings.Contains(doneResp2, "#2") {
+		t.Errorf("Expected task #2 to be completed, got: %s", doneResp2)
+	}
+
+	// Cek daftar riwayat terbaru (ID #2 dan #1 harus ada)
+	riwayatResp2 := tm.HandleCommand(groupJID, true, userJID, false, "!tugas riwayat", cfg, tSabtu)
+	if !strings.Contains(riwayatResp2, "#2") || !strings.Contains(riwayatResp2, "#1") {
+		t.Errorf("Expected both task #1 and #2 in riwayat, got: %s", riwayatResp2)
+	}
 }
