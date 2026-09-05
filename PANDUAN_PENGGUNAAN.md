@@ -109,6 +109,15 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
 | `!tugas hapus [ID]` | `!tugas hapus 1` | `tugas hapus 1` | **Khusus Admin** |
 | `!tugas bantuan` | `!tugas bantuan` | `tugas bantuan` | **Semua Anggota** |
 
+### Perintah Jadwal Pengganti Sementara (`!pindah`, `!kosong`, `!kuliahganti`)
+| Perintah | Di Grup | Di DM Pribadi | Hak Akses di Grup |
+| :--- | :--- | :--- | :--- |
+| `!pindah [Matkul] \| [Waktu] \| [Ruang]` | `!pindah ...` | `pindah ...` | **Khusus Admin** |
+| `!kosong [Matkul] \| [Waktu] \| [Alasan]` | `!kosong ...` | `kosong ...` | **Khusus Admin** |
+| `!kuliahganti [Matkul] \| [Waktu] \| [Ruang]`| `!kuliahganti ...`| `kuliahganti ...`| **Khusus Admin** |
+| `!jadwalganti` | `!jadwalganti` | `jadwalganti` | **Semua Anggota** |
+| `!batalganti [ID]` | `!batalganti 1` | `batalganti 1` | **Khusus Admin** |
+
 ---
 
 ## 5. 📅 Panduan Penggunaan Fitur Jadwal Kuliah
@@ -119,8 +128,8 @@ Bot memeriksa waktu saat pesan diterima dan mencocokkan dengan jadwal hari ini:
 * **Jika kuliah berikutnya masih beberapa jam lagi:** Bot menampilkan hitung mundur menuju kelas tersebut.
 * **Jika semua kuliah hari ini selesai:** Bot mengonfirmasi bahwa sesi perkuliahan telah berakhir.
 
-### B. Memperbarui Jadwal Mendadak (`!reload`)
-Jika terjadi perubahan ruangan atau jam kuliah oleh dosen:
+### B. Memperbarui Jadwal Permanen (`!reload`)
+Jika terjadi perubahan ruangan atau jam kuliah resmi untuk seterusnya:
 1. Buka file `jadwal.json` di komputer server.
 2. Ubah data jam atau ruangan yang bersangkutan, lalu simpan file.
 3. Di grup WhatsApp atau chat pribadi ke bot, kirim pesan:
@@ -128,6 +137,36 @@ Jika terjadi perubahan ruangan atau jam kuliah oleh dosen:
    !reload
    ```
 4. Bot akan merespons konfirmasi bahwa file `jadwal.json` telah berhasil dimuat ulang ke memori. Semua perintah berikutnya langsung menggunakan jadwal terbaru tanpa perlu restart bot!
+
+### C. Jadwal Pengganti Sementara (*Schedule Override*: `!pindah`, `!kosong`, `!kuliahganti`)
+Untuk perubahan mendadak yang **hanya berlaku pada satu tanggal/minggu saja**, gunakan fitur jadwal pengganti agar jadwal permanen di `jadwal.json` tidak rusak dan otomatis kembali normal di minggu depan:
+
+#### 1. Memindahkan Jam atau Hari Kuliah (`!pindah`)
+* **Format:** `!pindah [Matkul] | [Hari/Tanggal & Jam Baru] | [Ruang (Opsional)]`
+* **Contoh:**
+  * `!pindah aljabar | besok 13:00 | Lab 312`
+  * `!pindah sbd | jumat 15:00 - 16:40`
+* **Efek:** 
+  * Pada **hari asal**: jadwal asli dicoret `~~07:00 - 08:40 WIB~~` dengan status `❌ *KULIAH DIPINDAHKAN* (Dipindah ke: ...)`.
+  * Pada **hari tujuan**: otomatis disisipkan dengan badge `🔄 [KULIAH PENGGANTI]`.
+  * **Minggu depan**: otomatis kembali ke jadwal normal tanpa perlu diedit balik.
+
+#### 2. Menandai Kuliah Ditiadakan / Kosong (`!kosong`)
+* **Format:** `!kosong [Matkul] | [Hari/Tanggal (Opsional)] | [Alasan (Opsional)]`
+* **Contoh:**
+  * `!kosong sbd | besok | Dosen dinas luar kota`
+  * `!kosong matdis | hari ini`
+* **Efek:** Pada tanggal tersebut jadwal dicoret dengan keterangan alasan ditiadakan.
+
+#### 3. Menambah Kuliah Pengganti di Hari Libur / Kosong (`!kuliahganti`)
+* **Format:** `!kuliahganti [Matkul] | [Hari/Tanggal & Jam] | [Ruang]`
+* **Contoh:**
+  * `!kuliahganti matdis | sabtu 09:00 - 11:30 | D105`
+* **Efek:** Bot akan mengenali adanya kuliah tambahan pada hari tersebut dan menyertakannya di pengingat.
+
+#### 4. Cek dan Batalkan Perubahan Jadwal
+* `!jadwalganti` : Melihat daftar seluruh perubahan jadwal sementara yang masih aktif.
+* `!batalganti [ID]` : Membatalkan perubahan jadwal (jadwal langsung kembali normal seketika).
 
 ---
 
