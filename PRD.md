@@ -9,24 +9,27 @@
 * Mengembangkan sebuah **Bot WhatsApp Otomatis** berbasis bahasa pemrograman **Go (Golang)** menggunakan *library* `whatsmeow` dan *database* lokal SQLite (`modernc.org/sqlite`).
 * Bot ini berfungsi sebagai asisten virtual kelas yang dapat menerjemahkan kode-kode singkatan jadwal menjadi informasi yang *human-readable* (nama matkul lengkap, nama dosen lengkap, waktu, dan ruangan) berdasarkan perintah teks (*command*) dari pengguna.
 
-## 3. Ruang Lingkup Fitur (Scope & Features)
-* **Penyimpanan Data Terstruktur (`jadwal.json`):** Seluruh data jadwal harian, mata kuliah, dosen, dan ruangan disimpan dalam format JSON agar mudah dibaca dan dikelola oleh program.
-* **Perintah Cek Jadwal (`/jadwal [hari]`):** Pengguna dapat meminta jadwal spesifik hari tertentu (contoh: `/jadwal senin`).
-* **Pencarian Berdasarkan Dosen atau Ruangan:** Memungkinkan pengguna mencari jadwal berdasarkan kode dosen atau lokasi ruangan.
-* **Sesi Mandiri (Persistent Session):** Bot menggunakan SQLite murni Go sehingga tidak memerlukan *scan* QR code berulang kali saat bot direstart.
+## 3. Fitur yang Sudah Selesai Diimplementasikan (Completed Features)
+* ✅ **Pemuatan Jadwal Terstruktur (`jadwal.json`):** Parsing data mata kuliah, master dosen JTK, ruangan, dan jam perkuliahan secara dinamis.
+* ✅ **Pintasan Cek Hari (`!hari ini`, `!besok`, `!senin` - `!jumat`, `!seminggu`):** Akses cepat jadwal kuliah per hari atau seminggu penuh.
+* ✅ **Kuliah Berikutnya / Sedang Berlangsung (`!next` / `!sekarang`):** Perhitungan waktu real-time untuk mendeteksi kuliah aktif atau kuliah berikutnya berserta sisa waktu.
+* ✅ **Pencarian Lengkap (`!dosen`, `!ruang`, `!matkul`, `!cari`):** Direktori dosen, ruangan, mata kuliah, dan pencarian bebas (*fuzzy search*).
+* ✅ **Pengingat Otomatis Grup (`reminder.go`):** Scheduler background yang otomatis mengirim jadwal ke grup terdaftar setiap pukul **06:30 WIB (Senin – Jumat)**.
+* ✅ **Strategi Hybrid (Anti-Spam Grup & Fleksibel di DM):** Di grup wajib menggunakan prefix (`!`), di chat pribadi bebas tanpa prefix.
+* ✅ **Simulasi Manusiawi (Anti-Ban):** Mengirim indikator *"sedang mengetik..."* (*Typing Presence*) dan reaksi emoji (*Message Reaction* `📅` / `⏰`).
+* ✅ **Reload On-The-Fly (`!reload`):** Memperbarui data jadwal tanpa me-restart server Go.
+* ✅ **Menu & Kamus Keyword Bertingkat (`!menu` & `!keyword`):** Tampilan ringkas di layar HP dan kamus keyword lengkap.
 
-## 4. Cara Kerja Sistem (Workflow / Architecture)
-1. **Inisiasi & Autentikasi:** Program Go berjalan, memuat data sesi dari `sesi_bot.db`, dan terhubung ke WhatsApp (menyediakan QR code sekali di awal untuk *pairing*).
-2. **Pemuatan Data (Data Loading):** Saat bot menyala, program membaca file `jadwal.json` ke dalam memori aplikasi (*struct* Go).
-3. **Event Listener (Pesan Masuk):** *Library* `whatsmeow` mendengarkan *event* pesan masuk dari pengguna.
-4. **Command Processing:** 
-   * Bot memvalidasi teks pesan yang masuk (mengabaikan huruf besar/kecil).
-   * Bot mencocokkan perintah dengan data yang ada di memori.
-5. **Response Delivery:** Bot mengirimkan balasan terstruktur kembali ke chat pengguna secara instan.
+## 4. Roadmap & Rencana Pengembangan Selanjutnya (Upcoming Development)
+### 🎯 Tahap 1: Arsitektur Multi-Class / Multi-Tenant (Skala Jurusan)
+* **Penyimpanan Jadwal Modular:** Memisahkan data jadwal per kelas (contoh: `data/jadwal_d4_1a.json`, `data/jadwal_d4_3a.json`, `data/jadwal_d4_3b.json`).
+* **Sistem Preferensi Pengguna & Grup (`!setkelas` / `!kelas`):**
+  * Setiap mahasiswa atau grup kelas dapat mengunci kelasnya masing-masing (misal: grup 3A di-set `!setkelas D4-3A`, grup 3B di-set `!setkelas D4-3B`).
+  * Pengingat otomatis pagi jam 06:30 akan mengirimkan jadwal sesuai kelas yang dipilih oleh grup tersebut.
+* **Dukungan Cek Lintas Kelas (*On-Demand Override*):** Mahasiswa bisa mengintip jadwal kelas lain kapan saja (contoh: `!senin 3B` atau `!next 1A`).
 
-## 5. Target Pengembangan Selanjutnya (Next Action Items for AI Agent)
-* Membuat struktur *file* `jadwal.json` yang menampung data jadwal kuliah lengkap beserta pemetaan kodenya.
-* Menulis fungsi *parser* di Go untuk membaca file JSON tersebut ke dalam variabel *struct*.
-* Mengimplementasikan fungsi *Event Handler* pada `whatsmeow` untuk menangkap teks masuk dan merespons perintah pengguna secara dinamis.
+### 🎯 Tahap 2: Manajemen Tugas & Deadline Kuliah (`!tugas`)
+* Sistem pencatat tugas per mata kuliah/kelas berbasis SQLite/JSON (`!tugas tambah`, `!tugas list`, `!tugas selesai`).
 
-*Catatan Pembelajaran:* Setiap memberikan potongan kode baru, AI Agent wajib menyertakan penjelasan logika singkat di baliknya agar mahasiswa IT yang mengembangkan proyek ini dapat memahami alur kerjanya dengan baik.
+### 🎯 Tahap 3: Pengiriman Dokumen Modul & Silabus PDF (`!modul`)
+* Fitur pengiriman file PDF materi/silabus praktikum langsung dari penyimpanan bot ke chat mahasiswa.
