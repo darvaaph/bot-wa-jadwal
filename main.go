@@ -7,12 +7,14 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	_ "modernc.org/sqlite"
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
@@ -114,6 +116,11 @@ func main() {
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
 				}
 
+				// Simulasi "sedang mengetik..." selama 600ms
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+				time.Sleep(600 * time.Millisecond)
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
 				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 					Conversation: proto.String(reminderReply),
 				})
@@ -130,6 +137,11 @@ func main() {
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
+				// Simulasi "sedang mengetik..." selama 800ms
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+				time.Sleep(800 * time.Millisecond)
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
 				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 					Conversation: proto.String(replyText),
 				})
