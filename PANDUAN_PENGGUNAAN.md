@@ -105,6 +105,7 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
 | `!tugas hari ini` | `!tugas hari ini` | `tugas hari ini` | **Semua Anggota** |
 | `!tugas besok` | `!tugas besok` | `tugas besok` | **Semua Anggota** |
 | `!tugas tambah [M] \| [D] \| [T]` | `!tugas tambah ...` | `tugas tambah ...` | **Khusus Admin** |
+| `!tugas edit [ID] \| [Tenggat]` | `!tugas edit 1 \| minggu 23:59` | `tugas edit 1 \| ...` | **Khusus Admin** |
 | `!tugas selesai [ID]` | `!tugas selesai 1` | `tugas selesai 1` | **Khusus Admin** |
 | `!tugas hapus [ID]` | `!tugas hapus 1` | `tugas hapus 1` | **Khusus Admin** |
 | `!tugas bantuan` | `!tugas bantuan` | `tugas bantuan` | **Semua Anggota** |
@@ -247,7 +248,27 @@ _Tips: Di grup, tugas tetap terpajang sampai tenggatnya selesai._
   ```
   *(Hanya menampilkan tugas yang jatuh tempo besok / H-1)*
 
-### E. Menyelesaikan & Menghapus Tugas
+### E. Mengubah / Memperpanjang Tenggat Tugas (`!tugas edit` / `!tugas mundur`)
+Jika dosen memperpanjang atau memundurkan tenggat tugas, Komti tidak perlu menghapus dan membuat ulang tugas dari awal:
+* **Ubah Tenggat Waktu Saja:**
+  ```text
+  !tugas edit [ID] | [Tenggat Baru]
+  ```
+  *Contoh:*
+  ```text
+  !tugas edit 1 | Minggu 23:59
+  !tugas mundur 2 | 12 sep 20.00
+  ```
+* **Ubah Deskripsi dan Tenggat Sekaligus:**
+  ```text
+  !tugas edit [ID] | [Deskripsi Baru] | [Tenggat Baru]
+  ```
+  *Contoh:*
+  ```text
+  !tugas edit 1 | Revisi Lapres Modul 1 | Senin 12:00
+  ```
+
+### F. Menyelesaikan & Menghapus Tugas
 Jika seluruh mahasiswa satu kelas sudah mengumpulkan tugas atau tugas dibatalkan oleh dosen:
 * **Tandai Selesai:**
   ```text
@@ -258,6 +279,7 @@ Jika seluruh mahasiswa satu kelas sudah mengumpulkan tugas atau tugas dibatalkan
   !tugas hapus 1
   ```
 *(Ganti angka `1` dengan nomor ID tugas yang tertera pada daftar)*
+
 
 ---
 

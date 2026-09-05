@@ -479,6 +479,53 @@ func (tm *TaskManager) DeleteTask(scopeJID string, taskID int) (bool, error) {
 	return affected > 0, nil
 }
 
+// UpdateTask memperbarui tenggat waktu dan/atau deskripsi tugas yang sudah ada
+func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time) (*TaskItem, string, error) {
+	row := tm.db.QueryRow(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE scope_jid = ? AND id = ?
+	`, scopeJID, taskID)
+
+	var item TaskItem
+	var rawDeadlineAt any
+	var rawCreatedAt any
+	err := row.Scan(
+		&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+		&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+
+	oldDeadline := item.Deadline
+	targetTime, deadlineLabel := parseDeadline(newRawDeadline, now)
+
+	descToSet := item.Deskripsi
+	if newDesc != "" {
+		descToSet = strings.TrimSpace(newDesc)
+	}
+
+	_, err = tm.db.Exec(`
+		UPDATE tasks 
+		SET deskripsi = ?, deadline = ?, deadline_at = ?
+		WHERE scope_jid = ? AND id = ?
+	`, descToSet, deadlineLabel, targetTime.Format("2006-01-02 15:04:05"), scopeJID, taskID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	item.Deskripsi = descToSet
+	item.Deadline = deadlineLabel
+	item.DeadlineAt = targetTime
+
+	return &item, oldDeadline, nil
+}
+
+
 // FormatTaskList merapikan daftar tugas aktif menjadi pesan WhatsApp dengan badge urgensi otomatis
 func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.Time, judulCustom ...string) string {
 	var sb strings.Builder
@@ -682,6 +729,64 @@ func (tm *TaskManager) HandleCommand(
 
 		return fmt.Sprintf("🗑️ *TUGAS DIHAPUS*\nTugas dengan ID #%d telah berhasil dihapus dari database.", taskID)
 
+	case "edit", "update", "mundur", "perpanjang", "ganti":
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, pengubahan tenggat tugas hanya dapat dilakukan oleh *Admin Grup*."
+		}
+
+		segments := strings.Split(payload, "|")
+		if len(segments) < 2 {
+			return "⚠️ *Format Edit Tugas Kurang Tepat*\n\n" +
+				"Gunakan format pemisah pipa `|`:\n" +
+				"• `!tugas edit [ID] | [Tenggat Baru]`\n" +
+				"• `!tugas edit [ID] | [Deskripsi Baru] | [Tenggat Baru]`\n\n" +
+				"*Contoh:*\n" +
+				"• `!tugas edit 1 | minggu 23:59`\n" +
+				"• `!tugas mundur 2 | 12 sep 20.00`\n" +
+				"• `!tugas edit 1 | Revisi Lapres Modul 1 | senin 10:00`"
+		}
+
+		taskID, err := strconv.Atoi(strings.TrimSpace(segments[0]))
+		if err != nil || taskID <= 0 {
+			return "⚠️ ID Tugas harus berupa angka yang valid.\nContoh: `!tugas edit 1 | minggu 23:59`\n\nKetik `!tugas` untuk melihat nomor ID tugas."
+		}
+
+		newDesc := ""
+		newDeadline := ""
+		if len(segments) == 2 {
+			newDeadline = strings.TrimSpace(segments[1])
+		} else {
+			newDesc = strings.TrimSpace(segments[1])
+			newDeadline = strings.TrimSpace(segments[2])
+		}
+
+		if newDeadline == "" {
+			return "⚠️ Tenggat waktu baru tidak boleh kosong."
+		}
+
+		item, oldDeadline, err := tm.UpdateTask(scopeJID, taskID, newDesc, newDeadline, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memperbarui tugas: %v", err)
+		}
+		if item == nil {
+			return fmt.Sprintf("ℹ️ Tugas dengan ID #%d tidak ditemukan.", taskID)
+		}
+
+		badge := GetUrgencyBadge(item.DeadlineAt, now)
+
+		var sb strings.Builder
+		sb.WriteString("🔄 *TENGGAT TUGAS BERHASIL DIPERBARUI*\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString(fmt.Sprintf("• ID Tugas    : #%d\n", item.ID))
+		sb.WriteString(fmt.Sprintf("• Matkul      : %s\n", strings.ToUpper(item.Matkul)))
+		sb.WriteString(fmt.Sprintf("• Deskripsi   : %s\n", item.Deskripsi))
+		sb.WriteString(fmt.Sprintf("• Tenggat Lama: %s\n", oldDeadline))
+		sb.WriteString(fmt.Sprintf("• Tenggat Baru: %s\n", item.Deadline))
+		sb.WriteString(fmt.Sprintf("• Status Baru : %s\n", badge))
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Pengingat harian otomatis disesuaikan dengan tenggat baru ini._")
+		return sb.String()
+
 	case "bantuan", "help":
 		fallthrough
 	default:
@@ -692,6 +797,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
 		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
+		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
 		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
 		sb.WriteString("──────────\n")

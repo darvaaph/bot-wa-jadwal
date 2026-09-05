@@ -183,4 +183,29 @@ func TestTaskManager(t *testing.T) {
 	if !strings.Contains(umumReply, "BERHASIL DITAMBAHKAN") || !strings.Contains(umumReply, "UMUM") {
 		t.Errorf("Expected 'umum' task to succeed, got: %s", umumReply)
 	}
+
+	// 17. Test Edit / Perpanjangan Tenggat Waktu Tugas (!tugas edit / !tugas mundur)
+	// Non-admin di grup mencoba mengedit (Harus Ditolak)
+	nonAdminEdit := tm.HandleCommand(groupJID, true, userJID, false, "!tugas edit 2 | Minggu 23:59", cfg, tSabtu)
+	if !strings.Contains(nonAdminEdit, "Akses Ditolak") {
+		t.Errorf("Expected non-admin edit to be rejected in group, got: %s", nonAdminEdit)
+	}
+
+	// Admin mengedit tenggat saja (!tugas edit 2 | Minggu 23:59)
+	adminEdit := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 2 | Minggu 23:59", cfg, tSabtu)
+	if !strings.Contains(adminEdit, "BERHASIL DIPERBARUI") || !strings.Contains(adminEdit, "Minggu") {
+		t.Errorf("Expected admin edit deadline to succeed, got: %s", adminEdit)
+	}
+
+	// Admin mengedit deskripsi dan tenggat sekaligus (!tugas edit 2 | Revisi Lapres 1 | Senin 12:00)
+	adminEditBoth := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 2 | Revisi Lapres 1 | Senin 12:00", cfg, tSabtu)
+	if !strings.Contains(adminEditBoth, "BERHASIL DIPERBARUI") || !strings.Contains(adminEditBoth, "Revisi Lapres 1") {
+		t.Errorf("Expected admin edit both desc and deadline to succeed, got: %s", adminEditBoth)
+	}
+
+	// Edit tugas dengan ID yang tidak ada
+	badIDEdit := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 999 | besok", cfg, tSabtu)
+	if !strings.Contains(badIDEdit, "tidak ditemukan") {
+		t.Errorf("Expected non-existent task to report not found, got: %s", badIDEdit)
+	}
 }

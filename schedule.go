@@ -1253,6 +1253,7 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("4️⃣ *Tugas & Deadline:*\n")
 	sb.WriteString("• `!tugas` ➔ Lihat daftar tugas aktif\n")
 	sb.WriteString("• `!tugas tambah SBD | Lapres | Jumat 23:59`\n")
+	sb.WriteString("• `!tugas edit [ID] | Minggu 23:59` ➔ Ubah tenggat\n")
 	sb.WriteString("• `!tugas selesai [ID]` ➔ Selesaikan tugas\n")
 	sb.WriteString("• `!tugas hapus [ID]` ➔ Hapus tugas\n\n")
 
