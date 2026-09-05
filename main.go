@@ -28,7 +28,10 @@ func main() {
 	}
 	fmt.Printf("Berhasil memuat data jadwal: %s (%d jadwal mata kuliah)\n", jadwalData.Kampus, len(jadwalData.Jadwal))
 
-	// 2. Setup Database Log & SQLite (Session Storage)
+	// 2. Setup Pengingat Otomatis (Reminder Manager)
+	reminderManager := LoadReminderManager("reminder_groups.json")
+
+	// 3. Setup Database Log & SQLite (Session Storage)
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	
 	// Gunakan driver "sqlite" (pure Go tanpa CGO/GCC)
@@ -37,17 +40,17 @@ func main() {
 		panic(err)
 	}
 
-	// 3. Ambil sesi dari database
+	// 4. Ambil sesi dari database
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	// 4. Setup Klien WhatsApp
+	// 5. Setup Klien WhatsApp
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// 5. Daftarkan Event Handler untuk memproses pesan masuk
+	// 6. Daftarkan Event Handler untuk memproses pesan masuk
 	client.AddEventHandler(func(evt interface{}) {
 		switch v := evt.(type) {
 		case *events.Message:
@@ -72,8 +75,58 @@ func main() {
 			// Log pesan yang diterima di konsol
 			fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
-			// Proses pesan masuk dengan parser perintah & pintasan kata kunci
-			replyText := jadwalData.ProcessMessage(msgText)
+			lowerMsg := strings.ToLower(msgText)
+
+			// Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
+			if strings.HasPrefix(lowerMsg, "!reminder") || strings.HasPrefix(lowerMsg, "/reminder") ||
+				strings.HasPrefix(lowerMsg, "#reminder") || strings.HasPrefix(lowerMsg, "!pengingat") ||
+				strings.HasPrefix(lowerMsg, "/pengingat") || strings.HasPrefix(lowerMsg, "#pengingat") ||
+				(!v.Info.IsGroup && (strings.HasPrefix(lowerMsg, "reminder") || strings.HasPrefix(lowerMsg, "pengingat"))) {
+
+				parts := strings.Fields(lowerMsg)
+				subCmd := ""
+				if len(parts) > 1 {
+					subCmd = parts[1]
+				}
+
+				var reminderReply string
+				switch subCmd {
+				case "on", "aktif", "start", "enable":
+					chatJID := v.Info.Chat.String()
+					groupName := "Grup Chat"
+					if v.Info.IsGroup {
+						info, err := client.GetGroupInfo(context.Background(), v.Info.Chat)
+						if err == nil && info != nil && info.Name != "" {
+							groupName = info.Name
+						}
+					}
+					_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
+
+				case "off", "nonaktif", "stop", "disable", "matikan":
+					chatJID := v.Info.Chat.String()
+					_, reminderReply = reminderManager.RemoveGroup(chatJID)
+
+				case "test", "tes", "try":
+					jadwalPagi := jadwalData.GetByHari("hari ini")
+					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\nSelamat pagi! Berikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
+
+				default:
+					reminderReply = reminderManager.Status(v.Info.Chat.String())
+				}
+
+				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+					Conversation: proto.String(reminderReply),
+				})
+				if err != nil {
+					fmt.Printf("Gagal mengirim balasan reminder: %v\n", err)
+				} else {
+					fmt.Printf("Sukses membalas perintah reminder ke %s\n", v.Info.Chat.User)
+				}
+				return
+			}
+
+			// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid)
+			replyText := jadwalData.ProcessMessage(msgText, v.Info.IsGroup)
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
@@ -89,7 +142,7 @@ func main() {
 		}
 	})
 
-	// 6. Logika Login & QR Code
+	// 7. Logika Login & QR Code
 	if client.Store.ID == nil {
 		// Jika belum ada sesi login, minta QR Code
 		qrChan, _ := client.GetQRChannel(context.Background())
@@ -115,7 +168,10 @@ func main() {
 		fmt.Println("Bot berhasil terhubung ke WhatsApp!")
 	}
 
-	// 7. Tahan program agar terus berjalan sampai ditekan Ctrl+C
+	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB)
+	reminderManager.StartScheduler(client, jadwalData)
+
+	// 9. Tahan program agar terus berjalan sampai ditekan Ctrl+C
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
