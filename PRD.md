@@ -26,14 +26,26 @@
   * Role-based access control (RBAC): Di grup hanya Admin grup (Komti/Wakil) yang dapat menambah, menyelesaikan, atau menghapus tugas. Di DM bebas untuk to-do list pribadi.
   * Anti-duplikasi tugas cerdas untuk mencegah entri ganda.
   * Integrasi otomatis peringatan tugas mendesak (*urgent*) ke dalam pesan pengingat jadwal pagi pukul 06:30 WIB.
+  * Filter tugas per mata kuliah (`!tugas [matkul]`, contoh: `!tugas sbd`, `!tugas aljabar`).
+  * Perpanjangan / edit tenggat tugas langsung (`!tugas edit [ID] | [tenggat]`).
+  * Riwayat & arsip rekam jejak tugas semesteran yang telah selesai (`!tugas riwayat` / `!tugas arsip`).
+* ✅ **Jadwal Pengganti Sementara (*Schedule Overrides* - `override.go`):**
+  * Pindah jam/hari kuliah sementara (`!pindah`), kuliah kosong/ditiadakan (`!kosong`), dan kuliah pengganti di hari libur (`!kuliahganti`).
+  * Peringatan bentrok jadwal otomatis (*conflict warning*) saat pemindahan jadwal dengan opsi paksa (`paksa`).
+  * Fitur pengumuman libur seharian (`!libur`) yang terintegrasi dengan ucapan selamat libur pada pengingat pagi otomatis.
+  * Manajemen pembatalan instan (`!jadwalganti` & `!batalganti [ID]`).
+* ✅ **Kestabilan & Keamanan Sistem (*Technical Reliability*):**
+  * Pembersihan database saat bot dimatikan (*Graceful Shutdown* pada `Ctrl + C` / SIGTERM) untuk mencegah database lock & WAL leak di Windows.
+  * Ketahanan sambungan internet (*Auto-Reconnect Resilience*) dengan background watchdog supervisor dan algoritma Exponential Backoff.
+  * Rangkaian pengujian unit test otomatis 100% lulus (**PASS**).
 
-## 4. Roadmap & Rencana Pengembangan Selanjutnya (Upcoming Development)
-### 🎯 Tahap 1: Arsitektur Multi-Class / Multi-Tenant (Skala Jurusan)
-* **Penyimpanan Jadwal Modular:** Memisahkan data jadwal per kelas (contoh: `data/jadwal_d4_1a.json`, `data/jadwal_d4_3a.json`, `data/jadwal_d4_3b.json`).
-* **Sistem Preferensi Pengguna & Grup (`!setkelas` / `!kelas`):**
-  * Setiap mahasiswa atau grup kelas dapat mengunci kelasnya masing-masing (misal: grup 3A di-set `!setkelas D4-3A`, grup 3B di-set `!setkelas D4-3B`).
-  * Pengingat otomatis pagi jam 06:30 akan mengirimkan jadwal sesuai kelas yang dipilih oleh grup tersebut.
-* **Dukungan Cek Lintas Kelas (*On-Demand Override*):** Mahasiswa bisa mengintip jadwal kelas lain kapan saja (contoh: `!senin 3B` atau `!next 1A`).
+## 4. Roadmap & Rencana Pengembangan Selanjutnya (To-Do List)
+Daftar rencana pengembangan fitur mikro (*Quality of Life*) dan jangka menengah dicatat secara rinci di:
+👉 **[TODO.md](file:///f:/Project/bot-jadwal/TODO.md)**
 
-### 🎯 Tahap 2: Pengiriman Dokumen Modul & Silabus PDF (`!modul`)
-* Fitur pengiriman file PDF materi/silabus praktikum langsung dari penyimpanan bot ke chat mahasiswa.
+### Ringkasan Rencana Fitur:
+1. 🔗 **Tautan Penting Kelas (`!link` / `!drive`):** Direktori link Google Drive materi, Zoom perkuliahan, dan presensi SIAKAD.
+2. ⏰ **Kustomisasi Jam Pengingat Pagi (`!reminder jam [HH:MM]`):** Waktu broadcast pengingat pagi yang dapat disesuaikan per grup.
+3. 📋 **Format Teks Bersih Siap Salin (`!salin` / `!rekap`):** Format minimalis siap forward untuk grup angkatan atau dosen.
+4. 📢 **Papan Pengumuman Komti (`!info` / `!pengumuman`):** Pin pesan penting mendadak dari dosen agar tidak tenggelam di grup.
+5. 🎯 **Skala Jurusan / Multi-Tenant (`!setkelas`):** Dukungan jadwal multi-kelas (D4-1A, D4-3A, dll.).
