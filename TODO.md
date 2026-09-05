@@ -47,13 +47,21 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
 
 ---
 
-## 🎯 Roadmap Jangka Menengah / Skala Jurusan (Multi-Class)
+## 🎯 Roadmap Arsitektur Multi-Kelas (Multi-Tenant Support)
 
-- [ ] **Multi-Tenant / Multi-Kelas (`!setkelas` / `!kelas`):**
-  * Mendukung penyimpanan file jadwal modular per kelas (misal: `data/jadwal_1a.json`, `data/jadwal_3a.json`).
-  * Grup WhatsApp dapat mengunci identitas kelasnya (`!setkelas D4-3A`) sehingga pengingat pagi mengirim jadwal sesuai kelas masing-masing.
+- [x] **Fase 1: Multi-JSON Loader (`ClassManager`):** *(Selesai)*
+  * Direktori [data/jadwal/](file:///f:/Project/bot-jadwal/data/jadwal/) berisi [3a.json](file:///f:/Project/bot-jadwal/data/jadwal/3a.json) dan [3b.json](file:///f:/Project/bot-jadwal/data/jadwal/3b.json).
+  * [ClassManager](file:///f:/Project/bot-jadwal/class_manager.go) dengan in-memory cache, normalisasi cerdas, hot-reload, fallback otomatis, dan 100% lulus unit test ([class_manager_test.go](file:///f:/Project/bot-jadwal/class_manager_test.go)).
+- [ ] **Fase 2: Tabel `chat_settings` di SQLite:**
+  * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db`.
+  * Helper `GetChatClass(scopeJID)` dan `SetChatClass(scopeJID, classID)`.
+- [ ] **Fase 3: Perintah `!setkelas` & `!daftarkelas`:**
+  * Handler perintah untuk admin grup menyetel kelas aktif (`!setkelas 3A`).
+  * Handler untuk melihat daftar kelas yang tersedia (`!daftarkelas`).
+- [ ] **Fase 4: Integrasi ke Dispatcher Pesan & Pengingat Pagi:**
+  * Sambungkan resolusi jadwal per kelas di [main.go](file:///f:/Project/bot-jadwal/main.go) dan [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
 - [ ] **Cek Jadwal Lintas Kelas (*Cross-Class Peek*):**
-  * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!senin 3B` atau `!next 1A`).
+  * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!jadwal senin 3b` atau `!next 3b`).
 - [ ] **Distribusi Dokumen Silabus / Modul Praktikum PDF (`!modul`):**
   * Bot dapat mengirimkan file dokumen praktikum secara langsung dari penyimpanan lokal server ke chat mahasiswa.
 
