@@ -156,6 +156,43 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 		}
 	}
 
+	// 5. Format Tanggal dengan Nama/Singkatan Bulan Indonesia (cth: "5 sep", "5 sep 22.15", "8 september", "25 Desember 2026")
+	bulanMap := map[string]time.Month{
+		"jan": time.January, "januari": time.January,
+		"feb": time.February, "februari": time.February,
+		"mar": time.March, "maret": time.March,
+		"apr": time.April, "april": time.April,
+		"mei": time.May,
+		"jun": time.June, "juni": time.June,
+		"jul": time.July, "juli": time.July,
+		"agu": time.August, "agustus": time.August, "ags": time.August,
+		"sep": time.September, "september": time.September, "sept": time.September,
+		"okt": time.October, "oktober": time.October,
+		"nov": time.November, "november": time.November,
+		"des": time.December, "desember": time.December,
+	}
+
+	dateWordRe := regexp.MustCompile(`\b(\d{1,2})[\s\-\/]+([a-zA-Z]+)(?:[\s\-\/]+(20\d{2}))?\b`)
+	if matches := dateWordRe.FindStringSubmatch(lower); len(matches) >= 3 {
+		day, _ := strconv.Atoi(matches[1])
+		bStr := strings.ToLower(matches[2])
+		year := refNow.Year()
+		hasYear := false
+		if len(matches) > 3 && matches[3] != "" {
+			fmt.Sscanf(matches[3], "%d", &year)
+			hasYear = true
+		}
+
+		if monthVal, ok := bulanMap[bStr]; ok && day >= 1 && day <= 31 {
+			target := time.Date(year, monthVal, day, jam, menit, 0, 0, loc)
+			if !hasYear && target.AddDate(0, 1, 0).Before(refNow) {
+				target = target.AddDate(1, 0, 0)
+			}
+			return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
+				getHariIndonesia(target), target.Day(), getBulanIndonesia(target), jam, menit)
+		}
+	}
+
 	// Fallback jika tidak terdeteksi: default 5 hari dari sekarang
 	defaultTarget := refNow.AddDate(0, 0, 5)
 	defaultTarget = time.Date(defaultTarget.Year(), defaultTarget.Month(), defaultTarget.Day(), jam, menit, 0, 0, loc)
