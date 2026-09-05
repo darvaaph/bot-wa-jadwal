@@ -60,8 +60,11 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
   * Proteksi otorisasi admin grup di WhatsApp grup & kebebasan pengaturan di DM pribadi.
   * Pembaruan tampilan menu bantuan `!menu` dan `!keyword` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go).
   * 100% lulus unit test skenario perintah ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
-- [ ] **Fase 4: Integrasi ke Dispatcher Pesan & Pengingat Pagi:**
-  * Sambungkan resolusi jadwal per kelas di [main.go](file:///f:/Project/bot-jadwal/main.go) dan [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
+- [x] **Fase 4: Integrasi ke Dispatcher Pesan & Pengingat Pagi:** *(Selesai)*
+  * Integrasi penuh resolusi jadwal dinamis per chat/grup di [main.go](file:///f:/Project/bot-jadwal/main.go) (`activeJadwal`).
+  * Integrasi perintah kelas dan hot-reload seluruh kelas (`!reload`) di WhatsApp.
+  * Personalisasi broadcast jadwal pagi 06:30 WIB per kelas grup pada [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
+  * 100% lulus integrasi test [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) dan kompilasi biner `bot-jadwal.exe` sukses.
 - [ ] **Cek Jadwal Lintas Kelas (*Cross-Class Peek*):**
   * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!jadwal senin 3b` atau `!next 3b`).
 - [ ] **Distribusi Dokumen Silabus / Modul Praktikum PDF (`!modul`):**
