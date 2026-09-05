@@ -56,6 +56,16 @@ func main() {
 		fmt.Println("Berhasil menghubungkan database tugas (tugas.db)")
 	}
 
+	// 4. Setup Pengelola Jadwal Pengganti (Override Manager - SQLite)
+	overrideManager, err := NewOverrideManager("tugas.db")
+	if err != nil {
+		fmt.Printf("Peringatan inisialisasi database override: %v\n", err)
+	} else {
+		defer overrideManager.Close()
+		jadwalData.SetOverrideManager(overrideManager)
+		fmt.Println("Berhasil menghubungkan database jadwal pengganti")
+	}
+
 	// 4. Setup Database Log & SQLite (Session Storage)
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	
@@ -193,8 +203,62 @@ func main() {
 				return
 			}
 
-			// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid)
-			replyText := jadwalData.ProcessMessage(msgText, v.Info.IsGroup)
+			// Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
+			isOverrideCmd := false
+			for _, prefix := range []string{
+				"!pindah", "/pindah", "#pindah", "!ganti", "/ganti", "#ganti",
+				"!kosong", "/kosong", "#kosong", "!libur", "/libur", "#libur",
+				"!kuliahganti", "/kuliahganti", "#kuliahganti", "!tambahkelas", "/tambahkelas",
+				"!jadwalganti", "/jadwalganti", "#jadwalganti", "!overrides",
+				"!batalganti", "/batalganti", "#batalganti",
+			} {
+				if strings.HasPrefix(lowerMsg, prefix) {
+					isOverrideCmd = true
+					break
+				}
+			}
+			if !v.Info.IsGroup && !isOverrideCmd {
+				for _, prefix := range []string{"pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "batalganti"} {
+					if strings.HasPrefix(lowerMsg, prefix) {
+						isOverrideCmd = true
+						break
+					}
+				}
+			}
+
+			if overrideManager != nil && isOverrideCmd {
+				isAdmin := false
+				if v.Info.IsGroup {
+					isAdmin = isSenderGroupAdmin(context.Background(), client, v.Info.Chat, v.Info.Sender)
+				} else {
+					isAdmin = true
+				}
+
+				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
+
+				// 1. Berikan reaksi emoji pada pesan override
+				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "🔄")
+				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
+
+				// 2. Simulasi "sedang mengetik..." selama 600ms
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+				time.Sleep(600 * time.Millisecond)
+				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+				// 3. Kirim balasan override
+				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+					Conversation: proto.String(overrideReply),
+				})
+				if err != nil {
+					fmt.Printf("Gagal mengirim balasan override: %v\n", err)
+				} else {
+					fmt.Printf("Sukses membalas perintah override ke %s\n", v.Info.Chat.User)
+				}
+				return
+			}
+
+			// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid & Override)
+			replyText := jadwalData.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {

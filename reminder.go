@@ -153,6 +153,9 @@ func (rm *ReminderManager) Status(currentJID string) string {
 // BuildMorningReminder menyusun pesan pengingat pagi lengkap dengan alert tugas mendesak
 func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *TaskManager, now time.Time) string {
 	jadwalPagi := config.GetByHari("hari ini", now)
+	if config.OverrideManager != nil {
+		jadwalPagi = config.GetByHariWithOverrides("hari ini", chatJID, config.OverrideManager, now)
+	}
 	pesan := fmt.Sprintf("🌅 *SELAMAT PAGI!*\nBerikut jadwal perkuliahan hari ini:\n\n%s", jadwalPagi)
 
 	if taskManager != nil {
