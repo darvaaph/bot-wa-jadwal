@@ -120,14 +120,17 @@ Menyimpan daftar grup WhatsApp yang berlangganan broadcast jadwal pagi:
 Saat sebuah pesan masuk dari WhatsApp:
 1. **Filter Awal:** `main.go` mengabaikan pesan dari bot sendiri (`v.Info.IsFromMe`).
 2. **Ekstraksi Teks:** Pesan diambil dari `Conversation` atau `ExtendedTextMessage`.
-3. **Pemberian Reaksi & Typing Presence:** Bot mengirim reaksi emoji (cth: `📝`, `🔄`, `📅`) dan mengirim status `"sedang mengetik..."` (*composing*) selama beberapa ratus milidetik agar terlihat alami.
-4. **Pembersihan Prefix:** Fungsi `cleanCommandPrefix(msg)` di [utils.go](file:///f:/Project/bot-jadwal/utils.go) menghapus karakter awalan `!`, `/`, atau `#`.
-5. **Routing Handler:**
+3. **Pembersihan Prefix:** Fungsi `cleanCommandPrefix(msg)` di [utils.go](file:///f:/Project/bot-jadwal/utils.go) menghapus karakter awalan `!`, `/`, atau `#`.
+4. **Routing Handler:**
    * Prefix `reminder` ➔ `reminderManager`
    * Prefix `tugas` ➔ `taskManager.HandleCommand(...)`
    * Prefix `pindah`, `kosong`, `libur`, `kuliahganti`, `jadwalganti`, `batalganti` ➔ `overrideManager.HandleCommand(...)`
    * Perintah jadwal reguler (`!hari ini`, `!besok`, `!next`, `!matkul`, dll.) ➔ `jadwalData.ProcessMessage(...)`
-6. **Pengiriman Balasan:** Jawaban dikirim kembali ke ruang obrolan melalui `client.SendMessage`.
+5. **Eksekusi Balasan Terpadu (`replyWithTyping`):**
+   Fungsi terpusat `replyWithTyping` di [main.go](file:///f:/Project/bot-jadwal/main.go) secara otomatis menangani:
+   * Reaksi emoji (`BuildReaction`) pada pesan pengguna (cth: `📝`, `🔄`, `📅`, `⏰`).
+   * Simulasi status *"sedang mengetik..."* (*composing* ➔ *sleep* ➔ *paused*) agar interaksi manusiawi dan aman.
+   * Pengiriman teks balasan via `client.SendMessage` beserta pencatatan log konsol.
 
 ---
 
