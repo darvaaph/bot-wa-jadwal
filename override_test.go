@@ -160,6 +160,29 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected ProcessMessage('!besok') with group JID to render overrides, got:\n%s", msgBesok)
 	}
 
+	// 15. Test Deteksi Bentrok Jadwal (Schedule Conflict Detection)
+	// Pada hari Rabu ada kuliah AOK (07:00 - 08:40).
+	// Admin mencoba memindahkan Aljabar ke Rabu 07:30 (akan bentrok dengan AOK):
+	bentrokReply := om.HandleCommand(groupJID, true, userJID, true, "!pindah aljabar praktikum | rabu 07:30", cfg, refNow)
+	if !strings.Contains(bentrokReply, "PERINGATAN BENTROK JADWAL") ||
+		!strings.Contains(bentrokReply, "Arsitektur dan Organisasi Komputer") ||
+		!strings.Contains(bentrokReply, "D111-Kelas") {
+		t.Errorf("Expected conflict warning for AOK on Rabu 07:30, got:\n%s", bentrokReply)
+	}
+
+	// Admin memindahkan dengan konfirmasi paksa (| paksa):
+	paksaReply := om.HandleCommand(groupJID, true, userJID, true, "!pindah aljabar praktikum | rabu 07:30 | paksa", cfg, refNow)
+	if !strings.Contains(paksaReply, "BERHASIL DIPINDAHKAN") || !strings.Contains(paksaReply, "dipaksa oleh Admin") {
+		t.Errorf("Expected forced reschedule to succeed, got:\n%s", paksaReply)
+	}
+
+	// Kuliah pengganti bentrok: mencoba menambah kuliahganti yang bentrok dengan jadwal yang ada
+	bentrokExtra := om.HandleCommand(groupJID, true, userJID, true, "!kuliahganti sbd | rabu 07:00 - 09:00 | Lab 312", cfg, refNow)
+	if !strings.Contains(bentrokExtra, "PERINGATAN BENTROK JADWAL") {
+		t.Errorf("Expected extra class conflict warning, got:\n%s", bentrokExtra)
+	}
+
 	_ = selasaDate
 	_ = sabtuDate
 }
+

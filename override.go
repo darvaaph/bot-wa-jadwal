@@ -307,15 +307,19 @@ func CalculateDurationInMinutes(jamRange string) int {
 // AutoCompleteJamRange membuat rentang jam otomatis jika input hanya jam mulai (cth: "13:00" -> "13:00 - 14:40")
 func AutoCompleteJamRange(inputJam string, durationMinutes int) string {
 	clean := strings.TrimSpace(inputJam)
+	timeRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])[:.]([0-5][0-9])\b`)
+
+	// Jika input sudah menyertakan jam mulai dan jam selesai (cth: "09:00 - 11:30" atau "sabtu 09:00 - 11:30")
 	if strings.Contains(clean, "-") || strings.Contains(clean, "s/d") || strings.Contains(clean, "sampai") {
-		clean = strings.ReplaceAll(clean, "s/d", "-")
-		clean = strings.ReplaceAll(clean, "sampai", "-")
-		p := strings.SplitN(clean, "-", 2)
-		return fmt.Sprintf("%s - %s", strings.TrimSpace(p[0]), strings.TrimSpace(p[1]))
+		matches := timeRe.FindAllString(clean, -1)
+		if len(matches) >= 2 {
+			start := strings.ReplaceAll(matches[0], ".", ":")
+			end := strings.ReplaceAll(matches[1], ".", ":")
+			return fmt.Sprintf("%s - %s", start, end)
+		}
 	}
 
 	// Hanya jam mulai
-	timeRe := regexp.MustCompile(`\b([01]?[0-9]|2[0-3])[:.]([0-5][0-9])\b`)
 	match := timeRe.FindString(clean)
 	var startH, startM int
 	if match != "" {
@@ -510,6 +514,106 @@ func isDatePattern(s string) bool {
 	return re.MatchString(s)
 }
 
+// ScheduleConflict menyimpan informasi mata kuliah yang bertabrakan waktu
+type ScheduleConflict struct {
+	Matkul string
+	Jam    string
+	Ruang  string
+	Dosen  string
+}
+
+// CheckScheduleConflict memeriksa apakah jam baru di tanggal tertentu bertabrakan dengan jadwal aktif lainnya
+func (om *OverrideManager) CheckScheduleConflict(
+	scopeJID string, targetDate time.Time, newJam string, ignoreItem *JadwalItem, cfg *JadwalConfig,
+) *ScheduleConflict {
+	if cfg == nil {
+		return nil
+	}
+
+	propStart, propEnd, err := parseJamRange(newJam, targetDate)
+	if err != nil {
+		return nil
+	}
+
+	targetDateStr := targetDate.Format("2006-01-02")
+	hariTarget := getHariIndonesia(targetDate)
+
+	overrides, _ := om.GetOverridesForDate(scopeJID, targetDate)
+
+	// 1. Cek jadwal reguler pada hari tersebut
+	cfg.mu.RLock()
+	var normalItems []JadwalItem
+	for _, it := range cfg.Jadwal {
+		if strings.EqualFold(it.Hari, hariTarget) {
+			normalItems = append(normalItems, it)
+		}
+	}
+	cfg.mu.RUnlock()
+
+	for _, it := range normalItems {
+		// Abaikan jika ini adalah sesi matkul yang sama yang sedang dipindahkan
+		if ignoreItem != nil && it.KodeMatkul == ignoreItem.KodeMatkul && it.Jam == ignoreItem.Jam {
+			continue
+		}
+
+		// Periksa apakah jadwal reguler ini sudah ditiadakan (CANCEL) atau dipindahkan keluar (RESCHEDULE)
+		isCancelledOrMoved := false
+		for _, o := range overrides {
+			if o.OrigDate == targetDateStr &&
+				(o.KodeMatkul == it.KodeMatkul || strings.EqualFold(o.NamaMatkul, it.NamaMatkul)) &&
+				(o.OrigJam == it.Jam || strings.Contains(it.Jam, strings.TrimSpace(strings.Split(o.OrigJam, "-")[0]))) {
+				if o.Type == "CANCEL" || o.Type == "RESCHEDULE" {
+					isCancelledOrMoved = true
+					break
+				}
+			}
+		}
+		if isCancelledOrMoved {
+			continue
+		}
+
+		itStart, itEnd, err := parseJamRange(it.Jam, targetDate)
+		if err != nil {
+			continue
+		}
+
+		// Cek irisan waktu: [propStart, propEnd) beririsan dengan [itStart, itEnd)
+		if propStart.Before(itEnd) && propEnd.After(itStart) {
+			return &ScheduleConflict{
+				Matkul: it.NamaMatkul,
+				Jam:    it.Jam,
+				Ruang:  it.Ruang,
+				Dosen:  it.Dosen,
+			}
+		}
+	}
+
+	// 2. Cek jadwal pengganti (inbound RESCHEDULE atau EXTRA) di tanggal tersebut
+	for _, o := range overrides {
+		if o.TargetDate == targetDateStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
+			if ignoreItem != nil && o.KodeMatkul == ignoreItem.KodeMatkul {
+				continue
+			}
+
+			oStart, oEnd, err := parseJamRange(o.NewJam, targetDate)
+			if err != nil {
+				continue
+			}
+
+			if propStart.Before(oEnd) && propEnd.After(oStart) {
+				return &ScheduleConflict{
+					Matkul: o.NamaMatkul,
+					Jam:    o.NewJam,
+					Ruang:  o.Ruang,
+					Dosen:  o.Dosen,
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // HandleCommand memproses perintah perubahan jadwal (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 func (om *OverrideManager) HandleCommand(
 	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
@@ -533,6 +637,18 @@ func (om *OverrideManager) HandleCommand(
 		}
 
 		segments := strings.Split(payload, "|")
+		isForce := false
+		var cleanSegments []string
+		for _, seg := range segments {
+			trimmed := strings.TrimSpace(seg)
+			if strings.EqualFold(trimmed, "paksa") || strings.EqualFold(trimmed, "force") {
+				isForce = true
+			} else {
+				cleanSegments = append(cleanSegments, trimmed)
+			}
+		}
+		segments = cleanSegments
+
 		if len(segments) < 2 {
 			return "⚠️ *Format Perintah Pindah Kurang Tepat*\n\n" +
 				"Gunakan format pemisah pipa `|`:\n" +
@@ -569,6 +685,30 @@ func (om *OverrideManager) HandleCommand(
 		baseDuration := CalculateDurationInMinutes(item.Jam)
 		newJam := AutoCompleteJamRange(timeRaw, baseDuration)
 
+		// Periksa bentrok jadwal pada tanggal & jam tujuan
+		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, item, cfg)
+		if conflict != nil && !isForce {
+			hariTgt := getHariIndonesia(targetDate)
+			tglTgt := targetDate.Format("02-01-2006")
+			var sb strings.Builder
+			sb.WriteString("⚠️ *PERINGATAN BENTROK JADWAL!*\n")
+			sb.WriteString("──────────\n")
+			sb.WriteString(fmt.Sprintf("Waktu baru yang dipilih (*%s, %s, %s WIB*) bertabrakan dengan jadwal:\n\n", hariTgt, tglTgt, newJam))
+			sb.WriteString(fmt.Sprintf("• *%s*\n", conflict.Matkul))
+			sb.WriteString(fmt.Sprintf("  └ Jam   : %s WIB\n", conflict.Jam))
+			sb.WriteString(fmt.Sprintf("  └ Ruang : %s\n", conflict.Ruang))
+			if conflict.Dosen != "" {
+				sb.WriteString(fmt.Sprintf("  └ Dosen : %s\n", conflict.Dosen))
+			}
+			sb.WriteString("──────────\n")
+			sb.WriteString("Jadwal tidak dipindahkan untuk mencegah jadwal kuliah ganda.\n\n")
+			sb.WriteString("💡 *Apakah tetap ingin memindahkan?*\n")
+			sb.WriteString(fmt.Sprintf("1. Pilih jam lain yang kosong (ketik `!%s` untuk cek jam kosong).\n", strings.ToLower(hariTgt)))
+			sb.WriteString("2. Jika jam tersebut memang disepakati (misal kelas tersebut ditiadakan), tambahkan kata `paksa` di akhir:\n")
+			sb.WriteString(fmt.Sprintf("   `!pindah %s | %s | paksa`", matkulQuery, timeRaw))
+			return sb.String()
+		}
+
 		if ruangBaru == "" {
 			ruangBaru = item.Ruang
 		}
@@ -587,6 +727,9 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString(fmt.Sprintf("• Menjadi     : %s (%s WIB)\n", override.TargetDate, override.NewJam))
 		sb.WriteString(fmt.Sprintf("• Ruang       : %s\n", override.Ruang))
 		sb.WriteString(fmt.Sprintf("• Dosen       : %s (%s)\n", item.Dosen, item.InisialDosen))
+		if isForce {
+			sb.WriteString("• Peringatan  : ⚠️ *Jadwal dipindahkan dengan konfirmasi bentrok (dipaksa oleh Admin).*\n")
+		}
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("_Tips: Jadwal ini otomatis kedaluwarsa setelah tanggal lewat. Ketik `!batalganti %d` jika ingin membatalkan._", override.ID))
 		return sb.String()
@@ -663,6 +806,18 @@ func (om *OverrideManager) HandleCommand(
 		}
 
 		segments := strings.Split(payload, "|")
+		isForce := false
+		var cleanSegments []string
+		for _, seg := range segments {
+			trimmed := strings.TrimSpace(seg)
+			if strings.EqualFold(trimmed, "paksa") || strings.EqualFold(trimmed, "force") {
+				isForce = true
+			} else {
+				cleanSegments = append(cleanSegments, trimmed)
+			}
+		}
+		segments = cleanSegments
+
 		if len(segments) < 2 {
 			return "⚠️ *Format Kuliah Pengganti Kurang Tepat*\n\n" +
 				"Gunakan format:\n" +
@@ -692,6 +847,30 @@ func (om *OverrideManager) HandleCommand(
 		baseDuration := CalculateDurationInMinutes(item.Jam)
 		newJam := AutoCompleteJamRange(timeRaw, baseDuration)
 
+		// Periksa bentrok jadwal pada tanggal & jam kuliah pengganti
+		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, nil, cfg)
+		if conflict != nil && !isForce {
+			hariTgt := getHariIndonesia(targetDate)
+			tglTgt := targetDate.Format("02-01-2006")
+			var sb strings.Builder
+			sb.WriteString("⚠️ *PERINGATAN BENTROK JADWAL!*\n")
+			sb.WriteString("──────────\n")
+			sb.WriteString(fmt.Sprintf("Waktu kuliah pengganti (*%s, %s, %s WIB*) bertabrakan dengan jadwal:\n\n", hariTgt, tglTgt, newJam))
+			sb.WriteString(fmt.Sprintf("• *%s*\n", conflict.Matkul))
+			sb.WriteString(fmt.Sprintf("  └ Jam   : %s WIB\n", conflict.Jam))
+			sb.WriteString(fmt.Sprintf("  └ Ruang : %s\n", conflict.Ruang))
+			if conflict.Dosen != "" {
+				sb.WriteString(fmt.Sprintf("  └ Dosen : %s\n", conflict.Dosen))
+			}
+			sb.WriteString("──────────\n")
+			sb.WriteString("Kuliah pengganti tidak ditambahkan untuk mencegah jadwal kuliah ganda.\n\n")
+			sb.WriteString("💡 *Apakah tetap ingin menambahkan?*\n")
+			sb.WriteString(fmt.Sprintf("1. Pilih jam lain yang kosong (ketik `!%s` untuk cek jam kosong).\n", strings.ToLower(hariTgt)))
+			sb.WriteString("2. Jika jam tersebut memang disepakati, tambahkan kata `paksa` di akhir:\n")
+			sb.WriteString(fmt.Sprintf("   `!kuliahganti %s | %s | paksa`", matkulQuery, timeRaw))
+			return sb.String()
+		}
+
 		if ruangBaru == "" {
 			ruangBaru = item.Ruang
 		}
@@ -709,6 +888,9 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString(fmt.Sprintf("• Tanggal     : %s (%s WIB)\n", override.TargetDate, override.NewJam))
 		sb.WriteString(fmt.Sprintf("• Ruang       : %s\n", override.Ruang))
 		sb.WriteString(fmt.Sprintf("• Dosen       : %s (%s)\n", item.Dosen, item.InisialDosen))
+		if isForce {
+			sb.WriteString("• Peringatan  : ⚠️ *Kuliah pengganti ditambahkan dengan konfirmasi bentrok (dipaksa oleh Admin).*\n")
+		}
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("_Bot akan otomatis menyertakan jadwal ini pada pengingat. Ketik `!batalganti %d` untuk menghapus._", override.ID))
 		return sb.String()
