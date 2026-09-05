@@ -388,6 +388,41 @@ func ParseOverrideDate(rawInput string, refNow time.Time) time.Time {
 		}
 	}
 
+	bulanMap := map[string]time.Month{
+		"jan": time.January, "januari": time.January,
+		"feb": time.February, "februari": time.February,
+		"mar": time.March, "maret": time.March,
+		"apr": time.April, "april": time.April,
+		"mei": time.May,
+		"jun": time.June, "juni": time.June,
+		"jul": time.July, "juli": time.July,
+		"agu": time.August, "agustus": time.August, "ags": time.August,
+		"sep": time.September, "september": time.September, "sept": time.September,
+		"okt": time.October, "oktober": time.October,
+		"nov": time.November, "november": time.November,
+		"des": time.December, "desember": time.December,
+	}
+
+	dateWordRe := regexp.MustCompile(`\b(\d{1,2})[\s\-\/]+([a-zA-Z]+)(?:[\s\-\/]+(20\d{2}))?\b`)
+	if matches := dateWordRe.FindStringSubmatch(clean); len(matches) >= 3 {
+		day, _ := strconv.Atoi(matches[1])
+		bStr := strings.ToLower(matches[2])
+		year := refNow.Year()
+		hasYear := false
+		if len(matches) > 3 && matches[3] != "" {
+			fmt.Sscanf(matches[3], "%d", &year)
+			hasYear = true
+		}
+
+		if monthVal, ok := bulanMap[bStr]; ok && day >= 1 && day <= 31 {
+			target := time.Date(year, monthVal, day, 0, 0, 0, 0, loc)
+			if !hasYear && target.AddDate(0, 1, 0).Before(refNow) {
+				target = target.AddDate(1, 0, 0)
+			}
+			return target
+		}
+	}
+
 	return refNow.Add(24 * time.Hour)
 }
 

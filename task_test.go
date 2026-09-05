@@ -118,4 +118,33 @@ func TestTaskManager(t *testing.T) {
 	if !strings.Contains(helpReply, "PANDUAN DEADLINE TRACKER TUGAS") {
 		t.Errorf("Expected help guide for tasks, got: %s", helpReply)
 	}
+
+	// 14. Test Parsing Format Nama Bulan Indonesia ("5 sep 22.15" dan "8 september")
+	// Acuan: Sabtu, 5 September 2026 pukul 20:00 WIB
+	tSabtu := time.Date(2026, 9, 5, 20, 0, 0, 0, time.Local)
+	targetToday, labelToday := parseDeadline("5 sep 22.15", tSabtu)
+	if targetToday.Day() != 5 || targetToday.Month() != 9 || targetToday.Hour() != 22 || targetToday.Minute() != 15 {
+		t.Errorf("Expected 5 Sep 22:15, got: %v", targetToday)
+	}
+	if !strings.Contains(labelToday, "5 Sep 22:15 WIB") {
+		t.Errorf("Expected label '5 Sep 22:15 WIB', got: %s", labelToday)
+	}
+
+	badgeToday := GetUrgencyBadge(targetToday, tSabtu)
+	if !strings.Contains(badgeToday, "DEADLINE HARI INI") {
+		t.Errorf("Expected DEADLINE HARI INI for '5 sep 22.15', got: %s", badgeToday)
+	}
+
+	target8Sep, label8Sep := parseDeadline("8 september", tSabtu)
+	if target8Sep.Day() != 8 || target8Sep.Month() != 9 || target8Sep.Hour() != 23 || target8Sep.Minute() != 59 {
+		t.Errorf("Expected 8 Sep 23:59, got: %v", target8Sep)
+	}
+	if !strings.Contains(label8Sep, "8 Sep 23:59 WIB") {
+		t.Errorf("Expected label '8 Sep 23:59 WIB', got: %s", label8Sep)
+	}
+
+	badge8Sep := GetUrgencyBadge(target8Sep, tSabtu)
+	if !strings.Contains(badge8Sep, "H-3") {
+		t.Errorf("Expected H-3 for '8 september' from 5 Sep, got: %s", badge8Sep)
+	}
 }

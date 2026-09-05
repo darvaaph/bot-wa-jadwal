@@ -1229,7 +1229,7 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("• `!ruang lab` ➔ Cari jadwal ruangan\n")
 	sb.WriteString("• `!cari basis` ➔ Pencarian kata kunci global\n\n")
 
-	sb.WriteString("6️⃣ *Pengaturan Admin:*\n")
+	sb.WriteString("7️⃣ *Pengaturan Admin Lainnya:*\n")
 	sb.WriteString("• `!reminder on` / `!reminder off` (grup)\n")
 	sb.WriteString("• `!reminder test` ➔ Simulasi pengingat pagi\n")
 	sb.WriteString("• `!reload` ➔ Segarkan data jadwal.json\n\n")
