@@ -34,6 +34,47 @@ func isSenderGroupAdmin(ctx context.Context, client *whatsmeow.Client, groupJID,
 	return false
 }
 
+// replyWithTyping mengirimkan reaksi emoji, simulasi status mengetik, dan pesan balasan ke pengguna
+func replyWithTyping(
+	ctx context.Context,
+	client *whatsmeow.Client,
+	chat types.JID,
+	sender types.JID,
+	msgID types.MessageID,
+	replyText string,
+	emoji string,
+	typingDuration time.Duration,
+	actionName string,
+) {
+	if replyText == "" {
+		return
+	}
+
+	// 1. Berikan reaksi emoji pada pesan yang dikirim pengguna
+	if emoji != "" {
+		reactionMsg := client.BuildReaction(chat, sender, msgID, emoji)
+		_, _ = client.SendMessage(ctx, chat, reactionMsg)
+	}
+
+	// 2. Simulasi status "sedang mengetik..."
+	if typingDuration <= 0 {
+		typingDuration = 600 * time.Millisecond
+	}
+	_ = client.SendChatPresence(ctx, chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+	time.Sleep(typingDuration)
+	_ = client.SendChatPresence(ctx, chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
+
+	// 3. Kirim pesan balasan
+	_, err := client.SendMessage(ctx, chat, &waE2E.Message{
+		Conversation: proto.String(replyText),
+	})
+	if err != nil {
+		fmt.Printf("Gagal mengirim balasan %s ke %s: %v\n", actionName, chat.User, err)
+	} else {
+		fmt.Printf("Sukses membalas %s ke %s\n", actionName, chat.User)
+	}
+}
+
 func main() {
 	// 1. Muat data jadwal dari file JSON
 	jadwalData, err := LoadJadwal("jadwal.json")
@@ -159,24 +200,7 @@ func main() {
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
 				}
 
-				// 1. Berikan reaksi emoji pada pesan pengingat
-				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "⏰")
-				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
-
-				// 2. Simulasi "sedang mengetik..." selama 600ms
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
-				time.Sleep(600 * time.Millisecond)
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
-
-				// 3. Kirim balasan perintah reminder
-				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
-					Conversation: proto.String(reminderReply),
-				})
-				if err != nil {
-					fmt.Printf("Gagal mengirim balasan reminder: %v\n", err)
-				} else {
-					fmt.Printf("Sukses membalas perintah reminder ke %s\n", v.Info.Chat.User)
-				}
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
 				return
 			}
 
@@ -192,25 +216,7 @@ func main() {
 				}
 
 				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
-
-				// 1. Berikan reaksi emoji pada pesan tugas
-				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "📝")
-				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
-
-				// 2. Simulasi "sedang mengetik..." selama 600ms
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
-				time.Sleep(600 * time.Millisecond)
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
-
-				// 3. Kirim balasan tugas
-				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
-					Conversation: proto.String(tugasReply),
-				})
-				if err != nil {
-					fmt.Printf("Gagal mengirim balasan tugas: %v\n", err)
-				} else {
-					fmt.Printf("Sukses membalas perintah tugas ke %s\n", v.Info.Chat.User)
-				}
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 				return
 			}
 
@@ -246,25 +252,7 @@ func main() {
 				}
 
 				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, jadwalData, time.Now())
-
-				// 1. Berikan reaksi emoji pada pesan override
-				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "🔄")
-				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
-
-				// 2. Simulasi "sedang mengetik..." selama 600ms
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
-				time.Sleep(600 * time.Millisecond)
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
-
-				// 3. Kirim balasan override
-				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
-					Conversation: proto.String(overrideReply),
-				})
-				if err != nil {
-					fmt.Printf("Gagal mengirim balasan override: %v\n", err)
-				} else {
-					fmt.Printf("Sukses membalas perintah override ke %s\n", v.Info.Chat.User)
-				}
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 				return
 			}
 
@@ -273,24 +261,7 @@ func main() {
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
-				// 1. Berikan reaksi emoji pada pesan yang dikirim pengguna
-				reactionMsg := client.BuildReaction(v.Info.Chat, v.Info.Sender, v.Info.ID, "📅")
-				_, _ = client.SendMessage(context.Background(), v.Info.Chat, reactionMsg)
-
-				// 2. Simulasi "sedang mengetik..." selama 800ms
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresenceComposing, types.ChatPresenceMediaText)
-				time.Sleep(800 * time.Millisecond)
-				_ = client.SendChatPresence(context.Background(), v.Info.Chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
-
-				// 3. Kirim pesan balasan jadwal
-				_, err := client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
-					Conversation: proto.String(replyText),
-				})
-				if err != nil {
-					fmt.Printf("Gagal mengirim pesan balasan: %v\n", err)
-				} else {
-					fmt.Printf("Sukses membalas perintah '%s' ke %s\n", msgText, v.Info.Chat.User)
-				}
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
 			}
 		}
 	})
