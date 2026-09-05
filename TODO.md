@@ -55,9 +55,11 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
 - [x] **Fase 2: Tabel `chat_settings` di SQLite (`ChatSettingsManager`):** *(Selesai)*
   * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db` melalui [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go).
   * Write-through cache in-memory untuk pembacaan instan O(1), aman konkurensi (`sync.RWMutex`), dan 100% lulus unit test ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
-- [ ] **Fase 3: Perintah `!setkelas` & `!daftarkelas`:**
-  * Handler perintah untuk admin grup menyetel kelas aktif (`!setkelas 3A`).
-  * Handler untuk melihat daftar kelas yang tersedia (`!daftarkelas`).
+- [x] **Fase 3: Perintah `!setkelas` & `!daftarkelas`:** *(Selesai)*
+  * Handler `HandleCommand` di [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go) untuk `!daftarkelas`, `!setkelas`, dan `!resetkelas`.
+  * Proteksi otorisasi admin grup di WhatsApp grup & kebebasan pengaturan di DM pribadi.
+  * Pembaruan tampilan menu bantuan `!menu` dan `!keyword` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go).
+  * 100% lulus unit test skenario perintah ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
 - [ ] **Fase 4: Integrasi ke Dispatcher Pesan & Pengingat Pagi:**
   * Sambungkan resolusi jadwal per kelas di [main.go](file:///f:/Project/bot-jadwal/main.go) dan [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
 - [ ] **Cek Jadwal Lintas Kelas (*Cross-Class Peek*):**
