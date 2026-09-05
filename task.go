@@ -525,6 +525,49 @@ func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, n
 	return &item, oldDeadline, nil
 }
 
+// FilterTasksByQuery menyaring tugas aktif berdasarkan nama mata kuliah atau kata kunci
+func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *JadwalConfig, now time.Time) ([]TaskItem, string, error) {
+	allTasks, err := tm.GetActiveTasks(scopeJID, now)
+	if err != nil {
+		return nil, "", err
+	}
+
+	cleanQuery := strings.TrimSpace(query)
+	lowerQuery := strings.ToLower(cleanQuery)
+
+	targetTitle := strings.ToUpper(cleanQuery)
+	var matchedOfficialName string
+
+	if cfg != nil {
+		item, _ := cfg.FindMataKuliah(cleanQuery, now)
+		if item != nil {
+			if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+				matchedOfficialName = officialName
+				targetTitle = strings.ToUpper(officialName)
+			} else {
+				matchedOfficialName = item.NamaMatkul
+				targetTitle = strings.ToUpper(item.NamaMatkul)
+			}
+		}
+	}
+
+	var filtered []TaskItem
+	for _, task := range allTasks {
+		lowerMatkul := strings.ToLower(task.Matkul)
+		lowerDesc := strings.ToLower(task.Deskripsi)
+
+		if matchedOfficialName != "" && strings.Contains(lowerMatkul, strings.ToLower(matchedOfficialName)) {
+			filtered = append(filtered, task)
+			continue
+		}
+
+		if strings.Contains(lowerMatkul, lowerQuery) || strings.Contains(lowerDesc, lowerQuery) {
+			filtered = append(filtered, task)
+		}
+	}
+
+	return filtered, targetTitle, nil
+}
 
 // FormatTaskList merapikan daftar tugas aktif menjadi pesan WhatsApp dengan badge urgensi otomatis
 func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.Time, judulCustom ...string) string {
@@ -541,6 +584,11 @@ func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.T
 	sb.WriteString("──────────\n\n")
 
 	if len(tasks) == 0 {
+		if len(judulCustom) > 0 && judulCustom[0] != "" {
+			sb.WriteString("🎉 *Tidak ada tugas aktif untuk kriteria ini!*\nSemua tugas telah selesai atau belum ada tugas yang dicatat.\n\n")
+			sb.WriteString("_Ketik `!tugas` untuk melihat seluruh tugas aktif._")
+			return sb.String()
+		}
 		sb.WriteString("🎉 *Tidak ada tugas aktif!*\nSemua tugas telah selesai atau belum ada tugas yang dicatat.\n\n")
 		sb.WriteString("_Ketik `!tugas tambah` untuk menambah catatan tugas._")
 		return sb.String()
@@ -576,8 +624,9 @@ func (tm *TaskManager) HandleCommand(
 	parts := strings.SplitN(clean, " ", 2)
 	action := ""
 	payload := ""
+	rest := ""
 	if len(parts) > 1 {
-		rest := strings.TrimSpace(parts[1])
+		rest = strings.TrimSpace(parts[1])
 		lowerRest := strings.ToLower(rest)
 		if strings.HasPrefix(lowerRest, "hari ini") || strings.HasPrefix(lowerRest, "hariini") || strings.HasPrefix(lowerRest, "today") {
 			action = "hari ini"
@@ -613,6 +662,21 @@ func (tm *TaskManager) HandleCommand(
 			return fmt.Sprintf("❌ Gagal memuat tugas besok: %v", err)
 		}
 		return tm.FormatTaskList(tasks, isGroup, now, "⚠️ *TUGAS DEADLINE BESOK (H-1)*")
+
+	case "matkul", "cari", "filter":
+		query := payload
+		if query == "" {
+			query = action
+		}
+		tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memfilter tugas: %v", err)
+		}
+		header := fmt.Sprintf("📋 *DAFTAR TUGAS KELAS: %s*", title)
+		if !isGroup {
+			header = fmt.Sprintf("📋 *CATATAN TUGAS PRIBADI: %s*", title)
+		}
+		return tm.FormatTaskList(tasks, isGroup, now, header)
 
 	case "tambah", "add":
 		// Pengecekan Hak Akses: Di grup WAJIB Admin
@@ -788,12 +852,50 @@ func (tm *TaskManager) HandleCommand(
 		return sb.String()
 
 	case "bantuan", "help":
-		fallthrough
-	default:
 		var sb strings.Builder
 		sb.WriteString("📖 *PANDUAN DEADLINE TRACKER TUGAS*\n")
 		sb.WriteString("──────────\n\n")
 		sb.WriteString("• `!tugas`\n  ➔ Seluruh tugas aktif dengan hitung mundur\n\n")
+		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
+		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
+		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
+		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
+		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
+		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
+		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:30 jika ada tugas mendesak._")
+		return sb.String()
+
+	default:
+		// Jika pengguna mengetik nama matkul atau kata pencarian langsung (cth: "!tugas sbd", "!tugas aljabar", "!tugas mtk")
+		query := rest
+		if query != "" {
+			tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+			if err == nil {
+				isCourse := false
+				if cfg != nil {
+					item, _ := cfg.FindMataKuliah(query, now)
+					if item != nil {
+						isCourse = true
+					}
+				}
+				if isCourse || len(tasks) > 0 {
+					header := fmt.Sprintf("📋 *DAFTAR TUGAS KELAS: %s*", title)
+					if !isGroup {
+						header = fmt.Sprintf("📋 *CATATAN TUGAS PRIBADI: %s*", title)
+					}
+					return tm.FormatTaskList(tasks, isGroup, now, header)
+				}
+			}
+		}
+
+		// Fallback ke bantuan jika benar-benar tidak cocok
+		var sb strings.Builder
+		sb.WriteString("📖 *PANDUAN DEADLINE TRACKER TUGAS*\n")
+		sb.WriteString("──────────\n\n")
+		sb.WriteString("• `!tugas`\n  ➔ Seluruh tugas aktif dengan hitung mundur\n\n")
+		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
 		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
