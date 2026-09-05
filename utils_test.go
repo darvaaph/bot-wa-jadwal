@@ -74,4 +74,34 @@ func TestUtils(t *testing.T) {
 	if ft.Day() != 7 || ft.Hour() != 10 {
 		t.Errorf("parseFlexibleTime failed, got %v", ft)
 	}
+
+	// 13. Test matchCommandPrefix
+	// Di grup WA: wajib simbol prefix
+	if !matchCommandPrefix("!tugas", true, "tugas") {
+		t.Errorf("matchCommandPrefix(!tugas, group) should be true")
+	}
+	if !matchCommandPrefix("/tugas 1", true, "tugas") {
+		t.Errorf("matchCommandPrefix(/tugas 1, group) should be true")
+	}
+	if !matchCommandPrefix("#pindah aljabar", true, "pindah", "ganti") {
+		t.Errorf("matchCommandPrefix(#pindah, group) should be true")
+	}
+	if matchCommandPrefix("tugas", true, "tugas") {
+		t.Errorf("matchCommandPrefix(tugas tanpa prefix, group) should be false")
+	}
+	if matchCommandPrefix("!tugaskemarin", true, "tugas") {
+		t.Errorf("matchCommandPrefix(!tugaskemarin, group) should be false due to word boundary")
+	}
+
+	// Di DM: prefix opsional
+	if !matchCommandPrefix("tugas", false, "tugas") {
+		t.Errorf("matchCommandPrefix(tugas, DM) should be true")
+	}
+	if !matchCommandPrefix("!tugas", false, "tugas") {
+		t.Errorf("matchCommandPrefix(!tugas, DM) should be true")
+	}
+	if !matchCommandPrefix("setkelas 3B", false, "setkelas", "kelas") {
+		t.Errorf("matchCommandPrefix(setkelas 3B, DM) should be true")
+	}
 }
+

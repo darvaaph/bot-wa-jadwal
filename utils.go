@@ -284,3 +284,36 @@ func cleanCommandPrefix(msg string) string {
 	}
 	return clean
 }
+
+// matchCommandPrefix memeriksa apakah teks pesan diawali oleh salah satu kata kunci perintah.
+// - Di grup WhatsApp: Pesan WAJIB diawali simbol prefix (!, /, atau #).
+// - Di chat pribadi (DM): Simbol prefix bersifat opsional.
+// Fungsi ini juga menjamin batas kata (word boundary) sehingga "!tugas" cocok, tetapi "!tugaskemarin" tidak.
+func matchCommandPrefix(msg string, isGroup bool, keywords ...string) bool {
+	clean := strings.TrimSpace(msg)
+	if clean == "" {
+		return false
+	}
+	lower := strings.ToLower(clean)
+	hasSymbol := strings.HasPrefix(lower, "!") || strings.HasPrefix(lower, "/") || strings.HasPrefix(lower, "#")
+	if isGroup && !hasSymbol {
+		return false
+	}
+
+	cmdName := lower
+	if hasSymbol {
+		cmdName = lower[1:]
+	}
+
+	for _, kw := range keywords {
+		kwLower := strings.ToLower(kw)
+		if strings.HasPrefix(cmdName, kwLower) {
+			rest := cmdName[len(kwLower):]
+			if rest == "" || strings.HasPrefix(rest, " ") || strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\t") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
