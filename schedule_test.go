@@ -126,8 +126,11 @@ func TestSchedule(t *testing.T) {
 		{"dosen MR", "Muhammad Rizqi Sholahuddin"},
 		{"!ruang D105", "D105-Kelas"},
 		{"!cari sistem", "Sistem"},
-		{"!menu", "Jadwal Kuliah"},
-		{"menu", "Jadwal Kuliah"},
+		{"!menu", "JADWAL KULIAH"},
+		{"menu", "JADWAL KULIAH"},
+		{"!keyword", "DAFTAR LENGKAP KEYWORD"},
+		{"keyword", "DAFTAR LENGKAP KEYWORD"},
+		{"!help", "DAFTAR LENGKAP KEYWORD"},
 		{"!perintah_aneh", "tidak dikenali"},
 	}
 

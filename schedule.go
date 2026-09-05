@@ -518,9 +518,12 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, isGroup ...bool) string {
 
 	lower := strings.ToLower(clean)
 
-	// 1. Menu & Bantuan
-	if lower == "menu" || lower == "help" || lower == "info" || lower == "bantuan" {
+	// 1. Menu Utama & Panduan Keyword
+	if lower == "menu" {
 		return j.GetMenu()
+	}
+	if lower == "keyword" || lower == "keywords" || lower == "help" || lower == "bantuan" || lower == "panduan" {
+		return j.GetKeywords()
 	}
 
 	// 2. Kuliah Berikutnya / Sedang Berlangsung
@@ -637,14 +640,14 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, isGroup ...bool) string {
 	return ""
 }
 
-// GetMenu mengembalikan pesan bantuan dan daftar perintah bot format Opsi 2 (Kompak & Bersih)
+// GetMenu mengembalikan menu utama yang ringkas, bersih, dan nyaman dibaca di layar HP
 func (j *JadwalConfig) GetMenu() string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
 	now := time.Now()
 	hariStr := getHariIndonesia(now)
-	tanggalStr := fmt.Sprintf("%s, %d %s %d", hariStr, now.Day(), getBulanIndonesia(now), now.Year())
+	tanggalStr := fmt.Sprintf("%s, %d %s", hariStr, now.Day(), getBulanIndonesia(now))
 
 	// Hitung ringkasan jumlah matkul hari ini
 	todayDayLower := strings.ToLower(hariStr)
@@ -663,27 +666,60 @@ func (j *JadwalConfig) GetMenu() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*Jadwal Kuliah (%s)*\n", j.Kampus))
+	sb.WriteString(fmt.Sprintf("*JADWAL KULIAH (%s)*\n", j.Kampus))
 	sb.WriteString(fmt.Sprintf("%s • _%s_\n", tanggalStr, statusHariIni))
 	sb.WriteString("──────────\n\n")
 
-	sb.WriteString("*Cek Jadwal:*\n")
-	sb.WriteString("• `!hari ini`  `!besok`  `!seminggu`\n")
-	sb.WriteString("• `!next` (kuliah sedang/berikutnya)\n")
-	sb.WriteString("• `!senin` s.d. `!jumat`\n\n")
+	sb.WriteString("📌 *Paling Sering Digunakan:*\n")
+	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
+	sb.WriteString("• `!hari ini` ➔ Jadwal hari ini\n")
+	sb.WriteString("• `!besok` ➔ Jadwal besok\n")
+	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n\n")
 
-	sb.WriteString("*Informasi & Cari:*\n")
-	sb.WriteString("• `!matkul` (daftar semua mata kuliah)\n")
-	sb.WriteString("• `!dosen [nama]`  (cth: `!dosen MR`)\n")
-	sb.WriteString("• `!ruang [kode]`  (cth: `!ruang lab`)\n")
-	sb.WriteString("• `!cari [kata]`   (cth: `!cari basis`)\n\n")
+	sb.WriteString("🔍 *Pencarian Cepat:*\n")
+	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
+	sb.WriteString("• `!dosen [nama]` ➔ Cth: `!dosen MR`\n")
+	sb.WriteString("• `!ruang [kode]` ➔ Cth: `!ruang lab`\n")
+	sb.WriteString("• `!cari [kata]` ➔ Cth: `!cari basis`\n\n")
 
-	sb.WriteString("*Pengaturan Grup:*\n")
-	sb.WriteString("• `!reminder on/off` (jadwal pagi 06:30)\n")
-	sb.WriteString("• `!reload` (segarkan file jadwal)\n\n")
+	sb.WriteString("⚙️ *Lainnya:*\n")
+	sb.WriteString("• `!reminder on/off` ➔ Pengingat pagi 06:30\n")
+	sb.WriteString("• `!keyword` ➔ Panduan semua kata kunci\n\n")
 
 	sb.WriteString("──────────\n")
-	sb.WriteString("_Tips: Bisa diketik tanpa tanda '!'_")
+	sb.WriteString("_Tips: Di chat pribadi bisa tanpa tanda '!'_")
+	return sb.String()
+}
+
+// GetKeywords mengembalikan daftar lengkap seluruh kata kunci dan panduan perintah bot
+func (j *JadwalConfig) GetKeywords() string {
+	var sb strings.Builder
+	sb.WriteString("📖 *DAFTAR LENGKAP KEYWORD*\n")
+	sb.WriteString("──────────\n\n")
+
+	sb.WriteString("1️⃣ *Jadwal Harian:*\n")
+	sb.WriteString("• `!senin` `!selasa` `!rabu` `!kamis` `!jumat`\n")
+	sb.WriteString("• Alias: `!today`, `!now`, `!tomorrow`, `!hari ini`, `!besok`\n\n")
+
+	sb.WriteString("2️⃣ *Jadwal Pekanan:*\n")
+	sb.WriteString("• `!seminggu` / `!senin-jumat` / `!semua`\n\n")
+
+	sb.WriteString("3️⃣ *Kuliah Sedang/Berikutnya:*\n")
+	sb.WriteString("• `!next` / `!sekarang`\n\n")
+
+	sb.WriteString("4️⃣ *Informasi & Pencarian:*\n")
+	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
+	sb.WriteString("• `!dosen MR` ➔ Cari jadwal dosen inisial/nama\n")
+	sb.WriteString("• `!ruang lab` ➔ Cari jadwal ruangan\n")
+	sb.WriteString("• `!cari basis` ➔ Pencarian kata kunci global\n\n")
+
+	sb.WriteString("5️⃣ *Pengaturan Admin:*\n")
+	sb.WriteString("• `!reminder on` / `!reminder off` (grup)\n")
+	sb.WriteString("• `!reminder test` ➔ Simulasi pengingat pagi\n")
+	sb.WriteString("• `!reload` ➔ Segarkan data jadwal.json\n\n")
+
+	sb.WriteString("──────────\n")
+	sb.WriteString("_Ketik !menu untuk menu utama ringkas._")
 	return sb.String()
 }
 
