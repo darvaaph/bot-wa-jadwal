@@ -88,21 +88,35 @@ func main() {
 	// 2. Setup Pengingat Otomatis (Reminder Manager)
 	reminderManager := LoadReminderManager("reminder_groups.json")
 
-	// 3. Setup Pengelola Tugas (Task Manager - SQLite)
-	taskManager, err := NewTaskManager("tugas.db")
+	// 3. Setup Database Tunggal Aplikasi (SQLite - tugas.db dengan WAL & Busy Timeout)
+	appDB, err := InitDB("tugas.db")
 	if err != nil {
-		fmt.Printf("Peringatan inisialisasi database tugas: %v\n", err)
+		fmt.Printf("Peringatan inisialisasi database utama: %v\n", err)
 	} else {
-		fmt.Println("Berhasil menghubungkan database tugas (tugas.db)")
+		fmt.Println("Berhasil menghubungkan database utama (tugas.db) [WAL Mode]")
 	}
 
-	// 4. Setup Pengelola Jadwal Pengganti (Override Manager - SQLite)
-	overrideManager, err := NewOverrideManager("tugas.db")
-	if err != nil {
-		fmt.Printf("Peringatan inisialisasi database override: %v\n", err)
-	} else {
-		jadwalData.SetOverrideManager(overrideManager)
-		fmt.Println("Berhasil menghubungkan database jadwal pengganti")
+	// 4. Setup Pengelola Tugas (Task Manager - SQLite)
+	var taskManager *TaskManager
+	if appDB != nil {
+		taskManager, err = NewTaskManager(appDB)
+		if err != nil {
+			fmt.Printf("Peringatan inisialisasi modul tugas: %v\n", err)
+		} else {
+			fmt.Println("Berhasil menginisialisasi modul tugas")
+		}
+	}
+
+	// 5. Setup Pengelola Jadwal Pengganti (Override Manager - SQLite)
+	var overrideManager *OverrideManager
+	if appDB != nil {
+		overrideManager, err = NewOverrideManager(appDB)
+		if err != nil {
+			fmt.Printf("Peringatan inisialisasi modul override: %v\n", err)
+		} else {
+			jadwalData.SetOverrideManager(overrideManager)
+			fmt.Println("Berhasil menginisialisasi modul jadwal pengganti")
+		}
 	}
 
 	// 4. Setup Database Log & SQLite (Session Storage)
@@ -341,18 +355,11 @@ func main() {
 	fmt.Println("⏳ Memutuskan koneksi WhatsApp...")
 	client.Disconnect()
 
-	// 2. Tutup database task dan override secara bersih untuk mencegah database lock / WAL leak
-	if taskManager != nil {
-		fmt.Println("⏳ Menutup koneksi database tugas (tugas.db)...")
-		if err := taskManager.Close(); err != nil {
+	// 2. Tutup database aplikasi (tugas.db) secara bersih untuk checkpoint WAL
+	if appDB != nil {
+		fmt.Println("⏳ Menutup koneksi database aplikasi (tugas.db)...")
+		if err := appDB.Close(); err != nil {
 			fmt.Printf("⚠️ Gagal menutup tugas.db: %v\n", err)
-		}
-	}
-
-	if overrideManager != nil {
-		fmt.Println("⏳ Menutup koneksi database override...")
-		if err := overrideManager.Close(); err != nil {
-			fmt.Printf("⚠️ Gagal menutup database override: %v\n", err)
 		}
 	}
 

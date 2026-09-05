@@ -35,11 +35,10 @@ type OverrideManager struct {
 	db *sql.DB
 }
 
-// NewOverrideManager menginisialisasi tabel schedule_overrides pada SQLite
-func NewOverrideManager(dbPath string) (*OverrideManager, error) {
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuka database override: %w", err)
+// NewOverrideManager menginisialisasi tabel schedule_overrides pada instance *sql.DB bersama
+func NewOverrideManager(db *sql.DB) (*OverrideManager, error) {
+	if db == nil {
+		return nil, fmt.Errorf("koneksi database tidak boleh nil")
 	}
 
 	query := `
@@ -62,12 +61,21 @@ func NewOverrideManager(dbPath string) (*OverrideManager, error) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_overrides_scope ON schedule_overrides(scope_jid, target_date);
 	`
-	_, err = db.Exec(query)
+	_, err := db.Exec(query)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat tabel schedule_overrides: %w", err)
 	}
 
 	return &OverrideManager{db: db}, nil
+}
+
+// NewOverrideManagerWithPath membuat koneksi baru dari path file dan menginisialisasi OverrideManager
+func NewOverrideManagerWithPath(dbPath string) (*OverrideManager, error) {
+	db, err := InitDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return NewOverrideManager(db)
 }
 
 // Close menutup koneksi database

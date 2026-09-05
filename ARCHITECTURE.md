@@ -1,111 +1,118 @@
-# 🏗️ Dokumentasi Arsitektur & Panduan Pemeliharaan (Architecture & Maintainer Guide)
+# 🏗️ Arsitektur Sistem & Panduan Pengembang (*Architecture & Maintainer Guide*)
 
-Dokumen ini ditujukan bagi pengembang (*developer / maintainer*) untuk memahami cara kerja internal, struktur kode, alur data, skema basis data, dan panduan menambahkan fitur baru pada Bot WhatsApp Jadwal Kuliah.
+Dokumen ini ditujukan bagi pengembang (*maintainer / contributor*) untuk memahami arsitektur internal, struktur modularitas, skema basis data, kehandalan konkurensi, alur pemrosesan pesan, dan panduan penambahan fitur pada **Bot WhatsApp Jadwal Kuliah & Manajemen Tugas**.
 
 ---
 
-## 1. 🌐 Arsitektur Sistem (System Architecture)
+## 1. 🌐 Arsitektur Tingkat Tinggi (*High-Level Architecture*)
 
-Bot dibangun menggunakan bahasa pemrograman **Go (Golang)** dengan pendekatan arsitektur modular yang ringan (*monolithic lightweight service*) tanpa ketergantungan CGO:
+Aplikasi dibangun menggunakan **Go (Golang)** dengan pola modular berbobot ringan (*monolithic lightweight service*) berbasis **Pure Go** (bebas dependensi CGO/GCC). Hal ini memungkinkan kompilasi lintas platform yang sangat cepat dan distribusi biner tunggal (*single binary*).
 
 ```mermaid
 graph TD
-    WA[WhatsApp Server] <-->|Websocket E2E| WM[whatsmeow Client]
+    WA[WhatsApp Server] <-->|Websocket E2E TLS| WM[whatsmeow Client]
     
     subgraph "Aplikasi Bot (Go Runtime)"
-        WM -->|Events| EH[Event Handler & Dispatcher<br/>(main.go)]
+        WM -->|Message Events| EH[Event Handler & Dispatcher<br/>main.go]
         
-        EH -->|Jadwal & Pencarian| SC[Schedule Engine<br/>(schedule.go)]
-        EH -->|Override / Pindah / Libur| OM[Override Manager<br/>(override.go)]
-        EH -->|Deadline Tracker| TM[Task Manager<br/>(task.go)]
-        EH -->|Konfigurasi Pengingat| RM[Reminder Manager<br/>(reminder.go)]
+        EH -->|Jadwal & Pencarian| SC[Schedule Engine<br/>schedule.go]
+        EH -->|Override / Pindah / Libur| OM[Override Manager<br/>override.go]
+        EH -->|Deadline & Filter Tugas| TM[Task Manager<br/>task.go]
+        EH -->|Pengingat Otomatis| RM[Reminder Manager<br/>reminder.go]
         
-        SCHED[Background Cron 06:30 WIB<br/>(reminder.go)] -->|Broadcast| WM
-        WD[Watchdog Supervisor<br/>(main.go)] -.->|Auto-Reconnect| WM
+        EH -->|Sentralisasi Balasan| RWT[replyWithTyping<br/>main.go]
+        RWT -->|Reaction + Presence + Reply| WM
         
-        SC & OM & TM & RM -.-> UT[Shared Utilities<br/>(utils.go)]
+        SCHED[Background Cron 06:30 WIB<br/>reminder.go] -->|Broadcast Pagi| WM
+        WD[Watchdog Supervisor<br/>main.go] -.->|Auto-Reconnect Backoff| WM
+        
+        SC & OM & TM & RM -.-> UT[Shared Utilities<br/>utils.go]
+        TM -->|Shared *sql.DB| DBP[SQLite Pool WAL Mode<br/>db.go]
+        OM -->|Shared *sql.DB| DBP
     end
 
-    subgraph "Penyimpanan Data (Storage)"
+    subgraph "Penyimpanan Data (Storage & Persistence)"
         SC -->|Read/Reload| JSN[(jadwal.json)]
-        RM -->|Read/Write| RJ[(reminder_groups.json)]
-        TM -->|CRUD SQLite| DB[(tugas.db)]
-        OM -->|CRUD SQLite| DB
-        WM -->|Session Store| SDB[(sesi_bot.db)]
+        RM -->|Read/Write JSON| RJ[(reminder_groups.json)]
+        DBP <-->|Read/Write WAL| DB[(tugas.db)]
+        WM -->|Device Session| SDB[(sesi_bot.db)]
     end
 ```
 
 ---
 
-## 2. 📂 Struktur & Tanggung Jawab Modul (*Directory Map*)
+## 2. 📂 Peta Direktori & Tanggung Jawab Modul (*Module Directory Map*)
 
-Seluruh logika utama berada dalam `package main` untuk menjaga kesederhanaan eksekusi dan menghindari *cyclic import*, dengan pembagian file sesuai domain tugasnya:
+Seluruh logika utama berada di dalam `package main` untuk menjaga kesederhanaan eksekusi, menghindari siklus import (*cyclic dependency*), dan mempermudah pemeliharaan:
 
-| File | Baris | Tanggung Jawab Utama |
+| Berkas | Tanggung Jawab Utama | Rangkaian Uji Terkait |
 | :--- | :--- | :--- |
-| [main.go](file:///f:/Project/bot-jadwal/main.go) | ~400 | Inisialisasi klien WhatsApp, event listener pesan masuk, supervisor auto-reconnect (watchdog), dan *graceful shutdown*. |
-| [utils.go](file:///f:/Project/bot-jadwal/utils.go) | ~200 | **Single Source of Truth** untuk fungsi pembantu: lokalisasi hari/bulan Indonesia, parser tanggal alami, ekstraksi rentang jam, dan pembacaan SQLite flexible time. |
-| [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | ~1.200 | Parsing `jadwal.json`, pencarian mata kuliah/dosen/ruangan (*fuzzy*), kalkulasi kuliah aktif/berikutnya (`!next`), dan menu bot. |
-| [override.go](file:///f:/Project/bot-jadwal/override.go) | ~900 | Database dan logika jadwal pengganti sementara (`!pindah`, `!kosong`, `!kuliahganti`, `!libur`), deteksi bentrok jam, dan pembatalan (`!batalganti`). |
-| [task.go](file:///f:/Project/bot-jadwal/task.go) | ~900 | Database dan logika pelacak tugas SQLite (`!tugas`), filter matkul (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan arsip riwayat selesai (`!tugas riwayat`). |
-| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | ~250 | Scheduler goroutine pengingat otomatis pagi (06:30 WIB), penyusun pesan pengingat harian, dan penyertaan peringatan tugas mendesak. |
+| [main.go](file:///f:/Project/bot-jadwal/main.go) | Titik masuk utama (*entry point*), inisialisasi whatsmeow, dispatcher event pesan, helper respons terpadu `replyWithTyping`, supervisor rekoneksi (*watchdog*), dan pembersihan aman (*graceful shutdown*). | Manual / Integration |
+| [db.go](file:///f:/Project/bot-jadwal/db.go) | **Unified SQLite Connection Pool (`InitDB`)**: Sentralisasi koneksi `*sql.DB` bersama dengan mode WAL (`journal_mode=WAL`), `busy_timeout=5000`, dan `foreign_keys=1` guna menjamin nol persaingan penguncian database pada Windows. | [db_test.go](file:///f:/Project/bot-jadwal/db_test.go) |
+| [utils.go](file:///f:/Project/bot-jadwal/utils.go) | **Single Source of Truth** untuk helper: lokalisasi hari/bulan Indonesia, parser tanggal alami (*relative date parser*), kalkulasi rentang jam, pembersih prefix perintah, dan pembacaan flexible time SQLite. | [utils_test.go](file:///f:/Project/bot-jadwal/utils_test.go) |
+| [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | Engine jadwal kuliah: parsing kurikulum `jadwal.json`, pencarian cerdas/alias (*fuzzy match*), kalkulasi kuliah aktif/berikutnya (`!next`), tampilan menu bot (`!menu`), dan kamus bantuan (`!keyword`). | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) |
+| [override.go](file:///f:/Project/bot-jadwal/override.go) | Engine jadwal pengganti sementara: perubahan jam (`!pindah`), pembatalan kelas (`!kosong`), kuliah pengganti (`!kuliahganti`), pengumuman hari libur (`!libur`), deteksi bentrok jadwal, dan pembatalan (`!batalganti`). | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) |
+| [task.go](file:///f:/Project/bot-jadwal/task.go) | Engine pelacak tugas SQLite: CRUD catatan tugas (`!tugas`), validasi matkul resmi, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) |
+| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat, pemformatan pesan harian terintegrasi tugas mendesak, dan pengelolaan daftar grup penerima di `reminder_groups.json`. | Terintegrasi di Schedule Test |
 
 ---
 
-## 3. 🗄️ Skema Basis Data (Database Schemas)
+## 3. 🗄️ Skema Basis Data & Pola Persistensi
 
 ### A. Tabel `tasks` (Database: `tugas.db`)
-Menyimpan seluruh catatan tugas kelas maupun catatan tugas pribadi mahasiswa di DM:
+Menyimpan seluruh catatan tugas kelas (lingkup grup) maupun catatan tugas mandiri (lingkup DM pribadi):
 
 ```sql
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    scope_jid TEXT NOT NULL,          -- JID grup (cth: 123@g.us) atau JID user (cth: 62812@s.whatsapp.net)
-    is_group BOOLEAN NOT NULL,         -- true jika di grup, false jika di DM pribadi
-    matkul TEXT NOT NULL,             -- Nama mata kuliah (cth: SISTEM BASIS DATA)
-    deskripsi TEXT NOT NULL,          -- Judul / instruksi tugas
-    deadline TEXT NOT NULL,           -- Label teks tenggat (cth: "Jumat, 11 Sep 23:59 WIB")
-    deadline_at DATETIME,             -- Timestamp UTC/Local untuk sorting dan kalkulasi countdown
-    created_by TEXT NOT NULL,         -- Pengirim yang membuat tugas
-    is_done BOOLEAN DEFAULT 0,        -- 0 = aktif, 1 = selesai (masuk riwayat / arsip)
+    scope_jid TEXT NOT NULL,          -- JID grup (cth: 120363xxx@g.us) atau JID user (cth: 62812xxx@s.whatsapp.net)
+    is_group BOOLEAN NOT NULL,         -- 1 jika di grup kelas, 0 jika di DM pribadi
+    matkul TEXT NOT NULL,             -- Nama resmi matkul (cth: SISTEM BASIS DATA)
+    deskripsi TEXT NOT NULL,          -- Detail instruksi / deskripsi tugas
+    deadline TEXT NOT NULL,           -- Label teks tenggat seragam (cth: "Jumat, 11 Sep 23:59 WIB")
+    deadline_at DATETIME,             -- Timestamp UTC/Local untuk sorting dan kalkulasi badge urgensi
+    created_by TEXT NOT NULL,         -- JID pengguna yang membuat catatan tugas
+    is_done BOOLEAN DEFAULT 0,        -- 0 = aktif, 1 = selesai (diarsipkan ke riwayat)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_scope ON tasks(scope_jid, is_done);
 ```
 
 ### B. Tabel `schedule_overrides` (Database: `tugas.db`)
-Menyimpan perubahan jadwal dinamis yang hanya mengikat pada tanggal tertentu:
+Menyimpan perubahan jadwal perkuliahan yang hanya berlaku mengikat pada tanggal spesifik (*Date-Specific Override*):
 
 ```sql
 CREATE TABLE IF NOT EXISTS schedule_overrides (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    scope_jid TEXT NOT NULL,          -- JID grup
+    scope_jid TEXT NOT NULL,          -- JID grup kelas
     override_type TEXT NOT NULL,      -- RESCHEDULE, CANCEL, EXTRA, HOLIDAY
-    kode_matkul TEXT NOT NULL,        -- Kode matkul (atau "LIBUR")
-    nama_matkul TEXT NOT NULL,        -- Nama matkul (atau "LIBUR SEHARIAN")
-    dosen TEXT NOT NULL,
-    inisial_dosen TEXT NOT NULL,
-    orig_date TEXT NOT NULL,          -- YYYY-MM-DD tanggal asal
+    kode_matkul TEXT NOT NULL,        -- Kode matkul kurikulum (atau "LIBUR")
+    nama_matkul TEXT NOT NULL,        -- Nama mata kuliah (atau nama libur)
+    dosen TEXT NOT NULL,              -- Nama pengajar
+    inisial_dosen TEXT NOT NULL,      -- Inisial pengajar
+    orig_date TEXT NOT NULL,          -- YYYY-MM-DD tanggal asal jadwal normal
     orig_jam TEXT NOT NULL,           -- Jam asal (cth: "07:00 - 08:40")
     target_date TEXT NOT NULL,        -- YYYY-MM-DD tanggal berlakunya perubahan
     new_jam TEXT NOT NULL,            -- Jam baru (cth: "13:00 - 14:40")
     ruang TEXT NOT NULL,              -- Ruangan baru
-    alasan TEXT NOT NULL,             -- Alasan perpindahan / nama libur
-    created_by TEXT NOT NULL,
+    alasan TEXT NOT NULL,             -- Keterangan / alasan pergeseran
+    created_by TEXT NOT NULL,         -- JID Komti / Admin yang memodifikasi
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_overrides_scope ON schedule_overrides(scope_jid, target_date);
 ```
 
-### C. File `reminder_groups.json`
-Menyimpan daftar grup WhatsApp yang berlangganan broadcast jadwal pagi:
+### C. File Konfigurasi JSON
+
+#### 1. `reminder_groups.json`
+Menyimpan konfigurasi pengingat otomatis dan daftar penerima:
 ```json
 {
   "hour": 6,
   "minute": 30,
   "groups": [
     {
-      "jid": "120363xxxxxx@g.us",
+      "jid": "120363001234567890@g.us",
       "name": "D4 Teknik Informatika 3A",
       "added_at": "2026-09-04T08:00:00Z"
     }
@@ -113,55 +120,126 @@ Menyimpan daftar grup WhatsApp yang berlangganan broadcast jadwal pagi:
 }
 ```
 
----
-
-## 4. 🔄 Alur Pemrosesan Pesan (*Message Processing Lifecycle*)
-
-Saat sebuah pesan masuk dari WhatsApp:
-1. **Filter Awal:** `main.go` mengabaikan pesan dari bot sendiri (`v.Info.IsFromMe`).
-2. **Ekstraksi Teks:** Pesan diambil dari `Conversation` atau `ExtendedTextMessage`.
-3. **Pembersihan Prefix:** Fungsi `cleanCommandPrefix(msg)` di [utils.go](file:///f:/Project/bot-jadwal/utils.go) menghapus karakter awalan `!`, `/`, atau `#`.
-4. **Routing Handler:**
-   * Prefix `reminder` ➔ `reminderManager`
-   * Prefix `tugas` ➔ `taskManager.HandleCommand(...)`
-   * Prefix `pindah`, `kosong`, `libur`, `kuliahganti`, `jadwalganti`, `batalganti` ➔ `overrideManager.HandleCommand(...)`
-   * Perintah jadwal reguler (`!hari ini`, `!besok`, `!next`, `!matkul`, dll.) ➔ `jadwalData.ProcessMessage(...)`
-5. **Eksekusi Balasan Terpadu (`replyWithTyping`):**
-   Fungsi terpusat `replyWithTyping` di [main.go](file:///f:/Project/bot-jadwal/main.go) secara otomatis menangani:
-   * Reaksi emoji (`BuildReaction`) pada pesan pengguna (cth: `📝`, `🔄`, `📅`, `⏰`).
-   * Simulasi status *"sedang mengetik..."* (*composing* ➔ *sleep* ➔ *paused*) agar interaksi manusiawi dan aman.
-   * Pengiriman teks balasan via `client.SendMessage` beserta pencatatan log konsol.
+#### 2. `jadwal.json`
+Menyimpan master data kurikulum kelas: nama kampus, jurusan, daftar dosen, ruangan, dan jadwal mingguan baku (Senin s.d. Jumat).
 
 ---
 
-## 5. 🛠️ Panduan Menambah Perintah Baru (*How to Add a Command*)
+## 4. ⚡ Manajemen Konkurensi & Kehandalan (*Reliability & Concurrency*)
 
-Jika ingin menambahkan sub-perintah baru (misal: `!link` atau `!info`):
+### A. Shared SQLite Connection Pool ([db.go](file:///f:/Project/bot-jadwal/db.go))
+* **Masalah Lama:** SQLite di Windows rentan memunculkan error `database is locked` jika terdapat lebih dari satu connection pool yang mengakses file fisik yang sama.
+* **Solusi Terpadu:** Modul [db.go](file:///f:/Project/bot-jadwal/db.go) menginisialisasi satu instance `*sql.DB` bersama (`InitDB`) dan menginjeksinya ke `TaskManager` dan `OverrideManager`.
+* **Parameter PRAGMA Optimal:**
+  * `journal_mode=WAL`: Mengizinkan pembaca (*readers*) dan satu penulis (*writer*) bekerja bersamaan tanpa saling memblokir.
+  * `busy_timeout=5000`: Menunggu hingga 5.000 ms jika ada proses tulis sebelum mengembalikan error.
+  * `synchronous=NORMAL`: Kecepatan operasi disk optimal tanpa mengorbankan durabilitas data WAL.
 
-### Langkah 1: Buat Handler di File Modul yang Sesuai
-Jika berhubungan dengan jadwal/informasi, tambahkan logika di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) pada fungsi `ProcessMessage`:
+### B. Auto-Reconnect Watchdog Supervisor
+Koneksi websocket kampus/kosan rentan mengalami *EOF/RST*. Bot dilengkapi supervisor latar belakang di [main.go](file:///f:/Project/bot-jadwal/main.go):
+* Memantau status `client.IsConnected()` secara berkala.
+* Menerapkan **Exponential Backoff** (3s ➔ 6s ➔ 12s ➔ maks 30s) untuk menghindari *spamming reconnection*.
+
+### C. Graceful Shutdown Terstruktur
+Saat menerima sinyal terminasi (`Ctrl + C` / `SIGTERM`), bot mengeksekusi urutan pembersihan berjenjang:
+1. Membatalkan konteks goroutine watchdog supervisor.
+2. Memutuskan koneksi WhatsApp klien secara teratur (`client.Disconnect()`).
+3. Menutup koneksi database aplikasi (`appDB.Close()`) untuk melakukan sinkronisasi (*checkpoint*) file WAL SQLite.
+4. Menutup koneksi database sesi bot (`container.Close()`).
+
+---
+
+## 5. 🔐 Otorisasi & Hak Akses Berbasis Lingkup (*Role & Scope-Based Authorization*)
+
+Bot menerapkan pemisahan hak akses yang ketat untuk menjaga integritas data kelas:
+
+| Lingkup Obrolan | Tipe Perintah | Hak Akses | Logika Verifikasi |
+| :--- | :--- | :--- | :--- |
+| **Grup Kelas (`@g.us`)** | Modifikasi Jadwal (`!pindah`, `!kosong`, `!kuliahganti`, `!libur`, `!batalganti`) | **Khusus Admin Grup** | Diperiksa via fungsi `isSenderGroupAdmin` yang mencocokkan JID pengirim dengan daftar admin grup WhatsApp. |
+| **Grup Kelas (`@g.us`)** | Modifikasi Tugas (`!tugas tambah`, `!tugas hapus`, `!tugas edit`) | **Khusus Admin Grup** | Melindungi catatan tugas kelas dari penghapusan/perubahan oleh anggota biasa. |
+| **Grup Kelas (`@g.us`)** | Pembacaan (`!menu`, `!hari ini`, `!tugas`, `!next`, `!jadwalganti`, dll.) | **Semua Anggota** | Terbuka bebas untuk seluruh mahasiswa dalam grup. |
+| **Chat Pribadi (`@s.whatsapp.net`)** | Semua Perintah | **Bebas (Pribadi)** | Setiap nomor WhatsApp otomatis menjadi admin untuk database catatan tugas pribadinya sendiri (*Isolated User Scope*). |
+
+---
+
+## 6. 🔄 Siklus Pemrosesan Pesan (*Message Processing Lifecycle*)
+
+```
+[Pesan Masuk WhatsApp]
+       │
+       ▼
+1. Filter Awal (Abaikan jika v.Info.IsFromMe == true)
+       │
+       ▼
+2. Ekstraksi Teks (Conversation / ExtendedTextMessage)
+       │
+       ▼
+3. Pembersihan Awalan (cleanCommandPrefix: hapus '!', '/', atau '#')
+       │
+       ▼
+4. Dispatching Handler:
+   ├── Prefix 'reminder'       ──► ReminderManager
+   ├── Prefix 'tugas'          ──► TaskManager.HandleCommand(...)
+   ├── Prefix 'pindah/kosong/
+   │          libur/override'  ──► OverrideManager.HandleCommand(...)
+   └── Perintah Jadwal Reguler ──► JadwalConfig.ProcessMessage(...)
+       │
+       ▼
+5. Eksekusi Balasan Terpadu via replyWithTyping(...)
+   ├── Berikan Emoji Reaction pada pesan pengguna (cth: ⏰, 📝, 🔄, 📅)
+   ├── Kirim Chat Presence "Sedang Mengetik..." (Composing -> Sleep -> Paused)
+   └── Kirim Pesan Balasan via client.SendMessage & Catat Log Konsol
+```
+
+---
+
+## 7. 🛠️ Panduan Menambahkan Perintah Baru (*How to Add a Command*)
+
+Untuk menambahkan perintah baru (misal: `!link` untuk direktori link Google Meet / Drive materi kuliah):
+
+### Langkah 1: Implementasikan Handler di Modul Terkait
+Tambahkan fungsi penanganan pada modul yang sesuai, misalnya di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go):
 ```go
-case "link", "drive":
+// GetClassLinks mengembalikan direktori tautan perkuliahan
+func (j *JadwalConfig) GetClassLinks() string {
+    return "🔗 *DIREKTORI TAUTAN KELAS*\n• Google Drive: https://bit.ly/drive-kelas\n• Grup Pengumuman: ..."
+}
+```
+
+### Langkah 2: Daftarkan Perintah pada Parser Pesan
+Pada method `ProcessMessage` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go), tambahkan percabangan:
+```go
+case "link", "drive", "tautan":
     return j.GetClassLinks()
 ```
 
-### Langkah 2: Daftarkan Kata Kunci
-Tambahkan kata kunci pada daftar `GetKeywords()` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) agar terdokumentasi di menu `!keyword` bot.
+### Langkah 3: Daftarkan di Kamus Bantuan & Menu
+Tambahkan kata kunci pada method `GetKeywords()` dan format template di `GetMenu()` agar mahasiswa dapat menemukan perintah tersebut.
 
-### Langkah 3: Tambahkan Unit Test
-Buka file `_test.go` terkait (misal [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go)) dan tambahkan skenario pengujian untuk memastikan perintah merespons string yang diharapkan.
+### Langkah 4: Buat Unit Test Otomatis
+Buka berkas uji terkait (misal [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go)) dan tambahkan skenario validasi:
+```go
+reply := cfg.ProcessMessage("!link", false, "")
+if !strings.Contains(reply, "DIREKTORI TAUTAN KELAS") {
+    t.Errorf("Format balasan !link tidak sesuai: %s", reply)
+}
+```
 
-Jalankan pengujian:
+### Langkah 5: Jalankan Pengujian
 ```bash
-go test -v .
+go test -count=1 -v .
 ```
 
 ---
 
-## 6. 🧪 Rangkaian Pengujian Otomatis (*Testing Standards*)
+## 8. 🧪 Standar Rangkaian Pengujian (*Testing Standards*)
 
-Seluruh perubahan kode **wajib** lolos pengujian tanpa kegagalan sebelum di-deploy:
-* `TestUtils`: Menguji parser tanggal alami, ekstraksi jam, dan lokalisasi Indonesia.
-* `TestSchedule`: Menguji pemuatan JSON, pencarian dosen/ruangan/matkul, dan kalkulasi `!next`.
-* `TestOverrideManager`: Menguji pemindahan jadwal, peniadaan kelas, bentrok jadwal, dan hari libur.
-* `TestTaskManager`: Menguji operasi CRUD tugas, tenggat waktu, hak admin, filter matkul, dan arsip riwayat.
+Rangkaian unit test wajib mencakup skenario sukses (*positive test*), skenario kegagalan/penolakan (*negative test*), pengujian batas waktu (*edge cases*), dan konkurensi:
+
+| Test Suite | Berkas Uji | Cakupan Pengujian |
+| :--- | :--- | :--- |
+| `TestSharedSQLiteConnection` | [db_test.go](file:///f:/Project/bot-jadwal/db_test.go) | Inisialisasi pool SQLite, verifikasi WAL mode, dan konkurensi penulisan paralel simultan 20 goroutine antara `TaskManager` & `OverrideManager`. |
+| `TestUtils` | [utils_test.go](file:///f:/Project/bot-jadwal/utils_test.go) | Validasi nama hari/bulan Indonesia, ekstraksi kata tanggal, kalkulasi rentang jam, dan pembersihan awalan prefix. |
+| `TestSchedule` | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) | Parsing kurikulum `jadwal.json`, pencarian cerdas mata kuliah/dosen/ruangan, kalkulasi `!next`, dan perpaduan jadwal reguler dengan override. |
+| `TestOverrideManager` | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) | Penjadwalan ulang (`!pindah`), pembatalan kelas (`!kosong`), deteksi bentrok jadwal, pengumuman hari libur (`!libur`), dan pembatalan (`!batalganti`). |
+| `TestTaskManager` | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) | CRUD tugas SQLite, otorisasi admin grup vs anggota biasa, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). |

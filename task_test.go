@@ -11,11 +11,16 @@ func TestTaskManager(t *testing.T) {
 	testDB := "test_tugas.db"
 	defer os.Remove(testDB)
 
-	tm, err := NewTaskManager(testDB)
+	db, err := InitDB(testDB)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi database SQLite: %v", err)
+	}
+	defer db.Close()
+
+	tm, err := NewTaskManager(db)
 	if err != nil {
 		t.Fatalf("Gagal inisialisasi NewTaskManager: %v", err)
 	}
-	defer tm.Close()
 
 	cfg, err := LoadJadwal("jadwal.json")
 	if err != nil {

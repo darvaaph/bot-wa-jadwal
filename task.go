@@ -29,11 +29,10 @@ type TaskManager struct {
 	db *sql.DB
 }
 
-// NewTaskManager menginisialisasi database SQLite dan membuat tabel jika belum ada
-func NewTaskManager(dbPath string) (*TaskManager, error) {
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuka database tugas: %w", err)
+// NewTaskManager menginisialisasi tabel tasks pada instance *sql.DB bersama
+func NewTaskManager(db *sql.DB) (*TaskManager, error) {
+	if db == nil {
+		return nil, fmt.Errorf("koneksi database tidak boleh nil")
 	}
 
 	query := `
@@ -51,7 +50,7 @@ func NewTaskManager(dbPath string) (*TaskManager, error) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_tasks_scope ON tasks(scope_jid, is_done);
 	`
-	_, err = db.Exec(query)
+	_, err := db.Exec(query)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat tabel tasks: %w", err)
 	}
@@ -60,6 +59,15 @@ func NewTaskManager(dbPath string) (*TaskManager, error) {
 	_, _ = db.Exec(`ALTER TABLE tasks ADD COLUMN deadline_at DATETIME;`)
 
 	return &TaskManager{db: db}, nil
+}
+
+// NewTaskManagerWithPath membuat koneksi baru dari path file dan menginisialisasi TaskManager
+func NewTaskManagerWithPath(dbPath string) (*TaskManager, error) {
+	db, err := InitDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return NewTaskManager(db)
 }
 
 // Close menutup koneksi database
