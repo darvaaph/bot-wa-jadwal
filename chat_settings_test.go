@@ -251,3 +251,70 @@ func TestChatSettings_Onboarding(t *testing.T) {
 	}
 }
 
+func TestChatSettings_BackwardCompatibilityMigration(t *testing.T) {
+	db, err := InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal init DB: %v", err)
+	}
+	defer db.Close()
+
+	csm, err := NewChatSettingsManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init CSM: %v", err)
+	}
+
+	classMgr, err := NewClassManager("data/jadwal", "jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal init ClassManager: %v", err)
+	}
+
+	g1 := "120363001@g.us"
+	g2 := "120363002@g.us"
+	g3 := "120363003@g.us"
+	g4 := "120363004@g.us"
+
+	// 1. Simulasikan data lama di SQLite: "3A", "3B", "D4-TI-1A", "D3-TI-1A"
+	_ = csm.SetClass(g1, "3A")
+	_ = csm.SetClass(g2, "3B")
+	_ = csm.SetClass(g3, "D4-TI-1A")
+	_ = csm.SetClass(g4, "D3-TI-1A")
+
+	// 2. Verifikasi sebelum migrasi: GetClassOrDefault tetap bekerja via alias cerdas tanpa error
+	cfg1 := classMgr.GetClassOrDefault(csm.GetClass(g1))
+	if cfg1 == nil || !strings.Contains(cfg1.Kampus, "3A") {
+		t.Errorf("Sebelum migrasi, g1 (3A) harus tetap bisa mendapatkan jadwal 3A: %v", cfg1)
+	}
+
+	// 3. Jalankan penyelarasan otomatis (SyncWithClassManager)
+	upgraded := csm.SyncWithClassManager(classMgr)
+	if upgraded != 4 {
+		t.Errorf("Harus meng-upgrade 4 setelan lama, tapi got: %d", upgraded)
+	}
+
+	// 4. Verifikasi setelah migrasi: seluruh record otomatis berubah menjadi ID kanonikal eksplisit
+	if c1 := csm.GetClass(g1); c1 != "D4-TI-SMT3-A" {
+		t.Errorf("g1 harus ter-upgrade ke D4-TI-SMT3-A, got: %s", c1)
+	}
+	if c2 := csm.GetClass(g2); c2 != "D4-TI-SMT3-B" {
+		t.Errorf("g2 harus ter-upgrade ke D4-TI-SMT3-B, got: %s", c2)
+	}
+	if c3 := csm.GetClass(g3); c3 != "D4-TI-SMT1-A" {
+		t.Errorf("g3 harus ter-upgrade ke D4-TI-SMT1-A, got: %s", c3)
+	}
+	if c4 := csm.GetClass(g4); c4 != "D3-TI-SMT1-A" {
+		t.Errorf("g4 harus ter-upgrade ke D3-TI-SMT1-A, got: %s", c4)
+	}
+
+	// 5. Verifikasi bahwa perintah !kelas menampilkan status aktif yang benar
+	resp1 := csm.HandleCommand(g1, true, "user@s.whatsapp.net", false, "!kelas", classMgr)
+	if !strings.Contains(resp1, "D4-TI-SMT3-A") || !strings.Contains(resp1, "Aktif") {
+		t.Errorf("Format kelas g1 harus menampilkan D4-TI-SMT3-A aktif: %s", resp1)
+	}
+
+	// 6. Verifikasi bahwa tidak ada chat yang perlu disetel ulang
+	if csm.GetClass(g1) == "" {
+		t.Errorf("Chat tidak boleh kembali ke unconfigured")
+	}
+}
+
+
