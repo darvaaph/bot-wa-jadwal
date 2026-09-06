@@ -106,6 +106,7 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
 | :--- | :--- | :--- | :--- |
 | `!menu` | `!menu` | `menu` | Menampilkan menu navigasi utama yang ringkas |
 | `!keyword` / `!help` | `!keyword` | `keyword` | Menampilkan kamus seluruh kata kunci bot |
+| `!jadwal` | `!jadwal` | `jadwal` | Jadwal kuliah terdekat berikutnya (otomatis esok hari jika kuliah hari ini telah selesai, atau Senin jika akhir pekan) |
 | `!hari ini` / `!today` | `!hari ini` | `hari ini` | Jadwal kuliah hari ini |
 | `!besok` / `!tomorrow` | `!besok` | `besok` | Jadwal kuliah besok hari |
 | `!senin` s.d. `!jumat` | `!senin` | `senin` | Jadwal kuliah pada hari yang ditentukan |
