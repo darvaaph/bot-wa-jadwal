@@ -19,15 +19,19 @@ type ClassManager struct {
 	overrideManager *OverrideManager
 }
 
-// NormalizeClassID membersihkan dan menstandarkan ID kelas (uppercase, trim spasi, hilangkan prefix 'kelas')
+// NormalizeClassID membersihkan dan menstandarkan ID kelas (uppercase, trim spasi, hilangkan formatting WhatsApp/markdown)
 func NormalizeClassID(raw string) string {
 	s := strings.TrimSpace(raw)
+	// Hilangkan karakter pembungkus formatting WhatsApp/markdown yang sering ter-copy paste (`, [, ], *, _, ~, ", ', dll.)
+	s = strings.Trim(s, "`[]*~_\"'() ")
 	s = strings.ToUpper(s)
 	if strings.HasPrefix(s, "KELAS ") {
 		s = strings.TrimPrefix(s, "KELAS ")
 	} else if strings.HasPrefix(s, "KELAS-") {
 		s = strings.TrimPrefix(s, "KELAS-")
 	}
+	s = strings.Trim(s, "`[]*~_\"'() ")
+	s = strings.ReplaceAll(s, "`", "")
 	return strings.TrimSpace(s)
 }
 
@@ -176,6 +180,26 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 			cm.aliases[fmt.Sprintf("%s%s", semester, kelasPart)] = norm       // e.g. "3A", "3B"
 			cm.aliases[fmt.Sprintf("%s %s", semester, kelasPart)] = norm      // e.g. "3 A", "3 B"
 			cm.aliases[fmt.Sprintf("KELAS %s%s", semester, kelasPart)] = norm // e.g. "KELAS 3A"
+		}
+
+		// 4. Khusus SMT3: Daftarkan alias kelas tingkat 2 (misal: "2A", "2B", "KELAS 2A")
+		// agar mahasiswa yang menyebut Tingkat 2 / Kelas 2 otomatis terhubung ke SMT3 tanpa menimpa alias kelas lain.
+		if semester == "3" {
+			if subProdi != "" {
+				cm.aliases[fmt.Sprintf("%s-%s-2%s", prodi, subProdi, kelasPart)] = norm
+			}
+			cm.aliases[fmt.Sprintf("%s-2%s", prodi, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s 2 %s", prodi, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s 2%s", prodi, kelasPart)] = norm
+
+			if prodi == "D4" {
+				cm.aliases[fmt.Sprintf("2%s", kelasPart)] = norm                // e.g. "2A"
+				cm.aliases[fmt.Sprintf("2 %s", kelasPart)] = norm               // e.g. "2 A"
+				cm.aliases[fmt.Sprintf("KELAS 2%s", kelasPart)] = norm          // e.g. "KELAS 2A"
+				cm.aliases[fmt.Sprintf("TINGKAT 2 %s", kelasPart)] = norm       // e.g. "TINGKAT 2 A"
+				cm.aliases[fmt.Sprintf("TINGKAT 2%s", kelasPart)] = norm        // e.g. "TINGKAT 2A"
+				cm.aliases[fmt.Sprintf("TINGKAT 2 KELAS %s", kelasPart)] = norm // e.g. "TINGKAT 2 KELAS A"
+			}
 		}
 	}
 }

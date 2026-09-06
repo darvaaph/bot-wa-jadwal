@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -97,14 +99,110 @@ func formatDurasi(menit int) string {
 	return fmt.Sprintf("%d jam %d mnt", jam, sisaMenit)
 }
 
+// parseClassMetadata mengekstrak informasi akademik (prodi, semester, tingkat, huruf kelas)
+// dari teks kampus atau path file jadwal.
+func parseClassMetadata(kampusStr, filePath string) (prodi string, semester int, tingkat int, kelasLetter string) {
+	// 1. Coba deteksi dari nama file (misal: D4-TI-SMT3-A.json)
+	base := filepath.Base(filePath)
+	baseNoExt := strings.TrimSuffix(base, filepath.Ext(base))
+	parts := strings.Split(baseNoExt, "-")
+	if len(parts) >= 3 {
+		p := strings.ToUpper(parts[0])
+		if p == "D4" {
+			prodi = "D4 Teknik Informatika"
+		} else if p == "D3" {
+			prodi = "D3 Teknik Informatika"
+		}
+		for _, part := range parts {
+			partUpper := strings.ToUpper(part)
+			if strings.HasPrefix(partUpper, "SMT") {
+				fmt.Sscanf(partUpper[3:], "%d", &semester)
+			}
+		}
+		last := parts[len(parts)-1]
+		if len(last) == 1 && ((last[0] >= 'A' && last[0] <= 'Z') || (last[0] >= 'a' && last[0] <= 'z')) {
+			kelasLetter = strings.ToUpper(last)
+		}
+	}
+
+	// 2. Jika belum lengkap, lengkapi dari teks kampusStr
+	if prodi == "" {
+		upperK := strings.ToUpper(kampusStr)
+		if strings.Contains(upperK, "D4") {
+			prodi = "D4 Teknik Informatika"
+		} else if strings.Contains(upperK, "D3") {
+			prodi = "D3 Teknik Informatika"
+		}
+	}
+
+	if semester == 0 {
+		reSem := regexp.MustCompile(`(?i)(?:semester|smt)\s*(\d+)`)
+		if m := reSem.FindStringSubmatch(kampusStr); len(m) >= 2 {
+			fmt.Sscanf(m[1], "%d", &semester)
+		}
+	}
+
+	if kelasLetter == "" {
+		reKelas := regexp.MustCompile(`(?i)kelas\s*(?:\d+)?([A-Za-z])\b`)
+		if m := reKelas.FindStringSubmatch(kampusStr); len(m) >= 2 {
+			kelasLetter = strings.ToUpper(m[1])
+		}
+	}
+
+	if semester > 0 {
+		tingkat = (semester + 1) / 2
+	}
+
+	return prodi, semester, tingkat, kelasLetter
+}
+
+// FormatClassBanner menghasilkan header identitas kelas yang rapi dan terstruktur untuk tampilan WhatsApp
+func (j *JadwalConfig) FormatClassBanner() string {
+	j.mu.RLock()
+	kampusStr := j.Kampus
+	filePath := j.FilePath
+	j.mu.RUnlock()
+
+	if kampusStr == "" && filePath == "" {
+		return ""
+	}
+
+	prodi, semester, tingkat, kelasLetter := parseClassMetadata(kampusStr, filePath)
+	if semester > 0 && kelasLetter != "" {
+		prodiStr := prodi
+		if prodiStr == "" {
+			prodiStr = "Teknik Informatika"
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("🏛️ *Kelas %d%s (Tingkat %d) — %s*\n", tingkat, kelasLetter, tingkat, prodiStr))
+		sb.WriteString(fmt.Sprintf("📌 _Semester %d_\n", semester))
+		return sb.String()
+	}
+
+	// Fallback jika tidak terdeteksi pattern semester/kelas
+	if kampusStr != "" {
+		clean := strings.TrimSpace(strings.ReplaceAll(kampusStr, "(Transisi)", ""))
+		clean = strings.TrimSpace(strings.ReplaceAll(clean, "  ", " "))
+		return fmt.Sprintf("🏛️ _%s_\n", clean)
+	}
+	return ""
+}
+
 // FormatList merapikan daftar item jadwal menjadi teks WhatsApp yang ringkas dan ramah mobile
 func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
+	banner := j.FormatClassBanner()
 	if len(items) == 0 {
-		return fmt.Sprintf("❌ *%s*\nTidak ada jadwal yang ditemukan.", judul)
+		if banner != "" {
+			return fmt.Sprintf("❌ *%s*\n%s──────────\nTidak ada jadwal yang ditemukan.", judul, banner)
+		}
+		return fmt.Sprintf("❌ *%s*\n──────────\nTidak ada jadwal yang ditemukan.", judul)
 	}
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("📅 *%s*\n", judul))
+	if banner != "" {
+		sb.WriteString(banner)
+	}
 	sb.WriteString("──────────\n\n")
 
 	for i, item := range items {
@@ -127,7 +225,10 @@ func (j *JadwalConfig) GetJadwalSeminggu() string {
 	hariList := []string{"Senin", "Selasa", "Rabu", "Kamis", "Jumat"}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📅 *JADWAL SENIN - JUMAT*\n*(%s)*\n", j.Kampus))
+	sb.WriteString("📅 *JADWAL SENIN - JUMAT*\n")
+	if banner := j.FormatClassBanner(); banner != "" {
+		sb.WriteString(banner)
+	}
 	sb.WriteString("──────────\n\n")
 
 	for _, hari := range hariList {
@@ -289,7 +390,10 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 	sort.Strings(listKode)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📚 *DAFTAR MATA KULIAH*\n*(%s)*\n", j.Kampus))
+	sb.WriteString("📚 *DAFTAR MATA KULIAH*\n")
+	if banner := j.FormatClassBanner(); banner != "" {
+		sb.WriteString(banner)
+	}
 	sb.WriteString("──────────\n\n")
 
 	for i, kode := range listKode {
@@ -386,7 +490,7 @@ func (j *JadwalConfig) GetByHari(hariInput string, refTime ...time.Time) string 
 		namaHariResmi = strings.Title(hariInput)
 	}
 
-	return j.FormatList(hasil, fmt.Sprintf("JADWAL %s (%s)", strings.ToUpper(namaHariResmi), j.Kampus))
+	return j.FormatList(hasil, fmt.Sprintf("JADWAL %s", strings.ToUpper(namaHariResmi)))
 }
 
 // FindMataKuliah mencari mata kuliah dari query teks santai (alias, kode, substring)
@@ -662,7 +766,11 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 	}
 
 	if len(entries) == 0 {
-		return fmt.Sprintf("❌ *JADWAL %s (%s)*\nTidak ada jadwal yang ditemukan.", strings.ToUpper(hariTarget), j.Kampus)
+		banner := j.FormatClassBanner()
+		if banner != "" {
+			return fmt.Sprintf("❌ *JADWAL %s*\n%s──────────\nTidak ada jadwal yang ditemukan.", strings.ToUpper(hariTarget), banner)
+		}
+		return fmt.Sprintf("❌ *JADWAL %s*\n──────────\nTidak ada jadwal yang ditemukan.", strings.ToUpper(hariTarget))
 	}
 
 	// Urutkan entri secara kronologis berdasarkan StartTime
@@ -671,8 +779,11 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 	})
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📅 *JADWAL %s, %02d %s (%s)*\n",
-		strings.ToUpper(hariTarget), targetDate.Day(), getBulanIndonesia(targetDate), j.Kampus))
+	sb.WriteString(fmt.Sprintf("📅 *JADWAL %s, %02d %s*\n",
+		strings.ToUpper(hariTarget), targetDate.Day(), getBulanIndonesia(targetDate)))
+	if banner := j.FormatClassBanner(); banner != "" {
+		sb.WriteString(banner)
+	}
 	sb.WriteString("──────────\n\n")
 
 	for i, e := range entries {
@@ -1288,7 +1399,10 @@ func (j *JadwalConfig) GetMenu() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*JADWAL KULIAH (%s)*\n", j.Kampus))
+	sb.WriteString("*JADWAL KULIAH*\n")
+	if banner := j.FormatClassBanner(); banner != "" {
+		sb.WriteString(banner)
+	}
 	sb.WriteString(fmt.Sprintf("%s • _%s_\n", tanggalStr, statusHariIni))
 	sb.WriteString("──────────\n\n")
 
