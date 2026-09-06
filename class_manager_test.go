@@ -12,23 +12,23 @@ func TestClassManager_LoadDirectory(t *testing.T) {
 	}
 
 	classes := cm.ListClasses()
-	if len(classes) < 2 {
-		t.Fatalf("Ekspektasi minimal 2 kelas (3A, 3B), ditemukan: %v", classes)
+	if len(classes) < 19 {
+		t.Fatalf("Ekspektasi minimal 19 kelas resmi, ditemukan: %d kelas (%v)", len(classes), classes)
 	}
 
 	found3A := false
 	found3B := false
 	for _, c := range classes {
-		if c == "3A" {
+		if c == "D4-TI-SMT3-A" {
 			found3A = true
 		}
-		if c == "3B" {
+		if c == "D4-TI-SMT3-B" {
 			found3B = true
 		}
 	}
 
 	if !found3A || !found3B {
-		t.Errorf("Kelas 3A atau 3B tidak ditemukan di daftar kelas: %v", classes)
+		t.Errorf("Kelas D4-TI-SMT3-A atau D4-TI-SMT3-B tidak ditemukan di daftar kelas: %v", classes)
 	}
 }
 
@@ -38,20 +38,32 @@ func TestClassManager_GetClass(t *testing.T) {
 		t.Fatalf("Gagal inisialisasi ClassManager: %v", err)
 	}
 
-	// 1. Tes pencocokan case-insensitive dan variasi prefix
+	// 1. Tes pencocokan nama kanonikal, alias case-insensitive, dan variasi input bebas
 	testCases := []struct {
 		input       string
-		expectedID  string
 		shouldExist bool
 	}{
-		{"3A", "3A", true},
-		{"3a", "3A", true},
-		{"  3a  ", "3A", true},
-		{"kelas 3A", "3A", true},
-		{"KELAS 3a", "3A", true},
-		{"kelas-3b", "3B", true},
-		{"3B", "3B", true},
-		{"99Z", "", false},
+		{"D4-TI-SMT3-A", true},
+		{"d4-ti-smt3-a", true},
+		{"3A", true},
+		{"3a", true},
+		{"  3a  ", true},
+		{"kelas 3A", true},
+		{"KELAS 3a", true},
+		{"kelas-3b", true},
+		{"3B", true},
+		{"D4-TI-3A", true},
+		{"d4-ti-3a", true},
+		{"smt 3 a", true},
+		{"sem 3 a", true},
+		{"semester 3 kelas a", true},
+		{"d4 3 a", true},
+		{"D3-TI-SMT1-A", true},
+		{"d3-ti-1a", true},
+		{"d3 1 a", true},
+		{"d3-ti-smt5-c", true},
+		{"99Z", false},
+		{"KELAS_GHOIB", false},
 	}
 
 	for _, tc := range testCases {
@@ -82,8 +94,8 @@ func TestClassManager_DefaultClass(t *testing.T) {
 	}
 
 	defaultID := cm.GetDefaultClassID()
-	if defaultID != "3A" {
-		t.Errorf("Expected default class 3A, got: %s", defaultID)
+	if defaultID != "D4-TI-SMT3-A" {
+		t.Errorf("Expected default class D4-TI-SMT3-A, got: %s", defaultID)
 	}
 
 	defCfg := cm.GetDefaultClass()
@@ -91,10 +103,16 @@ func TestClassManager_DefaultClass(t *testing.T) {
 		t.Fatalf("Default class config tidak boleh nil")
 	}
 
-	// GetClassOrDefault dengan kelas valid
+	// GetClassOrDefault dengan alias valid (3B)
 	c3b := cm.GetClassOrDefault("3B")
 	if !strings.Contains(c3b.Kampus, "3B") {
 		t.Errorf("GetClassOrDefault(3B) gagal mengambil kelas 3B")
+	}
+
+	// GetClassOrDefault dengan ID kanonikal valid
+	c3bKanonikal := cm.GetClassOrDefault("D4-TI-SMT3-B")
+	if c3bKanonikal != c3b {
+		t.Errorf("GetClassOrDefault(D4-TI-SMT3-B) harus sama dengan GetClassOrDefault(3B)")
 	}
 
 	// GetClassOrDefault dengan kelas tidak valid harus fallback ke default
@@ -111,8 +129,8 @@ func TestClassManager_FallbackSingleFile(t *testing.T) {
 		t.Fatalf("Harus sukses memuat via fallbackSingleFile: %v", err)
 	}
 
-	if !cm.HasClass("3A") {
-		t.Errorf("Fallback jadwal.json harus menyediakan kelas 3A")
+	if !cm.HasClass("D4-TI-SMT3-A") || !cm.HasClass("3A") {
+		t.Errorf("Fallback jadwal.json harus menyediakan kelas D4-TI-SMT3-A dan alias 3A")
 	}
 }
 
@@ -135,14 +153,14 @@ func TestClassManager_SetOverrideManager(t *testing.T) {
 
 	cm.SetOverrideManager(om)
 
-	cfg3A, _ := cm.GetClass("3A")
+	cfg3A, _ := cm.GetClass("D4-TI-SMT3-A")
 	if cfg3A.OverrideManager == nil {
-		t.Errorf("OverrideManager harus terpasang di kelas 3A")
+		t.Errorf("OverrideManager harus terpasang di kelas D4-TI-SMT3-A")
 	}
 
-	cfg3B, _ := cm.GetClass("3B")
+	cfg3B, _ := cm.GetClass("D4-TI-SMT3-B")
 	if cfg3B.OverrideManager == nil {
-		t.Errorf("OverrideManager harus terpasang di kelas 3B")
+		t.Errorf("OverrideManager harus terpasang di kelas D4-TI-SMT3-B")
 	}
 }
 
@@ -156,7 +174,7 @@ func TestClassManager_ReloadAll(t *testing.T) {
 	if len(errs) > 0 {
 		t.Errorf("ReloadAll menghasilkan error: %v", errs)
 	}
-	if count < 2 {
-		t.Errorf("Expected reload minimal 2 kelas, got: %d", count)
+	if count < 19 {
+		t.Errorf("Expected reload minimal 19 kelas, got: %d", count)
 	}
 }

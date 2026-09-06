@@ -168,28 +168,28 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 		t.Errorf("Kelas tidak ada harus menghasilkan error, got: %s", invalidClassResp)
 	}
 
-	// 5. Tes !setkelas oleh admin di grup dengan kelas valid (3B) -> harus sukses
+	// 5. Tes !setkelas oleh admin di grup dengan kelas valid (3B -> D4-TI-SMT3-B) -> harus sukses
 	adminSetResp := csm.HandleCommand(groupJID, true, userJID, true, "!setkelas 3B", classMgr)
-	if !strings.Contains(adminSetResp, "BERHASIL DIATUR") || !strings.Contains(adminSetResp, "3B") {
+	if !strings.Contains(adminSetResp, "BERHASIL DIATUR") || !strings.Contains(adminSetResp, "D4-TI-SMT3-B") {
 		t.Errorf("Admin set kelas harus sukses, got: %s", adminSetResp)
 	}
-	if class := csm.GetClass(groupJID); class != "3B" {
-		t.Errorf("Kelas aktif harus 3B, got: %s", class)
+	if class := csm.GetClass(groupJID); class != "D4-TI-SMT3-B" {
+		t.Errorf("Kelas aktif harus D4-TI-SMT3-B, got: %s", class)
 	}
 
-	// 6. Tes !kelas setelah disetel ke 3B -> harus menampilkan 3B sebagai aktif
+	// 6. Tes !kelas setelah disetel ke 3B -> harus menampilkan D4-TI-SMT3-B sebagai aktif
 	kelasResp := csm.HandleCommand(groupJID, true, userJID, false, "!kelas", classMgr)
-	if !strings.Contains(kelasResp, "3B") || !strings.Contains(kelasResp, "Aktif") {
-		t.Errorf("Respon !kelas harus menunjukkan 3B aktif: %s", kelasResp)
+	if !strings.Contains(kelasResp, "D4-TI-SMT3-B") || !strings.Contains(kelasResp, "Aktif") {
+		t.Errorf("Respon !kelas harus menunjukkan D4-TI-SMT3-B aktif: %s", kelasResp)
 	}
 
-	// 7. Tes !setkelas di DM pribadi (isGroup = false, isAdmin = false) -> harus bisa set sendiri
-	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas 3A", classMgr)
-	if !strings.Contains(dmResp, "BERHASIL DIATUR") || !strings.Contains(dmResp, "3A") {
+	// 7. Tes !setkelas di DM pribadi (isGroup = false, isAdmin = false) dengan input bebas "smt 3 a" -> harus sukses
+	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
+	if !strings.Contains(dmResp, "BERHASIL DIATUR") || !strings.Contains(dmResp, "D4-TI-SMT3-A") {
 		t.Errorf("User di DM harus bisa set kelas miliknya, got: %s", dmResp)
 	}
-	if class := csm.GetClass(userJID); class != "3A" {
-		t.Errorf("Kelas DM harus 3A, got: %s", class)
+	if class := csm.GetClass(userJID); class != "D4-TI-SMT3-A" {
+		t.Errorf("Kelas DM harus D4-TI-SMT3-A, got: %s", class)
 	}
 
 	// 8. Tes !resetkelas oleh non-admin di grup -> harus ditolak

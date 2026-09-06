@@ -96,10 +96,10 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
 ### Perintah Pengaturan Multi-Kelas (`!kelas`, `!setkelas`, `!resetkelas`)
 | Perintah | Di Grup | Di DM Pribadi | Hak Akses di Grup | Penjelasan Singkat |
 | :--- | :--- | :--- | :--- | :--- |
-| `!daftarkelas` / `!kelas` | `!daftarkelas` | `daftarkelas` | **Semua Anggota** | Melihat daftar kelas aktif & seluruh kelas yang tersedia di bot |
-| `!setkelas [nama_kelas]` | `!setkelas 3A` | `setkelas 3A` | **Khusus Admin** | Menautkan grup/chat ke kelas tertentu (cth: `!setkelas 3B`) |
-| `!pilihkelas [nama_kelas]` | `!pilihkelas 3A` | `pilihkelas 3A` | **Khusus Admin** | Alias dari perintah `!setkelas` |
-| `!resetkelas` | `!resetkelas` | `resetkelas` | **Khusus Admin** | Mengembalikan setelan chat ke kelas bawaan (*default*) |
+| `!daftarkelas` / `!kelas` | `!daftarkelas` | `daftarkelas` | **Semua Anggota** | Melihat status kelas aktif & 19 pilihan kelas yang dikelompokkan per semester |
+| `!setkelas [nama_kelas]` | `!setkelas D4-TI-SMT3-A` | `setkelas smt 3 a` | **Khusus Admin** | Menautkan grup/chat ke kelas tertentu (mendukung alias bebas) |
+| `!pilihkelas [nama_kelas]` | `!pilihkelas D4-TI-SMT3-A`| `pilihkelas smt 3 a`| **Khusus Admin** | Alias dari perintah `!setkelas` |
+| `!resetkelas` | `!resetkelas` | `resetkelas` | **Khusus Admin** | Menghapus setelan kelas chat (kembali ke status *Belum Diatur*) |
 
 ### Perintah Jadwal Perkuliahan
 | Perintah | Di Grup | Di DM Pribadi | Penjelasan Singkat |
@@ -461,15 +461,18 @@ Mulai versi 2.0, bot mendukung arsitektur **Multi-Tenant (Banyak Kelas Paralel)*
 1. **Explicit Onboarding (Status Awal):** Ketika bot pertama kali dimasukkan ke grup baru atau di-chat secara personal (DM), status kelas obrolan adalah **Belum Diatur**.
    * Jika seseorang mengetik `!hari ini`, `!besok`, `!jadwal`, `!next`, `!matkul`, `!tugas`, atau `!reminder on`, bot tidak akan sembarangan menampilkan jadwal kelas lain.
    * Sebaliknya, bot akan menampilkan pesan ramah **Panduan Onboarding** yang meminta pengguna/admin menentukan kelas terlebih dahulu via `!setkelas [nama_kelas]`.
-2. **Master Jadwal Modular (19 Kelas):** Seluruh kelas D3 dan D4 tersimpan rapi dalam format file JSON di folder `data/jadwal/`:
-   * **D4 Sarjana Terapan (12 Kelas):** `D4-TI-1A` s.d. `1D`, `D4-TI-3A` s.d. `3D`, `D4-TI-5A`, `5B`, `D4-TI-7A`, `7B`.
-   * **D3 Diploma (7 Kelas):** `D3-TI-1A`, `1B`, `D3-TI-3A`, `3B`, `D3-TI-5A`, `5B`, `5C`.
-   * Kompatibilitas alias pendek tetap didukung (contoh: `!setkelas 3A` dan `!setkelas 3B`).
-3. **Pemetaan Obrolan (*Chat-to-Class Mapping*):** Setiap grup WhatsApp atau obrolan pribadi ditautkan ke kelas tertentu melalui database `tugas.db` (tabel `chat_settings`).
-4. **Penyimpanan In-Memory & O(1) Lookup:** Bot menyimpan data seluruh kelas dan pengaturan obrolan dalam memori (*cached*) dengan proteksi `sync.RWMutex`, menjamin pembacaan jadwal tetap instan tanpa lag.
+2. **Format Eksplisit Semester (Bebas Salah Paham):**
+   * Format kode kelas distandarkan secara eksplisit: `<PRODI>-SMT<SEMESTER>-<KELAS>` (contoh: `D4-TI-SMT3-A`, `D4-TI-SMT1-B`, `D3-TI-SMT1-A`).
+   * **Mengapa demikian?** Jika hanya ditulis `3A`, banyak mahasiswa salah mengira itu adalah "Kelas 3" (Tingkat 3 / Tahun ke-3). Dengan format `SMT3`, status Semester 3 tercantum secara gamblang dan presisi.
+   * **Alias Cerdas Tetap Didukung:** Bot dilengkapi pencocok cerdas sehingga pengguna tetap dapat mengetik ringkas seperti `!setkelas smt 3 a`, `!setkelas d4 3 a`, atau bahkan `!setkelas 3a` (otomatis diarahkan ke `D4-TI-SMT3-A`).
+3. **Master Jadwal Modular (19 Kelas):** Seluruh kelas D3 dan D4 tersimpan rapi dalam format file JSON di folder `data/jadwal/`:
+   * **D4 Sarjana Terapan (12 Kelas):** `D4-TI-SMT1-A` s.d. `1D`, `D4-TI-SMT3-A` s.d. `3D`, `D4-TI-SMT5-A`, `5B`, `D4-TI-SMT7-A`, `7B`.
+   * **D3 Diploma (7 Kelas):** `D3-TI-SMT1-A`, `1B`, `D3-TI-SMT3-A`, `3B`, `D3-TI-SMT5-A`, `5B`, `5C`.
+4. **Pemetaan Obrolan (*Chat-to-Class Mapping*):** Setiap grup WhatsApp atau obrolan pribadi ditautkan ke kelas tertentu melalui database `tugas.db` (tabel `chat_settings`).
+5. **Penyimpanan In-Memory & O(1) Lookup:** Bot menyimpan data seluruh kelas dan pengaturan obrolan dalam memori (*cached*) dengan proteksi `sync.RWMutex`, menjamin pembacaan jadwal tetap instan tanpa lag.
 
-### B. Melihat Status Kelas Aktif & Daftar Pilihan Kelas
-Untuk mengetahui status kelas aktif di chat ini dan melihat seluruh 19 kelas yang tersedia:
+### B. Melihat Status Kelas Aktif & Daftar Pilihan Kelas (Dikelompokkan per Semester)
+Untuk mengetahui status kelas aktif di chat ini dan melihat seluruh 19 kelas resmi yang dikelompokkan secara terstruktur:
 * **Perintah:**
   ```text
   !daftarkelas
@@ -479,19 +482,45 @@ Untuk mengetahui status kelas aktif di chat ini dan melihat seluruh 19 kelas yan
   ```text
   🏫 *DAFTAR KELAS PERKULIAHAN*
   ──────────
-  📌 *Kelas Aktif di Chat Ini:* ⚠️ *Belum Diatur* _(Silakan tentukan kelas)_
+  📌 *Kelas Aktif di Chat Ini:* D4-TI-SMT3-A — _D4 Semester 3 (Transisi) / Kelas 3A_
 
-  Pilihan kelas yang tersedia di bot:
-  • 🔘 *D3-TI-1A* — _D3 Semester 1 / Kelas 1A_
-  • 🔘 *D4-TI-1A* — _D4 Semester 1 / Kelas 1A_
-  • 🔘 *D4-TI-3A* — _D4 Semester 3 (Transisi) / Kelas 3A_
-  ...
+  Pilihan kelas resmi (dikelompokkan per semester):
+
+  📚 *PROGRAM STUDI D4 TEKNIK INFORMATIKA*
+    • *Semester 1:*
+      - 🔘 `D4-TI-SMT1-A`
+      - 🔘 `D4-TI-SMT1-B`
+      - 🔘 `D4-TI-SMT1-C`
+      - 🔘 `D4-TI-SMT1-D`
+    • *Semester 3:*
+      - ✅ *`D4-TI-SMT3-A`* *(Aktif)*
+      - 🔘 `D4-TI-SMT3-B`
+      - 🔘 `D4-TI-SMT3-C`
+      - 🔘 `D4-TI-SMT3-D`
+    • *Semester 5:*
+      - 🔘 `D4-TI-SMT5-A`
+      - 🔘 `D4-TI-SMT5-B`
+    • *Semester 7:*
+      - 🔘 `D4-TI-SMT7-A`
+      - 🔘 `D4-TI-SMT7-B`
+
+  📚 *PROGRAM STUDI D3 TEKNIK INFORMATIKA*
+    • *Semester 1:*
+      - 🔘 `D3-TI-SMT1-A`
+      - 🔘 `D3-TI-SMT1-B`
+    • *Semester 3:*
+      - 🔘 `D3-TI-SMT3-A`
+      - 🔘 `D3-TI-SMT3-B`
+    • *Semester 5:*
+      - 🔘 `D3-TI-SMT5-A`
+      - 🔘 `D3-TI-SMT5-B`
+      - 🔘 `D3-TI-SMT5-C`
 
   ──────────
-  💡 *Cara Mengatur/Mengganti Kelas:*
+  💡 *Cara Memilih / Mengatur Kelas:*
   Ketik: `!setkelas [nama_kelas]`
-  Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`
-  _(Khusus Admin Grup)_
+  Contoh: `!setkelas D4-TI-SMT3-A`
+  _Tips: Anda juga dapat mengetik santai seperti `!setkelas smt 3 a` atau `!setkelas d4 3 a`._
   ```
 
 ### C. Menautkan Grup ke Kelas Tertentu (`!setkelas` / `!pilihkelas`)
@@ -502,12 +531,15 @@ Hanya **Admin Grup** (atau pengguna di DM pribadi) yang memiliki wewenang untuk 
   ```
   *(Alias: `!pilihkelas [nama_kelas]`)*
 * **Contoh Penggunaan:**
-  * `!setkelas D4-TI-1A`
-  * `!setkelas D3-TI-3A`
-  * `!setkelas 3A` *(alias kompatibilitas)*
+  * `!setkelas D4-TI-SMT3-A` *(format kanonikal)*
+  * `!setkelas smt 3 a` *(alias bebas spasi)*
+  * `!setkelas d4 3 a` *(alias prodi + semester)*
+  * `!setkelas 3a` *(alias kompatibilitas pendek)*
+  * `!setkelas D3-TI-SMT1-A` *(kelas D3)*
+  * `!setkelas d3 1 a` *(alias D3 santai)*
 * **Karakteristik & Validasi:**
-  * Penulisan bersifat *case-insensitive* (`d4-ti-1a` atau `D4-TI-1A` sama-sama dikenali secara cerdas).
-  * Jika nama kelas tidak terdaftar di sistem, bot menolak dan menampilkan 19 pilihan kelas yang valid.
+  * Penulisan bersifat *case-insensitive* (`d4-ti-smt3-a` atau `D4-TI-SMT3-A` sama-sama dikenali secara cerdas).
+  * Jika nama kelas tidak terdaftar di sistem, bot menolak dan memandu pengguna mengecek `!daftarkelas`.
   * Pengaturan tersimpan permanen di database `tugas.db` (tabel `chat_settings`).
 
 ### D. Mereset Pengaturan Kelas (`!resetkelas`)
@@ -529,13 +561,12 @@ Jika ada revisi file jadwal pada server:
 3. Bot akan menyegarkan seluruh 19 kelas dari disk ke memori tanpa perlu me-restart bot.
 
 ### F. Pengaruh Pengaturan Kelas terhadap Fitur Lain
-Saat kelas aktif di suatu obrolan telah disetel (misal ke `D4-TI-3A`):
+Saat kelas aktif di suatu obrolan telah disetel (misal ke `D4-TI-SMT3-A`):
 * **Pengecekan Jadwal (`!hari ini`, `!besok`, `!senin`, dll.):** Otomatis menyajikan jadwal kelas tersebut.
 * **Kuliah Real-Time (`!next` / `!sekarang`):** Memeriksa perkuliahan kelas tersebut yang sedang berlangsung.
 * **Pengingat Tugas (`!tugas`):** Terhubung langsung ke konteks kelas aktif.
 * **Pengingat Pagi Otomatis (`!reminder on`):** Broadcast pagi (06:30 WIB) otomatis menyajikan jadwal harian kelas tersebut.
 * **Pencarian Dosen & Ruangan (`!dosen`, `!ruang`):** Mencocokkan data pada jadwal kelas tersebut.
-* **Broadcast Pengingat Pagi (06:30 WIB):** Mengirimkan jadwal kelas 3B khusus ke grup tersebut.
 
 ---
 
