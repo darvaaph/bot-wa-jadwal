@@ -103,5 +103,25 @@ func TestUtils(t *testing.T) {
 	if !matchCommandPrefix("setkelas 3B", false, "setkelas", "kelas") {
 		t.Errorf("matchCommandPrefix(setkelas 3B, DM) should be true")
 	}
+
+	// 14. Test isMenuOrHelpCommand
+	if !isMenuOrHelpCommand("!menu", true) {
+		t.Errorf("isMenuOrHelpCommand(!menu, group) should be true")
+	}
+	if !isMenuOrHelpCommand("/help", true) {
+		t.Errorf("isMenuOrHelpCommand(/help, group) should be true")
+	}
+	if isMenuOrHelpCommand("menu", true) {
+		t.Errorf("isMenuOrHelpCommand(menu tanpa prefix, group) should be false")
+	}
+	if !isMenuOrHelpCommand("menu", false) {
+		t.Errorf("isMenuOrHelpCommand(menu, DM) should be true")
+	}
+	if !isMenuOrHelpCommand("panduan", false) {
+		t.Errorf("isMenuOrHelpCommand(panduan, DM) should be true")
+	}
+	if isMenuOrHelpCommand("jadwal", false) {
+		t.Errorf("isMenuOrHelpCommand(jadwal, DM) should be false")
+	}
 }
 
