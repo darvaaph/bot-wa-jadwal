@@ -65,6 +65,16 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
   * Integrasi perintah kelas dan hot-reload seluruh kelas (`!reload`) di WhatsApp.
   * Personalisasi broadcast jadwal pagi 06:30 WIB per kelas grup pada [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
   * 100% lulus integrasi test [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) dan kompilasi biner `bot-jadwal.exe` sukses.
+- [x] **Ekstraksi Lengkap 19 Kelas D3 & D4 Teknik Informatika:** *(Selesai)*
+  * 12 Kelas D4 Sarjana Terapan (`D4-TI-1A` s.d. `1D`, `D4-TI-3A` s.d. `3D`, `D4-TI-5A`, `5B`, `D4-TI-7A`, `7B`).
+  * 7 Kelas D3 Diploma (`D3-TI-1A`, `1B`, `D3-TI-3A`, `3B`, `D3-TI-5A`, `5B`, `5C`).
+  * Integrasi 47 inisial dosen (termasuk dosen umum/bahasa dan tim teaching) serta 41 mata kuliah dengan label Teori/Praktikum.
+- [x] **Explicit Onboarding (Best Practice WhatsApp Bot):** *(Selesai)*
+  * Status awal chat baru adalah `Belum Diatur` tanpa asumsi kelas tertentu.
+  * Perintah jadwal (`!hari ini`, `!besok`, `!jadwal`, `!next`, `!matkul`, dll.), tugas (`!tugas`), dan override langsung menampilkan pesan panduan onboarding.
+  * `!daftarkelas` menampilkan `📌 Kelas Aktif di Chat Ini: ⚠️ *Belum Diatur*`.
+  * `!reminder on` menolak aktif sebelum kelas ditentukan oleh admin grup.
+  * 17 Unit test suite **100% PASS** dan kompilasi biner `bot-jadwal.exe` sukses.
 - [ ] **Cek Jadwal Lintas Kelas (*Cross-Class Peek*):**
   * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!jadwal senin 3b` atau `!next 3b`).
 - [ ] **Distribusi Dokumen Silabus / Modul Praktikum PDF (`!modul`):**

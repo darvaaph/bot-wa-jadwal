@@ -455,15 +455,21 @@ Saat menjalankan perintah `!pindah` atau `!kuliahganti`, bot secara otomatis mem
 
 ## 9. 🏫 Panduan Penggunaan Multi-Kelas (`!kelas` & `!setkelas`)
 
-Mulai versi 2.0, bot mendukung arsitektur **Multi-Tenant (Banyak Kelas Paralel)**. Satu bot WhatsApp yang sama dapat melayani berbagai kelas paralel sekaligus (misalnya: D3-3A Teknik Informatika, D3-3B Teknik Informatika, dll.) tanpa saling mencampur atau menimpa jadwal satu sama lain.
+Mulai versi 2.0, bot mendukung arsitektur **Multi-Tenant (Banyak Kelas Paralel)** untuk **D3 & D4 Teknik Informatika (total 19 kelas)**. Satu bot WhatsApp yang sama dapat melayani berbagai kelas paralel sekaligus tanpa saling mencampur atau menimpa jadwal satu sama lain.
 
-### A. Konsep Kerja Multi-Kelas
-1. **Master Jadwal Modular:** Setiap kelas memiliki file konfigurasi JSON tersendiri di folder `data/jadwal/` pada komputer server (contoh: `data/jadwal/3a.json`, `data/jadwal/3b.json`).
-2. **Pemetaan Obrolan (*Chat-to-Class Mapping*):** Setiap grup WhatsApp atau obrolan pribadi dapat ditautkan ke kelas tertentu melalui database `chat_settings`.
-3. **Penyimpanan In-Memory & O(1) Lookup:** Bot menyimpan data jadwal seluruh kelas dan pengaturan grup dalam memori (*cached*) dengan proteksi `sync.RWMutex`, sehingga pembacaan jadwal tetap instan tanpa lag.
+### A. Konsep Kerja & Explicit Onboarding (Best Practice)
+1. **Explicit Onboarding (Status Awal):** Ketika bot pertama kali dimasukkan ke grup baru atau di-chat secara personal (DM), status kelas obrolan adalah **Belum Diatur**.
+   * Jika seseorang mengetik `!hari ini`, `!besok`, `!jadwal`, `!next`, `!matkul`, `!tugas`, atau `!reminder on`, bot tidak akan sembarangan menampilkan jadwal kelas lain.
+   * Sebaliknya, bot akan menampilkan pesan ramah **Panduan Onboarding** yang meminta pengguna/admin menentukan kelas terlebih dahulu via `!setkelas [nama_kelas]`.
+2. **Master Jadwal Modular (19 Kelas):** Seluruh kelas D3 dan D4 tersimpan rapi dalam format file JSON di folder `data/jadwal/`:
+   * **D4 Sarjana Terapan (12 Kelas):** `D4-TI-1A` s.d. `1D`, `D4-TI-3A` s.d. `3D`, `D4-TI-5A`, `5B`, `D4-TI-7A`, `7B`.
+   * **D3 Diploma (7 Kelas):** `D3-TI-1A`, `1B`, `D3-TI-3A`, `3B`, `D3-TI-5A`, `5B`, `5C`.
+   * Kompatibilitas alias pendek tetap didukung (contoh: `!setkelas 3A` dan `!setkelas 3B`).
+3. **Pemetaan Obrolan (*Chat-to-Class Mapping*):** Setiap grup WhatsApp atau obrolan pribadi ditautkan ke kelas tertentu melalui database `tugas.db` (tabel `chat_settings`).
+4. **Penyimpanan In-Memory & O(1) Lookup:** Bot menyimpan data seluruh kelas dan pengaturan obrolan dalam memori (*cached*) dengan proteksi `sync.RWMutex`, menjamin pembacaan jadwal tetap instan tanpa lag.
 
-### B. Melihat Status Kelas Aktif & Seluruh Kelas yang Tersedia
-Untuk mengetahui kelas apa yang sedang aktif di grup Anda dan kelas apa saja yang tersedia di sistem bot:
+### B. Melihat Status Kelas Aktif & Daftar Pilihan Kelas
+Untuk mengetahui status kelas aktif di chat ini dan melihat seluruh 19 kelas yang tersedia:
 * **Perintah:**
   ```text
   !daftarkelas
@@ -471,17 +477,21 @@ Untuk mengetahui kelas apa yang sedang aktif di grup Anda dan kelas apa saja yan
   *(Alias: `!kelas`)*
 * **Format Balasan Bot:**
   ```text
-  🏫 *DAFTAR KELAS TERSEDIA*
+  🏫 *DAFTAR KELAS PERKULIAHAN*
   ──────────
-  Kelas aktif di chat ini: *3A*
-  
-  Daftar kelas yang tersedia:
-  • *3A* (D3-3A Teknik Informatika)
-  • *3B* (D3-3B Teknik Informatika)
-  
+  📌 *Kelas Aktif di Chat Ini:* ⚠️ *Belum Diatur* _(Silakan tentukan kelas)_
+
+  Pilihan kelas yang tersedia di bot:
+  • 🔘 *D3-TI-1A* — _D3 Semester 1 / Kelas 1A_
+  • 🔘 *D4-TI-1A* — _D4 Semester 1 / Kelas 1A_
+  • 🔘 *D4-TI-3A* — _D4 Semester 3 (Transisi) / Kelas 3A_
+  ...
+
   ──────────
-  _Admin grup dapat mengganti kelas dengan perintah:_
-  _!setkelas [nama_kelas]_
+  💡 *Cara Mengatur/Mengganti Kelas:*
+  Ketik: `!setkelas [nama_kelas]`
+  Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`
+  _(Khusus Admin Grup)_
   ```
 
 ### C. Menautkan Grup ke Kelas Tertentu (`!setkelas` / `!pilihkelas`)
@@ -491,38 +501,40 @@ Hanya **Admin Grup** (atau pengguna di DM pribadi) yang memiliki wewenang untuk 
   !setkelas [nama_kelas]
   ```
   *(Alias: `!pilihkelas [nama_kelas]`)*
-* **Contoh:**
-  * `!setkelas 3A`
-  * `!setkelas 3B`
+* **Contoh Penggunaan:**
+  * `!setkelas D4-TI-1A`
+  * `!setkelas D3-TI-3A`
+  * `!setkelas 3A` *(alias kompatibilitas)*
 * **Karakteristik & Validasi:**
-  * Penulisan bersifat *case-insensitive* (`3a` atau `3A` sama-sama dikenali secara cerdas).
-  * Jika nama kelas tidak terdaftar di server, bot akan menolak dan menampilkan daftar kelas yang valid.
+  * Penulisan bersifat *case-insensitive* (`d4-ti-1a` atau `D4-TI-1A` sama-sama dikenali secara cerdas).
+  * Jika nama kelas tidak terdaftar di sistem, bot menolak dan menampilkan 19 pilihan kelas yang valid.
   * Pengaturan tersimpan permanen di database `tugas.db` (tabel `chat_settings`).
 
-### D. Mengembalikan ke Kelas Bawaan (*Default*) (`!resetkelas`)
-Jika grup ingin melepaskan kustomisasi kelas dan kembali ke kelas bawaan server (default `3A`):
+### D. Mereset Pengaturan Kelas (`!resetkelas`)
+Jika grup ingin melepaskan kustomisasi kelas dan kembali ke status belum diatur:
 * **Format Perintah:**
   ```text
   !resetkelas
   ```
   *(Khusus Admin Grup)*
+* Chat akan kembali ke status **Belum Diatur**, dan perintah jadwal berikutnya akan menampilkan panduan onboarding.
 
-### E. Cara Menambahkan Kelas Baru di Server
-Jika ada kelas baru (misal kelas `1A`, `2B`, atau angkatan lain) yang ingin ikut menggunakan bot:
-1. Buat file baru di server: `data/jadwal/<kode_kelas>.json` (misal: `data/jadwal/1a.json`).
-2. Isi struktur JSON sesuai template (mata kuliah, hari, jam, ruangan, dosen).
-3. Di WhatsApp, kirim perintah:
+### E. Memperbarui Data Jadwal di Server (`!reload`)
+Jika ada revisi file jadwal pada server:
+1. Perbarui file JSON di folder `data/jadwal/`.
+2. Di WhatsApp, kirim perintah:
    ```text
    !reload
    ```
-4. Bot akan mendeteksi file baru tersebut dan memuatnya ke memori secara instan.
-5. Admin di grup kelas baru cukup mengetik `!setkelas 1A`, dan bot langsung aktif melayani jadwal kelas tersebut!
+3. Bot akan menyegarkan seluruh 19 kelas dari disk ke memori tanpa perlu me-restart bot.
 
 ### F. Pengaruh Pengaturan Kelas terhadap Fitur Lain
-Saat kelas aktif di suatu grup diatur (misal ke `3B`):
-* **Pengecekan Jadwal (`!hari ini`, `!besok`, `!senin`, dll.):** Otomatis menyajikan jadwal kelas 3B.
-* **Kuliah Real-Time (`!next` / `!sekarang`):** Memeriksa perkuliahan kelas 3B yang sedang berlangsung.
-* **Pencarian Dosen & Ruangan (`!dosen`, `!ruang`):** Mencocokkan data pada jadwal kelas 3B.
+Saat kelas aktif di suatu obrolan telah disetel (misal ke `D4-TI-3A`):
+* **Pengecekan Jadwal (`!hari ini`, `!besok`, `!senin`, dll.):** Otomatis menyajikan jadwal kelas tersebut.
+* **Kuliah Real-Time (`!next` / `!sekarang`):** Memeriksa perkuliahan kelas tersebut yang sedang berlangsung.
+* **Pengingat Tugas (`!tugas`):** Terhubung langsung ke konteks kelas aktif.
+* **Pengingat Pagi Otomatis (`!reminder on`):** Broadcast pagi (06:30 WIB) otomatis menyajikan jadwal harian kelas tersebut.
+* **Pencarian Dosen & Ruangan (`!dosen`, `!ruang`):** Mencocokkan data pada jadwal kelas tersebut.
 * **Broadcast Pengingat Pagi (06:30 WIB):** Mengirimkan jadwal kelas 3B khusus ke grup tersebut.
 
 ---

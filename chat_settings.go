@@ -120,6 +120,68 @@ func (csm *ChatSettingsManager) CountSettings() int {
 	return len(csm.cache)
 }
 
+// GetOnboardingPrompt mengembalikan pesan panduan onboarding ketika chat belum memilih kelas
+func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
+	var sb strings.Builder
+	sb.WriteString("👋 *HALO! KELAS BELUM DIATUR*\n")
+	sb.WriteString("──────────\n")
+	if isGroup {
+		sb.WriteString("Grup ini belum terhubung ke jadwal kelas mana pun.\n")
+		sb.WriteString("Silakan tentukan kelas terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian yang sesuai.\n\n")
+		sb.WriteString("👉 *Cara Memilih Kelas (Admin Grup):*\n")
+		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
+		sb.WriteString("Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`\n\n")
+		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia.\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("⚠️ _Catatan: Di grup WhatsApp, hanya Admin Grup yang berhak mengatur kelas._")
+	} else {
+		sb.WriteString("Chat pribadi ini belum terhubung ke jadwal kelas mana pun.\n")
+		sb.WriteString("Silakan tentukan kelas Anda terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian Anda.\n\n")
+		sb.WriteString("👉 *Cara Memilih Kelas:*\n")
+		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
+		sb.WriteString("Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`\n\n")
+		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia.\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("💡 _Di chat pribadi, Anda bebas mengganti kelas kapan saja sesuai kebutuhan._")
+	}
+	return sb.String()
+}
+
+// BuildUnconfiguredMenu membuat menu panduan utama saat chat belum memilih kelas
+func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
+	var sb strings.Builder
+	sb.WriteString("*JADWAL KULIAH MAHASISWA*\n")
+	sb.WriteString("Politeknik Negeri Cilacap (PNC)\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("⚠️ *STATUS: KELAS BELUM DIATUR*\n")
+	sb.WriteString("Chat ini belum memilih kelas perkuliahan aktif.\n\n")
+
+	sb.WriteString("🚀 *LANGKAH AWAL (ONBOARDING):*\n")
+	sb.WriteString("1. Ketik `!daftarkelas` ➔ Melihat 19 pilihan kelas D3 & D4\n")
+	sb.WriteString("2. Ketik `!setkelas [nama_kelas]` ➔ Mengaktifkan kelas untuk chat ini\n")
+	sb.WriteString("   _Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`_\n\n")
+
+	sb.WriteString("──────────\n")
+	sb.WriteString("📋 *DAFTAR FITUR & PERINTAH (Setelah Kelas Aktif):*\n")
+	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
+	sb.WriteString("• `!hari ini` ➔ Jadwal kuliah hari ini\n")
+	sb.WriteString("• `!besok` ➔ Jadwal kuliah besok\n")
+	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n")
+	sb.WriteString("• `!matkul` ➔ Daftar mata kuliah & dosen\n")
+	sb.WriteString("• `!tugas` ➔ Pengingat tugas & deadline\n")
+	sb.WriteString("• `!reminder on` ➔ Pengingat pagi otomatis (06:30 WIB)\n")
+	sb.WriteString("• `!dosen [nama/kode]` ➔ Cari jadwal dosen\n")
+	sb.WriteString("• `!ruang [nama]` ➔ Cari jadwal ruangan\n")
+	sb.WriteString("• `!cari [kata]` ➔ Pencarian global\n\n")
+
+	if isGroup {
+		sb.WriteString("💡 _Catatan: Di grup WhatsApp, hanya Admin Grup yang dapat menyetel kelas (`!setkelas`)._")
+	} else {
+		sb.WriteString("💡 _Di chat pribadi (DM), Anda bebas menyetel kelas sesuai perkuliahan Anda._")
+	}
+	return sb.String()
+}
+
 // HandleCommand memproses perintah pengaturan kelas (!setkelas, !pilihkelas, !daftarkelas, !kelas, !resetkelas)
 func (csm *ChatSettingsManager) HandleCommand(
 	chatJID string,
@@ -151,7 +213,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 		active := csm.GetClass(chatJID)
 		var statusStr string
 		if active == "" {
-			statusStr = fmt.Sprintf("*%s* _(Kelas Bawaan Default)_", classMgr.GetDefaultClassID())
+			statusStr = "⚠️ *Belum Diatur* _(Silakan tentukan kelas)_"
 		} else {
 			cfg, _ := classMgr.GetClass(active)
 			kampus := ""
@@ -174,7 +236,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 			if cfg != nil && cfg.Kampus != "" {
 				desc = fmt.Sprintf(" — _%s_", cfg.Kampus)
 			}
-			if c == active || (active == "" && c == classMgr.GetDefaultClassID()) {
+			if active != "" && c == active {
 				sb.WriteString(fmt.Sprintf("• ✅ *%s*%s *(Aktif)*\n", c, desc))
 			} else {
 				sb.WriteString(fmt.Sprintf("• 🔘 *%s*%s\n", c, desc))
@@ -182,9 +244,9 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		sb.WriteString("\n──────────\n")
-		sb.WriteString("💡 *Cara Mengganti Kelas:*\n")
+		sb.WriteString("💡 *Cara Mengatur/Mengganti Kelas:*\n")
 		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
-		sb.WriteString("Contoh: `!setkelas 3B`\n")
+		sb.WriteString("Contoh: `!setkelas D4-TI-1A` atau `!setkelas 3A`\n")
 		if isGroup {
 			sb.WriteString("_(Khusus Admin Grup)_")
 		} else {
@@ -196,7 +258,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 	case "setkelas", "pilihkelas":
 		if len(fields) < 2 {
 			available := strings.Join(classMgr.ListClasses(), ", ")
-			return fmt.Sprintf("ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas 3A`\n\nPilihan kelas yang tersedia:\n👉 *%s*\n\nKetik `!daftarkelas` untuk melihat rincian setiap kelas.", available)
+			return fmt.Sprintf("ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas D4-TI-1A`\n\nPilihan kelas yang tersedia:\n👉 *%s*\n\nKetik `!daftarkelas` untuk melihat rincian setiap kelas.", available)
 		}
 
 		targetRaw := strings.TrimSpace(rawMsg[len(fields[0]):])
@@ -227,7 +289,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		_ = csm.DeleteClass(chatJID)
-		return fmt.Sprintf("🔄 *PENGATURAN KELAS DIRESET*\n──────────\nChat/Grup ini telah dikembalikan ke kelas bawaan default (*%s*).", classMgr.GetDefaultClassID())
+		return "🔄 *PENGATURAN KELAS DIRESET*\n──────────\nPengaturan kelas untuk chat ini telah dihapus (status: *Belum Diatur*).\n\nSilakan gunakan perintah `!setkelas [nama_kelas]` untuk memilih kelas kembali."
 
 	default:
 		return ""

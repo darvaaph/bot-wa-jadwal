@@ -317,3 +317,8 @@ func matchCommandPrefix(msg string, isGroup bool, keywords ...string) bool {
 	return false
 }
 
+// isMenuOrHelpCommand memeriksa apakah pesan merupakan perintah melihat menu atau panduan
+func isMenuOrHelpCommand(msg string, isGroup bool) bool {
+	return matchCommandPrefix(msg, isGroup, "menu", "help", "keyword", "keywords", "bantuan", "panduan")
+}
+

@@ -141,10 +141,13 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 	groupJID := "120363001@g.us"
 	userJID := "628123456789@s.whatsapp.net"
 
-	// 1. Tes !daftarkelas awal
+	// 1. Tes !daftarkelas awal (status belum diatur)
 	daftarResp := csm.HandleCommand(groupJID, true, userJID, false, "!daftarkelas", classMgr)
-	if !strings.Contains(daftarResp, "DAFTAR KELAS PERKULIAHAN") || !strings.Contains(daftarResp, "3A") {
-		t.Errorf("Respon !daftarkelas tidak valid: %s", daftarResp)
+	if !strings.Contains(daftarResp, "DAFTAR KELAS PERKULIAHAN") || !strings.Contains(daftarResp, "Belum Diatur") {
+		t.Errorf("Respon !daftarkelas awal harus menunjukkan status 'Belum Diatur': %s", daftarResp)
+	}
+	if strings.Contains(daftarResp, "(Aktif)") {
+		t.Errorf("Respon !daftarkelas awal tidak boleh menandai kelas apa pun sebagai aktif: %s", daftarResp)
 	}
 
 	// 2. Tes !setkelas tanpa argumen
@@ -195,13 +198,56 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 		t.Errorf("Non-admin reset kelas harus ditolak, got: %s", nonAdminReset)
 	}
 
-	// 9. Tes !resetkelas oleh admin di grup -> harus sukses kembali ke default
+	// 9. Tes !resetkelas oleh admin di grup -> harus sukses kembali ke status belum diatur
 	adminReset := csm.HandleCommand(groupJID, true, userJID, true, "!resetkelas", classMgr)
-	if !strings.Contains(adminReset, "DIRESET") {
-		t.Errorf("Admin reset kelas harus sukses, got: %s", adminReset)
+	if !strings.Contains(adminReset, "DIRESET") || !strings.Contains(adminReset, "Belum Diatur") {
+		t.Errorf("Admin reset kelas harus sukses dan menyebut Belum Diatur, got: %s", adminReset)
 	}
 	if class := csm.GetClass(groupJID); class != "" {
-		t.Errorf("Setelah reset kelas harus kosong (default), got: %s", class)
+		t.Errorf("Setelah reset kelas harus kosong (unconfigured), got: %s", class)
+	}
+
+	// 10. Verifikasi status !daftarkelas setelah reset kembali menjadi 'Belum Diatur'
+	postResetDaftar := csm.HandleCommand(groupJID, true, userJID, false, "!daftarkelas", classMgr)
+	if !strings.Contains(postResetDaftar, "Belum Diatur") || strings.Contains(postResetDaftar, "(Aktif)") {
+		t.Errorf("Setelah reset, !daftarkelas harus kembali ke status Belum Diatur: %s", postResetDaftar)
+	}
+}
+
+func TestChatSettings_Onboarding(t *testing.T) {
+	db, err := InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal init DB: %v", err)
+	}
+	defer db.Close()
+
+	csm, err := NewChatSettingsManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init CSM: %v", err)
+	}
+
+	// 1. Uji pesan onboarding untuk Grup
+	groupPrompt := csm.GetOnboardingPrompt(true)
+	if !strings.Contains(groupPrompt, "KELAS BELUM DIATUR") || !strings.Contains(groupPrompt, "Admin Grup") || !strings.Contains(groupPrompt, "!setkelas") {
+		t.Errorf("Onboarding prompt grup tidak valid: %s", groupPrompt)
+	}
+
+	// 2. Uji pesan onboarding untuk DM Pribadi
+	dmPrompt := csm.GetOnboardingPrompt(false)
+	if !strings.Contains(dmPrompt, "KELAS BELUM DIATUR") || !strings.Contains(dmPrompt, "Chat pribadi") || !strings.Contains(dmPrompt, "!setkelas") {
+		t.Errorf("Onboarding prompt DM tidak valid: %s", dmPrompt)
+	}
+
+	// 3. Uji menu belum terkonfigurasi untuk Grup
+	groupMenu := csm.BuildUnconfiguredMenu(true)
+	if !strings.Contains(groupMenu, "STATUS: KELAS BELUM DIATUR") || !strings.Contains(groupMenu, "Admin Grup") {
+		t.Errorf("Unconfigured menu grup tidak valid: %s", groupMenu)
+	}
+
+	// 4. Uji menu belum terkonfigurasi untuk DM Pribadi
+	dmMenu := csm.BuildUnconfiguredMenu(false)
+	if !strings.Contains(dmMenu, "STATUS: KELAS BELUM DIATUR") || !strings.Contains(dmMenu, "chat pribadi") {
+		t.Errorf("Unconfigured menu DM tidak valid: %s", dmMenu)
 	}
 }
 

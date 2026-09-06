@@ -238,22 +238,30 @@ func main() {
 				var reminderReply string
 				switch subCmd {
 				case "on", "aktif", "start", "enable":
-					chatJID := v.Info.Chat.String()
-					groupName := "Grup Chat"
-					if v.Info.IsGroup {
-						info, err := client.GetGroupInfo(context.Background(), v.Info.Chat)
-						if err == nil && info != nil && info.Name != "" {
-							groupName = info.Name
+					if activeClassID == "" {
+						reminderReply = "⚠️ *PENGINGAT TIDAK DAPAT DIAKTIFKAN*\n──────────\nChat ini belum menentukan kelas perkuliahan.\nSilakan atur kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
+					} else {
+						chatJID := v.Info.Chat.String()
+						groupName := "Grup Chat"
+						if v.Info.IsGroup {
+							info, err := client.GetGroupInfo(context.Background(), v.Info.Chat)
+							if err == nil && info != nil && info.Name != "" {
+								groupName = info.Name
+							}
 						}
+						_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
 					}
-					_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
 
 				case "off", "nonaktif", "stop", "disable", "matikan":
 					chatJID := v.Info.Chat.String()
 					_, reminderReply = reminderManager.RemoveGroup(chatJID)
 
 				case "test", "tes", "try":
-					reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
+					if activeClassID == "" && chatSettingsManager != nil {
+						reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
+					} else {
+						reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
+					}
 
 				default:
 					reminderReply = reminderManager.Status(v.Info.Chat.String())
@@ -265,6 +273,10 @@ func main() {
 
 			// 4. Handler Khusus Perintah Tugas (!tugas)
 			if taskManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
+				if activeClassID == "" && chatSettingsManager != nil {
+					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
+					return
+				}
 				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
 				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
@@ -273,6 +285,10 @@ func main() {
 
 			// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 			if overrideManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
+				if activeClassID == "" && chatSettingsManager != nil {
+					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
+					return
+				}
 				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
 				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
@@ -284,6 +300,21 @@ func main() {
 
 			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
 			if replyText != "" {
+				if activeClassID == "" && chatSettingsManager != nil {
+					if isMenuOrHelpCommand(msgText, v.Info.IsGroup) {
+						menuReply := chatSettingsManager.BuildUnconfiguredMenu(v.Info.IsGroup)
+						replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, menuReply, "📅", 700*time.Millisecond, "menu unconfigured")
+						return
+					}
+					if strings.Contains(replyText, "tidak dikenali") {
+						replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "⚠️", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
+						return
+					}
+					// Jika chat belum memilih kelas, berikan panduan onboarding alih-alih menampilkan kelas default
+					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 700*time.Millisecond, "onboarding jadwal")
+					return
+				}
+
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
 			}
 		}
