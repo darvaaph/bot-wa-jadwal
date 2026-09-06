@@ -121,6 +121,32 @@ func (csm *ChatSettingsManager) CountSettings() int {
 	return len(csm.cache)
 }
 
+// SyncWithClassManager menyelaraskan dan meng-upgrade setelan kelas lama (misal: "3A" -> "D4-TI-SMT3-A")
+func (csm *ChatSettingsManager) SyncWithClassManager(classMgr *ClassManager) int {
+	if classMgr == nil {
+		return 0
+	}
+
+	csm.mu.RLock()
+	toUpdate := make(map[string]string)
+	for scopeJID, currentClass := range csm.cache {
+		canonical := classMgr.ResolveClassID(currentClass)
+		if canonical != "" && canonical != currentClass {
+			toUpdate[scopeJID] = canonical
+		}
+	}
+	csm.mu.RUnlock()
+
+	updatedCount := 0
+	for scopeJID, canonical := range toUpdate {
+		if err := csm.SetClass(scopeJID, canonical); err == nil {
+			updatedCount++
+		}
+	}
+
+	return updatedCount
+}
+
 // GetOnboardingPrompt mengembalikan pesan panduan onboarding ketika chat belum memilih kelas
 func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 	var sb strings.Builder

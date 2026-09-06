@@ -111,6 +111,10 @@ func main() {
 		if err != nil {
 			fmt.Printf("Peringatan inisialisasi modul chat_settings: %v\n", err)
 		} else {
+			upgraded := chatSettingsManager.SyncWithClassManager(classManager)
+			if upgraded > 0 {
+				fmt.Printf("Berhasil menyelaraskan %d setelan kelas lama ke format kanonikal semester\n", upgraded)
+			}
 			fmt.Printf("Berhasil menginisialisasi modul setelan kelas (%d chat terhubung)\n", chatSettingsManager.CountSettings())
 		}
 	}
