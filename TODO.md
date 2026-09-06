@@ -69,6 +69,9 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
   * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!jadwal senin 3b` atau `!next 3b`).
 - [ ] **Distribusi Dokumen Silabus / Modul Praktikum PDF (`!modul`):**
   * Bot dapat mengirimkan file dokumen praktikum secara langsung dari penyimpanan lokal server ke chat mahasiswa.
+- [ ] **Web Admin Dashboard (Embedded Pure Go Server):**
+  * Dokumen PRD spesifikasi lengkap untuk desainer UI/UX telah selesai dirancang di [DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md).
+  * Siap masuk ke tahap perancangan visual Figma (Moodboard, Design Tokens, Wireframe, High-Fidelity UI, Prototype).
 
 ---
 
@@ -86,4 +89,4 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
 - [x] Riwayat & Rekam Jejak Tugas Selesai Sepanjang Semester (`!tugas riwayat` / `!tugas arsip`).
 - [x] Pembersihan Database saat Bot Dimatikan (*Graceful Shutdown* pada `Ctrl + C` / SIGTERM) untuk mencegah database lock & WAL leak di Windows.
 - [x] Ketahanan Sambungan Internet (*Auto-Reconnect Resilience*) dengan Watchdog Supervisor & Exponential Backoff.
-- [x] Pengujian Unit Test Komprehensif (100% PASS pada `TestOverrideManager`, `TestSchedule`, dan `TestTaskManager`).
+- [x] Pengujian Unit Test Komprehensif (100% PASS pada seluruh 8 test suite: `TestChatSettingsManager`, `TestClassManager`, `TestDatabaseInit`, `TestOverrideManager`, `TestReminderIntegration`, `TestSchedule`, `TestTaskManager`, `TestUtils`).
