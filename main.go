@@ -350,7 +350,7 @@ func main() {
 		fmt.Println("Bot berhasil terhubung ke WhatsApp!")
 	}
 
-	// 8. Jalankan background scheduler pengingat pagi otomatis (06:30 WIB) dengan multi-kelas
+	// 8. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB) dengan multi-kelas
 	reminderManager.StartScheduler(client, classManager, chatSettingsManager, taskManager)
 
 	// 9. Jalankan Watchdog Supervisor untuk auto-reconnect berkala dengan exponential backoff

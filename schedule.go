@@ -1428,7 +1428,7 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString("⚙️ *Pengaturan & Kelas:*\n")
 	sb.WriteString("• `!kelas` ➔ Daftar pilihan & kelas aktif\n")
 	sb.WriteString("• `!setkelas [nama]` ➔ Pilih kelas (Admin)\n")
-	sb.WriteString("• `!reminder on/off` ➔ Pengingat pagi 06:30\n")
+	sb.WriteString("• `!reminder on/off` ➔ Pengingat pagi 06:00\n")
 	sb.WriteString("• `!keyword` ➔ Panduan semua kata kunci\n\n")
 
 	sb.WriteString("──────────\n")

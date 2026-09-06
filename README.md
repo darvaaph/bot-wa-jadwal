@@ -119,7 +119,7 @@ Perintah ini akan menguji seluruh logika perintah, jadwal, dan kalkulasi tugas s
 * `!tugas hapus <ID>` ➔ Menghapus tugas dari database.
 
 ### C. Pengingat Otomatis & Pengaturan Kelas
-* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal otomatis setiap pagi pukul 06:30 WIB.
+* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal otomatis setiap pagi pukul 06:00 WIB.
 * `!kelas` ➔ Melihat daftar kelas yang tersedia di sistem.
 * `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut (contoh: `!setkelas D4-TI-SMT3-A`).
 

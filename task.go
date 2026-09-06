@@ -346,7 +346,7 @@ func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time
 			if isTomorrow {
 				filtered = append(filtered, item)
 			}
-		case "urgent": // Hari ini atau besok (untuk peringatan pagi jam 06:30)
+		case "urgent": // Hari ini atau besok (untuk peringatan pagi jam 06:00)
 			if isToday || isTomorrow {
 				filtered = append(filtered, item)
 			}
@@ -854,7 +854,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
 		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:30 jika ada tugas mendesak._")
+		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
 		return sb.String()
 
 	default:
@@ -894,7 +894,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
 		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:30 jika ada tugas mendesak._")
+		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
 		return sb.String()
 	}
 }

@@ -766,7 +766,7 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString(fmt.Sprintf("• Keterangan   : %s\n", override.Alasan))
 		sb.WriteString("──────────\n")
 		sb.WriteString("✨ Seluruh perkuliahan pada hari tersebut otomatis ditiadakan.\n")
-		sb.WriteString("⏰ Pengingat pagi pukul 06:30 WIB otomatis mengirimkan ucapan selamat libur.\n")
+		sb.WriteString("⏰ Pengingat pagi pukul 06:00 WIB otomatis mengirimkan ucapan selamat libur.\n")
 		sb.WriteString(fmt.Sprintf("_Ketik `!batalganti %d` jika ingin membatalkan status libur._", override.ID))
 		return sb.String()
 

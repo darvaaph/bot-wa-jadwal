@@ -43,7 +43,7 @@ func LoadReminderManager(filepath string) *ReminderManager {
 		filePath: filepath,
 		config: ReminderConfig{
 			Hour:   6,
-			Minute: 30,
+			Minute: 0,
 			Groups: []ReminderGroup{},
 		},
 	}
@@ -54,7 +54,7 @@ func LoadReminderManager(filepath string) *ReminderManager {
 		if err := json.Unmarshal(data, &cfg); err == nil {
 			if cfg.Hour == 0 && cfg.Minute == 0 {
 				cfg.Hour = 6
-				cfg.Minute = 30
+				cfg.Minute = 0
 			}
 			rm.config = cfg
 		}
