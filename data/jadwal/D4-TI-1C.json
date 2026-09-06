@@ -1,5 +1,5 @@
 {
-  "kampus": "D4 Semester 3 (Transisi) / Kelas 3A",
+  "kampus": "D4 Semester 1 / Kelas 1C",
   "dosen": {
     "AB": "Akhmad Bakhrun, S.Kom, M.T.",
     "AD": "Dr. Ade Chandra Nugraha, S.Si., M.T.",
@@ -95,120 +95,111 @@
   "jadwal": [
     {
       "hari": "Senin",
-      "jam": "07:00 - 08:40",
-      "kode_matkul": "25TI2103",
-      "nama_matkul": "Aljabar Linear (Praktikum)",
-      "inisial_dosen": "MR",
-      "dosen": "Muhammad Rizqi Sholahuddin, S.Si., M.T.",
-      "ruang": "D102-Lab. MT"
-    },
-    {
-      "hari": "Senin",
-      "jam": "13:00 - 14:40",
-      "kode_matkul": "25TI2105",
-      "nama_matkul": "Programming Pragmatics (Teori)",
-      "inisial_dosen": "RA",
-      "dosen": "Rahil Jumiyani, S.ST., M.Sc.",
-      "ruang": "D101-Kelas"
+      "jam": "08:40 - 10:40",
+      "kode_matkul": "25TI1101",
+      "nama_matkul": "Dasar-Dasar Pemrograman (Teori)",
+      "inisial_dosen": "SN",
+      "dosen": "Santi Sundari, S.Si., M.T.",
+      "ruang": "D224-Kelas"
     },
     {
       "hari": "Selasa",
-      "jam": "07:00 - 08:40",
-      "kode_matkul": "25TI2102",
-      "nama_matkul": "Matematika Diskrit Lanjut (Praktikum)",
-      "inisial_dosen": "TG",
-      "dosen": "Trisna Gelar, S.T., M.Kom.",
+      "jam": "07:00 - 10:40",
+      "kode_matkul": "25TI1101",
+      "nama_matkul": "Dasar-Dasar Pemrograman (Praktikum)",
+      "inisial_dosen": "WW",
+      "dosen": "Wendi Wirasta, S.T., M.T.",
+      "ruang": "H502-Lab. AI"
+    },
+    {
+      "hari": "Selasa",
+      "jam": "13:50 - 15:20",
+      "kode_matkul": "25KU1008",
+      "nama_matkul": "Matematika Terapan A (Praktikum)",
+      "inisial_dosen": "SD",
+      "dosen": "Siti Dwi Setiarini, S.Si., M.T.",
       "ruang": "H501-Lab. TI"
-    },
-    {
-      "hari": "Selasa",
-      "jam": "08:40 - 12:20",
-      "kode_matkul": "25TI2104",
-      "nama_matkul": "Sistem Basis Data (Praktikum)",
-      "inisial_dosen": "DC",
-      "dosen": "Djoko Cahyo Utomo L, S.Kom., M.MT.",
-      "ruang": "H501-Lab. TI"
-    },
-    {
-      "hari": "Selasa",
-      "jam": "13:00 - 14:40",
-      "kode_matkul": "25TI2103",
-      "nama_matkul": "Aljabar Linear (Teori)",
-      "inisial_dosen": "NJ",
-      "dosen": "Dr. Nurjannah Syakrani, DRA., M.T.",
-      "ruang": "D108-Kelas"
-    },
-    {
-      "hari": "Rabu",
-      "jam": "07:00 - 08:40",
-      "kode_matkul": "25TI2101",
-      "nama_matkul": "Arsitektur dan Organisasi Komputer (Teori)",
-      "inisial_dosen": "MV",
-      "dosen": "Maisevli Harika, S.ST., M.T., M.Eng",
-      "ruang": "D111-Kelas"
     },
     {
       "hari": "Rabu",
       "jam": "08:40 - 10:40",
-      "kode_matkul": "25TI2107",
-      "nama_matkul": "Komunikasi Data dan Jaringan (Teori)",
-      "inisial_dosen": "SF",
-      "dosen": "Sofy Fitriani, S.ST., M.Kom",
-      "ruang": "D223-Kelas"
+      "kode_matkul": "25KU1008",
+      "nama_matkul": "Matematika Terapan A (Teori)",
+      "inisial_dosen": "EB",
+      "dosen": "Eddy B. Soewono, DRS., M.Kom.",
+      "ruang": "D217-Kelas"
     },
     {
       "hari": "Rabu",
-      "jam": "13:50 - 15:20",
-      "kode_matkul": "25TI2106",
-      "nama_matkul": "Sistem Operasi (Praktikum)",
-      "inisial_dosen": "RZ",
-      "dosen": "Muhammad Riza Alifi, S.T., M.T.",
-      "ruang": "D116-Lab. PjBL-2"
+      "jam": "13:00 - 16:30",
+      "kode_matkul": "25TI1103",
+      "nama_matkul": "Konsep Teknologi Informasi dan Komunikasi (Praktikum)",
+      "inisial_dosen": "DC",
+      "dosen": "Djoko Cahyo Utomo L, S.Kom., M.MT.",
+      "ruang": "D107-Lab. RPL"
+    },
+    {
+      "hari": "Kamis",
+      "jam": "07:00 - 08:40",
+      "kode_matkul": "25TI1102",
+      "nama_matkul": "Komputasi Kognitif (Teori)",
+      "inisial_dosen": "AN",
+      "dosen": "Ani Rahmani, S.Si., M.T.",
+      "ruang": "D217-Kelas"
+    },
+    {
+      "hari": "Kamis",
+      "jam": "08:40 - 09:30",
+      "kode_matkul": "25TI1103",
+      "nama_matkul": "Konsep Teknologi Informasi dan Komunikasi (Teori)",
+      "inisial_dosen": "DC",
+      "dosen": "Djoko Cahyo Utomo L, S.Kom., M.MT.",
+      "ruang": "D219-Kelas"
     },
     {
       "hari": "Kamis",
       "jam": "10:40 - 12:20",
-      "kode_matkul": "25TI2106",
-      "nama_matkul": "Sistem Operasi (Teori)",
-      "inisial_dosen": "ST",
-      "dosen": "Setiadi Rachmat, M.Eng.",
-      "ruang": "D224-Kelas"
+      "kode_matkul": "25TI1104",
+      "nama_matkul": "Matematika Diskrit Dasar (Praktikum)",
+      "inisial_dosen": "AP",
+      "dosen": "Aprianti Nanda Sari, S.T., M.Kom.",
+      "ruang": "H501-Lab. TI"
     },
     {
       "hari": "Kamis",
+      "jam": "14:40 - 16:30",
+      "kode_matkul": "25KU0002",
+      "nama_matkul": "Pendidikan Pancasila (Teori)",
+      "inisial_dosen": "CJ",
+      "dosen": "Cahaya Juniarti, M. Pd.",
+      "ruang": "D219-Kelas"
+    },
+    {
+      "hari": "Jumat",
+      "jam": "07:50 - 09:30",
+      "kode_matkul": "25TI1104",
+      "nama_matkul": "Matematika Diskrit Dasar (Teori)",
+      "inisial_dosen": "AP",
+      "dosen": "Aprianti Nanda Sari, S.T., M.Kom.",
+      "ruang": "D108-Kelas"
+    },
+    {
+      "hari": "Jumat",
+      "jam": "13:00 - 13:50",
+      "kode_matkul": "25IG1017",
+      "nama_matkul": "Bahasa Inggris 1 (Teori)",
+      "inisial_dosen": "YZD",
+      "dosen": "Yazid (Dosen Bahasa Inggris)",
+      "ruang": "D217-Kelas"
+    },
+    {
+      "hari": "Jumat",
       "jam": "13:50 - 15:20",
-      "kode_matkul": "25TI2104",
-      "nama_matkul": "Sistem Basis Data (Teori)",
-      "inisial_dosen": "RZ",
-      "dosen": "Muhammad Riza Alifi, S.T., M.T.",
-      "ruang": "D105-Kelas"
-    },
-    {
-      "hari": "Jumat",
-      "jam": "08:40 - 10:40",
-      "kode_matkul": "25TI2102",
-      "nama_matkul": "Matematika Diskrit Lanjut (Teori)",
-      "inisial_dosen": "SD",
-      "dosen": "Siti Dwi Setiarini, S.Si., M.T.",
-      "ruang": "D105-Kelas"
-    },
-    {
-      "hari": "Jumat",
-      "jam": "13:50 - 15:20",
-      "kode_matkul": "25TI2107",
-      "nama_matkul": "Komunikasi Data dan Jaringan (Praktikum)",
-      "inisial_dosen": "SF",
-      "dosen": "Sofy Fitriani, S.ST., M.Kom",
-      "ruang": "D107-Lab. RPL"
-    },
-    {
-      "hari": "Jumat",
-      "jam": "16:30 - 18:10",
-      "kode_matkul": "25TI2105",
-      "nama_matkul": "Programming Pragmatics (Praktikum)",
-      "inisial_dosen": "JO",
-      "dosen": "Joe Lian Min, M.Eng.",
-      "ruang": "D107-Lab. RPL"
+      "kode_matkul": "25IG1017",
+      "nama_matkul": "Bahasa Inggris 1 (Praktikum)",
+      "inisial_dosen": "YZD",
+      "dosen": "Yazid (Dosen Bahasa Inggris)",
+      "ruang": "D217-Kelas"
     }
   ]
 }
