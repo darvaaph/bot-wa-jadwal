@@ -322,10 +322,19 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *ClassManager, c
 			sb.WriteString(fmt.Sprintf("  • *%s:*\n", semLabel))
 			for _, item := range sem.items {
 				isActive := canonicalActive != "" && (item.id == canonicalActive || item.id == active)
+				tingkat := (sem.semester + 1) / 2
+				aliasHint := ""
+				parts := strings.Split(item.id, "-")
+				if len(parts) >= 1 {
+					letter := parts[len(parts)-1]
+					if tingkat > 0 && len(letter) == 1 {
+						aliasHint = fmt.Sprintf(" _(Kelas %d%s)_", tingkat, letter)
+					}
+				}
 				if isActive {
-					sb.WriteString(fmt.Sprintf("    - ✅ *`%s`* *(Aktif)*\n", item.id))
+					sb.WriteString(fmt.Sprintf("    - ✅ *`%s`*%s *(Aktif)*\n", item.id, aliasHint))
 				} else {
-					sb.WriteString(fmt.Sprintf("    - 🔘 `%s`\n", item.id))
+					sb.WriteString(fmt.Sprintf("    - 🔘 `%s`%s\n", item.id, aliasHint))
 				}
 			}
 		}
@@ -392,7 +401,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 		// Validasi keberadaan kelas
 		cfg, exists := classMgr.GetClass(canonicalClass)
 		if !exists || canonicalClass == "" {
-			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas smt 3 a`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
+			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas 2A`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
 		}
 
 		// Simpan canonicalClass ke database dan cache
@@ -400,7 +409,13 @@ func (csm *ChatSettingsManager) HandleCommand(
 			return fmt.Sprintf("⚠️ Gagal menyimpan pengaturan kelas: %v", err)
 		}
 
-		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", canonicalClass, cfg.Kampus)
+		_, sem, ting, letter := parseClassMetadata(cfg.Kampus, cfg.FilePath)
+		classLabel := canonicalClass
+		if sem > 0 && letter != "" {
+			classLabel = fmt.Sprintf("%s (Kelas %d%s, Tingkat %d)", canonicalClass, ting, letter, ting)
+		}
+
+		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", classLabel, cfg.Kampus)
 
 	case "resetkelas", "hapuskelas":
 		if isGroup && !isAdmin {

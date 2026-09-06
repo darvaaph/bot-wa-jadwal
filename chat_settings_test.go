@@ -192,6 +192,18 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 		t.Errorf("Kelas DM harus D4-TI-SMT3-A, got: %s", class)
 	}
 
+	// 7b. Tes !setkelas menggunakan alias tingkat resmi "2A" -> harus sukses ke D4-TI-SMT3-A
+	set2AResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas 2A", classMgr)
+	if !strings.Contains(set2AResp, "BERHASIL DIATUR") || !strings.Contains(set2AResp, "D4-TI-SMT3-A") {
+		t.Errorf("Setkelas 2A harus berhasil memetakan ke D4-TI-SMT3-A, got: %s", set2AResp)
+	}
+
+	// 7c. Tes !setkelas dengan copy-paste WhatsApp markdown [`D4-TI-SMT3-A`] -> harus sukses
+	copyPasteResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas [`D4-TI-SMT3-A`]", classMgr)
+	if !strings.Contains(copyPasteResp, "BERHASIL DIATUR") || !strings.Contains(copyPasteResp, "D4-TI-SMT3-A") {
+		t.Errorf("Setkelas dengan copy-paste format [`...`] harus sukses, got: %s", copyPasteResp)
+	}
+
 	// 8. Tes !resetkelas oleh non-admin di grup -> harus ditolak
 	nonAdminReset := csm.HandleCommand(groupJID, true, userJID, false, "!resetkelas", classMgr)
 	if !strings.Contains(nonAdminReset, "AKSES DITOLAK") {

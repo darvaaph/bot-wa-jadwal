@@ -1,4 +1,53 @@
+# Binaries and compiled outputs
 *.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bot-jadwal
+bot-jadwal-*
+bot_jadwal*
+main
+main.exe
+
+# Go test and profiling binaries / artifacts
+*.test
+*.out
+*.prof
+profile.pprof
+
+# Archives and deployment packages
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+bot-deploy*
+
+# Databases and WhatsApp session files
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+tugas.db*
+sesi_bot.db*
+
+# Environment and secrets
+.env
+.env.*
+*.local
+*.pem
+*.key
+
+# Editor and IDE configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
