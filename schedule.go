@@ -717,6 +717,200 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 	return sb.String()
 }
 
+// ActiveCandidate merepresentasikan sesi kuliah yang aktif pada tanggal dan jam tertentu
+type ActiveCandidate struct {
+	NamaMatkul   string
+	Jam          string
+	Ruang        string
+	Dosen        string
+	InisialDosen string
+	IsOverride   bool
+	StartTime    time.Time
+	EndTime      time.Time
+}
+
+// getActiveItemsForDate mengumpulkan mata kuliah aktif untuk suatu tanggal,
+// memperhitungkan jadwal pengganti (override: HOLIDAY, CANCEL, RESCHEDULE, EXTRA).
+func (j *JadwalConfig) getActiveItemsForDate(targetDate time.Time, scopeJID string, om *OverrideManager) (isHoliday bool, holidayReason string, items []ActiveCandidate) {
+	var overrides []ScheduleOverride
+	if om != nil && scopeJID != "" {
+		if ovs, err := om.GetOverridesForDate(scopeJID, targetDate); err == nil {
+			overrides = ovs
+			for _, o := range overrides {
+				if o.Type == "HOLIDAY" {
+					return true, o.Alasan, nil
+				}
+			}
+		}
+	}
+
+	hariTarget := getHariIndonesia(targetDate)
+	targetDateStr := targetDate.Format("2006-01-02")
+
+	j.mu.RLock()
+	var normalItems []JadwalItem
+	for _, item := range j.Jadwal {
+		if strings.EqualFold(item.Hari, hariTarget) {
+			normalItems = append(normalItems, item)
+		}
+	}
+	j.mu.RUnlock()
+
+	// 1. Masukkan jadwal normal yang tidak dicancel atau dipindah keluar
+	for _, item := range normalItems {
+		isCancelledOrMoved := false
+		for _, o := range overrides {
+			if o.OrigDate == targetDateStr &&
+				(o.KodeMatkul == item.KodeMatkul || strings.EqualFold(o.NamaMatkul, item.NamaMatkul)) &&
+				(o.OrigJam == "" || o.OrigJam == item.Jam || strings.Contains(item.Jam, strings.TrimSpace(strings.Split(o.OrigJam, "-")[0]))) {
+				isCancelledOrMoved = true
+				break
+			}
+		}
+		if isCancelledOrMoved {
+			continue
+		}
+
+		start, end, err := parseJamRange(item.Jam, targetDate)
+		if err != nil {
+			continue
+		}
+		items = append(items, ActiveCandidate{
+			NamaMatkul:   item.NamaMatkul,
+			Jam:          item.Jam,
+			Ruang:        item.Ruang,
+			Dosen:        item.Dosen,
+			InisialDosen: item.InisialDosen,
+			IsOverride:   false,
+			StartTime:    start,
+			EndTime:      end,
+		})
+	}
+
+	// 2. Masukkan jadwal masuk (reschedule inbound atau extra)
+	for _, o := range overrides {
+		if o.TargetDate == targetDateStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
+			start, end, err := parseJamRange(o.NewJam, targetDate)
+			if err != nil {
+				continue
+			}
+			items = append(items, ActiveCandidate{
+				NamaMatkul:   o.NamaMatkul,
+				Jam:          o.NewJam,
+				Ruang:        o.Ruang,
+				Dosen:        o.Dosen,
+				InisialDosen: o.InisialDosen,
+				IsOverride:   true,
+				StartTime:    start,
+				EndTime:      end,
+			})
+		}
+	}
+
+	return false, "", items
+}
+
+// GetSmartUpcomingSchedule mencari jadwal perkuliahan terdekat yang masih aktif.
+// Jika hari ini masih ada kuliah yang sedang atau belum berlangsung, tampilkan hari ini.
+// Jika hari ini libur atau seluruh sesi telah selesai, bot mencari hari pertama berikutnya
+// (maksimal 7 hari ke depan) yang memiliki jadwal aktif.
+func (j *JadwalConfig) GetSmartUpcomingSchedule(
+	scopeJID string, om *OverrideManager, refTime ...time.Time,
+) string {
+	waktuSekarang := time.Now()
+	if len(refTime) > 0 && !refTime[0].IsZero() {
+		waktuSekarang = refTime[0]
+	}
+
+	// 1. Periksa sesi perkuliahan aktif hari ini (offset = 0)
+	isHoliday0, _, items0 := j.getActiveItemsForDate(waktuSekarang, scopeJID, om)
+
+	var latestEndTime0 time.Time
+	for _, it := range items0 {
+		if it.EndTime.After(latestEndTime0) {
+			latestEndTime0 = it.EndTime
+		}
+	}
+
+	// Jika hari ini bukan libur, ada mata kuliah, dan sekarang belum melewati jam selesai sesi terakhir:
+	if !isHoliday0 && len(items0) > 0 && waktuSekarang.Before(latestEndTime0) {
+		if om != nil && scopeJID != "" {
+			return j.GetByHariWithOverrides("hari ini", scopeJID, om, waktuSekarang)
+		}
+		return j.GetByHari("hari ini", waktuSekarang)
+	}
+
+	// Tentukan alasan mengapa hari ini dilewati untuk catatan kontekstual pengguna
+	reason := ""
+	if isHoliday0 {
+		reason = "holiday"
+	} else if len(items0) > 0 && !waktuSekarang.Before(latestEndTime0) {
+		reason = "finished"
+	} else {
+		weekday0 := waktuSekarang.Weekday()
+		if weekday0 == time.Saturday || weekday0 == time.Sunday {
+			reason = "weekend"
+		} else {
+			reason = "no_class"
+		}
+	}
+
+	// 2. Iterasi hari-hari berikutnya (+1 s/d +7 hari) untuk mencari hari terdekat yang ada jadwal aktif
+	var targetDate time.Time
+	var targetDayOffset int
+	found := false
+
+	loc := waktuSekarang.Location()
+	for offset := 1; offset <= 7; offset++ {
+		candidateDate := waktuSekarang.AddDate(0, 0, offset)
+		candidateDate = time.Date(candidateDate.Year(), candidateDate.Month(), candidateDate.Day(), 0, 0, 0, 0, loc)
+
+		isHoliday, _, nextItems := j.getActiveItemsForDate(candidateDate, scopeJID, om)
+		if !isHoliday && len(nextItems) > 0 {
+			targetDate = candidateDate
+			targetDayOffset = offset
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		// Jika 7 hari ke depan tidak ada jadwal sama sekali, kembalikan status hari ini
+		if om != nil && scopeJID != "" {
+			return j.GetByHariWithOverrides("hari ini", scopeJID, om, waktuSekarang)
+		}
+		return j.GetByHari("hari ini", waktuSekarang)
+	}
+
+	// 3. Render jadwal untuk targetDate
+	var scheduleText string
+	if om != nil && scopeJID != "" {
+		scheduleText = j.GetByHariWithOverrides("hari ini", scopeJID, om, targetDate)
+	} else {
+		scheduleText = j.GetByHari("hari ini", targetDate)
+	}
+
+	// 4. Susun catatan kontekstual
+	targetHari := getHariIndonesia(targetDate)
+	var note string
+	switch reason {
+	case "finished":
+		if targetDayOffset == 1 {
+			note = fmt.Sprintf("ℹ️ _Perkuliahan hari ini telah selesai. Menampilkan jadwal esok hari (%s):_\n\n", targetHari)
+		} else {
+			note = fmt.Sprintf("ℹ️ _Perkuliahan hari ini telah selesai. Menampilkan jadwal kuliah terdekat berikutnya (%s):_\n\n", targetHari)
+		}
+	case "weekend":
+		note = fmt.Sprintf("ℹ️ _Hari ini libur akhir pekan. Menampilkan jadwal kuliah terdekat berikutnya (%s):_\n\n", targetHari)
+	case "holiday":
+		note = fmt.Sprintf("ℹ️ _Hari ini libur perkuliahan. Menampilkan jadwal kuliah terdekat berikutnya (%s):_\n\n", targetHari)
+	default:
+		note = fmt.Sprintf("ℹ️ _Hari ini tidak ada perkuliahan. Menampilkan jadwal kuliah terdekat berikutnya (%s):_\n\n", targetHari)
+	}
+
+	return note + scheduleText
+}
+
 // GetNextClassWithOverrides mengecek kuliah aktif/berikutnya dengan memperhitungkan jadwal pengganti
 func (j *JadwalConfig) GetNextClassWithOverrides(
 	currentTime time.Time, scopeJID string, om *OverrideManager,
@@ -730,86 +924,12 @@ func (j *JadwalConfig) GetNextClassWithOverrides(
 		return j.GetNextClass(currentTime)
 	}
 
-	for _, o := range overrides {
-		if o.Type == "HOLIDAY" {
-			return fmt.Sprintf("🌴 *Hari Ini Libur Perkuliahan*\nKeterangan: *%s*\nTidak ada kuliah aktif maupun kelas berikutnya hari ini. Selamat berlibur! ✨", o.Alasan)
-		}
+	isHoliday, holidayReason, candidates := j.getActiveItemsForDate(currentTime, scopeJID, om)
+	if isHoliday {
+		return fmt.Sprintf("🌴 *Hari Ini Libur Perkuliahan*\nKeterangan: *%s*\nTidak ada kuliah aktif maupun kelas berikutnya hari ini. Selamat berlibur! ✨", holidayReason)
 	}
 
 	hariIndonesia := getHariIndonesia(currentTime)
-	todayStr := currentTime.Format("2006-01-02")
-
-	j.mu.RLock()
-	var todayItems []JadwalItem
-	for _, item := range j.Jadwal {
-		if strings.EqualFold(item.Hari, hariIndonesia) {
-			todayItems = append(todayItems, item)
-		}
-	}
-	j.mu.RUnlock()
-
-	type ActiveCandidate struct {
-		NamaMatkul   string
-		Jam          string
-		Ruang        string
-		Dosen        string
-		InisialDosen string
-		IsOverride   bool
-		StartTime    time.Time
-		EndTime      time.Time
-	}
-
-	var candidates []ActiveCandidate
-
-	// Masukkan jadwal normal yang tidak dicancel/dipindah
-	for _, item := range todayItems {
-		isCancelledOrMoved := false
-		for _, o := range overrides {
-			if o.OrigDate == todayStr &&
-				(o.KodeMatkul == item.KodeMatkul || strings.EqualFold(o.NamaMatkul, item.NamaMatkul)) {
-				isCancelledOrMoved = true
-				break
-			}
-		}
-		if isCancelledOrMoved {
-			continue
-		}
-		start, end, err := parseJamRange(item.Jam, currentTime)
-		if err != nil {
-			continue
-		}
-		candidates = append(candidates, ActiveCandidate{
-			NamaMatkul:   item.NamaMatkul,
-			Jam:          item.Jam,
-			Ruang:        item.Ruang,
-			Dosen:        item.Dosen,
-			InisialDosen: item.InisialDosen,
-			IsOverride:   false,
-			StartTime:    start,
-			EndTime:      end,
-		})
-	}
-
-	// Masukkan jadwal masuk (inbound reschedule / extra)
-	for _, o := range overrides {
-		if o.TargetDate == todayStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
-			start, end, err := parseJamRange(o.NewJam, currentTime)
-			if err != nil {
-				continue
-			}
-			candidates = append(candidates, ActiveCandidate{
-				NamaMatkul:   o.NamaMatkul,
-				Jam:          o.NewJam,
-				Ruang:        o.Ruang,
-				Dosen:        o.Dosen,
-				InisialDosen: o.InisialDosen,
-				IsOverride:   true,
-				StartTime:    start,
-				EndTime:      end,
-			})
-		}
-	}
-
 	if len(candidates) == 0 {
 		return fmt.Sprintf("🏖️ *TIDAK ADA KULIAH AKTIF HARI INI*\nSeluruh perkuliahan hari %s ditiadakan atau libur.", strings.ToUpper(hariIndonesia))
 	}
@@ -1092,6 +1212,9 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 			lowerArg == "senin-jumat" || lowerArg == "senin jumat" || lowerArg == "senin - jumat" {
 			return j.GetJadwalSeminggu()
 		}
+		if arg == "" {
+			return j.GetSmartUpcomingSchedule(scopeJID, j.OverrideManager, now)
+		}
 		if j.OverrideManager != nil && scopeJID != "" {
 			return j.GetByHariWithOverrides(arg, scopeJID, j.OverrideManager, now)
 		}
@@ -1170,6 +1293,7 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString("──────────\n\n")
 
 	sb.WriteString("📌 *Paling Sering Digunakan:*\n")
+	sb.WriteString("• `!jadwal` ➔ Jadwal kuliah terdekat\n")
 	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
 	sb.WriteString("• `!hari ini` ➔ Jadwal hari ini\n")
 	sb.WriteString("• `!besok` ➔ Jadwal besok\n")
@@ -1205,6 +1329,7 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("──────────\n\n")
 
 	sb.WriteString("1️⃣ *Jadwal Harian:*\n")
+	sb.WriteString("• `!jadwal` ➔ Jadwal kuliah terdekat berikutnya\n")
 	sb.WriteString("• `!senin` `!selasa` `!rabu` `!kamis` `!jumat`\n")
 	sb.WriteString("• Alias: `!today`, `!now`, `!tomorrow`, `!hari ini`, `!besok`\n\n")
 

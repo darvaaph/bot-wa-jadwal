@@ -185,3 +185,95 @@ func TestSchedule(t *testing.T) {
 		t.Errorf("RemoveGroup failed, got: %s", rmMsg)
 	}
 }
+
+func TestSmartUpcomingSchedule(t *testing.T) {
+	cfg, err := LoadJadwal("jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal load jadwal.json: %v", err)
+	}
+
+	// 1. Uji akhir pekan (Sabtu): Harusnya otomatis menampilkan hari Senin dengan catatan libur akhir pekan
+	tSabtu := time.Date(2026, 9, 5, 14, 0, 0, 0, time.Local) // 5 Sep 2026 adalah Sabtu
+	resSabtu := cfg.ProcessMessage("!jadwal", tSabtu)
+	if !strings.Contains(resSabtu, "libur akhir pekan") {
+		t.Errorf("Expected note 'libur akhir pekan' on Saturday, got:\n%s", resSabtu)
+	}
+	if !strings.Contains(resSabtu, "Senin") || !strings.Contains(resSabtu, "Aljabar Linear") {
+		t.Errorf("Expected Monday schedule on Saturday, got:\n%s", resSabtu)
+	}
+
+	// 2. Uji akhir pekan (Minggu): Harusnya otomatis menampilkan hari Senin
+	tMinggu := time.Date(2026, 9, 6, 10, 0, 0, 0, time.Local) // 6 Sep 2026 adalah Minggu
+	resMinggu := cfg.ProcessMessage("!jadwal", tMinggu)
+	if !strings.Contains(resMinggu, "libur akhir pekan") || !strings.Contains(resMinggu, "Aljabar Linear") {
+		t.Errorf("Expected Monday schedule on Sunday, got:\n%s", resMinggu)
+	}
+
+	// 3. Uji hari aktif sebelum/saat jam kuliah (Senin 08:00 WIB):
+	// Harus menampilkan hari Senin langsung tanpa catatan "telah selesai"
+	tSeninPagi := time.Date(2026, 9, 7, 8, 0, 0, 0, time.Local) // 7 Sep 2026 adalah Senin
+	resSeninPagi := cfg.ProcessMessage("!jadwal", tSeninPagi)
+	if strings.Contains(resSeninPagi, "telah selesai") {
+		t.Errorf("Expected ongoing Monday to NOT have 'telah selesai' note, got:\n%s", resSeninPagi)
+	}
+	if !strings.Contains(resSeninPagi, "Aljabar Linear") {
+		t.Errorf("Expected Monday schedule on Monday morning, got:\n%s", resSeninPagi)
+	}
+
+	// 4. Uji hari aktif setelah jam kuliah selesai (Senin 16:00 WIB, matkul terakhir Senin selesai 14:40):
+	// Harus menampilkan hari Selasa dengan catatan "Perkuliahan hari ini telah selesai"
+	tSeninSore := time.Date(2026, 9, 7, 16, 0, 0, 0, time.Local)
+	resSeninSore := cfg.ProcessMessage("!jadwal", tSeninSore)
+	if !strings.Contains(resSeninSore, "Perkuliahan hari ini telah selesai") || !strings.Contains(resSeninSore, "Selasa") {
+		t.Errorf("Expected Tuesday schedule after Monday classes ended, got:\n%s", resSeninSore)
+	}
+	if !strings.Contains(resSeninSore, "Matematika Diskrit Lanjut") {
+		t.Errorf("Expected Tuesday course on Monday evening, got:\n%s", resSeninSore)
+	}
+
+	// 5. Uji hari Jumat sore setelah perkuliahan selesai (matkul terakhir Jumat selesai 18:10):
+	// Melewati Sabtu dan Minggu, langsung melompat ke Senin pekan depan
+	tJumatSore := time.Date(2026, 9, 11, 19, 0, 0, 0, time.Local) // 11 Sep 2026 adalah Jumat
+	resJumatSore := cfg.ProcessMessage("!jadwal", tJumatSore)
+	if !strings.Contains(resJumatSore, "Perkuliahan hari ini telah selesai") {
+		t.Errorf("Expected 'Perkuliahan hari ini telah selesai' note on Friday evening, got:\n%s", resJumatSore)
+	}
+	if !strings.Contains(resJumatSore, "Senin") || !strings.Contains(resJumatSore, "Aljabar Linear") {
+		t.Errorf("Expected Monday schedule after Friday classes ended, got:\n%s", resJumatSore)
+	}
+
+	// 6. Uji pembanding perintah literal "!hari ini":
+	// Di Senin sore (!hari ini) tetap harus menampilkan jadwal Senin secara penuh
+	resHariIni := cfg.ProcessMessage("!hari ini", tSeninSore)
+	if !strings.Contains(resHariIni, "Aljabar Linear") || strings.Contains(resHariIni, "Matematika Diskrit Lanjut") {
+		t.Errorf("Expected '!hari ini' to strictly return Monday schedule even in evening, got:\n%s", resHariIni)
+	}
+
+	// 7. Uji dengan OverrideManager: Libur di hari berikutnya
+	db, err := InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi DB memory: %v", err)
+	}
+	defer db.Close()
+
+	om, err := NewOverrideManager(db)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi OverrideManager: %v", err)
+	}
+	cfg.SetOverrideManager(om)
+
+	groupJID := "test_group_smart@g.us"
+	userJID := "test_admin@s.whatsapp.net"
+
+	// Set Selasa libur: "!libur besok | Libur Kuliah Lapangan" (saat tSeninSore)
+	om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Libur Kuliah Lapangan", cfg, tSeninSore)
+
+	// Saat Senin sore memanggil !jadwal di grup, karena Selasa libur, harus otomatis loncat ke Rabu
+	resOverride := cfg.ProcessMessage("!jadwal", true, groupJID, tSeninSore)
+	if !strings.Contains(resOverride, "Perkuliahan hari ini telah selesai") {
+		t.Errorf("Expected completed note, got:\n%s", resOverride)
+	}
+	if !strings.Contains(resOverride, "Rabu") {
+		t.Errorf("Expected to jump to Wednesday because Tuesday is a holiday, got:\n%s", resOverride)
+	}
+}
