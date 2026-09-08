@@ -66,3 +66,53 @@ func TestReminder_MultiClassResolution(t *testing.T) {
 		t.Errorf("Pengingat pagi Grup Default harus menggunakan kelas default 3A: %s", msgDef)
 	}
 }
+
+func TestBuildMorningReminder_WithMeetingLinks(t *testing.T) {
+	db, err := InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi DB in-memory: %v", err)
+	}
+	defer db.Close()
+
+	classMgr, err := NewClassManager("data/jadwal", "jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi ClassManager: %v", err)
+	}
+
+	linkMgr, err := NewLinkManager(db)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi LinkManager: %v", err)
+	}
+
+	groupJID := "120363009@g.us"
+	cfg := classMgr.GetDefaultClass()
+
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	seninPagi := time.Date(2026, 9, 7, 6, 30, 0, 0, loc)
+
+	// Tambahkan tautan Google Meet dan Google Drive
+	_, err = linkMgr.AddLink(groupJID, true, "Zoom Kuliah Daring SBD", "https://zoom.us/j/999111222", "ID Passcode 1234", "admin@s.whatsapp.net")
+	if err != nil {
+		t.Fatalf("Gagal tambah zoom link: %v", err)
+	}
+	_, err = linkMgr.AddLink(groupJID, true, "Drive Modul Kuliah", "https://drive.google.com/drive/folders/xyz", "Modul lengkap", "admin@s.whatsapp.net")
+	if err != nil {
+		t.Fatalf("Gagal tambah drive link: %v", err)
+	}
+
+	// Bangun pengingat pagi
+	msg := BuildMorningReminder(groupJID, cfg, nil, seninPagi, linkMgr)
+
+	// Verifikasi bagian tautan daring muncul dan berisi zoom link
+	if !strings.Contains(msg, "TAUTAN KULIAH DARING HARI INI:") {
+		t.Errorf("Harus menampilkan header tautan daring: %s", msg)
+	}
+	if !strings.Contains(msg, "Zoom Kuliah Daring SBD") || !strings.Contains(msg, "https://zoom.us/j/999111222") {
+		t.Errorf("Harus memuat zoom link yang aktif: %s", msg)
+	}
+	// Drive tidak boleh masuk ke section meeting hari ini
+	if strings.Contains(msg, "Drive Modul Kuliah") {
+		t.Errorf("Tautan drive tidak boleh masuk ke section kuliah daring: %s", msg)
+	}
+}
+

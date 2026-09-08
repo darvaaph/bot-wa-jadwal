@@ -113,6 +113,7 @@ func handleIncomingMessage(
 	reminderManager *ReminderManager,
 	taskManager *TaskManager,
 	overrideManager *OverrideManager,
+	linkManager *LinkManager,
 ) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -218,7 +219,7 @@ func handleIncomingMessage(
 			if activeClassID == "" && chatSettingsManager != nil {
 				reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
 			} else {
-				reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
+				reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now(), linkManager))
 			}
 
 		default:
@@ -250,6 +251,14 @@ func handleIncomingMessage(
 		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 		reply(overrideReply, "🔄", 600*time.Millisecond, "perintah override")
+		return
+	}
+
+	// 6. Handler Khusus Perintah Tautan Penting Kelas (!link, !tautan, !drive, !gdrive, !zoom, !gmeet, !meet)
+	if linkManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "drive", "gdrive", "zoom", "gmeet", "meet") {
+		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
+		linkReply := linkManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText)
+		reply(linkReply, "🔗", 600*time.Millisecond, "perintah tautan")
 		return
 	}
 
@@ -336,6 +345,17 @@ func main() {
 		}
 	}
 
+	// 7. Setup Pengelola Tautan Penting Kelas (Link Manager - SQLite)
+	var linkManager *LinkManager
+	if appDB != nil {
+		linkManager, err = NewLinkManager(appDB)
+		if err != nil {
+			fmt.Printf("Peringatan inisialisasi modul tautan: %v\n", err)
+		} else {
+			fmt.Println("Berhasil menginisialisasi modul tautan penting kelas")
+		}
+	}
+
 	// 4. Setup Database Log & SQLite (Session Storage)
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	
@@ -388,6 +408,7 @@ func main() {
 				reminderManager,
 				taskManager,
 				overrideManager,
+				linkManager,
 			)
 		}
 	})
@@ -419,7 +440,7 @@ func main() {
 	}
 
 	// 8. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB) dengan multi-kelas
-	reminderManager.StartScheduler(client, classManager, chatSettingsManager, taskManager)
+	reminderManager.StartScheduler(client, classManager, chatSettingsManager, taskManager, linkManager)
 
 	// 9. Jalankan Watchdog Supervisor untuk auto-reconnect berkala dengan exponential backoff
 	watchdogCtx, cancelWatchdog := context.WithCancel(context.Background())

@@ -1416,7 +1416,8 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString("• `!hari ini` ➔ Jadwal hari ini\n")
 	sb.WriteString("• `!besok` ➔ Jadwal besok\n")
 	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n")
-	sb.WriteString("• `!tugas` ➔ Catatan tugas & deadline\n\n")
+	sb.WriteString("• `!tugas` ➔ Catatan tugas & deadline\n")
+	sb.WriteString("• `!link` ➔ Tautan penting (Drive/Zoom)\n\n")
 
 	sb.WriteString("🔄 *Jadwal Pengganti (Admin):*\n")
 	sb.WriteString("• `!pindah [matkul] | [waktu]` ➔ Geser jadwal\n")
@@ -1425,6 +1426,7 @@ func (j *JadwalConfig) GetMenu() string {
 
 	sb.WriteString("🔍 *Pencarian Cepat:*\n")
 	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
+	sb.WriteString("• `!drive` / `!zoom` ➔ Tautan materi & daring\n")
 	sb.WriteString("• `!dosen [nama]` ➔ Cth: `!dosen MR`\n")
 	sb.WriteString("• `!ruang [kode]` ➔ Cth: `!ruang lab`\n")
 	sb.WriteString("• `!cari [kata]` ➔ Cth: `!cari basis`\n\n")
@@ -1466,7 +1468,15 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("• `!tugas selesai [ID]` ➔ Selesaikan tugas\n")
 	sb.WriteString("• `!tugas hapus [ID]` ➔ Hapus tugas\n\n")
 
-	sb.WriteString("5️⃣ *Jadwal Pengganti (Khusus Admin):*\n")
+	sb.WriteString("5️⃣ *Tautan Penting Kelas:*\n")
+	sb.WriteString("• `!link` / `!tautan` ➔ Semua tautan kelas\n")
+	sb.WriteString("• `!drive` ➔ Shortcut Google Drive & OneDrive\n")
+	sb.WriteString("• `!zoom` / `!gmeet` ➔ Shortcut link kuliah daring\n")
+	sb.WriteString("• `!link cari [kata]` ➔ Cari tautan berdasarkan nama/deskripsi\n")
+	sb.WriteString("• `!link tambah [Judul] | [URL] (| [Catatan])` (Admin)\n")
+	sb.WriteString("• `!link hapus [ID]` (Admin)\n\n")
+
+	sb.WriteString("6️⃣ *Jadwal Pengganti (Khusus Admin):*\n")
 	sb.WriteString("• `!libur besok | Hari Kemerdekaan RI` ➔ Libur seharian\n")
 	sb.WriteString("• `!pindah aljabar | besok 13:00 | Lab 312`\n")
 	sb.WriteString("• `!kosong sbd | besok | Dosen dinas luar`\n")
@@ -1474,18 +1484,18 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("• `!jadwalganti` ➔ Cek perubahan jadwal aktif\n")
 	sb.WriteString("• `!batalganti [ID]` ➔ Hapus jadwal pengganti\n\n")
 
-	sb.WriteString("6️⃣ *Pengaturan Kelas (Multi-Tenant):*\n")
+	sb.WriteString("7️⃣ *Pengaturan Kelas (Multi-Tenant):*\n")
 	sb.WriteString("• `!daftarkelas` / `!kelas` ➔ Daftar semua kelas aktif\n")
 	sb.WriteString("• `!setkelas 3A` ➔ Tautkan grup ke kelas tertentu (Admin)\n")
 	sb.WriteString("• `!resetkelas` ➔ Kembalikan ke kelas bawaan default (Admin)\n\n")
 
-	sb.WriteString("7️⃣ *Informasi & Pencarian:*\n")
+	sb.WriteString("8️⃣ *Informasi & Pencarian:*\n")
 	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
 	sb.WriteString("• `!dosen MR` ➔ Cari jadwal dosen inisial/nama\n")
 	sb.WriteString("• `!ruang lab` ➔ Cari jadwal ruangan\n")
 	sb.WriteString("• `!cari basis` ➔ Pencarian kata kunci global\n\n")
 
-	sb.WriteString("8️⃣ *Pengaturan Admin Lainnya:*\n")
+	sb.WriteString("9️⃣ *Pengaturan Admin Lainnya:*\n")
 	sb.WriteString("• `!reminder on` / `!reminder off` (grup)\n")
 	sb.WriteString("• `!reminder test` ➔ Simulasi pengingat pagi\n")
 	sb.WriteString("• `!reload` ➔ Segarkan data jadwal.json\n\n")

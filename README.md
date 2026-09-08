@@ -152,3 +152,13 @@ Menguji seluruh rumus waktu, jadwal, dan logika tugas dalam 1 detik tanpa perlu 
 * `!reminder` ➔ Melihat status pengingat di grup saat ini.
 * `!kelas` ➔ Melihat daftar kelas yang tersedia di sistem.
 * `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut (contoh: `!setkelas D4-TI-SMT3-A`).
+
+### D. Tautan Penting Kelas (Drive / Zoom)
+* `!link` atau `!tautan` ➔ Menampilkan seluruh tautan penting kelas yang dikelompokkan per kategori.
+* `!drive` ➔ Shortcut instan tautan Google Drive / OneDrive materi kuliah.
+* `!zoom` atau `!gmeet` ➔ Shortcut instan tautan kuliah daring aktif.
+* `!link cari <kata>` ➔ Mencari tautan berdasarkan judul atau deskripsi.
+* `!link tambah <Judul> | <URL> (| <Catatan>)` ➔ Menambah tautan baru (*Khusus Admin di grup*).  
+  *Contoh:* `!link tambah Drive Materi | https://s.id/drive-d4a | Folder lengkap`
+* `!link hapus <ID>` ➔ Menghapus tautan (*Khusus Admin di grup*).
+

@@ -55,7 +55,9 @@ Seluruh logika utama berada di dalam `package main` untuk menjaga kesederhanaan 
 | [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | Engine jadwal kuliah: parsing kurikulum JSON, pencarian cerdas/alias (*fuzzy match*), kalkulasi kuliah aktif/berikutnya (`!next`), tampilan menu bot (`!menu`), dan kamus bantuan (`!keyword`). | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) |
 | [override.go](file:///f:/Project/bot-jadwal/override.go) | Engine jadwal pengganti sementara: perubahan jam (`!pindah`), pembatalan kelas (`!kosong`), kuliah pengganti (`!kuliahganti`), pengumuman hari libur (`!libur`), deteksi bentrok jadwal, dan pembatalan (`!batalganti`). | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) |
 | [task.go](file:///f:/Project/bot-jadwal/task.go) | Engine pelacak tugas SQLite: CRUD catatan tugas (`!tugas`), validasi matkul resmi, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) |
-| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat dengan personalisasi jadwal per kelas grup, pemformatan pesan harian terintegrasi tugas mendesak, dan daftar grup di `reminder_groups.json`. | [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) |
+| [link.go](file:///f:/Project/bot-jadwal/link.go) | Engine tautan penting kelas (`LinkManager`): CRUD tautan SQLite (`class_links`), normalisasi HTTPS otomatis, deteksi kategori cerdas (`drive`, `meeting`, `repo`, `portal`, `umum`), pencarian kata kunci, dan filter per kategori. | [link_test.go](file:///f:/Project/bot-jadwal/link_test.go) |
+| [group_admin.go](file:///f:/Project/bot-jadwal/group_admin.go) | Resolusi Admin Grup Komprehensif (`GroupAdminResolver`): Deteksi admin multi-identitas mendukung WhatsApp LID (`@lid`), Phone Number JID, Alternate Sender, Owner, dan TTL caching in-memory 3 menit. | [group_admin_test.go](file:///f:/Project/bot-jadwal/group_admin_test.go) |
+| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat dengan personalisasi jadwal per kelas grup, integrasi tugas mendesak & tautan daring, dan daftar grup di `reminder_groups.json`. | [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) |
 
 ---
 
@@ -115,7 +117,25 @@ CREATE TABLE IF NOT EXISTS chat_settings (
 );
 ```
 
-### D. File Konfigurasi & Master Data
+### D. Tabel `class_links` (Database: `tugas.db`)
+Menyimpan daftar tautan penting kelas (Google Drive, Zoom, Google Meet, GitHub, portal kampus):
+
+```sql
+CREATE TABLE IF NOT EXISTS class_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope_jid TEXT NOT NULL,          -- JID grup atau DM pribadi
+    is_group BOOLEAN NOT NULL,         -- 1 jika di grup, 0 jika di DM
+    title TEXT NOT NULL,              -- Judul tautan (cth: "Drive Materi Kuliah")
+    url TEXT NOT NULL,                -- URL tujuan (diawali http:// atau https://)
+    category TEXT NOT NULL DEFAULT 'umum', -- "drive", "meeting", "repo", "portal", "umum"
+    description TEXT DEFAULT '',      -- Catatan tambahan / passcode
+    created_by TEXT NOT NULL,         -- JID pembuat catatan tautan
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_links_scope ON class_links(scope_jid);
+```
+
+### E. File Konfigurasi & Master Data
 
 #### 1. Direktori Master Jadwal `data/jadwal/*.json`
 Menyimpan master data kurikulum modular per kelas (misal: `data/jadwal/3a.json`, `data/jadwal/3b.json`). Format berkas mempertahankan schema `JadwalConfig`: kampus, daftar dosen, kode matkul, dan jadwal perkuliahan. Bot juga mendukung *fallback* membaca `jadwal.json` di root jika direktori belum dibuat.
@@ -160,6 +180,21 @@ Saat menerima sinyal terminasi (`Ctrl + C` / `SIGTERM`), bot mengeksekusi urutan
 3. Menutup koneksi database aplikasi (`appDB.Close()`) untuk melakukan sinkronisasi (*checkpoint*) file WAL SQLite.
 4. Menutup koneksi database sesi bot (`container.Close()`).
 
+### D. Asynchronous Non-Blocking Message Dispatcher
+* **Masalah Antrean (Blocking Sleep):** Tiap balasan bot melakukan simulasi mengetik (`time.Sleep(600ms)`). Pada event loop serial, pesan berikutnya terpaksa antre.
+* **Solusi Konkurensi:** Pesan masuk didispatch ke goroutine terpisah (`go handleIncomingMessage(...)`) dengan proteksi *panic recovery* lokal (`defer func() { recover() }`). Bot dapat merespons puluhan chat secara paralel tanpa saling mengunci.
+
+### E. Quoted Reply Message Builder (Preservasi Konteks Pesan)
+Balasan bot menyematkan kutipan pesan pengguna (`waE2E.ExtendedTextMessage` dengan `ContextInfo` berisi `StanzaID`, `Participant` untuk grup, dan `QuotedMessage`), memastikan balasan tidak terpisah di grup yang sedang ramai mengobrol.
+
+### F. Multi-Identifier Group Admin Resolver ([group_admin.go](file:///f:/Project/bot-jadwal/group_admin.go))
+Arsitektur WhatsApp modern merutekan pesan grup menggunakan 15 digit **LID** (`@lid`) selain nomor telepon standar (`@s.whatsapp.net`). `GroupAdminResolver` memverifikasi hak admin melalui:
+* Pencocokan Phone Number JID (`p.JID.User == senderJID.User`)
+* Pencocokan LID WhatsApp (`p.LID.User == senderJID.User`)
+* Pencocokan Alternate Sender (`v.Info.SenderAlt`)
+* Resolusi `store.LIDStore` bawaan whatsmeow
+* In-memory cache TTL 3 menit dengan auto-invalidation pada event `*events.GroupInfo`
+
 ---
 
 ## 5. 🔐 Otorisasi & Hak Akses Berbasis Lingkup (*Role & Scope-Based Authorization*)
@@ -168,10 +203,12 @@ Bot menerapkan pemisahan hak akses yang ketat untuk menjaga integritas data kela
 
 | Lingkup Obrolan | Tipe Perintah | Hak Akses | Logika Verifikasi |
 | :--- | :--- | :--- | :--- |
-| **Grup Kelas (`@g.us`)** | Modifikasi Jadwal (`!pindah`, `!kosong`, `!kuliahganti`, `!libur`, `!batalganti`) | **Khusus Admin Grup** | Diperiksa via fungsi `isSenderGroupAdmin` yang mencocokkan JID pengirim dengan daftar admin grup WhatsApp. |
-| **Grup Kelas (`@g.us`)** | Modifikasi Tugas (`!tugas tambah`, `!tugas hapus`, `!tugas edit`) | **Khusus Admin Grup** | Melindungi catatan tugas kelas dari penghapusan/perubahan oleh anggota biasa. |
-| **Grup Kelas (`@g.us`)** | Pembacaan (`!menu`, `!hari ini`, `!tugas`, `!next`, `!jadwalganti`, dll.) | **Semua Anggota** | Terbuka bebas untuk seluruh mahasiswa dalam grup. |
-| **Chat Pribadi (`@s.whatsapp.net`)** | Semua Perintah | **Bebas (Pribadi)** | Setiap nomor WhatsApp otomatis menjadi admin untuk database catatan tugas pribadinya sendiri (*Isolated User Scope*). |
+| **Grup Kelas (`@g.us`)** | Modifikasi Jadwal (`!pindah`, `!kosong`, `!kuliahganti`, `!libur`, `!batalganti`) | **Khusus Admin Grup** | Diverifikasi via `GroupAdminResolver` dengan pencocokan multi-identitas (Phone Number, WhatsApp LID, dan SenderAlt). |
+| **Grup Kelas (`@g.us`)** | Modifikasi Tugas (`!tugas tambah`, `!tugas hapus`, `!tugas edit`, `!tugas selesai`) | **Khusus Admin Grup** | Melindungi catatan tugas kelas dari manipulasi anggota biasa. |
+| **Grup Kelas (`@g.us`)** | Modifikasi Tautan (`!link tambah`, `!link hapus`) | **Khusus Admin Grup** | Mencegah penyisipan tautan berbahaya atau phising oleh anggota non-admin. |
+| **Grup Kelas (`@g.us`)** | Pengaturan Kelas & Pengingat (`!setkelas`, `!resetkelas`, `!reminder on/off`) | **Khusus Admin Grup** | Menjaga stabilitas identitas kelas dan jadwal siaran grup. |
+| **Grup Kelas (`@g.us`)** | Pembacaan (`!menu`, `!hari ini`, `!tugas`, `!link`, `!drive`, `!zoom`, `!next`, dll.) | **Semua Anggota** | Terbuka bebas untuk seluruh mahasiswa dalam grup. |
+| **Chat Pribadi (`@s.whatsapp.net`)** | Semua Perintah | **Bebas (Pribadi)** | Setiap nomor WhatsApp otomatis menjadi admin untuk database tugas dan tautan pribadinya sendiri (*Isolated Scope*). |
 
 ---
 

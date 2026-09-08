@@ -150,8 +150,8 @@ func (rm *ReminderManager) Status(currentJID string) string {
 	return sb.String()
 }
 
-// BuildMorningReminder menyusun pesan pengingat pagi lengkap dengan alert tugas mendesak
-func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *TaskManager, now time.Time) string {
+// BuildMorningReminder menyusun pesan pengingat pagi lengkap dengan alert tugas mendesak dan tautan daring
+func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *TaskManager, now time.Time, linkManagers ...*LinkManager) string {
 	var holiday *ScheduleOverride
 	if config.OverrideManager != nil {
 		holiday = config.OverrideManager.GetHolidayOverride(chatJID, now)
@@ -187,6 +187,21 @@ func BuildMorningReminder(chatJID string, config *JadwalConfig, taskManager *Tas
 		}
 	}
 
+	if len(linkManagers) > 0 && linkManagers[0] != nil {
+		meetingLinks, err := linkManagers[0].GetLinksByCategory(chatJID, "meeting")
+		if err == nil && len(meetingLinks) > 0 {
+			var sb strings.Builder
+			sb.WriteString("\n\n──────────\n")
+			sb.WriteString("📹 *TAUTAN KULIAH DARING HARI INI:*\n")
+			for _, ml := range meetingLinks {
+				sb.WriteString(fmt.Sprintf("• *%s*\n  └ %s\n", ml.Title, ml.URL))
+			}
+			sb.WriteString("──────────\n")
+			sb.WriteString("_Ketik `!link` atau `!drive` untuk tautan materi lainnya._")
+			pesan += sb.String()
+		}
+	}
+
 	return pesan
 }
 
@@ -196,10 +211,16 @@ func (rm *ReminderManager) StartScheduler(
 	classMgr *ClassManager,
 	settingsMgr *ChatSettingsManager,
 	taskManager *TaskManager,
+	linkManagers ...*LinkManager,
 ) {
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
+
+		var lm *LinkManager
+		if len(linkManagers) > 0 {
+			lm = linkManagers[0]
+		}
 
 		for range ticker.C {
 			now := time.Now()
@@ -249,7 +270,7 @@ func (rm *ReminderManager) StartScheduler(
 						continue
 					}
 
-					pesanGrup := BuildMorningReminder(g.JID, classConfig, taskManager, now)
+					pesanGrup := BuildMorningReminder(g.JID, classConfig, taskManager, now, lm)
 
 					targetJID, err := types.ParseJID(g.JID)
 					if err != nil {

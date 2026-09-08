@@ -15,11 +15,13 @@ Selamat datang di panduan resmi penggunaan **Bot WhatsApp Jadwal Kuliah & Asiste
 7. [Panduan Penggunaan Deadline Tracker Tugas (`!tugas`)](#7-panduan-penggunaan-deadline-tracker-tugas-tugas)
 8. [Panduan Penggunaan Jadwal Pengganti Sementara (`!pindah`, `!kosong`, `!kuliahganti`, `!libur`)](#8-panduan-penggunaan-jadwal-pengganti-sementara-pindah-kosong-kuliahganti-libur)
 9. [Panduan Penggunaan Multi-Kelas (`!kelas` & `!setkelas`)](#9-panduan-penggunaan-multi-kelas-kelas--setkelas)
-10. [Perbedaan Akses: Grup vs Chat Pribadi (DM)](#10-perbedaan-akses-grup-vs-chat-pribadi-dm)
-11. [Format Penulisan Tenggat Waktu (Natural Time Parser)](#11-format-penulisan-tenggat-waktu-natural-time-parser)
-12. [Cara Menjalankan & Menguji Bot di Komputer](#12-cara-menjalankan--menguji-bot-di-komputer)
-13. [Kestabilan & Keamanan Sistem (Technical Reliability)](#13-kestabilan--keamanan-sistem-technical-reliability)
-14. [Cetak Biru Web Admin Dashboard (Future Roadmap)](#14-cetak-biru-web-admin-dashboard-future-roadmap)
+10. [Panduan Penggunaan Modul Tautan Penting Kelas (`!link`, `!drive`, `!zoom`)](#10-panduan-penggunaan-modul-tautan-penting-kelas-link-drive-zoom)
+11. [Perbedaan Akses: Grup vs Chat Pribadi (DM)](#11-perbedaan-akses-grup-vs-chat-pribadi-dm)
+12. [Format Penulisan Tenggat Waktu (Natural Time Parser)](#12-format-penulisan-tenggat-waktu-natural-time-parser)
+13. [Cara Menjalankan & Menguji Bot di Komputer](#13-cara-menjalankan--menguji-bot-di-komputer)
+14. [Kestabilan & Keamanan Sistem (Technical Reliability)](#14-kestabilan--keamanan-sistem-technical-reliability)
+15. [Cetak Biru Web Admin Dashboard (Future Roadmap)](#15-cetak-biru-web-admin-dashboard-future-roadmap)
+
 
 ---
 
@@ -88,6 +90,11 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
    * 1 bot WhatsApp melayani banyak kelas/jurusan sekaligus.
    * Grup WhatsApp dapat dikunci ke jadwal kelasnya masing-masing (`!setkelas 3A`, `!setkelas 3B`).
    * Broadcast pagi otomatis mengirim jadwal yang sesuai dengan kelas aktif masing-masing grup.
+9. **Modul Tautan Penting Kelas (`!link`, `!drive`, `!zoom`):**
+   * Hub terpusat penyimpanan tautan Google Drive modul, link kuliah daring (Zoom / Google Meet), repositori GitHub kelas, dan portal akademik.
+   * Deteksi kategori otomatis (`drive`, `meeting`, `repo`, `portal`, `umum`) dan normalisasi HTTPS agar otomatis *clickable* di WhatsApp ponsel.
+   * Shortcut cepat (`!drive`, `!zoom`), pencarian instan (`!link cari`), dan integrasi otomatis dengan pengingat pagi 06:00 WIB.
+
 
 ---
 
@@ -149,6 +156,18 @@ Bot WhatsApp ini bertindak sebagai **asisten virtual kelas** yang memudahkan mah
 | `!libur [Waktu] \| [Keterangan]` | `!libur besok \| HUT RI` | `libur besok \| ...` | **Khusus Admin** |
 | `!jadwalganti` | `!jadwalganti` | `jadwalganti` | **Semua Anggota** |
 | `!batalganti [ID]` | `!batalganti 1` | `batalganti 1` | **Khusus Admin** |
+
+### Perintah Tautan Penting Kelas (`!link`, `!drive`, `!zoom`, `!tautan`)
+| Perintah | Di Grup | Di DM Pribadi | Hak Akses di Grup | Penjelasan Singkat |
+| :--- | :--- | :--- | :--- | :--- |
+| `!link` / `!tautan` | `!link` | `link` | **Semua Anggota** | Menampilkan seluruh tautan kelas dikelompokkan per kategori |
+| `!drive` / `!gdrive` | `!drive` | `drive` | **Semua Anggota** | Shortcut instan melihat tautan Google Drive / OneDrive materi |
+| `!zoom` / `!gmeet` / `!meet`| `!zoom` | `zoom` | **Semua Anggota** | Shortcut instan melihat tautan kuliah daring aktif |
+| `!link cari [kata]` | `!link cari basis` | `link cari basis` | **Semua Anggota** | Mencari tautan berdasarkan judul atau catatan |
+| `!link tambah [J] \| [URL] (\| [C])`| `!link tambah ...` | `link tambah ...` | **Khusus Admin** | Menambah tautan baru (deteksi kategori & HTTPS otomatis) |
+| `!link hapus [ID]` | `!link hapus 1` | `link hapus 1` | **Khusus Admin** | Menghapus tautan berdasarkan ID nomor |
+| `!link bantuan` | `!link bantuan` | `link bantuan` | **Semua Anggota** | Menampilkan panduan lengkap penggunaan perintah tautan |
+
 
 ---
 
@@ -590,7 +609,113 @@ Saat kelas aktif di suatu obrolan telah disetel (misal ke `D4-TI-SMT3-A`):
 
 ---
 
-## 10. 🔒 Perbedaan Akses: Grup vs Chat Pribadi (DM)
+## 10. 🔗 Panduan Penggunaan Modul Tautan Penting Kelas (!link, !drive, !zoom)
+
+Kerap kali mahasiswa berulang kali menanyakan tautan penting di grup: *"Link Google Drive materi kuliah di mana ya?"*, *"Link Zoom kuliah daring apa?"*, atau *"Link presensi kampus apa?"*. Deskripsi grup WhatsApp memiliki batasan karakter dan seringkali tertutup oleh pengumuman lain.
+
+Modul **Tautan Penting Kelas** bertindak sebagai *hub bookmark* terpusat yang praktis, cerdas, dan aman:
+* **Tersimpan di SQLite Lokal (`class_links`):** Data tautan permanen, terisolasi per chat/grup (*room-scoped*), dan tidak akan hilang saat bot di-restart.
+* **Deteksi Kategori Otomatis:** Bot otomatis mengelompokkan tautan ke dalam kategori `drive`, `meeting`, `repo`, `portal`, atau `umum` berdasarkan judul dan domain URL.
+* **Normalisasi HTTPS:** URL otomatis dipastikan berawalan `https://` sehingga 100% *clickable* (dapat langsung diklik) pada aplikasi WhatsApp ponsel.
+* **Integrasi Kuliah Daring Pagi:** Tautan berkategori `meeting` (Zoom / Google Meet) otomatis disematkan pada siaran pengingat pagi (06:00 WIB) jika ada agenda daring.
+* **Hak Akses Berbasis Peran:** Di grup WhatsApp, hanya **Admin Grup** yang dapat menambah dan menghapus tautan. Di chat pribadi (DM), pengguna bebas mengelola tautan pribadinya.
+
+### A. Melihat Seluruh Tautan Aktif (`!link` / `!tautan`)
+Untuk menampilkan seluruh tautan yang tersimpan dan dikelompokkan secara rapi per kategori:
+* **Perintah:**
+  ```text
+  !link
+  ```
+  *(Alias: `!tautan`)*
+* **Format Balasan Bot:**
+  ```text
+  🔗 *DAFTAR TAUTAN PENTING KELAS*
+  ──────────
+
+  📁 *GOOGLE DRIVE & PENYIMPANAN MATERI:*
+  • *Drive Utama Modul & Slide Kuliah*
+    └ https://drive.google.com/drive/folders/1abcxyz
+    └ _Folder gabungan materi semester 3_
+    └ ID: `#1`
+
+  📹 *KULIAH DARING (ZOOM / GMEET):*
+  • *Zoom Perkuliahan SBD Daring*
+    └ https://zoom.us/j/9876543210
+    └ _Passcode: jtk2026_
+    └ ID: `#2`
+
+  💻 *REPOSITORI KODE & TUGAS (GITHUB / GITLAB):*
+  • *Github Repository Kelas 3A*
+    └ https://github.com/jtk-polban/kelas-3a
+    └ ID: `#3`
+
+  ──────────
+  💡 *Perintah Tautan Cepat:*
+  • `!drive` ➔ Khusus Google Drive
+  • `!zoom`  ➔ Khusus link meeting
+  • `!link cari [kata]` ➔ Cari tautan
+  • `!link tambah [Judul] | [URL] (| [Catatan])` (Admin)
+  • `!link hapus [ID]` (Admin)
+  ```
+
+### B. Shortcut Khusus Google Drive (`!drive` / `!gdrive`)
+Saat mahasiswa hanya ingin membuka Google Drive materi tanpa melihat tautan lain:
+* **Perintah:**
+  ```text
+  !drive
+  ```
+  *(Alias: `!gdrive`)*
+* Bot menyaring dan menampilkan hanya tautan yang termasuk kategori penyimpanan materi (`drive.google.com`, `onedrive`, `dropbox`).
+
+### C. Shortcut Khusus Kuliah Daring (`!zoom` / `!gmeet` / `!meet`)
+Saat jam kuliah daring akan segera dimulai:
+* **Perintah:**
+  ```text
+  !zoom
+  ```
+  *(Alias: `!gmeet`, `!meet`)*
+* Bot menyaring dan menampilkan hanya tautan pertemuan daring (`zoom.us`, `meet.google.com`, `teams.microsoft.com`).
+
+### D. Mencari Tautan Berdasarkan Kata Kunci (`!link cari [kata]`)
+Jika daftar tautan sudah banyak, gunakan pencarian cepat:
+* **Format Perintah:**
+  ```text
+  !link cari [kata_kunci]
+  ```
+* **Contoh:**
+  * `!link cari basis`
+  * `!link cari slide`
+  * `!link cari presensi`
+
+### E. Menambah Tautan Baru (`!link tambah`)
+*(Khusus Admin Grup di grup kelas; bebas di DM pribadi)*
+* **Format Perintah:**
+  ```text
+  !link tambah [Judul Tautan] | [URL] (| [Catatan / Deskripsi Tambahan])
+  ```
+* **Contoh Penggunaan:**
+  * `!link tambah Drive Materi Kuliah | https://s.id/drive-d4a | Folder slide dan modul resmi`
+  * `!link tambah Zoom Matdis | https://zoom.us/j/12345678 | ID Passcode: 123456`
+  * `!link tambah Repo Tugas Kelas | github.com/kelas3a/tugas` *(otomatis dinormalisasi ke `https://github.com/...`)*
+* **Validasi & Keamanan:**
+  * Format URL divalidasi dengan `net/url`.
+  * Judul dan URL wajib diisi dengan pemisah tanda pipa (`|`).
+
+### F. Menghapus Tautan (`!link hapus [ID]`)
+*(Khusus Admin Grup di grup kelas; bebas di DM pribadi)*
+* **Format Perintah:**
+  ```text
+  !link hapus [ID]
+  ```
+* **Contoh:**
+  ```text
+  !link hapus 2
+  ```
+  *(Ganti angka `2` dengan nomor ID tautan yang tertera pada daftar tautan)*
+
+---
+
+## 11. 🔒 Perbedaan Akses: Grup vs Chat Pribadi (DM)
 
 Demi menjaga ketertiban grup kelas dari spam atau pengubahan data sepihak yang tidak sah, bot menerapkan sistem kendali akses berbasis peran (*Role-Based Access Control*):
 
@@ -607,7 +732,7 @@ Demi menjaga ketertiban grup kelas dari spam atau pengubahan data sepihak yang t
 
 ---
 
-## 11. 🕒 Format Penulisan Tenggat Waktu (Natural Time Parser)
+## 12. 🕒 Format Penulisan Tenggat Waktu (Natural Time Parser)
 
 Parser waktu bot dapat mengenali berbagai variasi penulisan bahasa Indonesia:
 
@@ -625,7 +750,7 @@ Parser waktu bot dapat mengenali berbagai variasi penulisan bahasa Indonesia:
 
 ---
 
-## 12. 💻 Cara Menjalankan & Menguji Bot di Komputer
+## 13. 💻 Cara Menjalankan & Menguji Bot di Komputer
 
 ### Prasyarat:
 * Go (Golang) versi 1.22 atau lebih baru terinstal di komputer/server.
@@ -641,40 +766,20 @@ Jika baru pertama kali dijalankan atau sesi autentikasi kedaluwarsa, terminal ak
 ### Menjalankan Pengujian Otomatis (Unit Test):
 Bot dilengkapi rangkaian pengujian unit otomatis (*unit test suite*) yang menguji seluruh logika inti tanpa memerlukan koneksi WhatsApp nyata:
 ```bash
-go test -v .
+go test -v ./...
 ```
 
-Rangkaian 8 Test Suite Komprehensif:
+Rangkaian 10 Test Suite Komprehensif:
 1. `TestOverrideManager`: Pengujian pergeseran jam, kelas kosong, kuliah pengganti, hari libur, dan deteksi bentrok jadwal.
 2. `TestSchedule`: Pengujian parser jadwal harian, mingguan, pencarian dosen/ruangan, dan fuzzy search.
 3. `TestTaskManager`: Pengujian pembuatan tugas, filter mata kuliah, perpanjangan deadline, dan riwayat tugas SQLite.
-4. `TestClassManager`: Pengujian multi-JSON loader, normalisasi kode kelas, validasi fallback, dan hot-reload.
-5. `TestChatSettingsManager`: Pengujian tabel relasi `chat_settings` di SQLite, in-memory caching, dan handler `!setkelas`/`!daftarkelas`.
-6. `TestReminderIntegration`: Pengujian broadcast jadwal pagi multi-kelas, resolusi kelas aktif per grup, dan pengingat tugas mendesak.
-7. `TestDatabaseInit`: Pengujian pembuatan skema tabel SQLite, integritas WAL mode, dan penutupan koneksi bersih.
-8. `TestUtils`: Pengujian parser prefix pesan, pembersih perintah, normalisasi waktu, dan fungsi string helper.
-
-Output pengujian yang diharapkan:
-```text
-=== RUN   TestChatSettingsManager
---- PASS: TestChatSettingsManager (0.01s)
-=== RUN   TestClassManager
---- PASS: TestClassManager (0.00s)
-=== RUN   TestDatabaseInit
---- PASS: TestDatabaseInit (0.01s)
-=== RUN   TestOverrideManager
---- PASS: TestOverrideManager (0.02s)
-=== RUN   TestReminderIntegration
---- PASS: TestReminderIntegration (0.00s)
-=== RUN   TestSchedule
---- PASS: TestSchedule (0.00s)
-=== RUN   TestTaskManager
---- PASS: TestTaskManager (0.04s)
-=== RUN   TestUtils
---- PASS: TestUtils (0.00s)
-PASS
-ok  	bot-jadwal	2.030s
-```
+4. `TestLinkManager`: Pengujian CRUD tautan kelas, normalisasi HTTPS, deteksi kategori cerdas, isolasi per chat, dan filter kategori.
+5. `TestGroupAdmin`: Pengujian resolusi admin grup komprehensif (LID WhatsApp, Phone Number JID, Alternate Sender, dan TTL caching).
+6. `TestClassManager`: Pengujian multi-JSON loader, normalisasi kode kelas, validasi fallback, dan hot-reload.
+7. `TestChatSettingsManager`: Pengujian tabel relasi `chat_settings` di SQLite, in-memory caching, dan handler `!setkelas`/`!daftarkelas`.
+8. `TestReminderIntegration`: Pengujian broadcast jadwal pagi multi-kelas, resolusi kelas aktif per grup, pengingat tugas mendesak, dan tautan daring.
+9. `TestDatabaseInit`: Pengujian pembuatan skema tabel SQLite, integritas WAL mode, dan penutupan koneksi bersih.
+10. `TestUtils`: Pengujian parser prefix pesan, quoted reply message builder, pembersih perintah, normalisasi waktu, dan string helper.
 
 ### Mengompilasi Biner Mandiri (*Production Binary Build*):
 Untuk menjalankan bot tanpa perlu dependensi Go di server produksi:
@@ -684,7 +789,7 @@ go build -v -o bot-jadwal.exe .
 
 ---
 
-## 13. 🛡️ Kestabilan & Keamanan Sistem (*Technical Reliability*)
+## 14. 🛡️ Kestabilan & Keamanan Sistem (*Technical Reliability*)
 
 ### A. Pembersihan Database saat Bot Dimatikan (*Graceful Shutdown*)
 Saat bot dihentikan di terminal (`Ctrl + C` atau sinyal OS `SIGTERM`), bot mengeksekusi prosedur penutupan teratur:
@@ -698,11 +803,11 @@ Koneksi jaringan internet kampus atau server seringkali mengalami gangguan sesaa
 * **Watchdog Supervisor Goroutine:** Rutinitas pengawas independen yang rutin memantau status aktif bot. Jika bot offline tanpa sengaja, supervisor akan mengeksekusi rekoneksi berkala dengan algoritma **Exponential Backoff** (3s ➔ 6s ➔ 12s ➔ maks 30s) hingga sambungan pulih sempurna.
 
 ### C. Performa Tinggi & Akses Memori Aman (*Thread-Safe Concurrency*)
-Semua operasi pembacaan jadwal dan pengaturan obrolan kelas menggunakan mekanisme **In-Memory Cache O(1)** yang dilindungi oleh `sync.RWMutex`. Bot mampu melayani puluhan pesan masuk secara simultan tanpa mengalami *race condition*, tanpa membebani disk I/O, dan dengan latensi tanggapan di bawah 5 milidetik.
+Semua operasi pembacaan jadwal dan pengaturan obrolan kelas menggunakan mekanisme **In-Memory Cache O(1)** yang dilindungi oleh `sync.RWMutex`. Selain itu, dispatcher pesan masuk berjalan secara asinkron non-blocking (`go handleIncomingMessage`), sehingga bot mampu melayani puluhan pesan masuk secara simultan tanpa antre atau *race condition*.
 
 ---
 
-## 14. 🎨 Cetak Biru Web Admin Dashboard (*Future Roadmap*)
+## 15. 🎨 Cetak Biru Web Admin Dashboard (*Future Roadmap*)
 
 Untuk melengkapi kemudahan Komti dan pengurus kelas dalam mengelola tugas, jadwal pengganti, dan pengaturan grup, saat ini telah disusun **Product Requirements Document (PRD)** resmi untuk antarmuka web grafis:
 
