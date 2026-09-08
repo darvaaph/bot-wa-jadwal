@@ -278,7 +278,7 @@ Bot menerapkan pemisahan hak akses yang ketat untuk menjaga integritas data kela
 Untuk menambahkan perintah baru (misal: `!link` untuk direktori link Google Meet / Drive materi kuliah):
 
 ### Langkah 1: Implementasikan Handler di Modul Terkait
-Tambahkan fungsi penanganan pada modul yang sesuai, misalnya di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go):
+Tambahkan fungsi penanganan pada modul yang sesuai, misalnya di `internal/schedule/schedule.go`:
 ```go
 // GetClassLinks mengembalikan direktori tautan perkuliahan
 func (j *JadwalConfig) GetClassLinks() string {
@@ -287,7 +287,7 @@ func (j *JadwalConfig) GetClassLinks() string {
 ```
 
 ### Langkah 2: Daftarkan Perintah pada Parser Pesan
-Pada method `ProcessMessage` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go), tambahkan percabangan:
+Pada method `ProcessMessage` di `internal/schedule/schedule.go`, tambahkan percabangan:
 ```go
 case "link", "drive", "tautan":
     return j.GetClassLinks()
@@ -297,7 +297,7 @@ case "link", "drive", "tautan":
 Tambahkan kata kunci pada method `GetKeywords()` dan format template di `GetMenu()` agar mahasiswa dapat menemukan perintah tersebut.
 
 ### Langkah 4: Buat Unit Test Otomatis
-Buka berkas uji terkait (misal [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go)) dan tambahkan skenario validasi:
+Buka berkas uji terkait (misal `internal/schedule/schedule_test.go`) dan tambahkan skenario validasi:
 ```go
 reply := cfg.ProcessMessage("!link", false, "")
 if !strings.Contains(reply, "DIREKTORI TAUTAN KELAS") {
@@ -307,7 +307,7 @@ if !strings.Contains(reply, "DIREKTORI TAUTAN KELAS") {
 
 ### Langkah 5: Jalankan Pengujian
 ```bash
-go test -count=1 -v .
+go test -count=1 -v ./...
 ```
 
 ---
@@ -318,8 +318,8 @@ Rangkaian unit test wajib mencakup skenario sukses (*positive test*), skenario k
 
 | Test Suite | Berkas Uji | Cakupan Pengujian |
 | :--- | :--- | :--- |
-| `TestSharedSQLiteConnection` | [db_test.go](file:///f:/Project/bot-jadwal/db_test.go) | Inisialisasi pool SQLite, verifikasi WAL mode, dan konkurensi penulisan paralel simultan 20 goroutine antara `TaskManager` & `OverrideManager`. |
-| `TestUtils` | [utils_test.go](file:///f:/Project/bot-jadwal/utils_test.go) | Validasi nama hari/bulan Indonesia, ekstraksi kata tanggal, kalkulasi rentang jam, dan pembersihan awalan prefix. |
-| `TestSchedule` | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) | Parsing kurikulum `jadwal.json`, pencarian cerdas mata kuliah/dosen/ruangan, kalkulasi `!next`, dan perpaduan jadwal reguler dengan override. |
-| `TestOverrideManager` | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) | Penjadwalan ulang (`!pindah`), pembatalan kelas (`!kosong`), deteksi bentrok jadwal, pengumuman hari libur (`!libur`), dan pembatalan (`!batalganti`). |
-| `TestTaskManager` | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) | CRUD tugas SQLite, otorisasi admin grup vs anggota biasa, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). |
+| `TestSharedSQLiteConnection` | `internal/database/db_test.go` | Inisialisasi pool SQLite, verifikasi WAL mode, dan konkurensi penulisan paralel simultan 20 goroutine antara `TaskManager` & `OverrideManager`. |
+| `TestUtils` | `internal/util/utils_test.go` | Validasi nama hari/bulan Indonesia, ekstraksi kata tanggal, kalkulasi rentang jam, dan pembersihan awalan prefix. |
+| `TestSchedule` | `internal/schedule/schedule_test.go` | Parsing kurikulum `jadwal.json`, pencarian cerdas mata kuliah/dosen/ruangan, kalkulasi `!next`, dan perpaduan jadwal reguler dengan override. |
+| `TestOverrideManager` | `internal/schedule/override_test.go` | Penjadwalan ulang (`!pindah`), pembatalan kelas (`!kosong`), deteksi bentrok jadwal, pengumuman hari libur (`!libur`), dan pembatalan (`!batalganti`). |
+| `TestTaskManager` | `internal/task/task_test.go` | CRUD tugas SQLite, otorisasi admin grup vs anggota biasa, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). |

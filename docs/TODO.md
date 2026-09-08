@@ -50,21 +50,21 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
 ## 🎯 Roadmap Arsitektur Multi-Kelas (Multi-Tenant Support)
 
 - [x] **Fase 1: Multi-JSON Loader (`ClassManager`):** *(Selesai)*
-  * Direktori [data/jadwal/](file:///f:/Project/bot-jadwal/data/jadwal/) berisi [3a.json](file:///f:/Project/bot-jadwal/data/jadwal/3a.json) dan [3b.json](file:///f:/Project/bot-jadwal/data/jadwal/3b.json).
-  * [ClassManager](file:///f:/Project/bot-jadwal/class_manager.go) dengan in-memory cache, normalisasi cerdas, hot-reload, fallback otomatis, dan 100% lulus unit test ([class_manager_test.go](file:///f:/Project/bot-jadwal/class_manager_test.go)).
+  * Direktori `data/jadwal/` berisi `3a.json` dan `3b.json`.
+  * `ClassManager` dengan in-memory cache, normalisasi cerdas, hot-reload, fallback otomatis, dan 100% lulus unit test (`internal/schedule/class_manager_test.go`).
 - [x] **Fase 2: Tabel `chat_settings` di SQLite (`ChatSettingsManager`):** *(Selesai)*
-  * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db` melalui [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go).
-  * Write-through cache in-memory untuk pembacaan instan O(1), aman konkurensi (`sync.RWMutex`), dan 100% lulus unit test ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
+  * Menyimpan relasi `scope_jid -> class_id` pada `tugas.db` melalui `internal/chat/chat_settings.go`.
+  * Write-through cache in-memory untuk pembacaan instan O(1), aman konkurensi (`sync.RWMutex`), dan 100% lulus unit test (`internal/chat/chat_settings_test.go`).
 - [x] **Fase 3: Perintah `!setkelas` & `!daftarkelas`:** *(Selesai)*
-  * Handler `HandleCommand` di [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go) untuk `!daftarkelas`, `!setkelas`, dan `!resetkelas`.
+  * Handler `HandleCommand` di `internal/chat/chat_settings.go` untuk `!daftarkelas`, `!setkelas`, dan `!resetkelas`.
   * Proteksi otorisasi admin grup di WhatsApp grup & kebebasan pengaturan di DM pribadi.
-  * Pembaruan tampilan menu bantuan `!menu` dan `!keyword` di [schedule.go](file:///f:/Project/bot-jadwal/schedule.go).
-  * 100% lulus unit test skenario perintah ([chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go)).
+  * Pembaruan tampilan menu bantuan `!menu` dan `!keyword` di `internal/schedule/schedule.go`.
+  * 100% lulus unit test skenario perintah (`internal/chat/chat_settings_test.go`).
 - [x] **Fase 4: Integrasi ke Dispatcher Pesan & Pengingat Pagi:** *(Selesai)*
-  * Integrasi penuh resolusi jadwal dinamis per chat/grup di [main.go](file:///f:/Project/bot-jadwal/main.go) (`activeJadwal`).
+  * Integrasi penuh resolusi jadwal dinamis per chat/grup di `cmd/bot/main.go` (`activeJadwal`).
   * Integrasi perintah kelas dan hot-reload seluruh kelas (`!reload`) di WhatsApp.
-  * Personalisasi broadcast jadwal pagi 06:30 WIB per kelas grup pada [reminder.go](file:///f:/Project/bot-jadwal/reminder.go).
-  * 100% lulus integrasi test [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) dan kompilasi biner `bot-jadwal.exe` sukses.
+  * Personalisasi broadcast jadwal pagi 06:00 WIB per kelas grup pada `internal/reminder/reminder.go`.
+  * 100% lulus integrasi test `internal/reminder/reminder_test.go` dan kompilasi biner `bot-jadwal` sukses.
 - [x] **Ekstraksi Lengkap 19 Kelas D3 & D4 Teknik Informatika:** *(Selesai)*
   * 12 Kelas D4 Sarjana Terapan (`D4-TI-1A` s.d. `1D`, `D4-TI-3A` s.d. `3D`, `D4-TI-5A`, `5B`, `D4-TI-7A`, `7B`).
   * 7 Kelas D3 Diploma (`D3-TI-1A`, `1B`, `D3-TI-3A`, `3B`, `D3-TI-5A`, `5B`, `5C`).
@@ -74,13 +74,13 @@ Dokumen ini mencatat daftar ide dan rencana pengembangan fitur masa depan yang d
   * Perintah jadwal (`!hari ini`, `!besok`, `!jadwal`, `!next`, `!matkul`, dll.), tugas (`!tugas`), dan override langsung menampilkan pesan panduan onboarding.
   * `!daftarkelas` menampilkan `📌 Kelas Aktif di Chat Ini: ⚠️ *Belum Diatur*`.
   * `!reminder on` menolak aktif sebelum kelas ditentukan oleh admin grup.
-  * 17 Unit test suite **100% PASS** dan kompilasi biner `bot-jadwal.exe` sukses.
+  * 17 Unit test suite **100% PASS** dan kompilasi biner `bot-jadwal` sukses.
 - [ ] **Cek Jadwal Lintas Kelas (*Cross-Class Peek*):**
   * Mahasiswa dapat mengintip jadwal kelas lain kapan saja (contoh: `!jadwal senin 3b` atau `!next 3b`).
 - [ ] **Distribusi Dokumen Silabus / Modul Praktikum PDF (`!modul`):**
   * Bot dapat mengirimkan file dokumen praktikum secara langsung dari penyimpanan lokal server ke chat mahasiswa.
 - [ ] **Web Admin Dashboard (Embedded Pure Go Server):**
-  * Dokumen PRD spesifikasi lengkap untuk desainer UI/UX telah selesai dirancang di [DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md).
+  * Dokumen PRD spesifikasi lengkap untuk desainer UI/UX telah selesai dirancang di [DASHBOARD_PRD.md](DASHBOARD_PRD.md).
   * Siap masuk ke tahap perancangan visual Figma (Moodboard, Design Tokens, Wireframe, High-Fidelity UI, Prototype).
 
 ---
