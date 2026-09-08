@@ -41,7 +41,7 @@ Dokumentasi proyek ini telah dipisahkan secara modular agar rapi dan mudah dibac
    ```
 3. Jalankan bot:
    ```bash
-   go run .
+   go run ./cmd/bot
    ```
 4. Jika pertama kali dijalankan, terminal akan merender **QR Code**. Buka WhatsApp di HP $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ Scan QR tersebut.
 
@@ -95,26 +95,32 @@ go test -v ./...
 
 ```text
 bot-jadwal/
-├── main.go               # Titik masuk utama, router pesan WhatsApp, & lifecycle
-├── schedule.go           # Parser jadwal, evaluasi jam kuliah, & responder teks
-├── task.go               # Manajemen deadline tracker, validasi tugas, & countdown
-├── link.go               # Modul tautan penting kelas (Drive, Zoom, Portal)
-├── reminder.go           # Background scheduler pengingat pagi (06:00 WIB)
-├── override.go           # Logika perubahan jadwal sementara (libur, kuliah ganti)
-├── class_manager.go      # Pengelola multi-kelas modular
-├── chat_settings.go      # Pemetaan kelas aktif per grup WhatsApp
-├── db.go                 # Inisialisasi pool koneksi SQLite WAL tunggal
-├── utils.go              # Helper normalisasi teks, string distance, & validasi
-├── *_test.go             # Berkas unit test otomatis untuk seluruh modul
+├── cmd/
+│   └── bot/
+│       └── main.go          # Titik masuk utama aplikasi (bot WhatsApp & REST API server)
+├── internal/
+│   ├── config/              # Konfigurasi aplikasi & auto-migration file runtime
+│   ├── database/            # Inisialisasi SQLite connection pool WAL mode
+│   ├── util/                # Helper murni (waktu WIB, parser tanggal alami, FindDataDir)
+│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
+│   ├── task/                # TaskManager SQLite & parser tenggat tugas
+│   ├── link/                # LinkManager SQLite & categorizer tautan kelas
+│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
+│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── bot/                 # whatsmeow client, quoted reply, & message event dispatcher
+│   └── api/                 # HTTP REST API server untuk Web Admin Dashboard
 ├── data/
-│   └── jadwal/           # 19 berkas master jadwal kuliah format JSON
-├── jadwal.json           # Berkas master jadwal kelas utama
-├── reminder_groups.json  # Data persistensi grup pengingat pagi
-├── tugas.db              # Database SQLite (tugas, link, setting kelas, override)
-├── sesi_bot.db           # Database SQLite sesi login WhatsMeow
-├── DEPLOYMENT.md         # Dokumentasi operasional server Azure & DevOps
-├── PANDUAN_PENGGUNAAN.md # Panduan komprehensif fitur untuk pengguna
-└── README.md             # Berkas ringkasan proyek ini
+│   ├── jadwal/              # Berkas master JSON kurikulum per kelas
+│   └── jadwal.json          # Berkas kurikulum default
+├── storage/                 # Direktori terisolasi untuk file runtime (di-ignore oleh git)
+│   ├── tugas.db             # Database SQLite aplikasi (tugas, link, setting kelas, override)
+│   ├── sesi_bot.db          # Database sesi login WhatsMeow
+│   └── reminder_groups.json # File JSON preferensi grup pengingat
+├── DEPLOYMENT.md            # Dokumentasi operasional server Azure & DevOps
+├── PANDUAN_PENGGUNAAN.md    # Panduan komprehensif fitur untuk pengguna
+├── ARCHITECTURE.md          # Cetak biru arsitektur teknis sistem
+├── DASHBOARD_PRD.md         # PRD Web Admin Dashboard
+└── README.md                # Berkas ringkasan proyek ini
 ```
 
 ---

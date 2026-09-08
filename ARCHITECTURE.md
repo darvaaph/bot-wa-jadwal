@@ -10,54 +10,84 @@ Aplikasi dibangun menggunakan **Go (Golang)** dengan pola modular berbobot ringa
 
 ```mermaid
 graph TD
-    WA[WhatsApp Server] <-->|Websocket E2E TLS| WM[whatsmeow Client]
-    
-    subgraph "Aplikasi Bot (Go Runtime)"
-        WM -->|Message Events| EH[Event Handler & Dispatcher<br/>main.go]
-        
-        EH -->|Jadwal & Pencarian| SC[Schedule Engine<br/>schedule.go]
-        EH -->|Override / Pindah / Libur| OM[Override Manager<br/>override.go]
-        EH -->|Deadline & Filter Tugas| TM[Task Manager<br/>task.go]
-        EH -->|Pengingat Otomatis| RM[Reminder Manager<br/>reminder.go]
-        
-        EH -->|Sentralisasi Balasan| RWT[replyWithTyping<br/>main.go]
-        RWT -->|Reaction + Presence + Reply| WM
-        
-        SCHED[Background Cron 06:30 WIB<br/>reminder.go] -->|Broadcast Pagi| WM
-        WD[Watchdog Supervisor<br/>main.go] -.->|Auto-Reconnect Backoff| WM
-        
-        SC & OM & TM & RM -.-> UT[Shared Utilities<br/>utils.go]
-        TM -->|Shared *sql.DB| DBP[SQLite Pool WAL Mode<br/>db.go]
-        OM -->|Shared *sql.DB| DBP
+    subgraph "Klien Eksternal"
+        WA[WhatsApp Network] <-->|Websocket E2E TLS| WM[whatsmeow Client]
+        DASH[Browser / Web Admin] <-->|HTTP REST JSON| API[REST API Server<br/>internal/api]
     end
 
-    subgraph "Penyimpanan Data (Storage & Persistence)"
-        SC -->|Read/Reload| JSN[(jadwal.json)]
-        RM -->|Read/Write JSON| RJ[(reminder_groups.json)]
-        DBP <-->|Read/Write WAL| DB[(tugas.db)]
-        WM -->|Device Session| SDB[(sesi_bot.db)]
+    subgraph "Layer 5: Titik Masuk (Application Lifecycle)"
+        CMD[Single Entry Point<br/>cmd/bot/main.go]
     end
+
+    subgraph "Layer 4: Delivery / Presentation"
+        BOT[WhatsApp Dispatcher<br/>internal/bot]
+        API
+    end
+
+    subgraph "Layer 3: Orchestration"
+        REM[Reminder Scheduler<br/>internal/reminder]
+    end
+
+    subgraph "Layer 2: Cross-Domain Consumers"
+        TSK[Task Tracker Engine<br/>internal/task]
+        CHT[Chat Settings & Admin<br/>internal/chat]
+    end
+
+    subgraph "Layer 1: Core Domain Engines"
+        SCH[Schedule Engine & Overrides<br/>internal/schedule]
+        LNK[Class Link Manager<br/>internal/link]
+    end
+
+    subgraph "Layer 0: Foundation (Zero Internal Dependencies)"
+        CFG[App Configuration<br/>internal/config]
+        DBP[SQLite Pool WAL Mode<br/>internal/database]
+        UTL[Shared Utilities<br/>internal/util]
+    end
+
+    subgraph "Penyimpanan Data Terisolasi (storage/ & data/)"
+        JSN[(data/jadwal/*.json)]
+        SDB[(storage/sesi_bot.db)]
+        TDB[(storage/tugas.db)]
+        RMG[(storage/reminder_groups.json)]
+    end
+
+    CMD --> BOT & API & CFG & DBP
+    WM <--> BOT
+    BOT --> SCH & TSK & LNK & CHT & REM & UTL
+    API --> BOT & SCH & UTL
+
+    REM --> SCH & TSK & LNK & CHT & UTL
+    TSK --> SCH & DBP & UTL
+    CHT --> SCH & DBP & UTL
+    SCH --> DBP & UTL
+    LNK --> DBP & UTL
+
+    SCH -.-> JSN
+    DBP <--> TDB
+    WM <--> SDB
+    REM <--> RMG
 ```
 
 ---
 
 ## 2. 📂 Peta Direktori & Tanggung Jawab Modul (*Module Directory Map*)
 
-Seluruh logika utama berada di dalam `package main` untuk menjaga kesederhanaan eksekusi, menghindari siklus import (*cyclic dependency*), dan mempermudah pemeliharaan:
+Arsitektur sistem mengadopsi **Standard Go Project Layout** yang modular di bawah `cmd/` dan `internal/` dengan hirarki dependensi satu arah (*Directed Acyclic Graph / DAG*):
 
-| Berkas | Tanggung Jawab Utama | Rangkaian Uji Terkait |
+| Paket / Direktori | Tanggung Jawab Utama | Rangkaian Uji Terkait |
 | :--- | :--- | :--- |
-| [main.go](file:///f:/Project/bot-jadwal/main.go) | Titik masuk utama (*entry point*), inisialisasi whatsmeow, dispatcher event pesan, helper respons terpadu `replyWithTyping`, supervisor rekoneksi (*watchdog*), dan pembersihan aman (*graceful shutdown*). | Manual / Integration |
-| [class_manager.go](file:///f:/Project/bot-jadwal/class_manager.go) | **Multi-Class Schedule Engine (`ClassManager`)**: Memindai direktori `data/jadwal/*.json`, mengelola in-memory cache jadwal multi-kelas, normalisasi case-insensitive, propagasi `OverrideManager`, dan hot-reload seluruh kelas (`ReloadAll`). | [class_manager_test.go](file:///f:/Project/bot-jadwal/class_manager_test.go) |
-| [chat_settings.go](file:///f:/Project/bot-jadwal/chat_settings.go) | **Multi-Tenant Chat Binding (`ChatSettingsManager`)**: Mengelola preferensi grup/chat (tabel `chat_settings`), write-through cache in-memory, dan handler perintah kelas (`!kelas`, `!setkelas`, `!resetkelas`). | [chat_settings_test.go](file:///f:/Project/bot-jadwal/chat_settings_test.go) |
-| [db.go](file:///f:/Project/bot-jadwal/db.go) | **Unified SQLite Connection Pool (`InitDB`)**: Sentralisasi koneksi `*sql.DB` bersama dengan mode WAL (`journal_mode=WAL`), `busy_timeout=5000`, dan `foreign_keys=1` guna menjamin nol persaingan penguncian database pada Windows. | [db_test.go](file:///f:/Project/bot-jadwal/db_test.go) |
-| [utils.go](file:///f:/Project/bot-jadwal/utils.go) | **Single Source of Truth** untuk helper: lokalisasi hari/bulan Indonesia, parser tanggal alami (*relative date parser*), kalkulasi rentang jam, pembersih prefix perintah, dan pembacaan flexible time SQLite. | [utils_test.go](file:///f:/Project/bot-jadwal/utils_test.go) |
-| [schedule.go](file:///f:/Project/bot-jadwal/schedule.go) | Engine jadwal kuliah: parsing kurikulum JSON, pencarian cerdas/alias (*fuzzy match*), kalkulasi kuliah aktif/berikutnya (`!next`), tampilan menu bot (`!menu`), dan kamus bantuan (`!keyword`). | [schedule_test.go](file:///f:/Project/bot-jadwal/schedule_test.go) |
-| [override.go](file:///f:/Project/bot-jadwal/override.go) | Engine jadwal pengganti sementara: perubahan jam (`!pindah`), pembatalan kelas (`!kosong`), kuliah pengganti (`!kuliahganti`), pengumuman hari libur (`!libur`), deteksi bentrok jadwal, dan pembatalan (`!batalganti`). | [override_test.go](file:///f:/Project/bot-jadwal/override_test.go) |
-| [task.go](file:///f:/Project/bot-jadwal/task.go) | Engine pelacak tugas SQLite: CRUD catatan tugas (`!tugas`), validasi matkul resmi, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). | [task_test.go](file:///f:/Project/bot-jadwal/task_test.go) |
-| [link.go](file:///f:/Project/bot-jadwal/link.go) | Engine tautan penting kelas (`LinkManager`): CRUD tautan SQLite (`class_links`), normalisasi HTTPS otomatis, deteksi kategori cerdas (`drive`, `meeting`, `repo`, `portal`, `umum`), pencarian kata kunci, dan filter per kategori. | [link_test.go](file:///f:/Project/bot-jadwal/link_test.go) |
-| [group_admin.go](file:///f:/Project/bot-jadwal/group_admin.go) | Resolusi Admin Grup Komprehensif (`GroupAdminResolver`): Deteksi admin multi-identitas mendukung WhatsApp LID (`@lid`), Phone Number JID, Alternate Sender, Owner, dan TTL caching in-memory 3 menit. | [group_admin_test.go](file:///f:/Project/bot-jadwal/group_admin_test.go) |
-| [reminder.go](file:///f:/Project/bot-jadwal/reminder.go) | Scheduler latar belakang: pengingat otomatis pagi (06:30 WIB) setiap Senin-Jumat dengan personalisasi jadwal per kelas grup, integrasi tugas mendesak & tautan daring, dan daftar grup di `reminder_groups.json`. | [reminder_test.go](file:///f:/Project/bot-jadwal/reminder_test.go) |
+| [cmd/bot/main.go](file:///f:/Project/bot-jadwal/cmd/bot/main.go) | **Single Entry Point**: Titik masuk tunggal aplikasi, membaca konfigurasi, inisialisasi dependency injection, menjalankan bot WhatsApp dan HTTP REST server, serta menangani *graceful shutdown*. | Integration / Build |
+| [internal/config/](file:///f:/Project/bot-jadwal/internal/config/) | **Konfigurasi & Auto-Migration**: Mengelola path database, port API, dan memindahkan secara otomatis berkas runtime lama (`tugas.db*`, `sesi_bot.db*`) ke direktori `storage/`. | [config_test.go](file:///f:/Project/bot-jadwal/internal/config/config_test.go) |
+| [internal/database/](file:///f:/Project/bot-jadwal/internal/database/) | **Unified SQLite Pool (`InitDB`)**: Inisialisasi pool SQLite bersama dengan mode WAL (`journal_mode=WAL`), `busy_timeout=5000`, dan `foreign_keys=1`. | [db_test.go](file:///f:/Project/bot-jadwal/internal/database/db_test.go) |
+| [internal/util/](file:///f:/Project/bot-jadwal/internal/util/) | **Shared Pure Helpers**: Lokalisasi waktu WIB, parser tanggal alami, pembersih prefix perintah, dan resolver jalur data otomatis (`FindDataDir`). | [utils_test.go](file:///f:/Project/bot-jadwal/internal/util/utils_test.go) |
+| [internal/schedule/](file:///f:/Project/bot-jadwal/internal/schedule/) | **Schedule & Override Domain**: Mengelola kurikulum multi-kelas (`ClassManager`), evaluasi jam aktif, pencarian matkul, serta pengelola jadwal pengganti sementara (`OverrideManager`). | `*_test.go` di `internal/schedule` |
+| [internal/task/](file:///f:/Project/bot-jadwal/internal/task/) | **Task Management Domain**: CRUD catatan tugas SQLite (`tasks`), validasi mata kuliah resmi kurikulum, filter tugas, dan badge urgensi deadline. | [task_test.go](file:///f:/Project/bot-jadwal/internal/task/task_test.go) |
+| [internal/link/](file:///f:/Project/bot-jadwal/internal/link/) | **Class Link Domain**: CRUD tautan penting kelas (`class_links`), normalisasi HTTPS, dan tagging kategori cerdas (`drive`, `meeting`, dll). | [link_test.go](file:///f:/Project/bot-jadwal/internal/link/link_test.go) |
+| [internal/chat/](file:///f:/Project/bot-jadwal/internal/chat/) | **Chat Binding & Admin Resolution**: Pengaturan preferensi kelas per grup (`ChatSettingsManager`) dan deteksi admin grup dengan caching in-memory 3 menit (`GroupAdminResolver`). | `*_test.go` di `internal/chat` |
+| [internal/reminder/](file:///f:/Project/bot-jadwal/internal/reminder/) | **Broadcast Orchestration**: Scheduler latar belakang pengingat pagi (06:00 WIB), integrasi ringkasan jadwal per kelas, tugas mendesak, dan link daring. | [reminder_test.go](file:///f:/Project/bot-jadwal/internal/reminder/reminder_test.go) |
+| [internal/bot/](file:///f:/Project/bot-jadwal/internal/bot/) | **WhatsApp Presentation Layer**: Lifecycle whatsmeow (`BotClient`), auto-reconnect watchdog, quoted reply, dan message event dispatcher. | [reply_test.go](file:///f:/Project/bot-jadwal/internal/bot/reply_test.go) |
+| [internal/api/](file:///f:/Project/bot-jadwal/internal/api/) | **Web Admin REST API**: HTTP server net/http dengan CORS middleware, graceful shutdown, endpoint `/api/health` dan `/api/status`. | [server_test.go](file:///f:/Project/bot-jadwal/internal/api/server_test.go) |
+| `storage/` | **Isolated Runtime Storage**: Direktori khusus untuk state dinamis (`tugas.db`, `sesi_bot.db`, `reminder_groups.json`) yang diabaikan oleh Git. | System / Runtime |
 
 ---
 

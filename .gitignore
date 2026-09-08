@@ -1,4 +1,23 @@
+# Binaries & Build Output
 *.exe
+bot-jadwal
+bin/
+dist/
+tmp/
+
+# SQLite Databases & Sidecar Files
 *.db
 *.db-shm
 *.db-wal
+
+# Runtime State & Isolated Storage
+storage/
+reminder_groups.json
+
+# Archive files
+*.tar.gz
+*.zip
+
+# Environment & Local Configuration
+.env
+.env.local

@@ -1,0 +1,999 @@
+package task
+
+import (
+	"bot-jadwal/internal/database"
+	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/util"
+	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	_ "modernc.org/sqlite"
+)
+
+// TaskItem merepresentasikan satu catatan tugas perkuliahan
+type TaskItem struct {
+	ID         int
+	ScopeJID   string
+	IsGroup    bool
+	Matkul     string
+	Deskripsi  string
+	Deadline   string
+	DeadlineAt time.Time
+	CreatedBy  string
+	IsDone     bool
+	CreatedAt  time.Time
+}
+
+// TaskManager mengelola operasi CRUD tugas ke database SQLite
+type TaskManager struct {
+	db *sql.DB
+}
+
+// NewTaskManager menginisialisasi tabel tasks pada instance *sql.DB bersama
+func NewTaskManager(db *sql.DB) (*TaskManager, error) {
+	if db == nil {
+		return nil, fmt.Errorf("koneksi database tidak boleh nil")
+	}
+
+	query := `
+	CREATE TABLE IF NOT EXISTS tasks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		scope_jid TEXT NOT NULL,
+		is_group BOOLEAN NOT NULL,
+		matkul TEXT NOT NULL,
+		deskripsi TEXT NOT NULL,
+		deadline TEXT NOT NULL,
+		deadline_at DATETIME,
+		created_by TEXT NOT NULL,
+		is_done BOOLEAN DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_tasks_scope ON tasks(scope_jid, is_done);
+	`
+	_, err := db.Exec(query)
+	if err != nil {
+		return nil, fmt.Errorf("gagal membuat tabel tasks: %w", err)
+	}
+
+	// Migrasi aman jika kolom deadline_at belum ada pada database lama
+	_, _ = db.Exec(`ALTER TABLE tasks ADD COLUMN deadline_at DATETIME;`)
+
+	return &TaskManager{db: db}, nil
+}
+
+// NewTaskManagerWithPath membuat koneksi baru dari path file dan menginisialisasi TaskManager
+func NewTaskManagerWithPath(dbPath string) (*TaskManager, error) {
+	db, err := database.InitDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return NewTaskManager(db)
+}
+
+// Close menutup koneksi database
+func (tm *TaskManager) Close() error {
+	if tm.db != nil {
+		return tm.db.Close()
+	}
+	return nil
+}
+
+// parseDeadline mengonversi teks tenggat waktu menjadi time.Time dan label yang rapi
+func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
+	clean := strings.TrimSpace(rawInput)
+	lower := strings.ToLower(clean)
+
+	// Cari jam (format HH:MM)
+	jamStr := "23:59"
+	hasExplicitTime := false
+	if match := util.TimeRe.FindString(clean); match != "" {
+		jamStr = strings.ReplaceAll(match, ".", ":")
+		hasExplicitTime = true
+	}
+
+	var jam, menit int
+	fmt.Sscanf(jamStr, "%d:%d", &jam, &menit)
+
+	loc := refNow.Location()
+
+	// 1. Hari ini / Today
+	if strings.Contains(lower, "hari ini") || strings.Contains(lower, "hariini") || strings.Contains(lower, "today") {
+		target := time.Date(refNow.Year(), refNow.Month(), refNow.Day(), jam, menit, 0, 0, loc)
+		return target, fmt.Sprintf("Hari Ini, %02d:%02d WIB", jam, menit)
+	}
+
+	// 2. Besok / Tomorrow
+	if strings.Contains(lower, "besok") || strings.Contains(lower, "tomorrow") {
+		t := refNow.Add(24 * time.Hour)
+		target := time.Date(t.Year(), t.Month(), t.Day(), jam, menit, 0, 0, loc)
+		return target, fmt.Sprintf("Besok (%s), %02d:%02d WIB", util.GetHariIndonesia(target), jam, menit)
+	}
+
+	// 3. Nama Hari (Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu)
+	for dayName, weekday := range util.NamaHariMap {
+		if strings.Contains(lower, dayName) {
+			daysAhead := int(weekday - refNow.Weekday())
+			if daysAhead < 0 {
+				daysAhead += 7
+			} else if daysAhead == 0 {
+				// Jika hari ini sama dengan hari target, cek apakah jam sudah lewat
+				targetToday := time.Date(refNow.Year(), refNow.Month(), refNow.Day(), jam, menit, 0, 0, loc)
+				if targetToday.Before(refNow) {
+					daysAhead = 7
+				}
+			}
+
+			targetDate := refNow.AddDate(0, 0, daysAhead)
+			target := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), jam, menit, 0, 0, loc)
+			return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
+				util.GetHariIndonesia(target), target.Day(), util.GetBulanIndonesia(target), jam, menit)
+		}
+	}
+
+	// 4. Format Tanggal Eksplisit (cth: 12-09-2026, 2026-09-12, 12/09/2026)
+	layouts := []string{
+		"02-01-2006 15:04", "02/01/2006 15:04", "2006-01-02 15:04",
+		"02-01-2006", "02/01/2006", "2006-01-02",
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.ParseInLocation(layout, clean, loc); err == nil {
+			if !strings.Contains(layout, "15:04") {
+				t = time.Date(t.Year(), t.Month(), t.Day(), jam, menit, 0, 0, loc)
+			}
+			return t, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
+				util.GetHariIndonesia(t), t.Day(), util.GetBulanIndonesia(t), t.Hour(), t.Minute())
+		}
+	}
+
+	// 5. Format Tanggal dengan Nama/Singkatan Bulan Indonesia (cth: "5 sep", "5 sep 22.15", "8 september", "25 Desember 2026")
+	if dateWord, ok := util.ParseIndonesianDateWord(lower, refNow, loc); ok {
+		target := time.Date(dateWord.Year(), dateWord.Month(), dateWord.Day(), jam, menit, 0, 0, loc)
+		return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
+			util.GetHariIndonesia(target), target.Day(), util.GetBulanIndonesia(target), jam, menit)
+	}
+
+	// 6. Format Hanya Jam Tanpa Tanggal (cth: "22.22", "22:22", "jam 22.22", "pukul 15:00", "22:22 WIB")
+	// Jika pengguna hanya memasukkan jam, artikan sebagai tenggat hari ini
+	if hasExplicitTime {
+		rem := util.TimeRe.ReplaceAllString(lower, "")
+		for _, w := range []string{"jam", "pukul", "wib", "wita", "wit", "pagi", "siang", "sore", "malam"} {
+			rem = strings.ReplaceAll(rem, w, "")
+		}
+		rem = strings.Trim(rem, " \t\r\n.,:-/")
+		if rem == "" {
+			target := time.Date(refNow.Year(), refNow.Month(), refNow.Day(), jam, menit, 0, 0, loc)
+			return target, fmt.Sprintf("Hari Ini (%s), %02d:%02d WIB", util.GetHariIndonesia(target), jam, menit)
+		}
+	}
+
+	// Fallback jika tidak terdeteksi: default 5 hari dari sekarang
+	defaultTarget := refNow.AddDate(0, 0, 5)
+	defaultTarget = time.Date(defaultTarget.Year(), defaultTarget.Month(), defaultTarget.Day(), jam, menit, 0, 0, loc)
+	return defaultTarget, clean
+}
+
+
+
+// GetUrgencyBadge menghasilkan label status hitung mundur berdasarkan selisih waktu nyata
+func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
+	if deadlineAt.IsZero() {
+		return "⏳ *TUGAS AKTIF*"
+	}
+
+	diff := deadlineAt.Sub(now)
+	if diff < 0 {
+		return "⌛ *LEWAT TENGGAT*"
+	}
+
+	// Cek apakah jatuh tempo hari ini (tanggal & tahun sama)
+	if deadlineAt.Year() == now.Year() && deadlineAt.YearDay() == now.YearDay() {
+		hours := int(diff.Hours())
+		mins := int(diff.Minutes()) % 60
+		if hours > 0 {
+			return fmt.Sprintf("🚨 *DEADLINE HARI INI* (Sisa ~%d jam)", hours)
+		}
+		return fmt.Sprintf("🚨 *DEADLINE HARI INI* (Sisa ~%d menit)", mins)
+	}
+
+	// Cek apakah jatuh tempo besok (H-1)
+	tomorrow := now.Add(24 * time.Hour)
+	if deadlineAt.Year() == tomorrow.Year() && deadlineAt.YearDay() == tomorrow.YearDay() {
+		return "⚠️ *DEADLINE BESOK (H-1)*"
+	}
+
+	// Hitung hari tersisa
+	days := int(diff.Hours() / 24)
+	if days <= 0 {
+		days = 1
+	}
+	if days <= 3 {
+		return fmt.Sprintf("⚠️ *H-%d* (%d hari lagi)", days, days)
+	}
+	return fmt.Sprintf("⏳ *H-%d* (%d hari lagi)", days, days)
+}
+
+// CheckDuplicate memeriksa apakah tugas serupa sudah pernah dibuat dan masih aktif
+func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string) (bool, *TaskItem, error) {
+	rows, err := tm.db.Query(`
+		SELECT id, matkul, deskripsi, deadline, created_by 
+		FROM tasks 
+		WHERE scope_jid = ? AND is_done = 0
+	`, scopeJID)
+	if err != nil {
+		return false, nil, err
+	}
+	defer rows.Close()
+
+	cleanMatkul := strings.ToLower(strings.TrimSpace(matkul))
+	cleanDesc := strings.ToLower(strings.TrimSpace(deskripsi))
+
+	for rows.Next() {
+		var item TaskItem
+		err := rows.Scan(&item.ID, &item.Matkul, &item.Deskripsi, &item.Deadline, &item.CreatedBy)
+		if err != nil {
+			continue
+		}
+
+		existingMatkul := strings.ToLower(item.Matkul)
+		existingDesc := strings.ToLower(item.Deskripsi)
+
+		if strings.Contains(existingMatkul, cleanMatkul) || strings.Contains(cleanMatkul, existingMatkul) {
+			if strings.EqualFold(existingDesc, cleanDesc) ||
+				(len(cleanDesc) > 3 && strings.Contains(existingDesc, cleanDesc)) ||
+				(len(existingDesc) > 3 && strings.Contains(cleanDesc, existingDesc)) {
+				return true, &item, nil
+			}
+		}
+	}
+
+	return false, nil, nil
+}
+
+// AddTask menambahkan tugas baru ke dalam database dengan parsing tenggat waktu
+func (tm *TaskManager) AddTask(scopeJID string, isGroup bool, matkul, deskripsi, rawDeadline, createdBy string, now time.Time) (int64, string, error) {
+	targetTime, deadlineLabel := parseDeadline(rawDeadline, now)
+
+	stmt, err := tm.db.Prepare(`
+		INSERT INTO tasks (scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+	`)
+	if err != nil {
+		return 0, "", err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(
+		scopeJID, isGroup,
+		strings.TrimSpace(matkul),
+		strings.TrimSpace(deskripsi),
+		deadlineLabel,
+		targetTime.Format("2006-01-02 15:04:05"),
+		createdBy,
+	)
+	if err != nil {
+		return 0, "", err
+	}
+
+	id, err := res.LastInsertId()
+	return id, deadlineLabel, err
+}
+
+// GetActiveTasks mengambil seluruh tugas yang belum selesai, diurutkan dari deadline terdekat
+func (tm *TaskManager) GetActiveTasks(scopeJID string, now time.Time) ([]TaskItem, error) {
+	// Otomatis bersihkan tugas grup yang sudah lewat tenggat lebih dari 2 hari
+	_, _ = tm.db.Exec(`
+		UPDATE tasks 
+		SET is_done = 1 
+		WHERE scope_jid = ? AND is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
+	`, scopeJID, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+
+	rows, err := tm.db.Query(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE scope_jid = ? AND is_done = 0
+		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
+	`, scopeJID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TaskItem
+	for rows.Next() {
+		var item TaskItem
+		var rawDeadlineAt any
+		var rawCreatedAt any
+		err := rows.Scan(
+			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		item.DeadlineAt = util.ParseFlexibleTime(rawDeadlineAt, now.Location())
+		item.CreatedAt = util.ParseFlexibleTime(rawCreatedAt, now.Location())
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// GetDueTasks mengambil tugas yang mendekati deadline (misal: "hari_ini", "besok", atau "urgent" untuk pengingat pagi)
+func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time) ([]TaskItem, error) {
+	all, err := tm.GetActiveTasks(scopeJID, now)
+	if err != nil {
+		return nil, err
+	}
+
+	var filtered []TaskItem
+	tomorrow := now.Add(24 * time.Hour)
+
+	for _, item := range all {
+		if item.DeadlineAt.IsZero() {
+			continue
+		}
+
+		isToday := item.DeadlineAt.Year() == now.Year() && item.DeadlineAt.YearDay() == now.YearDay()
+		isTomorrow := item.DeadlineAt.Year() == tomorrow.Year() && item.DeadlineAt.YearDay() == tomorrow.YearDay()
+
+		switch filter {
+		case "hari_ini", "today":
+			if isToday {
+				filtered = append(filtered, item)
+			}
+		case "besok", "tomorrow":
+			if isTomorrow {
+				filtered = append(filtered, item)
+			}
+		case "urgent": // Hari ini atau besok (untuk peringatan pagi jam 06:00)
+			if isToday || isTomorrow {
+				filtered = append(filtered, item)
+			}
+		}
+	}
+
+	return filtered, nil
+}
+
+// CompleteTask menandai tugas sebagai selesai berdasarkan ID
+func (tm *TaskManager) CompleteTask(scopeJID string, taskID int) (bool, error) {
+	res, err := tm.db.Exec(`
+		UPDATE tasks 
+		SET is_done = 1 
+		WHERE scope_jid = ? AND id = ? AND is_done = 0
+	`, scopeJID, taskID)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
+// GetCompletedTasks mengambil daftar riwayat tugas yang telah diselesaikan (arsip)
+func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Time) ([]TaskItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := tm.db.Query(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE scope_jid = ? AND is_done = 1
+		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC
+		LIMIT ?
+	`, scopeJID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TaskItem
+	for rows.Next() {
+		var item TaskItem
+		var rawDeadlineAt any
+		var rawCreatedAt any
+		err := rows.Scan(
+			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		item.DeadlineAt = util.ParseFlexibleTime(rawDeadlineAt, now.Location())
+		item.CreatedAt = util.ParseFlexibleTime(rawCreatedAt, now.Location())
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// DeleteTask menghapus tugas secara permanen dari database
+func (tm *TaskManager) DeleteTask(scopeJID string, taskID int) (bool, error) {
+	res, err := tm.db.Exec(`
+		DELETE FROM tasks 
+		WHERE scope_jid = ? AND id = ?
+	`, scopeJID, taskID)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
+// UpdateTask memperbarui tenggat waktu dan/atau deskripsi tugas yang sudah ada
+func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time) (*TaskItem, string, error) {
+	row := tm.db.QueryRow(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE scope_jid = ? AND id = ?
+	`, scopeJID, taskID)
+
+	var item TaskItem
+	var rawDeadlineAt any
+	var rawCreatedAt any
+	err := row.Scan(
+		&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+		&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+
+	oldDeadline := item.Deadline
+	targetTime, deadlineLabel := parseDeadline(newRawDeadline, now)
+
+	descToSet := item.Deskripsi
+	if newDesc != "" {
+		descToSet = strings.TrimSpace(newDesc)
+	}
+
+	_, err = tm.db.Exec(`
+		UPDATE tasks 
+		SET deskripsi = ?, deadline = ?, deadline_at = ?
+		WHERE scope_jid = ? AND id = ?
+	`, descToSet, deadlineLabel, targetTime.Format("2006-01-02 15:04:05"), scopeJID, taskID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	item.Deskripsi = descToSet
+	item.Deadline = deadlineLabel
+	item.DeadlineAt = targetTime
+
+	return &item, oldDeadline, nil
+}
+
+// matchesHint memeriksa apakah teks mengandung salah satu kata kunci hint.
+// Untuk kata kunci pendek (<= 2 karakter, contoh: "pr"), pencocokan dilakukan per kata utuh.
+func matchesHint(text string, keywords []string) bool {
+	lower := strings.ToLower(text)
+	words := strings.Fields(lower)
+	for _, kw := range keywords {
+		kwLower := strings.ToLower(kw)
+		if len(kwLower) <= 2 {
+			for _, w := range words {
+				cleanW := strings.Trim(w, ".,:;()[]*~_\"'!-")
+				if cleanW == kwLower {
+					return true
+				}
+			}
+		} else {
+			if strings.Contains(lower, kwLower) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// FilterTasksByQuery menyaring tugas aktif berdasarkan nama mata kuliah atau kata kunci
+func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *schedule.JadwalConfig, now time.Time) ([]TaskItem, string, error) {
+	allTasks, err := tm.GetActiveTasks(scopeJID, now)
+	if err != nil {
+		return nil, "", err
+	}
+
+	cleanQuery := strings.TrimSpace(query)
+	lowerQuery := strings.ToLower(cleanQuery)
+
+	targetTitle := strings.ToUpper(cleanQuery)
+	var matchedOfficialName string
+	isQueryPrak := strings.Contains(lowerQuery, "praktikum") || strings.Contains(lowerQuery, "praktek") || strings.Contains(lowerQuery, "prak") || strings.Contains(lowerQuery, "lab")
+	isQueryTeori := strings.Contains(lowerQuery, "teori") || strings.Contains(lowerQuery, "kelas")
+
+	if cfg != nil {
+		item, _ := cfg.FindMataKuliah(cleanQuery, now)
+		if item != nil {
+			if isQueryPrak || isQueryTeori {
+				matchedOfficialName = item.NamaMatkul
+				targetTitle = strings.ToUpper(item.NamaMatkul)
+			} else if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+				matchedOfficialName = officialName
+				targetTitle = strings.ToUpper(officialName)
+			} else {
+				matchedOfficialName = item.NamaMatkul
+				targetTitle = strings.ToUpper(item.NamaMatkul)
+			}
+		}
+	}
+
+	var filtered []TaskItem
+	for _, task := range allTasks {
+		lowerMatkul := strings.ToLower(task.Matkul)
+		lowerDesc := strings.ToLower(task.Deskripsi)
+
+		if matchedOfficialName != "" {
+			if isQueryPrak && !strings.Contains(lowerMatkul, "praktikum") {
+				continue
+			}
+			if isQueryTeori && !strings.Contains(lowerMatkul, "teori") {
+				continue
+			}
+			if strings.Contains(lowerMatkul, strings.ToLower(matchedOfficialName)) {
+				filtered = append(filtered, task)
+				continue
+			}
+		}
+
+		if strings.Contains(lowerMatkul, lowerQuery) || strings.Contains(lowerDesc, lowerQuery) {
+			filtered = append(filtered, task)
+		}
+	}
+
+	return filtered, targetTitle, nil
+}
+
+// FormatTaskList merapikan daftar tugas aktif menjadi pesan WhatsApp dengan badge urgensi otomatis
+func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.Time, judulCustom ...string) string {
+	var sb strings.Builder
+	judul := "📋 *DAFTAR TUGAS KELAS*"
+	if !isGroup {
+		judul = "📋 *CATATAN TUGAS PRIBADI*"
+	}
+	if len(judulCustom) > 0 && judulCustom[0] != "" {
+		judul = judulCustom[0]
+	}
+
+	sb.WriteString(fmt.Sprintf("%s\n", judul))
+	sb.WriteString("──────────\n\n")
+
+	if len(tasks) == 0 {
+		if len(judulCustom) > 0 && judulCustom[0] != "" {
+			sb.WriteString("🎉 *Tidak ada tugas aktif untuk kriteria ini!*\nSemua tugas telah selesai atau belum ada tugas yang dicatat.\n\n")
+			sb.WriteString("_Ketik `!tugas` untuk melihat seluruh tugas aktif._")
+			return sb.String()
+		}
+		sb.WriteString("🎉 *Tidak ada tugas aktif!*\nSemua tugas telah selesai atau belum ada tugas yang dicatat.\n\n")
+		sb.WriteString("_Ketik `!tugas tambah` untuk menambah catatan tugas._")
+		return sb.String()
+	}
+
+	for i, task := range tasks {
+		badge := GetUrgencyBadge(task.DeadlineAt, now)
+		sb.WriteString(fmt.Sprintf("*%d. [%s]*\n", i+1, strings.ToUpper(task.Matkul)))
+		sb.WriteString(fmt.Sprintf("   • Tugas    : %s\n", task.Deskripsi))
+		sb.WriteString(fmt.Sprintf("   • Status   : %s\n", badge))
+		sb.WriteString(fmt.Sprintf("   • Tenggat  : %s\n", task.Deadline))
+		sb.WriteString(fmt.Sprintf("   • ID Tugas : #%d\n", task.ID))
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("──────────\n")
+	sb.WriteString("_Tips: Di grup, tugas tetap terpajang sampai tenggatnya selesai._")
+	return sb.String()
+}
+
+// FormatCompletedTaskList menyusun tampilan riwayat tugas selesai secara rapi
+func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) string {
+	var sb strings.Builder
+
+	if isGroup {
+		sb.WriteString("📜 *ARSIP & RIWAYAT TUGAS SELESAI*\n")
+		sb.WriteString("_Daftar tugas kelas yang telah ditandai selesai_\n")
+	} else {
+		sb.WriteString("📜 *ARSIP TUGAS PRIBADI SELESAI*\n")
+		sb.WriteString("_Daftar catatan tugas pribadi yang telah selesai_\n")
+	}
+	sb.WriteString("──────────\n\n")
+
+	if len(tasks) == 0 {
+		sb.WriteString("Belum ada riwayat tugas yang diselesaikan.\n\n")
+		sb.WriteString("_Ketik `!tugas` untuk melihat daftar tugas aktif saat ini._")
+		return sb.String()
+	}
+
+	for idx, t := range tasks {
+		sb.WriteString(fmt.Sprintf("*%d. ✅ [%s]*\n", idx+1, strings.ToUpper(t.Matkul)))
+		sb.WriteString(fmt.Sprintf("   • Tugas    : %s\n", t.Deskripsi))
+		sb.WriteString(fmt.Sprintf("   • Tenggat  : %s\n", t.Deadline))
+		sb.WriteString(fmt.Sprintf("   • ID Tugas : #%d\n", t.ID))
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("──────────\n")
+	sb.WriteString(fmt.Sprintf("_Total: %d tugas telah diselesaikan sepanjang semester._", len(tasks)))
+	return sb.String()
+}
+
+// HandleCommand memproses seluruh sub-perintah tugas (!tugas, hari ini, besok, tambah, selesai, hapus, bantuan)
+func (tm *TaskManager) HandleCommand(
+	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *schedule.JadwalConfig, now time.Time,
+) string {
+	clean := util.CleanCommandPrefix(rawMsg)
+
+	parts := strings.SplitN(clean, " ", 2)
+	action := ""
+	payload := ""
+	rest := ""
+	if len(parts) > 1 {
+		rest = strings.TrimSpace(parts[1])
+		lowerRest := strings.ToLower(rest)
+		if strings.HasPrefix(lowerRest, "hari ini") || strings.HasPrefix(lowerRest, "hariini") || strings.HasPrefix(lowerRest, "today") {
+			action = "hari ini"
+		} else if strings.HasPrefix(lowerRest, "besok") || strings.HasPrefix(lowerRest, "tomorrow") {
+			action = "besok"
+		} else {
+			subParts := strings.SplitN(rest, " ", 2)
+			action = strings.ToLower(subParts[0])
+			if len(subParts) > 1 {
+				payload = strings.TrimSpace(subParts[1])
+			}
+		}
+	}
+
+	switch action {
+	case "", "list", "daftar":
+		tasks, err := tm.GetActiveTasks(scopeJID, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memuat daftar tugas: %v", err)
+		}
+		return tm.FormatTaskList(tasks, isGroup, now)
+
+	case "riwayat", "arsip", "history":
+		tasks, err := tm.GetCompletedTasks(scopeJID, 50, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memuat riwayat tugas: %v", err)
+		}
+		return tm.FormatCompletedTaskList(tasks, isGroup)
+
+	case "hari ini", "hariini", "today":
+		tasks, err := tm.GetDueTasks(scopeJID, "hari_ini", now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memuat tugas hari ini: %v", err)
+		}
+		return tm.FormatTaskList(tasks, isGroup, now, "🚨 *TUGAS DEADLINE HARI INI*")
+
+	case "besok", "tomorrow":
+		tasks, err := tm.GetDueTasks(scopeJID, "besok", now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memuat tugas besok: %v", err)
+		}
+		return tm.FormatTaskList(tasks, isGroup, now, "⚠️ *TUGAS DEADLINE BESOK (H-1)*")
+
+	case "matkul", "cari", "filter":
+		query := payload
+		if query == "" {
+			query = action
+		}
+		tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memfilter tugas: %v", err)
+		}
+		header := fmt.Sprintf("📋 *DAFTAR TUGAS KELAS: %s*", title)
+		if !isGroup {
+			header = fmt.Sprintf("📋 *CATATAN TUGAS PRIBADI: %s*", title)
+		}
+		return tm.FormatTaskList(tasks, isGroup, now, header)
+
+	case "tambah", "add":
+		// Pengecekan Hak Akses: Di grup WAJIB Admin
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, penambahan tugas hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil) agar daftar tugas tetap teratur."
+		}
+
+		// Validasi format pemisah pipa: Matkul | Deskripsi | Deadline
+		segments := strings.Split(payload, "|")
+		if len(segments) < 3 {
+			return "⚠️ *Format Penambahan Tugas Kurang Tepat*\n\n" +
+				"Gunakan tanda pemisah pipa `|`:\n" +
+				"`!tugas tambah [Matkul] | [Deskripsi Tugas] | [Tenggat Waktu]`\n\n" +
+				"*Contoh:*\n" +
+				"• `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n" +
+				"• `!tugas tambah Alin teori | Latihan Bab 3 | 22.22`\n" +
+				"• `!tugas tambah Aljabar | Laporan Praktikum 1 | Besok 08:40`"
+		}
+
+		matkul := strings.TrimSpace(segments[0])
+		deskripsi := strings.TrimSpace(segments[1])
+		rawDeadline := strings.TrimSpace(segments[2])
+
+		if matkul == "" || deskripsi == "" || rawDeadline == "" {
+			return "⚠️ Seluruh kolom (Matkul, Deskripsi, dan Tenggat Waktu) wajib diisi."
+		}
+
+		// Validasi Mata Kuliah terhadap jadwal kelas
+		lowerMatkul := strings.ToLower(matkul)
+		isGeneral := lowerMatkul == "umum" || lowerMatkul == "lainnya" || lowerMatkul == "lain-lain" ||
+			lowerMatkul == "kegiatan" || lowerMatkul == "pribadi"
+
+		var dosenInfo string
+
+		if cfg != nil && !isGeneral {
+			item, candidates := cfg.FindMataKuliah(matkul, now)
+			if item == nil && len(candidates) == 0 {
+				guide := cfg.FormatAvailableCourses()
+				return fmt.Sprintf("❌ *Mata Kuliah \"%s\" Tidak Terdaftar!*\n\n%s\n💡 *Format:* `!tugas tambah [Matkul] | [Deskripsi] | [Deadline]`\n_Contoh:_ `!tugas tambah SBD praktikum | Lapres Modul 2 | 22.22`", matkul, guide)
+			}
+
+			// Cek apakah mata kuliah memiliki kedua sesi (Teori dan Praktikum)
+			var candPrak, candTeori *schedule.JadwalItem
+			for i := range candidates {
+				cLower := strings.ToLower(candidates[i].NamaMatkul)
+				if strings.Contains(cLower, "praktikum") && candPrak == nil {
+					candPrak = &candidates[i]
+				}
+				if strings.Contains(cLower, "teori") && candTeori == nil {
+					candTeori = &candidates[i]
+				}
+			}
+			hasBoth := (candPrak != nil && candTeori != nil)
+
+			prakKeywords := []string{"praktikum", "praktek", "prak", "lab", "lapres", "laporan", "modul", "jurnal", "post-test", "posttest", "pre-test", "pretest", "demo"}
+			teoriKeywords := []string{"teori", "kelas", "resume", "rangkuman", "makalah", "kuis", "quiz", "ujian", "uts", "uas", "pr", "latihan", "soal", "materi", "bab", "graph", "tree", "logika"}
+
+			isMatkulPrak := matchesHint(matkul, prakKeywords)
+			isMatkulTeori := matchesHint(matkul, teoriKeywords)
+
+			isDescPrak := matchesHint(deskripsi, prakKeywords)
+			isDescTeori := matchesHint(deskripsi, teoriKeywords)
+
+			if hasBoth {
+				if isMatkulPrak && !isMatkulTeori {
+					item = candPrak
+				} else if isMatkulTeori && !isMatkulPrak {
+					item = candTeori
+				} else if isDescPrak && !isDescTeori {
+					item = candPrak
+				} else if isDescTeori && !isDescPrak {
+					item = candTeori
+				} else {
+					// Input tidak spesifik: tampilkan pesan panduan disambiguasi lengkap dengan dosen
+					baseName := item.NamaMatkul
+					if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+						baseName = officialName
+					}
+					var sb strings.Builder
+					sb.WriteString(fmt.Sprintf("⚠️ *Sesi Belum Spesifik (Teori atau Praktikum?)*\n"))
+					sb.WriteString("──────────\n")
+					sb.WriteString(fmt.Sprintf("Mata kuliah *%s* memiliki 2 sesi dengan dosen berbeda:\n\n", baseName))
+					if candPrak != nil {
+						sb.WriteString(fmt.Sprintf("• *Praktikum* : %s (%s)\n  └ Jadwal : %s, %s (%s)\n", candPrak.Dosen, candPrak.InisialDosen, candPrak.Hari, candPrak.Jam, candPrak.Ruang))
+					}
+					if candTeori != nil {
+						sb.WriteString(fmt.Sprintf("• *Teori*     : %s (%s)\n  └ Jadwal : %s, %s (%s)\n", candTeori.Dosen, candTeori.InisialDosen, candTeori.Hari, candTeori.Jam, candTeori.Ruang))
+					}
+					sb.WriteString("\n💡 *Silakan perjelas perintah kamu:*\n")
+					sb.WriteString(fmt.Sprintf("👉 `!tugas tambah %s praktikum | %s | %s`\n", matkul, deskripsi, rawDeadline))
+					sb.WriteString(fmt.Sprintf("👉 `!tugas tambah %s teori | %s | %s`\n", matkul, deskripsi, rawDeadline))
+					sb.WriteString("\n_Atau cantumkan kata 'praktikum' / 'teori' di kolom deskripsi tugas._")
+					return sb.String()
+				}
+			}
+
+			if item != nil {
+				matkul = item.NamaMatkul
+				if item.Dosen != "" {
+					if item.InisialDosen != "" {
+						dosenInfo = fmt.Sprintf("%s (%s)", item.Dosen, item.InisialDosen)
+					} else {
+						dosenInfo = item.Dosen
+					}
+				}
+			}
+		} else if isGeneral {
+			if lowerMatkul == "pribadi" {
+				matkul = "Pribadi"
+			} else {
+				matkul = "Umum"
+			}
+		}
+
+		// Pengecekan Anti-Duplikasi
+		isDup, existing, err := tm.CheckDuplicate(scopeJID, matkul, deskripsi)
+		if err != nil {
+			return fmt.Sprintf("❌ Terjadi kesalahan pengecekan data: %v", err)
+		}
+		if isDup && existing != nil {
+			return fmt.Sprintf("⚠️ *Tugas Serupa Sudah Terdaftar!*\n\nTugas berikut sudah ada di daftar aktif:\n• *ID #%d: [%s] %s*\n• Tenggat: %s\n\nKetik `!tugas` untuk melihat daftar lengkap.",
+				existing.ID, existing.Matkul, existing.Deskripsi, existing.Deadline)
+		}
+
+		id, label, err := tm.AddTask(scopeJID, isGroup, matkul, deskripsi, rawDeadline, senderJID, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal menyimpan tugas: %v", err)
+		}
+
+		var sb strings.Builder
+		sb.WriteString("✅ *TUGAS BERHASIL DITAMBAHKAN*\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString(fmt.Sprintf("• ID Tugas : #%d\n", id))
+		sb.WriteString(fmt.Sprintf("• Matkul   : %s\n", strings.ToUpper(matkul)))
+		if dosenInfo != "" {
+			sb.WriteString(fmt.Sprintf("• Dosen    : %s\n", dosenInfo))
+		}
+		sb.WriteString(fmt.Sprintf("• Deskripsi: %s\n", deskripsi))
+		sb.WriteString(fmt.Sprintf("• Tenggat  : %s\n", label))
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Bot akan otomatis mengingatkan tugas ini saat mendekati tenggat._")
+		return sb.String()
+
+	case "selesai", "done":
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, penandaan tugas selesai hanya dapat dilakukan oleh *Admin Grup*."
+		}
+
+		taskID, err := strconv.Atoi(payload)
+		if err != nil || taskID <= 0 {
+			return "⚠️ Sertakan ID tugas yang ingin diselesaikan.\nContoh: `!tugas selesai 1`\n\nKetik `!tugas` untuk melihat daftar tugas aktif, atau `!tugas riwayat` untuk melihat arsip tugas selesai."
+		}
+
+		ok, err := tm.CompleteTask(scopeJID, taskID)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memperbarui status tugas: %v", err)
+		}
+		if !ok {
+			return fmt.Sprintf("ℹ️ Tugas dengan ID #%d tidak ditemukan atau sudah diselesaikan sebelumnya.", taskID)
+		}
+
+		return fmt.Sprintf("🎉 *TUGAS SELESAI!*\nTugas dengan ID #%d telah ditandai selesai dan diarsipkan.", taskID)
+
+	case "hapus", "delete", "rm":
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, penghapusan tugas hanya dapat dilakukan oleh *Admin Grup*."
+		}
+
+		taskID, err := strconv.Atoi(payload)
+		if err != nil || taskID <= 0 {
+			return "⚠️ Sertakan ID tugas yang ingin dihapus.\nContoh: `!tugas hapus 1`\n\nKetik `!tugas` untuk melihat nomor ID tugas."
+		}
+
+		ok, err := tm.DeleteTask(scopeJID, taskID)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal menghapus tugas: %v", err)
+		}
+		if !ok {
+			return fmt.Sprintf("ℹ️ Tugas dengan ID #%d tidak ditemukan.", taskID)
+		}
+
+		return fmt.Sprintf("🗑️ *TUGAS DIHAPUS*\nTugas dengan ID #%d telah berhasil dihapus dari database.", taskID)
+
+	case "edit", "update", "mundur", "perpanjang", "ganti":
+		if isGroup && !isAdmin {
+			return "🔒 *Akses Ditolak*\nDi grup kelas, pengubahan tenggat tugas hanya dapat dilakukan oleh *Admin Grup*."
+		}
+
+		segments := strings.Split(payload, "|")
+		if len(segments) < 2 {
+			return "⚠️ *Format Edit Tugas Kurang Tepat*\n\n" +
+				"Gunakan format pemisah pipa `|`:\n" +
+				"• `!tugas edit [ID] | [Tenggat Baru]`\n" +
+				"• `!tugas edit [ID] | [Deskripsi Baru] | [Tenggat Baru]`\n\n" +
+				"*Contoh:*\n" +
+				"• `!tugas edit 1 | minggu 23:59`\n" +
+				"• `!tugas mundur 2 | 12 sep 20.00`\n" +
+				"• `!tugas edit 1 | Revisi Lapres Modul 1 | senin 10:00`"
+		}
+
+		taskID, err := strconv.Atoi(strings.TrimSpace(segments[0]))
+		if err != nil || taskID <= 0 {
+			return "⚠️ ID Tugas harus berupa angka yang valid.\nContoh: `!tugas edit 1 | minggu 23:59`\n\nKetik `!tugas` untuk melihat nomor ID tugas."
+		}
+
+		newDesc := ""
+		newDeadline := ""
+		if len(segments) == 2 {
+			newDeadline = strings.TrimSpace(segments[1])
+		} else {
+			newDesc = strings.TrimSpace(segments[1])
+			newDeadline = strings.TrimSpace(segments[2])
+		}
+
+		if newDeadline == "" {
+			return "⚠️ Tenggat waktu baru tidak boleh kosong."
+		}
+
+		item, oldDeadline, err := tm.UpdateTask(scopeJID, taskID, newDesc, newDeadline, now)
+		if err != nil {
+			return fmt.Sprintf("❌ Gagal memperbarui tugas: %v", err)
+		}
+		if item == nil {
+			return fmt.Sprintf("ℹ️ Tugas dengan ID #%d tidak ditemukan.", taskID)
+		}
+
+		badge := GetUrgencyBadge(item.DeadlineAt, now)
+
+		var sb strings.Builder
+		sb.WriteString("🔄 *TENGGAT TUGAS BERHASIL DIPERBARUI*\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString(fmt.Sprintf("• ID Tugas    : #%d\n", item.ID))
+		sb.WriteString(fmt.Sprintf("• Matkul      : %s\n", strings.ToUpper(item.Matkul)))
+		sb.WriteString(fmt.Sprintf("• Deskripsi   : %s\n", item.Deskripsi))
+		sb.WriteString(fmt.Sprintf("• Tenggat Lama: %s\n", oldDeadline))
+		sb.WriteString(fmt.Sprintf("• Tenggat Baru: %s\n", item.Deadline))
+		sb.WriteString(fmt.Sprintf("• Status Baru : %s\n", badge))
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Pengingat harian otomatis disesuaikan dengan tenggat baru ini._")
+		return sb.String()
+
+	case "bantuan", "help":
+		var sb strings.Builder
+		sb.WriteString("📖 *PANDUAN DEADLINE TRACKER TUGAS*\n")
+		sb.WriteString("──────────\n\n")
+		sb.WriteString("• `!tugas`\n  ➔ Seluruh tugas aktif dengan hitung mundur\n\n")
+		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
+		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
+		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
+		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
+		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n  Contoh: `!tugas tambah Alin teori | Resume Bab 3 | Besok 14:00`\n\n")
+		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
+		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
+		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
+		return sb.String()
+
+	default:
+		// Jika pengguna mengetik nama matkul atau kata pencarian langsung (cth: "!tugas sbd", "!tugas aljabar", "!tugas mtk")
+		query := rest
+		if query != "" {
+			tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+			if err == nil {
+				isCourse := false
+				if cfg != nil {
+					item, _ := cfg.FindMataKuliah(query, now)
+					if item != nil {
+						isCourse = true
+					}
+				}
+				if isCourse || len(tasks) > 0 {
+					header := fmt.Sprintf("📋 *DAFTAR TUGAS KELAS: %s*", title)
+					if !isGroup {
+						header = fmt.Sprintf("📋 *CATATAN TUGAS PRIBADI: %s*", title)
+					}
+					return tm.FormatTaskList(tasks, isGroup, now, header)
+				}
+			}
+		}
+
+		// Fallback ke bantuan jika benar-benar tidak cocok
+		var sb strings.Builder
+		sb.WriteString("📖 *PANDUAN DEADLINE TRACKER TUGAS*\n")
+		sb.WriteString("──────────\n\n")
+		sb.WriteString("• `!tugas`\n  ➔ Seluruh tugas aktif dengan hitung mundur\n\n")
+		sb.WriteString("• `!tugas [matkul]`\n  ➔ Filter tugas per mata kuliah (Cth: `!tugas sbd`, `!tugas aljabar`)\n\n")
+		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
+		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
+		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
+		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n  Contoh: `!tugas tambah Alin teori | Resume Bab 3 | Besok 14:00`\n\n")
+		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
+		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
+		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
+		return sb.String()
+	}
+}

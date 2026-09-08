@@ -49,7 +49,7 @@ Gunakan alur 3 langkah ini setiap kali ada pembaruan fitur atau perbaikan kode G
 ### Langkah 1: Compile untuk Linux (di PowerShell Laptop)
 Pastikan berada di folder proyek `F:\Project\bot-jadwal`:
 ```powershell
-$env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-jadwal .
+$env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-jadwal ./cmd/bot
 ```
 *(Perintah ini menghasilkan file biner mandiri `bot-jadwal` khusus arsitektur Linux x64).*
 
@@ -171,11 +171,12 @@ Periksa dengan mengetik: `date` (harus berakhiran `WIB`).
 Di direktori home server (`/home/darvajago/`):
 ```text
 /home/darvajago/
-├── bot-jadwal             # File biner aplikasi hasil compile
-├── jadwal.json            # Konfigurasi jadwal master
-├── reminder_groups.json   # Daftar JID grup terdaftar pengingat pagi
-├── sesi_bot.db            # Database SQLite sesi login WhatsMeow
-├── tugas.db               # Database SQLite tugas, setting kelas, & override
-└── data/
-    └── jadwal/            # 19 file master jadwal JSON per kelas
+├── bot-jadwal             # File biner aplikasi hasil compile (Go)
+├── data/
+│   ├── jadwal/            # 19 file master jadwal JSON per kelas
+│   └── jadwal.json        # Konfigurasi kurikulum default
+└── storage/               # Direktori runtime state (terisolasi)
+    ├── reminder_groups.json # Daftar JID grup terdaftar pengingat pagi
+    ├── sesi_bot.db        # Database SQLite sesi login WhatsMeow
+    └── tugas.db           # Database SQLite tugas, setting kelas, link & override
 ```
