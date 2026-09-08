@@ -73,6 +73,162 @@ func replyWithTyping(
 	}
 }
 
+// handleIncomingMessage memproses setiap pesan masuk secara asinkron di dalam goroutine independen (Non-Blocking Concurrency)
+func handleIncomingMessage(
+	client *whatsmeow.Client,
+	v *events.Message,
+	classManager *ClassManager,
+	chatSettingsManager *ChatSettingsManager,
+	reminderManager *ReminderManager,
+	taskManager *TaskManager,
+	overrideManager *OverrideManager,
+) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("⚠️ [Panic Recovery] Terjadi kesalahan tidak terduga saat memproses pesan dari %s: %v\n", v.Info.Sender.User, r)
+		}
+	}()
+
+	// Ekstraksi teks pesan dari tipe Conversation atau ExtendedTextMessage
+	var msgText string
+	if v.Message.GetConversation() != "" {
+		msgText = v.Message.GetConversation()
+	} else if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetText() != "" {
+		msgText = v.Message.GetExtendedTextMessage().GetText()
+	}
+
+	msgText = strings.TrimSpace(msgText)
+	if msgText == "" {
+		return
+	}
+
+	// Log pesan yang diterima di konsol
+	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
+
+	lowerMsg := strings.ToLower(msgText)
+
+	// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
+	var activeClassID string
+	if chatSettingsManager != nil {
+		activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
+	}
+	activeJadwal := classManager.GetClassOrDefault(activeClassID)
+
+	// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
+	if chatSettingsManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
+		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
+		classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
+		if classReply != "" {
+			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
+			return
+		}
+	}
+
+	// 2. Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
+	if matchCommandPrefix(msgText, v.Info.IsGroup, "reload") {
+		count, errs := classManager.ReloadAll()
+		var reloadReply string
+		if len(errs) > 0 {
+			reloadReply = fmt.Sprintf("⚠️ Berhasil memuat ulang %d kelas, namun terdapat error: %v", count, errs)
+		} else {
+			reloadReply = fmt.Sprintf("🔄 *BERHASIL MEMUAT ULANG JADWAL!*\n──────────\nSeluruh konfigurasi jadwal (%d kelas) berhasil disegarkan dari disk ke memori.", count)
+		}
+		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reloadReply, "🔄", 600*time.Millisecond, "perintah reload")
+		return
+	}
+
+	// 3. Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
+	if matchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
+		parts := strings.Fields(lowerMsg)
+		subCmd := ""
+		if len(parts) > 1 {
+			subCmd = parts[1]
+		}
+
+		var reminderReply string
+		switch subCmd {
+		case "on", "aktif", "start", "enable":
+			if activeClassID == "" {
+				reminderReply = "⚠️ *PENGINGAT TIDAK DAPAT DIAKTIFKAN*\n──────────\nChat ini belum menentukan kelas perkuliahan.\nSilakan atur kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
+			} else {
+				chatJID := v.Info.Chat.String()
+				groupName := "Grup Chat"
+				if v.Info.IsGroup {
+					info, err := defaultGroupAdminResolver.GetGroupInfo(context.Background(), client, v.Info.Chat)
+					if err == nil && info != nil && info.Name != "" {
+						groupName = info.Name
+					}
+				}
+				_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
+			}
+
+		case "off", "nonaktif", "stop", "disable", "matikan":
+			chatJID := v.Info.Chat.String()
+			_, reminderReply = reminderManager.RemoveGroup(chatJID)
+
+		case "test", "tes", "try":
+			if activeClassID == "" && chatSettingsManager != nil {
+				reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
+			} else {
+				reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
+			}
+
+		default:
+			reminderReply = reminderManager.Status(v.Info.Chat.String())
+		}
+
+		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
+		return
+	}
+
+	// 4. Handler Khusus Perintah Tugas (!tugas)
+	if taskManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
+		if activeClassID == "" && chatSettingsManager != nil {
+			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
+			return
+		}
+		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
+		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
+		return
+	}
+
+	// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
+	if overrideManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
+		if activeClassID == "" && chatSettingsManager != nil {
+			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
+			return
+		}
+		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
+		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
+		return
+	}
+
+	// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid & Override)
+	replyText := activeJadwal.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
+
+	// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
+	if replyText != "" {
+		if activeClassID == "" && chatSettingsManager != nil {
+			if isMenuOrHelpCommand(msgText, v.Info.IsGroup) {
+				menuReply := chatSettingsManager.BuildUnconfiguredMenu(v.Info.IsGroup)
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, menuReply, "📅", 700*time.Millisecond, "menu unconfigured")
+				return
+			}
+			if strings.Contains(replyText, "tidak dikenali") {
+				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "⚠️", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
+				return
+			}
+			// Jika chat belum memilih kelas, berikan panduan onboarding alih-alih menampilkan kelas default
+			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 700*time.Millisecond, "onboarding jadwal")
+			return
+		}
+
+		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
+	}
+}
+
 func main() {
 	// 1. Muat seluruh data jadwal kelas (Multi-Class Manager)
 	classManager, err := NewClassManager("data/jadwal", "jadwal.json")
@@ -175,144 +331,16 @@ func main() {
 				return
 			}
 
-			// Ekstraksi teks pesan dari tipe Conversation atau ExtendedTextMessage
-			var msgText string
-			if v.Message.GetConversation() != "" {
-				msgText = v.Message.GetConversation()
-			} else if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetText() != "" {
-				msgText = v.Message.GetExtendedTextMessage().GetText()
-			}
-
-			msgText = strings.TrimSpace(msgText)
-			if msgText == "" {
-				return
-			}
-
-			// Log pesan yang diterima di konsol
-			fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
-
-			lowerMsg := strings.ToLower(msgText)
-
-			// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
-			var activeClassID string
-			if chatSettingsManager != nil {
-				activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
-			}
-			activeJadwal := classManager.GetClassOrDefault(activeClassID)
-
-			// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
-			if chatSettingsManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-				classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
-				if classReply != "" {
-					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
-					return
-				}
-			}
-
-			// 2. Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
-			if matchCommandPrefix(msgText, v.Info.IsGroup, "reload") {
-				count, errs := classManager.ReloadAll()
-				var reloadReply string
-				if len(errs) > 0 {
-					reloadReply = fmt.Sprintf("⚠️ Berhasil memuat ulang %d kelas, namun terdapat error: %v", count, errs)
-				} else {
-					reloadReply = fmt.Sprintf("🔄 *BERHASIL MEMUAT ULANG JADWAL!*\n──────────\nSeluruh konfigurasi jadwal (%d kelas) berhasil disegarkan dari disk ke memori.", count)
-				}
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reloadReply, "🔄", 600*time.Millisecond, "perintah reload")
-				return
-			}
-
-			// 3. Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
-			if matchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
-				parts := strings.Fields(lowerMsg)
-				subCmd := ""
-				if len(parts) > 1 {
-					subCmd = parts[1]
-				}
-
-				var reminderReply string
-				switch subCmd {
-				case "on", "aktif", "start", "enable":
-					if activeClassID == "" {
-						reminderReply = "⚠️ *PENGINGAT TIDAK DAPAT DIAKTIFKAN*\n──────────\nChat ini belum menentukan kelas perkuliahan.\nSilakan atur kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
-					} else {
-						chatJID := v.Info.Chat.String()
-						groupName := "Grup Chat"
-						if v.Info.IsGroup {
-							info, err := defaultGroupAdminResolver.GetGroupInfo(context.Background(), client, v.Info.Chat)
-							if err == nil && info != nil && info.Name != "" {
-								groupName = info.Name
-							}
-						}
-						_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
-					}
-
-				case "off", "nonaktif", "stop", "disable", "matikan":
-					chatJID := v.Info.Chat.String()
-					_, reminderReply = reminderManager.RemoveGroup(chatJID)
-
-				case "test", "tes", "try":
-					if activeClassID == "" && chatSettingsManager != nil {
-						reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
-					} else {
-						reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now()))
-					}
-
-				default:
-					reminderReply = reminderManager.Status(v.Info.Chat.String())
-				}
-
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
-				return
-			}
-
-			// 4. Handler Khusus Perintah Tugas (!tugas)
-			if taskManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
-				if activeClassID == "" && chatSettingsManager != nil {
-					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
-					return
-				}
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
-				return
-			}
-
-			// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
-			if overrideManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
-				if activeClassID == "" && chatSettingsManager != nil {
-					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
-					return
-				}
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
-				return
-			}
-
-			// Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid & Override)
-			replyText := activeJadwal.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
-
-			// Jika pesan cocok dengan salah satu perintah, kirim pesan balasan
-			if replyText != "" {
-				if activeClassID == "" && chatSettingsManager != nil {
-					if isMenuOrHelpCommand(msgText, v.Info.IsGroup) {
-						menuReply := chatSettingsManager.BuildUnconfiguredMenu(v.Info.IsGroup)
-						replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, menuReply, "📅", 700*time.Millisecond, "menu unconfigured")
-						return
-					}
-					if strings.Contains(replyText, "tidak dikenali") {
-						replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "⚠️", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
-						return
-					}
-					// Jika chat belum memilih kelas, berikan panduan onboarding alih-alih menampilkan kelas default
-					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 700*time.Millisecond, "onboarding jadwal")
-					return
-				}
-
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
-			}
+			// Dispatch pemrosesan pesan ke goroutine terpisah secara asinkron (Non-Blocking Concurrency)
+			go handleIncomingMessage(
+				client,
+				v,
+				classManager,
+				chatSettingsManager,
+				reminderManager,
+				taskManager,
+				overrideManager,
+			)
 		}
 	})
 
