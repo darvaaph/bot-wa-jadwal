@@ -32,13 +32,45 @@ func resolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup b
 	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, isGroup, groupJID, senderJID, senderAltJID)
 }
 
-// replyWithTyping mengirimkan reaksi emoji, simulasi status mengetik, dan pesan balasan ke pengguna
+// BuildQuotedReplyMessage menyusun pesan ExtendedTextMessage dengan metadata ContextInfo untuk Quoted Reply
+func BuildQuotedReplyMessage(
+	replyText string,
+	msgID types.MessageID,
+	sender types.JID,
+	quotedMsg *waE2E.Message,
+	isGroup bool,
+) *waE2E.Message {
+	if msgID == "" {
+		return &waE2E.Message{
+			Conversation: proto.String(replyText),
+		}
+	}
+
+	ctxInfo := &waE2E.ContextInfo{
+		StanzaID:      proto.String(string(msgID)),
+		QuotedMessage: quotedMsg,
+	}
+	if isGroup {
+		ctxInfo.Participant = proto.String(sender.ToNonAD().String())
+	}
+
+	return &waE2E.Message{
+		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+			Text:        proto.String(replyText),
+			ContextInfo: ctxInfo,
+		},
+	}
+}
+
+// replyWithTyping mengirimkan reaksi emoji, simulasi status mengetik, dan pesan balasan (Quoted Reply) ke pengguna
 func replyWithTyping(
 	ctx context.Context,
 	client *whatsmeow.Client,
 	chat types.JID,
 	sender types.JID,
 	msgID types.MessageID,
+	quotedMsg *waE2E.Message,
+	isGroup bool,
 	replyText string,
 	emoji string,
 	typingDuration time.Duration,
@@ -49,7 +81,7 @@ func replyWithTyping(
 	}
 
 	// 1. Berikan reaksi emoji pada pesan yang dikirim pengguna
-	if emoji != "" {
+	if emoji != "" && msgID != "" {
 		reactionMsg := client.BuildReaction(chat, sender, msgID, emoji)
 		_, _ = client.SendMessage(ctx, chat, reactionMsg)
 	}
@@ -62,14 +94,13 @@ func replyWithTyping(
 	time.Sleep(typingDuration)
 	_ = client.SendChatPresence(ctx, chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
 
-	// 3. Kirim pesan balasan
-	_, err := client.SendMessage(ctx, chat, &waE2E.Message{
-		Conversation: proto.String(replyText),
-	})
+	// 3. Susun dan kirim pesan balasan dengan Quoted Reply
+	msgToSend := BuildQuotedReplyMessage(replyText, msgID, sender, quotedMsg, isGroup)
+	_, err := client.SendMessage(ctx, chat, msgToSend)
 	if err != nil {
 		fmt.Printf("Gagal mengirim balasan %s ke %s: %v\n", actionName, chat.User, err)
 	} else {
-		fmt.Printf("Sukses membalas %s ke %s\n", actionName, chat.User)
+		fmt.Printf("Sukses membalas %s ke %s (Quoted Reply)\n", actionName, chat.User)
 	}
 }
 
@@ -107,6 +138,23 @@ func handleIncomingMessage(
 
 	lowerMsg := strings.ToLower(msgText)
 
+	// Helper terpusat untuk membalas pesan pengguna dengan Quoted Reply
+	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
+		replyWithTyping(
+			context.Background(),
+			client,
+			v.Info.Chat,
+			v.Info.Sender,
+			v.Info.ID,
+			v.Message,
+			v.Info.IsGroup,
+			replyText,
+			emoji,
+			typingDuration,
+			actionName,
+		)
+	}
+
 	// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
 	var activeClassID string
 	if chatSettingsManager != nil {
@@ -119,7 +167,7 @@ func handleIncomingMessage(
 		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
 		if classReply != "" {
-			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
+			reply(classReply, "🏫", 600*time.Millisecond, "perintah kelas")
 			return
 		}
 	}
@@ -133,7 +181,7 @@ func handleIncomingMessage(
 		} else {
 			reloadReply = fmt.Sprintf("🔄 *BERHASIL MEMUAT ULANG JADWAL!*\n──────────\nSeluruh konfigurasi jadwal (%d kelas) berhasil disegarkan dari disk ke memori.", count)
 		}
-		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reloadReply, "🔄", 600*time.Millisecond, "perintah reload")
+		reply(reloadReply, "🔄", 600*time.Millisecond, "perintah reload")
 		return
 	}
 
@@ -177,31 +225,31 @@ func handleIncomingMessage(
 			reminderReply = reminderManager.Status(v.Info.Chat.String())
 		}
 
-		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
+		reply(reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
 		return
 	}
 
 	// 4. Handler Khusus Perintah Tugas (!tugas)
 	if taskManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
 		if activeClassID == "" && chatSettingsManager != nil {
-			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
 			return
 		}
 		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
-		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
+		reply(tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 		return
 	}
 
 	// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 	if overrideManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
 		if activeClassID == "" && chatSettingsManager != nil {
-			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
 			return
 		}
 		isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
-		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
+		reply(overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 		return
 	}
 
@@ -213,19 +261,19 @@ func handleIncomingMessage(
 		if activeClassID == "" && chatSettingsManager != nil {
 			if isMenuOrHelpCommand(msgText, v.Info.IsGroup) {
 				menuReply := chatSettingsManager.BuildUnconfiguredMenu(v.Info.IsGroup)
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, menuReply, "📅", 700*time.Millisecond, "menu unconfigured")
+				reply(menuReply, "📅", 700*time.Millisecond, "menu unconfigured")
 				return
 			}
 			if strings.Contains(replyText, "tidak dikenali") {
-				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "⚠️", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
+				reply(replyText, "⚠️", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
 				return
 			}
 			// Jika chat belum memilih kelas, berikan panduan onboarding alih-alih menampilkan kelas default
-			replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 700*time.Millisecond, "onboarding jadwal")
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 700*time.Millisecond, "onboarding jadwal")
 			return
 		}
 
-		replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
+		reply(replyText, "📅", 700*time.Millisecond, fmt.Sprintf("perintah '%s'", msgText))
 	}
 }
 
