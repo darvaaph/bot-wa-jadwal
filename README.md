@@ -139,9 +139,10 @@ bot-jadwal/
 ---
 
 ## 👥 Kontribusi Tim
-Kami menyambut baik kontribusi dari seluruh anggota tim! Sebelum mulai menulis kode atau mengajukan perubahan, silakan pelajari panduan lengkap di:
-👉 **[docs/CONTRIBUTING.md](file:///f:/Project/bot-jadwal/docs/CONTRIBUTING.md)**
+Kami menyambut baik kontribusi dari seluruh anggota tim! Sebelum mulai menulis kode atau mengajukan perubahan, silakan pelajari panduan lengkap di:  
+👉 [**docs/CONTRIBUTING.md**](docs/CONTRIBUTING.md)
+
 1. Selalu buat *branch* baru dari `main`: `git checkout -b feat/nama-fitur`.
 2. Gunakan konvensi penulisan commit (*Conventional Commits*).
 3. Selalu jalankan `go test -v ./...` sebelum membuka Pull Request (PR).
-4. Untuk panduan deployment rilis ke server produksi Azure, ikuti **[docs/DEPLOYMENT.md](file:///f:/Project/bot-jadwal/docs/DEPLOYMENT.md)**.
+4. Untuk panduan deployment rilis ke server produksi Azure, ikuti [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md).
