@@ -41,7 +41,7 @@
 
 ## 4. Roadmap & Rencana Pengembangan Selanjutnya (To-Do List)
 Daftar rencana pengembangan fitur mikro (*Quality of Life*) dan jangka menengah dicatat secara rinci di:
-👉 **[TODO.md](file:///f:/Project/bot-jadwal/TODO.md)**
+👉 **[TODO.md](TODO.md)**
 
 ### Ringkasan Rencana Fitur:
 1. 🔗 **Tautan Penting Kelas (`!link` / `!drive`):** Direktori link Google Drive materi, Zoom perkuliahan, dan presensi SIAKAD.
@@ -50,5 +50,5 @@ Daftar rencana pengembangan fitur mikro (*Quality of Life*) dan jangka menengah 
 4. 📢 **Papan Pengumuman Komti (`!info` / `!pengumuman`):** Pin pesan penting mendadak dari dosen agar tidak tenggelam di grup.
 5. 🎯 **Skala Jurusan / Multi-Tenant (`!setkelas`):** Dukungan jadwal multi-kelas (D4-1A, D4-3A, dll.) — *Selesai 100%*.
 6. 🖥️ **Web Admin Dashboard:** Antarmuka web visual untuk monitoring WhatsApp, manajemen tugas, dan editor jadwal. Dokumen spesifikasi desain lengkap dapat dilihat pada:
-   👉 **[DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md)**
+   👉 **[DASHBOARD_PRD.md](DASHBOARD_PRD.md)**
 
