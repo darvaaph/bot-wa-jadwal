@@ -9,18 +9,23 @@ Bot WhatsApp asisten kelas cerdas yang dirancang untuk membantu mahasiswa mengec
 
 ---
 
-## 📚 Navigasi Dokumentasi Tim
+## 📚 Navigasi Dokumentasi Tim (`docs/`)
 
-Dokumentasi proyek ini telah dipisahkan secara modular agar rapi dan mudah dibaca oleh setiap anggota tim:
+Seluruh dokumentasi proyek ini telah dipusatkan secara modular di folder `docs/` agar rapi dan mudah diakses oleh seluruh anggota tim:
 
-* ☁️ **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md) ➔ Panduan Server & Operasi DevOps**  
-  *(Wajib dibaca bagi pengelola server: IP Azure, akses SSH, alur compile Linux, update server, perintah systemd, dan konfigurasi timezone).*
-* 📖 **[PANDUAN_PENGGUNAAN.md](file:///f:/Project/bot-jadwal/PANDUAN_PENGGUNAAN.md) ➔ Panduan Lengkap Penggunaan Bot**  
-  *(Dokumentasi komprehensif seluruh fitur, sintaks perintah, format deadline natural, dan aturan hak akses admin).*
-* 🏗️ **[ARCHITECTURE.md](file:///f:/Project/bot-jadwal/ARCHITECTURE.md) ➔ Cetak Biru Arsitektur Teknis**  
-  *(Diagram alur pesan, integrasi SQLite WAL mode, multi-tenant class resolution, dan perancangan modul).*
-* 📋 **[DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md) ➔ PRD Web Admin Dashboard**  
-  *(Rencana pengembangan dashboard web admin visual untuk manajemen jadwal dan tugas).*
+* 🤝 **[CONTRIBUTING.md](file:///f:/Project/bot-jadwal/docs/CONTRIBUTING.md) ➔ Panduan Kontribusi Tim (Wajib Dibaca Developer)**  
+  *(Aturan branching GitHub Flow, konvensi pesan commit Conventional Commits, Definition of Done, dan alur code review).*
+* 📢 **[RECRUITMENT.md](file:///f:/Project/bot-jadwal/docs/RECRUITMENT.md) ➔ Panduan Open Recruitment & Pembagian Peran**  
+  *(Deskripsi 4 peran: UI/UX Designer, Frontend Dev, Backend Dev, QA Tester, draf Google Form, dan materi broadcast).*
+* 🏗️ **[ARCHITECTURE.md](file:///f:/Project/bot-jadwal/docs/ARCHITECTURE.md) ➔ Cetak Biru Arsitektur Teknis**  
+  *(Diagram alur pesan, integrasi SQLite WAL mode, multi-tenant class resolution, hierarki DAG anti-cyclic, dan peta modul).*
+* 📋 **[DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/docs/DASHBOARD_PRD.md) ➔ PRD Web Admin Dashboard**  
+  *(Rencana pengembangan dashboard web admin visual, persona pengguna, dan design tokens untuk UI/UX Designer).*
+* ☁️ **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/docs/DEPLOYMENT.md) ➔ Panduan Server & Operasi DevOps**  
+  *(IP Azure, akses SSH, alur compile Linux, update server, perintah systemd, dan konfigurasi timezone).*
+* 📖 **[PANDUAN_PENGGUNAAN.md](file:///f:/Project/bot-jadwal/docs/PANDUAN_PENGGUNAAN.md) ➔ Panduan Lengkap Penggunaan Bot**  
+  *(Dokumentasi komprehensif seluruh fitur, sintaks perintah chat, format deadline natural, dan aturan hak akses admin).*
+* 🎯 **[PRD.md](file:///f:/Project/bot-jadwal/docs/PRD.md) & [TODO.md](file:///f:/Project/bot-jadwal/docs/TODO.md) ➔ Roadmap & Spesifikasi Asli Bot**
 
 ---
 
@@ -116,16 +121,27 @@ bot-jadwal/
 │   ├── tugas.db             # Database SQLite aplikasi (tugas, link, setting kelas, override)
 │   ├── sesi_bot.db          # Database sesi login WhatsMeow
 │   └── reminder_groups.json # File JSON preferensi grup pengingat
-├── DEPLOYMENT.md            # Dokumentasi operasional server Azure & DevOps
-├── PANDUAN_PENGGUNAAN.md    # Panduan komprehensif fitur untuk pengguna
-├── ARCHITECTURE.md          # Cetak biru arsitektur teknis sistem
-├── DASHBOARD_PRD.md         # PRD Web Admin Dashboard
+├── docs/                    # Dokumentasi lengkap sistem & tim
+│   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
+│   ├── RECRUITMENT.md       # Materi dan panduan open recruitment tim
+│   ├── ARCHITECTURE.md      # Cetak biru arsitektur teknis sistem
+│   ├── DASHBOARD_PRD.md     # PRD Web Admin Dashboard
+│   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
+│   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
+│   ├── PRD.md               # Spesifikasi awal produk bot
+│   └── TODO.md              # Roadmap & catatan pengembangan
+├── .github/                 # Template kolaborasi GitHub
+│   ├── pull_request_template.md # Template standar Pull Request
+│   └── ISSUE_TEMPLATE/      # Template Bug Report & Feature Request
 └── README.md                # Berkas ringkasan proyek ini
 ```
 
 ---
 
 ## 👥 Kontribusi Tim
-1. Pastikan selalu membuat *branch* baru untuk fitur baru: `git checkout -b feat/nama-fitur`.
-2. Selalu jalankan `go test -v ./...` sebelum melakukan *commit* atau *merge*.
-3. Untuk memperbarui server produksi setelah perubahan di-*merge* ke `main`, ikuti petunjuk rilis di **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md)**.
+Kami menyambut baik kontribusi dari seluruh anggota tim! Sebelum mulai menulis kode atau mengajukan perubahan, silakan pelajari panduan lengkap di:
+👉 **[docs/CONTRIBUTING.md](file:///f:/Project/bot-jadwal/docs/CONTRIBUTING.md)**
+1. Selalu buat *branch* baru dari `main`: `git checkout -b feat/nama-fitur`.
+2. Gunakan konvensi penulisan commit (*Conventional Commits*).
+3. Selalu jalankan `go test -v ./...` sebelum membuka Pull Request (PR).
+4. Untuk panduan deployment rilis ke server produksi Azure, ikuti **[docs/DEPLOYMENT.md](file:///f:/Project/bot-jadwal/docs/DEPLOYMENT.md)**.
