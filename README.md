@@ -1,164 +1,125 @@
-# 🤖 Bot WhatsApp Jadwal Kuliah & Deadline Tracker
+# 🤖 Bot WhatsApp Jadwal Kuliah & Asisten Mahasiswa
 
-Bot WhatsApp asisten kelas cerdas yang dibangun menggunakan bahasa **Go (Golang)**, library `whatsmeow`, dan database SQLite. Bot ini berjalan secara mandiri selama 24 jam nonstop di cloud server (**Microsoft Azure VM Linux**).
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Library](https://img.shields.io/badge/WhatsApp-whatsmeow-25D366?style=flat&logo=whatsapp)](https://github.com/tulir/whatsmeow)
+[![Database](https://img.shields.io/badge/Database-SQLite_WAL-003B57?style=flat&logo=sqlite)](https://sqlite.org)
+[![Server](https://img.shields.io/badge/Cloud-Microsoft_Azure-0078D4?style=flat&logo=microsoftazure)](https://azure.microsoft.com)
 
----
-
-## 📌 Peta Panduan Cepat
-* [1. Di Mana Saya Mengetik Perintah? (Penting!)](#1-di-mana-saya-mengetik-perintah-penting)
-* [2. Alur Update Kodingan (Hanya 3 Langkah Mudah)](#2-alur-update-kodingan-hanya-3-langkah-mudah)
-* [3. Skenario Update Lainnya (Jadwal & Jam Reminder)](#3-skenario-update-lainnya)
-* [4. Tabel Perintah Kendali Server (Systemd)](#4-tabel-perintah-kendali-server-systemd)
-* [5. Cara Testing Aman di Laptop (Anti-Bentrok)](#5-cara-testing-aman-di-laptop-anti-bentrok)
-* [6. Cheat Sheet Perintah Chat Bot WhatsApp](#6-cheat-sheet-perintah-chat-bot-whatsapp)
+Bot WhatsApp asisten kelas cerdas yang dirancang untuk membantu mahasiswa mengecek jadwal kuliah harian/mingguan, melacak tenggat waktu tugas (*deadline tracker*), mengelola tautan penting kelas (*link manager*), mengakomodasi jadwal pengganti sementara (*overrides*), dan mengirimkan broadcast pengingat pagi otomatis setiap hari kuliah pukul **06:00 WIB**.
 
 ---
 
-## 1. ⚠️ Di Mana Saya Mengetik Perintah? (Penting!)
+## 📚 Navigasi Dokumentasi Tim
 
-Jangan sampai tertukar antara terminal laptop dan terminal server:
+Dokumentasi proyek ini telah dipisahkan secara modular agar rapi dan mudah dibaca oleh setiap anggota tim:
 
-| Ikon | Tempat | Cara Membuka | Keterangan |
-| :---: | :--- | :--- | :--- |
-| 💻 | **Laptop (Windows)** | Buka **PowerShell** di laptop, masuk ke folder project (`cd F:\Project\bot-jadwal`). | Untuk compile program, testing lokal, dan mengirim file (`scp`). |
-| ☁️ | **Server (Linux)** | Di PowerShell/CMD ketik: `ssh darvajago@85.211.182.189`. | Untuk mengontrol bot, restart, dan cek status via `systemctl`. |
-
----
-
-## 2. 🚀 Alur Update Kodingan (Hanya 3 Langkah Mudah)
-
-Gunakan alur ini setiap kali Anda selesai menambah fitur atau mengedit file kodingan `.go` di laptop:
-
-### Langkah 1: Compile untuk Linux
-💻 **Ketik di PowerShell Laptop:**
-```powershell
-$env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-jadwal .
-```
-*(Perintah ini menghasilkan file aplikasi Linux bernama `bot-jadwal`).*
-
-### Langkah 2: Kirim File ke Server
-💻 **Ketik di PowerShell Laptop:**
-```powershell
-scp bot-jadwal darvajago@85.211.182.189:~/
-```
-*(Masukkan password server Anda. File lama di server otomatis tertimpa file baru).*
-
-### Langkah 3: Restart Bot di Server
-☁️ **Ketik di Terminal SSH Server:**
-```bash
-chmod +x bot-jadwal
-sudo systemctl restart bot-jadwal
-```
-🎉 **Selesai!** Bot di server langsung memakai kodingan terbaru dalam hitungan detik.
+* ☁️ **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md) ➔ Panduan Server & Operasi DevOps**  
+  *(Wajib dibaca bagi pengelola server: IP Azure, akses SSH, alur compile Linux, update server, perintah systemd, dan konfigurasi timezone).*
+* 📖 **[PANDUAN_PENGGUNAAN.md](file:///f:/Project/bot-jadwal/PANDUAN_PENGGUNAAN.md) ➔ Panduan Lengkap Penggunaan Bot**  
+  *(Dokumentasi komprehensif seluruh fitur, sintaks perintah, format deadline natural, dan aturan hak akses admin).*
+* 🏗️ **[ARCHITECTURE.md](file:///f:/Project/bot-jadwal/ARCHITECTURE.md) ➔ Cetak Biru Arsitektur Teknis**  
+  *(Diagram alur pesan, integrasi SQLite WAL mode, multi-tenant class resolution, dan perancangan modul).*
+* 📋 **[DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md) ➔ PRD Web Admin Dashboard**  
+  *(Rencana pengembangan dashboard web admin visual untuk manajemen jadwal dan tugas).*
 
 ---
 
-## 3. 📂 Skenario Update Lainnya
+## 🚀 Memulai Pengembangan Lokal (Local Development)
 
-### A. Jika Hanya Mengubah Jadwal Kuliah (`data/jadwal/*.json`)
-*(Tidak perlu compile Go, cukup kirim foldernya saja)*:
-1. 💻 **Di Laptop (PowerShell):**
-   ```powershell
-   scp -r data/jadwal darvajago@85.211.182.189:~/data/
-   ```
-2. ☁️ **Di Server (SSH):**
+### 1. Prasyarat Sistem
+* **Go (Golang):** Minimal versi 1.22 atau yang lebih baru.
+* **Git:** Untuk manajemen version control.
+
+### 2. Menjalankan di Komputer Lokal
+1. Buka terminal di folder proyek:
    ```bash
-   sudo systemctl restart bot-jadwal
+   cd F:\Project\bot-jadwal
    ```
-
-### B. Jika Hanya Mengubah Jam Pengingat (`reminder_groups.json`)
-1. 💻 **Di Laptop (PowerShell):**
-   ```powershell
-   scp reminder_groups.json darvajago@85.211.182.189:~/
-   ```
-2. ☁️ **Di Server (SSH):**
+2. Unduh seluruh dependensi Go:
    ```bash
-   sudo systemctl restart bot-jadwal
+   go mod download
    ```
-
----
-
-## 4. 🛠️ Tabel Perintah Kendali Server (`systemd`)
-
-Ketik perintah-perintah ini di **☁️ Terminal SSH Server**:
-
-| Kebutuhan | Perintah di Server | Penjelasan |
-| :--- | :--- | :--- |
-| **Cek Status Bot** | `sudo systemctl status bot-jadwal` | Melihat apakah bot sedang hidup (hijau), mati, atau error. *(Tekan tombol **`q`** untuk keluar dari tampilan).* |
-| **Restart Bot** | `sudo systemctl restart bot-jadwal` | Mematikan lalu langsung menyalakan bot lagi (dipakai setelah update file). |
-| **Matikan Bot** | `sudo systemctl stop bot-jadwal` | Mematikan bot sementara (misal saat mau testing di laptop). |
-| **Nyalakan Bot** | `sudo systemctl start bot-jadwal` | Menyalakan bot kembali. |
-| **Intip Chat Realtime** | `journalctl -u bot-jadwal -f` | Menonton log pesan masuk/keluar secara live. *(Tekan **`Ctrl + C`** untuk keluar).* |
-| **Keluar dari Server** | `exit` | Menutup sambungan SSH dan kembali ke laptop. |
-
----
-
-## 5. 🛡️ Cara Testing Aman di Laptop (Anti-Bentrok)
-
-> ⚠️ **ATURAN EMAS:**  
-> **JANGAN PERNAH menekan tombol "Keluar / Logout" di WhatsApp HP pada sesi bot.**  
-> Jika Anda logout di WA, sesi login di server Azure akan ikut terhapus permanen dan harus scan QR ulang.
-
-### Alur Testing Live (Jika Menggunakan 1 Nomor WhatsApp yang Sama):
-1. ☁️ **Di Server:** Matikan bot sementara agar tidak berebut sesi:
+3. Jalankan bot:
    ```bash
-   sudo systemctl stop bot-jadwal
-   ```
-2. 💻 **Di Laptop:** Nyalakan dan uji coba di PowerShell:
-   ```powershell
    go run .
    ```
-   Lakukan testing chat ke bot dari HP sampai fitur terbukti berjalan lancar.
-3. 💻 **Di Laptop:** Matikan bot laptop dengan menekan **`Ctrl + C`**.
-4. 💻 **Di Laptop:** Compile dan upload hasil kodingan baru:
-   ```powershell
-   $env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-jadwal .
-   scp bot-jadwal darvajago@85.211.182.189:~/
-   ```
-5. ☁️ **Di Server:** Nyalakan kembali bot server:
-   ```bash
-   sudo systemctl start bot-jadwal
-   ```
+4. Jika pertama kali dijalankan, terminal akan merender **QR Code**. Buka WhatsApp di HP $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ Scan QR tersebut.
 
-### Testing Logika Cepat Tanpa WhatsApp (Unit Test Offline):
-💻 **Di Laptop:**
-```powershell
+> ⚠️ **Catatan Penting Saat Testing:**  
+> Jika bot server produksi sedang aktif, matikan bot server sementara sebelum menjalankan bot secara lokal agar tidak terjadi perebutan koneksi WhatsApp. Lihat panduan lengkapnya di [DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md).
+
+### 3. Menjalankan Unit Test
+Proyek ini dilengkapi rangkaian pengujian unit otomatis untuk memverifikasi logika parsing jadwal, tugas, dan manajemen tautan tanpa perlu terhubung ke WhatsApp:
+```bash
 go test -v ./...
 ```
-Menguji seluruh rumus waktu, jadwal, dan logika tugas dalam 1 detik tanpa perlu membuka WhatsApp.
 
 ---
 
-## 6. 📱 Cheat Sheet Perintah Chat Bot WhatsApp
+## 📱 Ringkasan Perintah Chat Bot (Cheat Sheet)
 
-*(Di grup gunakan prefix `!`, `/`, atau `#`. Di chat pribadi/DM bisa langsung ketik tanpa prefix).*
+*(Di grup WhatsApp gunakan prefix `!`, `/`, atau `#`. Di chat pribadi/DM bisa langsung diketik tanpa prefix).*
 
-### A. Jadwal Perkuliahan
-* `!jadwal` atau `!jadwal hari ini` ➔ Jadwal kuliah hari ini.
-* `!jadwal besok` ➔ Jadwal kuliah besok.
-* `!jadwal sekarang` ➔ Mata kuliah yang sedang berlangsung saat ini.
-* `!jadwal senin` s/d `!jadwal jumat` ➔ Jadwal kuliah hari tertentu.
-* `!seminggu` ➔ Jadwal lengkap Senin sampai Jumat.
+### 1. Jadwal Perkuliahan
+* `!jadwal` atau `!jadwal hari ini` ➔ Menampilkan jadwal kuliah hari ini.
+* `!jadwal besok` ➔ Menampilkan jadwal kuliah besok.
+* `!jadwal sekarang` ➔ Menampilkan mata kuliah yang sedang berlangsung saat ini.
+* `!jadwal senin` s/d `!jadwal jumat` ➔ Menampilkan jadwal pada hari tertentu.
+* `!seminggu` ➔ Menampilkan jadwal lengkap Senin sampai Jumat.
+* `!dosen [nama/kode]` ➔ Mencari jadwal berdasarkan inisial atau nama dosen.
+* `!ruang [nama]` ➔ Mencari jadwal berdasarkan nama ruangan/lab.
 
-### B. Deadline Tracker (Tugas Kuliah)
-* `!tugas` ➔ Menampilkan seluruh tugas aktif dengan countdown waktu.
-* `!tugas tambah <Matkul> | <Deskripsi Tugas> | <Deadline>` ➔ Menambah tugas baru (mendukung sesi Teori & Praktikum).  
-  *Contoh:* `!tugas tambah SBD praktikum | Laporan Modul 3 | 12/09 23:59` atau `!tugas tambah Alin teori | Resume Bab 2 | Besok 14:00`
-* `!tugas selesai <ID>` ➔ Menandai tugas telah selesai.
-* `!tugas hapus <ID>` ➔ Menghapus tugas dari database.
+### 2. Manajemen Tugas & Deadline Tracker
+* `!tugas` ➔ Menampilkan daftar tugas aktif beserta hitung mundur (*countdown*).
+* `!tugas tambah <Nama Tugas> | <Matkul> | <Deadline>` ➔ Menambah tugas baru.  
+  *Contoh:* `!tugas tambah Laporan Praktikum | Basis Data | 12/09 23:59`
+* `!tugas selesai <ID>` ➔ Menandai tugas sebagai selesai.
+* `!tugas hapus <ID>` ➔ Menghapus tugas dari sistem.
 
-### C. Pengingat Otomatis & Pengaturan Kelas
-* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan pesan jadwal otomatis setiap pagi pukul **06:00 WIB**.
-* `!reminder` ➔ Melihat status pengingat di grup saat ini.
-* `!kelas` ➔ Melihat daftar kelas yang tersedia di sistem.
-* `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut (contoh: `!setkelas D4-TI-SMT3-A`).
+### 3. Tautan Penting Kelas (!link)
+* `!link` / `!tautan` ➔ Menampilkan seluruh link penting (Drive, Zoom/Meet, Portal, Repository).
+* `!drive` ➔ Menampilkan link penyimpanan materi Google Drive kelas.
+* `!zoom` / `!meet` ➔ Menampilkan link perkuliahan daring aktif.
+* `!link tambah <Judul> | <URL>` ➔ Menambah tautan baru *(Admin Grup)*.
+* `!link hapus <ID>` ➔ Menghapus tautan *(Admin Grup)*.
 
-### D. Tautan Penting Kelas (Drive / Zoom)
-* `!link` atau `!tautan` ➔ Menampilkan seluruh tautan penting kelas yang dikelompokkan per kategori.
-* `!drive` ➔ Shortcut instan tautan Google Drive / OneDrive materi kuliah.
-* `!zoom` atau `!gmeet` ➔ Shortcut instan tautan kuliah daring aktif.
-* `!link cari <kata>` ➔ Mencari tautan berdasarkan judul atau deskripsi.
-* `!link tambah <Judul> | <URL> (| <Catatan>)` ➔ Menambah tautan baru (*Khusus Admin di grup*).  
-  *Contoh:* `!link tambah Drive Materi | https://s.id/drive-d4a | Folder lengkap`
-* `!link hapus <ID>` ➔ Menghapus tautan (*Khusus Admin di grup*).
+### 4. Pengingat Pagi & Pengaturan Multi-Kelas
+* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal pagi otomatis (**06:00 WIB**).
+* `!reminder` ➔ Melihat status pengingat di obrolan saat ini.
+* `!kelas` ➔ Menampilkan daftar kelas yang tersedia dan kelas aktif.
+* `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut *(Admin Grup)*.
 
+---
+
+## 📂 Struktur Direktori Proyek
+
+```text
+bot-jadwal/
+├── main.go               # Titik masuk utama, router pesan WhatsApp, & lifecycle
+├── schedule.go           # Parser jadwal, evaluasi jam kuliah, & responder teks
+├── task.go               # Manajemen deadline tracker, validasi tugas, & countdown
+├── link.go               # Modul tautan penting kelas (Drive, Zoom, Portal)
+├── reminder.go           # Background scheduler pengingat pagi (06:00 WIB)
+├── override.go           # Logika perubahan jadwal sementara (libur, kuliah ganti)
+├── class_manager.go      # Pengelola multi-kelas modular
+├── chat_settings.go      # Pemetaan kelas aktif per grup WhatsApp
+├── db.go                 # Inisialisasi pool koneksi SQLite WAL tunggal
+├── utils.go              # Helper normalisasi teks, string distance, & validasi
+├── *_test.go             # Berkas unit test otomatis untuk seluruh modul
+├── data/
+│   └── jadwal/           # 19 berkas master jadwal kuliah format JSON
+├── jadwal.json           # Berkas master jadwal kelas utama
+├── reminder_groups.json  # Data persistensi grup pengingat pagi
+├── tugas.db              # Database SQLite (tugas, link, setting kelas, override)
+├── sesi_bot.db           # Database SQLite sesi login WhatsMeow
+├── DEPLOYMENT.md         # Dokumentasi operasional server Azure & DevOps
+├── PANDUAN_PENGGUNAAN.md # Panduan komprehensif fitur untuk pengguna
+└── README.md             # Berkas ringkasan proyek ini
+```
+
+---
+
+## 👥 Kontribusi Tim
+1. Pastikan selalu membuat *branch* baru untuk fitur baru: `git checkout -b feat/nama-fitur`.
+2. Selalu jalankan `go test -v ./...` sebelum melakukan *commit* atau *merge*.
+3. Untuk memperbarui server produksi setelah perubahan di-*merge* ke `main`, ikuti petunjuk rilis di **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md)**.

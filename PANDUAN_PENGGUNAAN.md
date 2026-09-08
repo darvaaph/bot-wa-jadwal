@@ -604,7 +604,7 @@ Saat kelas aktif di suatu obrolan telah disetel (misal ke `D4-TI-SMT3-A`):
 * **Pengecekan Jadwal (`!hari ini`, `!besok`, `!senin`, dll.):** Otomatis menyajikan jadwal kelas tersebut.
 * **Kuliah Real-Time (`!next` / `!sekarang`):** Memeriksa perkuliahan kelas tersebut yang sedang berlangsung.
 * **Pengingat Tugas (`!tugas`):** Terhubung langsung ke konteks kelas aktif.
-* **Pengingat Pagi Otomatis (`!reminder on`):** Broadcast pagi (06:30 WIB) otomatis menyajikan jadwal harian kelas tersebut.
+* **Pengingat Pagi Otomatis (`!reminder on`):** Broadcast pagi (06:00 WIB) otomatis menyajikan jadwal harian kelas tersebut.
 * **Pencarian Dosen & Ruangan (`!dosen`, `!ruang`):** Mencocokkan data pada jadwal kelas tersebut.
 
 ---
