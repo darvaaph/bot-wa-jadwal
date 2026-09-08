@@ -242,11 +242,30 @@ Format wajib menggunakan pemisah tanda pipa (`|`):
 !tugas tambah [Mata Kuliah] | [Deskripsi / Judul Tugas] | [Tenggat Waktu]
 ```
 
-**Contoh Perintah:**
+#### 💡 Dukungan Khusus Sesi Teori & Praktikum:
+Untuk mata kuliah yang memiliki sesi **Teori** dan **Praktikum** (seperti Aljabar Linear, Sistem Basis Data, Sistem Operasi, Komdat, dll.), kamu bisa:
+1. **Menentukan Sesi Langsung di Kolom Matkul:**
+   * `!tugas tambah alin praktikum | Modul 1 Matriks | Besok 08:40`
+   * `!tugas tambah alin teori | Latihan Nilai Eigen | Besok 14:00`
+   * `!tugas tambah sbd praktikum | Lapres Modul 3 | Jumat 23:59`
+   * `!tugas tambah sbd teori | Resume Normalisasi | Kamis 13:00`
+2. **Atau Menggunakan Kata Kunci di Kolom Deskripsi (Auto-Detect):**
+   * Jika deskripsi memuat kata `praktikum`, `lapres`, `laporan`, `modul`, atau `lab` ➔ otomatis masuk sesi **Praktikum**.
+   * Jika deskripsi memuat kata `teori`, `resume`, `makalah`, `kuis`, `latihan`, atau `bab` ➔ otomatis masuk sesi **Teori**.
+3. **Penanganan Otomatis Jika Tidak Spesifik (*Disambiguation Handler*):**
+   * Jika kamu mengetik matkul umum tanpa keterangan (contoh: `!tugas tambah alin | Pertemuan-1 | besok 8:40`), bot akan menampilkan panduan interaktif lengkap dengan nama dosen pengampu dan jadwal masing-masing sesi agar kamu bisa memilih dengan tepat.
+
+**Contoh Tampilan Konfirmasi Penambahan Tugas:**
 ```text
-!tugas tambah SBD | Laporan Praktikum Modul 3 | Jumat 23:59
-!tugas tambah Aljabar | Latihan Soal Nilai Eigen | Besok 14:00
-!tugas tambah Grafika | Proyek Kelompok OpenGL | 25-09-2026 23:59
+✅ *TUGAS BERHASIL DITAMBAHKAN*
+──────────
+• ID Tugas : #7
+• Matkul   : ALJABAR LINEAR (PRAKTIKUM)
+• Dosen    : Muhammad Rizqi Sholahuddin, S.Si., M.T. (MR)
+• Deskripsi: Pertemuan-1
+• Tenggat  : Besok (Selasa), 08:40 WIB
+──────────
+Bot akan otomatis mengingatkan tugas ini saat mendekati tenggat.
 ```
 
 ### C. Format Tampilan Daftar Tugas (`!tugas`):
@@ -254,17 +273,17 @@ Format wajib menggunakan pemisah tanda pipa (`|`):
 📋 *DAFTAR TUGAS KELAS*
 ──────────
 
-*1. [ALJABAR] Latihan Soal Nilai Eigen*
+*1. [ALJABAR LINEAR (TEORI)]*
+   • Tugas    : Latihan Soal Nilai Eigen
    • Status   : 🚨 *DEADLINE HARI INI* (Sisa ~7 jam)
    • Tenggat  : Hari Ini, 23:59 WIB
    • ID Tugas : #2
-   • Oleh     : @628123456789
 
-*2. [SBD] Laporan Praktikum Modul 3*
+*2. [SISTEM BASIS DATA (PRAKTIKUM)]*
+   • Tugas    : Laporan Praktikum Modul 3
    • Status   : ⚠️ *DEADLINE BESOK (H-1)*
    • Tenggat  : Besok (Jumat), 23:59 WIB
    • ID Tugas : #1
-   • Oleh     : @628123456789
 
 ──────────
 _Tips: Di grup, tugas tetap terpajang sampai tenggatnya selesai._
@@ -343,10 +362,10 @@ Tugas yang telah ditandai selesai (`!tugas selesai [ID]`) tidak hilang begitu sa
   ```text
   📜 *ARSIP & RIWAYAT TUGAS SELESAI*
   ──────────
-  *1. ✅ [ALJABAR LINEAR] Latihan Soal Nilai Eigen*
+  *1. ✅ [ALJABAR LINEAR]*
+     • Tugas    : Latihan Soal Nilai Eigen
      • Tenggat  : 05 Sep 2026, 23:59 WIB
      • ID Tugas : #2
-     • Oleh     : @628123456789
   ```
 * **Manfaat:** Sangat berguna bagi mahasiswa menjelang pekan **UTS** dan **UAS** untuk mengulang kembali latihan/tugas yang pernah dikerjakan.
 

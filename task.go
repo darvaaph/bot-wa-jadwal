@@ -474,6 +474,29 @@ func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, n
 	return &item, oldDeadline, nil
 }
 
+// matchesHint memeriksa apakah teks mengandung salah satu kata kunci hint.
+// Untuk kata kunci pendek (<= 2 karakter, contoh: "pr"), pencocokan dilakukan per kata utuh.
+func matchesHint(text string, keywords []string) bool {
+	lower := strings.ToLower(text)
+	words := strings.Fields(lower)
+	for _, kw := range keywords {
+		kwLower := strings.ToLower(kw)
+		if len(kwLower) <= 2 {
+			for _, w := range words {
+				cleanW := strings.Trim(w, ".,:;()[]*~_\"'!-")
+				if cleanW == kwLower {
+					return true
+				}
+			}
+		} else {
+			if strings.Contains(lower, kwLower) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // FilterTasksByQuery menyaring tugas aktif berdasarkan nama mata kuliah atau kata kunci
 func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *JadwalConfig, now time.Time) ([]TaskItem, string, error) {
 	allTasks, err := tm.GetActiveTasks(scopeJID, now)
@@ -486,11 +509,16 @@ func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *Ja
 
 	targetTitle := strings.ToUpper(cleanQuery)
 	var matchedOfficialName string
+	isQueryPrak := strings.Contains(lowerQuery, "praktikum") || strings.Contains(lowerQuery, "praktek") || strings.Contains(lowerQuery, "prak") || strings.Contains(lowerQuery, "lab")
+	isQueryTeori := strings.Contains(lowerQuery, "teori") || strings.Contains(lowerQuery, "kelas")
 
 	if cfg != nil {
 		item, _ := cfg.FindMataKuliah(cleanQuery, now)
 		if item != nil {
-			if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+			if isQueryPrak || isQueryTeori {
+				matchedOfficialName = item.NamaMatkul
+				targetTitle = strings.ToUpper(item.NamaMatkul)
+			} else if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
 				matchedOfficialName = officialName
 				targetTitle = strings.ToUpper(officialName)
 			} else {
@@ -505,9 +533,17 @@ func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *Ja
 		lowerMatkul := strings.ToLower(task.Matkul)
 		lowerDesc := strings.ToLower(task.Deskripsi)
 
-		if matchedOfficialName != "" && strings.Contains(lowerMatkul, strings.ToLower(matchedOfficialName)) {
-			filtered = append(filtered, task)
-			continue
+		if matchedOfficialName != "" {
+			if isQueryPrak && !strings.Contains(lowerMatkul, "praktikum") {
+				continue
+			}
+			if isQueryTeori && !strings.Contains(lowerMatkul, "teori") {
+				continue
+			}
+			if strings.Contains(lowerMatkul, strings.ToLower(matchedOfficialName)) {
+				filtered = append(filtered, task)
+				continue
+			}
 		}
 
 		if strings.Contains(lowerMatkul, lowerQuery) || strings.Contains(lowerDesc, lowerQuery) {
@@ -545,14 +581,11 @@ func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.T
 
 	for i, task := range tasks {
 		badge := GetUrgencyBadge(task.DeadlineAt, now)
-		sb.WriteString(fmt.Sprintf("*%d. [%s] %s*\n", i+1, strings.ToUpper(task.Matkul), task.Deskripsi))
+		sb.WriteString(fmt.Sprintf("*%d. [%s]*\n", i+1, strings.ToUpper(task.Matkul)))
+		sb.WriteString(fmt.Sprintf("   • Tugas    : %s\n", task.Deskripsi))
 		sb.WriteString(fmt.Sprintf("   • Status   : %s\n", badge))
 		sb.WriteString(fmt.Sprintf("   • Tenggat  : %s\n", task.Deadline))
 		sb.WriteString(fmt.Sprintf("   • ID Tugas : #%d\n", task.ID))
-		if isGroup && task.CreatedBy != "" {
-			creatorShort := strings.Split(task.CreatedBy, "@")[0]
-			sb.WriteString(fmt.Sprintf("   • Oleh     : @%s\n", creatorShort))
-		}
 		sb.WriteString("\n")
 	}
 
@@ -581,14 +614,10 @@ func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) s
 	}
 
 	for idx, t := range tasks {
-		sb.WriteString(fmt.Sprintf("*%d. ✅ [%s] %s*\n", idx+1, strings.ToUpper(t.Matkul), t.Deskripsi))
+		sb.WriteString(fmt.Sprintf("*%d. ✅ [%s]*\n", idx+1, strings.ToUpper(t.Matkul)))
+		sb.WriteString(fmt.Sprintf("   • Tugas    : %s\n", t.Deskripsi))
 		sb.WriteString(fmt.Sprintf("   • Tenggat  : %s\n", t.Deadline))
 		sb.WriteString(fmt.Sprintf("   • ID Tugas : #%d\n", t.ID))
-		if isGroup && t.CreatedBy != "" {
-			author := strings.Split(t.CreatedBy, "@")[0]
-			author = strings.Split(author, ":")[0]
-			sb.WriteString(fmt.Sprintf("   • Oleh     : @%s\n", author))
-		}
 		sb.WriteString("\n")
 	}
 
@@ -680,8 +709,9 @@ func (tm *TaskManager) HandleCommand(
 				"Gunakan tanda pemisah pipa `|`:\n" +
 				"`!tugas tambah [Matkul] | [Deskripsi Tugas] | [Tenggat Waktu]`\n\n" +
 				"*Contoh:*\n" +
-				"• `!tugas tambah SBD | Lapres Modul 2 | Jumat 23:59`\n" +
-				"• `!tugas tambah Aljabar | Latihan Bab 3 | 22.22`"
+				"• `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n" +
+				"• `!tugas tambah Alin teori | Latihan Bab 3 | 22.22`\n" +
+				"• `!tugas tambah Aljabar | Laporan Praktikum 1 | Besok 08:40`"
 		}
 
 		matkul := strings.TrimSpace(segments[0])
@@ -697,16 +727,79 @@ func (tm *TaskManager) HandleCommand(
 		isGeneral := lowerMatkul == "umum" || lowerMatkul == "lainnya" || lowerMatkul == "lain-lain" ||
 			lowerMatkul == "kegiatan" || lowerMatkul == "pribadi"
 
+		var dosenInfo string
+
 		if cfg != nil && !isGeneral {
-			item, _ := cfg.FindMataKuliah(matkul, now)
-			if item == nil {
+			item, candidates := cfg.FindMataKuliah(matkul, now)
+			if item == nil && len(candidates) == 0 {
 				guide := cfg.FormatAvailableCourses()
-				return fmt.Sprintf("❌ *Mata Kuliah \"%s\" Tidak Terdaftar!*\n\n%s\n💡 *Format:* `!tugas tambah [Matkul] | [Deskripsi] | [Deadline]`\n_Contoh:_ `!tugas tambah SBD | Lapres Modul 2 | 22.22`", matkul, guide)
+				return fmt.Sprintf("❌ *Mata Kuliah \"%s\" Tidak Terdaftar!*\n\n%s\n💡 *Format:* `!tugas tambah [Matkul] | [Deskripsi] | [Deadline]`\n_Contoh:_ `!tugas tambah SBD praktikum | Lapres Modul 2 | 22.22`", matkul, guide)
 			}
-			if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
-				matkul = officialName
-			} else {
+
+			// Cek apakah mata kuliah memiliki kedua sesi (Teori dan Praktikum)
+			var candPrak, candTeori *JadwalItem
+			for i := range candidates {
+				cLower := strings.ToLower(candidates[i].NamaMatkul)
+				if strings.Contains(cLower, "praktikum") && candPrak == nil {
+					candPrak = &candidates[i]
+				}
+				if strings.Contains(cLower, "teori") && candTeori == nil {
+					candTeori = &candidates[i]
+				}
+			}
+			hasBoth := (candPrak != nil && candTeori != nil)
+
+			prakKeywords := []string{"praktikum", "praktek", "prak", "lab", "lapres", "laporan", "modul", "jurnal", "post-test", "posttest", "pre-test", "pretest", "demo"}
+			teoriKeywords := []string{"teori", "kelas", "resume", "rangkuman", "makalah", "kuis", "quiz", "ujian", "uts", "uas", "pr", "latihan", "soal", "materi", "bab", "graph", "tree", "logika"}
+
+			isMatkulPrak := matchesHint(matkul, prakKeywords)
+			isMatkulTeori := matchesHint(matkul, teoriKeywords)
+
+			isDescPrak := matchesHint(deskripsi, prakKeywords)
+			isDescTeori := matchesHint(deskripsi, teoriKeywords)
+
+			if hasBoth {
+				if isMatkulPrak && !isMatkulTeori {
+					item = candPrak
+				} else if isMatkulTeori && !isMatkulPrak {
+					item = candTeori
+				} else if isDescPrak && !isDescTeori {
+					item = candPrak
+				} else if isDescTeori && !isDescPrak {
+					item = candTeori
+				} else {
+					// Input tidak spesifik: tampilkan pesan panduan disambiguasi lengkap dengan dosen
+					baseName := item.NamaMatkul
+					if officialName, ok := cfg.MataKuliah[item.KodeMatkul]; ok && officialName != "" {
+						baseName = officialName
+					}
+					var sb strings.Builder
+					sb.WriteString(fmt.Sprintf("⚠️ *Sesi Belum Spesifik (Teori atau Praktikum?)*\n"))
+					sb.WriteString("──────────\n")
+					sb.WriteString(fmt.Sprintf("Mata kuliah *%s* memiliki 2 sesi dengan dosen berbeda:\n\n", baseName))
+					if candPrak != nil {
+						sb.WriteString(fmt.Sprintf("• *Praktikum* : %s (%s)\n  └ Jadwal : %s, %s (%s)\n", candPrak.Dosen, candPrak.InisialDosen, candPrak.Hari, candPrak.Jam, candPrak.Ruang))
+					}
+					if candTeori != nil {
+						sb.WriteString(fmt.Sprintf("• *Teori*     : %s (%s)\n  └ Jadwal : %s, %s (%s)\n", candTeori.Dosen, candTeori.InisialDosen, candTeori.Hari, candTeori.Jam, candTeori.Ruang))
+					}
+					sb.WriteString("\n💡 *Silakan perjelas perintah kamu:*\n")
+					sb.WriteString(fmt.Sprintf("👉 `!tugas tambah %s praktikum | %s | %s`\n", matkul, deskripsi, rawDeadline))
+					sb.WriteString(fmt.Sprintf("👉 `!tugas tambah %s teori | %s | %s`\n", matkul, deskripsi, rawDeadline))
+					sb.WriteString("\n_Atau cantumkan kata 'praktikum' / 'teori' di kolom deskripsi tugas._")
+					return sb.String()
+				}
+			}
+
+			if item != nil {
 				matkul = item.NamaMatkul
+				if item.Dosen != "" {
+					if item.InisialDosen != "" {
+						dosenInfo = fmt.Sprintf("%s (%s)", item.Dosen, item.InisialDosen)
+					} else {
+						dosenInfo = item.Dosen
+					}
+				}
 			}
 		} else if isGeneral {
 			if lowerMatkul == "pribadi" {
@@ -736,6 +829,9 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("• ID Tugas : #%d\n", id))
 		sb.WriteString(fmt.Sprintf("• Matkul   : %s\n", strings.ToUpper(matkul)))
+		if dosenInfo != "" {
+			sb.WriteString(fmt.Sprintf("• Dosen    : %s\n", dosenInfo))
+		}
 		sb.WriteString(fmt.Sprintf("• Deskripsi: %s\n", deskripsi))
 		sb.WriteString(fmt.Sprintf("• Tenggat  : %s\n", label))
 		sb.WriteString("──────────\n")
@@ -849,7 +945,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
 		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
-		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
+		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n  Contoh: `!tugas tambah Alin teori | Resume Bab 3 | Besok 14:00`\n\n")
 		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
 		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")
@@ -889,7 +985,7 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas hari ini`\n  ➔ Tugas yang deadline-nya HARI INI\n\n")
 		sb.WriteString("• `!tugas besok`\n  ➔ Tugas yang deadline-nya BESOK (H-1)\n\n")
 		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
-		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD | Lapres | Jumat 23:59`\n\n")
+		sb.WriteString("• `!tugas tambah [Matkul] | [Judul] | [Tenggat]`\n  ➔ Menambah tugas baru (Khusus Admin di grup)\n  Contoh: `!tugas tambah SBD praktikum | Lapres Modul 2 | Jumat 23:59`\n  Contoh: `!tugas tambah Alin teori | Resume Bab 3 | Besok 14:00`\n\n")
 		sb.WriteString("• `!tugas edit [ID] | [Tenggat Baru]`\n  ➔ Memperpanjang/mengubah tenggat tugas\n  Contoh: `!tugas edit 1 | Minggu 23:59`\n\n")
 		sb.WriteString("• `!tugas selesai [ID]`\n  ➔ Menyelesaikan tugas\n\n")
 		sb.WriteString("• `!tugas hapus [ID]`\n  ➔ Menghapus tugas dari sistem\n\n")

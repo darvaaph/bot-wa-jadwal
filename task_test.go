@@ -264,3 +264,87 @@ func TestTaskManager(t *testing.T) {
 		t.Errorf("Expected both task #1 and #2 in riwayat, got: %s", riwayatResp2)
 	}
 }
+
+func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
+	testDB := "test_teori_prak.db"
+	defer os.Remove(testDB)
+
+	db, err := InitDB(testDB)
+	if err != nil {
+		t.Fatalf("InitDB error: %v", err)
+	}
+	defer db.Close()
+
+	tm, err := NewTaskManager(db)
+	if err != nil {
+		t.Fatalf("NewTaskManager error: %v", err)
+	}
+
+	cfg, err := LoadJadwal("jadwal.json")
+	if err != nil {
+		t.Fatalf("LoadJadwal error: %v", err)
+	}
+
+	refNow := time.Date(2026, 9, 7, 10, 0, 0, 0, time.Local)
+	groupJID := "test_group@g.us"
+	userJID := "628111111@s.whatsapp.net"
+
+	// 1. Kasus Ambigu: Alin tanpa kata kunci teori/praktikum baik di nama maupun deskripsi
+	ambiguResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Pertemuan-1 | besok 8:40", cfg, refNow)
+	if !strings.Contains(ambiguResp, "Sesi Belum Spesifik") ||
+		!strings.Contains(ambiguResp, "Praktikum") ||
+		!strings.Contains(ambiguResp, "Teori") ||
+		!strings.Contains(ambiguResp, "Muhammad Rizqi") ||
+		!strings.Contains(ambiguResp, "Nurjannah") {
+		t.Errorf("Expected ambiguity warning with lecturer details, got:\n%s", ambiguResp)
+	}
+
+	// 2. Eksplisit Praktikum di kolom matkul
+	prakResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin praktikum | Pertemuan-1 | besok 8:40", cfg, refNow)
+	if !strings.Contains(prakResp, "BERHASIL DITAMBAHKAN") ||
+		!strings.Contains(prakResp, "ALJABAR LINEAR (PRAKTIKUM)") ||
+		!strings.Contains(prakResp, "Muhammad Rizqi") {
+		t.Errorf("Expected explicit praktikum task added, got:\n%s", prakResp)
+	}
+
+	// 3. Eksplisit Teori di kolom matkul
+	teoriResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin teori | Pertemuan-1 | besok 8:40", cfg, refNow)
+	if !strings.Contains(teoriResp, "BERHASIL DITAMBAHKAN") ||
+		!strings.Contains(teoriResp, "ALJABAR LINEAR (TEORI)") ||
+		!strings.Contains(teoriResp, "Nurjannah") {
+		t.Errorf("Expected explicit teori task added, got:\n%s", teoriResp)
+	}
+
+	// 4. Auto-detect Praktikum dari deskripsi
+	descPrakResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Laporan Praktikum Modul 2 | jumat 23:59", cfg, refNow)
+	if !strings.Contains(descPrakResp, "BERHASIL DITAMBAHKAN") ||
+		!strings.Contains(descPrakResp, "ALJABAR LINEAR (PRAKTIKUM)") {
+		t.Errorf("Expected auto-detect praktikum from desc, got:\n%s", descPrakResp)
+	}
+
+	// 5. Auto-detect Teori dari deskripsi
+	descTeoriResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Resume Bab 2 Transformasi Linier | jumat 23:59", cfg, refNow)
+	if !strings.Contains(descTeoriResp, "BERHASIL DITAMBAHKAN") ||
+		!strings.Contains(descTeoriResp, "ALJABAR LINEAR (TEORI)") {
+		t.Errorf("Expected auto-detect teori from desc, got:\n%s", descTeoriResp)
+	}
+
+	// 6. Matkul sesi tunggal (AOK - hanya ada Teori) tidak boleh terhambat ambigu
+	aokResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah aok | Tugas Pipeline | besok 10:00", cfg, refNow)
+	if !strings.Contains(aokResp, "BERHASIL DITAMBAHKAN") ||
+		!strings.Contains(aokResp, "ARSITEKTUR DAN ORGANISASI KOMPUTER") {
+		t.Errorf("Expected single session course to be added directly, got:\n%s", aokResp)
+	}
+
+	// 7. Filter spesifik praktikum vs umum
+	filterAll := tm.HandleCommand(groupJID, true, userJID, false, "!tugas alin", cfg, refNow)
+	if !strings.Contains(filterAll, "ALJABAR LINEAR (PRAKTIKUM)") || !strings.Contains(filterAll, "ALJABAR LINEAR (TEORI)") {
+		t.Errorf("Expected !tugas alin to show both, got:\n%s", filterAll)
+	}
+
+	filterPrak := tm.HandleCommand(groupJID, true, userJID, false, "!tugas alin praktikum", cfg, refNow)
+	if !strings.Contains(filterPrak, "ALJABAR LINEAR (PRAKTIKUM)") || strings.Contains(filterPrak, "ALJABAR LINEAR (TEORI)") {
+		t.Errorf("Expected !tugas alin praktikum to only show praktikum, got:\n%s", filterPrak)
+	}
+}
+

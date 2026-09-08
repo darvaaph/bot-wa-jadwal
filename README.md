@@ -142,8 +142,8 @@ Menguji seluruh rumus waktu, jadwal, dan logika tugas dalam 1 detik tanpa perlu 
 
 ### B. Deadline Tracker (Tugas Kuliah)
 * `!tugas` ➔ Menampilkan seluruh tugas aktif dengan countdown waktu.
-* `!tugas tambah <Tugas> | <Matkul> | <Deadline>` ➔ Menambah tugas baru.  
-  *Contoh:* `!tugas tambah Laporan Praktikum | Basis Data | 12/09 23:59`
+* `!tugas tambah <Matkul> | <Deskripsi Tugas> | <Deadline>` ➔ Menambah tugas baru (mendukung sesi Teori & Praktikum).  
+  *Contoh:* `!tugas tambah SBD praktikum | Laporan Modul 3 | 12/09 23:59` atau `!tugas tambah Alin teori | Resume Bab 2 | Besok 14:00`
 * `!tugas selesai <ID>` ➔ Menandai tugas telah selesai.
 * `!tugas hapus <ID>` ➔ Menghapus tugas dari database.
 

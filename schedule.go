@@ -435,7 +435,7 @@ func (j *JadwalConfig) FormatAvailableCourses() string {
 	aliasGuide := map[string]string{
 		"25TI2101": "`aok` / `arsitektur`",
 		"25TI2102": "`matdis` / `mtk` / `diskrit`",
-		"25TI2103": "`aljabar` / `al`",
+		"25TI2103": "`aljabar` / `al` / `alin`",
 		"25TI2104": "`sbd` / `basis data`",
 		"25TI2105": "`pp` / `pragmatics`",
 		"25TI2106": "`so` / `os`",
@@ -511,16 +511,18 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 		"diskrit":    "25TI2102",
 		"mtk":        "25TI2102",
 		"matematika": "25TI2102",
-		"aljabar":    "25TI2103",
-		"al":         "25TI2103",
-		"aok":        "25TI2101",
-		"arsitektur": "25TI2101",
-		"pp":         "25TI2105",
-		"pragmatics": "25TI2105",
-		"so":         "25TI2106",
-		"os":         "25TI2106",
-		"komdat":     "25TI2107",
-		"jaringan":   "25TI2107",
+		"aljabar":        "25TI2103",
+		"al":             "25TI2103",
+		"alin":           "25TI2103",
+		"aljabar linear": "25TI2103",
+		"aok":            "25TI2101",
+		"arsitektur":     "25TI2101",
+		"pp":             "25TI2105",
+		"pragmatics":     "25TI2105",
+		"so":             "25TI2106",
+		"os":             "25TI2106",
+		"komdat":         "25TI2107",
+		"jaringan":       "25TI2107",
 	}
 
 	targetKode := ""
@@ -551,13 +553,15 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 	}
 
 	// Jika kandidat > 1 (cth: Aljabar Praktikum vs Teori), cek apakah ada kata kunci penjelas
+	isCleanTeori := strings.Contains(clean, "teori") || strings.Contains(clean, "kelas")
+	isCleanPrak := strings.Contains(clean, "praktikum") || strings.Contains(clean, "praktek") || strings.Contains(clean, "prak") || strings.Contains(clean, "lab")
 	for _, c := range candidates {
 		cLower := strings.ToLower(c.NamaMatkul)
 		cDay := strings.ToLower(c.Hari)
-		if strings.Contains(clean, "teori") && strings.Contains(cLower, "teori") {
+		if isCleanTeori && strings.Contains(cLower, "teori") {
 			return &c, candidates
 		}
-		if strings.Contains(clean, "praktikum") && strings.Contains(cLower, "praktikum") {
+		if isCleanPrak && strings.Contains(cLower, "praktikum") {
 			return &c, candidates
 		}
 		if strings.Contains(clean, cDay) {
