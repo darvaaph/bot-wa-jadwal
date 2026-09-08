@@ -20,26 +20,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var defaultGroupAdminResolver = NewGroupAdminResolver(3 * time.Minute)
+
 // isSenderGroupAdmin memeriksa apakah pengirim pesan merupakan admin atau superadmin di grup
 func isSenderGroupAdmin(ctx context.Context, client *whatsmeow.Client, groupJID, senderJID types.JID) bool {
-	info, err := client.GetGroupInfo(ctx, groupJID)
-	if err != nil || info == nil {
-		return false
-	}
-	for _, p := range info.Participants {
-		if p.JID.User == senderJID.User {
-			return p.IsAdmin || p.IsSuperAdmin
-		}
-	}
-	return false
+	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, true, groupJID, senderJID, types.EmptyJID)
 }
 
-// resolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA)
-func resolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup bool, groupJID, senderJID types.JID) bool {
-	if !isGroup {
-		return true
-	}
-	return isSenderGroupAdmin(ctx, client, groupJID, senderJID)
+// resolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA dengan dukungan LID & cache)
+func resolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup bool, groupJID, senderJID, senderAltJID types.JID) bool {
+	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, isGroup, groupJID, senderJID, senderAltJID)
 }
 
 // replyWithTyping mengirimkan reaksi emoji, simulasi status mengetik, dan pesan balasan ke pengguna
@@ -177,6 +167,8 @@ func main() {
 			fmt.Println("🟡 [Koneksi] Sambungan ke WhatsApp terputus. Sistem auto-reconnect aktif...")
 		case *events.LoggedOut:
 			fmt.Printf("🔴 [Koneksi] Sesi WhatsApp logout/unpaired: %s\n", v.PermanentDisconnectDescription())
+		case *events.GroupInfo:
+			defaultGroupAdminResolver.Invalidate(v.JID)
 		case *events.Message:
 			// Abaikan pesan jika dikirim oleh bot sendiri
 			if v.Info.IsFromMe {
@@ -210,7 +202,7 @@ func main() {
 
 			// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
 			if chatSettingsManager != nil && matchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 				classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
 				if classReply != "" {
 					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, classReply, "🏫", 600*time.Millisecond, "perintah kelas")
@@ -248,7 +240,7 @@ func main() {
 						chatJID := v.Info.Chat.String()
 						groupName := "Grup Chat"
 						if v.Info.IsGroup {
-							info, err := client.GetGroupInfo(context.Background(), v.Info.Chat)
+							info, err := defaultGroupAdminResolver.GetGroupInfo(context.Background(), client, v.Info.Chat)
 							if err == nil && info != nil && info.Name != "" {
 								groupName = info.Name
 							}
@@ -281,7 +273,7 @@ func main() {
 					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
 					return
 				}
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 				tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 				return
@@ -293,7 +285,7 @@ func main() {
 					replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
 					return
 				}
-				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender)
+				isAdmin := resolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 				overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
 				replyWithTyping(context.Background(), client, v.Info.Chat, v.Info.Sender, v.Info.ID, overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 				return
