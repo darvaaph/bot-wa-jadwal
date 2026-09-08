@@ -811,7 +811,7 @@ Semua operasi pembacaan jadwal dan pengaturan obrolan kelas menggunakan mekanism
 
 Untuk melengkapi kemudahan Komti dan pengurus kelas dalam mengelola tugas, jadwal pengganti, dan pengaturan grup, saat ini telah disusun **Product Requirements Document (PRD)** resmi untuk antarmuka web grafis:
 
-* **Dokumen Spesifikasi Lengkap:** [DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/DASHBOARD_PRD.md)
+* **Dokumen Spesifikasi Lengkap:** [DASHBOARD_PRD.md](DASHBOARD_PRD.md)
 * **Konsep Arsitektur:** Server Web tertanam murni (*Pure Go Embedded Server*) menggunakan `net/http` dan `embed.FS`, tanpa memerlukan dependensi Node.js atau server terpisah saat berjalan di produksi.
 * **Fitur Utama yang Direncanakan:**
   1. **Overview & System Health:** Status bot online, waktu aktif (*uptime*), total tugas, dan daftar perubahan jadwal aktif.

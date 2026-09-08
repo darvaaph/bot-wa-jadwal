@@ -108,7 +108,7 @@ Sebuah Pull Request (PR) baru dapat di-*merge* ke branch utama jika memenuhi che
 ## 5. 👥 Panduan Kerja Khusus per Peran
 
 ### 🎨 UI/UX Designer
-* **Fokus Utama:** Merancang antarmuka Web Admin Dashboard yang modern, intuitif, dan responsif (Mobile & Desktop) berdasarkan spesifikasi [docs/DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/docs/DASHBOARD_PRD.md).
+* **Fokus Utama:** Merancang antarmuka Web Admin Dashboard yang modern, intuitif, dan responsif (Mobile & Desktop) berdasarkan spesifikasi [DASHBOARD_PRD.md](DASHBOARD_PRD.md).
 * **Deliverable:**
   - File desain Figma terorganisir (komponen, auto-layout, prototype interaktif).
   - Mengikuti palet warna *Modern Academic Dark Interface* yang tercantum di PRD.

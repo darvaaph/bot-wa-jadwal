@@ -29,7 +29,7 @@ Total kebutuhan tim baru: **4–5 orang**.
 
 ### 1. 🎨 UI/UX Designer (1 Orang)
 * **Tanggung Jawab:**
-  - Menerjemahkan spesifikasi produk di [docs/DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/docs/DASHBOARD_PRD.md) menjadi desain antarmuka web (Figma).
+  - Menerjemahkan spesifikasi produk di [DASHBOARD_PRD.md](DASHBOARD_PRD.md) menjadi desain antarmuka web (Figma).
   - Merancang sistem desain (Design Tokens, Typography, Dark-Mode Component Library).
   - Menyusun prototype interaktif versi Desktop dan Mobile Web yang intuitif dan ramah pengguna.
 * **Kriteria:**

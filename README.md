@@ -13,19 +13,19 @@ Bot WhatsApp asisten kelas cerdas yang dirancang untuk membantu mahasiswa mengec
 
 Seluruh dokumentasi proyek ini telah dipusatkan secara modular di folder `docs/` agar rapi dan mudah diakses oleh seluruh anggota tim:
 
-* 🤝 **[CONTRIBUTING.md](file:///f:/Project/bot-jadwal/docs/CONTRIBUTING.md) ➔ Panduan Kontribusi Tim (Wajib Dibaca Developer)**  
+* 🤝 [**CONTRIBUTING.md**](docs/CONTRIBUTING.md) — **Panduan Kontribusi Tim** *(Wajib Dibaca Developer)*  
   *(Aturan branching GitHub Flow, konvensi pesan commit Conventional Commits, Definition of Done, dan alur code review).*
-* 📢 **[RECRUITMENT.md](file:///f:/Project/bot-jadwal/docs/RECRUITMENT.md) ➔ Panduan Open Recruitment & Pembagian Peran**  
+* 📢 [**RECRUITMENT.md**](docs/RECRUITMENT.md) — **Panduan Open Recruitment & Pembagian Peran**  
   *(Deskripsi 4 peran: UI/UX Designer, Frontend Dev, Backend Dev, QA Tester, draf Google Form, dan materi broadcast).*
-* 🏗️ **[ARCHITECTURE.md](file:///f:/Project/bot-jadwal/docs/ARCHITECTURE.md) ➔ Cetak Biru Arsitektur Teknis**  
+* 🏗️ [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) — **Cetak Biru Arsitektur Teknis**  
   *(Diagram alur pesan, integrasi SQLite WAL mode, multi-tenant class resolution, hierarki DAG anti-cyclic, dan peta modul).*
-* 📋 **[DASHBOARD_PRD.md](file:///f:/Project/bot-jadwal/docs/DASHBOARD_PRD.md) ➔ PRD Web Admin Dashboard**  
+* 📋 [**DASHBOARD_PRD.md**](docs/DASHBOARD_PRD.md) — **PRD Web Admin Dashboard**  
   *(Rencana pengembangan dashboard web admin visual, persona pengguna, dan design tokens untuk UI/UX Designer).*
-* ☁️ **[DEPLOYMENT.md](file:///f:/Project/bot-jadwal/docs/DEPLOYMENT.md) ➔ Panduan Server & Operasi DevOps**  
+* ☁️ [**DEPLOYMENT.md**](docs/DEPLOYMENT.md) — **Panduan Server & Operasi DevOps**  
   *(IP Azure, akses SSH, alur compile Linux, update server, perintah systemd, dan konfigurasi timezone).*
-* 📖 **[PANDUAN_PENGGUNAAN.md](file:///f:/Project/bot-jadwal/docs/PANDUAN_PENGGUNAAN.md) ➔ Panduan Lengkap Penggunaan Bot**  
+* 📖 [**PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) — **Panduan Lengkap Penggunaan Bot**  
   *(Dokumentasi komprehensif seluruh fitur, sintaks perintah chat, format deadline natural, dan aturan hak akses admin).*
-* 🎯 **[PRD.md](file:///f:/Project/bot-jadwal/docs/PRD.md) & [TODO.md](file:///f:/Project/bot-jadwal/docs/TODO.md) ➔ Roadmap & Spesifikasi Asli Bot**
+* 🎯 [**PRD.md**](docs/PRD.md) & [**TODO.md**](docs/TODO.md) — **Roadmap & Spesifikasi Asli Bot**
 
 ---
 
@@ -51,7 +51,7 @@ Seluruh dokumentasi proyek ini telah dipusatkan secara modular di folder `docs/`
 4. Jika pertama kali dijalankan, terminal akan merender **QR Code**. Buka WhatsApp di HP $\rightarrow$ **Perangkat Tertaut** $\rightarrow$ Scan QR tersebut.
 
 > ⚠️ **Catatan Penting Saat Testing:**  
-> Jika bot server produksi sedang aktif, matikan bot server sementara sebelum menjalankan bot secara lokal agar tidak terjadi perebutan koneksi WhatsApp. Lihat panduan lengkapnya di [DEPLOYMENT.md](file:///f:/Project/bot-jadwal/DEPLOYMENT.md).
+> Jika bot server produksi sedang aktif, matikan bot server sementara sebelum menjalankan bot secara lokal agar tidak terjadi perebutan koneksi WhatsApp. Lihat panduan lengkapnya di [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### 3. Menjalankan Unit Test
 Proyek ini dilengkapi rangkaian pengujian unit otomatis untuk memverifikasi logika parsing jadwal, tugas, dan manajemen tautan tanpa perlu terhubung ke WhatsApp:
