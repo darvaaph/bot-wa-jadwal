@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,10 +23,26 @@ import (
 )
 
 func main() {
+	webOnly := flag.Bool("web-only", false, "Hanya jalankan Web Dashboard & REST API tanpa koneksi WhatsApp")
+	sessionPath := flag.String("session", "", "Path file SQLite sesi WhatsApp (default: storage/sesi_bot.db)")
+	port := flag.String("port", "", "Port HTTP server (contoh: 8080 atau :8080)")
+	flag.Parse()
+
 	fmt.Println("🚀 [Boot] Memulai Bot WhatsApp Jadwal Kuliah & Web API Server...")
 
 	// 1. Muat konfigurasi aplikasi & lakukan migrasi file runtime lama ke folder storage/
 	cfg := config.LoadConfig()
+	if *sessionPath != "" {
+		cfg.SessionDBPath = *sessionPath
+	}
+	if *port != "" {
+		p := *port
+		if p[0] != ':' {
+			p = ":" + p
+		}
+		cfg.APIPort = p
+	}
+
 	if err := cfg.EnsureStorageAndMigrate(); err != nil {
 		fmt.Printf("⚠️ Peringatan direktori storage: %v\n", err)
 	}
@@ -100,52 +117,59 @@ func main() {
 		}
 	}
 
-	// 9. Setup Klien WhatsApp (Bot Client & Session Storage)
-	botClient, err := bot.NewBotClient(cfg.SessionDBPath)
-	if err != nil {
-		panic(fmt.Sprintf("Gagal menginisialisasi BotClient: %v", err))
-	}
-
-	// 10. Daftarkan Event Handler WhatsApp
-	botClient.Client.AddEventHandler(func(evt interface{}) {
-		switch v := evt.(type) {
-		case *events.Connected:
-			fmt.Println("🟢 [Koneksi] Berhasil terhubung ke server WhatsApp!")
-		case *events.Disconnected:
-			fmt.Println("🟡 [Koneksi] Sambungan ke WhatsApp terputus. Sistem auto-reconnect aktif...")
-		case *events.LoggedOut:
-			fmt.Printf("🔴 [Koneksi] Sesi WhatsApp logout/unpaired: %s\n", v.PermanentDisconnectDescription())
-		case *events.GroupInfo:
-			bot.InvalidateGroupAdminCache(v.JID)
-		case *events.Message:
-			if v.Info.IsFromMe {
-				return
-			}
-			go bot.HandleIncomingMessage(
-				botClient.Client,
-				v,
-				classManager,
-				chatSettingsManager,
-				reminderManager,
-				taskManager,
-				overrideManager,
-				linkManager,
-			)
+	// 9. Setup Klien WhatsApp (Hanya jika bukan mode -web-only)
+	var botClient *bot.BotClient
+	if !*webOnly {
+		var err error
+		botClient, err = bot.NewBotClient(cfg.SessionDBPath)
+		if err != nil {
+			panic(fmt.Sprintf("Gagal menginisialisasi BotClient: %v", err))
 		}
-	})
 
-	// 11. Hubungkan Klien ke WhatsApp
-	err = botClient.Connect(context.Background())
-	if err != nil {
-		panic(fmt.Sprintf("Gagal menyambungkan WhatsApp: %v", err))
+		// 10. Daftarkan Event Handler WhatsApp
+		botClient.Client.AddEventHandler(func(evt interface{}) {
+			switch v := evt.(type) {
+			case *events.Connected:
+				fmt.Println("🟢 [Koneksi] Berhasil terhubung ke server WhatsApp!")
+			case *events.Disconnected:
+				fmt.Println("🟡 [Koneksi] Sambungan ke WhatsApp terputus. Sistem auto-reconnect aktif...")
+			case *events.LoggedOut:
+				fmt.Printf("🔴 [Koneksi] Sesi WhatsApp logout/unpaired: %s\n", v.PermanentDisconnectDescription())
+			case *events.GroupInfo:
+				bot.InvalidateGroupAdminCache(v.JID)
+			case *events.Message:
+				if v.Info.IsFromMe {
+					return
+				}
+				go bot.HandleIncomingMessage(
+					botClient.Client,
+					v,
+					classManager,
+					chatSettingsManager,
+					reminderManager,
+					taskManager,
+					overrideManager,
+					linkManager,
+				)
+			}
+		})
+
+		// 11. Hubungkan Klien ke WhatsApp
+		err = botClient.Connect(context.Background())
+		if err != nil {
+			panic(fmt.Sprintf("Gagal menyambungkan WhatsApp: %v", err))
+		}
+
+		// 12. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB)
+		reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
+	} else {
+		fmt.Println("🌐 [Mode Web-Only] Berjalan tanpa WhatsApp. Server Linux Azure AMAN 100%.")
 	}
 
-	// 12. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB)
-	reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
-
-	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard (Fase A)
+	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager)
 	_ = apiServer.Start()
+	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 
 	// 14. Tangkap sinyal interupsi (Ctrl+C / SIGTERM) untuk Graceful Shutdown
 	stopSig := make(chan os.Signal, 1)
@@ -161,9 +185,11 @@ func main() {
 		fmt.Printf("⚠️ Gagal mematikan API server: %v\n", err)
 	}
 
-	// Putuskan koneksi WhatsApp dan matikan watchdog
-	fmt.Println("⏳ Memutuskan koneksi WhatsApp...")
-	botClient.Disconnect()
+	// Putuskan koneksi WhatsApp dan matikan watchdog jika aktif
+	if botClient != nil {
+		fmt.Println("⏳ Memutuskan koneksi WhatsApp...")
+		botClient.Disconnect()
+	}
 
 	// Tutup database aplikasi (tugas.db) untuk checkpoint WAL
 	if appDB != nil {

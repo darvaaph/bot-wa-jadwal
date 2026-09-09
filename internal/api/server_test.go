@@ -55,3 +55,17 @@ func TestAPIServer_Status(t *testing.T) {
 		t.Errorf("Expected bot_connection 'uninitialized', got '%s'", resp.BotConnection)
 	}
 }
+
+func TestAPIServer_WebStatic(t *testing.T) {
+	server := NewServer(":8080", nil, nil)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	server.httpServer.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for index.html, got %d", rr.Code)
+	}
+}
+

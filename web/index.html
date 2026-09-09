@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Admin — Bot Jadwal & Tugas</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            },
+            surface: {
+              primary: '#0b0f19',
+              secondary: '#111827',
+              elevated: '#1f2937',
+              card: '#161e2e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Font: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Alpine.js Core & Plugins -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  
+  <!-- Dashboard JS -->
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</head>
+<body class="bg-surface-primary text-gray-100 font-['Plus_Jakarta_Sans',sans-serif] min-h-screen flex" x-data="dashboardApp()" x-init="initDashboard()">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="w-64 bg-surface-secondary border-r border-gray-800 flex flex-col justify-between hidden md:flex shrink-0">
+    <div>
+      <!-- Brand Logo / Header -->
+      <div class="p-6 border-b border-gray-800 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-900/30">
+          🤖
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-wide">BOT JADWAL</h1>
+          <p class="text-xs text-emerald-400 font-mono font-medium">v2.0 Admin Suite</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="p-4 space-y-1.5">
+        <button @click="activeTab = 'overview'" 
+                :class="activeTab === 'overview' ? 'bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500 font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all text-left">
+          <span>📊</span> Ringkasan
+        </button>
+
+        <button @click="activeTab = 'jadwal'" 
+                :class="activeTab === 'jadwal' ? 'bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500 font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all text-left">
+          <span>📅</span> Jadwal Kuliah
+        </button>
+
+        <button @click="activeTab = 'tugas'" 
+                :class="activeTab === 'tugas' ? 'bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500 font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all text-left">
+          <span>📝</span> Catatan Tugas
+        </button>
+
+        <button @click="activeTab = 'bot'" 
+                :class="activeTab === 'bot' ? 'bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500 font-semibold' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'"
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all text-left">
+          <span>📱</span> Gateway WhatsApp
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Info -->
+    <div class="p-4 border-t border-gray-800 text-xs text-gray-500 flex items-center justify-between">
+      <span>Status Sistem</span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full" :class="botOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'"></span>
+        <span class="font-mono" x-text="botOnline ? 'Online' : 'Standby'"></span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT WRAPPER ==================== -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Top Header Bar -->
+    <header class="h-16 bg-surface-secondary/80 backdrop-blur border-b border-gray-800 px-6 flex items-center justify-between sticky top-0 z-10">
+      <div class="flex items-center gap-3">
+        <!-- Mobile Menu Toggle -->
+        <button class="md:hidden text-gray-400 hover:text-white p-2" @click="mobileMenuOpen = !mobileMenuOpen">
+          ☰
+        </button>
+        <h2 class="text-base font-semibold capitalize" x-text="tabTitles[activeTab]">Ringkasan</h2>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Class Selector Dropdown -->
+        <div class="flex items-center gap-2 bg-gray-800/70 border border-gray-700/60 rounded-lg px-3 py-1.5 text-xs text-gray-300">
+          <span class="text-gray-400">Kelas:</span>
+          <span class="font-bold text-emerald-400 font-mono" x-text="selectedClass">TI-2A</span>
+        </div>
+
+        <!-- System Clock -->
+        <div class="hidden sm:flex items-center gap-2 bg-gray-800/40 border border-gray-800 rounded-lg px-3 py-1.5 text-xs font-mono text-gray-400" x-text="currentTime">
+          00:00:00 WIB
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Dynamic Body -->
+    <main class="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+
+      <!-- ================= TAB 1: OVERVIEW ================= -->
+      <section x-show="activeTab === 'overview'" x-transition.opacity>
+        <!-- Metric Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-medium text-gray-400 mb-1">Mata Kuliah Terdaftar</p>
+            <h3 class="text-2xl font-bold text-white font-mono" x-text="metrics.totalMatkul">0</h3>
+            <span class="text-xs text-emerald-400 font-medium">Kurikulum Aktif Semester</span>
+          </div>
+
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-medium text-gray-400 mb-1">Tugas Aktif (Pending)</p>
+            <h3 class="text-2xl font-bold text-amber-400 font-mono" x-text="metrics.activeTasks">0</h3>
+            <span class="text-xs text-gray-400 font-medium">Belum terselesaikan</span>
+          </div>
+
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-medium text-gray-400 mb-1">Grup WhatsApp Terhubung</p>
+            <h3 class="text-2xl font-bold text-white font-mono" x-text="metrics.totalGroups">1</h3>
+            <span class="text-xs text-emerald-400 font-medium">Reminder harian 06:00 WIB</span>
+          </div>
+
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-medium text-gray-400 mb-1">Status WhatsApp Bot</p>
+            <h3 class="text-lg font-bold font-mono mt-1" :class="botOnline ? 'text-emerald-400' : 'text-amber-400'" x-text="botStatusText">
+              Connected
+            </h3>
+            <span class="text-xs text-gray-400">whatsmeow SQLite session</span>
+          </div>
+        </div>
+
+        <!-- Quick Schedule & Urgent Tasks -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Quick Schedule Today -->
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span>📅</span> Kuliah Hari Ini (<span x-text="todayName">Senin</span>)
+              </h3>
+              <button @click="activeTab = 'jadwal'" class="text-xs text-emerald-400 hover:underline">Lihat Semua →</button>
+            </div>
+            
+            <template x-if="todaySchedule.length === 0">
+              <div class="text-center py-8 text-gray-500 text-sm">
+                🎉 Tidak ada jadwal kuliah hari ini. Waktunya santai atau cicil tugas!
+              </div>
+            </template>
+
+            <div class="space-y-3" x-show="todaySchedule.length > 0">
+              <template x-for="item in todaySchedule" :key="item.jam + item.matkul">
+                <div class="p-3.5 rounded-xl bg-gray-900/60 border border-gray-800 flex items-center justify-between">
+                  <div>
+                    <h4 class="font-semibold text-sm text-gray-200" x-text="item.matkul"></h4>
+                    <p class="text-xs text-gray-400" x-text="item.dosen + ' • ' + item.ruang"></p>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" x-text="item.jam"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Quick Active Tasks -->
+          <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span>📝</span> Tugas Mendatang
+              </h3>
+              <button @click="openTaskModal()" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1 rounded-lg transition">
+                + Tambah
+              </button>
+            </div>
+
+            <template x-if="tasks.length === 0">
+              <div class="text-center py-8 text-gray-500 text-sm">
+                ✅ Belum ada catatan tugas. Semua aman terkendali!
+              </div>
+            </template>
+
+            <div class="space-y-3" x-show="tasks.length > 0">
+              <template x-for="task in tasks.slice(0, 3)" :key="task.id">
+                <div class="p-3.5 rounded-xl bg-gray-900/60 border border-gray-800 flex items-center justify-between">
+                  <div class="pr-2">
+                    <h4 class="font-semibold text-sm text-gray-200" x-text="task.matkul"></h4>
+                    <p class="text-xs text-gray-400 line-clamp-1" x-text="task.deskripsi"></p>
+                  </div>
+                  <span class="text-xs font-mono text-amber-400 shrink-0" x-text="task.deadline"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 2: JADWAL KULIAH ================= -->
+      <section x-show="activeTab === 'jadwal'" x-transition.opacity>
+        <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 class="text-lg font-bold text-white">Jadwal Kuliah Mingguan</h3>
+              <p class="text-xs text-gray-400 mt-0.5">Dikelola oleh ClassManager dan bot WhatsApp</p>
+            </div>
+
+            <!-- Day Filter Tabs -->
+            <div class="flex items-center gap-1 bg-gray-900 p-1 rounded-xl border border-gray-800 text-xs overflow-x-auto">
+              <template x-for="day in ['Semua', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']" :key="day">
+                <button @click="selectedDayFilter = day" 
+                        :class="selectedDayFilter === day ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:text-gray-200'"
+                        class="px-3 py-1.5 rounded-lg transition" 
+                        x-text="day">
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Schedule Table -->
+          <div class="overflow-x-auto rounded-xl border border-gray-800">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-gray-900/80 text-gray-400 text-xs uppercase font-mono border-b border-gray-800">
+                <tr>
+                  <th class="p-3.5">Hari</th>
+                  <th class="p-3.5">Jam</th>
+                  <th class="p-3.5">Mata Kuliah</th>
+                  <th class="p-3.5">Dosen</th>
+                  <th class="p-3.5">Ruang</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-800/60">
+                <template x-for="item in filteredSchedule" :key="item.hari + item.jam + item.matkul">
+                  <tr class="hover:bg-gray-900/40 transition">
+                    <td class="p-3.5 font-medium text-emerald-400" x-text="item.hari"></td>
+                    <td class="p-3.5 font-mono text-xs text-gray-300" x-text="item.jam"></td>
+                    <td class="p-3.5 font-semibold text-white" x-text="item.matkul"></td>
+                    <td class="p-3.5 text-gray-400 text-xs" x-text="item.dosen"></td>
+                    <td class="p-3.5 font-mono text-xs text-gray-300" x-text="item.ruang"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 3: CATATAN TUGAS ================= -->
+      <section x-show="activeTab === 'tugas'" x-transition.opacity>
+        <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 class="text-lg font-bold text-white">Daftar Tugas & Praktikum</h3>
+              <p class="text-xs text-gray-400 mt-0.5">Sinkron langsung dengan perintah <code class="text-emerald-400">!tugas</code> di WhatsApp</p>
+            </div>
+            <button @click="openTaskModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl text-sm transition flex items-center gap-2 self-start sm:self-auto">
+              <span>+</span> Buat Tugas Baru
+            </button>
+          </div>
+
+          <!-- Tasks List -->
+          <div class="space-y-3">
+            <template x-if="tasks.length === 0">
+              <div class="text-center py-12 text-gray-500 text-sm">
+                Belum ada tugas yang dicatat. Klik "+ Buat Tugas Baru" untuk menambahkan.
+              </div>
+            </template>
+
+            <template x-for="task in tasks" :key="task.id">
+              <div class="p-4 rounded-xl bg-gray-900/50 border border-gray-800 hover:border-gray-700 transition flex items-start justify-between gap-4">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-white" x-text="task.matkul"></span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20" x-text="task.deadline"></span>
+                  </div>
+                  <p class="text-sm text-gray-300" x-text="task.deskripsi"></p>
+                </div>
+                <button @click="deleteTask(task.id)" class="text-xs text-gray-500 hover:text-red-400 p-1.5 transition" title="Tandai Selesai / Hapus">
+                  ✕
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 4: WHATSAPP GATEWAY ================= -->
+      <section x-show="activeTab === 'bot'" x-transition.opacity>
+        <div class="bg-surface-card border border-gray-800/80 rounded-2xl p-6 max-w-2xl">
+          <h3 class="text-lg font-bold text-white mb-1">WhatsApp Gateway & Koneksi</h3>
+          <p class="text-xs text-gray-400 mb-6">Kelola sesi login whatsmeow langsung dari browser</p>
+
+          <!-- Connection Card -->
+          <div class="p-5 rounded-xl bg-gray-900 border border-gray-800 mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs text-gray-400 font-medium">Status Sambungan:</span>
+              <span class="px-3 py-1 rounded-full text-xs font-mono font-semibold"
+                    :class="botOnline ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'"
+                    x-text="botOnline ? 'TERHUBUNG (ONLINE)' : 'STANDBY / PERLU LOGIN'">
+              </span>
+            </div>
+
+            <p class="text-xs text-gray-400 leading-relaxed">
+              Bot berjalan pada arsitektur multi-tenant SQLite WAL di VM Azure. Jika bot terputus, QR Code akan otomatis dirender di area ini.
+            </p>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="flex gap-3">
+            <button @click="checkBotHealth()" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-medium text-gray-200 transition">
+              🔄 Cek Status Server (/api/health)
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================== MODAL TAMBAH TUGAS ==================== -->
+  <div x-show="taskModalOpen" 
+       x-transition.opacity
+       class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div @click.away="taskModalOpen = false" 
+         class="bg-surface-secondary border border-gray-800 rounded-2xl p-6 w-full max-w-md text-white shadow-2xl space-y-4">
+      
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>📝</span> Catat Tugas Baru
+        </h3>
+        <button @click="taskModalOpen = false" class="text-gray-400 hover:text-white text-sm">✕</button>
+      </div>
+
+      <!-- Form Inputs -->
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Mata Kuliah</label>
+          <select x-model="newTask.matkul" class="w-full bg-gray-900 border border-gray-700/80 rounded-xl p-2.5 text-sm text-gray-200 focus:outline-none focus:border-emerald-500">
+            <option value="">-- Pilih Mata Kuliah --</option>
+            <template x-for="matkul in uniqueMatkulList" :key="matkul">
+              <option :value="matkul" x-text="matkul"></option>
+            </template>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Deskripsi Tugas</label>
+          <textarea x-model="newTask.deskripsi" rows="3" placeholder="Contoh: Kerjakan Bab 3 di Word dan upload ke portal..." class="w-full bg-gray-900 border border-gray-700/80 rounded-xl p-2.5 text-sm text-gray-200 focus:outline-none focus:border-emerald-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Tenggat Waktu (Deadline)</label>
+          <input type="text" x-model="newTask.deadline" placeholder="Contoh: Jumat, 18 Sep 23:59 WIB" class="w-full bg-gray-900 border border-gray-700/80 rounded-xl p-2.5 text-sm text-gray-200 focus:outline-none focus:border-emerald-500" />
+        </div>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="flex justify-end gap-2 pt-2 border-t border-gray-800">
+        <button @click="taskModalOpen = false" class="px-4 py-2 rounded-xl text-xs text-gray-400 hover:bg-gray-800 transition">
+          Batal
+        </button>
+        <button @click="saveNewTask()" class="px-4 py-2 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition">
+          Simpan Tugas
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATION ==================== -->
+  <div x-show="toast.show" 
+       x-transition:enter="transition ease-out duration-300 transform"
+       x-transition:enter-start="opacity-0 translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-200 transform"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-2"
+       class="fixed bottom-6 right-6 z-50 bg-gray-900 border border-emerald-500/40 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs font-medium">
+    <span class="text-emerald-400 text-base">✓</span>
+    <span x-text="toast.message"></span>
+  </div>
+
+</body>
+</html>

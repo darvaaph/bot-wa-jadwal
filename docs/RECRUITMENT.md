@@ -122,37 +122,25 @@ Bagi mahasiswa yang bergabung, ini bukan sekadar tugas kelompok biasa, melainkan
 *(Dapat disesuaikan untuk disebar di grup WhatsApp angkatan, channel Discord kampus, atau media sosial).*
 
 ```text
-🚀 [CALL FOR TEAM] Proyek Asisten Kelas & Web Admin Dashboard v2.0! 🤖✨
+Halo ges 👋
 
-Halo teman-teman! 👋
-Kalian pasti sudah familiar dengan bot WhatsApp jadwal kuliah yang biasa mengingatkan jadwal dan tugas di kelas kita. 
+Kalian tau kan bot WA jadwal yang sering kita pake? Rencananya bot ini mau dikembangin lagi biar punya Web Dashboard visual (biar ga cuma via chat WA).
 
-Untuk semester ini, proyek asisten kelas ini sedang bersiap naik kelas ke Versi 2.0 dengan membangun "Web Admin Dashboard Visual" yang akan di-deploy di cloud server Microsoft Azure! ☁️
+Gue lagi buka ajakan buat yang mau ngulik & garap bareng:
+• Frontend (HTML/CSS/JS atau Tailwind)
+• Backend (Bahasa Go & SQLite)
+• UI/UX (Desain tampilan di Figma)
+• Tester / QA (Cek alur & cari bug)
 
-Buat kalian yang ingin mengasah skill, belajar alur kerja standar industri (Git Pull Request, Code Review, Modular Architecture), dan membangun PORTFOLIO NYATA untuk modal magang/kerja, yuk gabung ke tim inti pengembang!
+⚠️ Catatan jujur:
+Ini proyek barengan (unpaid), tapi benefitnya riil:
+- Dapet full source code & akses repo GitHub
+- Belajar bahasa Go langsung (lagi naik daun di backend)
+- Belajar deploy langsung ke Cloud Server (VM Microsoft Azure)
+- Dokumentasi rapi, jadi portofolio nyata buat modal magang nanti
 
-🔥 Posisi yang Dibuka:
-1. 🎨 UI/UX Designer (Figma, Design System, Responsive Mockup)
-2. 💻 Frontend Developer (HTML/CSS/Tailwind/JS, REST API Integration)
-3. ⚙️ Backend Developer (Golang, SQLite WAL, REST API Server)
-4. 🧪 QA / Software Tester (Black-box testing, bug reporting, test cases)
+Dicari yang mau belajar bareng & komitmen santai (~3–5 jam/minggu).
 
-💡 Yang Akan Kalian Dapatkan:
-✅ Pengalaman nyata mengelola aplikasi live di server cloud.
-✅ Simulasi kultur kerja tim startup/software house (GitHub Flow & Sprint).
-✅ Kontribusi nyata yang sangat bernilai di CV dan LinkedIn.
-✅ Sertifikat kontributor resmi dari inisiator proyek.
-
-📌 Syarat Utama:
-- Mahasiswa aktif yang memiliki kemauan belajar tinggi & komunikatif.
-- Memiliki komitmen waktu 3–5 jam per minggu.
-- Memiliki dasar kemampuan sesuai peran yang dipilih.
-
-🔗 Link Pendaftaran:
-👉 [MASUKKAN LINK GOOGLE FORM / TALLY DI SINI]
-
-⏳ Batas Pendaftaran: [Tentukan Tanggal, misal: Minggu, 20 September 2026]
-Kuota sangat terbatas (hanya 1–2 orang per peran) agar koordinasi tim tetap solid dan intensif.
-
-Sampai jumpa di tim, mari kita bangun portofolio keren bersama! 🚀
+Yang minat gabung atau mau tanya-tanya dulu, gas isi form ini ya:
+👉 [Link Google Form] / atau langsung japri gue.
 ```

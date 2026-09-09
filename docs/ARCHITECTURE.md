@@ -323,3 +323,40 @@ Rangkaian unit test wajib mencakup skenario sukses (*positive test*), skenario k
 | `TestSchedule` | `internal/schedule/schedule_test.go` | Parsing kurikulum `jadwal.json`, pencarian cerdas mata kuliah/dosen/ruangan, kalkulasi `!next`, dan perpaduan jadwal reguler dengan override. |
 | `TestOverrideManager` | `internal/schedule/override_test.go` | Penjadwalan ulang (`!pindah`), pembatalan kelas (`!kosong`), deteksi bentrok jadwal, pengumuman hari libur (`!libur`), dan pembatalan (`!batalganti`). |
 | `TestTaskManager` | `internal/task/task_test.go` | CRUD tugas SQLite, otorisasi admin grup vs anggota biasa, filter per mata kuliah (`!tugas sbd`), perpanjangan tenggat (`!tugas edit`), badge urgensi, dan riwayat tugas selesai (`!tugas riwayat`). |
+
+---
+
+## 9. 🔐 Arsitektur Sesi WhatsApp & Ketahanan Bencana (*Session Lifecycle & Disaster Recovery*)
+
+Sistem menerapkan prinsip **Pemisahan Kredensial dan Data Bisnis (*State & Session Decoupling*)**:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    PENYIMPANAN DATA KELAS                  │
+│  📁 storage/tugas.db        ➔ Tugas, override, setting chat │
+│  📁 data/jadwal/*.json      ➔ Kurikulum jadwal kuliah      │
+│  📁 storage/reminder_groups ➔ Daftar grup pengingat pagi    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+               TIDAK TERIKAT DENGAN NOMOR HP
+                               │
+┌──────────────────────────────▼──────────────────────────────┐
+│                  KREDENSIAL LOGIN WHATSAPP                  │
+│  📁 storage/sesi_bot.db     ➔ Kunci Noise Protocol & Token │
+│  📁 storage/sesi_dev.db     ➔ Sesi terpisah untuk testing   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### A. Jika Nomor Bot Terblokir (*Banned*) / Berganti Nomor
+1. **Integritas Data 100% Terjaga:** Karena data tugas dan jadwal disimpan di `storage/tugas.db` dan `data/jadwal/`, pemblokiran nomor WhatsApp **tidak akan menghapus satu pun data kelas**.
+2. **Prosedur Pemulihan (Disaster Recovery):**
+   * Hapus file sesi lama di server: `rm storage/sesi_bot.db*`.
+   * Jalankan bot: `sudo systemctl restart bot-jadwal`.
+   * Scan QR Code baru dengan nomor cadangan.
+   * Masukkan nomor baru ke grup kelas. Seluruh data jadwal, tugas, dan reminder otomatis langsung aktif kembali.
+
+### B. Isolasi Sesi Lokal vs Server Produksi
+Untuk mencegah terputusnya koneksi bot produksi di VM Azure (*stream conflict / device replaced*):
+* **Mode Web-Only:** Jalankan `go run ./cmd/bot -web-only` untuk pengembangan frontend tanpa koneksi WhatsApp.
+* **Mode Sesi Dev:** Jalankan `go run ./cmd/bot -session storage/sesi_dev.db` untuk menguji chat bot di komputer lokal menggunakan nomor WhatsApp kedua/testing.
+

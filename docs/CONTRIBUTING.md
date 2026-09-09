@@ -37,12 +37,22 @@ Seluruh anggota tim yang berkontribusi pada kode wajib memastikan proyek dapat d
    ```bash
    go test -v ./...
    ```
-4. Menjalankan bot dan server API web lokal:
-   ```bash
-   go run ./cmd/bot
-   ```
-   > ⚠️ **Catatan Penting Login WhatsApp:**  
-   > Jika bot server produksi sedang aktif, koordinasikan dengan Project Manager sebelum melakukan scan QR Code WhatsApp agar sesi login server tidak terganggu. Anda dapat menguji logika modul dan API web tanpa harus terhubung ke WhatsApp.
+4. Menjalankan aplikasi secara lokal:
+   
+   * **Opsi A: Mode Web-Only (Sangat Disarankan untuk Frontend & Desain)**
+     Jalankan Web Admin Dashboard tanpa koneksi WhatsApp. Sangat aman dan **tidak akan mengganggu bot kelas yang aktif di server Azure**:
+     ```bash
+     go run ./cmd/bot -web-only
+     ```
+     Buka browser di `http://localhost:8080`. Anda bisa mengutak-atik tampilan UI, CSS, dan logika interaktif tanpa login WhatsApp.
+
+   * **Opsi B: Mode Full-Stack / Testing Bot (Untuk Backend & QA)**
+     Jika ingin menguji respon chat bot WhatsApp di lokal secara nyata, **wajib gunakan file sesi terpisah** agar tidak bentrok dengan server produksi:
+     ```bash
+     go run ./cmd/bot -session storage/sesi_dev.db
+     ```
+     Scan QR Code yang muncul di terminal menggunakan **nomor WhatsApp cadangan / nomor testing pribadi**.
+     > ⚠️ **PENTING: Jangan pernah menjalankan `go run ./cmd/bot` tanpa `-web-only` atau `-session` jika `storage/sesi_bot.db` adalah hasil salinan dari server Azure**, karena akan menyebabkan sesi server terputus sementara (*stream conflict*).
 
 ---
 

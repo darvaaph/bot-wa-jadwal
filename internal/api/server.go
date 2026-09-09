@@ -9,6 +9,7 @@ import (
 
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/web"
 )
 
 // Server mengelola HTTP REST API untuk Web Admin Dashboard
@@ -50,12 +51,15 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
-	// Fallback untuk route yang belum diimplementasikan di Fase A
+	// Fallback untuk route API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
 			"error": "Endpoint belum tersedia (dijadwalkan pada Fase B)",
 		})
 	})
+
+	// Menyajikan aset web statis (Dashboard Admin) dari web.Files embedded
+	mux.Handle("/", http.FileServer(http.FS(web.Files)))
 
 	handler := s.corsMiddleware(s.recoveryMiddleware(mux))
 

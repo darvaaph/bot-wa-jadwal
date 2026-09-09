@@ -102,7 +102,12 @@ go test -v ./...
 bot-jadwal/
 ├── cmd/
 │   └── bot/
-│       └── main.go          # Titik masuk utama aplikasi (bot WhatsApp & REST API server)
+│       └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
+├── web/                     # Antarmuka Web Admin Dashboard (HTML5, Tailwind, Alpine.js)
+│   ├── embed.go             # Go embed.FS pengemas aset web ke dalam biner tunggal
+│   ├── index.html           # Halaman utama SPA Dashboard (Dark Mode)
+│   ├── css/style.css        # Styling custom & scrollbar
+│   └── js/                  # api.js (REST client) & app.js (state Alpine.js)
 ├── internal/
 │   ├── config/              # Konfigurasi aplikasi & auto-migration file runtime
 │   ├── database/            # Inisialisasi SQLite connection pool WAL mode
@@ -135,6 +140,16 @@ bot-jadwal/
 │   └── ISSUE_TEMPLATE/      # Template Bug Report & Feature Request
 └── README.md                # Berkas ringkasan proyek ini
 ```
+
+---
+
+### 💻 Menjalankan Aplikasi Secara Lokal
+
+| Perintah | Deskripsi | Skenario Pemakaian |
+| :--- | :--- | :--- |
+| `go run ./cmd/bot -web-only` | Menjalankan **Web Dashboard & REST API saja** tanpa koneksi WhatsApp. | Pengembangan Frontend / UI (Server Azure aman 100%). |
+| `go run ./cmd/bot -session storage/sesi_dev.db` | Menjalankan Full-Stack dengan **file sesi WhatsApp terpisah**. | Pengujian respon chat bot di lokal dengan nomor dev. |
+| `go run ./cmd/bot` | Menjalankan bot WhatsApp & Web API dengan sesi default (`sesi_bot.db`). | Standar deployment di server produksi Azure. |
 
 ---
 
