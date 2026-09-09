@@ -21,3 +21,5 @@ reminder_groups.json
 # Environment & Local Configuration
 .env
 .env.local
+
+TEAM_ONBOARDING.md
