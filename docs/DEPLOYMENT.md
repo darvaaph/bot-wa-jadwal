@@ -23,7 +23,7 @@ Dokumen ini ditujukan khusus untuk pengelola server / tim yang bertugas melakuka
 * **Tipe VM:** `Standard_B2ats_v2` (2 vCPU, 1 GiB RAM, AMD EPYC)
 * **Sistem Operasi:** Ubuntu Server 24.04 LTS (x64)
 * **Region:** Malaysia West (Kuala Lumpur)
-* **Alamat IP Publik:** `85.211.182.189`
+* **Alamat IP Publik:** `<IP_SERVER_PRODUKSI>` *(Hubungi PM/DevOps Lead untuk kredensial)*
 * **Port Terbuka:**
   * `22` (SSH - Akses remote terminal)
   * `80` (HTTP - Akses web dashboard)
@@ -35,7 +35,7 @@ Dokumen ini ditujukan khusus untuk pengelola server / tim yang bertugas melakuka
 
 Buka **PowerShell** atau **Terminal** di laptop:
 ```bash
-ssh darvajago@85.211.182.189
+ssh <USER_SSH>@<IP_SERVER_PRODUKSI>
 ```
 * Masukkan password server saat diminta.
 * Untuk keluar dari server: ketik `exit` atau tekan `Ctrl + D`.
@@ -55,13 +55,13 @@ $env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-ja
 
 ### Langkah 2: Kirim File ke Server (di PowerShell Laptop)
 ```powershell
-scp bot-jadwal darvajago@85.211.182.189:~/bot-jadwal.new
+scp bot-jadwal <USER_SSH>@<IP_SERVER_PRODUKSI>:~/bot-jadwal.new
 ```
 > 💡 **Kenapa diunggah sebagai `bot-jadwal.new`?**  
 > Karena bot sedang aktif berjalan di memori server. Menimpa file biner yang sedang berjalan secara langsung di Linux dapat memicu error *"Text file busy"*. Mengunggahnya sebagai `.new` lalu me-*replace*-nya via perintah `mv` adalah praktik terbaik (aman 100%).
 
 ### Langkah 3: Pasang & Restart di Server (di Terminal SSH)
-Masuk ke terminal server (`ssh darvajago@85.211.182.189`), lalu jalankan:
+Masuk ke terminal server (`ssh <USER_SSH>@<IP_SERVER_PRODUKSI>`), lalu jalankan:
 ```bash
 mv bot-jadwal.new bot-jadwal
 chmod +x bot-jadwal
@@ -82,7 +82,7 @@ sudo systemctl status bot-jadwal
 *(Tidak perlu compile Go ulang, cukup kirim foldernya)*:
 1. 💻 **Di Laptop (PowerShell):**
    ```powershell
-   scp -r data/jadwal darvajago@85.211.182.189:~/data/
+   scp -r data/jadwal <USER_SSH>@<IP_SERVER_PRODUKSI>:~/data/
    ```
 2. ☁️ **Di Server (SSH):**
    ```bash
@@ -93,7 +93,7 @@ sudo systemctl status bot-jadwal
 ### B. Jika Hanya Mengubah Jam Pengingat (`reminder_groups.json`)
 1. 💻 **Di Laptop (PowerShell):**
    ```powershell
-   scp reminder_groups.json darvajago@85.211.182.189:~/
+   scp reminder_groups.json <USER_SSH>@<IP_SERVER_PRODUKSI>:~/
    ```
 2. ☁️ **Di Server (SSH):**
    ```bash
@@ -136,7 +136,7 @@ Bot dikelola sebagai background service Linux bernama `bot-jadwal.service`. File
 4. 💻 **Di Laptop:** Compile & kirim file terbaru ke server:
    ```powershell
    $env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -o bot-jadwal .
-   scp bot-jadwal darvajago@85.211.182.189:~/bot-jadwal.new
+   scp bot-jadwal <USER_SSH>@<IP_SERVER_PRODUKSI>:~/bot-jadwal.new
    ```
 5. ☁️ **Di Server:** Pasang & nyalakan kembali bot server:
    ```bash
@@ -168,9 +168,9 @@ Periksa dengan mengetik: `date` (harus berakhiran `WIB`).
 
 ## 8. 📁 Struktur File di Server
 
-Di direktori home server (`/home/darvajago/`):
+Di direktori home server (`/home/<USER_SSH>/`):
 ```text
-/home/darvajago/
+/home/<USER_SSH>/
 ├── bot-jadwal             # File biner aplikasi hasil compile (Go)
 ├── data/
 │   ├── jadwal/            # 19 file master jadwal JSON per kelas
