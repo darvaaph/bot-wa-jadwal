@@ -17,7 +17,7 @@ func setupTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("Gagal memuat ClassManager untuk pengujian: %v", err)
 	}
-	return NewServer(":8080", nil, cm)
+	return NewServer(":8080", nil, cm, nil)
 }
 
 func TestHandleClasses_Success(t *testing.T) {
@@ -55,7 +55,7 @@ func TestHandleClasses_Success(t *testing.T) {
 }
 
 func TestHandleClasses_NilClassManager(t *testing.T) {
-	server := NewServer(":8080", nil, nil)
+	server := NewServer(":8080", nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/classes", nil)
 	rr := httptest.NewRecorder()
@@ -236,7 +236,7 @@ func TestHandleSchedule_ClassNotFound_404(t *testing.T) {
 }
 
 func TestHandleSchedule_NilClassManager_404(t *testing.T) {
-	server := NewServer(":8080", nil, nil)
+	server := NewServer(":8080", nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/schedule?class=D4-TI-SMT3-A", nil)
 	rr := httptest.NewRecorder()
