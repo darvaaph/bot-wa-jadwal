@@ -167,7 +167,7 @@ func main() {
 	}
 
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard
-	apiServer := api.NewServer(cfg.APIPort, botClient, classManager)
+	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager)
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 

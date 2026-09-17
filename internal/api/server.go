@@ -9,6 +9,7 @@ import (
 
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/task"
 	"bot-jadwal/web"
 )
 
@@ -17,6 +18,7 @@ type Server struct {
 	httpServer   *http.Server
 	botClient    *bot.BotClient
 	classManager *schedule.ClassManager
+	taskManager  *task.TaskManager
 }
 
 // HealthResponse adalah payload untuk endpoint /api/health
@@ -39,12 +41,13 @@ type StatusResponse struct {
 var startTime = time.Now()
 
 // NewServer membuat instance baru HTTP API server dengan middleware CORS dan logging
-func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager) *Server {
+func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager) *Server {
 	mux := http.NewServeMux()
 
 	s := &Server{
 		botClient:    botClient,
 		classManager: classManager,
+		taskManager:  taskManager,
 	}
 
 	// Registrasi Route API Scaffolding (Fase A)
@@ -54,6 +57,10 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	// Registrasi Route Jadwal & Kelas
 	mux.HandleFunc("GET /api/classes", s.handleClasses)
 	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
+	// Registrasi Route API Tugas (Fase B)
+	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
+	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
+	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
 
 	// Fallback untuk route API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

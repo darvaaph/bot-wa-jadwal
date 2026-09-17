@@ -8,7 +8,7 @@ import (
 )
 
 func TestAPIServer_Health(t *testing.T) {
-	server := NewServer(":8080", nil, nil)
+	server := NewServer(":8080", nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/health", nil)
 	rr := httptest.NewRecorder()
@@ -31,7 +31,7 @@ func TestAPIServer_Health(t *testing.T) {
 }
 
 func TestAPIServer_Status(t *testing.T) {
-	server := NewServer(":8080", nil, nil)
+	server := NewServer(":8080", nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/status", nil)
 	rr := httptest.NewRecorder()
@@ -57,7 +57,7 @@ func TestAPIServer_Status(t *testing.T) {
 }
 
 func TestAPIServer_WebStatic(t *testing.T) {
-	server := NewServer(":8080", nil, nil)
+	server := NewServer(":8080", nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
