@@ -51,6 +51,10 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
+	// Registrasi Route Jadwal & Kelas
+	mux.HandleFunc("GET /api/classes", s.handleClasses)
+	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
+
 	// Fallback untuk route API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
