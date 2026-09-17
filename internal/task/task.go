@@ -176,8 +176,6 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	return defaultTarget, clean
 }
 
-
-
 // GetUrgencyBadge menghasilkan label status hitung mundur berdasarkan selisih waktu nyata
 func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 	if deadlineAt.IsZero() {
@@ -420,6 +418,85 @@ func (tm *TaskManager) DeleteTask(scopeJID string, taskID int) (bool, error) {
 		DELETE FROM tasks 
 		WHERE scope_jid = ? AND id = ?
 	`, scopeJID, taskID)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
+// GetAllActiveTasks mengambil seluruh tugas aktif dari semua scope (untuk Web Admin API)
+func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
+	_, _ = tm.db.Exec(`
+		UPDATE tasks
+		SET is_done = 1
+		WHERE is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
+	`, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+
+	rows, err := tm.db.Query(`
+		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE is_done = 0
+		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TaskItem
+	for rows.Next() {
+		var item TaskItem
+		var rawDeadlineAt any
+		var rawCreatedAt any
+		err := rows.Scan(
+			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		item.DeadlineAt = util.ParseFlexibleTime(rawDeadlineAt, now.Location())
+		item.CreatedAt = util.ParseFlexibleTime(rawCreatedAt, now.Location())
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// AddWebTask menambahkan tugas baru dari Web Admin Dashboard ke scope web
+func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy string, now time.Time) (int64, string, error) {
+	return tm.AddTask("web-dashboard", false, matkul, deskripsi, rawDeadline, createdBy, now)
+}
+
+// CompleteTaskByID menandai tugas selesai berdasarkan ID tanpa filter scope (untuk Web Admin API)
+func (tm *TaskManager) CompleteTaskByID(taskID int) (bool, error) {
+	res, err := tm.db.Exec(`
+		UPDATE tasks
+		SET is_done = 1
+		WHERE id = ? AND is_done = 0
+	`, taskID)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
+// DeleteTaskByID menghapus tugas permanen berdasarkan ID tanpa filter scope (untuk Web Admin API)
+func (tm *TaskManager) DeleteTaskByID(taskID int) (bool, error) {
+	res, err := tm.db.Exec(`
+		DELETE FROM tasks
+		WHERE id = ?
+	`, taskID)
 	if err != nil {
 		return false, err
 	}
