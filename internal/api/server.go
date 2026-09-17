@@ -54,6 +54,9 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
+	// Registrasi Route Jadwal & Kelas
+	mux.HandleFunc("GET /api/classes", s.handleClasses)
+	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
 	// Registrasi Route API Tugas (Fase B)
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
 	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
