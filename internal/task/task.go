@@ -17,6 +17,7 @@ import (
 type TaskItem struct {
 	ID         int
 	ScopeJID   string
+	ClassID    string
 	IsGroup    bool
 	Matkul     string
 	Deskripsi  string
@@ -42,6 +43,7 @@ func NewTaskManager(db *sql.DB) (*TaskManager, error) {
 	CREATE TABLE IF NOT EXISTS tasks (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		scope_jid TEXT NOT NULL,
+		class_id TEXT DEFAULT '',
 		is_group BOOLEAN NOT NULL,
 		matkul TEXT NOT NULL,
 		deskripsi TEXT NOT NULL,
@@ -52,14 +54,17 @@ func NewTaskManager(db *sql.DB) (*TaskManager, error) {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_tasks_scope ON tasks(scope_jid, is_done);
+	CREATE INDEX IF NOT EXISTS idx_tasks_class ON tasks(class_id, is_done);
 	`
 	_, err := db.Exec(query)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat tabel tasks: %w", err)
 	}
 
-	// Migrasi aman jika kolom deadline_at belum ada pada database lama
+	// Migrasi aman jika kolom deadline_at atau class_id belum ada pada database lama
 	_, _ = db.Exec(`ALTER TABLE tasks ADD COLUMN deadline_at DATETIME;`)
+	_, _ = db.Exec(`ALTER TABLE tasks ADD COLUMN class_id TEXT DEFAULT '';`)
+	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_class ON tasks(class_id, is_done);`)
 
 	return &TaskManager{db: db}, nil
 }
@@ -215,12 +220,27 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 }
 
 // CheckDuplicate memeriksa apakah tugas serupa sudah pernah dibuat dan masih aktif
-func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string) (bool, *TaskItem, error) {
-	rows, err := tm.db.Query(`
-		SELECT id, matkul, deskripsi, deadline, created_by 
-		FROM tasks 
-		WHERE scope_jid = ? AND is_done = 0
-	`, scopeJID)
+func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string, optClassID ...string) (bool, *TaskItem, error) {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
+	var rows *sql.Rows
+	var err error
+	if classID != "" {
+		rows, err = tm.db.Query(`
+			SELECT id, matkul, deskripsi, deadline, created_by 
+			FROM tasks 
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND is_done = 0
+		`, scopeJID, classID)
+	} else {
+		rows, err = tm.db.Query(`
+			SELECT id, matkul, deskripsi, deadline, created_by 
+			FROM tasks 
+			WHERE scope_jid = ? AND is_done = 0
+		`, scopeJID)
+	}
 	if err != nil {
 		return false, nil, err
 	}
@@ -251,13 +271,18 @@ func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string) (bool,
 	return false, nil, nil
 }
 
-// AddTask menambahkan tugas baru ke dalam database dengan parsing tenggat waktu
-func (tm *TaskManager) AddTask(scopeJID string, isGroup bool, matkul, deskripsi, rawDeadline, createdBy string, now time.Time) (int64, string, error) {
+// AddTask menambahkan tugas baru ke dalam database dengan parsing tenggat waktu dan asosiasi kelas opsional
+func (tm *TaskManager) AddTask(scopeJID string, isGroup bool, matkul, deskripsi, rawDeadline, createdBy string, now time.Time, optClassID ...string) (int64, string, error) {
 	targetTime, deadlineLabel := parseDeadline(rawDeadline, now)
 
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
 	stmt, err := tm.db.Prepare(`
-		INSERT INTO tasks (scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+		INSERT INTO tasks (scope_jid, class_id, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
 	`)
 	if err != nil {
 		return 0, "", err
@@ -265,7 +290,7 @@ func (tm *TaskManager) AddTask(scopeJID string, isGroup bool, matkul, deskripsi,
 	defer stmt.Close()
 
 	res, err := stmt.Exec(
-		scopeJID, isGroup,
+		scopeJID, classID, isGroup,
 		strings.TrimSpace(matkul),
 		strings.TrimSpace(deskripsi),
 		deadlineLabel,
@@ -280,21 +305,46 @@ func (tm *TaskManager) AddTask(scopeJID string, isGroup bool, matkul, deskripsi,
 	return id, deadlineLabel, err
 }
 
-// GetActiveTasks mengambil seluruh tugas yang belum selesai, diurutkan dari deadline terdekat
-func (tm *TaskManager) GetActiveTasks(scopeJID string, now time.Time) ([]TaskItem, error) {
-	// Otomatis bersihkan tugas grup yang sudah lewat tenggat lebih dari 2 hari
-	_, _ = tm.db.Exec(`
-		UPDATE tasks 
-		SET is_done = 1 
-		WHERE scope_jid = ? AND is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
-	`, scopeJID, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+// GetActiveTasks mengambil seluruh tugas yang belum selesai, diurutkan dari deadline terdekat.
+// Jika optClassID disertakan, kueri mencakup tugas dari scopeJID atau kelas terkait (Two-Way Sync).
+func (tm *TaskManager) GetActiveTasks(scopeJID string, now time.Time, optClassID ...string) ([]TaskItem, error) {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
 
-	rows, err := tm.db.Query(`
-		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
-		FROM tasks
-		WHERE scope_jid = ? AND is_done = 0
-		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
-	`, scopeJID)
+	// Otomatis bersihkan tugas yang sudah lewat tenggat lebih dari 2 hari
+	if classID != "" {
+		_, _ = tm.db.Exec(`
+			UPDATE tasks 
+			SET is_done = 1 
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
+		`, scopeJID, classID, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+	} else {
+		_, _ = tm.db.Exec(`
+			UPDATE tasks 
+			SET is_done = 1 
+			WHERE scope_jid = ? AND is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
+		`, scopeJID, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+	}
+
+	var rows *sql.Rows
+	var err error
+	if classID != "" {
+		rows, err = tm.db.Query(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND is_done = 0
+			ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
+		`, scopeJID, classID)
+	} else {
+		rows, err = tm.db.Query(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE scope_jid = ? AND is_done = 0
+			ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
+		`, scopeJID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +356,7 @@ func (tm *TaskManager) GetActiveTasks(scopeJID string, now time.Time) ([]TaskIte
 		var rawDeadlineAt any
 		var rawCreatedAt any
 		err := rows.Scan(
-			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.ID, &item.ScopeJID, &item.ClassID, &item.IsGroup, &item.Matkul,
 			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
 		)
 		if err != nil {
@@ -321,8 +371,8 @@ func (tm *TaskManager) GetActiveTasks(scopeJID string, now time.Time) ([]TaskIte
 }
 
 // GetDueTasks mengambil tugas yang mendekati deadline (misal: "hari_ini", "besok", atau "urgent" untuk pengingat pagi)
-func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time) ([]TaskItem, error) {
-	all, err := tm.GetActiveTasks(scopeJID, now)
+func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time, optClassID ...string) ([]TaskItem, error) {
+	all, err := tm.GetActiveTasks(scopeJID, now, optClassID...)
 	if err != nil {
 		return nil, err
 	}
@@ -358,12 +408,27 @@ func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time
 }
 
 // CompleteTask menandai tugas sebagai selesai berdasarkan ID
-func (tm *TaskManager) CompleteTask(scopeJID string, taskID int) (bool, error) {
-	res, err := tm.db.Exec(`
-		UPDATE tasks 
-		SET is_done = 1 
-		WHERE scope_jid = ? AND id = ? AND is_done = 0
-	`, scopeJID, taskID)
+func (tm *TaskManager) CompleteTask(scopeJID string, taskID int, optClassID ...string) (bool, error) {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
+	var res sql.Result
+	var err error
+	if classID != "" {
+		res, err = tm.db.Exec(`
+			UPDATE tasks 
+			SET is_done = 1 
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND id = ? AND is_done = 0
+		`, scopeJID, classID, taskID)
+	} else {
+		res, err = tm.db.Exec(`
+			UPDATE tasks 
+			SET is_done = 1 
+			WHERE scope_jid = ? AND id = ? AND is_done = 0
+		`, scopeJID, taskID)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -376,17 +441,34 @@ func (tm *TaskManager) CompleteTask(scopeJID string, taskID int) (bool, error) {
 }
 
 // GetCompletedTasks mengambil daftar riwayat tugas yang telah diselesaikan (arsip)
-func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Time) ([]TaskItem, error) {
+func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Time, optClassID ...string) ([]TaskItem, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := tm.db.Query(`
-		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
-		FROM tasks
-		WHERE scope_jid = ? AND is_done = 1
-		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC
-		LIMIT ?
-	`, scopeJID, limit)
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
+	var rows *sql.Rows
+	var err error
+	if classID != "" {
+		rows, err = tm.db.Query(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND is_done = 1
+			ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC
+			LIMIT ?
+		`, scopeJID, classID, limit)
+	} else {
+		rows, err = tm.db.Query(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE scope_jid = ? AND is_done = 1
+			ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at DESC, id DESC
+			LIMIT ?
+		`, scopeJID, limit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +480,7 @@ func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Ti
 		var rawDeadlineAt any
 		var rawCreatedAt any
 		err := rows.Scan(
-			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.ID, &item.ScopeJID, &item.ClassID, &item.IsGroup, &item.Matkul,
 			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
 		)
 		if err != nil {
@@ -413,11 +495,25 @@ func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Ti
 }
 
 // DeleteTask menghapus tugas secara permanen dari database
-func (tm *TaskManager) DeleteTask(scopeJID string, taskID int) (bool, error) {
-	res, err := tm.db.Exec(`
-		DELETE FROM tasks 
-		WHERE scope_jid = ? AND id = ?
-	`, scopeJID, taskID)
+func (tm *TaskManager) DeleteTask(scopeJID string, taskID int, optClassID ...string) (bool, error) {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
+	var res sql.Result
+	var err error
+	if classID != "" {
+		res, err = tm.db.Exec(`
+			DELETE FROM tasks 
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND id = ?
+		`, scopeJID, classID, taskID)
+	} else {
+		res, err = tm.db.Exec(`
+			DELETE FROM tasks 
+			WHERE scope_jid = ? AND id = ?
+		`, scopeJID, taskID)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -438,7 +534,7 @@ func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
 	`, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
 
 	rows, err := tm.db.Query(`
-		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
 		FROM tasks
 		WHERE is_done = 0
 		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
@@ -454,7 +550,7 @@ func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
 		var rawDeadlineAt any
 		var rawCreatedAt any
 		err := rows.Scan(
-			&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+			&item.ID, &item.ScopeJID, &item.ClassID, &item.IsGroup, &item.Matkul,
 			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
 		)
 		if err != nil {
@@ -468,9 +564,59 @@ func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
 	return items, nil
 }
 
-// AddWebTask menambahkan tugas baru dari Web Admin Dashboard ke scope web
-func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy string, now time.Time) (int64, string, error) {
-	return tm.AddTask("web-dashboard", false, matkul, deskripsi, rawDeadline, createdBy, now)
+// GetTasksByClassID mengambil seluruh tugas aktif khusus untuk kode kelas kanonikal tertentu
+func (tm *TaskManager) GetTasksByClassID(classID string, now time.Time) ([]TaskItem, error) {
+	classID = strings.TrimSpace(classID)
+	if classID == "" {
+		return tm.GetAllActiveTasks(now)
+	}
+
+	_, _ = tm.db.Exec(`
+		UPDATE tasks
+		SET is_done = 1
+		WHERE class_id = ? AND is_done = 0 AND deadline_at IS NOT NULL AND deadline_at < ?
+	`, classID, now.Add(-48*time.Hour).Format("2006-01-02 15:04:05"))
+
+	rows, err := tm.db.Query(`
+		SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+		FROM tasks
+		WHERE class_id = ? AND is_done = 0
+		ORDER BY CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END, deadline_at ASC, id ASC
+	`, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TaskItem
+	for rows.Next() {
+		var item TaskItem
+		var rawDeadlineAt any
+		var rawCreatedAt any
+		err := rows.Scan(
+			&item.ID, &item.ScopeJID, &item.ClassID, &item.IsGroup, &item.Matkul,
+			&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		item.DeadlineAt = util.ParseFlexibleTime(rawDeadlineAt, now.Location())
+		item.CreatedAt = util.ParseFlexibleTime(rawCreatedAt, now.Location())
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// AddWebTask menambahkan tugas baru dari Web Admin Dashboard ke scope web dengan opsi kelas kanonikal
+func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy string, now time.Time, optClassID ...string) (int64, string, error) {
+	classID := ""
+	scopeJID := "web-dashboard"
+	if len(optClassID) > 0 && strings.TrimSpace(optClassID[0]) != "" {
+		classID = strings.TrimSpace(optClassID[0])
+		scopeJID = "web:" + classID
+	}
+	return tm.AddTask(scopeJID, false, matkul, deskripsi, rawDeadline, createdBy, now, classID)
 }
 
 // CompleteTaskByID menandai tugas selesai berdasarkan ID tanpa filter scope (untuk Web Admin API)
@@ -509,18 +655,32 @@ func (tm *TaskManager) DeleteTaskByID(taskID int) (bool, error) {
 }
 
 // UpdateTask memperbarui tenggat waktu dan/atau deskripsi tugas yang sudah ada
-func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time) (*TaskItem, string, error) {
-	row := tm.db.QueryRow(`
-		SELECT id, scope_jid, is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
-		FROM tasks
-		WHERE scope_jid = ? AND id = ?
-	`, scopeJID, taskID)
+func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time, optClassID ...string) (*TaskItem, string, error) {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
+	var row *sql.Row
+	if classID != "" {
+		row = tm.db.QueryRow(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND id = ?
+		`, scopeJID, classID, taskID)
+	} else {
+		row = tm.db.QueryRow(`
+			SELECT id, scope_jid, COALESCE(class_id, ''), is_group, matkul, deskripsi, deadline, deadline_at, created_by, is_done, created_at
+			FROM tasks
+			WHERE scope_jid = ? AND id = ?
+		`, scopeJID, taskID)
+	}
 
 	var item TaskItem
 	var rawDeadlineAt any
 	var rawCreatedAt any
 	err := row.Scan(
-		&item.ID, &item.ScopeJID, &item.IsGroup, &item.Matkul,
+		&item.ID, &item.ScopeJID, &item.ClassID, &item.IsGroup, &item.Matkul,
 		&item.Deskripsi, &item.Deadline, &rawDeadlineAt, &item.CreatedBy, &item.IsDone, &rawCreatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -538,11 +698,19 @@ func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, n
 		descToSet = strings.TrimSpace(newDesc)
 	}
 
-	_, err = tm.db.Exec(`
-		UPDATE tasks 
-		SET deskripsi = ?, deadline = ?, deadline_at = ?
-		WHERE scope_jid = ? AND id = ?
-	`, descToSet, deadlineLabel, targetTime.Format("2006-01-02 15:04:05"), scopeJID, taskID)
+	if classID != "" {
+		_, err = tm.db.Exec(`
+			UPDATE tasks 
+			SET deskripsi = ?, deadline = ?, deadline_at = ?
+			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND id = ?
+		`, descToSet, deadlineLabel, targetTime.Format("2006-01-02 15:04:05"), scopeJID, classID, taskID)
+	} else {
+		_, err = tm.db.Exec(`
+			UPDATE tasks 
+			SET deskripsi = ?, deadline = ?, deadline_at = ?
+			WHERE scope_jid = ? AND id = ?
+		`, descToSet, deadlineLabel, targetTime.Format("2006-01-02 15:04:05"), scopeJID, taskID)
+	}
 	if err != nil {
 		return nil, "", err
 	}
@@ -578,8 +746,8 @@ func matchesHint(text string, keywords []string) bool {
 }
 
 // FilterTasksByQuery menyaring tugas aktif berdasarkan nama mata kuliah atau kata kunci
-func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *schedule.JadwalConfig, now time.Time) ([]TaskItem, string, error) {
-	allTasks, err := tm.GetActiveTasks(scopeJID, now)
+func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *schedule.JadwalConfig, now time.Time, optClassID ...string) ([]TaskItem, string, error) {
+	allTasks, err := tm.GetActiveTasks(scopeJID, now, optClassID...)
 	if err != nil {
 		return nil, "", err
 	}
@@ -708,8 +876,13 @@ func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) s
 
 // HandleCommand memproses seluruh sub-perintah tugas (!tugas, hari ini, besok, tambah, selesai, hapus, bantuan)
 func (tm *TaskManager) HandleCommand(
-	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *schedule.JadwalConfig, now time.Time,
+	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *schedule.JadwalConfig, now time.Time, optClassID ...string,
 ) string {
+	classID := ""
+	if len(optClassID) > 0 {
+		classID = strings.TrimSpace(optClassID[0])
+	}
+
 	clean := util.CleanCommandPrefix(rawMsg)
 
 	parts := strings.SplitN(clean, " ", 2)
@@ -734,28 +907,28 @@ func (tm *TaskManager) HandleCommand(
 
 	switch action {
 	case "", "list", "daftar":
-		tasks, err := tm.GetActiveTasks(scopeJID, now)
+		tasks, err := tm.GetActiveTasks(scopeJID, now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat daftar tugas: %v", err)
 		}
 		return tm.FormatTaskList(tasks, isGroup, now)
 
 	case "riwayat", "arsip", "history":
-		tasks, err := tm.GetCompletedTasks(scopeJID, 50, now)
+		tasks, err := tm.GetCompletedTasks(scopeJID, 50, now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat riwayat tugas: %v", err)
 		}
 		return tm.FormatCompletedTaskList(tasks, isGroup)
 
 	case "hari ini", "hariini", "today":
-		tasks, err := tm.GetDueTasks(scopeJID, "hari_ini", now)
+		tasks, err := tm.GetDueTasks(scopeJID, "hari_ini", now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat tugas hari ini: %v", err)
 		}
 		return tm.FormatTaskList(tasks, isGroup, now, "🚨 *TUGAS DEADLINE HARI INI*")
 
 	case "besok", "tomorrow":
-		tasks, err := tm.GetDueTasks(scopeJID, "besok", now)
+		tasks, err := tm.GetDueTasks(scopeJID, "besok", now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat tugas besok: %v", err)
 		}
@@ -766,7 +939,7 @@ func (tm *TaskManager) HandleCommand(
 		if query == "" {
 			query = action
 		}
-		tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+		tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memfilter tugas: %v", err)
 		}
@@ -890,7 +1063,7 @@ func (tm *TaskManager) HandleCommand(
 		}
 
 		// Pengecekan Anti-Duplikasi
-		isDup, existing, err := tm.CheckDuplicate(scopeJID, matkul, deskripsi)
+		isDup, existing, err := tm.CheckDuplicate(scopeJID, matkul, deskripsi, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Terjadi kesalahan pengecekan data: %v", err)
 		}
@@ -899,7 +1072,7 @@ func (tm *TaskManager) HandleCommand(
 				existing.ID, existing.Matkul, existing.Deskripsi, existing.Deadline)
 		}
 
-		id, label, err := tm.AddTask(scopeJID, isGroup, matkul, deskripsi, rawDeadline, senderJID, now)
+		id, label, err := tm.AddTask(scopeJID, isGroup, matkul, deskripsi, rawDeadline, senderJID, now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal menyimpan tugas: %v", err)
 		}
@@ -928,7 +1101,7 @@ func (tm *TaskManager) HandleCommand(
 			return "⚠️ Sertakan ID tugas yang ingin diselesaikan.\nContoh: `!tugas selesai 1`\n\nKetik `!tugas` untuk melihat daftar tugas aktif, atau `!tugas riwayat` untuk melihat arsip tugas selesai."
 		}
 
-		ok, err := tm.CompleteTask(scopeJID, taskID)
+		ok, err := tm.CompleteTask(scopeJID, taskID, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memperbarui status tugas: %v", err)
 		}
@@ -948,7 +1121,7 @@ func (tm *TaskManager) HandleCommand(
 			return "⚠️ Sertakan ID tugas yang ingin dihapus.\nContoh: `!tugas hapus 1`\n\nKetik `!tugas` untuk melihat nomor ID tugas."
 		}
 
-		ok, err := tm.DeleteTask(scopeJID, taskID)
+		ok, err := tm.DeleteTask(scopeJID, taskID, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal menghapus tugas: %v", err)
 		}
@@ -993,7 +1166,7 @@ func (tm *TaskManager) HandleCommand(
 			return "⚠️ Tenggat waktu baru tidak boleh kosong."
 		}
 
-		item, oldDeadline, err := tm.UpdateTask(scopeJID, taskID, newDesc, newDeadline, now)
+		item, oldDeadline, err := tm.UpdateTask(scopeJID, taskID, newDesc, newDeadline, now, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memperbarui tugas: %v", err)
 		}
@@ -1037,7 +1210,7 @@ func (tm *TaskManager) HandleCommand(
 		// Jika pengguna mengetik nama matkul atau kata pencarian langsung (cth: "!tugas sbd", "!tugas aljabar", "!tugas mtk")
 		query := rest
 		if query != "" {
-			tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now)
+			tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now, classID)
 			if err == nil {
 				isCourse := false
 				if cfg != nil {

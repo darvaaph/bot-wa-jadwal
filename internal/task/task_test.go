@@ -344,3 +344,80 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 	}
 }
 
+func TestTaskClassScopingAndTwoWaySync(t *testing.T) {
+	testDB := "test_class_sync.db"
+	defer os.Remove(testDB)
+
+	db, err := database.InitDB(testDB)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi database SQLite: %v", err)
+	}
+	defer db.Close()
+
+	tm, err := NewTaskManager(db)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi NewTaskManager: %v", err)
+	}
+
+	cfg, err := schedule.LoadJadwal("jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal memuat jadwal.json: %v", err)
+	}
+
+	refNow := time.Date(2026, 9, 9, 10, 0, 0, 0, time.Local)
+	group3AJID := "1203633182@g.us"
+	class3A := "D4-TI-SMT3-A"
+	adminJID := "628120001@s.whatsapp.net"
+	userDM := "628129999@s.whatsapp.net"
+
+	// 1. Tambah tugas via Web untuk kelas 3A
+	webTaskID, _, err := tm.AddWebTask("SBD", "Tugas Web Dashboard", "Jumat 23:59", "web-dashboard", refNow, class3A)
+	if err != nil {
+		t.Fatalf("AddWebTask failed: %v", err)
+	}
+
+	// 2. Query GetTasksByClassID harus melihat tugas tersebut
+	tasks3A, err := tm.GetTasksByClassID(class3A, refNow)
+	if err != nil || len(tasks3A) != 1 {
+		t.Fatalf("Expected 1 task for class 3A, got %d (err: %v)", len(tasks3A), err)
+	}
+	if tasks3A[0].ClassID != class3A {
+		t.Errorf("Expected ClassID %s, got %s", class3A, tasks3A[0].ClassID)
+	}
+
+	// 3. Query kelas lain (D3-TI-1A) tidak boleh melihat tugas 3A
+	tasks1A, err := tm.GetTasksByClassID("D3-TI-1A", refNow)
+	if err != nil || len(tasks1A) != 0 {
+		t.Fatalf("Expected 0 task for class 1A, got %d", len(tasks1A))
+	}
+
+	// 4. Two-Way Sync: Grup WhatsApp 3A mengetik !tugas (dengan classID 3A) harus melihat tugas web
+	waListReply := tm.HandleCommand(group3AJID, true, adminJID, false, "!tugas", cfg, refNow, class3A)
+	if !strings.Contains(waListReply, "Tugas Web Dashboard") {
+		t.Errorf("Expected WA group 3A to see web task, got:\n%s", waListReply)
+	}
+
+	// 5. Admin di grup WA 3A menyelesaikan tugas web lewat !tugas selesai <id>
+	doneReply := tm.HandleCommand(group3AJID, true, adminJID, true, "!tugas selesai "+strings.TrimSpace(string(rune('0'+webTaskID))), cfg, refNow, class3A)
+	if !strings.Contains(doneReply, "TUGAS SELESAI") {
+		t.Errorf("Expected task to be completed by WA admin, got:\n%s", doneReply)
+	}
+
+	// 6. Tugas di web juga harus sudah selesai (GetTasksByClassID kosong)
+	tasksAfterDone, err := tm.GetTasksByClassID(class3A, refNow)
+	if err != nil || len(tasksAfterDone) != 0 {
+		t.Errorf("Expected 0 active tasks after completion, got %d", len(tasksAfterDone))
+	}
+
+	// 7. Tugas Personal di DM tidak memiliki class_id dan tidak masuk ke tugas kelas
+	dmReply := tm.HandleCommand(userDM, false, userDM, false, "!tugas tambah Pribadi | Beli buku catatan | besok", cfg, refNow)
+	if !strings.Contains(dmReply, "BERHASIL DITAMBAHKAN") {
+		t.Fatalf("Expected personal task added, got:\n%s", dmReply)
+	}
+	tasksClassCheck, err := tm.GetTasksByClassID(class3A, refNow)
+	if err != nil || len(tasksClassCheck) != 0 {
+		t.Errorf("Personal task leaked into class tasks! Found %d tasks", len(tasksClassCheck))
+	}
+}
+
+

@@ -6,11 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/task"
 )
 
 // TaskResponseItem adalah representasi tugas pada respons JSON API
 type TaskResponseItem struct {
 	ID        int    `json:"id"`
+	ClassID   string `json:"class_id,omitempty"`
 	Matkul    string `json:"matkul"`
 	Deskripsi string `json:"deskripsi"`
 	Deadline  string `json:"deadline"`
@@ -19,6 +22,7 @@ type TaskResponseItem struct {
 
 // CreateTaskRequest adalah payload form pembuatan tugas dari Web Dashboard
 type CreateTaskRequest struct {
+	ClassID   string `json:"class_id"`
 	Matkul    string `json:"matkul"`
 	Deskripsi string `json:"deskripsi"`
 	Deadline  string `json:"deadline"`
@@ -26,7 +30,7 @@ type CreateTaskRequest struct {
 
 const webCreatorJID = "web-dashboard"
 
-// handleGetTasks menangani GET /api/tasks - daftar seluruh tugas aktif
+// handleGetTasks menangani GET /api/tasks - daftar seluruh tugas aktif (dapat difilter per kelas)
 func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	if s.taskManager == nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
@@ -36,9 +40,18 @@ func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = r.URL.Query().Get("class")
+	classQuery := strings.TrimSpace(r.URL.Query().Get("class"))
+	if classQuery == "" {
+		classQuery = strings.TrimSpace(r.URL.Query().Get("class_id"))
+	}
 
-	items, err := s.taskManager.GetAllActiveTasks(time.Now())
+	var items []task.TaskItem
+	var err error
+	if classQuery != "" {
+		items, err = s.taskManager.GetTasksByClassID(classQuery, time.Now())
+	} else {
+		items, err = s.taskManager.GetAllActiveTasks(time.Now())
+	}
 	if err != nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
 			"status": "error",
@@ -51,6 +64,7 @@ func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		data = append(data, TaskResponseItem{
 			ID:        item.ID,
+			ClassID:   item.ClassID,
 			Matkul:    item.Matkul,
 			Deskripsi: item.Deskripsi,
 			Deadline:  item.Deadline,
@@ -83,6 +97,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.ClassID = strings.TrimSpace(req.ClassID)
 	req.Matkul = strings.TrimSpace(req.Matkul)
 	req.Deskripsi = strings.TrimSpace(req.Deskripsi)
 
@@ -103,7 +118,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, deadlineLabel, err := s.taskManager.AddWebTask(
-		req.Matkul, req.Deskripsi, req.Deadline, webCreatorJID, time.Now(),
+		req.Matkul, req.Deskripsi, req.Deadline, webCreatorJID, time.Now(), req.ClassID,
 	)
 	if err != nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
@@ -117,6 +132,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"data": TaskResponseItem{
 			ID:        int(id),
+			ClassID:   req.ClassID,
 			Matkul:    req.Matkul,
 			Deskripsi: req.Deskripsi,
 			Deadline:  deadlineLabel,

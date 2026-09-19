@@ -163,7 +163,7 @@ func HandleIncomingMessage(
 			return
 		}
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now(), activeClassID)
 		reply(tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 		return
 	}

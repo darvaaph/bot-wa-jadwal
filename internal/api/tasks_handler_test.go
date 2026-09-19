@@ -325,3 +325,88 @@ func TestTaskHandler_UninitializedTaskManager(t *testing.T) {
 		t.Fatalf("Expected status 500, got %d", rr.Code)
 	}
 }
+
+func TestTaskHandler_CreateTask_WithClassID(t *testing.T) {
+	s := newTestServer(t)
+
+	body := []byte(`{
+		"class_id": "D4-TI-3A",
+		"matkul": "SISTEM OPERASI",
+		"deskripsi": "Praktikum Shell Scripting",
+		"deadline": "Besok 23:59"
+	}`)
+
+	rr := performRequest(t, s, "POST", "/api/tasks", body)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("Expected status 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Status string           `json:"status"`
+		Data   TaskResponseItem `json:"data"`
+	}
+	decodeResponse(t, rr, &resp)
+
+	if resp.Data.ClassID != "D4-TI-3A" {
+		t.Errorf("Expected ClassID 'D4-TI-3A', got '%s'", resp.Data.ClassID)
+	}
+	if resp.Data.Matkul != "SISTEM OPERASI" {
+		t.Errorf("Expected Matkul 'SISTEM OPERASI', got '%s'", resp.Data.Matkul)
+	}
+}
+
+func TestTaskHandler_GetTasks_FilterByClass(t *testing.T) {
+	s := newTestServer(t)
+
+	// Buat 1 tugas di D4-TI-3A dan 1 tugas di D3-TI-1A
+	_, _, err := s.taskManager.AddWebTask("SBD", "Tugas 3A", "besok 23:59", "web-dashboard", time.Now(), "D4-TI-3A")
+	if err != nil {
+		t.Fatalf("Failed to create task: %v", err)
+	}
+	_, _, err = s.taskManager.AddWebTask("ALPRO", "Tugas 1A", "lusa 12:00", "web-dashboard", time.Now(), "D3-TI-1A")
+	if err != nil {
+		t.Fatalf("Failed to create task: %v", err)
+	}
+
+	// 1. Filter D4-TI-3A -> harus hanya mengembalikan 1 tugas D4-TI-3A
+	rr3A := performRequest(t, s, "GET", "/api/tasks?class=D4-TI-3A", nil)
+	if rr3A.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", rr3A.Code)
+	}
+	var resp3A struct {
+		Status string             `json:"status"`
+		Data   []TaskResponseItem `json:"data"`
+	}
+	decodeResponse(t, rr3A, &resp3A)
+	if len(resp3A.Data) != 1 {
+		t.Fatalf("Expected 1 task for D4-TI-3A, got %d", len(resp3A.Data))
+	}
+	if resp3A.Data[0].Matkul != "SBD" || resp3A.Data[0].ClassID != "D4-TI-3A" {
+		t.Errorf("Unexpected task content for 3A: %+v", resp3A.Data[0])
+	}
+
+	// 2. Filter D3-TI-1A -> harus hanya mengembalikan 1 tugas D3-TI-1A
+	rr1A := performRequest(t, s, "GET", "/api/tasks?class=D3-TI-1A", nil)
+	var resp1A struct {
+		Status string             `json:"status"`
+		Data   []TaskResponseItem `json:"data"`
+	}
+	decodeResponse(t, rr1A, &resp1A)
+	if len(resp1A.Data) != 1 {
+		t.Fatalf("Expected 1 task for D3-TI-1A, got %d", len(resp1A.Data))
+	}
+	if resp1A.Data[0].Matkul != "ALPRO" || resp1A.Data[0].ClassID != "D3-TI-1A" {
+		t.Errorf("Unexpected task content for 1A: %+v", resp1A.Data[0])
+	}
+
+	// 3. Tanpa filter -> mengembalikan semua (2 tugas)
+	rrAll := performRequest(t, s, "GET", "/api/tasks", nil)
+	var respAll struct {
+		Status string             `json:"status"`
+		Data   []TaskResponseItem `json:"data"`
+	}
+	decodeResponse(t, rrAll, &respAll)
+	if len(respAll.Data) != 2 {
+		t.Fatalf("Expected 2 tasks in total, got %d", len(respAll.Data))
+	}
+}
