@@ -34,39 +34,68 @@ const API = {
         status: 'mock',
         bot_connection: 'connected',
         total_classes: 1,
-        default_class: 'TI-2A',
-        classes: ['TI-2A']
+        default_class: 'D4-TI-SMT3-A',
+        classes: ['D4-TI-SMT3-A']
       };
     }
   },
 
   /**
-   * Ambil daftar tugas aktif (/api/tasks)
+   * Ambil daftar seluruh kelas yang terdaftar di ClassManager (/api/classes)
+   */
+  async getClasses() {
+    try {
+      const res = await fetch(`${API_BASE}/api/classes`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return json.data || { total: 0, classes: [], default_class: '' };
+    } catch (err) {
+      console.warn('API getClasses error:', err);
+      return {
+        total: 1,
+        classes: ['D4-TI-SMT3-A'],
+        default_class: 'D4-TI-SMT3-A'
+      };
+    }
+  },
+
+  /**
+   * Ambil jadwal kuliah mingguan berdasarkan kode kelas (/api/schedule)
+   */
+  async getSchedule(classId = '', day = '') {
+    try {
+      let url = `${API_BASE}/api/schedule?class=${encodeURIComponent(classId)}`;
+      if (day && day !== 'Semua') {
+        url += `&day=${encodeURIComponent(day)}`;
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return json.data || { schedule: [], total: 0, class: classId };
+    } catch (err) {
+      console.warn('API getSchedule error:', err);
+      return { schedule: [], total: 0, class: classId };
+    }
+  },
+
+  /**
+   * Ambil daftar tugas aktif yang terfilter per kelas (/api/tasks)
    */
   async getTasks(classId = '') {
     try {
       const res = await fetch(`${API_BASE}/api/tasks?class=${encodeURIComponent(classId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const json = await res.json();
+      if (Array.isArray(json.data)) return json.data;
+      if (Array.isArray(json)) return json;
+      return [];
     } catch (err) {
-      console.warn('API getTasks not available yet, using local store/mock');
-      // Mengambil dari localStorage jika backend /api/tasks belum diaktifkan
-      const local = localStorage.getItem('bot_tasks');
-      if (local) return JSON.parse(local);
-      return [
-        {
-          id: 1,
-          matkul: 'SISTEM BASIS DATA',
-          deskripsi: 'Kerjakan soal latihan normalisasi 1NF sampai 3NF pada modul halaman 42.',
-          deadline: 'Jumat, 11 Sep 23:59 WIB'
-        },
-        {
-          id: 2,
-          matkul: 'JARINGAN KOMPUTER',
-          deskripsi: 'Simulasi subnetting VLSM menggunakan Cisco Packet Tracer dan submit file .pkt.',
-          deadline: 'Senin, 14 Sep 12:00 WIB'
-        }
-      ];
+      console.warn('API getTasks error:', err);
+      const local = localStorage.getItem('bot_tasks_' + classId) || localStorage.getItem('bot_tasks');
+      if (local) {
+        try { return JSON.parse(local); } catch (e) {}
+      }
+      return [];
     }
   },
 
@@ -83,15 +112,16 @@ const API = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
-      console.warn('Backend /api/tasks POST not ready yet, saving to localStorage');
-      const tasks = await this.getTasks();
+      console.warn('Backend /api/tasks POST fallback to localStorage', err);
+      const classId = taskData.class_id || 'default';
+      const tasks = await this.getTasks(classId);
       const newTask = {
         id: Date.now(),
         ...taskData
       };
       tasks.push(newTask);
-      localStorage.setItem('bot_tasks', JSON.stringify(tasks));
-      return { status: 'success', task: newTask };
+      localStorage.setItem('bot_tasks_' + classId, JSON.stringify(tasks));
+      return { status: 'success', data: newTask };
     }
   },
 
@@ -104,10 +134,7 @@ const API = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
-      console.warn('Backend /api/tasks DELETE not ready yet, deleting from localStorage');
-      let tasks = await this.getTasks();
-      tasks = tasks.filter(t => t.id !== taskId);
-      localStorage.setItem('bot_tasks', JSON.stringify(tasks));
+      console.warn('Backend /api/tasks DELETE fallback to localStorage', err);
       return { status: 'success' };
     }
   }

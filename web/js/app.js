@@ -21,30 +21,24 @@ function dashboardApp() {
     todayName: 'Senin',
 
     // Telemetry & Metrics
-    selectedClass: 'TI-2A',
+    availableClasses: [],
+    selectedClass: localStorage.getItem('bot_selected_class') || 'D4-TI-SMT3-A',
     botOnline: true,
     botStatusText: 'Terhubung',
     metrics: {
-      totalMatkul: 8,
-      activeTasks: 2,
+      totalMatkul: 0,
+      activeTasks: 0,
       totalGroups: 1
     },
 
     // Schedules
     selectedDayFilter: 'Semua',
-    fullSchedule: [
-      { hari: 'Senin', jam: '07:30 - 10:00', matkul: 'ALGORITMA & STRUKTUR DATA', dosen: 'Dr. Ir. Budi Santoso, M.Kom', ruang: 'Lab Komputer 2' },
-      { hari: 'Senin', jam: '10:15 - 12:45', matkul: 'SISTEM BASIS DATA', dosen: 'Siti Rahmawati, M.T', ruang: 'D304' },
-      { hari: 'Selasa', jam: '08:00 - 10:30', matkul: 'JARINGAN KOMPUTER', dosen: 'Ahmad Fauzi, S.Kom., M.Cs', ruang: 'Lab Jaringan' },
-      { hari: 'Selasa', jam: '13:00 - 15:30', matkul: 'REKAYASA PERANGKAT LUNAK', dosen: 'Dian Permata, M.Kom', ruang: 'E201' },
-      { hari: 'Rabu', jam: '07:30 - 10:00', matkul: 'MATEMATIKA DISKRIT', dosen: 'Prof. Hendra Wijaya', ruang: 'D202' },
-      { hari: 'Kamis', jam: '09:00 - 11:30', matkul: 'PEMROGRAMAN BERORIENTASI OBJEK', dosen: 'Rudi Hermawan, M.T', ruang: 'Lab Komputer 1' },
-      { hari: 'Jumat', jam: '07:30 - 09:30', matkul: 'BAHASA INGGRIS TEKNIK', dosen: 'Sarah Jenkins, M.Pd', ruang: 'D101' }
-    ],
+    fullSchedule: [],
 
     // Tasks State
     tasks: [],
     newTask: {
+      class_id: '',
       matkul: '',
       deskripsi: '',
       deadline: ''
@@ -66,11 +60,11 @@ function dashboardApp() {
       if (this.selectedDayFilter === 'Semua') {
         return this.fullSchedule;
       }
-      return this.fullSchedule.filter(s => s.hari === this.selectedDayFilter);
+      return this.fullSchedule.filter(s => s.hari.toLowerCase() === this.selectedDayFilter.toLowerCase());
     },
 
     get uniqueMatkulList() {
-      const set = new Set(this.fullSchedule.map(s => s.matkul));
+      const set = new Set(this.fullSchedule.map(s => s.matkul || s.nama_matkul).filter(Boolean));
       return Array.from(set);
     },
 
@@ -79,12 +73,18 @@ function dashboardApp() {
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
 
-      // Load tasks
-      await this.loadTasks();
+      // Load available classes from API
+      await this.loadClasses();
 
-      // Poll bot health
-      await this.checkBotHealth();
-      setInterval(() => this.checkBotHealth(), 30000); // Tiap 30 detik
+      // Load schedule and tasks for current class
+      await Promise.all([
+        this.loadSchedule(),
+        this.loadTasks(),
+        this.checkBotHealth()
+      ]);
+
+      // Poll bot health every 30s
+      setInterval(() => this.checkBotHealth(), 30000);
     },
 
     updateClock() {
@@ -97,6 +97,52 @@ function dashboardApp() {
       this.currentTime = `${this.todayName}, ${timeStr}`;
     },
 
+    async loadClasses() {
+      const res = await API.getClasses();
+      if (res && Array.isArray(res.classes) && res.classes.length > 0) {
+        this.availableClasses = res.classes;
+        // Jika kelas yang tersimpan di localStorage tidak ada di daftar kelas, fallback ke default
+        if (!this.availableClasses.includes(this.selectedClass)) {
+          this.selectedClass = res.default_class || this.availableClasses[0];
+          localStorage.setItem('bot_selected_class', this.selectedClass);
+        }
+      } else {
+        this.availableClasses = [this.selectedClass];
+      }
+    },
+
+    async onClassChange(newClass) {
+      if (!newClass || newClass === this.selectedClass) return;
+      this.selectedClass = newClass;
+      localStorage.setItem('bot_selected_class', newClass);
+
+      await Promise.all([
+        this.loadSchedule(),
+        this.loadTasks()
+      ]);
+
+      this.showToast(`🏫 Beralih ke kelas ${newClass}`);
+    },
+
+    async loadSchedule() {
+      const res = await API.getSchedule(this.selectedClass);
+      if (res && Array.isArray(res.schedule)) {
+        this.fullSchedule = res.schedule.map(s => ({
+          hari: s.hari,
+          jam: s.jam,
+          kode_matkul: s.kode_matkul || '',
+          nama_matkul: s.nama_matkul || s.matkul || '',
+          matkul: s.nama_matkul || s.matkul || '',
+          inisial_dosen: s.inisial_dosen || '',
+          dosen: s.dosen || '',
+          ruang: s.ruang || '-'
+        }));
+      } else {
+        this.fullSchedule = [];
+      }
+      this.metrics.totalMatkul = this.uniqueMatkulList.length;
+    },
+
     async loadTasks() {
       this.tasks = await API.getTasks(this.selectedClass);
       this.metrics.activeTasks = this.tasks.length;
@@ -107,14 +153,19 @@ function dashboardApp() {
       if (status && status.status === 'ok') {
         this.botOnline = (status.bot_connection === 'connected');
         this.botStatusText = this.botOnline ? 'Terhubung (Online)' : 'Standby / Disconnected';
-        if (status.default_class) {
-          this.selectedClass = status.default_class;
+        if (status.total_classes) {
+          this.metrics.totalGroups = status.total_classes;
         }
       }
     },
 
     openTaskModal() {
-      this.newTask = { matkul: '', deskripsi: '', deadline: '' };
+      this.newTask = {
+        class_id: this.selectedClass,
+        matkul: '',
+        deskripsi: '',
+        deadline: ''
+      };
       this.taskModalOpen = true;
     },
 
@@ -128,7 +179,14 @@ function dashboardApp() {
         this.newTask.deadline = 'Segera';
       }
 
-      await API.createTask(this.newTask);
+      const payload = {
+        class_id: this.newTask.class_id || this.selectedClass,
+        matkul: this.newTask.matkul,
+        deskripsi: this.newTask.deskripsi,
+        deadline: this.newTask.deadline
+      };
+
+      await API.createTask(payload);
       await this.loadTasks();
 
       this.taskModalOpen = false;

@@ -116,8 +116,15 @@
       <div class="flex items-center gap-4">
         <!-- Class Selector Dropdown -->
         <div class="flex items-center gap-2 bg-gray-800/70 border border-gray-700/60 rounded-lg px-3 py-1.5 text-xs text-gray-300">
-          <span class="text-gray-400">Kelas:</span>
-          <span class="font-bold text-emerald-400 font-mono" x-text="selectedClass">TI-2A</span>
+          <label for="class-select" class="text-gray-400 font-medium">Kelas:</label>
+          <select id="class-select" 
+                  class="bg-transparent text-emerald-400 font-bold font-mono focus:outline-none cursor-pointer pr-1"
+                  :value="selectedClass"
+                  @change="onClassChange($event.target.value)">
+            <template x-for="c in availableClasses" :key="c">
+              <option :value="c" x-text="c" :selected="c === selectedClass" class="bg-gray-900 text-gray-200"></option>
+            </template>
+          </select>
         </div>
 
         <!-- System Clock -->
@@ -361,12 +368,21 @@
       <!-- Form Inputs -->
       <div class="space-y-3">
         <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Kelas Target</label>
+          <div class="w-full bg-gray-900/60 border border-gray-800 rounded-xl p-2.5 text-xs text-emerald-400 font-mono font-bold flex items-center justify-between">
+            <span x-text="selectedClass"></span>
+            <span class="text-[10px] text-gray-500 font-sans font-normal">Sesuai kelas aktif di header</span>
+          </div>
+        </div>
+
+        <div>
           <label class="block text-xs font-medium text-gray-400 mb-1">Mata Kuliah</label>
           <select x-model="newTask.matkul" class="w-full bg-gray-900 border border-gray-700/80 rounded-xl p-2.5 text-sm text-gray-200 focus:outline-none focus:border-emerald-500">
             <option value="">-- Pilih Mata Kuliah --</option>
             <template x-for="matkul in uniqueMatkulList" :key="matkul">
               <option :value="matkul" x-text="matkul"></option>
             </template>
+            <option value="Umum">Umum / Lainnya</option>
           </select>
         </div>
 

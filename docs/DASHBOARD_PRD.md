@@ -3,6 +3,10 @@
 
 Panduan ini disusun untuk memberikan gambaran menyeluruh bagi tim **UI/UX Designer** dan **Frontend Developer** mengenai seluruh fitur, alur pengguna (*user journey*), dan kebutuhan komponen antarmuka yang akan dibangun pada Web Admin Dashboard.
 
+> [!NOTE]
+> **Dokumen Implementasi Teknis Frontend:**
+> Untuk spesifikasi teknis mendalam yang terikat 1:1 dengan REST API Go backend, arsitektur responsif mobile-first, dan penanganan status UI bebas AI slop, silakan merujuk ke [FRONTEND_IMPLEMENTATION_PRD.md](FRONTEND_IMPLEMENTATION_PRD.md).
+
 ---
 
 ## 1. 👥 Persona & Kebutuhan Pengguna
