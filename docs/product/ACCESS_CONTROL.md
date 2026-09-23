@@ -4,13 +4,13 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0 |
+| Versi | 2.0.0 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
-| Acuan produk | [Product Definition v0.3](PRODUCT_DEFINITION.md) |
-| Acuan kebutuhan | [User Requirements v1.0](USER_REQUIREMENTS.md) |
-| Acuan fitur | [PRD v2.1](../PRD.md) |
+| Acuan produk | [Product Definition](PRODUCT_DEFINITION.md) |
+| Acuan kebutuhan | [User Requirements](USER_REQUIREMENTS.md) |
+| Acuan fitur | [Functional Requirements](FUNCTIONAL_REQUIREMENTS.md) |
 
 Dokumen ini menetapkan cara pengguna memperoleh, menggunakan, dan kehilangan akses ke Bot Jadwal. Semua izin diperiksa di backend. Antarmuka boleh menyembunyikan aksi yang tidak tersedia, tetapi tampilan tersebut tidak menggantikan pemeriksaan izin pada server.
 
@@ -56,8 +56,7 @@ User
 └── Role Assignment
     ├── Role
     ├── Class
-    ├── Semester
-    ├── Course Offering (khusus PJ)
+    ├── Course Offering (wajib untuk PJ)
     ├── Status
     ├── Valid From
     └── Valid Until
@@ -69,10 +68,10 @@ User
 |---|---|
 | Mahasiswa | Portal kelas melalui tautan atau kode, tanpa akun |
 | PJ | Mata kuliah tertentu pada kelas dan semester tertentu |
-| KM | Semua mata kuliah pada kelas dan semester yang ditugaskan |
+| KM | Semua mata kuliah pada kelas selama penugasan masih aktif |
 | System Admin | Global untuk administrasi sistem dan dukungan |
 
-Penugasan PJ tidak berlaku otomatis pada semester berikutnya. KM atau System Admin harus mengonfirmasi penugasan baru agar perubahan pengurus dapat dikelola setiap semester.
+Penugasan KM berlanjut saat semester berganti dan hanya berhenti ketika `valid_until` terlewati atau perannya dicabut. Penugasan PJ tidak berlaku otomatis pada semester berikutnya karena selalu menunjuk course offering tertentu. KM atau System Admin harus membuat penugasan PJ baru untuk offering semester berikutnya.
 
 ## 5. Portal Mahasiswa Tanpa Akun
 
@@ -87,6 +86,8 @@ Kedua mode hanya memberikan akses baca. Kode kelas:
 - tidak memberikan akses ke area pengelola;
 - tidak dapat digunakan sebagai kredensial API administrasi;
 - tidak membuka audit log, data akun, nomor telepon, atau konfigurasi bot.
+
+Sesi portal disimpan pada database dengan token hash, `class_id`, `access_code_version`, waktu kedaluwarsa, dan waktu pencabutan. Rotasi kode menaikkan `access_code_version` dan langsung membatalkan seluruh sesi portal versi lama. Kode kelas aktif juga membuka semester lama yang pernah dipublikasikan dalam mode hanya-baca.
 
 Tautan rapat daring hanya ditampilkan setelah akses kelas valid. Jika kelas memakai mode tautan tanpa kode, KM dapat memilih untuk menyembunyikan tautan rapat dan menampilkannya hanya melalui pesan WhatsApp.
 
@@ -120,6 +121,11 @@ Undangan kedaluwarsa setelah waktu yang dikonfigurasi, hanya dapat digunakan sek
 
 PJ, KM, dan System Admin masuk menggunakan identitas akun dan kata sandi. Sistem tidak bergantung pada koneksi WhatsApp untuk login normal.
 
+- Kata sandi minimal 12 karakter dan tidak boleh sama dengan identitas login.
+- Lima kegagalan dalam 15 menit mengunci login selama 15 menit untuk identitas dan sumber permintaan terkait.
+- Login berhasil mereset penghitung kegagalan tanpa menghapus catatan audit.
+- MFA tidak termasuk MVP.
+
 ### 7.2 Sesi
 
 Sesi harus:
@@ -130,6 +136,8 @@ Sesi harus:
 - hanya dikirim melalui koneksi aman pada produksi;
 - diganti setelah login atau perubahan tingkat akses;
 - tidak menyimpan token administrasi di local storage.
+
+Sesi PJ dan KM berakhir setelah 2 jam tidak aktif atau 24 jam sejak dibuat. Sesi System Admin berakhir setelah 30 menit tidak aktif atau 8 jam sejak dibuat. Perubahan kata sandi, pencabutan role assignment, dan rotasi kredensial mencabut sesi yang terdampak.
 
 Perubahan kata sandi, pencabutan akun, atau insiden keamanan dapat mencabut seluruh sesi aktif pengguna.
 
@@ -155,7 +163,8 @@ Pemulihan dapat menggunakan verifikasi WhatsApp atau kode pemulihan. Jika bot of
 | Membuat tugas | Tidak | Mata kuliah sendiri | Semua matkul di kelasnya | Dukungan |
 | Mengubah draf tugas | Tidak | Mata kuliah sendiri | Semua matkul di kelasnya | Dukungan |
 | Memublikasikan tugas | Tidak | Mata kuliah sendiri | Semua matkul di kelasnya | Dukungan |
-| Menyetujui tugas jika approval aktif | Tidak | Tidak | Ya | Dukungan |
+| Mereview tugas setelah publikasi | Tidak | Tidak | Ya | Dukungan |
+| Menarik tugas untuk koreksi | Tidak | Tidak | Ya | Dukungan |
 | Mengarsipkan tugas | Tidak | Mata kuliah sendiri | Semua matkul di kelasnya | Dukungan |
 | Memulihkan tugas terhapus | Tidak | Lingkup sendiri | Kelasnya | Ya |
 
@@ -170,7 +179,7 @@ Pemulihan dapat menggunakan verifikasi WhatsApp atau kode pemulihan. Jika bot of
 | Mengubah jadwal reguler permanen | Tidak | Mata kuliah sendiri | Semua matkul di kelasnya | Dukungan |
 | Mengaktifkan semester | Tidak | Tidak | Ya | Ya |
 
-PJ yang menemukan kesalahan setelah publikasi dapat membuat koreksi baru atau meminta KM membatalkan publikasi. Hanya KM yang membatalkan perubahan terbit agar koreksi kelas memiliki satu penanggung jawab yang jelas.
+PJ yang menemukan kesalahan setelah publikasi dapat membuat koreksi baru atau meminta KM mencabut publikasi. Hanya KM yang mencabut teaching event terbit agar koreksi kelas memiliki satu penanggung jawab yang jelas.
 
 ### 8.4 Pengguna dan Peran
 
@@ -221,24 +230,21 @@ System Admin melewati cakupan akademik hanya saat menjalankan fungsi global atau
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Invited
-    Invited --> Active: Undangan diterima
-    Invited --> Expired: Masa berlaku habis
-    Invited --> Revoked: Undangan dicabut
-    Active --> Suspended: Ditangguhkan
-    Suspended --> Active: Diaktifkan kembali
-    Active --> Revoked: Peran dicabut
+    [*] --> Pending
+    Pending --> Accepted: Undangan diterima
+    Pending --> Expired: Masa berlaku habis
+    Pending --> Revoked: Undangan dicabut
+    Accepted --> [*]
     Revoked --> [*]
     Expired --> [*]
 ```
 
-- `Invited`: undangan belum digunakan.
-- `Active`: peran dapat digunakan dalam cakupannya.
-- `Suspended`: akses sementara dihentikan tanpa menghapus penugasan.
-- `Revoked`: penugasan berakhir dan tidak dapat digunakan kembali.
-- `Expired`: undangan tidak digunakan sampai batas waktunya.
+- Status undangan adalah `PENDING`, `ACCEPTED`, `EXPIRED`, atau `REVOKED`.
+- Undangan `ACCEPTED` membuat role assignment terpisah; undangan tidak menjadi role assignment.
+- Status role assignment adalah `ACTIVE`, `SUSPENDED`, atau `REVOKED`.
+- Role assignment hanya efektif ketika berstatus `ACTIVE`, waktu sekarang tidak lebih awal dari `valid_from`, dan belum melewati `valid_until` jika batas akhir diisi.
 
-Berakhirnya semester tidak menghapus role assignment. Statusnya menjadi tidak aktif untuk operasi baru dan tetap tersedia pada audit serta arsip.
+Berakhirnya semester tidak menonaktifkan KM. Role assignment PJ tetap tersimpan untuk audit, tetapi course offering pada semester arsip hanya dapat dibaca.
 
 ## 11. Pergantian Pengurus
 
@@ -297,7 +303,7 @@ Access control dianggap siap ketika:
 2. PJ tidak dapat mengubah mata kuliah di luar penugasannya.
 3. KM tidak dapat mengubah kelas di luar penugasannya.
 4. PJ dapat memublikasikan perubahan pada mata kuliahnya dan tindakan tercatat.
-5. Hanya KM yang dapat membatalkan perubahan jadwal yang telah terbit.
+5. Hanya KM yang dapat mencabut teaching event yang telah terbit.
 6. Pencabutan peran mencegah permintaan perubahan berikutnya.
 7. Pergantian KM atau PJ tidak menghapus data lama.
 8. System Admin dapat memulihkan akses dengan alasan dan audit log.
@@ -321,4 +327,12 @@ Access control dianggap siap ketika:
 | UR-AUDIT-001 | Pencatatan tindakan |
 | UR-OPS-003 | Pemulihan data dan akses |
 
-Perubahan izin harus memperbarui Product Definition, User Requirements, PRD, data model, API, serta test case yang terdampak.
+Perubahan izin harus memperbarui Product Definition, User Requirements, Functional Requirements, data model, dan test case yang terdampak.
+
+## 17. Changelog
+
+### 2.0.0, 23 September 2026
+
+- Memisahkan lifecycle undangan dari role assignment.
+- Menetapkan KM sebagai peran kelas lintas semester dan PJ sebagai peran course offering.
+- Menetapkan sesi portal berbasis database, rotasi versi kode, password tanpa MFA, rate limiting, dan masa sesi per peran.

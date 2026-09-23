@@ -4,11 +4,12 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0 |
-| Status | Draft untuk ditinjau |
+| Versi | 2.0.0 |
+| Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
 | Acuan | [Product Definition](PRODUCT_DEFINITION.md), [Access Control](ACCESS_CONTROL.md), [User Flows](USER_FLOWS.md), [Business Rules](BUSINESS_RULES.md), [Functional Requirements](FUNCTIONAL_REQUIREMENTS.md), dan [PRD](../PRD.md) |
+| Model data | [Data Model](DATA_MODEL.md) |
 
 Dokumen ini menetapkan pembagian area aplikasi, hierarki halaman, navigasi, konteks, penamaan, dan hubungan antarkonten. Pola URL bersifat konseptual dan dapat disesuaikan pada API serta routing implementation tanpa mengubah struktur informasi.
 
@@ -19,7 +20,7 @@ Bot Jadwal menggunakan mode antarmuka `Operate`: pengguna datang untuk menemukan
 1. Mahasiswa langsung masuk ke informasi kelas tanpa melewati area pengelola.
 2. Pengurus selalu melihat konteks peran, kelas, semester, dan mata kuliah sebelum mengubah data.
 3. Jadwal, tugas, dan materi menjadi objek utama. Fitur administratif tidak boleh menghalangi tugas harian.
-4. Status publikasi, persetujuan, pembatalan, dan pengiriman WhatsApp ditampilkan terpisah.
+4. Status akademik, lifecycle publikasi, review tugas, partisipasi lintas kelas, dan pengiriman WhatsApp ditampilkan terpisah.
 5. Navigasi hanya menampilkan tujuan yang benar-benar tersedia bagi peran aktif.
 
 ## 2. Ruang Aplikasi
@@ -30,7 +31,7 @@ Aplikasi dibagi menjadi empat ruang dengan batas akses yang berbeda.
 |---|---|---|---|
 | Portal Kelas | Mahasiswa dan pengunjung dengan akses kelas | Tanpa akun, hanya-baca | Melihat informasi akademik satu kelas |
 | Area Pengelola | PJ dan KM | Login dan role assignment aktif | Mengelola data dalam konteks kelas |
-| System Admin | System Admin | Login dengan autentikasi lebih kuat | Mengelola data lintas kelas dan operasi sistem |
+| System Admin | System Admin | Login kata sandi dengan sesi lebih singkat | Mengelola data lintas kelas dan operasi sistem |
 | Akses Akun | Calon atau pengurus aktif | Token undangan atau proses pemulihan | Aktivasi, login, dan pemulihan akun |
 
 Portal Kelas dan Area Pengelola bukan variasi dari halaman yang sama. Portal mengutamakan konsumsi informasi, sedangkan Area Pengelola mengutamakan perubahan data dan audit.
@@ -46,7 +47,7 @@ Sistem
 └── Kelas Permanen
     └── Semester Kelas
         ├── Penawaran Mata Kuliah
-        │   ├── Jadwal
+        │   ├── Pola Jadwal dan Teaching Event
         │   ├── Tugas
         │   ├── Materi
         │   └── Penugasan PJ
@@ -58,7 +59,7 @@ Aturan konteks:
 
 - Mahasiswa memilih kelas melalui URL atau kode. Semester aktif menjadi konteks awal.
 - PJ memilih role assignment jika memiliki lebih dari satu kelas atau mata kuliah.
-- KM memilih kelas dan semester. Pilihan mata kuliah berfungsi sebagai filter, bukan batas akses tambahan.
+- KM memilih kelas, lalu semester sebagai konteks data. Role assignment KM tetap melekat pada kelas saat semester berganti. Pilihan mata kuliah berfungsi sebagai filter.
 - System Admin bekerja dalam konteks global. Saat membuka kelas untuk dukungan, sistem menampilkan banner mode dukungan dan meminta alasan sebelum perubahan akademik.
 - Perpindahan konteks mengatur ulang filter halaman yang tidak berlaku, tetapi tidak mengubah konteks akun lain.
 
@@ -78,12 +79,13 @@ Bot Jadwal
 ├── Area Pengelola /app
 │   ├── Ringkasan
 │   ├── Jadwal
-│   │   ├── Jadwal Reguler
-│   │   ├── Perubahan Jadwal
+│   │   ├── Pola Jadwal Reguler
+│   │   ├── Teaching Event
+│   │   ├── Partisipasi Lintas Kelas
 │   │   └── Detail dan Riwayat Jadwal
 │   ├── Tugas
 │   │   ├── Daftar Tugas
-│   │   ├── Draf dan Persetujuan
+│   │   ├── Draf dan Review
 │   │   └── Detail dan Riwayat Tugas
 │   ├── Materi
 │   ├── Ruangan
@@ -161,35 +163,36 @@ Pada mobile, bottom navigation memuat `Ringkasan`, `Jadwal`, `Tugas`, dan `Lainn
 |---|:---:|:---:|---|
 | Ringkasan | Ya | Ya | Isi disesuaikan dengan cakupan |
 | Jadwal | Ya | Ya | PJ hanya mata kuliah penugasan |
-| Tugas | Ya | Ya | Antrean approval hanya untuk KM |
+| Tugas | Ya | Ya | Antrean review terbit hanya untuk KM |
 | Materi | Ya | Ya | Sesuai cakupan |
 | Ruangan | Ya | Ya | Hasil tetap memerlukan TU |
 | Anggota dan Peran | Tidak | Ya | KM mengelola PJ kelasnya |
 | Semester | Baca konteks | Kelola | PJ tidak dapat mengaktifkan semester |
 | Riwayat Perubahan | Lingkup sendiri | Seluruh kelas | Mengikuti access control |
-| Pengaturan Kelas | Tidak | Ya | Mode portal, kode, waktu pengingat, approval tugas |
+| Pengaturan Kelas | Tidak | Ya | Mode portal, kode, dan waktu pengingat |
 
 ### 6.3 Inventaris Halaman Pengelola
 
 | Halaman | Isi dan Struktur | Aksi Utama |
 |---|---|---|
 | Ringkasan | Konteks aktif, tindakan tertunda, jadwal hari ini, tugas terdekat, publikasi terbaru, status notifikasi bermasalah | Lanjutkan draf, buka item bermasalah |
-| Jadwal Reguler | Daftar per hari dengan filter mata kuliah, dosen, dan ruangan | Tambah jadwal, ubah jadwal |
-| Perubahan Jadwal | Tab `Draf`, `Terbit`, `Dibatalkan`, `Selesai` | Buat perubahan, publikasikan |
-| Detail Jadwal | Data efektif, versi reguler, perubahan terkait, konflik, notifikasi, audit | Ubah, buat perubahan, batalkan jika KM |
-| Daftar Tugas | Tab `Aktif`, `Draf`, `Menunggu`, `Selesai`, `Terlewat`, `Arsip` | Tambah tugas, filter |
-| Detail Tugas | Isi tugas, status, versi, notifikasi, audit | Ubah, publikasikan, arsipkan, pulihkan |
-| Draf dan Persetujuan | Draf milik pengguna dan antrean approval KM | Lanjutkan, setujui, kembalikan |
-| Materi | Daftar berdasarkan mata kuliah dan jenis tautan | Tambah, ubah, arsipkan |
-| Ruangan | Pencarian tanggal dan waktu, kandidat, keterbatasan data | Catat konfirmasi TU |
+| Pola Jadwal Reguler | Daftar per hari dengan filter mata kuliah, dosen, dan ruangan | Tambah pola, buat versi baru |
+| Teaching Event | Tab `Draf`, `Terbit`, `Dicabut`, dan filter jenis akademik | Buat event, publikasikan, cabut jika KM |
+| Partisipasi Lintas Kelas | Undangan event dan status partisipasi | Terima, tolak, atau lepas kelas |
+| Detail Jadwal | Jadwal efektif, pola asal, event terkait, konflik, notifikasi, audit | Ubah pola, buat event, cabut publikasi jika KM |
+| Daftar Tugas | Tab `Aktif`, `Draf`, `Perlu Review`, `Selesai`, `Terlewat`, `Arsip` | Tambah tugas, filter |
+| Detail Tugas | Isi, status hasil, review state, versi, notifikasi, audit | Ubah, publikasikan, review jika KM, arsipkan |
+| Draf dan Review | Draf milik pengguna dan tugas terbit yang belum direview | Lanjutkan, setujui, minta koreksi, batalkan |
+| Materi | Daftar materi umum kelas dan materi per mata kuliah | Tambah, ubah, arsipkan |
+| Ruangan | Teaching event draf, kandidat, keterbatasan data, dan riwayat konfirmasi | Catat konfirmasi manual TU |
 | Anggota dan Peran | KM aktif, PJ per mata kuliah, undangan, penugasan tidak aktif | Undang, tangguhkan, ganti, cabut |
 | Semester | Semester aktif, draf, dan arsip | Buat, impor, salin, review, aktifkan |
 | Riwayat Perubahan | Kronologi dengan filter pelaku, objek, tindakan, dan waktu | Buka perbandingan versi |
-| Pengaturan Kelas | Akses portal, rotasi kode, approval tugas, waktu pengingat | Simpan pengaturan |
+| Pengaturan Kelas | Akses portal, rotasi kode, dan waktu pengingat | Simpan pengaturan |
 
 ### 6.4 Ringkasan Berdasarkan Peran
 
-Ringkasan PJ mengutamakan draf miliknya, perubahan atau tugas yang perlu diselesaikan, dan mata kuliah penugasannya. Ringkasan KM mengutamakan antrean approval, publikasi terbaru seluruh kelas, undangan, konflik, dan kegagalan notifikasi. Informasi lintas kelas tidak digabung dalam satu daftar tanpa label kelas yang jelas.
+Ringkasan PJ mengutamakan draf, tugas, teaching event, dan mata kuliah penugasannya. Ringkasan KM mengutamakan tugas terbit yang belum direview, undangan event lintas kelas, publikasi terbaru, konflik, dan kegagalan notifikasi. Informasi lintas kelas tidak digabung tanpa label kelas yang jelas.
 
 ## 7. System Admin
 
@@ -290,10 +293,11 @@ State memakai teks dan ikon, tidak hanya warna. Aksi berisiko seperti pembatalan
 |---|---|---|
 | Ketua Murid (KM) | Admin kelas, Komti secara bergantian | Menjaga nama peran resmi dalam produk |
 | PJ Mata Kuliah | Admin mata kuliah | Menjelaskan cakupan tanggung jawab |
-| Perubahan Jadwal | Override | Bahasa pengguna |
+| Kejadian Perkuliahan | Override, schedule change | Mencakup pengganti, tambahan, libur, dan pembatalan sesi |
 | Terbit | Aktif untuk seluruh status | Membedakan publikasi dari status semester atau peran |
-| Dibatalkan | Dihapus | Riwayat publikasi tetap ada |
-| Menunggu Persetujuan | Pending tanpa penjelasan | Status dapat dipahami tanpa istilah teknis |
+| Publikasi Dicabut | Kelas Dibatalkan | Membedakan pencabutan informasi dari pembatalan sesi akademik |
+| Sesi Dibatalkan | Publikasi Dicabut | Menjelaskan bahwa kegiatan akademik tidak berlangsung |
+| Perlu Review | Menunggu Persetujuan | Tugas sudah terbit dan review KM tidak menghambat publikasi awal |
 | Ruangan Kandidat | Ruangan Kosong | Data internal belum menjadi konfirmasi resmi |
 | Riwayat Perubahan | Log | Lebih mudah dipahami pengguna umum |
 
@@ -303,10 +307,10 @@ State memakai teks dan ikon, tidak hanya warna. Aksi berisiko seperti pembatalan
 
 1. Akses akun dan context switcher.
 2. Portal Ringkasan, Jadwal, Tugas, dan Detail Tugas.
-3. Area Pengelola untuk Jadwal, Tugas, draf, publikasi, dan pembatalan KM.
+3. Area Pengelola untuk pola jadwal, teaching event, review tugas, publikasi, dan pencabutan oleh KM.
 4. Semester aktif, input manual, impor JSON, serta arsip.
 5. Antrean notifikasi, status pengiriman, dan audit dasar.
-6. Pengelolaan anggota serta peran.
+6. Pengelolaan anggota, peran, dan partisipasi perkuliahan lintas kelas.
 
 ### Fase Lanjutan
 
@@ -326,9 +330,9 @@ Pengelompokan fase tidak mengubah aturan akses atau struktur konteks. Halaman ya
 | Akses Akun | FR-ACCESS-002 sampai FR-ACCESS-007 |
 | Konteks dan Kelas | FR-ACCESS-005, FR-CLASS-001, FR-CLASS-002 |
 | Semester | FR-SEM-001 sampai FR-SEM-004 |
-| Jadwal | FR-SCH-001 sampai FR-SCH-007 |
+| Jadwal | FR-SCH-001 sampai FR-SCH-008 |
 | Tugas dan Materi | FR-TASK-001 sampai FR-TASK-007 |
-| Notifikasi | FR-NOTIF-001 sampai FR-NOTIF-005 |
+| Notifikasi | FR-NOTIF-001 sampai FR-NOTIF-006 |
 | Ruangan | FR-ROOM-001 sampai FR-ROOM-003 |
 | Audit dan Operasional | FR-AUDIT-001 sampai FR-OPS-004 |
 | State dan Aksesibilitas | FR-UX-001 sampai FR-UX-004 |
@@ -336,3 +340,11 @@ Pengelompokan fase tidak mengubah aturan akses atau struktur konteks. Halaman ya
 ## 16. Kriteria Selesai
 
 Information Architecture siap menjadi dasar wireframe jika setiap functional requirement memiliki lokasi antarmuka, setiap halaman memiliki pengguna serta tujuan yang jelas, semua jalur perubahan memperlihatkan konteks aktif, dan state loading, empty, error, permission denied, serta conflict telah memiliki tempat. Perubahan struktur yang memengaruhi akses, status, atau alur wajib memperbarui dokumen sumber dan wireframe terkait.
+
+## 17. Changelog
+
+### 2.0.0, 23 September 2026
+
+- Memisahkan pola jadwal, teaching event, dan partisipasi lintas kelas pada navigasi pengelola.
+- Mengganti antrean persetujuan dengan review tugas terbit.
+- Menyelaraskan istilah pencabutan publikasi, pembatalan sesi, materi umum, dan autentikasi System Admin.

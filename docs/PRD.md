@@ -1,25 +1,27 @@
-# Product Requirements Document Bot Jadwal v2.1
+# Product Requirements Document Bot Jadwal v3.0
 
 ## Status Dokumen
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.1.0 |
+| Versi | 3.0.0 |
 | Status | Approved |
 | Tanggal | 23 September 2026 |
 | Pemilik | Tim Bot Jadwal |
 | Target awal | Semester Ganjil 2026/2027 |
-| Acuan produk | [Product Definition v0.3](product/PRODUCT_DEFINITION.md) |
-| Acuan kebutuhan | [User Requirements v1.0](product/USER_REQUIREMENTS.md) |
+| Acuan produk | [Product Definition](product/PRODUCT_DEFINITION.md) |
+| Acuan kebutuhan | [User Requirements](product/USER_REQUIREMENTS.md) |
+| Kebutuhan fungsional kanonis | [Functional Requirements](product/FUNCTIONAL_REQUIREMENTS.md) |
+| Ketertelusuran | [Traceability Matrix](product/TRACEABILITY.md) |
 | Sumber riset | [Wawancara 11 pengguna](user-interviews/README.md) |
 
-PRD ini menetapkan hasil yang harus disediakan produk, batas ruang lingkup, prioritas, serta kriteria keberhasilan. Product Definition menjadi sumber keputusan alur dan aturan. User Requirements menjadi sumber kebutuhan pengguna. Detail tabel database, endpoint, dan keputusan implementasi dibahas dalam dokumen teknis terpisah.
+PRD ini menetapkan hasil produk, batas ruang lingkup, prioritas, dan kriteria keberhasilan. Product Definition menjadi sumber arah produk, User Requirements menjadi sumber kebutuhan pengguna, dan Functional Requirements menjadi satu-satunya sumber ID `FR-*`. PRD tidak mendefinisikan ulang ID kebutuhan fungsional.
 
 ## 1. Ringkasan Produk
 
 Bot Jadwal membantu mahasiswa menerima jadwal perkuliahan, perubahan jadwal, tugas, tautan, dan pengingat melalui WhatsApp. Versi saat ini masih banyak bergantung pada command. Hasil wawancara menunjukkan bahwa keluaran bot umumnya mudah dibaca, tetapi pengurus kesulitan menghafal format input, informasi sering terlambat diperbarui, dan aktivitas bot menambah kepadatan percakapan grup.
 
-Bot Jadwal v2.1 membagi tanggung jawab sistem sebagai berikut:
+Bot Jadwal v3.0 membagi tanggung jawab sistem sebagai berikut:
 
 - Portal web menjadi tempat mahasiswa membaca informasi kelas.
 - Dashboard pengelola menjadi tempat PJ dan KM mengelola data.
@@ -50,7 +52,7 @@ PJ mengelola tugas, tautan, dan jadwal untuk mata kuliah yang ditugaskan. PJ dap
 
 ### 3.3 Ketua Murid
 
-KM mengelola semua mata kuliah pada kelas yang ditugaskan, menunjuk PJ, mengaktifkan semester, memantau perubahan, dan membatalkan publikasi yang keliru. Pembatalan tidak menghapus riwayat.
+KM mengelola semua mata kuliah pada kelas yang ditugaskan, menunjuk PJ, mengaktifkan semester, memantau perubahan, dan mencabut publikasi yang keliru. Pencabutan tidak menghapus riwayat.
 
 ### 3.4 System Admin
 
@@ -85,83 +87,49 @@ Produk ini tidak:
 
 ### Epic 1 Akses dan Identitas
 
-- **FR-ACCESS-001:** Mahasiswa dapat membuka portal kelas melalui tautan atau kode kelas tanpa akun.
-- **FR-ACCESS-002:** Portal mahasiswa bersifat hanya-baca dan tidak menampilkan fungsi administrasi, audit log, nomor pengurus, atau data sensitif.
-- **FR-ACCESS-003:** PJ dan KM masuk melalui akun yang dibuat dari undangan.
-- **FR-ACCESS-004:** WhatsApp dapat digunakan untuk verifikasi atau pemulihan, tetapi bukan satu-satunya cara masuk.
-- **FR-ACCESS-005:** Hak akses pengguna ditetapkan per kelas, semester, mata kuliah, dan peran.
-- **FR-ACCESS-006:** Satu akun dapat memiliki peran berbeda pada beberapa kelas atau semester.
-- **FR-ACCESS-007:** Pencabutan peran langsung menghentikan akses perubahan data.
-- **FR-ACCESS-008:** System Admin dapat memulihkan atau memindahkan akses tanpa mengubah data kelas.
+- Mahasiswa membuka portal kelas tanpa akun melalui tautan atau kode akses.
+- PJ, KM, dan System Admin memakai akun pengurus berbasis undangan.
+- KM memiliki cakupan kelas yang berlanjut lintas semester sampai masa berlaku berakhir atau perannya dicabut.
+- PJ memiliki cakupan course offering tertentu pada satu semester.
+- Sesi portal dan sesi pengurus dapat dicabut oleh server.
 
 ### Epic 2 Kelas dan Semester
 
-- **FR-CLASS-001:** Kelas memiliki identitas permanen berdasarkan program studi, angkatan, dan rombel, bukan nomor semester.
-- **FR-CLASS-002:** Semua data operasional terikat pada kelas agar tidak tercampur dengan kelas lain.
-- **FR-SEM-001:** Setiap kelas hanya memiliki satu semester aktif.
-- **FR-SEM-002:** Aktivasi semester baru mengarsipkan semester sebelumnya tanpa menghapus data.
-- **FR-SEM-003:** KM atau System Admin dapat membuat semester melalui impor JSON, salin semester lama, atau input manual.
-- **FR-SEM-004:** Impor menampilkan preview dan kesalahan sebelum data diaktifkan.
-- **FR-SEM-005:** Kegagalan impor tidak meninggalkan data parsial tanpa konfirmasi.
-- **FR-SEM-006:** Arsip semester lama tersedia dalam mode hanya-baca.
+- Kelas memiliki identitas permanen dan data antarkelas terisolasi.
+- Setiap kelas hanya memiliki satu semester aktif dengan tanggal mulai dan selesai.
+- KM atau System Admin dapat membuat semester melalui impor JSON, salin semester, atau input manual.
+- Semester lama yang pernah dipublikasikan tersedia dalam mode hanya-baca melalui kode akses kelas yang masih aktif.
 
 ### Epic 3 Jadwal Perkuliahan
 
-- **FR-SCH-001:** Jadwal reguler memuat mata kuliah, jenis teori atau praktik, dosen, hari, jam mulai, durasi, jam selesai, dan ruangan.
-- **FR-SCH-002:** Pengelola dapat membuat dan memperbarui jadwal secara manual melalui form terpandu.
-- **FR-SCH-003:** Jam selesai dihitung dari jam mulai dan durasi, lalu dapat diperiksa sebelum disimpan.
-- **FR-SCH-004:** Sistem membedakan jadwal reguler, pengganti, tambahan, libur, dan dibatalkan.
-- **FR-SCH-005:** Perubahan dapat ditandai sementara atau permanen.
-- **FR-SCH-006:** Jadwal sementara berlaku pada sesi tertentu dan tidak menimpa jadwal reguler secara permanen.
-- **FR-SCH-007:** PJ dapat menyimpan perubahan sebagai draf yang tidak terlihat oleh mahasiswa dan tidak memicu notifikasi.
-- **FR-SCH-008:** Preview menampilkan jadwal lama, jadwal baru, jenis perubahan, dan penerima sebelum publikasi.
-- **FR-SCH-009:** PJ dapat memublikasikan perubahan untuk mata kuliah yang ditugaskan tanpa persetujuan KM.
-- **FR-SCH-010:** KM dapat memublikasikan dan membatalkan perubahan untuk semua mata kuliah pada kelasnya.
-- **FR-SCH-011:** Pembatalan mempertahankan riwayat dan mengirim koreksi apabila perubahan sebelumnya telah disiarkan.
-- **FR-SCH-012:** Publikasi ulang dengan identitas yang sama tidak mengirim notifikasi ganda.
+- Pola jadwal reguler dipisahkan dari kejadian perkuliahan aktual seperti kelas pengganti, tambahan, libur, atau sesi yang dibatalkan.
+- Satu kejadian dapat diikuti beberapa kelas tanpa menduplikasi jadwal.
+- Satu kelas menjadi pemilik kejadian lintas kelas; KM kelas peserta menerima partisipasi dan dapat melepas kelasnya tanpa mengubah acara utama.
+- PJ dapat membuat draf dan memublikasikan kejadian dalam cakupannya. KM dapat menerbitkan atau mencabut publikasi untuk seluruh kelas.
+- Permintaan ruangan dimulai dari draf. Hasil konfirmasi manual dengan TU dicatat sebelum publikasi.
 
 ### Epic 4 Tugas dan Materi
 
-- **FR-TASK-001:** Form tugas memuat mata kuliah, judul, instruksi, deadline, serta tempat atau tautan pengumpulan.
-- **FR-TASK-002:** PJ hanya dapat memilih mata kuliah dalam cakupan penugasannya.
-- **FR-TASK-003:** PJ dapat menyimpan draf atau langsung memublikasikan tugas pada mata kuliahnya.
-- **FR-TASK-004:** KM dapat mengaktifkan kebijakan approval tugas untuk kelasnya jika diperlukan.
-- **FR-TASK-005:** Daftar tugas dikelompokkan menjadi Hari Ini, Minggu Ini, Mendatang, dan Terlewat.
-- **FR-TASK-006:** Pengguna dapat menyaring tugas berdasarkan mata kuliah, status, rentang deadline, dan jenis tugas.
-- **FR-TASK-007:** Tugas selesai dan terlewat berpindah ke arsip tanpa menghapus riwayat.
-- **FR-TASK-008:** Materi dan tautan dapat dikelompokkan berdasarkan mata kuliah serta dihubungkan ke detail tugas.
-- **FR-TASK-009:** Mahasiswa belum dapat menandai penyelesaian tugas secara pribadi sampai akun mahasiswa tersedia.
+- PJ dapat menyimpan draf atau langsung memublikasikan tugas pada mata kuliahnya.
+- KM dapat menyetujui publikasi secara retrospektif, meminta koreksi sekaligus menarik publikasi, atau membatalkan tugas.
+- Riwayat review tidak ditimpa. Pengarsipan disimpan terpisah dari status hasil tugas.
+- Materi dapat berlaku untuk kelas secara umum atau untuk course offering tertentu.
 
 ### Epic 5 Notifikasi WhatsApp
 
-- **FR-NOTIF-001:** Sistem mengirim jadwal hari itu pada pagi hari sesuai waktu yang dikonfigurasi.
-- **FR-NOTIF-002:** Jadwal pengganti yang berlaku ikut ditampilkan dalam siaran pagi.
-- **FR-NOTIF-003:** Sistem mengirim pengingat tugas pada sore hari sesuai waktu yang dikonfigurasi.
-- **FR-NOTIF-004:** Publikasi perubahan jadwal mengirim perbandingan data sebelum dan sesudah.
-- **FR-NOTIF-005:** Jadwal pengganti mendapatkan pengingat sebelum pelaksanaan.
-- **FR-NOTIF-006:** Pesan hanya memuat informasi utama dan tautan menuju detail web.
-- **FR-NOTIF-007:** Ketika bot offline, publikasi tetap tersimpan dan notifikasi menunggu dalam antrean.
-- **FR-NOTIF-008:** Pengiriman antrean menggunakan identitas unik agar pesan tidak terkirim dua kali.
-- **FR-NOTIF-009:** Pembatalan perubahan yang sudah disiarkan mengirim pesan koreksi.
+- Sistem mengirim ringkasan jadwal, pengingat tugas, pengingat kelas pengganti sebelum pelaksanaan, serta koreksi publikasi.
+- Antrean notifikasi bersifat idempoten dan tidak menentukan status data akademik.
 
 ### Epic 6 Ruangan
 
-- **FR-ROOM-001:** System Admin mengelola master ruangan lintas kelas dengan masukan dari KM.
-- **FR-ROOM-002:** PJ dan KM dapat mencari kandidat ruangan berdasarkan tanggal dan rentang waktu.
-- **FR-ROOM-003:** Rekomendasi menggunakan jadwal yang tersedia di dalam sistem.
-- **FR-ROOM-004:** Hasil selalu diberi label sebagai rekomendasi internal yang perlu dikonfirmasi ke TU.
-- **FR-ROOM-005:** Pengguna dapat mencatat hasil konfirmasi ruangan.
+- System Admin mengelola master ruangan. PJ dan KM dapat mencari kandidat berdasarkan data internal.
+- Sistem selalu menyatakan kandidat ruangan belum pasti sampai PJ atau KM mencatat hasil konfirmasi manual dengan TU.
 
 ### Epic 7 Audit dan Pemulihan
 
-- **FR-AUDIT-001:** Tambah, ubah, hapus, publikasi, pembatalan, pemulihan, dan perubahan peran dicatat.
-- **FR-AUDIT-002:** Audit log memuat pelaku, peran, waktu, kelas, entitas, tindakan, data sebelum, dan data sesudah.
-- **FR-AUDIT-003:** PJ melihat log dalam cakupannya, KM melihat log kelasnya, dan System Admin melihat lintas kelas.
-- **FR-AUDIT-004:** Audit log dan arsip disimpan selama kelas aktif ditambah sekurangnya satu tahun akademik.
-- **FR-RECOVERY-001:** Data penting menggunakan penghapusan yang dapat dipulihkan sesuai kewenangan.
-- **FR-RECOVERY-002:** Sistem mendeteksi ketika data telah berubah sejak pengguna membukanya dan mencegah penimpaan tanpa peringatan.
-- **FR-RECOVERY-003:** Data dapat dicadangkan dan dipulihkan per kelas serta semester.
-- **FR-RECOVERY-004:** Pergantian nomor atau sesi WhatsApp tidak menghapus data akademik.
+- Audit log mencatat pengguna, role assignment aktif, cakupan, waktu, tindakan, objek, dan perubahan data.
+- Penghapusan penting dapat dipulihkan sesuai kewenangan; backup dan restore tetap terikat kelas serta semester.
+- Rincian yang dapat diuji dan seluruh ID `FR-*` hanya berada pada [Functional Requirements](product/FUNCTIONAL_REQUIREMENTS.md).
 
 ## 7. Struktur Informasi
 
@@ -238,19 +206,20 @@ Detail visual, komponen, responsive behavior, dan state antarmuka mengikuti `DES
 
 ```mermaid
 erDiagram
-    USER ||--o{ ROLE_ASSIGNMENT : receives
-    CLASS ||--o{ CLASS_SEMESTER : has
-    CLASS_SEMESTER ||--o{ COURSE_OFFERING : contains
-    SUBJECT ||--o{ COURSE_OFFERING : offered_as
-    COURSE_OFFERING ||--o{ ROLE_ASSIGNMENT : scopes_PJ
-    COURSE_OFFERING ||--o{ REGULAR_SCHEDULE : schedules
-    REGULAR_SCHEDULE ||--o{ SCHEDULE_CHANGE : changes
-    COURSE_OFFERING ||--o{ TASK : owns
-    COURSE_OFFERING ||--o{ RESOURCE_LINK : owns
-    ROOM ||--o{ REGULAR_SCHEDULE : used_by
-    USER ||--o{ AUDIT_LOG : performs
-    CLASS_SEMESTER ||--o{ AUDIT_LOG : records
-    NOTIFICATION ||--o{ DELIVERY_ATTEMPT : retries
+    USERS ||--o{ ROLE_ASSIGNMENTS : receives
+    CLASSES ||--o{ SEMESTERS : has
+    SEMESTERS ||--o{ COURSE_OFFERINGS : contains
+    COURSES ||--o{ COURSE_OFFERINGS : offered_as
+    COURSE_OFFERINGS ||--o{ ROLE_ASSIGNMENTS : scopes_PJ
+    COURSE_OFFERINGS ||--o{ SCHEDULE_PATTERNS : schedules
+    TEACHING_EVENTS }o--o{ COURSE_OFFERINGS : includes
+    TEACHING_EVENTS ||--o{ ROOM_CONFIRMATIONS : supports
+    COURSE_OFFERINGS ||--o{ TASKS : owns
+    TASKS ||--o{ TASK_REVIEWS : reviewed_in
+    CLASSES ||--o{ MATERIALS : owns
+    USERS ||--o{ AUDIT_LOGS : performs
+    ROLE_ASSIGNMENTS ||--o{ AUDIT_LOGS : provides_context
+    NOTIFICATION_MESSAGES ||--o{ NOTIFICATION_ATTEMPTS : retries
 ```
 
 Model ini bersifat konseptual. Nama tabel, atribut, indeks, dan strategi migrasi ditetapkan dalam Data Model serta ERD teknis.
@@ -264,18 +233,18 @@ Model ini bersifat konseptual. Nama tabel, atribut, indeks, dan strategi migrasi
 3. Pemisahan kelas, semester, mata kuliah, dan hak akses.
 4. Jadwal reguler serta perubahan sementara atau permanen.
 5. Draf, preview, publikasi PJ, pembatalan KM, dan audit log.
-6. Form tugas, deadline buckets, filter, serta arsip.
-7. Siaran pagi, pengingat sore, diff jadwal, koreksi, antrean, dan pencegahan duplikasi.
-8. Impor JSON, input manual, aktivasi, dan arsip semester.
-9. Backup dan pemulihan dasar.
+6. Form tugas, publikasi langsung oleh PJ, review retrospektif KM, filter, serta arsip.
+7. Siaran pagi, pengingat sore, pengingat kelas pengganti, koreksi, antrean, dan pencegahan duplikasi.
+8. Perkuliahan lintas kelas dengan satu pemilik dan penerimaan KM kelas peserta.
+9. Impor JSON, input manual, aktivasi, dan arsip semester.
+10. Backup dan pemulihan dasar.
 
 ### Fase Lanjutan
 
 1. Pencarian kandidat ruangan kosong.
 2. Materi dan tautan terpusat.
-3. Approval tugas yang dapat dikonfigurasi per kelas.
-4. Deteksi edit bersamaan yang lebih rinci.
-5. Penyempurnaan onboarding dan telemetri operasional.
+3. Deteksi edit bersamaan yang lebih rinci.
+4. Penyempurnaan onboarding dan telemetri operasional.
 
 ### Ditunda
 
@@ -368,4 +337,12 @@ https://[domain]/c/[kelas]/schedule
 | UR-AUDIT, UR-OPS | Epic 7 Audit dan Pemulihan |
 | UR-UX | Kebutuhan Pengalaman Pengguna |
 
-Setiap functional requirement harus dipetakan ke user flow, desain, API, data model, dan test case sebelum implementasi dinyatakan siap. Perubahan pada requirement yang telah disetujui mengikuti mekanisme perubahan dalam Product Definition.
+Pemetaan rinci tersedia pada [Traceability Matrix](product/TRACEABILITY.md). Perubahan requirement yang telah disetujui mengikuti mekanisme perubahan dalam Product Definition.
+
+## 15. Changelog
+
+### 3.0.0, 23 September 2026
+
+- Menghapus definisi ID `FR-*` dari PRD dan menetapkan Functional Requirements sebagai sumber kanonis.
+- Menyelaraskan cakupan KM, model jadwal terpadu, review tugas, sesi portal, semester arsip, dan audit role context.
+- Memindahkan review tugas dan dukungan perkuliahan lintas kelas ke MVP.

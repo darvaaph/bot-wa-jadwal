@@ -2,12 +2,18 @@
 
 > Reading this as: Academic administrative dashboard for university students and class leaders, in a Clean Slate Minimalist style, dial ENERGY 1 / RHYTHM 2 / MOTION 1.
 
+| Atribut | Nilai |
+|---|---|
+| Versi | 2.0.0 |
+| Status | Approved |
+| Terakhir diperbarui | 23 September 2026 |
+
 ---
 
 ## 1. Identitas & Karakter Desain
 
 - **Produk:** Dashboard Web Manajemen Jadwal Kuliah, Tugas, dan WhatsApp Gateway.
-- **Audiens:** Mahasiswa, Ketua Kelas (Komti), dan Dosen.
+- **Audiens:** Mahasiswa, PJ Mata Kuliah, Ketua Murid (KM), dan System Admin.
 - **Kepribadian:** Jelas, efisien, tenang, dan profesional (mengutamakan keterbacaan data jadwal tanpa distraksi visual).
 - **Masalah yang diselesaikan dari desain lama:** Menghilangkan palet hijau neon yang menyilaukan mata (*eyesore*), menghapus bayangan/glow berlebih, dan merapikan hirarki visual tabel agar nyaman dipandang lama.
 
@@ -21,12 +27,13 @@ Mengikuti prinsip R-29 (maksimal 2-3 warna inti + 1 warna aksen terukur).
 - **Base Background:** `#0b0f17` (Deep Slate: gelap netral, tidak pekat gulita, tidak memantulkan cahaya berlebih)
 - **Card / Secondary Surface:** `#121824` (Subtle elevated slate)
 - **Container / Inner Box:** `#182234` (Tertiary surface untuk input, baris tabel, atau kotak detail)
-- **Border Netral:** `#1e293b` (Slate-800 halus, 1px solid, tanpa glow)
+- **Border Dekoratif:** `#1e293b` (Slate-800 halus untuk pemisah noninteraktif)
+- **Border Kontrol:** `#52627a` (rasio 3.09:1 terhadap `#0b0f17` untuk batas input dan kontrol)
 
 ### Warna Tipografi (Kontras Teruji WCAG AA)
 - **Teks Utama (Primary):** `#f8fafc` (Slate-50, kontras > 12:1 terhadap background)
 - **Teks Sekunder (Muted):** `#94a3b8` (Slate-400, kontras > 4.5:1 untuk label & sub-informasi)
-- **Teks Lemah (Tertiary/Meta):** `#64748b` (Slate-500, hanya untuk metadata pendukung)
+- **Teks Lemah (Tertiary/Meta):** `#7c8ba1` (rasio 5.54:1 terhadap `#0b0f17`, aman untuk teks normal)
 
 ### Warna Aksen Utama
 - **Brand Accent:** `#3b82f6` (Blue-500 / Indigo-500: tenang, terpercaya, bukan neon)
@@ -79,7 +86,17 @@ Mengikuti prinsip R-29 (maksimal 2-3 warna inti + 1 warna aksen terukur).
 
 ## 6. Standar Aksesibilitas & Fungsionalitas
 
-- Seluruh tombol dan area klik minimal berukuran 40px - 44px (*thumb-friendly*).
+- Seluruh tombol dan area klik minimal berukuran 44 x 44 piksel.
 - Status fokus keyboard terlihat jelas (`focus:ring-2 focus:ring-blue-500 focus:outline-none`).
 - Setiap tombol dan kontrol memiliki fungsi nyata (tidak ada kontrol mati atau navigasi palsu).
 - Modal dapat ditutup dengan tombol Batal, klik di luar, maupun tombol Escape.
+- Setiap tampilan data menyediakan state loading, empty, error, success, dan permission denied dengan teks yang tidak bergantung pada warna.
+- Teks harus tetap terbaca dan tidak terpotong pada zoom 200 persen.
+
+## 7. Changelog
+
+### 2.0.0, 23 September 2026
+
+- Menyelaraskan audiens dengan peran produk yang disetujui.
+- Mengganti warna metadata yang gagal WCAG AA dan membedakan border dekoratif dari batas kontrol.
+- Menetapkan target sentuh minimum 44 x 44 piksel serta state dan zoom aksesibel.

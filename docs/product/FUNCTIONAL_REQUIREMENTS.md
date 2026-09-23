@@ -4,12 +4,14 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0 |
-| Status | Draft untuk ditinjau |
+| Versi | 2.0.0 |
+| Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
 | Acuan | [User Requirements](USER_REQUIREMENTS.md), [Business Rules](BUSINESS_RULES.md), [Access Control](ACCESS_CONTROL.md), [User Flows](USER_FLOWS.md), dan [PRD](../PRD.md) |
-| Turunan antarmuka | [Information Architecture v1.0](INFORMATION_ARCHITECTURE.md) |
+| Turunan antarmuka | [Information Architecture](INFORMATION_ARCHITECTURE.md) |
+| Turunan data | [Data Model](DATA_MODEL.md) |
+| Matriks | [Traceability Matrix](TRACEABILITY.md) |
 
 Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku sistem yang dapat dibangun dan diuji. Detail endpoint, skema database, komponen antarmuka, dan teknologi implementasi ditentukan pada dokumen teknis setelah requirement ini disetujui.
 
@@ -31,7 +33,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-ACCESS-001, UR-CLASS-001; BR-CLASS-002; UF-PORTAL-001 |
 | Requirement | Sistem harus menyediakan portal hanya-baca melalui slug kelas. Sesuai konfigurasi kelas, sistem langsung memberikan akses melalui tautan atau meminta kode kelas. |
-| Acceptance criteria | Kode yang benar membuat sesi portal terbatas; kode salah tidak membuka data; portal tidak menyediakan operasi perubahan, audit log, data akun, nomor telepon, atau konfigurasi bot. |
+| Acceptance criteria | Kode yang benar membuat sesi portal database dengan `access_code_version`; rotasi kode mencabut sesi versi lama; kode salah tidak membuka data; kode aktif membuka semester terbit termasuk arsip hanya-baca; portal tidak menyediakan operasi perubahan atau data sensitif. |
 
 ### FR-ACCESS-002 Login Pengurus
 
@@ -41,7 +43,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-ACCESS-002; BR-ACCESS-001; UF-ACCESS-004 |
 | Requirement | Sistem harus menyediakan satu halaman login menggunakan identitas akun dan kata sandi untuk seluruh pengurus. Login normal tidak boleh bergantung pada koneksi WhatsApp. |
-| Acceptance criteria | Kredensial valid membuat sesi server; kredensial salah menghasilkan pesan umum; akun tanpa penugasan aktif tidak dapat membuka area pengelola. |
+| Acceptance criteria | Kredensial valid membuat sesi server; lima kegagalan dalam 15 menit mengunci login 15 menit; sesi PJ/KM dibatasi 2 jam idle atau 24 jam total; sesi System Admin dibatasi 30 menit idle atau 8 jam total; akun tanpa penugasan aktif tidak dapat membuka area pengelola. |
 
 ### FR-ACCESS-003 Undangan dan Aktivasi Akun
 
@@ -60,7 +62,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM, System Admin |
 | Prioritas | Must |
 | Sumber | UR-ACCESS-003, UR-ACCESS-004; BR-ACCESS-002, BR-ACCESS-006; UF-ACCESS-004 |
-| Requirement | Backend harus memeriksa sesi, role assignment, kelas, semester, mata kuliah, dan jenis aksi pada setiap permintaan perubahan. Aksi dukungan System Admin harus meminta alasan. |
+| Requirement | Backend harus memeriksa sesi, role assignment aktif, kelas, jenis aksi, serta course offering untuk PJ pada setiap permintaan perubahan. Aksi dukungan System Admin harus meminta alasan. |
 | Acceptance criteria | PJ hanya dapat mengubah mata kuliah penugasannya; KM hanya dapat mengubah kelas penugasannya; penolakan tidak mengungkap keberadaan data di luar cakupan; aksi dukungan memiliki audit log. |
 
 ### FR-ACCESS-005 Pemilihan dan Pergantian Konteks
@@ -90,8 +92,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | KM, System Admin |
 | Prioritas | Must |
 | Sumber | UR-ACCESS-003, UR-ACCESS-004, UR-ACCESS-006; BR-ACCESS-003; UF-ACCESS-006 |
-| Requirement | Pemberi akses dapat menangguhkan atau mencabut penugasan. KM mengelola PJ pada kelasnya, sedangkan System Admin mengelola KM. Sistem harus mempertahankan data dan identitas pelaku lama. |
-| Acceptance criteria | Pencabutan menghentikan operasi baru pada permintaan berikutnya; pergantian tidak mengubah kepemilikan riwayat; sistem memperingatkan sebelum kelas kehilangan seluruh KM aktif, kecuali System Admin menangani insiden keamanan. |
+| Requirement | Pemberi akses dapat menangguhkan atau mencabut role assignment. KM mengelola PJ pada kelasnya, sedangkan System Admin mengelola KM. Undangan dan role assignment memakai lifecycle terpisah. |
+| Acceptance criteria | Undangan memakai `PENDING`, `ACCEPTED`, `EXPIRED`, atau `REVOKED`; role assignment memakai `ACTIVE`, `SUSPENDED`, atau `REVOKED`; KM tetap aktif lintas semester sesuai `valid_from` dan `valid_until`; pencabutan menghentikan operasi baru tanpa mengubah riwayat. |
 
 ## 3. Kelas dan Semester
 
@@ -122,8 +124,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | KM, System Admin |
 | Prioritas | Must |
 | Sumber | UR-SEM-001, UR-SEM-002; BR-SEM-001, BR-SEM-002, BR-SEM-005; UF-SEM-001, UF-SEM-002 |
-| Requirement | Pengguna dapat membuat semester draf melalui impor JSON, menyalin struktur semester sebelumnya, atau input manual. Salinan tidak membawa tugas, publikasi, atau penugasan PJ aktif secara otomatis. |
-| Acceptance criteria | Semester draf tidak menggantikan semester aktif; pengguna dapat meninjau dan mengubah mata kuliah serta jadwal; seluruh data draf memiliki kelas dan semester yang benar. |
+| Requirement | Pengguna dapat membuat semester draf dengan tanggal mulai dan selesai melalui impor JSON, menyalin struktur semester sebelumnya, atau input manual. Salinan tidak membawa tugas, publikasi, atau penugasan PJ aktif secara otomatis. |
+| Acceptance criteria | Tanggal selesai harus setelah tanggal mulai; semester draf tidak menggantikan semester aktif; pengguna dapat meninjau dan mengubah mata kuliah serta jadwal; seluruh data draf memiliki kelas dan semester yang benar. |
 
 ### FR-SEM-002 Validasi Impor JSON
 
@@ -143,7 +145,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-SEM-001, UR-SEM-003; BR-SEM-002, BR-SEM-003, BR-SEM-004; UF-SEM-001, UF-SEM-002 |
 | Requirement | Sistem harus menampilkan ringkasan mata kuliah, jadwal, konflik, dan kelengkapan sebelum aktivasi. Aktivasi semester baru harus sekaligus mengarsipkan semester aktif sebelumnya. |
-| Acceptance criteria | PJ tidak dapat mengaktifkan semester; satu kelas tidak pernah memiliki dua semester aktif; kegagalan transaksi mempertahankan semester aktif lama; aktivasi masuk audit log. |
+| Acceptance criteria | PJ tidak dapat mengaktifkan semester; satu kelas tidak pernah memiliki dua semester aktif; aktivasi mengisi `published_at`; kegagalan transaksi mempertahankan semester aktif lama; aktivasi masuk audit log. |
 
 ### FR-SEM-004 Akses Semester Arsip
 
@@ -153,7 +155,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-SEM-001; BR-SEM-001, BR-SEM-003 |
 | Requirement | Sistem harus mempertahankan semester lama sebagai arsip hanya-baca dengan jadwal, tugas, materi, penugasan, dan riwayatnya. |
-| Acceptance criteria | Operasi perubahan biasa pada semester arsip ditolak; data lama tetap dapat dicari sesuai izin; pemulihan administratif dicatat terpisah. |
+| Acceptance criteria | Operasi perubahan biasa pada semester arsip ditolak; mahasiswa dengan kode kelas aktif dapat membaca semester arsip yang berstatus terbit; data yang belum pernah dipublikasikan tetap tersembunyi; pemulihan administratif dicatat terpisah. |
 
 ## 4. Jadwal Perkuliahan
 
@@ -164,7 +166,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | Semua aktor |
 | Prioritas | Must |
 | Sumber | UR-SCH-001, UR-SCH-003, UR-SCH-008; BR-SCH-001; UF-PORTAL-002 |
-| Requirement | Sistem harus menggabungkan jadwal reguler dengan perubahan aktif untuk menghasilkan jadwal efektif pada tanggal yang dipilih. |
+| Requirement | Sistem harus mengembangkan `schedule_patterns` pada tanggal yang dipilih lalu menerapkan `teaching_events` terbit untuk menghasilkan jadwal efektif. |
 | Acceptance criteria | Setiap entri menampilkan nama mata kuliah, jenis, jam mulai dan selesai, dosen, serta ruangan; label membedakan reguler, pengganti, tambahan, libur, dan dibatalkan tanpa mengandalkan warna saja. |
 
 ### FR-SCH-002 Pengelolaan Jadwal Reguler Manual
@@ -184,8 +186,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM |
 | Prioritas | Must |
 | Sumber | UR-SCH-003, UR-SCH-004; BR-SCH-001, BR-SCH-002; UF-SCH-002 |
-| Requirement | Pengurus dapat membuat, mengubah, dan menghapus draf perubahan sementara atau permanen sebelum publikasi. |
-| Acceptance criteria | Draf tidak terlihat di portal dan tidak memicu pesan; perubahan sementara memilih sesi atau tanggal; perubahan permanen menetapkan tanggal mulai berlaku. |
+| Requirement | Pengurus dapat membuat, mengubah, dan menghapus draf `teaching_event` untuk sesi pengganti, tambahan, libur, atau pembatalan akademik sebelum publikasi. |
+| Acceptance criteria | Draf tidak terlihat di portal dan tidak memicu pesan; event tambahan boleh tanpa pola asal; event pengganti atau pembatalan menunjuk pola dan tanggal kejadian asal; perubahan permanen membuat versi pola baru. |
 
 ### FR-SCH-004 Preview dan Pemeriksaan Konflik
 
@@ -204,7 +206,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM |
 | Prioritas | Must |
 | Sumber | UR-SCH-006; BR-SCH-003, BR-SCH-004; UF-SCH-002, UF-SCH-003 |
-| Requirement | PJ dapat memublikasikan perubahan pada mata kuliah penugasannya dan KM pada seluruh mata kuliah kelasnya. Publikasi harus memperbarui portal dan membuat notifikasi dengan identitas unik. |
+| Requirement | PJ dapat memublikasikan teaching event pada mata kuliah penugasannya dan KM pada seluruh mata kuliah kelasnya. Publikasi mengubah lifecycle menjadi `PUBLISHED`, memperbarui portal, dan membuat notifikasi dengan identitas unik. |
 | Acceptance criteria | Publikasi tidak memerlukan persetujuan KM; pelaku dan versi tersimpan; percobaan ulang dengan identitas sama tidak membuat data atau pesan ganda; kegagalan WhatsApp tidak membatalkan publikasi web. |
 
 ### FR-SCH-006 Versi Jadwal Permanen
@@ -214,18 +216,28 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM |
 | Prioritas | Must |
 | Sumber | UR-SCH-003, UR-SCH-006; BR-SCH-001, BR-SCH-004; UF-SCH-003 |
-| Requirement | Publikasi perubahan permanen harus menutup versi jadwal lama dan mengaktifkan versi baru sejak tanggal berlaku tanpa menghapus riwayat. |
+| Requirement | Publikasi perubahan permanen harus menutup versi `schedule_pattern` lama dan mengaktifkan versi baru sejak tanggal berlaku tanpa menghapus riwayat. |
 | Acceptance criteria | Tanggal berlaku harus berada pada semester aktif; sesi sebelum tanggal tersebut tetap menggunakan versi lama; konflik dengan perubahan sementara harus diselesaikan sebelum publikasi. |
 
-### FR-SCH-007 Pembatalan dan Koreksi
+### FR-SCH-007 Pencabutan Publikasi dan Koreksi
 
 | Atribut | Ketentuan |
 |---|---|
 | Aktor | KM |
 | Prioritas | Must |
 | Sumber | UR-SCH-007; BR-SCH-005, BR-SCH-006; UF-SCH-004 |
-| Requirement | KM dapat membatalkan perubahan terbit pada kelasnya setelah melihat jadwal yang akan kembali berlaku dan memasukkan alasan. |
-| Acceptance criteria | Publikasi awal tetap tersimpan; perubahan berstatus `Cancelled`; pembatalan kedua ditolak; portal kembali menampilkan jadwal yang berlaku; perubahan yang sudah disiarkan menghasilkan notifikasi koreksi. |
+| Requirement | KM dapat mencabut teaching event terbit pada kelasnya setelah melihat jadwal yang akan kembali berlaku dan memasukkan alasan. Pembatalan sesi akademik tetap direpresentasikan sebagai `SESSION_CANCELLED`, bukan pencabutan publikasi. |
+| Acceptance criteria | Publikasi awal tetap tersimpan; lifecycle berubah menjadi `REVOKED`; pencabutan kedua ditolak; portal kembali menampilkan jadwal yang berlaku; informasi yang sudah disiarkan menghasilkan notifikasi koreksi. |
+
+### FR-SCH-008 Perkuliahan Lintas Kelas
+
+| Atribut | Ketentuan |
+|---|---|
+| Aktor | KM kelas pemilik dan KM kelas peserta |
+| Prioritas | Must |
+| Sumber | UR-SCH-009; BR-SCH-008 |
+| Requirement | Satu teaching event dapat ditautkan ke beberapa course offering tanpa menduplikasi event. Satu kelas menjadi pemilik dan setiap kelas peserta memiliki status partisipasi sendiri. |
+| Acceptance criteria | KM pemilik mengubah acara utama; partisipasi baru berstatus `PENDING`; KM peserta dapat `ACCEPTED`, `DECLINED`, atau `REMOVED`; event hanya tampil pada kelas peserta setelah diterima; KM peserta dapat melepas kelasnya tanpa mengubah acara utama. |
 
 ## 5. Tugas dan Materi
 
@@ -247,17 +259,17 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-TASK-002, UR-TASK-005; BR-TASK-001, BR-TASK-003; UF-TASK-001 |
 | Requirement | Sistem harus menampilkan preview dan memvalidasi data minimum sebelum tugas dapat dipublikasikan. |
-| Acceptance criteria | Publikasi langsung menghasilkan status `Published` jika approval tidak aktif; tugas muncul di portal dengan detail lengkap; sistem mencatat pelaku dan menjadwalkan pengingat. |
+| Acceptance criteria | Publikasi langsung menghasilkan status `PUBLISHED`; tugas muncul di portal dengan detail lengkap; sistem mencatat pelaku, membuat review state awal `NOT_REVIEWED`, dan menjadwalkan pengingat. |
 
-### FR-TASK-003 Persetujuan Tugas per Kelas
+### FR-TASK-003 Review Tugas oleh KM
 
 | Atribut | Ketentuan |
 |---|---|
 | Aktor | KM, PJ |
 | Prioritas | Must |
 | Sumber | UR-TASK-005; BR-TASK-003; UF-TASK-002 |
-| Requirement | KM dapat mengaktifkan atau menonaktifkan kebijakan approval tugas untuk kelasnya. Saat aktif, publikasi PJ menghasilkan antrean persetujuan. |
-| Acceptance criteria | Tugas berstatus `Pending Approval` belum terlihat oleh mahasiswa; KM dapat menyetujui atau mengembalikan dengan catatan; versi yang berubah saat ditinjau harus dimuat ulang sebelum keputusan. |
+| Requirement | KM harus dapat mereview tugas yang sudah dipublikasikan PJ tanpa menghambat publikasi awal. KM dapat menyetujui, meminta koreksi, atau membatalkan. |
+| Acceptance criteria | Setiap keputusan menambah `task_review`; `CHANGES_REQUESTED` mengembalikan tugas ke `DRAFT`; `REVOKED` mengakhiri publikasi; keduanya menarik tugas dari portal dan mewajibkan catatan; versi yang berubah saat ditinjau harus dimuat ulang sebelum keputusan. |
 
 ### FR-TASK-004 Daftar, Pengelompokan, dan Filter Tugas
 
@@ -286,8 +298,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM, System Admin sesuai cakupan |
 | Prioritas | Should |
 | Sumber | UR-TASK-006, UR-OPS-003; BR-TASK-002, BR-OPS-002; UF-TASK-003 |
-| Requirement | Pengurus dapat menandai tugas selesai, mengarsipkan, melakukan soft delete, dan memulihkan tugas sesuai kewenangan. |
-| Acceptance criteria | Data tidak hilang dari audit; tugas `Completed` dan `Overdue` dapat ditemukan di arsip; pemulihan mengaktifkan data tanpa menghapus catatan penghapusan. |
+| Requirement | Pengurus dapat menandai hasil tugas, mengarsipkan melalui `archived_at`, melakukan soft delete, dan memulihkan tugas sesuai kewenangan. |
+| Acceptance criteria | Status hasil `PUBLISHED`, `COMPLETED`, atau `OVERDUE` tidak ditimpa oleh pengarsipan; data tidak hilang dari audit; pemulihan tidak menghapus catatan penghapusan. |
 
 ### FR-TASK-007 Materi dan Tautan Mata Kuliah
 
@@ -296,8 +308,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM, mahasiswa |
 | Prioritas | Should |
 | Sumber | UR-TASK-007; BR-TASK-005 |
-| Requirement | Pengurus dapat menambah dan mengelompokkan materi atau tautan berdasarkan kelas, semester, dan mata kuliah. Mahasiswa dapat membukanya dari halaman mata kuliah atau detail tugas jika akses diizinkan. |
-| Acceptance criteria | Tautan sensitif memerlukan akses kelas valid; PJ tidak dapat menambah materi di luar cakupan; pengarsipan semester tidak menghapus materi lama. |
+| Requirement | Pengurus dapat menambah materi atau tautan dengan scope kelas umum atau course offering tertentu. Mahasiswa dapat membukanya dari halaman materi, mata kuliah, atau detail tugas jika akses diizinkan. |
+| Acceptance criteria | `class_id` selalu wajib dan `course_offering_id` opsional; PJ hanya dapat membuat materi pada offering penugasannya; KM dapat membuat materi umum kelas; pengarsipan semester tidak menghapus materi lama. |
 
 ## 6. Notifikasi WhatsApp
 
@@ -351,6 +363,16 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Requirement | KM dapat mengatur waktu pengiriman ringkasan pagi dan pengingat sore untuk kelasnya dengan zona waktu kelas. |
 | Acceptance criteria | Perubahan hanya memengaruhi kelas terkait; sistem menampilkan waktu dan zona waktu aktif; jadwal baru berlaku pada proses pengiriman berikutnya. |
 
+### FR-NOTIF-006 Pengingat Kelas Pengganti
+
+| Atribut | Ketentuan |
+|---|---|
+| Aktor | Sistem, mahasiswa sebagai penerima |
+| Prioritas | Must |
+| Sumber | UR-NOTIF-006; BR-NOTIF-005 |
+| Requirement | Sistem harus menjadwalkan pengingat sebelum teaching event berjenis pengganti yang masih berstatus `PUBLISHED`. |
+| Acceptance criteria | Waktu pengingat mengikuti konfigurasi kelas; event `REVOKED` tidak dikirim; perubahan waktu event memperbarui pesan yang masih tertunda; idempotency key mencegah pengiriman ganda. |
+
 ## 7. Ruangan
 
 ### FR-ROOM-001 Pencarian Kandidat Ruangan
@@ -370,8 +392,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | PJ, KM |
 | Prioritas | Should |
 | Sumber | UR-ROOM-002; BR-ROOM-003; UF-ROOM-001 |
-| Requirement | Pengurus dapat mencatat hasil konfirmasi TU untuk ruangan dan kebutuhan jadwal tertentu. |
-| Acceptance criteria | Catatan menyimpan pelaku dan waktu; ruangan yang dikonfirmasi dapat dipilih pada form jadwal; catatan tidak mengubah master ruangan. |
+| Requirement | Pengurus membuat teaching event draf sebelum menghubungi TU secara manual, lalu mencatat hasil konfirmasi pada draf tersebut. |
+| Acceptance criteria | Catatan menyimpan status, ruangan, nama petugas atau keterangan sumber, catatan, pelaku pencatat, dan waktu; hanya hasil `CONFIRMED` yang memenuhi syarat publikasi ketika ruangan diperlukan; catatan tidak mengubah master ruangan. |
 
 ### FR-ROOM-003 Pengelolaan Master Ruangan
 
@@ -392,8 +414,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | Sistem |
 | Prioritas | Must |
 | Sumber | UR-AUDIT-001, UR-AUDIT-002; BR-AUDIT-001 |
-| Requirement | Sistem harus mencatat tindakan yang ditetapkan pada BR-AUDIT-001 dengan pelaku, waktu, cakupan, jenis tindakan, serta data sebelum dan sesudah jika relevan. |
-| Acceptance criteria | Publikasi dan pembatalan memiliki catatan terpisah yang saling terhubung; perubahan peran mempertahankan identitas pemberi serta penerima; kegagalan transaksi tidak menghasilkan catatan sukses. |
+| Requirement | Sistem harus mencatat tindakan yang ditetapkan pada BR-AUDIT-001 dengan pengguna, role assignment aktif atau snapshot konteks sistem, waktu, cakupan, objek, serta data sebelum dan sesudah jika relevan. |
+| Acceptance criteria | Pengguna multi-role menghasilkan audit sesuai konteks yang dipilih; publikasi dan pencabutan memiliki catatan terpisah yang saling terhubung; perubahan peran mempertahankan identitas pemberi serta penerima; kegagalan transaksi tidak menghasilkan catatan sukses. |
 
 ### FR-AUDIT-002 Penelusuran Audit Berdasarkan Cakupan
 
@@ -504,7 +526,7 @@ Aturan berikut berlaku pada seluruh functional requirement:
 1. Backend memeriksa autentikasi dan cakupan pada setiap operasi perubahan.
 2. Operasi yang mengubah beberapa data terkait harus bersifat atomik atau dapat dikembalikan ke keadaan sebelum proses.
 3. Waktu ditampilkan dalam zona waktu kelas dan disimpan dengan informasi zona waktu yang tidak ambigu.
-4. Operasi publikasi, pembatalan, penghapusan, pemulihan, dan perubahan peran harus menghasilkan audit log.
+4. Operasi publikasi, pencabutan publikasi, pembatalan sesi akademik, penghapusan, pemulihan, dan perubahan peran harus menghasilkan audit log.
 5. Sistem tidak boleh menampilkan data dari kelas atau semester lain akibat manipulasi URL, payload, atau konteks antarmuka.
 6. Non-functional requirement untuk keamanan, kinerja, keandalan, dan deployment tetap mengikuti [PRD bagian 9](../PRD.md#9-kebutuhan-non-fungsional).
 
@@ -514,9 +536,9 @@ Aturan berikut berlaku pada seluruh functional requirement:
 |---|---|---|---|
 | `FR-ACCESS` | UR-ACCESS-001 sampai UR-ACCESS-006 | BR-ACCESS-001 sampai BR-ACCESS-006, BR-CLASS-002 | UF-ACCESS-001 sampai UF-ACCESS-006, UF-PORTAL-001 |
 | `FR-CLASS`, `FR-SEM` | UR-CLASS-001 sampai UR-SEM-003 | BR-CLASS-001 sampai BR-SEM-005 | UF-ACCESS-001, UF-SEM-001 sampai UF-SEM-002 |
-| `FR-SCH` | UR-SCH-001 sampai UR-SCH-008 | BR-SCH-001 sampai BR-SCH-007 | UF-PORTAL-002, UF-SCH-001 sampai UF-SCH-004 |
+| `FR-SCH` | UR-SCH-001 sampai UR-SCH-009 | BR-SCH-001 sampai BR-SCH-008 | UF-PORTAL-002, UF-SCH-001 sampai UF-SCH-005 |
 | `FR-TASK` | UR-TASK-001 sampai UR-TASK-007 | BR-TASK-001 sampai BR-TASK-005, BR-OPS-002 | UF-PORTAL-002, UF-TASK-001 sampai UF-TASK-003 |
-| `FR-NOTIF` | UR-NOTIF-001 sampai UR-NOTIF-005 | BR-NOTIF-001 sampai BR-NOTIF-004 | UF-SCH-002, UF-SCH-004, UF-OPS-001 |
+| `FR-NOTIF` | UR-NOTIF-001 sampai UR-NOTIF-006 | BR-NOTIF-001 sampai BR-NOTIF-005 | UF-SCH-002, UF-SCH-004, UF-OPS-001 |
 | `FR-ROOM` | UR-ROOM-001 sampai UR-ROOM-003 | BR-ROOM-001 sampai BR-ROOM-003 | UF-ROOM-001 |
 | `FR-AUDIT`, `FR-OPS` | UR-AUDIT-001 sampai UR-OPS-004 | BR-AUDIT-001 sampai BR-OPS-004 | UF-OPS-001 sampai UF-OPS-003 |
 | `FR-UX` | UR-UX-001 sampai UR-UX-004 | Aturan lintas fitur dan PRD bagian 8 | Flow terkait pada setiap operasi |
@@ -532,3 +554,13 @@ Functional requirement siap masuk desain dan engineering jika:
 5. Perubahan status data dan kebutuhan audit telah ditentukan.
 
 Perubahan requirement tidak menghapus ID lama. Requirement yang tidak lagi berlaku diberi status `Deprecated` dan menunjuk ID penggantinya.
+
+Matriks per requirement tersedia pada [Traceability Matrix](TRACEABILITY.md).
+
+## 13. Changelog
+
+### 2.0.0, 23 September 2026
+
+- Menetapkan dokumen ini sebagai satu-satunya sumber ID `FR-*`.
+- Menambah perkuliahan lintas kelas dan pengingat kelas pengganti.
+- Menyelaraskan lifecycle jadwal, review tugas, sesi portal, semester arsip, konfirmasi TU, materi umum, dan konteks audit.

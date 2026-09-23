@@ -10,17 +10,17 @@ Berikut adalah 11 dokumen transkripsi wawancara lengkap:
 
 | No | Nama Responden | Peran / Jabatan | Label / ID | Pewawancara | Berkas Dokumentasi |
 |---|---|---|---|---|---|
-| 01 | **Iman** | PJ SDB (Sistem Basis Data) Teori | [19] | jocelyn | [01_iman_pj_matkul_sdb_teori.md](file:///f:/Project/bot-jadwal/docs/user-interviews/01_iman_pj_matkul_sdb_teori.md) |
-| 02 | **Arsel** | PJ OS (Sistem Operasi) Praktek | [19] | jocelyn | [02_arsel_pj_matkul_os_praktek.md](file:///f:/Project/bot-jadwal/docs/user-interviews/02_arsel_pj_matkul_os_praktek.md) |
-| 03 | **Irfan** | PJ OS (Sistem Operasi) Teori | [19] | jocelyn | [03_irfan_pj_matkul_os_teori.md](file:///f:/Project/bot-jadwal/docs/user-interviews/03_irfan_pj_matkul_os_teori.md) |
-| 04 | **Afzhal** | PJ Matdis (Matematika Diskrit) Praktek | [19] | Faqih23 | [04_afzhal_pj_matkul_matdis_praktek.md](file:///f:/Project/bot-jadwal/docs/user-interviews/04_afzhal_pj_matkul_matdis_praktek.md) |
-| 05 | **Faqih** | PJ SDB (Sistem Basis Data) Praktek | [18] | Faqih23 | [05_faqih_pj_matkul_sdb_praktek.md](file:///f:/Project/bot-jadwal/docs/user-interviews/05_faqih_pj_matkul_sdb_praktek.md) |
-| 06 | **Imam** | Ketua Murid / KM (Ketua Kelas) | [19] | jocelyn | [06_iman_km.md](file:///f:/Project/bot-jadwal/docs/user-interviews/06_iman_km.md) |
-| 07 | **Hana** | PJ Alin (Aljabar Linier) Teori | [19] | jocelyn | [07_hana_pj_matkul_alin_teori.md](file:///f:/Project/bot-jadwal/docs/user-interviews/07_hana_pj_matkul_alin_teori.md) |
-| 08 | **Anindya** | PJ Alin (Aljabar Linier) Praktik | [19] | jocelyn | [08_anindya_pj_matkul_alin_praktik.md](file:///f:/Project/bot-jadwal/docs/user-interviews/08_anindya_pj_matkul_alin_praktik.md) |
-| 09 | **Giza** | PJ Alin (Aljabar Linier) Teori | [19] | jocelyn | [09_giza_pj_matkul_alin_teori.md](file:///f:/Project/bot-jadwal/docs/user-interviews/09_giza_pj_matkul_alin_teori.md) |
-| 10 | **Kemal** | PJ PLP Teori | [20] | jocelyn | [10_kemal_pj_matkul_plp_teori.md](file:///f:/Project/bot-jadwal/docs/user-interviews/10_kemal_pj_matkul_plp_teori.md) |
-| 11 | **Bima** | PJ PLP Praktik | [21] | jocelyn | [11_bima_pj_matkul_plp_praktik.md](file:///f:/Project/bot-jadwal/docs/user-interviews/11_bima_pj_matkul_plp_praktik.md) |
+| 01 | **Iman** | PJ SDB (Sistem Basis Data) Teori | [19] | jocelyn | [01_iman_pj_matkul_sdb_teori.md](01_iman_pj_matkul_sdb_teori.md) |
+| 02 | **Arsel** | PJ OS (Sistem Operasi) Praktek | [19] | jocelyn | [02_arsel_pj_matkul_os_praktek.md](02_arsel_pj_matkul_os_praktek.md) |
+| 03 | **Irfan** | PJ OS (Sistem Operasi) Teori | [19] | jocelyn | [03_irfan_pj_matkul_os_teori.md](03_irfan_pj_matkul_os_teori.md) |
+| 04 | **Afzhal** | PJ Matdis (Matematika Diskrit) Praktek | [19] | Faqih23 | [04_afzhal_pj_matkul_matdis_praktek.md](04_afzhal_pj_matkul_matdis_praktek.md) |
+| 05 | **Faqih** | PJ SDB (Sistem Basis Data) Praktek | [18] | Faqih23 | [05_faqih_pj_matkul_sdb_praktek.md](05_faqih_pj_matkul_sdb_praktek.md) |
+| 06 | **Imam** | Ketua Murid / KM (Ketua Kelas) | [19] | jocelyn | [06_iman_km.md](06_iman_km.md) |
+| 07 | **Hana** | PJ Alin (Aljabar Linier) Teori | [19] | jocelyn | [07_hana_pj_matkul_alin_teori.md](07_hana_pj_matkul_alin_teori.md) |
+| 08 | **Anindya** | PJ Alin (Aljabar Linier) Praktik | [19] | jocelyn | [08_anindya_pj_matkul_alin_praktik.md](08_anindya_pj_matkul_alin_praktik.md) |
+| 09 | **Giza** | PJ Alin (Aljabar Linier) Teori | [19] | jocelyn | [09_giza_pj_matkul_alin_teori.md](09_giza_pj_matkul_alin_teori.md) |
+| 10 | **Kemal** | PJ PLP Teori | [20] | jocelyn | [10_kemal_pj_matkul_plp_teori.md](10_kemal_pj_matkul_plp_teori.md) |
+| 11 | **Bima** | PJ PLP Praktik | [21] | jocelyn | [11_bima_pj_matkul_plp_praktik.md](11_bima_pj_matkul_plp_praktik.md) |
 
 ---
 

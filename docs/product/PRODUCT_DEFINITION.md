@@ -4,13 +4,13 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 0.3 |
+| Versi | 1.0.0 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
 | Sumber utama | Wawancara 11 pengguna, PRD, dan implementasi saat ini |
 
-Dokumen ini mendefinisikan arah produk, aktor, akses, struktur kelas, alur utama, dan aturan bisnis Bot Jadwal. Baseline versi 0.3 telah disetujui, tetapi dokumen tetap bersifat hidup dan dapat diperbarui melalui Git. Status `Proposed` digunakan untuk usulan baru yang belum disetujui. Status `Approved` diberikan setelah keputusan dibahas dan diterima tim.
+Dokumen ini menjadi sumber arah produk, aktor, akses, struktur kelas, alur utama, dan keputusan produk Bot Jadwal. Dokumen tetap dapat diperbarui melalui Git; perubahan keputusan wajib memperbarui dokumen turunannya dan dicatat pada changelog.
 
 ## 1. Latar Belakang
 
@@ -59,7 +59,7 @@ PJ mengelola tugas, tautan, dan perubahan jadwal untuk mata kuliah yang ditugask
 
 ### 5.3 Ketua Murid
 
-Ketua Murid atau KM mengelola seluruh mata kuliah dalam kelasnya, menunjuk PJ, memantau perubahan penting, membatalkan publikasi yang keliru, mengaktifkan semester, dan menangani koreksi data kelas.
+Ketua Murid atau KM mengelola seluruh mata kuliah dalam kelasnya, menunjuk PJ, memantau perubahan penting, mencabut publikasi yang keliru, mengaktifkan semester, dan menangani koreksi data kelas.
 
 ### 5.4 System Admin
 
@@ -73,7 +73,7 @@ System Admin mengelola konfigurasi lintas kelas, membuat kelas, menunjuk KM awal
 |---|---|---|
 | Akses mahasiswa | Approved | Tanpa akun melalui tautan atau kode kelas, hanya-baca |
 | Akses PJ dan KM | Approved | Login wajib melalui akun yang diundang |
-| Akses System Admin | Approved | Login wajib dengan autentikasi lebih kuat |
+| Akses System Admin | Approved | Login kata sandi dengan sesi lebih singkat, rate limiting, dan pencabutan sesi dari server; MFA di luar MVP |
 | Verifikasi WhatsApp | Approved | Metode verifikasi atau pemulihan, bukan satu-satunya cara login |
 
 Halaman kelas dapat menggunakan alamat seperti `/c/d4-ti-2024-a`. Jika informasi kelas perlu dibatasi, sistem memberikan kode undangan yang disimpan di browser. Tautan rapat, nomor telepon, audit log, dan fungsi administrasi tidak ditampilkan pada halaman publik biasa.
@@ -109,7 +109,7 @@ Program Studi
         └── Tautan Materi
 ```
 
-Satu kelas hanya boleh memiliki satu semester aktif. Semester lama tetap tersedia sebagai arsip hanya-baca. Mata kuliah, PJ, jadwal, dan tugas selalu terikat pada kelas serta semester agar data tidak bercampur.
+Satu kelas hanya boleh memiliki satu semester aktif. Penugasan KM melekat pada kelas dan berlanjut lintas semester sampai masa berlakunya habis atau perannya dicabut. Semester lama yang pernah dipublikasikan tetap tersedia sebagai arsip hanya-baca melalui kode akses kelas yang aktif. Mata kuliah, PJ, jadwal, dan tugas selalu terikat pada kelas serta semester agar data tidak bercampur.
 
 ## 8. Struktur Informasi Aplikasi
 
@@ -165,7 +165,7 @@ flowchart TD
     G --> H[Bot mengirim pengingat sesuai jadwal]
 ```
 
-Rekomendasi awal: PJ dapat langsung memublikasikan tugas untuk mata kuliahnya. Persetujuan KM hanya diperlukan jika kelas mengaktifkan kebijakan approval tugas.
+PJ dapat langsung memublikasikan tugas untuk mata kuliahnya. Review KM merupakan kontrol wajib yang tidak menghambat publikasi awal: KM dapat menyetujui, meminta koreksi sekaligus menarik publikasi, atau membatalkan. Sistem menyimpan setiap keputusan sebagai riwayat review.
 
 ### 9.3 Perubahan Jadwal
 
@@ -182,11 +182,11 @@ flowchart TD
     H --> I[Kirim perbandingan jadwal ke WhatsApp]
     I --> J{KM menemukan kesalahan}
     J -->|Tidak| K[Perubahan tetap berlaku]
-    J -->|Ya| L[KM membatalkan perubahan]
-    L --> M[Catat pembatalan dan kirim koreksi]
+    J -->|Ya| L[KM mencabut publikasi]
+    L --> M[Catat pencabutan dan kirim koreksi]
 ```
 
-PJ dapat langsung memublikasikan perubahan untuk mata kuliah yang ditugaskan kepadanya. Setiap publikasi wajib masuk audit log. KM dapat membatalkan perubahan untuk seluruh mata kuliah pada kelas yang dikelolanya. Pembatalan tidak menghapus riwayat dan harus mengirimkan koreksi apabila perubahan sebelumnya sudah disiarkan.
+PJ dapat langsung memublikasikan kejadian perkuliahan untuk mata kuliah yang ditugaskan kepadanya. Pola reguler disimpan terpisah dari kejadian aktual. Satu kejadian dapat melibatkan beberapa course offering; satu kelas menjadi pemilik dan KM kelas peserta harus menerima partisipasi. Setiap publikasi wajib masuk audit log. KM dapat mencabut publikasi untuk seluruh mata kuliah pada kelas yang dikelolanya. Pencabutan tidak menghapus riwayat dan harus mengirimkan koreksi apabila data sebelumnya sudah disiarkan.
 
 ### 9.4 Pergantian Semester
 
@@ -207,7 +207,7 @@ JSON menjadi format impor massal, bukan sumber data utama setelah impor. Jadwal 
 
 ## 10. Aturan Bisnis
 
-Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [Business Rules v1.0](BUSINESS_RULES.md). Tabel berikut tetap menjadi baseline keputusan produk yang telah disetujui.
+Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [Business Rules](BUSINESS_RULES.md). Tabel berikut tetap menjadi baseline keputusan produk yang telah disetujui.
 
 | ID | Aturan | Status |
 |---|---|---|
@@ -224,11 +224,11 @@ Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [B
 | BR-SCH-002 | Perubahan jadwal penting harus melalui preview sebelum publikasi. | Approved |
 | BR-SCH-003 | Publikasi ulang tidak boleh mengirim notifikasi ganda. | Approved |
 | BR-SCH-004 | PJ dapat memublikasikan perubahan jadwal untuk mata kuliah yang ditugaskan kepadanya. | Approved |
-| BR-SCH-005 | KM dapat membatalkan perubahan jadwal pada kelas yang dikelolanya tanpa menghapus riwayat publikasi. | Approved |
+| BR-SCH-005 | KM dapat mencabut publikasi teaching event pada kelas yang dikelolanya tanpa menghapus riwayat. | Approved |
 | BR-SCH-006 | Pembatalan perubahan yang sudah disiarkan wajib dicatat dan diikuti notifikasi koreksi. | Approved |
 | BR-TASK-001 | Tugas wajib memiliki mata kuliah, judul, deadline, dan tempat pengumpulan. | Approved |
-| BR-TASK-002 | Tugas terlewat tidak dihapus otomatis, tetapi dipindahkan ke arsip. | Approved |
-| BR-TASK-003 | PJ dapat memublikasikan tugas pada mata kuliahnya tanpa persetujuan KM, kecuali kelas mengaktifkan kebijakan approval. | Approved |
+| BR-TASK-002 | Lewatnya deadline tidak mengarsipkan tugas otomatis; hasil dan waktu arsip disimpan terpisah. | Approved |
+| BR-TASK-003 | PJ dapat memublikasikan tugas langsung; KM wajib memiliki alur review retrospektif dan dapat menarik publikasi untuk koreksi. | Approved |
 | BR-AUDIT-001 | Tambah, ubah, hapus, publikasi, dan perubahan peran dicatat. | Approved |
 | BR-AUDIT-002 | Audit log dan arsip disimpan selama kelas aktif ditambah sekurangnya satu tahun akademik. | Approved |
 | BR-ROOM-001 | Status ruangan kosong merupakan rekomendasi internal yang perlu dikonfirmasi ke TU. | Approved |
@@ -242,10 +242,10 @@ Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [B
 stateDiagram-v2
     [*] --> Draft
     Draft --> Published: Dipublikasikan PJ atau KM
-    Published --> Cancelled: Dibatalkan KM
+    Published --> Revoked: Publikasi dicabut KM
     Published --> Completed: Waktu selesai
-    Completed --> Archived
-    Cancelled --> Archived
+    Revoked --> Draft: Dikoreksi
+    Completed --> [*]
 ```
 
 ### 11.2 Tugas
@@ -256,8 +256,10 @@ stateDiagram-v2
     Draft --> Published
     Published --> Completed: Ditandai selesai
     Published --> Overdue: Deadline lewat
-    Completed --> Archived
-    Overdue --> Archived
+    Published --> Revoked: Ditarik KM
+    Revoked --> Draft: Dikoreksi
+    Completed --> [*]
+    Overdue --> [*]
 ```
 
 ## 12. Notifikasi WhatsApp
@@ -291,13 +293,13 @@ Pesan perubahan jadwal menampilkan data sebelum dan sesudah. Pesan tugas hanya m
 |---|---|---|---|
 | OQ-001 | Apakah portal mahasiswa benar-benar publik? | Gunakan tautan atau kode kelas tanpa akun. | Approved |
 | OQ-002 | Bagaimana metode login pengurus? | Akun undangan dengan kata sandi, WhatsApp untuk verifikasi atau pemulihan. | Approved |
-| OQ-003 | Apakah semua tugas memerlukan persetujuan KM? | Tidak secara default; jadikan kebijakan per kelas. | Approved |
+| OQ-003 | Apakah semua tugas memerlukan persetujuan KM? | Review KM wajib tersedia tetapi tidak menghambat publikasi awal oleh PJ. | Approved |
 | OQ-004 | Siapa yang boleh mengaktifkan semester? | KM dan System Admin. | Approved |
-| OQ-005 | Apakah PJ boleh memublikasikan perubahan jadwal? | Ya, untuk mata kuliah yang ditugaskan. Publikasi dicatat dan KM dapat membatalkannya. | Approved |
+| OQ-005 | Apakah PJ boleh memublikasikan perubahan jadwal? | Ya, untuk mata kuliah yang ditugaskan. Publikasi dicatat dan KM dapat mencabut publikasinya. | Approved |
 | OQ-006 | Apakah mahasiswa dapat menandai tugas selesai secara pribadi? | Tunda sampai ada akun mahasiswa. | Approved |
 | OQ-007 | Apakah tautan rapat ditampilkan tanpa login? | Hanya melalui akses kelas yang valid. | Approved |
 | OQ-008 | Berapa lama audit log dan arsip disimpan? | Minimal selama kelas masih aktif ditambah satu tahun akademik. | Approved |
-| OQ-009 | Apakah satu akun dapat menjadi KM atau PJ di beberapa kelas? | Ya, dengan peran terpisah per kelas dan semester. | Approved |
+| OQ-009 | Apakah satu akun dapat menjadi KM atau PJ di beberapa kelas? | Ya. KM memakai penugasan per kelas yang berlanjut lintas semester; PJ memakai penugasan per course offering. | Approved |
 | OQ-010 | Siapa yang mengelola data ruangan lintas kelas? | System Admin, dengan masukan dari KM. | Approved |
 
 ## 15. Ukuran Keberhasilan Awal
@@ -323,3 +325,11 @@ Status yang digunakan:
 - `Deprecated`: tidak lagi berlaku tetapi tetap disimpan sebagai riwayat.
 
 Perubahan besar pada akses, struktur kelas, status data, dan aturan publikasi harus mencantumkan dampaknya terhadap PRD, data model, API, migrasi, dan pengujian.
+
+## 17. Changelog
+
+### 1.0.0, 23 September 2026
+
+- Menetapkan cakupan KM permanen pada kelas dan cakupan PJ pada course offering.
+- Menetapkan review tugas retrospektif, model jadwal terpadu, dan tata kelola perkuliahan lintas kelas.
+- Menetapkan sesi portal berbasis database, akses arsip melalui kode kelas aktif, dan autentikasi tanpa MFA untuk MVP.

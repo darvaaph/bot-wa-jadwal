@@ -4,16 +4,16 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0 |
-| Status | Draft untuk ditinjau |
+| Versi | 2.0.0 |
+| Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
-| Acuan produk | [Product Definition v0.3](PRODUCT_DEFINITION.md) |
-| Acuan kebutuhan | [User Requirements v1.0](USER_REQUIREMENTS.md) |
-| Acuan akses | [Access Control v1.0](ACCESS_CONTROL.md) |
-| Acuan aturan | [Business Rules v1.0](BUSINESS_RULES.md) |
-| Acuan fitur | [PRD v2.1](../PRD.md) |
-| Turunan sistem | [Functional Requirements v1.0](FUNCTIONAL_REQUIREMENTS.md) |
+| Acuan produk | [Product Definition](PRODUCT_DEFINITION.md) |
+| Acuan kebutuhan | [User Requirements](USER_REQUIREMENTS.md) |
+| Acuan akses | [Access Control](ACCESS_CONTROL.md) |
+| Acuan aturan | [Business Rules](BUSINESS_RULES.md) |
+| Acuan fitur | [PRD](../PRD.md) |
+| Turunan sistem | [Functional Requirements](FUNCTIONAL_REQUIREMENTS.md) |
 
 Dokumen ini menjelaskan langkah pengguna mencapai tujuan, termasuk alur alternatif, kondisi gagal, dan hasil akhir. User flow tidak menentukan detail tampilan akhir. Nama halaman dan kontrol dapat disesuaikan pada Information Architecture dan wireframe selama hasil serta aturan akses tetap sama.
 
@@ -220,14 +220,15 @@ flowchart LR
 1. Mahasiswa membuka `/c/{kelas}`.
 2. Sistem memeriksa mode akses kelas.
 3. Jika kelas menggunakan kode, mahasiswa memasukkan kode kelas.
-4. Sistem memberikan sesi portal hanya-baca.
+4. Sistem membuat sesi portal database dengan versi kode aktif.
 5. Portal membuka Ringkasan berisi jadwal hari ini, perubahan terbaru, dan tugas terdekat.
 
 **Alternatif dan kegagalan:**
 
 - Kode salah menampilkan pesan umum dan membatasi percobaan berulang.
 - Kelas tidak aktif menampilkan informasi bahwa portal belum tersedia.
-- Rotasi kode membatalkan akses portal lama sesuai kebijakan kelas.
+- Rotasi kode menaikkan versi dan membatalkan seluruh sesi portal lama.
+- Kode kelas aktif dapat membuka semester arsip yang pernah dipublikasikan dalam mode hanya-baca.
 
 **Hasil:** Mahasiswa melihat data kelas tanpa memperoleh akses administrasi.
 
@@ -277,32 +278,32 @@ flowchart LR
 **Alternatif dan kegagalan:**
 
 - PJ dapat memilih `Simpan Draf` tanpa menampilkan tugas ke mahasiswa.
-- Jika approval kelas aktif, publikasi mengubah status menjadi `Menunggu Persetujuan`.
 - Validasi gagal mempertahankan isian dan menandai kolom bermasalah.
 - Jika sesi berakhir, sistem meminta login ulang tanpa menghapus isian lokal.
 
-**Hasil:** Tugas berstatus draf, menunggu persetujuan, atau terbit sesuai tindakan dan kebijakan kelas.
+**Hasil:** Tugas berstatus draf atau terbit. Tugas terbit memiliki review state awal `NOT_REVIEWED`.
 
-### UF-TASK-002 KM Menyetujui Tugas Jika Approval Aktif
+### UF-TASK-002 KM Mereview Tugas Terbit
 
 **Aktor:** KM  
-**Prasyarat:** Kebijakan approval tugas aktif dan terdapat tugas menunggu.  
-**Pemicu:** KM membuka antrean persetujuan.  
+**Prasyarat:** Terdapat tugas yang dipublikasikan PJ pada kelas KM.
+**Pemicu:** KM membuka antrean review.
 **Requirement:** UR-TASK-005
 
 **Alur utama:**
 
-1. KM membuka detail tugas dan melihat pembuat serta isinya.
-2. KM memilih `Setujui`.
-3. Sistem memeriksa apakah tugas masih menunggu dan belum berubah.
-4. Sistem memublikasikan tugas, mencatat persetujuan, dan menjadwalkan pengingat.
+1. KM membuka detail tugas dan melihat pembuat, versi, status publikasi, serta isinya.
+2. KM memilih `Setujui`, `Minta Koreksi`, atau `Batalkan`.
+3. Sistem memeriksa apakah versi tugas belum berubah.
+4. Sistem menambahkan riwayat review beserta pelaku, waktu, dan catatan.
+5. Jika KM meminta koreksi atau membatalkan, sistem menarik tugas dari portal dan membatalkan notifikasi tertunda.
 
 **Alternatif dan kegagalan:**
 
-- KM dapat mengembalikan tugas dengan catatan perbaikan.
+- Catatan wajib untuk `Minta Koreksi` dan `Batalkan`.
 - Jika PJ mengubah tugas saat ditinjau, sistem meminta KM memuat versi terbaru.
 
-**Hasil:** Tugas terbit atau kembali kepada PJ untuk diperbaiki.
+**Hasil:** Tugas tetap terbit setelah disetujui atau kembali menjadi draf setelah publikasinya ditarik.
 
 ### UF-TASK-003 Mengubah, Mengarsipkan, dan Memulihkan Tugas
 
@@ -317,7 +318,7 @@ flowchart LR
 2. Pengguna memilih ubah, tandai selesai, arsipkan, atau hapus.
 3. Sistem meminta konfirmasi untuk tindakan yang menghilangkan tugas dari daftar aktif.
 4. Sistem menyimpan perubahan dan audit log.
-5. Tugas selesai atau terlewat tampil di arsip.
+5. Pengarsipan mengisi waktu arsip tanpa mengganti status hasil tugas.
 
 **Alternatif dan kegagalan:**
 
@@ -405,7 +406,7 @@ flowchart LR
 
 **Hasil:** Jadwal reguler baru berlaku sejak tanggal yang ditentukan.
 
-### UF-SCH-004 KM Membatalkan Perubahan Terbit
+### UF-SCH-004 KM Mencabut Publikasi Event
 
 **Aktor:** KM  
 **Prasyarat:** Perubahan jadwal telah dipublikasikan pada kelas KM.  
@@ -415,20 +416,44 @@ flowchart LR
 **Alur utama:**
 
 1. KM membuka detail perubahan dan riwayat publikasinya.
-2. KM memilih `Batalkan Perubahan`.
+2. KM memilih `Cabut Publikasi`.
 3. Sistem menampilkan jadwal yang akan kembali berlaku.
 4. KM memasukkan alasan dan mengonfirmasi.
-5. Sistem mengubah status menjadi dibatalkan tanpa menghapus publikasi lama.
-6. Sistem mencatat pembatalan dan pelaku.
+5. Sistem mengubah lifecycle menjadi `REVOKED` tanpa menghapus publikasi lama.
+6. Sistem mencatat pencabutan dan pelaku.
 7. Portal menampilkan jadwal yang kembali berlaku.
 8. Sistem mengirim atau mengantrekan notifikasi koreksi.
 
 **Alternatif dan kegagalan:**
 
-- Jika perubahan sudah dibatalkan, sistem tidak membuat pembatalan kedua.
+- Jika event sudah dicabut, sistem tidak membuat pencabutan kedua.
 - Jika jadwal dasar telah berubah, sistem meminta KM memeriksa versi terbaru sebelum melanjutkan.
 
 **Hasil:** Perubahan tidak lagi berlaku, riwayat tetap tersedia, dan mahasiswa menerima koreksi.
+
+### UF-SCH-005 Membuat Perkuliahan Lintas Kelas
+
+**Aktor:** KM kelas pemilik dan KM kelas peserta
+**Prasyarat:** Course offering tiap kelas tersedia pada periode yang sesuai.
+**Pemicu:** Perkuliahan akan dilaksanakan bersama.
+**Requirement:** UR-SCH-009
+
+**Alur utama:**
+
+1. KM pemilik membuat teaching event dan memilih course offering milik kelasnya.
+2. KM pemilik menambahkan kelas peserta yang relevan.
+3. Sistem membuat partisipasi berstatus `PENDING` tanpa menduplikasi event.
+4. KM peserta meninjau waktu, ruangan, mata kuliah, dan kelas pemilik.
+5. KM peserta menerima partisipasi.
+6. Setelah event dipublikasikan, sistem menampilkannya pada seluruh kelas dengan partisipasi `ACCEPTED`.
+
+**Alternatif dan kegagalan:**
+
+- KM peserta dapat menolak undangan atau melepas kelasnya kemudian.
+- KM peserta tidak dapat mengubah acara utama; koreksi diajukan kepada KM pemilik.
+- Event tidak muncul pada portal kelas peserta selama status masih `PENDING` atau `DECLINED`.
+
+**Hasil:** Satu teaching event digunakan bersama tanpa salinan jadwal yang dapat berbeda.
 
 ## 7. Semester
 
@@ -441,7 +466,7 @@ flowchart LR
 
 **Alur utama:**
 
-1. Pengguna memilih `Buat Semester` dan mengisi tahun akademik serta periode.
+1. Pengguna memilih `Buat Semester` dan mengisi tahun akademik, periode, tanggal mulai, serta tanggal selesai.
 2. Pengguna memilih `Impor JSON` dan memilih berkas.
 3. Sistem memvalidasi struktur, mata kuliah, jam, dosen, ruangan, dan duplikasi.
 4. Sistem menampilkan preview beserta peringatan.
@@ -468,7 +493,7 @@ flowchart LR
 
 **Alur utama:**
 
-1. Pengguna membuat semester sebagai draf.
+1. Pengguna membuat semester sebagai draf dengan tanggal mulai dan selesai.
 2. Pengguna memilih menyalin semester sebelumnya atau membuat mata kuliah manual.
 3. Jika menyalin, sistem menyalin struktur sebagai draf tanpa tugas dan publikasi lama.
 4. Pengguna memperbarui mata kuliah, dosen, PJ, hari, jam, dan ruangan.
@@ -494,12 +519,12 @@ flowchart LR
 
 **Alur utama:**
 
-1. Pengguna memilih tanggal, jam mulai, dan jam selesai.
+1. Pengguna membuat teaching event draf dengan tanggal, jam mulai, dan jam selesai.
 2. Sistem membandingkan penggunaan ruangan pada jadwal internal.
 3. Sistem menampilkan kandidat ruangan beserta sumber dan waktu pembaruan data.
-4. Pengguna memilih kandidat dan menghubungi TU.
-5. Pengguna mencatat hasil konfirmasi.
-6. Ruangan yang dikonfirmasi dapat dipakai pada form perubahan jadwal.
+4. Pengguna memilih kandidat lalu menghubungi TU secara manual.
+5. Pengguna mencatat status, nama petugas atau keterangan sumber, waktu, dan catatan konfirmasi pada draf.
+6. Event dengan ruangan `CONFIRMED` dapat dilanjutkan ke preview dan publikasi.
 
 **Alternatif dan kegagalan:**
 
@@ -591,7 +616,7 @@ flowchart LR
 | UF-ACCESS | UR-ACCESS-001 sampai UR-ACCESS-006 | Epic 1 |
 | UF-PORTAL | UR-ACCESS-001, UR-SCH-001, UR-TASK-002 | Struktur Informasi |
 | UF-TASK | UR-TASK-001 sampai UR-TASK-006 | Epic 4 |
-| UF-SCH | UR-SCH-002 sampai UR-SCH-007 | Epic 3 |
+| UF-SCH | UR-SCH-002 sampai UR-SCH-009 | Epic 3 |
 | UF-SEM | UR-SEM-001 sampai UR-SEM-003 | Epic 2 |
 | UF-ROOM | UR-ROOM-001 dan UR-ROOM-002 | Epic 6 |
 | UF-OPS | UR-NOTIF-005, UR-OPS-001 sampai UR-OPS-004 | Epic 7 dan NFR |
@@ -608,3 +633,11 @@ Sebuah flow siap diterjemahkan menjadi desain dan implementasi ketika:
 6. Tidak ada langkah yang bergantung pada keputusan produk yang belum terdokumentasi.
 
 Perubahan alur yang memengaruhi hak akses, status data, atau publikasi harus memperbarui Product Definition, User Requirements, Access Control, PRD, dan test case terkait.
+
+## 12. Changelog
+
+### 2.0.0, 23 September 2026
+
+- Mengubah approval tugas menjadi review retrospektif dan pencabutan publikasi.
+- Menambah alur perkuliahan lintas kelas dan sesi portal berbasis versi kode.
+- Mengubah alur ruangan agar teaching event draf dibuat sebelum konfirmasi manual dengan TU.
