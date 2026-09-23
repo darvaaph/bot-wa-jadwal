@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 3.0.1 |
+| Versi | 3.0.2 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -552,7 +552,7 @@ Audit log bersifat append-only. Operasi aplikasi biasa tidak menyediakan update 
 
 ### 9.2 `import_batches` dan `import_errors`
 
-`import_batches` menyimpan kelas, semester tujuan, tipe sumber, checksum berkas, status, pembuat, waktu, dan ringkasan jumlah baris. Status: `UPLOADED`, `VALIDATING`, `INVALID`, `READY`, `APPLIED`, `FAILED`.
+`import_batches` menyimpan kelas, semester tujuan, tipe sumber, checksum berkas, status, pembuat, waktu, dan `summary_json`. Kolom `summary_json` disimpan sebagai TEXT berisi JSON dan memuat, sesuai tahap pemrosesan, `total_rows`, `valid_rows`, `warning_rows`, `error_rows`, serta `applied_rows`. Status: `UPLOADED`, `VALIDATING`, `INVALID`, `READY`, `APPLIED`, `FAILED`.
 
 `import_errors` menyimpan `batch_id`, nomor baris atau lokasi JSON, field, kode error, pesan, dan tingkat `ERROR` atau `WARNING`. Hanya batch `READY` yang dapat diterapkan. Penerapan berjalan dalam satu transaksi dan tidak menulis sebagian data aktif.
 
@@ -677,6 +677,10 @@ Setiap tahap harus memiliki foreign key aktif, migration test, rollback plan, da
 Data model siap diterjemahkan menjadi migration SQL ketika seluruh foreign key dan status telah disetujui, mapping data lama tersedia, aturan unik dapat diterapkan di SQLite, query otorisasi utama telah ditentukan, dan setiap proses penting memiliki strategi transaksi serta audit. Perubahan skema yang mengubah arti role, status, publikasi, atau retensi wajib memperbarui Business Rules dan Functional Requirements.
 
 ## 18. Changelog
+
+### 3.0.2, 23 September 2026
+
+- Menetapkan `import_batches.summary_json` sebagai penyimpanan ringkasan jumlah baris impor dan menyelaraskannya dengan ERD.
 
 ### 3.0.1, 23 September 2026
 

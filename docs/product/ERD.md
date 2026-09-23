@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 3.0.1 |
+| Versi | 3.0.2 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -544,6 +544,7 @@ erDiagram
         string status
         int created_by_user_id FK
         datetime created_at
+        json summary_json
     }
     importErrors["import_errors"] {
         int id PK
@@ -614,6 +615,10 @@ Rincian lengkapnya tersedia pada [Data Model](DATA_MODEL.md), [Business Rules](B
 5. Ubah sumber Mermaid dalam repository lebih dahulu agar diagram hasil ekspor tidak menjadi sumber kebenaran terpisah.
 
 ## 11. Changelog
+
+### 3.0.2, 23 September 2026
+
+- Menambahkan `import_batches.summary_json` agar ringkasan jumlah baris impor pada Data Model terwakili di ERD.
 
 ### 3.0.1, 23 September 2026
 
