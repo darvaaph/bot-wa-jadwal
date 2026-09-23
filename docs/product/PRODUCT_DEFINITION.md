@@ -207,6 +207,8 @@ JSON menjadi format impor massal, bukan sumber data utama setelah impor. Jadwal 
 
 ## 10. Aturan Bisnis
 
+Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [Business Rules v1.0](BUSINESS_RULES.md). Tabel berikut tetap menjadi baseline keputusan produk yang telah disetujui.
+
 | ID | Aturan | Status |
 |---|---|---|
 | BR-ACCESS-001 | Semua perubahan data memerlukan pengguna terautentikasi. | Approved |

@@ -1,294 +1,371 @@
-# Product Requirements Document (PRD)
-# Bot Jadwal v2.0 & Web Admin Dashboard
+# Product Requirements Document Bot Jadwal v2.1
 
-* **Status:** Draft disetujui untuk implementasi
-* **Versi:** 2.0.0
-* **Tanggal:** 21 September 2026
-* **Penulis:** Tim Pengembang bot-jadwal (Berdasarkan Riset 11 Responden Pengguna)
-* **Target Rilis:** Semester Ganjil 2026/2027
-* **Teknologi Utama:** Go (Backend REST API & Embedded Web Server), SQLite WAL Mode, Tailwind CSS CDN, Alpine.js, WhatsApp Automation Engine
+## Status Dokumen
 
----
+| Atribut | Nilai |
+|---|---|
+| Versi | 2.1.0 |
+| Status | Approved |
+| Tanggal | 23 September 2026 |
+| Pemilik | Tim Bot Jadwal |
+| Target awal | Semester Ganjil 2026/2027 |
+| Acuan produk | [Product Definition v0.3](product/PRODUCT_DEFINITION.md) |
+| Acuan kebutuhan | [User Requirements v1.0](product/USER_REQUIREMENTS.md) |
+| Sumber riset | [Wawancara 11 pengguna](user-interviews/README.md) |
 
-## 1. Ringkasan Eksekutif dan Latar Belakang
+PRD ini menetapkan hasil yang harus disediakan produk, batas ruang lingkup, prioritas, serta kriteria keberhasilan. Product Definition menjadi sumber keputusan alur dan aturan. User Requirements menjadi sumber kebutuhan pengguna. Detail tabel database, endpoint, dan keputusan implementasi dibahas dalam dokumen teknis terpisah.
 
-Sistem `bot-jadwal` versi 1.0 telah digunakan oleh mahasiswa kelas untuk menerima informasi jadwal perkuliahan harian melalui obrolan grup WhatsApp. Namun, evaluasi operasional dan riset mendalam terhadap 11 responden (Ketua Murid dan Penanggung Jawab Mata Kuliah) mengungkapkan sejumlah kelemahan mendasar:
+## 1. Ringkasan Produk
 
-1. **Obrolan Grup Menumpuk (*Chat Clutter*):** Interaksi penambahan tugas dan pembaruan jadwal dilakukan melalui perintah teks (*command*) manual langsung di dalam grup WhatsApp. Hal ini mengotori ruang obrolan, memicu miskomunikasi, dan membuat pengumuman penting tenggelam.
-2. **Keterbatasan Bot pada Jadwal Reguler:** Bot generasi pertama hanya mampu membaca jadwal perkuliahan statis. Ketika terjadi kuliah pengganti atau pergeseran jadwal dadakan, informasi di bot menjadi tidak akurat karena sistem tidak mendukung jadwal pengganti dinamis.
-3. **Kelelahan Mengingatkan Tugas (*Reminder Fatigue*):** PJ Matkul harus mengingatkan mahasiswa berkali-kali secara manual melalui chat grup, sementara informasi deadline sering tersebar di berbagai tempat (WhatsApp, Microsoft Teams, Google Classroom, dan slide dosen).
-4. **Pencarian Ruangan Kosong yang Merepotkan:** Mengatur kelas pengganti memakan waktu lama karena PJ harus mencocokkan jadwal dosen, jadwal mahasiswa, dan memeriksa ketersediaan ruangan kampus fisik ke pihak Tata Usaha (TU).
-5. **Ketiadaan Pembatasan Hak Akses (*Role Ambiguity*):** Tidak ada batas wewenang yang jelas antara siapa yang berhak mengubah jadwal dan tugas untuk mata kuliah tertentu, sehingga memicu risiko salah ubah data (*human error*).
+Bot Jadwal membantu mahasiswa menerima jadwal perkuliahan, perubahan jadwal, tugas, tautan, dan pengingat melalui WhatsApp. Versi saat ini masih banyak bergantung pada command. Hasil wawancara menunjukkan bahwa keluaran bot umumnya mudah dibaca, tetapi pengurus kesulitan menghafal format input, informasi sering terlambat diperbarui, dan aktivitas bot menambah kepadatan percakapan grup.
 
-Untuk mengatasi masalah tersebut, **Bot Jadwal v2.0** memindahkan seluruh aktivitas input, manipulasi data, dan konfigurasi dari chat WhatsApp ke sebuah **Web Admin Dashboard** yang ringan, responsif mobile, dan terstruktur. Bot WhatsApp kini murni bertindak sebagai mesin siaran (*broadcast engine*) dan pengingat otomatis satu arah ke grup kelas.
+Bot Jadwal v2.1 membagi tanggung jawab sistem sebagai berikut:
 
----
+- Portal web menjadi tempat mahasiswa membaca informasi kelas.
+- Dashboard pengelola menjadi tempat PJ dan KM mengelola data.
+- Backend Go dan SQLite menjadi sumber data utama.
+- Bot WhatsApp menjadi kanal siaran, pengingat, koreksi, dan jalur darurat.
+- System Admin mengelola konfigurasi lintas kelas dan pemulihan akses.
 
-## 2. Persona Pengguna
+## 2. Masalah Pengguna
 
-Berdasarkan riset pengguna terhadap 11 responden, pengguna sistem dibagi menjadi tiga kelompok persona utama:
+1. PJ harus menghafal command panjang untuk memperbarui tugas dan jadwal.
+2. Informasi akademik tersebar di WhatsApp, Teams, Classroom, email, dan slide dosen.
+3. Pesan penting mudah tenggelam di grup kelas yang ramai.
+4. Bot lama belum menyajikan siklus jadwal pengganti secara lengkap.
+5. Mencari ruangan kosong membutuhkan pencocokan manual dan konfirmasi TU.
+6. PJ harus mengingatkan mahasiswa berulang kali.
+7. Kewenangan PJ, KM, dan pengelola sistem belum dibatasi dengan jelas.
+8. Identitas kelas, semester, dan arsip semester lama belum dimodelkan secara konsisten.
 
-### Persona 1: Ketua Murid / KM (Pengawas & Koordinator Utama)
-* **Representasi Responden:** Imam (KM) `[19]`
-* **Karakteristik:** Bertanggung jawab atas koordinasi seluruh perkuliahan di kelas, hubungan dengan dosen, dan perizinan ruangan dengan Tata Usaha (TU).
-* **Tujuan:**
-  * Memastikan seluruh jadwal perkuliahan dan kelas pengganti berjalan tertib.
-  * Memiliki kendali penuh (*full access*) untuk memantau, memvalidasi, dan mengedit data seluruh mata kuliah.
-  * Meniadakan obrolan grup yang berantakan akibat teks perintah bot.
-* **Kebutuhan Kunci:**
-  * Fitur jadwal pengganti sementara dengan otomatis kembali (*auto-revert*) ke jadwal reguler.
-  * Alur validasi atau draf sebelum perubahan jadwal diumumkan massal ke grup.
-  * Log riwayat perubahan untuk melacak aktivitas pengubahan data oleh para PJ.
+## 3. Persona dan Peran
 
-### Persona 2: Penanggung Jawab Mata Kuliah / PJ Matkul (Operator Spesifik)
-* **Representasi Responden:** 
-  * Hana & Giza (PJ Alin Teori), Anindya (PJ Alin Praktik)
-  * Kemal (PJ PLP Teori), Bima (PJ PLP Praktik)
-  * Faqih (PJ SDB Praktik), Iman (PJ SDB Teori)
-  * Arsel (PJ OS Praktek), Irfan (PJ OS Teori), Afzhal (PJ Matdis Praktek)
-* **Karakteristik:** Mahasiswa yang bertugas mengurus satu mata kuliah tertentu, mencatat tugas dari dosen, dan mengumumkan deadline kepada kelas. Sering mengakses web dari ponsel di ruang kelas.
-* **Tujuan:**
-  * Mencatat tugas baru dan deadline dalam waktu singkat (< 30 detik) tanpa ribet menghafal format perintah teks bot.
-  * Menghilangkan beban mengingatkan teman-teman sekelas berkali-kali.
-* **Kebutuhan Kunci:**
-  * Formulir input terpandu berbasis dropdown dan kolom tempat pengumpulan tugas.
-  * Hak akses terisolasi pada mata kuliah yang menjadi tanggung jawabnya agar tidak bersenggolan dengan mata kuliah lain.
-  * Mode draf untuk mencatat perubahan jadwal tentatif sambil menunggu kepastian dosen.
+### 3.1 Mahasiswa
 
-### Persona 3: Mahasiswa Kelas (Penerima Manfaat / End-User)
-* **Karakteristik:** Seluruh anggota kelas yang membutuhkan kepastian jadwal dan tugas kuliah sehari-hari.
-* **Tujuan:**
-  * Mengetahui jadwal kuliah hari ini dan lokasi ruangan kelas sebelum berangkat ke kampus.
-  * Mengetahui daftar tugas aktif yang harus dikumpulkan dalam waktu dekat agar tidak terlambat mengumpulkan.
-* **Kebutuhan Kunci:**
-  * Siaran WhatsApp yang ringkas, jelas, dan tidak membanjiri ruang obrolan.
-  * Notifikasi perubahan jadwal yang menunjukkan perbandingan jadwal lama vs jadwal baru (*diff*).
-  * Pengingat tugas harian yang dikirim pada sore hari (saat pulang kuliah).
-  * Tautan web langsung (*deep-link*) untuk membaca rincian instruksi tugas tanpa harus mencari dokumen yang tercecer.
+Mahasiswa membutuhkan akses cepat tanpa akun untuk melihat jadwal, tugas, perubahan, ruangan, dan materi kelas. Mahasiswa memiliki akses hanya-baca melalui tautan atau kode kelas.
 
----
+### 3.2 PJ Mata Kuliah
 
-## 3. Tujuan Produk (Goals) & Batasan Ruang Lingkup (Non-Goals)
+PJ mengelola tugas, tautan, dan jadwal untuk mata kuliah yang ditugaskan. PJ dapat menyimpan draf dan langsung memublikasikan perubahan dalam cakupannya. Setiap publikasi dicatat.
 
-### A. Tujuan Produk (Goals)
-1. **Memindahkan 100% Interaksi Admin ke Web:** Tidak ada lagi perintah teks input (`/tambah`, `!jadwal`, dll) di dalam grup WhatsApp. Semua input dilakukan via web dashboard.
-2. **Otomatisasi Siaran Jadwal & Pengingat Tugas:** Menjalankan dua siklus pengingat terjadwal otomatis: pagi hari (pukul 06.00 WIB untuk jadwal hari ini) dan sore hari (pukul 17.00 WIB untuk pengingat tugas aktif).
-3. **Mendukung Siklus Hidup Jadwal Pengganti (*Full Lifecycle*):** Mendukung pencatatan jadwal pengganti dinamis, status draf, notifikasi perubahan komparatif, dan kembali otomatis ke jadwal semula (*auto-revert*).
-4. **Menerapkan Hak Akses Berbasis Peran (RBAC):** Membatasi hak edit PJ hanya pada mata kuliahnya masing-masing, sementara KM memegang wewenang penuh.
-5. **Format Pesan Ringkas & Terstruktur:** Pesan siaran di WhatsApp hanya memuat informasi esensial dan menyediakan tautan web menuju dashboard untuk rincian lengkap.
+### 3.3 Ketua Murid
 
-### B. Batasan Ruang Lingkup (Non-Goals)
-1. **Bukan Pengganti Learning Management System (LMS):** Sistem tidak melayani pengumpulan berkas tugas fisik mahasiswa, pengunggahan file tugas besar, atau sistem penilaian nilai (*grading*). Sistem hanya mencatat metadata tugas dan tautan portal pengumpulan.
-2. **Tidak Mengelola Acara Non-Akademik Eksternal:** Sistem tidak memfasilitasi pencatatan agenda organisasi mahasiswa (HIMA), buka bersama, atau acara santai di luar perkuliahan akademik agar jadwal tetap fokus.
-3. **Tidak Ada Generator Kelompok Tugas:** Sistem tidak memuat modul pembagian kelompok otomatis (*group generator*).
-4. **Tidak Ada Polling Internal di Web:** Fitur jajak pendapat tetap memanfaatkan polling bawaan WhatsApp yang sudah tersedia di grup.
-5. **Tidak Terintegrasi dengan Sistem Birokrasi Pusat Universitas:** Sistem beroperasi mandiri di level kelas/angkatan tanpa integrasi API resmi ke server kampus atau Tata Usaha pusat.
+KM mengelola semua mata kuliah pada kelas yang ditugaskan, menunjuk PJ, mengaktifkan semester, memantau perubahan, dan membatalkan publikasi yang keliru. Pembatalan tidak menghapus riwayat.
 
----
+### 3.4 System Admin
 
-## 4. Kebutuhan Fungsional (Functional Requirements)
+System Admin membuat kelas, menunjuk KM awal, mengelola master ruangan, menangani pemulihan akses, dan memantau sistem lintas kelas. Peran ini tidak digunakan untuk pekerjaan harian kelas kecuali dukungan atau pemulihan.
 
-### Epic 1: Autentikasi dan Manajemen Hak Akses (RBAC)
-* **Deskripsi:** Mengamankan akses web dashboard dan memastikan isolasi kewenangan antar-pengurus.
-* **Kebutuhan:**
-  * **FR-1.1:** Sistem mendukung dua tingkatan peran: `Ketua Murid (KM)` dan `Penanggung Jawab Mata Kuliah (PJ)`.
-  * **FR-1.2:** Pengguna dengan peran KM memiliki wewenang penuh (membaca, menambah, mengedit, menghapus, mempublikasikan) untuk seluruh mata kuliah kelas.
-  * **FR-1.3:** Pengguna dengan peran PJ hanya memiliki wewenang edit pada mata kuliah spesifik yang ditugaskan kepadanya. Pada mata kuliah lain, PJ hanya memiliki hak baca (*read-only*).
-  * **FR-1.4:** Sistem menerapkan mekanisme autentikasi berbasis sesi atau token JWT yang aman pada backend Go.
-  * **FR-1.5:** Mahasiswa umum dapat mengakses halaman utama dashboard secara publik (tanpa login) untuk melihat jadwal dan daftar tugas dengan status *read-only*.
+## 4. Tujuan Produk
 
-### Epic 2: Manajemen Jadwal Perkuliahan & Kelas Pengganti
-* **Deskripsi:** Pengelolaan jadwal perkuliahan harian, mingguan, dan kelas pengganti dinamis.
-* **Kebutuhan:**
-  * **FR-2.1 (Jadwal Reguler):** Menyimpan jadwal rutin mingguan (Senin sampai Jumat) mencakup nama mata kuliah, jenis (teori/praktik), dosen, ruangan, jam mulai, dan durasi SKS/jam pelajaran.
-  * **FR-2.2 (Kalkulasi Otomatis Jam Selesai):** Saat menginput jam mulai dan durasi jam pelajaran, antarmuka web secara otomatis mengkalkulasikan jam selesai perkuliahan.
-  * **FR-2.3 (Jadwal Pengganti Dinamis):** Admin dapat membuat jadwal pengganti (*replacement class*) untuk menggantikan sesi perkuliahan tertentu pada tanggal dan jam spesifik.
-  * **FR-2.4 (Pembedaan Sementara vs Permanen):** Admin dapat menandai apakah perubahan jadwal bersifat sementara (hanya berlaku pada tanggal tertentu) atau permanen (mengubah jadwal mingguan seterusnya).
-  * **FR-2.5 (Kembali Otomatis / Auto-Revert):** Setelah tanggal dan jam pelaksanaan jadwal sementara terlewati, sistem secara otomatis mengembalikan jadwal perkuliahan ke jadwal reguler awal tanpa tindakan manual.
-  * **FR-2.6 (Mode Draf / Draft State):** Admin dapat menyimpan perubahan jadwal dengan status `Draf`. Jadwal berstatus draf tidak akan disiarkan ke WhatsApp hingga admin menekan tombol `Publikasikan`.
-  * **FR-2.7 (Status Kelas Kosong / Diliburkan):** Admin dapat menandai sesi perkuliahan tertentu sebagai "Diliburkan" atau "Ditiadakan".
+1. Memindahkan aktivitas administrasi rutin dari command WhatsApp ke dashboard web.
+2. Memungkinkan PJ mencatat tugas dari ponsel dalam kurang dari 30 detik.
+3. Menyediakan satu sumber informasi jadwal, tugas, perubahan, ruangan, dan materi.
+4. Memisahkan data berdasarkan kelas dan semester.
+5. Mendukung jadwal reguler, pengganti, tambahan, libur, dan pembatalan.
+6. Menerapkan hak akses berdasarkan peran, kelas, semester, dan mata kuliah.
+7. Mengirimkan siaran WhatsApp yang ringkas, tepat waktu, dan tidak ganda.
+8. Menjaga arsip dan audit log agar perubahan dapat ditelusuri dan dipulihkan.
 
-### Epic 3: Manajemen Tugas Kuliah (Assignment Tracker)
-* **Deskripsi:** Pencatatan, pemantauan, dan penyaringan tugas kuliah aktif.
-* **Kebutuhan:**
-  * **FR-3.1 (Formulir Tugas Terstruktur):** Formulir penambahan tugas wajib memuat kolom:
-    1. Mata Kuliah (pilihan dropdown)
-    2. Judul / Topik Tugas (teks ringkas)
-    3. Deskripsi Tugas / Instruksi (area teks)
-    4. Tenggat Waktu (pemilih tanggal dan jam deadline)
-    5. Tempat Pengumpulan Tugas (contoh: link Google Classroom, LMS, MS Teams, atau fisik)
-  * **FR-3.2 (Pengelompokan Deadline / Buckets):** Daftar tugas pada dashboard dikelompokkan secara visual ke dalam 4 kategori batas waktu:
-    1. *Hari Ini* (deadline jatuh pada hari yang sama)
-    2. *Minggu Ini* (deadline dalam 1 sampai 7 hari ke depan)
-    3. *Mendatang* (deadline > 7 hari ke depan)
-    4. *Terlewat / Selesai* (arsip tugas)
-  * **FR-3.3 (Filter dan Pengurutan):** Pengguna dapat menyaring tugas berdasarkan mata kuliah dan mengurutkan berdasarkan deadline terdekat.
-  * **FR-3.4 (Penyelesaian Tugas):** Admin dapat menandai tugas sebagai "Selesai" untuk mengarsipkannya dari daftar tugas aktif.
+## 5. Batasan Ruang Lingkup
 
-### Epic 4: Mesin Siaran & Notifikasi WhatsApp
-* **Deskripsi:** Otomatisasi pengiriman pesan informatif ke grup WhatsApp kelas.
-* **Kebutuhan:**
-  * **FR-4.1 (Siaran Jadwal Harian Pagi):** Sistem otomatis mengirimkan pesan jadwal perkuliahan hari ini setiap pagi pukul 06.00 WIB. Memuat: daftar mata kuliah hari ini, jam, ruangan, nama dosen, dan tautan daring jika ada.
-  * **FR-4.2 (Siaran Pengingat Tugas Sore):** Sistem otomatis mengirimkan daftar tugas aktif setiap sore pukul 17.00 WIB (setelah jam kuliah selesai), menyoroti tugas yang memiliki deadline dalam waktu dekat.
-  * **FR-4.3 (Notifikasi Perubahan Jadwal Komparatif / Diff):** Ketika jadwal pengganti dipublikasikan dari dashboard, sistem seketika mengirimkan notifikasi siaran dengan format komparatif:
-    * Mata kuliah yang berubah
-    * Jadwal Lama (`Sebelum: Hari, Jam, Ruangan`)
-    * Jadwal Baru (`Menjadi: Hari, Jam, Ruangan`)
-    * Keterangan dari dosen/PJ
-  * **FR-4.4 (Format Pesan Ringkas & Tautan Dalam / Deep-link):** Pesan bot dirancang padat tanpa deskripsi panjang yang memenuhi layar. Di bagian bawah pesan selalu disertakan tautan langsung menuju web dashboard: `Detail lengkap: https://[domain-dashboard]/tugas/[id]`.
-  * **FR-4.5 (Pengingat Menjelang Kelas Pengganti):** Khusus kelas pengganti, sistem mengirimkan notifikasi pengingat tambahan 2 jam sebelum kelas dimulai agar mahasiswa tidak lupa hadir.
+Produk ini tidak:
 
-### Epic 5: Manajemen Ruangan Kampus
-* **Deskripsi:** Pencatatan dan pemantauan ketersediaan ruangan kelas fisik.
-* **Kebutuhan:**
-  * **FR-5.1 (Katalog Ruangan):** Menyimpan daftar ruangan perkuliahan kelas (contoh: Lab 301, Lab 302, R. Teori 3, Auditorium).
-  * **FR-5.2 (Pelacak Ruangan Kosong Internal):** Berdasarkan basis data seluruh jadwal perkuliahan yang tercatat di sistem, dashboard menyediakan fitur pencarian untuk melihat ruangan mana saja yang sedang tidak terpakai pada hari dan rentang jam tertentu.
+- menggantikan LMS atau mengelola nilai;
+- menerima unggahan berkas jawaban mahasiswa;
+- mengelola kegiatan non-akademik seperti HIMA atau acara kelas;
+- membuat pembagian kelompok otomatis;
+- membuat polling yang sudah tersedia di WhatsApp;
+- menjamin ketersediaan ruangan tanpa konfirmasi TU;
+- terintegrasi dengan sistem pusat kampus tanpa akses data resmi;
+- menyediakan akun individual mahasiswa pada fase awal;
+- menyediakan drag and drop kalender atau auto-pin WhatsApp pada MVP.
 
-### Epic 6: Riwayat Perubahan (Audit Trail / Change Log)
-* **Deskripsi:** Transparansi pencatatan aktivitas perubahan data.
-* **Kebutuhan:**
-  * **FR-6.1:** Sistem mencatat setiap aksi penambahan, perubahan, dan penghapusan jadwal atau tugas ke dalam tabel `change_logs`.
-  * **FR-6.2:** Data yang dicatat meliputi: Nama pengguna, peran, jenis aksi, entitas yang diubah, waktu perubahan, serta status sebelum dan sesudah perubahan.
-  * **FR-6.3:** Riwayat perubahan dapat dilihat oleh KM dan PJ pada menu Riwayat di dashboard.
+## 6. Ruang Lingkup Fungsional
 
----
+### Epic 1 Akses dan Identitas
 
-## 5. Kebutuhan Antarmuka Pengguna (UI/UX Specifications)
+- **FR-ACCESS-001:** Mahasiswa dapat membuka portal kelas melalui tautan atau kode kelas tanpa akun.
+- **FR-ACCESS-002:** Portal mahasiswa bersifat hanya-baca dan tidak menampilkan fungsi administrasi, audit log, nomor pengurus, atau data sensitif.
+- **FR-ACCESS-003:** PJ dan KM masuk melalui akun yang dibuat dari undangan.
+- **FR-ACCESS-004:** WhatsApp dapat digunakan untuk verifikasi atau pemulihan, tetapi bukan satu-satunya cara masuk.
+- **FR-ACCESS-005:** Hak akses pengguna ditetapkan per kelas, semester, mata kuliah, dan peran.
+- **FR-ACCESS-006:** Satu akun dapat memiliki peran berbeda pada beberapa kelas atau semester.
+- **FR-ACCESS-007:** Pencabutan peran langsung menghentikan akses perubahan data.
+- **FR-ACCESS-008:** System Admin dapat memulihkan atau memindahkan akses tanpa mengubah data kelas.
 
-### A. Struktur Navigasi Dashboard
-Dashboard menggunakan model Single Page Application (SPA) responsif dengan 4 tab navigasi utama:
-1. **Ringkasan (Overview):** Kartu kuliah hari ini, widget mini tugas mendesak (< 24 jam), dan indikator status bot.
-2. **Jadwal Kuliah (Schedule):** Tampilan jadwal Senin sampai Jumat dengan pemilih hari, penanda kelas pengganti (badge kuning), dan tombol ubah jadwal (khusus admin).
-3. **Daftar Tugas (Tasks):** Pengelompokan tugas berdasarkan deadline, filter mata kuliah, tombol tambah tugas, dan modal formulir input.
-4. **Ruangan & Riwayat (Rooms & Logs):** Pencarian slot ruangan kosong internal dan log riwayat pembaruan sistem.
+### Epic 2 Kelas dan Semester
 
-### B. Pedoman Tampilan Mobile-First
-* Seluruh tombol aksi utama dan input formulir memiliki target sentuh minimal **44 x 44 piksel** agar nyaman dioperasikan satu jempol pada layar smartphone (390 x 844 px).
-* Modal formulir input pada layar mobile menggunakan gaya *bottom sheet* (muncul dari bawah layar) dengan tombol simpan yang mudah dijangkau.
-* Navigasi mobile diletakkan di bagian bawah layar (*bottom navigation bar*).
+- **FR-CLASS-001:** Kelas memiliki identitas permanen berdasarkan program studi, angkatan, dan rombel, bukan nomor semester.
+- **FR-CLASS-002:** Semua data operasional terikat pada kelas agar tidak tercampur dengan kelas lain.
+- **FR-SEM-001:** Setiap kelas hanya memiliki satu semester aktif.
+- **FR-SEM-002:** Aktivasi semester baru mengarsipkan semester sebelumnya tanpa menghapus data.
+- **FR-SEM-003:** KM atau System Admin dapat membuat semester melalui impor JSON, salin semester lama, atau input manual.
+- **FR-SEM-004:** Impor menampilkan preview dan kesalahan sebelum data diaktifkan.
+- **FR-SEM-005:** Kegagalan impor tidak meninggalkan data parsial tanpa konfirmasi.
+- **FR-SEM-006:** Arsip semester lama tersedia dalam mode hanya-baca.
 
----
+### Epic 3 Jadwal Perkuliahan
 
-## 6. Kebutuhan Non-Fungsional (Non-Functional Requirements)
+- **FR-SCH-001:** Jadwal reguler memuat mata kuliah, jenis teori atau praktik, dosen, hari, jam mulai, durasi, jam selesai, dan ruangan.
+- **FR-SCH-002:** Pengelola dapat membuat dan memperbarui jadwal secara manual melalui form terpandu.
+- **FR-SCH-003:** Jam selesai dihitung dari jam mulai dan durasi, lalu dapat diperiksa sebelum disimpan.
+- **FR-SCH-004:** Sistem membedakan jadwal reguler, pengganti, tambahan, libur, dan dibatalkan.
+- **FR-SCH-005:** Perubahan dapat ditandai sementara atau permanen.
+- **FR-SCH-006:** Jadwal sementara berlaku pada sesi tertentu dan tidak menimpa jadwal reguler secara permanen.
+- **FR-SCH-007:** PJ dapat menyimpan perubahan sebagai draf yang tidak terlihat oleh mahasiswa dan tidak memicu notifikasi.
+- **FR-SCH-008:** Preview menampilkan jadwal lama, jadwal baru, jenis perubahan, dan penerima sebelum publikasi.
+- **FR-SCH-009:** PJ dapat memublikasikan perubahan untuk mata kuliah yang ditugaskan tanpa persetujuan KM.
+- **FR-SCH-010:** KM dapat memublikasikan dan membatalkan perubahan untuk semua mata kuliah pada kelasnya.
+- **FR-SCH-011:** Pembatalan mempertahankan riwayat dan mengirim koreksi apabila perubahan sebelumnya telah disiarkan.
+- **FR-SCH-012:** Publikasi ulang dengan identitas yang sama tidak mengirim notifikasi ganda.
 
-1. **Kinerja & Kecepatan:**
-   * Waktu muat awal (*initial load*) halaman web dashboard di bawah 1,5 detik pada jaringan seluler 4G.
-   * Aksi penyimpanan formulir jadwal dan tugas merespons dalam waktu kurang dari 300 ms.
-2. **Keandalan Basis Data:**
-   * Basis data SQLite wajib berjalan dalam **WAL Mode (Write-Ahead Logging)** dengan opsi `busy_timeout` terkonfigurasi untuk mendukung konkurensi pembacaan oleh web dan penulisan oleh bot/admin secara simultan tanpa galat *database locked*.
-3. **Penyajian Aset Terintegrasi (Self-Contained Deployment):**
-   * Seluruh berkas antarmuka web (HTML, CSS, JS) di-embed langsung ke dalam *binary* Go menggunakan pustaka bawaan `embed` Go, menghasilkan satu berkas *executable* tunggal yang siap dijalankan di server tanpa ketergantungan eksternal yang rumit.
-4. **Keamanan Data:**
-   * Proteksi CSRF pada seluruh endpoint mutasi data (POST, PUT, DELETE).
-   * Kata sandi akun pengurus disimpan menggunakan algoritma hashing standar industri (`bcrypt` atau `Argon2`).
-5. **Kepatuhan Penulisan (Copywriting Hygiene):**
-   * Seluruh teks antarmuka, pesan siaran WhatsApp, dan dokumentasi sistem mematuhi aturan anti-slop: bebas dari kata-kata klise/buzzword kosong, tidak menggunakan em dash (`—`), dan mengutamakan fakta spesifik yang akurat.
+### Epic 4 Tugas dan Materi
 
----
+- **FR-TASK-001:** Form tugas memuat mata kuliah, judul, instruksi, deadline, serta tempat atau tautan pengumpulan.
+- **FR-TASK-002:** PJ hanya dapat memilih mata kuliah dalam cakupan penugasannya.
+- **FR-TASK-003:** PJ dapat menyimpan draf atau langsung memublikasikan tugas pada mata kuliahnya.
+- **FR-TASK-004:** KM dapat mengaktifkan kebijakan approval tugas untuk kelasnya jika diperlukan.
+- **FR-TASK-005:** Daftar tugas dikelompokkan menjadi Hari Ini, Minggu Ini, Mendatang, dan Terlewat.
+- **FR-TASK-006:** Pengguna dapat menyaring tugas berdasarkan mata kuliah, status, rentang deadline, dan jenis tugas.
+- **FR-TASK-007:** Tugas selesai dan terlewat berpindah ke arsip tanpa menghapus riwayat.
+- **FR-TASK-008:** Materi dan tautan dapat dikelompokkan berdasarkan mata kuliah serta dihubungkan ke detail tugas.
+- **FR-TASK-009:** Mahasiswa belum dapat menandai penyelesaian tugas secara pribadi sampai akun mahasiswa tersedia.
 
-## 7. Model Data Utama (Database Schema Overview)
+### Epic 5 Notifikasi WhatsApp
+
+- **FR-NOTIF-001:** Sistem mengirim jadwal hari itu pada pagi hari sesuai waktu yang dikonfigurasi.
+- **FR-NOTIF-002:** Jadwal pengganti yang berlaku ikut ditampilkan dalam siaran pagi.
+- **FR-NOTIF-003:** Sistem mengirim pengingat tugas pada sore hari sesuai waktu yang dikonfigurasi.
+- **FR-NOTIF-004:** Publikasi perubahan jadwal mengirim perbandingan data sebelum dan sesudah.
+- **FR-NOTIF-005:** Jadwal pengganti mendapatkan pengingat sebelum pelaksanaan.
+- **FR-NOTIF-006:** Pesan hanya memuat informasi utama dan tautan menuju detail web.
+- **FR-NOTIF-007:** Ketika bot offline, publikasi tetap tersimpan dan notifikasi menunggu dalam antrean.
+- **FR-NOTIF-008:** Pengiriman antrean menggunakan identitas unik agar pesan tidak terkirim dua kali.
+- **FR-NOTIF-009:** Pembatalan perubahan yang sudah disiarkan mengirim pesan koreksi.
+
+### Epic 6 Ruangan
+
+- **FR-ROOM-001:** System Admin mengelola master ruangan lintas kelas dengan masukan dari KM.
+- **FR-ROOM-002:** PJ dan KM dapat mencari kandidat ruangan berdasarkan tanggal dan rentang waktu.
+- **FR-ROOM-003:** Rekomendasi menggunakan jadwal yang tersedia di dalam sistem.
+- **FR-ROOM-004:** Hasil selalu diberi label sebagai rekomendasi internal yang perlu dikonfirmasi ke TU.
+- **FR-ROOM-005:** Pengguna dapat mencatat hasil konfirmasi ruangan.
+
+### Epic 7 Audit dan Pemulihan
+
+- **FR-AUDIT-001:** Tambah, ubah, hapus, publikasi, pembatalan, pemulihan, dan perubahan peran dicatat.
+- **FR-AUDIT-002:** Audit log memuat pelaku, peran, waktu, kelas, entitas, tindakan, data sebelum, dan data sesudah.
+- **FR-AUDIT-003:** PJ melihat log dalam cakupannya, KM melihat log kelasnya, dan System Admin melihat lintas kelas.
+- **FR-AUDIT-004:** Audit log dan arsip disimpan selama kelas aktif ditambah sekurangnya satu tahun akademik.
+- **FR-RECOVERY-001:** Data penting menggunakan penghapusan yang dapat dipulihkan sesuai kewenangan.
+- **FR-RECOVERY-002:** Sistem mendeteksi ketika data telah berubah sejak pengguna membukanya dan mencegah penimpaan tanpa peringatan.
+- **FR-RECOVERY-003:** Data dapat dicadangkan dan dipulihkan per kelas serta semester.
+- **FR-RECOVERY-004:** Pergantian nomor atau sesi WhatsApp tidak menghapus data akademik.
+
+## 7. Struktur Informasi
 
 ```text
-┌───────────────────────┐        ┌─────────────────────────┐
-│         users         │        │        subjects         │
-├───────────────────────┤        ├─────────────────────────┤
-│ id (PK)               │        │ id (PK)                 │
-│ username              │   ┌───<│ code                    │
-│ password_hash         │   │    │ name                    │
-│ role (km/pj)          │   │    │ lecturer                │
-│ subject_id (FK, opt)  │>──┘    │ default_room            │
-└───────────────────────┘        └─────────────────────────┘
-                                              │
-              ┌───────────────────────────────┴───────────────────────────────┐
-              ▼                                                               ▼
-┌─────────────────────────┐                                     ┌─────────────────────────┐
-│        schedules        │                                     │          tasks          │
-├─────────────────────────┤                                     ├─────────────────────────┤
-│ id (PK)                 │                                     │ id (PK)                 │
-│ subject_id (FK)         │                                     │ subject_id (FK)         │
-│ type (regular/override) │                                     │ title                   │
-│ date (YYYY-MM-DD, opt)  │                                     │ description             │
-│ day_of_week (1-7)       │                                     │ submission_target       │
-│ start_time (HH:MM)      │                                     │ deadline (DATETIME)     │
-│ end_time (HH:MM)        │                                     │ status (active/done)    │
-│ room                    │                                     │ created_by (FK users)   │
-│ is_temporary (BOOLEAN)  │                                     │ created_at (DATETIME)   │
-│ status (draft/published)│                                     └─────────────────────────┘
-│ note                    │
-└─────────────────────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│       change_logs       │
-├─────────────────────────┤
-│ id (PK)                 │
-│ user_id (FK)            │
-│ entity_type             │
-│ entity_id               │
-│ action (create/upd/del) │
-│ diff_summary            │
-│ timestamp (DATETIME)    │
-└─────────────────────────┘
+Portal Kelas
+├── Ringkasan
+├── Jadwal
+├── Tugas
+├── Materi dan Tautan
+└── Perubahan Terbaru
+
+Area Pengelola
+├── Kelola Jadwal
+├── Kelola Tugas
+├── Draf dan Persetujuan
+├── Ruangan
+├── Anggota dan Peran
+└── Riwayat Perubahan
+
+System Admin
+├── Daftar Kelas
+├── Semester
+├── Pengguna
+├── Master Mata Kuliah
+├── Master Ruangan
+└── Status Sistem
 ```
 
----
+Detail visual, komponen, responsive behavior, dan state antarmuka mengikuti `DESIGN.md` serta spesifikasi UI yang akan diselaraskan terpisah.
 
-## 8. Template Pesan Siaran WhatsApp
+## 8. Kebutuhan Pengalaman Pengguna
 
-### Template 1: Siaran Rutin Jadwal Pagi (Pukul 06.00 WIB)
+- Antarmuka memprioritaskan layar ponsel dengan target sentuh minimal 44 x 44 piksel.
+- Form tidak memerlukan scroll horizontal pada lebar layar 390 piksel.
+- Penambahan tugas normal dapat diselesaikan dalam kurang dari 30 detik.
+- Setiap halaman menyediakan keadaan loading, kosong, gagal, berhasil, dan akses ditolak.
+- Kegagalan penyimpanan tidak menghilangkan input tanpa peringatan.
+- Status tidak disampaikan melalui warna saja.
+- Fokus keyboard terlihat dan semua kontrol penting memiliki label.
+- Pengurus baru mendapatkan panduan awal yang dapat dibuka kembali.
+- Jadwal menggunakan nama mata kuliah dan bahasa manusiawi, bukan hanya kode internal.
+
+## 9. Kebutuhan Non-Fungsional
+
+### 9.1 Kinerja
+
+- Target muat awal portal di bawah 1,5 detik pada jaringan seluler 4G dalam kondisi pengujian yang ditetapkan.
+- Target respons penyimpanan operasi umum di bawah 300 milidetik, tidak termasuk waktu pengiriman WhatsApp.
+- Kegagalan memenuhi target dicatat melalui telemetri agar dapat dianalisis.
+
+### 9.2 Keamanan
+
+- Semua mutasi data memerlukan autentikasi dan pemeriksaan izin di backend.
+- Kata sandi tidak disimpan dalam bentuk asli.
+- Sesi dapat dicabut ketika akun, perangkat, atau peran tidak lagi berlaku.
+- Undangan dan kode pemulihan memiliki masa berlaku serta hanya dapat digunakan sesuai kebijakan.
+- Data sensitif tidak dikirim ke portal mahasiswa hanya-baca.
+- Endpoint mutasi dilindungi dari pemalsuan permintaan dan penyalahgunaan berulang.
+
+### 9.3 Keandalan
+
+- Operasi database mendukung akses web dan bot secara bersamaan tanpa kehilangan data.
+- Publikasi web tidak bergantung pada koneksi aktif WhatsApp.
+- Pengiriman notifikasi dapat dicoba ulang tanpa menghasilkan duplikasi.
+- Aktivasi semester, impor jadwal, dan pemulihan data tidak boleh meninggalkan kondisi setengah selesai.
+
+### 9.4 Deployability
+
+- Aplikasi tetap menggunakan backend Go, SQLite, dan aset web tersemat dalam satu distribusi aplikasi.
+- Frontend tidak memerlukan npm atau proses build terpisah.
+- Data akademik, audit, dan sesi WhatsApp tetap dipisahkan agar pemulihan sesi tidak memengaruhi data kelas.
+
+## 10. Model Domain Konseptual
+
+```mermaid
+erDiagram
+    USER ||--o{ ROLE_ASSIGNMENT : receives
+    CLASS ||--o{ CLASS_SEMESTER : has
+    CLASS_SEMESTER ||--o{ COURSE_OFFERING : contains
+    SUBJECT ||--o{ COURSE_OFFERING : offered_as
+    COURSE_OFFERING ||--o{ ROLE_ASSIGNMENT : scopes_PJ
+    COURSE_OFFERING ||--o{ REGULAR_SCHEDULE : schedules
+    REGULAR_SCHEDULE ||--o{ SCHEDULE_CHANGE : changes
+    COURSE_OFFERING ||--o{ TASK : owns
+    COURSE_OFFERING ||--o{ RESOURCE_LINK : owns
+    ROOM ||--o{ REGULAR_SCHEDULE : used_by
+    USER ||--o{ AUDIT_LOG : performs
+    CLASS_SEMESTER ||--o{ AUDIT_LOG : records
+    NOTIFICATION ||--o{ DELIVERY_ATTEMPT : retries
+```
+
+Model ini bersifat konseptual. Nama tabel, atribut, indeks, dan strategi migrasi ditetapkan dalam Data Model serta ERD teknis.
+
+## 11. Prioritas Rilis
+
+### MVP
+
+1. Portal kelas hanya-baca tanpa akun mahasiswa.
+2. Login undangan untuk PJ, KM, dan System Admin.
+3. Pemisahan kelas, semester, mata kuliah, dan hak akses.
+4. Jadwal reguler serta perubahan sementara atau permanen.
+5. Draf, preview, publikasi PJ, pembatalan KM, dan audit log.
+6. Form tugas, deadline buckets, filter, serta arsip.
+7. Siaran pagi, pengingat sore, diff jadwal, koreksi, antrean, dan pencegahan duplikasi.
+8. Impor JSON, input manual, aktivasi, dan arsip semester.
+9. Backup dan pemulihan dasar.
+
+### Fase Lanjutan
+
+1. Pencarian kandidat ruangan kosong.
+2. Materi dan tautan terpusat.
+3. Approval tugas yang dapat dikonfigurasi per kelas.
+4. Deteksi edit bersamaan yang lebih rinci.
+5. Penyempurnaan onboarding dan telemetri operasional.
+
+### Ditunda
+
+1. Akun individual mahasiswa dan tracker penyelesaian pribadi.
+2. Drag and drop kalender.
+3. Auto-pin pesan WhatsApp.
+4. Integrasi resmi dengan sistem ruangan TU.
+5. Agenda non-akademik dan pembagian kelompok.
+
+## 12. Ukuran Keberhasilan
+
+- PJ dapat membuat tugas dari ponsel tanpa command dalam waktu median kurang dari 30 detik.
+- Jadwal pengganti tampil di portal dan siaran bot pada hari pelaksanaan.
+- Tidak ada perubahan lintas kelas atau mata kuliah tanpa izin.
+- Pergantian semester tidak menghapus data semester sebelumnya.
+- Publikasi dan percobaan ulang tidak menghasilkan notifikasi ganda.
+- Setiap perubahan penting memiliki pelaku, waktu, data sebelum, dan data sesudah.
+- Pembatalan KM mempertahankan riwayat dan menghasilkan koreksi jika diperlukan.
+- Penggantian sesi WhatsApp tidak menghapus data akademik.
+
+## 13. Template Siaran WhatsApp
+
+### 13.1 Jadwal Pagi
+
 ```text
 *JADWAL KULIAH HARI INI*
-Hari: [Hari], [Tanggal]
-Kelas: [Nama Kelas]
+[Hari], [Tanggal] | [Nama Kelas]
 
-1. *[Mata Kuliah 1]* ([Teori/Praktik])
-   Pukul: [Jam Mulai] - [Jam Selesai] WIB
-   Ruang: [Nama Ruangan]
-   Dosen: [Nama Dosen]
-   [Link Daring jika ada]
+1. *[Mata Kuliah]* ([Teori/Praktik])
+   [Jam Mulai] - [Jam Selesai] WIB
+   [Ruangan] | [Nama Dosen]
 
-2. *[Mata Kuliah 2]* ([Teori/Praktik])
-   Pukul: [Jam Mulai] - [Jam Selesai] WIB
-   Ruang: [Nama Ruangan]
-   Dosen: [Nama Dosen]
-
-Detail lengkap dan tugas aktif:
-https://[domain-dashboard]
+Detail jadwal dan tugas:
+https://[domain]/c/[kelas]
 ```
 
-### Template 2: Siaran Rutin Pengingat Tugas Sore (Pukul 17.00 WIB)
+### 13.2 Pengingat Tugas Sore
+
 ```text
-*PENGINGAT TUGAS KULIAH AKTIF*
-Hari: [Hari], [Tanggal]
+*PENGINGAT TUGAS*
+[Hari], [Tanggal]
 
-[Daftar Tugas dengan Urutan Deadline Terdekat]:
-1. *[Nama Mata Kuliah]* - [Judul Tugas]
-   Deadline: [Hari], [Tanggal] ([Jam] WIB)
-   Tempat Kumpul: [Google Classroom / LMS / Email]
-   Sisa Waktu: [X hari / Y jam lagi]
+1. *[Mata Kuliah]* | [Judul]
+   Deadline: [Tanggal dan Jam]
+   Tempat: [Portal atau Lokasi]
 
-2. *[Nama Mata Kuliah]* - [Judul Tugas]
-   Deadline: [Hari], [Tanggal] ([Jam] WIB)
-   Tempat Kumpul: [Google Classroom / LMS / Email]
-   Sisa Waktu: [X hari / Y jam lagi]
-
-Lihat deskripsi dan berkas tugas:
-https://[domain-dashboard]/tasks
+Lihat detail:
+https://[domain]/c/[kelas]/tasks
 ```
 
-### Template 3: Notifikasi Perubahan Jadwal Komparatif (*Schedule Diff*)
+### 13.3 Perubahan Jadwal
+
 ```text
-*PEMBERITAHUAN PERUBAHAN JADWAL*
-Mata Kuliah: [Nama Mata Kuliah] ([Teori/Praktik])
-Dosen: [Nama Dosen]
+*PERUBAHAN JADWAL*
+[Mata Kuliah] ([Teori/Praktik])
 
-*Perubahan*:
-Sebelum : [Hari Lama], [Jam Lama] WIB ([Ruangan Lama])
-Menjadi : [Hari Baru], [Tanggal Baru], [Jam Baru] WIB ([Ruangan Baru])
+Sebelum: [Hari, Jam, Ruangan]
+Menjadi: [Hari, Tanggal, Jam, Ruangan]
+Status: [Sementara/Permanen]
+Keterangan: [Keterangan]
 
-Status: [Kelas Pengganti Sementara / Perubahan Permanen]
-Keterangan: [Pesan dari dosen atau PJ]
-
-Periksa pembaruan jadwal di web dashboard:
-https://[domain-dashboard]
+Detail:
+https://[domain]/c/[kelas]/schedule
 ```
+
+### 13.4 Koreksi atau Pembatalan
+
+```text
+*KOREKSI JADWAL*
+[Mata Kuliah]
+
+Perubahan sebelumnya dibatalkan oleh KM.
+Jadwal yang berlaku: [Hari, Tanggal, Jam, Ruangan]
+Alasan: [Alasan]
+
+Detail:
+https://[domain]/c/[kelas]/schedule
+```
+
+## 14. Ketertelusuran
+
+| Kelompok User Requirement | Epic PRD |
+|---|---|
+| UR-ACCESS | Epic 1 Akses dan Identitas |
+| UR-CLASS, UR-SEM | Epic 2 Kelas dan Semester |
+| UR-SCH | Epic 3 Jadwal Perkuliahan |
+| UR-TASK | Epic 4 Tugas dan Materi |
+| UR-NOTIF | Epic 5 Notifikasi WhatsApp |
+| UR-ROOM | Epic 6 Ruangan |
+| UR-AUDIT, UR-OPS | Epic 7 Audit dan Pemulihan |
+| UR-UX | Kebutuhan Pengalaman Pengguna |
+
+Setiap functional requirement harus dipetakan ke user flow, desain, API, data model, dan test case sebelum implementasi dinyatakan siap. Perubahan pada requirement yang telah disetujui mengikuti mekanisme perubahan dalam Product Definition.
