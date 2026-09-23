@@ -9,6 +9,7 @@
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
 | Acuan | [Product Definition](PRODUCT_DEFINITION.md), [User Requirements](USER_REQUIREMENTS.md), [Access Control](ACCESS_CONTROL.md), [User Flows](USER_FLOWS.md), dan [PRD](../PRD.md) |
+| Turunan sistem | [Functional Requirements v1.0](FUNCTIONAL_REQUIREMENTS.md) |
 
 Dokumen ini menetapkan aturan yang harus selalu dipenuhi oleh antarmuka, API, bot WhatsApp, proses latar belakang, dan database. Dokumen ini menjelaskan keputusan bisnis, bukan struktur tabel atau pilihan framework.
 

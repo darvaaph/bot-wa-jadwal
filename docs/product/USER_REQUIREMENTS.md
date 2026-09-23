@@ -10,6 +10,7 @@
 | Terakhir diperbarui | 23 September 2026 |
 | Acuan keputusan | [Product Definition versi 0.3](PRODUCT_DEFINITION.md) |
 | Sumber riset | [Wawancara 11 pengguna](../user-interviews/README.md) |
+| Turunan sistem | [Functional Requirements v1.0](FUNCTIONAL_REQUIREMENTS.md) |
 
 Dokumen ini mencatat kebutuhan dari sudut pandang pengguna Bot Jadwal. Setiap requirement memiliki ID permanen agar dapat ditelusuri ke PRD, aturan bisnis, desain, implementasi, dan pengujian. Kriteria keberhasilan menjelaskan hasil yang harus dirasakan pengguna tanpa menetapkan detail implementasi yang belum diperlukan.
 

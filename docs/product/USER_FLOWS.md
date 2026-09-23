@@ -13,6 +13,7 @@
 | Acuan akses | [Access Control v1.0](ACCESS_CONTROL.md) |
 | Acuan aturan | [Business Rules v1.0](BUSINESS_RULES.md) |
 | Acuan fitur | [PRD v2.1](../PRD.md) |
+| Turunan sistem | [Functional Requirements v1.0](FUNCTIONAL_REQUIREMENTS.md) |
 
 Dokumen ini menjelaskan langkah pengguna mencapai tujuan, termasuk alur alternatif, kondisi gagal, dan hasil akhir. User flow tidak menentukan detail tampilan akhir. Nama halaman dan kontrol dapat disesuaikan pada Information Architecture dan wireframe selama hasil serta aturan akses tetap sama.
 
