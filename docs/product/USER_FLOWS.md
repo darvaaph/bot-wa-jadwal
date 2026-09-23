@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 3.0.0 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -144,16 +144,18 @@ flowchart LR
 **Alur utama:**
 
 1. Pengguna memasukkan identitas akun dan kata sandi.
-2. Sistem memverifikasi akun dan membuat sesi.
+2. Sistem memverifikasi akun, mencatat hasil percobaan, dan membuat sesi identitas.
 3. Sistem mengambil seluruh role assignment aktif.
-4. Jika hanya ada satu konteks, sistem membuka dashboard konteks tersebut.
+4. Jika hanya ada satu konteks, sistem menetapkannya pada sesi dan membuka dashboard.
 5. Jika ada beberapa konteks, sistem meminta pengguna memilih peran, kelas, dan semester.
-6. Dashboard menampilkan konteks aktif secara jelas.
-7. Pengguna dapat berpindah konteks tanpa logout.
+6. Sistem merotasi token sesi, menyimpan role assignment aktif, dan menerapkan batas waktu sesuai peran.
+7. Dashboard menampilkan konteks aktif secara jelas.
+8. Pengguna dapat berpindah konteks tanpa logout; setiap pergantian merotasi token.
 
 **Alternatif dan kegagalan:**
 
 - Kredensial salah menghasilkan pesan umum tanpa mengungkap apakah akun terdaftar.
+- Lima kegagalan dalam 15 menit memblokir identitas dan sumber permintaan selama 15 menit.
 - Akun ditangguhkan atau seluruh peran dicabut tidak dapat membuka area pengelola.
 - Bot WhatsApp offline tidak menghalangi login dengan kata sandi.
 
@@ -281,7 +283,7 @@ flowchart LR
 - Validasi gagal mempertahankan isian dan menandai kolom bermasalah.
 - Jika sesi berakhir, sistem meminta login ulang tanpa menghapus isian lokal.
 
-**Hasil:** Tugas berstatus draf atau terbit. Tugas terbit memiliki review state awal `NOT_REVIEWED`.
+**Hasil:** Tugas memiliki publication status `DRAFT` atau `PUBLISHED`. Publikasi PJ memiliki review state awal `NOT_REVIEWED`.
 
 ### UF-TASK-002 KM Mereview Tugas Terbit
 
@@ -295,15 +297,15 @@ flowchart LR
 1. KM membuka detail tugas dan melihat pembuat, versi, status publikasi, serta isinya.
 2. KM memilih `Setujui`, `Minta Koreksi`, atau `Batalkan`.
 3. Sistem memeriksa apakah versi tugas belum berubah.
-4. Sistem menambahkan riwayat review beserta pelaku, waktu, dan catatan.
-5. Jika KM meminta koreksi atau membatalkan, sistem menarik tugas dari portal dan membatalkan notifikasi tertunda.
+4. Dalam satu transaksi, sistem menambahkan riwayat review untuk versi aktif dan memperbarui proyeksi review pada tugas.
+5. Jika KM meminta koreksi atau membatalkan, sistem mengubah publication status menjadi `DRAFT` atau `REVOKED`, menarik tugas dari portal, dan membatalkan notifikasi tertunda.
 
 **Alternatif dan kegagalan:**
 
 - Catatan wajib untuk `Minta Koreksi` dan `Batalkan`.
 - Jika PJ mengubah tugas saat ditinjau, sistem meminta KM memuat versi terbaru.
 
-**Hasil:** Tugas tetap terbit setelah disetujui atau kembali menjadi draf setelah publikasinya ditarik.
+**Hasil:** Review hanya berlaku pada versi yang ditinjau. Tugas tetap terbit setelah disetujui atau publikasinya ditarik setelah koreksi maupun pembatalan.
 
 ### UF-TASK-003 Mengubah, Mengarsipkan, dan Memulihkan Tugas
 
@@ -317,14 +319,16 @@ flowchart LR
 1. Pengguna membuka detail tugas.
 2. Pengguna memilih ubah, tandai selesai, arsipkan, atau hapus.
 3. Sistem meminta konfirmasi untuk tindakan yang menghilangkan tugas dari daftar aktif.
-4. Sistem menyimpan perubahan dan audit log.
-5. Pengarsipan mengisi waktu arsip tanpa mengganti status hasil tugas.
+4. Sistem menaikkan versi untuk perubahan yang terlihat mahasiswa dan menyimpan audit log.
+5. Perubahan oleh PJ mengatur review versi baru menjadi `NOT_REVIEWED`; perubahan oleh KM membuat review `APPROVED` untuk versi baru.
+6. Menandai selesai mengisi `completed_at`; pengarsipan mengisi `archived_at` tanpa mengganti lifecycle publikasi.
 
 **Alternatif dan kegagalan:**
 
 - Data yang sudah berubah oleh pengguna lain tidak ditimpa tanpa konfirmasi.
 - Tugas yang dihapus dapat dipulihkan oleh pengguna berwenang selama masa retensi.
 - Perubahan deadline yang signifikan dapat memicu notifikasi pembaruan.
+- Tugas yang melewati deadline tetap dapat diselesaikan atau dicabut karena `Overdue` merupakan kondisi turunan.
 
 **Hasil:** Status tugas dan riwayatnya tetap konsisten serta dapat ditelusuri.
 
@@ -369,7 +373,7 @@ flowchart LR
 4. PJ mengisi tanggal, jam, ruangan, dan keterangan.
 5. Sistem memeriksa konflik dan menampilkan preview sebelum serta sesudah.
 6. PJ memilih `Publikasikan`.
-7. Sistem memeriksa izin dan versi jadwal.
+7. Sistem memeriksa izin, versi jadwal, batas semester, dan satu offering pemilik.
 8. Sistem menyimpan publikasi dan audit log.
 9. Portal menampilkan perubahan.
 10. Sistem mengirim atau mengantrekan notifikasi komparatif.
@@ -440,16 +444,17 @@ flowchart LR
 
 **Alur utama:**
 
-1. KM pemilik membuat teaching event dan memilih course offering milik kelasnya.
+1. KM pemilik membuat teaching event dan memilih satu course offering milik kelasnya sebagai `OWNER`.
 2. KM pemilik menambahkan kelas peserta yang relevan.
 3. Sistem membuat partisipasi berstatus `PENDING` tanpa menduplikasi event.
 4. KM peserta meninjau waktu, ruangan, mata kuliah, dan kelas pemilik.
-5. KM peserta menerima partisipasi.
+5. Sistem memastikan event berada dalam periode semester offering peserta, lalu KM peserta menerima partisipasi.
 6. Setelah event dipublikasikan, sistem menampilkannya pada seluruh kelas dengan partisipasi `ACCEPTED`.
 
 **Alternatif dan kegagalan:**
 
 - KM peserta dapat menolak undangan atau melepas kelasnya kemudian.
+- KM pemilik dapat mengundang ulang partisipasi `DECLINED` atau `REMOVED`; sistem mengembalikannya ke `PENDING` dan mencatat tindakan.
 - KM peserta tidak dapat mengubah acara utama; koreksi diajukan kepada KM pemilik.
 - Event tidak muncul pada portal kelas peserta selama status masih `PENDING` atau `DECLINED`.
 
@@ -635,6 +640,12 @@ Sebuah flow siap diterjemahkan menjadi desain dan implementasi ketika:
 Perubahan alur yang memengaruhi hak akses, status data, atau publikasi harus memperbarui Product Definition, User Requirements, Access Control, PRD, dan test case terkait.
 
 ## 12. Changelog
+
+### 3.0.0, 23 September 2026
+
+- Menambah pemilihan konteks sesi, rotasi token, dan blokir percobaan login.
+- Menjelaskan transisi partisipasi lintas kelas serta validasi semester event.
+- Menetapkan review tugas per versi dan memisahkan lifecycle publikasi dari selesai, terlambat, serta arsip.
 
 ### 2.0.0, 23 September 2026
 

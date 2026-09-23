@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 3.0.0 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -123,23 +123,25 @@ PJ, KM, dan System Admin masuk menggunakan identitas akun dan kata sandi. Sistem
 
 - Kata sandi minimal 12 karakter dan tidak boleh sama dengan identitas login.
 - Lima kegagalan dalam 15 menit mengunci login selama 15 menit untuk identitas dan sumber permintaan terkait.
-- Login berhasil mereset penghitung kegagalan tanpa menghapus catatan audit.
+- Sistem menyimpan hash identitas dan hash sumber pada `login_attempts`, bukan kata sandi atau alamat sumber mentah.
+- Login berhasil menghentikan blokir aktif tanpa menghapus riwayat percobaan.
+- Pesan kegagalan tidak membedakan akun tidak ditemukan, kata sandi salah, atau akun tidak aktif.
 - MFA tidak termasuk MVP.
 
 ### 7.2 Sesi
 
-Sesi harus:
+Login berhasil membuat sesi identitas. Sesi tersebut baru dapat membuka area pengelola setelah menunjuk satu `active_role_assignment_id`. Sesi harus:
 
 - dapat dicabut dari server;
 - berakhir setelah masa tidak aktif dan batas maksimum sesi;
 - menggunakan cookie yang tidak dapat dibaca JavaScript;
 - hanya dikirim melalui koneksi aman pada produksi;
-- diganti setelah login atau perubahan tingkat akses;
+- diganti setelah login, pemilihan konteks, atau perubahan tingkat akses;
 - tidak menyimpan token administrasi di local storage.
 
-Sesi PJ dan KM berakhir setelah 2 jam tidak aktif atau 24 jam sejak dibuat. Sesi System Admin berakhir setelah 30 menit tidak aktif atau 8 jam sejak dibuat. Perubahan kata sandi, pencabutan role assignment, dan rotasi kredensial mencabut sesi yang terdampak.
+Sesi PJ dan KM berakhir setelah 2 jam tidak aktif atau 24 jam sejak dibuat. Sesi System Admin berakhir setelah 30 menit tidak aktif atau 8 jam sejak dibuat. Batas waktu mengikuti konteks aktif. Pergantian konteks merotasi token serta menetapkan ulang `active_role_assignment_id`, tetapi tidak memperpanjang batas maksimum melebihi kebijakan konteks baru.
 
-Perubahan kata sandi, pencabutan akun, atau insiden keamanan dapat mencabut seluruh sesi aktif pengguna.
+Setiap permintaan perubahan memeriksa `users.session_version`, status sesi, dan role assignment aktif. Perubahan kata sandi atau insiden keamanan menaikkan `session_version` untuk mencabut seluruh sesi pengguna. Pencabutan role assignment hanya mencabut sesi yang memakai assignment tersebut, kecuali kebijakan insiden meminta pencabutan seluruh sesi.
 
 ### 7.3 Pemulihan Akun
 
@@ -213,7 +215,7 @@ Setiap permintaan perubahan harus melewati pemeriksaan berikut:
 flowchart TD
     A[Permintaan diterima] --> B{Sesi valid}
     B -->|Tidak| C[Tolak sebagai belum login]
-    B -->|Ya| D[Ambil penugasan peran aktif]
+    B -->|Ya| D[Ambil active role assignment dari sesi]
     D --> E{Cakupan kelas dan semester cocok}
     E -->|Tidak| F[Tolak tanpa membuka detail data]
     E -->|Ya| G{Cakupan mata kuliah cocok}
@@ -309,6 +311,8 @@ Access control dianggap siap ketika:
 8. System Admin dapat memulihkan akses dengan alasan dan audit log.
 9. Bot offline tidak mencegah login normal pengurus.
 10. Setiap pengujian izin mencakup skenario diizinkan dan ditolak.
+11. Pergantian konteks merotasi token dan menerapkan batas sesi untuk peran baru.
+12. Lima kegagalan login dalam 15 menit memblokir identitas dan sumber selama 15 menit tanpa membocorkan keberadaan akun.
 
 ## 16. Ketertelusuran
 
@@ -330,6 +334,12 @@ Access control dianggap siap ketika:
 Perubahan izin harus memperbarui Product Definition, User Requirements, Functional Requirements, data model, dan test case yang terdampak.
 
 ## 17. Changelog
+
+### 3.0.0, 23 September 2026
+
+- Menetapkan sesi identitas yang menunjuk satu role assignment aktif.
+- Menetapkan rotasi token saat konteks berubah dan batas sesi berdasarkan konteks.
+- Menambah model percobaan login, pencabutan melalui `session_version`, dan respons autentikasi umum.
 
 ### 2.0.0, 23 September 2026
 

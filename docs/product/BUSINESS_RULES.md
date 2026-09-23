@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 3.0.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -47,11 +47,19 @@ Pendaftaran publik untuk PJ, KM, dan System Admin dilarang. Undangan hanya dapat
 
 System Admin menjalankan perubahan akademik hanya untuk dukungan, insiden, atau pemulihan. Sistem wajib meminta alasan, mencatat cakupan, dan menyimpan pelaku. System Admin pertama dibuat melalui provisioning, bukan endpoint publik.
 
+### BR-ACCESS-007 Login dan Sesi Berbasis Konteks
+
+Login berhasil membuat sesi identitas. Sebelum membuka area pengelola, sesi wajib menunjuk satu role assignment aktif. Pergantian konteks wajib merotasi token sesi dan menetapkan ulang batas waktu berdasarkan konteks baru. Sesi PJ atau KM berakhir setelah 2 jam tidak aktif atau 24 jam sejak dibuat. Sesi System Admin berakhir setelah 30 menit tidak aktif atau 8 jam sejak dibuat. Backend wajib memeriksa kembali status role assignment pada setiap operasi perubahan.
+
+### BR-ACCESS-008 Pembatasan Percobaan Login
+
+Sistem wajib mencatat hasil percobaan login tanpa menyimpan kata sandi atau token mentah. Lima kegagalan dalam 15 menit memblokir kombinasi identitas dan sumber permintaan selama 15 menit. Respons kegagalan harus bersifat umum agar tidak mengungkap apakah akun terdaftar. Login berhasil tidak menghapus riwayat percobaan.
+
 ## 3. Kelas, Portal, dan Semester
 
 ### BR-CLASS-001 Isolasi Kelas
 
-Setiap data operasional wajib memiliki `class_id`. Membaca, menulis, mengimpor, mengekspor, dan memulihkan data tidak boleh mencampurkan kelas. Identitas kelas bersifat permanen dan tidak berubah ketika semester berganti.
+Setiap data operasional wajib memiliki atau dapat ditelusuri secara deterministik ke satu `class_id`, baik secara langsung maupun melalui semester dan course offering. Membaca, menulis, mengimpor, mengekspor, dan memulihkan data tidak boleh mencampurkan kelas. Identitas kelas bersifat permanen dan tidak berubah ketika semester berganti.
 
 ### BR-CLASS-002 Portal Mahasiswa
 
@@ -109,7 +117,11 @@ Sistem wajib memeriksa benturan kelas, waktu, dan ruangan berdasarkan data inter
 
 ### BR-SCH-008 Perkuliahan Lintas Kelas
 
-Satu teaching event boleh terhubung ke beberapa course offering. Satu kelas wajib menjadi pemilik. KM kelas peserta harus menerima partisipasi sebelum event tampil pada kelasnya. KM peserta boleh melepas kelasnya tetapi tidak boleh mengubah waktu, tempat, jenis, atau lifecycle acara utama.
+Satu teaching event boleh terhubung ke beberapa course offering. Tepat satu offering wajib berperan sebagai `OWNER` sebelum event dipublikasikan; kelas pemilik diturunkan dari semester offering tersebut. Offering `PARTICIPANT` tidak boleh berasal dari kelas pemilik. KM kelas peserta harus menerima partisipasi sebelum event tampil pada kelasnya. KM peserta boleh melepas kelasnya tetapi tidak boleh mengubah waktu, tempat, jenis, atau lifecycle acara utama.
+
+### BR-SCH-009 Waktu dan Semester Event
+
+Tanggal event wajib berada dalam batas semester kelas pemilik. Kelas peserta hanya boleh menerima jika event berada pada periode semester offering peserta. Input waktu memakai zona waktu kelas pemilik, disimpan sebagai UTC, dan ditampilkan kembali menggunakan zona waktu kelas yang sedang dilihat. Konflik nonpemblokir hanya dapat dilanjutkan dengan `conflict_override_reason` yang tercatat.
 
 ## 5. Tugas dan Materi
 
@@ -119,15 +131,19 @@ Tugas yang diterbitkan wajib memiliki mata kuliah, judul, instruksi, deadline, d
 
 ### BR-TASK-002 Deadline dan Arsip
 
-Tugas yang melewati deadline berubah menjadi `OVERDUE`, bukan dihapus. Tugas yang ditandai selesai berubah menjadi `COMPLETED`. Pengarsipan mengisi `archived_at` tanpa mengganti status hasil sehingga tugas tetap dapat dicari dan diaudit.
+Lifecycle publikasi tugas hanya `DRAFT`, `PUBLISHED`, atau `REVOKED`. Penyelesaian mengisi `completed_at`, sedangkan keterlambatan dihitung ketika tugas belum selesai dan waktu saat ini melewati `deadline_at`. Pengarsipan mengisi `archived_at` tanpa mengganti lifecycle publikasi atau waktu penyelesaian sehingga tugas tetap dapat dicari dan diaudit.
 
 ### BR-TASK-003 Review Retrospektif
 
-PJ boleh langsung memublikasikan tugas. KM wajib memiliki alur review retrospektif dan dapat memberi keputusan `APPROVED`, `CHANGES_REQUESTED`, atau `REVOKED`. `CHANGES_REQUESTED` mengembalikan tugas ke `DRAFT`; `REVOKED` mengakhiri publikasi. Keduanya menarik tugas dari portal dan wajib memiliki catatan. Riwayat review bersifat append-only.
+PJ boleh langsung memublikasikan tugas dengan review state `NOT_REVIEWED`. Publikasi oleh KM langsung menghasilkan review `APPROVED` untuk versi yang dipublikasikan. KM dapat memberi keputusan `APPROVED`, `CHANGES_REQUESTED`, atau `REVOKED` hanya terhadap versi yang sedang aktif. `CHANGES_REQUESTED` mengubah lifecycle menjadi `DRAFT`; `REVOKED` mengubah lifecycle menjadi `REVOKED`. Keduanya menarik tugas dari portal dan wajib memiliki catatan. Riwayat review bersifat append-only.
 
 ### BR-TASK-004 Perubahan Tugas Terbit
 
-PJ boleh mengubah tugas terbit dalam cakupannya dan KM boleh mengubah seluruh tugas pada kelasnya. Sistem wajib menyimpan versi sebelumnya. Perubahan deadline atau tempat pengumpulan yang memengaruhi mahasiswa harus menghasilkan pembaruan notifikasi sesuai kebijakan kelas.
+PJ boleh mengubah tugas terbit dalam cakupannya dan KM boleh mengubah seluruh tugas pada kelasnya. Perubahan isi yang terlihat mahasiswa wajib menaikkan `version`. Perubahan oleh PJ mengatur review versi baru menjadi `NOT_REVIEWED`; perubahan oleh KM membuat review `APPROVED` untuk versi baru. Sistem menyimpan versi sebelumnya. Perubahan deadline atau tempat pengumpulan yang memengaruhi mahasiswa harus menghasilkan pembaruan notifikasi sesuai kebijakan kelas.
+
+### BR-TASK-006 Invariant Review
+
+Review state pada tugas adalah proyeksi keputusan untuk versi aktif. Nilai selain `NOT_REVIEWED` hanya valid jika terdapat `task_reviews` dengan `task_version` yang sama. Penambahan review dan pembaruan tugas wajib terjadi dalam satu transaksi. Sistem dilarang mengubah review state tanpa menambah riwayat review atau menerapkan keputusan pada versi yang sudah berubah.
 
 ### BR-TASK-005 Materi dan Tautan
 
@@ -205,14 +221,19 @@ Pergantian nomor, sesi, atau koneksi WhatsApp tidak boleh menghapus atau meminda
 | Teaching event | `DRAFT` | `PUBLISHED` | PJ atau KM sesuai cakupan |
 | Teaching event | `PUBLISHED` | `REVOKED` | KM kelas pemilik |
 | Partisipasi event | `PENDING` | `ACCEPTED`, `DECLINED`, atau `REMOVED` | KM kelas peserta |
-| Tugas | `DRAFT` | `PUBLISHED` | PJ atau KM |
-| Tugas | `PUBLISHED` | `DRAFT` | KM meminta koreksi |
-| Tugas | `PUBLISHED` | `COMPLETED`, `OVERDUE`, atau `REVOKED` | Pengurus, deadline, atau KM |
+| Partisipasi event | `ACCEPTED` | `REMOVED` | KM kelas peserta |
+| Partisipasi event | `DECLINED` atau `REMOVED` | `PENDING` | KM kelas pemilik mengundang ulang |
+| Publikasi tugas | `DRAFT` | `PUBLISHED` | PJ atau KM |
+| Publikasi tugas | `PUBLISHED` | `DRAFT` | KM meminta koreksi |
+| Publikasi tugas | `PUBLISHED` | `REVOKED` | KM membatalkan |
 | Review tugas | `NOT_REVIEWED` | `APPROVED`, `CHANGES_REQUESTED`, atau `REVOKED` | KM |
 | Semester | `DRAFT` | `ACTIVE` | KM atau System Admin |
 | Semester | `ACTIVE` | `ARCHIVED` | Aktivasi semester pengganti |
+| Pesan notifikasi | `PENDING` | `PROCESSING`, `CANCELLED`, atau `SUPERSEDED` | Worker, perubahan data, atau koreksi |
+| Pesan notifikasi | `PROCESSING` | `SENT`, `FAILED`, `CANCELLED`, atau `SUPERSEDED` | Worker atau perubahan data |
+| Pesan notifikasi | `FAILED` | `PROCESSING`, `CANCELLED`, atau `SUPERSEDED` | Percobaan ulang, perubahan data, atau koreksi |
 
-Transisi di luar tabel ditolak kecuali dokumen ini diperbarui. Status arsip tidak menghapus entitas atau riwayatnya.
+Untuk entitas yang tercantum pada tabel, transisi di luar tabel ditolak kecuali dokumen ini diperbarui. Lifecycle teknis entitas lain mengikuti daftar status dan aturan pada Data Model serta requirement terkait; ketiadaannya dari tabel ini tidak dengan sendirinya melarang transisi. `completed_at`, `archived_at`, dan kondisi terlambat bukan lifecycle sehingga tidak muncul sebagai transisi pada tabel ini. Setiap undangan ulang partisipasi masuk audit log.
 
 ## 10. Nilai Konfigurasi yang Masih Perlu Ditetapkan
 
@@ -243,6 +264,17 @@ Nilai berikut tidak mengubah aturan bisnis, tetapi wajib ditentukan sebelum impl
 Sebuah aturan siap diterjemahkan menjadi functional requirement dan test case jika aktor, kondisi awal, tindakan, hasil, penolakan, status data, audit, dan referensinya dapat diuji. Perubahan aturan yang memengaruhi akses, status, atau publikasi wajib diikuti pembaruan pada Product Definition, User Requirements, Access Control, User Flows, PRD, dan test case terkait.
 
 ## 13. Changelog
+
+### 3.0.1, 23 September 2026
+
+- Menegaskan bahwa kepemilikan kelas dapat diturunkan secara deterministik melalui relasi akademik.
+- Menambahkan transisi status pesan notifikasi dan membatasi sifat exhaustif tabel pada entitas yang tercantum.
+
+### 3.0.0, 23 September 2026
+
+- Menetapkan sesi identitas dengan konteks role assignment, rotasi token, dan pencatatan percobaan login.
+- Menurunkan pemilik teaching event dari offering `OWNER` serta menambah invariant semester, zona waktu, dan konflik.
+- Memisahkan lifecycle publikasi tugas dari penyelesaian, keterlambatan, arsip, dan review per versi.
 
 ### 2.0.0, 23 September 2026
 

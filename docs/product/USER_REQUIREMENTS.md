@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 2.0.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -41,10 +41,10 @@ Semua requirement dalam dokumen ini berstatus `Approved`. Prioritas menentukan u
 | ID | User Requirement | Aktor | Sumber | Prioritas | Kriteria Keberhasilan | Aturan Terkait |
 |---|---|---|---|---|---|---|
 | UR-ACCESS-001 | Mahasiswa membutuhkan akses cepat untuk melihat informasi kelas tanpa membuat akun. | Mahasiswa | Product Definition OQ-001 | Must | Mahasiswa dapat membuka portal kelas melalui tautan atau kode kelas; akses hanya-baca; fungsi administrasi dan informasi sensitif tidak terlihat. | BR-ACCESS-001 |
-| UR-ACCESS-002 | Pengurus membutuhkan akun terverifikasi agar hanya orang yang ditunjuk dapat mengubah data. | PJ, KM | Product Definition OQ-002 | Must | Akun pengurus dibuat melalui undangan; pengguna yang belum terautentikasi tidak dapat mengubah data; WhatsApp dapat digunakan untuk verifikasi atau pemulihan. | BR-ACCESS-001, BR-ACCESS-003 |
+| UR-ACCESS-002 | Pengurus membutuhkan akun terverifikasi agar hanya orang yang ditunjuk dapat mengubah data. | PJ, KM | Product Definition OQ-002 | Must | Akun pengurus dibuat melalui undangan; pengguna yang belum terautentikasi tidak dapat mengubah data; WhatsApp dapat digunakan untuk verifikasi atau pemulihan. | BR-ACCESS-001, BR-ACCESS-003, BR-ACCESS-007, BR-ACCESS-008 |
 | UR-ACCESS-003 | PJ membutuhkan akses yang terbatas pada mata kuliah yang menjadi tanggung jawabnya. | PJ | Bima, Imam KM | Must | PJ hanya dapat melihat fungsi pengelolaan untuk mata kuliah yang ditugaskan; permintaan perubahan di luar cakupan ditolak; pencabutan peran langsung menghentikan akses. | BR-ACCESS-002, BR-ACCESS-003 |
 | UR-ACCESS-004 | KM membutuhkan wewenang untuk mengelola seluruh mata kuliah pada kelas yang ditugaskan kepadanya. | KM | Bima, Imam KM | Must | KM dapat mengelola jadwal, tugas, PJ, dan koreksi pada kelasnya lintas semester sampai masa penugasan berakhir; KM tidak memperoleh akses ke kelas lain tanpa penugasan tambahan. | BR-CLASS-001 |
-| UR-ACCESS-005 | Satu pengguna membutuhkan dukungan beberapa peran apabila bertanggung jawab pada lebih dari satu kelas atau semester. | PJ, KM | Product Definition OQ-009 | Should | KM memiliki penugasan per kelas dan PJ per course offering; pengguna dapat berpindah konteks tanpa membuat akun baru; izin setiap konteks tetap terpisah. | BR-ACCESS-004 |
+| UR-ACCESS-005 | Satu pengguna membutuhkan dukungan beberapa peran apabila bertanggung jawab pada lebih dari satu kelas atau semester. | PJ, KM | Product Definition OQ-009 | Should | KM memiliki penugasan per kelas dan PJ per course offering; pengguna dapat berpindah konteks tanpa membuat akun baru; izin setiap konteks tetap terpisah. | BR-ACCESS-004, BR-ACCESS-007 |
 | UR-ACCESS-006 | Pengelola sistem membutuhkan cara memulihkan akses kelas ketika KM atau PJ kehilangan akun. | System Admin | Product Definition OQ-002 | Must | System Admin dapat memulihkan atau memindahkan akses; tindakan pemulihan tercatat; data kelas tidak berubah akibat pergantian akun. | BR-AUDIT-001 |
 
 ## 5. Kelas dan Semester
@@ -69,7 +69,7 @@ Semua requirement dalam dokumen ini berstatus `Approved`. Prioritas menentukan u
 | UR-SCH-006 | PJ membutuhkan kemampuan memublikasikan perubahan untuk mata kuliahnya tanpa menunggu persetujuan KM. | PJ | Keputusan OQ-005 | Must | PJ dapat memublikasikan perubahan dalam cakupannya; publikasi tercatat; perubahan langsung tampil di portal kelas dan memicu siaran yang sesuai. | BR-SCH-004, BR-AUDIT-001 |
 | UR-SCH-007 | KM membutuhkan kemampuan mencabut publikasi jadwal yang keliru pada kelasnya. | KM | Keputusan OQ-005 | Must | KM dapat mencabut teaching event yang masih berlaku; riwayat publikasi tidak dihapus; mahasiswa menerima koreksi jika informasi sebelumnya sudah disiarkan. | BR-SCH-005, BR-SCH-006 |
 | UR-SCH-008 | Pengguna membutuhkan tampilan yang membedakan jadwal reguler, pengganti, tambahan, libur, dan dibatalkan. | Semua aktor | Anindya, Kemal, Imam KM | Must | Setiap jenis perubahan memiliki label dan penjelasan yang jelas; tampilan tidak hanya mengandalkan warna; jadwal lama dan baru tidak tertukar. | BR-SCH-001 |
-| UR-SCH-009 | Beberapa kelas membutuhkan satu kejadian perkuliahan bersama tanpa menduplikasi jadwal. | Mahasiswa, PJ, KM | Product Definition bagian 13 | Must | Satu kejadian terhubung ke beberapa course offering; satu kelas menjadi pemilik; KM kelas peserta menerima atau menolak partisipasi; peserta tidak dapat mengubah acara utama. | BR-SCH-008 |
+| UR-SCH-009 | Beberapa kelas membutuhkan satu kejadian perkuliahan bersama tanpa menduplikasi jadwal. | Mahasiswa, PJ, KM | Product Definition bagian 13 | Must | Satu kejadian terhubung ke beberapa course offering; satu kelas menjadi pemilik; KM kelas peserta menerima atau menolak partisipasi; peserta tidak dapat mengubah acara utama. | BR-SCH-008, BR-SCH-009 |
 
 ## 7. Tugas dan Deadline
 
@@ -79,7 +79,7 @@ Semua requirement dalam dokumen ini berstatus `Approved`. Prioritas menentukan u
 | UR-TASK-002 | Mahasiswa membutuhkan informasi tugas yang lengkap dan tidak tersebar di banyak platform. | Mahasiswa | Seluruh responden | Must | Tugas memuat mata kuliah, judul, instruksi, deadline, serta tempat atau tautan pengumpulan; detail dapat dibuka dari satu portal kelas. | BR-TASK-001 |
 | UR-TASK-003 | Mahasiswa membutuhkan pengelompokan tugas berdasarkan tingkat urgensi. | Mahasiswa | Bima, Faqih, Afzhal, Hana | Must | Tugas dapat dilihat dalam kelompok Hari Ini, Minggu Ini, Mendatang, dan Terlewat; urutan deadline terdekat tersedia. | BR-TASK-002 |
 | UR-TASK-004 | Pengguna membutuhkan pencarian dan penyaringan tugas berdasarkan konteks yang relevan. | Mahasiswa, PJ, KM | Iman, Irfan, Afzhal, Hana, Anindya | Should | Pengguna dapat menyaring berdasarkan mata kuliah, status, rentang deadline, dan jenis tugas tanpa kehilangan konteks kelas aktif. | BR-CLASS-001, BR-SEM-001 |
-| UR-TASK-005 | PJ membutuhkan publikasi langsung dan KM membutuhkan kontrol setelah tugas terbit. | PJ, KM | Faqih dan keputusan OQ-003 | Must | Tugas PJ langsung terlihat; KM dapat menyetujui, meminta koreksi sekaligus menarik publikasi, atau membatalkan; setiap review menyimpan pelaku, waktu, dan catatan. | BR-TASK-003 |
+| UR-TASK-005 | PJ membutuhkan publikasi langsung dan KM membutuhkan kontrol setelah tugas terbit. | PJ, KM | Faqih dan keputusan OQ-003 | Must | Tugas PJ langsung terlihat; KM dapat menyetujui, meminta koreksi sekaligus menarik publikasi, atau membatalkan; setiap review menyimpan pelaku, waktu, dan catatan. | BR-TASK-003, BR-TASK-006 |
 | UR-TASK-006 | Pengurus membutuhkan cara menyelesaikan atau mengarsipkan tugas tanpa menghilangkan riwayat. | PJ, KM | Afzhal, Irfan | Should | Status hasil tugas dan waktu arsip disimpan terpisah; tugas dapat ditemukan kembali; data tetap dapat ditelusuri. | BR-TASK-002, BR-AUDIT-001 |
 | UR-TASK-007 | Pengguna membutuhkan tempat terpusat untuk tautan materi dan referensi kelas. | Mahasiswa, PJ, KM | Afzhal, Anindya | Should | Materi dapat berlaku untuk kelas umum atau course offering tertentu; tautan dapat dibuka dari detail tugas atau halaman materi; data tidak memenuhi pesan WhatsApp. | BR-CLASS-001, BR-SEM-001 |
 
@@ -159,6 +159,10 @@ Wawancara atau Keputusan Produk
 Requirement dianggap siap diimplementasikan ketika memiliki aturan bisnis yang jelas, alur pengguna, acceptance criteria teknis, desain state, dan test case. Perubahan requirement tidak menghapus ID lama. Requirement yang tidak lagi berlaku diberi status `Deprecated` dan menunjuk ke penggantinya.
 
 ## 15. Changelog
+
+### 2.0.1, 23 September 2026
+
+- Menambahkan referensi aturan sesi, pembatasan login, batas semester event, dan invariant review pada kebutuhan pengguna terkait.
 
 ### 2.0.0, 23 September 2026
 

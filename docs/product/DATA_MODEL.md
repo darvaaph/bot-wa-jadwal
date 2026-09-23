@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 3.0.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -41,7 +41,7 @@ Model data harus:
 
 | Domain | Entitas Utama | Fungsi |
 |---|---|---|
-| Identitas dan akses | `users`, `role_assignments`, `role_invitations`, `user_sessions`, `portal_sessions`, `recovery_tokens` | Login, undangan, sesi pengurus, sesi portal, serta cakupan peran |
+| Identitas dan akses | `users`, `role_assignments`, `role_invitations`, `login_attempts`, `user_sessions`, `portal_sessions`, `recovery_tokens` | Login, pembatasan percobaan, undangan, sesi pengurus, sesi portal, serta cakupan peran |
 | Akademik | `classes`, `class_settings`, `semesters`, `courses`, `course_offerings`, `lecturers`, `offering_lecturers` | Identitas kelas, semester, mata kuliah, dan dosen |
 | Jadwal | `rooms`, `schedule_patterns`, `teaching_events`, `teaching_event_offerings`, `room_confirmations` | Pola reguler, kejadian aktual, partisipasi lintas kelas, konflik, dan ruangan |
 | Tugas dan materi | `tasks`, `task_reviews`, `materials` | Tugas, review KM, deadline, tautan pengumpulan, dan materi |
@@ -55,10 +55,13 @@ erDiagram
     USERS ||--o{ ROLE_ASSIGNMENTS : receives
     USERS ||--o{ ROLE_INVITATIONS : creates
     USERS ||--o{ USER_SESSIONS : owns
+    USERS o|--o{ LOGIN_ATTEMPTS : may_match
+    ROLE_ASSIGNMENTS o|--o{ USER_SESSIONS : active_context
     USERS ||--o{ RECOVERY_TOKENS : requests
-    CLASSES ||--o{ ROLE_ASSIGNMENTS : scopes
-    COURSE_OFFERINGS ||--o{ ROLE_ASSIGNMENTS : may_scope
-    ROLE_INVITATIONS ||--o| ROLE_ASSIGNMENTS : activates
+    CLASSES o|--o{ ROLE_ASSIGNMENTS : scopes
+    SEMESTERS o|--o{ ROLE_ASSIGNMENTS : may_scope
+    COURSE_OFFERINGS o|--o{ ROLE_ASSIGNMENTS : may_scope
+    ROLE_INVITATIONS o|--o| ROLE_ASSIGNMENTS : activates
     CLASSES o|--o{ ROLE_INVITATIONS : may_scope
     SEMESTERS o|--o{ ROLE_INVITATIONS : may_scope
     COURSE_OFFERINGS o|--o{ ROLE_INVITATIONS : may_scope
@@ -70,6 +73,7 @@ erDiagram
         string display_name
         string password_hash
         string status
+        int session_version
         datetime last_login_at
         datetime created_at
         datetime updated_at
@@ -104,10 +108,22 @@ erDiagram
     USER_SESSIONS {
         int id PK
         int user_id FK
+        int active_role_assignment_id FK
         string token_hash UK
+        int session_version
+        datetime created_at
         datetime last_seen_at
-        datetime expires_at
+        datetime absolute_expires_at
         datetime revoked_at
+        string revocation_reason
+    }
+    LOGIN_ATTEMPTS {
+        int id PK
+        int user_id FK
+        string identity_hash
+        string source_hash
+        string outcome
+        datetime attempted_at
     }
     PORTAL_SESSIONS {
         int id PK
@@ -147,13 +163,15 @@ Status yang diizinkan: `ACTIVE`, `SUSPENDED`, atau `REVOKED`. Penugasan hanya ef
 
 KM memakai scope kelas agar dapat membuat semester pengganti dan mengelola pengaturan permanen kelas. Pergantian semester tidak membuat role assignment KM baru; masa jabatan dibatasi dengan `valid_until` atau pencabutan.
 
-### 4.3 `role_invitations`, `user_sessions`, `portal_sessions`, dan `recovery_tokens`
+### 4.3 `role_invitations`, `login_attempts`, `user_sessions`, `portal_sessions`, dan `recovery_tokens`
 
 - Token disimpan sebagai hash, hanya dapat digunakan sekali, dan memiliki waktu kedaluwarsa.
 - Satu undangan memuat salinan scope yang akan dibuat. Penerima tidak dapat mengubah scope tersebut. Status undangan: `PENDING`, `ACCEPTED`, `EXPIRED`, atau `REVOKED`.
-- Undangan `ACCEPTED` membuat role assignment baru yang menunjuk `accepted_invitation_id`; status undangan tidak dipakai sebagai status role assignment.
+- Undangan `ACCEPTED` membuat role assignment baru yang menunjuk `accepted_invitation_id`; status undangan tidak dipakai sebagai status role assignment. `accepted_invitation_id` boleh kosong hanya untuk assignment yang dibuat melalui provisioning atau prosedur administratif yang diaudit, termasuk System Admin pertama.
 - Pengiriman ulang membuat undangan baru dan mengubah undangan sebelumnya menjadi `REVOKED`.
-- Sesi menyimpan token hash, waktu terakhir aktif, waktu kedaluwarsa, dan waktu pencabutan.
+- `login_attempts` menyimpan hash identitas, hash sumber permintaan, hasil, dan waktu. `user_id` boleh kosong jika identitas tidak cocok dengan akun. Tabel ini tidak menyimpan password, token mentah, atau alamat sumber mentah.
+- Sesi menyimpan token hash, `active_role_assignment_id`, salinan `session_version`, waktu dibuat, waktu terakhir aktif, batas maksimum, waktu pencabutan, dan alasan pencabutan.
+- Nilai `users.session_version` yang berbeda dari salinan pada sesi membatalkan sesi. Pergantian konteks merotasi token dan mengganti role assignment aktif.
 - `portal_sessions` menyimpan token hash, kelas, dan versi kode. Rotasi kode menaikkan `class_settings.portal_code_version` sehingga seluruh sesi versi lama ditolak.
 - Pemulihan yang berhasil menandai token `used_at` dan dapat mencabut sesi aktif sesuai kebijakan keamanan.
 
@@ -262,9 +280,9 @@ Aktivasi semester baru mengisi `published_at` dan mengarsipkan semester lama dal
 ```mermaid
 erDiagram
     COURSE_OFFERINGS ||--o{ SCHEDULE_PATTERNS : schedules
-    ROOMS ||--o{ SCHEDULE_PATTERNS : locates
-    CLASSES ||--o{ TEACHING_EVENTS : owns
+    ROOMS o|--o{ SCHEDULE_PATTERNS : locates
     SCHEDULE_PATTERNS o|--o{ TEACHING_EVENTS : originates
+    TEACHING_EVENTS o|--o| SCHEDULE_PATTERNS : results_in
     TEACHING_EVENTS ||--|{ TEACHING_EVENT_OFFERINGS : includes
     COURSE_OFFERINGS ||--o{ TEACHING_EVENT_OFFERINGS : participates
     ROOMS o|--o{ TEACHING_EVENTS : locates
@@ -296,7 +314,6 @@ erDiagram
     }
     TEACHING_EVENTS {
         int id PK
-        int owner_class_id FK
         int origin_schedule_pattern_id FK
         date origin_occurrence_date
         int result_schedule_pattern_id FK
@@ -305,6 +322,7 @@ erDiagram
         datetime ends_at
         int room_id FK
         string reason
+        string conflict_override_reason
         string lifecycle_status
         int published_by_user_id FK
         datetime published_at
@@ -329,6 +347,7 @@ erDiagram
         string external_contact
         string note
         int recorded_by_user_id FK
+        datetime recorded_at
         datetime confirmed_at
     }
 ```
@@ -339,7 +358,7 @@ Status ruangan: `ACTIVE` atau `INACTIVE`. `source_updated_at` memberi konteks um
 
 ### 6.2 `schedule_patterns`
 
-Satu baris mewakili jadwal reguler pada rentang tanggal efektif. `day_of_week` memakai nilai 1 sampai 7, bukan nama hari, agar pencarian konsisten. `start_time` harus lebih awal daripada `end_time`. `effective_until` boleh kosong untuk versi yang masih berlaku.
+Satu baris mewakili jadwal reguler pada rentang tanggal efektif. `day_of_week` memakai nilai 1 sampai 7, bukan nama hari, agar pencarian konsisten. `start_time` harus lebih awal daripada `end_time`. `effective_until` boleh kosong untuk versi yang masih berlaku. `room_id` juga boleh kosong jika lokasi belum ditentukan atau kegiatan tidak memakai ruangan fisik.
 
 Perubahan permanen menutup `effective_until` versi lama dan membuat `schedule_patterns` baru. Riwayat tidak ditimpa. Status yang diizinkan: `ACTIVE`, `SUPERSEDED`, `ARCHIVED`, `DELETED`.
 
@@ -350,16 +369,17 @@ Perubahan permanen menutup `effective_until` versi lama dan membuat `schedule_pa
 - Event tambahan boleh tidak memiliki `origin_schedule_pattern_id`. Event pengganti dan pembatalan sesi wajib menunjuk pola serta `origin_occurrence_date`.
 - Perubahan permanen membuat pola baru dan menyimpannya pada `result_schedule_pattern_id`; pola lama tetap tersedia sebagai riwayat.
 - Pencabutan publikasi mengisi pelaku, waktu, serta alasan tanpa menghapus data publikasi.
+- Tanggal event wajib berada dalam semester offering `OWNER`. `starts_at` dan `ends_at` disimpan sebagai UTC setelah input ditafsirkan memakai zona waktu kelas pemilik.
 
 Konflik dihitung dari pola dan event terbit. Jika pengguna melanjutkan konflik nonpemblokir, alasan disimpan pada `teaching_events.conflict_override_reason`.
 
 ### 6.4 `teaching_event_offerings`
 
-Setiap event memiliki tepat satu baris `OWNER` yang course offering-nya berasal dari `owner_class_id`. Offering kelas lain memakai `PARTICIPANT` dengan status `PENDING`, `ACCEPTED`, `DECLINED`, atau `REMOVED`. Event hanya tampil pada kelas peserta dengan status `ACCEPTED`. KM peserta dapat mengubah status partisipasinya, tetapi tidak dapat mengubah event utama.
+Setiap event memiliki tepat satu baris `OWNER`. Kelas pemilik diturunkan melalui `course_offering -> semester -> class`, sehingga `teaching_events` tidak menyimpan `owner_class_id` duplikat. Offering kelas pemilik tidak boleh menjadi `PARTICIPANT`. Offering kelas lain memakai `PARTICIPANT` dengan status `PENDING`, `ACCEPTED`, `DECLINED`, atau `REMOVED`. Penerimaan hanya valid jika tanggal event berada dalam periode semester offering peserta. `ACCEPTED` dapat berubah menjadi `REMOVED`; undangan ulang mengubah `DECLINED` atau `REMOVED` menjadi `PENDING` dan wajib diaudit.
 
 ### 6.5 `room_confirmations`
 
-Status konfirmasi: `PENDING`, `CONFIRMED`, atau `REJECTED`. Teaching event draf wajib sudah ada sebelum konfirmasi dicatat. `external_contact` menyimpan nama petugas atau keterangan sumber konfirmasi manual, bukan akun TU. Catatan tidak mengubah `rooms`; sistem tetap menyebut ruangan sebagai kandidat sampai status `CONFIRMED`.
+Status konfirmasi: `PENDING`, `CONFIRMED`, atau `REJECTED`. Teaching event draf wajib sudah ada sebelum konfirmasi dicatat. `recorded_at` selalu diisi; `confirmed_at` hanya diisi ketika status `CONFIRMED`. `external_contact` menyimpan nama petugas atau keterangan sumber konfirmasi manual, bukan akun TU. Catatan tidak mengubah `rooms`; sistem tetap menyebut ruangan sebagai kandidat sampai status `CONFIRMED`.
 
 ## 7. ERD Tugas dan Materi
 
@@ -372,7 +392,9 @@ erDiagram
     COURSE_OFFERINGS o|--o{ MATERIALS : scopes
     TASKS o|--o{ MATERIALS : may_reference
     USERS ||--o{ TASKS : creates
+    USERS o|--o{ TASKS : deletes
     USERS ||--o{ MATERIALS : creates
+    USERS o|--o{ MATERIALS : deletes
 
     TASKS {
         int id PK
@@ -383,13 +405,16 @@ erDiagram
         string task_type
         string submission_text
         string submission_url
-        string status
+        string publication_status
         string review_state
+        int reviewed_version
         int created_by_user_id FK
         datetime published_at
+        datetime completed_at
         datetime archived_at
         int version
         datetime deleted_at
+        int deleted_by_user_id FK
     }
     TASK_REVIEWS {
         int id PK
@@ -415,27 +440,28 @@ erDiagram
         int created_by_user_id FK
         int version
         datetime deleted_at
+        int deleted_by_user_id FK
     }
 ```
 
 ### 7.1 `tasks`
 
-Status hasil tersimpan: `DRAFT`, `PUBLISHED`, `COMPLETED`, `OVERDUE`, atau `REVOKED`. `archived_at` dan `deleted_at` adalah dimensi terpisah dan tidak mengganti status hasil. Kelompok Hari Ini, Minggu Ini, dan Mendatang dihitung dari `deadline_at` serta zona waktu kelas.
+`publication_status` bernilai `DRAFT`, `PUBLISHED`, atau `REVOKED`. `completed_at`, `archived_at`, dan `deleted_at` adalah dimensi terpisah. Jika `deleted_at` terisi, `deleted_by_user_id` juga wajib terisi. Kondisi `Overdue` dihitung ketika `completed_at IS NULL` dan waktu saat ini melewati `deadline_at`; kondisi ini tidak disimpan sebagai status. Kelompok Hari Ini, Minggu Ini, Mendatang, dan Terlewat dihitung dari deadline serta zona waktu kelas.
 
 Aturan utama:
 
 - `title`, `instructions`, `deadline_at`, dan salah satu dari `submission_text` atau `submission_url` wajib sebelum publikasi.
-- Publikasi PJ langsung menghasilkan `review_state = NOT_REVIEWED`.
-- Lewatnya deadline mengubah tugas aktif menjadi `OVERDUE`, bukan menghapusnya.
+- Publikasi PJ menghasilkan `review_state = NOT_REVIEWED` dan `reviewed_version = NULL`.
+- Publikasi atau perubahan oleh KM menambah review `APPROVED` dan mengisi `reviewed_version` dengan `version` aktif.
 - `version` mendukung deteksi konflik. Riwayat nilai sebelum dan sesudah disimpan pada audit log.
 
 ### 7.2 `task_reviews`
 
-`task_reviews` bersifat append-only. `decision` bernilai `APPROVED`, `CHANGES_REQUESTED`, atau `REVOKED`; dua nilai terakhir wajib memiliki `note` dan menarik tugas dari portal. `CHANGES_REQUESTED` mengubah tugas menjadi `DRAFT`, sedangkan `REVOKED` mengubah status menjadi `REVOKED`. Publikasi ulang setelah koreksi mengatur `review_state` menjadi `NOT_REVIEWED` tanpa menghapus review lama. `task_version` memastikan keputusan merujuk isi yang benar. `reviewer_role_assignment_id` menyimpan konteks KM saat bertindak.
+`task_reviews` bersifat append-only. `decision` bernilai `APPROVED`, `CHANGES_REQUESTED`, atau `REVOKED`; dua nilai terakhir wajib memiliki `note` dan menarik tugas dari portal. `CHANGES_REQUESTED` mengubah publikasi menjadi `DRAFT`, sedangkan `REVOKED` mengubah publikasi menjadi `REVOKED`. Review hanya berlaku jika `task_version = tasks.version`. Perubahan oleh PJ mengatur versi baru menjadi `NOT_REVIEWED`; perubahan oleh KM membuat review `APPROVED` untuk versi baru. Insert review, pembaruan `review_state`, `reviewed_version`, dan `publication_status` terjadi dalam satu transaksi. `reviewer_role_assignment_id` menyimpan konteks KM saat bertindak.
 
 ### 7.3 `materials`
 
-`class_id` selalu wajib. `course_offering_id` opsional: nilai kosong berarti materi umum kelas. `material_type` dapat berupa `DOCUMENT`, `MEETING`, `REPOSITORY`, `PORTAL`, atau `OTHER`. `visibility` dapat berupa `CLASS_ACCESS` atau `WHATSAPP_ONLY`. `task_id` opsional dan hanya boleh menunjuk tugas dari class atau offering yang sama.
+`class_id` selalu wajib. `course_offering_id` opsional: nilai kosong berarti materi umum kelas. `material_type` dapat berupa `DOCUMENT`, `MEETING`, `REPOSITORY`, `PORTAL`, atau `OTHER`. `visibility` dapat berupa `CLASS_ACCESS` atau `WHATSAPP_ONLY`. `task_id` opsional dan hanya boleh menunjuk tugas dari class atau offering yang sama. Jika `deleted_at` terisi, `deleted_by_user_id` juga wajib terisi.
 
 URL harus dinormalisasi dan divalidasi sebelum disimpan. Menonaktifkan atau mengarsipkan materi tidak menghapus audit maupun referensi dari tugas lama.
 
@@ -446,7 +472,7 @@ erDiagram
     CLASSES ||--o{ WHATSAPP_CHANNELS : uses
     NOTIFICATION_MESSAGES ||--o{ NOTIFICATION_ATTEMPTS : retries
     WHATSAPP_CHANNELS ||--o{ NOTIFICATION_MESSAGES : receives
-    USERS ||--o{ NOTIFICATION_MESSAGES : triggers
+    USERS o|--o{ NOTIFICATION_MESSAGES : triggers
 
     WHATSAPP_CHANNELS {
         int id PK
@@ -544,13 +570,15 @@ Restore membuat backup titik awal dan audit log sebelum mengubah data. Paket den
 4. Hanya satu role assignment aktif untuk kombinasi pengguna, role, dan scope yang sama.
 5. PJ hanya dapat ditugaskan pada offering dalam kelas dan semester yang sama dengan assignment.
 6. `schedule_patterns` tidak boleh memiliki waktu akhir yang sama atau lebih awal dari waktu mulai.
-7. Setiap teaching event memiliki tepat satu offering `OWNER`; offering peserta hanya terlihat setelah status `ACCEPTED`.
-8. Event `EXTRA` boleh tanpa pola asal; `REPLACEMENT` dan `SESSION_CANCELLED` wajib memiliki pola serta tanggal asal.
-9. Materi selalu memiliki kelas; course offering dan task opsional harus berasal dari kelas yang sama.
-10. Publikasi memerlukan versi data terbaru. Update menggunakan pola `WHERE id = ? AND version = ?` lalu menaikkan `version`.
-11. Soft-deleted data tidak muncul pada query aktif, tetapi tetap tersedia untuk audit dan pemulihan.
-12. Audit log, task review, dan notification attempts tidak ikut dihapus saat objek sumber diarsipkan.
-13. Foreign key memakai `RESTRICT` untuk data historis. Penghapusan hubungan utama dilakukan melalui status atau soft delete, bukan cascade delete.
+7. Setiap teaching event memiliki paling banyak satu offering `OWNER` melalui unique partial index. Transaksi publikasi menolak event yang belum memiliki tepat satu `OWNER`.
+8. Offering `PARTICIPANT` tidak boleh berasal dari kelas pemilik; status `ACCEPTED` hanya valid jika tanggal event berada dalam periode semester peserta.
+9. Event `EXTRA` boleh tanpa pola asal; `REPLACEMENT` dan `SESSION_CANCELLED` wajib memiliki pola serta tanggal asal. `result_schedule_pattern_id` hanya diisi untuk perubahan permanen.
+10. `tasks.review_state` selain `NOT_REVIEWED` wajib memiliki `reviewed_version = version` dan review dengan keputusan yang sama pada versi tersebut.
+11. Materi selalu memiliki kelas; course offering dan task opsional harus berasal dari kelas yang sama.
+12. Publikasi memerlukan versi data terbaru. Update menggunakan pola `WHERE id = ? AND version = ?` lalu menaikkan `version`.
+13. Soft-deleted data tidak muncul pada query aktif, tetapi tetap tersedia untuk audit dan pemulihan.
+14. Audit log, task review, dan notification attempts tidak ikut dihapus saat objek sumber diarsipkan.
+15. Foreign key memakai `RESTRICT` untuk data historis. Penghapusan hubungan utama dilakukan melalui status atau soft delete, bukan cascade delete.
 
 ## 11. Indeks yang Diperlukan
 
@@ -561,12 +589,14 @@ Restore membuat backup titik awal dan audit log sebelum mengubah data. Paket den
 | `course_offerings` | Unik pada `(semester_id, course_id, activity_type)` |
 | `role_assignments` | `(user_id, status)` dan `(class_id, role, status)` |
 | `role_invitations` | Unik `token_hash`; `(invited_identity_key, status)` dan `(class_id, status)` |
+| `login_attempts` | `(identity_hash, source_hash, attempted_at)` dan `(user_id, attempted_at)` |
+| `user_sessions` | Unik `token_hash`; `(user_id, revoked_at)` dan `(active_role_assignment_id, revoked_at)` |
 | `portal_sessions` | Unik `token_hash`; `(class_id, access_code_version, revoked_at)` |
 | `schedule_patterns` | `(course_offering_id, status)`, `(day_of_week, start_time)`, `(room_id, day_of_week)` |
-| `teaching_events` | `(owner_class_id, lifecycle_status, starts_at)` dan `(origin_schedule_pattern_id, origin_occurrence_date)` |
-| `teaching_event_offerings` | `(course_offering_id, participation_status)` |
-| `tasks` | `(course_offering_id, status, deadline_at)` dan `(deadline_at, status)` |
-| `task_reviews` | `(task_id, created_at)` dan `(reviewer_user_id, created_at)` |
+| `teaching_events` | `(lifecycle_status, starts_at)` dan `(origin_schedule_pattern_id, origin_occurrence_date)` |
+| `teaching_event_offerings` | Unique partial index pada `teaching_event_id WHERE participation_role = 'OWNER'`; `(course_offering_id, participation_status)` |
+| `tasks` | `(course_offering_id, publication_status, deadline_at)` dan `(deadline_at, completed_at)` |
+| `task_reviews` | Unique pada `(task_id, task_version, decision, reviewer_role_assignment_id)`; `(task_id, created_at)` |
 | `materials` | `(class_id, status)` dan `(course_offering_id, status)` |
 | `notification_messages` | Unik `idempotency_key`; `(status, scheduled_at)`; `(class_id, created_at)` |
 | `audit_logs` | `(class_id, created_at)`, `(entity_type, entity_id)`, `(actor_user_id, created_at)` |
@@ -595,7 +625,7 @@ Query tidak boleh mengandalkan ID dari client sebagai bukti akses. Service menga
 | Jadwal utama berada pada file JSON per kelas | `classes`, `semesters`, `course_offerings`, `schedule_patterns` | Mendukung input manual, versi, dan semester |
 | `scope_jid` menjadi pemilik tugas, tautan, dan perubahan | `class_id` menjadi pemilik; JID berada di `whatsapp_channels` | Data akademik tidak bergantung pada sesi WhatsApp |
 | Mata kuliah dan dosen disalin sebagai teks | Master `courses`, `lecturers`, dan offering | Mengurangi duplikasi dan menjaga referensi |
-| `tasks.is_done` sebagai status tunggal | `tasks.status`, `review_state`, `archived_at`, dan `task_reviews` | Memisahkan hasil, review, arsip, dan riwayat |
+| `tasks.is_done` sebagai status tunggal | `publication_status`, `completed_at`, `review_state`, `archived_at`, dan `task_reviews` | Memisahkan publikasi, penyelesaian, review, arsip, dan riwayat |
 | `schedule_overrides` tidak memiliki lifecycle publikasi | `schedule_patterns`, `teaching_events`, dan tabel partisipasi | Mendukung draf, pencabutan KM, koreksi, serta lintas kelas |
 | `class_links` tidak terikat semester atau mata kuliah | `materials.class_id` dengan offering dan task opsional | Menampung materi umum tanpa membuat offering palsu |
 | `chat_settings` memetakan JID ke kode kelas | `whatsapp_channels` memakai foreign key kelas | Integritas referensial dan multi-kanal |
@@ -620,7 +650,7 @@ Keputusan pemetaan angkatan, tahun akademik, semester aktif awal, serta materi u
 ## 15. Urutan Implementasi Skema
 
 1. `classes`, `class_settings`, dan `semesters`.
-2. `users`, `role_assignments`, `role_invitations`, `user_sessions`, `portal_sessions`, dan recovery.
+2. `users`, `role_assignments`, `role_invitations`, `login_attempts`, `user_sessions`, `portal_sessions`, dan recovery.
 3. Master course, lecturer, room, serta course offering.
 4. Pola jadwal, teaching event, partisipasi offering, dan konfirmasi ruangan.
 5. Tugas, task review, dan materi.
@@ -634,10 +664,10 @@ Setiap tahap harus memiliki foreign key aktif, migration test, rollback plan, da
 
 | Domain Data | Business Rule dan Functional Requirement Utama |
 |---|---|
-| Identitas dan akses | BR-ACCESS-001 sampai BR-ACCESS-006; FR-ACCESS-001 sampai FR-ACCESS-007 |
+| Identitas dan akses | BR-ACCESS-001 sampai BR-ACCESS-008; FR-ACCESS-001 sampai FR-ACCESS-007 |
 | Kelas dan semester | BR-CLASS-001 sampai BR-SEM-005; FR-CLASS-001 sampai FR-SEM-004 |
-| Jadwal | BR-SCH-001 sampai BR-SCH-008; FR-SCH-001 sampai FR-SCH-008 |
-| Tugas dan materi | BR-TASK-001 sampai BR-TASK-005; FR-TASK-001 sampai FR-TASK-007 |
+| Jadwal | BR-SCH-001 sampai BR-SCH-009; FR-SCH-001 sampai FR-SCH-008 |
+| Tugas dan materi | BR-TASK-001 sampai BR-TASK-006; FR-TASK-001 sampai FR-TASK-007 |
 | Notifikasi | BR-NOTIF-001 sampai BR-NOTIF-005; FR-NOTIF-001 sampai FR-NOTIF-006 |
 | Ruangan | BR-ROOM-001 sampai BR-ROOM-003; FR-ROOM-001 sampai FR-ROOM-003 |
 | Audit dan operasional | BR-AUDIT-001 sampai BR-OPS-004; FR-AUDIT-001 sampai FR-OPS-004 |
@@ -647,6 +677,19 @@ Setiap tahap harus memiliki foreign key aktif, migration test, rollback plan, da
 Data model siap diterjemahkan menjadi migration SQL ketika seluruh foreign key dan status telah disetujui, mapping data lama tersedia, aturan unik dapat diterapkan di SQLite, query otorisasi utama telah ditentukan, dan setiap proses penting memiliki strategi transaksi serta audit. Perubahan skema yang mengubah arti role, status, publikasi, atau retensi wajib memperbarui Business Rules dan Functional Requirements.
 
 ## 18. Changelog
+
+### 3.0.1, 23 September 2026
+
+- Memperbaiki optionality course offering dan undangan pada role assignment, ruangan pada pola jadwal, serta pengguna pemicu notifikasi.
+- Menegaskan pelaku soft delete pada tugas dan materi.
+- Memperbarui rentang aturan pada ringkasan ketertelusuran.
+
+### 3.0.0, 23 September 2026
+
+- Menambah `login_attempts`, konteks role assignment pada sesi, dan pencabutan berbasis `session_version`.
+- Menghapus `owner_class_id` turunan, melengkapi relasi pola hasil, serta memperketat constraint event lintas kelas.
+- Memisahkan lifecycle publikasi tugas dari selesai, terlambat, arsip, dan review per versi.
+- Menyelaraskan kardinalitas kelas dan relasi semester pada role assignment di diagram identitas.
 
 ### 2.0.0, 23 September 2026
 

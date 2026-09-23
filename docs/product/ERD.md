@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 2.0.0 |
+| Versi | 3.0.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -37,12 +37,14 @@ erDiagram
     direction LR
 
     users ||--o{ roleAssignments : receives
-    classes ||--o{ roleAssignments : scopes
+    users o|..o{ loginAttempts : may_match
+    users ||--o{ userSessions : owns
+    classes o|..o{ roleAssignments : scopes
     classes ||--o{ semesters : contains
     semesters ||--o{ courseOfferings : offers
     courses ||--o{ courseOfferings : instantiates
     courseOfferings ||--o{ schedulePatterns : schedules
-    classes ||--o{ teachingEvents : owns
+    classes o|..o{ teachingEvents : derived_owner
     teachingEvents ||--|{ teachingEventOfferings : includes
     courseOfferings ||--o{ teachingEventOfferings : participates
     courseOfferings ||--o{ tasks : owns
@@ -55,6 +57,8 @@ erDiagram
 
     users["users"]
     roleAssignments["role_assignments"]
+    loginAttempts["login_attempts"]
+    userSessions["user_sessions"]
     classes["classes"]
     semesters["semesters"]
     courses["courses"]
@@ -79,10 +83,13 @@ erDiagram
     users ||--o{ roleAssignments : receives
     users ||--o{ roleInvitations : creates
     users ||--o{ userSessions : owns
+    users o|..o{ loginAttempts : may_match
+    roleAssignments o|..o{ userSessions : active_context
     users ||--o{ recoveryTokens : requests
     classes o|..o{ roleAssignments : scopes
+    semesters o|..o{ roleAssignments : limits
     courseOfferings o|..o{ roleAssignments : assigns
-    roleInvitations ||..o| roleAssignments : activates
+    roleInvitations o|..o| roleAssignments : activates
     classes o|..o{ roleInvitations : scopes
     semesters o|..o{ roleInvitations : limits
     courseOfferings o|..o{ roleInvitations : assigns
@@ -94,6 +101,7 @@ erDiagram
         string display_name
         string password_hash
         string status
+        int session_version
         datetime last_login_at
     }
     roleAssignments["role_assignments"] {
@@ -126,10 +134,22 @@ erDiagram
     userSessions["user_sessions"] {
         int id PK
         int user_id FK
+        int active_role_assignment_id FK
         string token_hash UK
+        int session_version
+        datetime created_at
         datetime last_seen_at
-        datetime expires_at
+        datetime absolute_expires_at
         datetime revoked_at
+        string revocation_reason
+    }
+    loginAttempts["login_attempts"] {
+        int id PK
+        int user_id FK
+        string identity_hash
+        string source_hash
+        string outcome
+        datetime attempted_at
     }
     portalSessions["portal_sessions"] {
         int id PK
@@ -167,9 +187,12 @@ erDiagram
 Aturan scope:
 
 - `SYSTEM_ADMIN` memakai scope `GLOBAL` tanpa foreign key kelas.
+- Assignment hasil provisioning, termasuk System Admin pertama, boleh tidak memiliki `accepted_invitation_id`; assignment dari undangan wajib menunjuk undangan yang diterima.
 - `KM` memakai scope `CLASS`; masa jabatan memakai `valid_from` dan `valid_until`, bukan `semester_id`.
 - `PJ` memakai scope `COURSE_OFFERING` dan wajib memiliki kelas, semester, serta offering yang konsisten.
 - Undangan memakai `PENDING`, `ACCEPTED`, `EXPIRED`, atau `REVOKED`; role assignment terpisah memakai `ACTIVE`, `SUSPENDED`, atau `REVOKED`.
+- Sesi menunjuk satu role assignment aktif. Pergantian konteks merotasi token; `session_version` mencabut seluruh sesi pengguna saat diperlukan.
+- `login_attempts` menyimpan hash identitas dan sumber, bukan kredensial atau alamat sumber mentah.
 
 ## 4. Struktur Akademik
 
@@ -256,8 +279,8 @@ erDiagram
 
     courseOfferings ||--o{ schedulePatterns : schedules
     rooms o|..o{ schedulePatterns : locates
-    classes ||--o{ teachingEvents : owns
     schedulePatterns o|..o{ teachingEvents : originates
+    teachingEvents o|..o| schedulePatterns : results_in
     teachingEvents ||--|{ teachingEventOfferings : includes
     courseOfferings ||--o{ teachingEventOfferings : participates
     rooms o|..o{ teachingEvents : locates
@@ -294,7 +317,6 @@ erDiagram
     }
     teachingEvents["teaching_events"] {
         int id PK
-        int owner_class_id FK
         int origin_schedule_pattern_id FK
         date origin_occurrence_date
         int result_schedule_pattern_id FK
@@ -302,6 +324,8 @@ erDiagram
         datetime starts_at
         datetime ends_at
         int room_id FK
+        string reason
+        string conflict_override_reason
         string lifecycle_status
         int published_by_user_id FK
         datetime published_at
@@ -326,19 +350,16 @@ erDiagram
         string external_contact
         string note
         int recorded_by_user_id FK
+        datetime recorded_at
         datetime confirmed_at
     }
     users["users"] {
         int id PK
         string display_name
     }
-    classes["classes"] {
-        int id PK
-        string code UK
-    }
 ```
 
-`event_kind` memakai `REPLACEMENT`, `EXTRA`, `HOLIDAY`, atau `SESSION_CANCELLED`. Lifecycle publikasi memakai `DRAFT`, `PUBLISHED`, atau `REVOKED`. Setiap event memiliki satu offering pemilik; offering peserta baru terlihat setelah KM kelasnya menerima partisipasi. Konfirmasi TU terikat pada event draf dan tetap dilakukan di luar aplikasi.
+`event_kind` memakai `REPLACEMENT`, `EXTRA`, `HOLIDAY`, atau `SESSION_CANCELLED`. Lifecycle publikasi memakai `DRAFT`, `PUBLISHED`, atau `REVOKED`. Kelas pemilik diturunkan dari tepat satu offering `OWNER`. Offering peserta harus berasal dari kelas lain dan baru terlihat setelah KM kelasnya menerima partisipasi. Konfirmasi TU terikat pada event draf; `recorded_at` selalu terisi, sedangkan `confirmed_at` hanya terisi untuk hasil `CONFIRMED`.
 
 ## 6. Tugas dan Materi
 
@@ -353,7 +374,9 @@ erDiagram
     courseOfferings o|..o{ materials : scopes
     tasks o|..o{ materials : references
     users ||--o{ tasks : creates
+    users o|..o{ tasks : deletes
     users ||--o{ materials : creates
+    users o|..o{ materials : deletes
 
     courseOfferings["course_offerings"] {
         int id PK
@@ -369,12 +392,16 @@ erDiagram
         string task_type
         string submission_text
         string submission_url
-        string status
+        string publication_status
         string review_state
+        int reviewed_version
         int created_by_user_id FK
+        datetime published_at
+        datetime completed_at
         datetime archived_at
         int version
         datetime deleted_at
+        int deleted_by_user_id FK
     }
     taskReviews["task_reviews"] {
         int id PK
@@ -394,11 +421,13 @@ erDiagram
         string title
         string material_type
         string url
+        text description
         string visibility
         string status
         int created_by_user_id FK
         int version
         datetime deleted_at
+        int deleted_by_user_id FK
     }
     users["users"] {
         int id PK
@@ -410,7 +439,7 @@ erDiagram
     }
 ```
 
-Pengarsipan tugas memakai `archived_at` dan tidak mengganti status hasil. Review KM tersimpan append-only pada `task_reviews`. Materi selalu memiliki kelas; `course_offering_id` dan `task_id` bersifat opsional untuk materi umum.
+Publikasi tugas memakai `DRAFT`, `PUBLISHED`, atau `REVOKED`. Penyelesaian memakai `completed_at`; keterlambatan dihitung dari deadline. Pengarsipan memakai `archived_at`. Soft delete mengisi `deleted_at` dan `deleted_by_user_id`. Review KM tersimpan append-only dan hanya berlaku untuk `task_version` yang sama dengan versi tugas. Materi selalu memiliki kelas; `course_offering_id` dan `task_id` bersifat opsional untuk materi umum.
 
 ## 7. WhatsApp dan Notifikasi
 
@@ -566,6 +595,7 @@ ERD tidak menggambarkan seluruh aturan berikut karena aturan tersebut ditegakkan
 - Hanya satu semester aktif per kelas.
 - Kesesuaian kelas dan semester pada role assignment PJ.
 - Tepat satu offering pemilik pada setiap teaching event dan penerimaan KM untuk kelas peserta.
+- Kesesuaian tanggal event dengan semester offering pemilik dan peserta.
 - Pemisahan `SESSION_CANCELLED` dari lifecycle publikasi `REVOKED`.
 - Validasi transisi status.
 - Optimistic locking melalui `version`.
@@ -584,6 +614,18 @@ Rincian lengkapnya tersedia pada [Data Model](DATA_MODEL.md), [Business Rules](B
 5. Ubah sumber Mermaid dalam repository lebih dahulu agar diagram hasil ekspor tidak menjadi sumber kebenaran terpisah.
 
 ## 11. Changelog
+
+### 3.0.1, 23 September 2026
+
+- Memperbaiki optionality undangan pada role assignment hasil provisioning.
+- Menambahkan pelaku soft delete pada tugas dan materi serta relasinya ke pengguna.
+
+### 3.0.0, 23 September 2026
+
+- Menambah percobaan login dan konteks role assignment pada sesi.
+- Menurunkan kelas pemilik event dari offering `OWNER` dan melengkapi relasi pola hasil.
+- Memisahkan lifecycle publikasi tugas dari selesai, terlambat, arsip, dan review per versi.
+- Menyelaraskan kolom `published_at` pada tasks, `reason` pada teaching_events, `description` pada materials, kardinalitas role assignment global, serta relasi semester pada role assignment.
 
 ### 2.0.0, 23 September 2026
 

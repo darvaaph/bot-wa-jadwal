@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0.0 |
+| Versi | 3.0.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -215,8 +215,8 @@ Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [B
 | BR-ACCESS-002 | PJ hanya dapat mengubah mata kuliah yang ditugaskan kepadanya. | Approved |
 | BR-ACCESS-003 | Pencabutan peran langsung menghentikan akses perubahan data. | Approved |
 | BR-ACCESS-004 | Satu akun dapat memiliki peran berbeda pada beberapa kelas dan semester. | Approved |
-| BR-CLASS-001 | Setiap data operasional wajib memiliki `class_id`. | Approved |
-| BR-SEM-001 | Setiap jadwal dan tugas wajib memiliki `semester_id`. | Approved |
+| BR-CLASS-001 | Setiap data operasional wajib memiliki atau dapat ditelusuri secara deterministik ke satu `class_id`. | Approved |
+| BR-SEM-001 | Setiap jadwal dan tugas wajib memiliki atau dapat ditelusuri secara deterministik ke satu `semester_id`. | Approved |
 | BR-SEM-002 | Satu kelas hanya memiliki satu semester aktif. | Approved |
 | BR-SEM-003 | Aktivasi semester baru mengarsipkan semester aktif sebelumnya. | Approved |
 | BR-SEM-004 | Semester hanya dapat diaktifkan oleh KM pada kelasnya atau System Admin. | Approved |
@@ -238,29 +238,39 @@ Ketentuan rinci, transisi status, serta penanganan kegagalan dijelaskan dalam [B
 
 ### 11.1 Perubahan Jadwal
 
+Lifecycle publikasi kejadian perkuliahan (`teaching_events`) hanya memiliki tiga status: `DRAFT`, `PUBLISHED`, dan `REVOKED`. Status akademik tidak dicampur dengan siklus publikasi.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Draft
     Draft --> Published: Dipublikasikan PJ atau KM
     Published --> Revoked: Publikasi dicabut KM
-    Published --> Completed: Waktu selesai
-    Revoked --> Draft: Dikoreksi
-    Completed --> [*]
+    Published --> [*]
+    Revoked --> [*]
 ```
 
+- Jadwal yang telah lewat waktu tetap berstatus `PUBLISHED` (tidak ada status `Completed` di database; jadwal efektif dievaluasi berdasarkan waktu pelaksanaan terhadap waktu saat ini).
+- Pembatalan sesi perkuliahan akademik tetap tersimpan sebagai event dengan `event_kind = SESSION_CANCELLED`, bukan dengan mencabut publikasi (`REVOKED`).
+- Event yang telah `REVOKED` tidak dapat dikembalikan langsung ke `DRAFT`; jika diperlukan koreksi jadwal, pengurus membuat draf/event baru yang dapat ditelusuri riwayatnya.
+
 ### 11.2 Tugas
+
+Lifecycle publikasi tugas (`tasks`) hanya mencakup `DRAFT`, `PUBLISHED`, dan `REVOKED`. Penyelesaian tugas, pengarsipan, dan keterlambatan dikelola melalui kolom terpisah.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Draft
-    Draft --> Published
-    Published --> Completed: Ditandai selesai
-    Published --> Overdue: Deadline lewat
-    Published --> Revoked: Ditarik KM
-    Revoked --> Draft: Dikoreksi
-    Completed --> [*]
-    Overdue --> [*]
+    Draft --> Published: Dipublikasikan PJ atau KM
+    Published --> Draft: KM meminta koreksi
+    Published --> Revoked: KM membatalkan tugas
+    Published --> [*]
+    Revoked --> [*]
 ```
+
+- **Penyelesaian**: Disimpan melalui timestamp `completed_at`, bukan perubahan status publikasi.
+- **Keterlambatan (Overdue)**: Dihitung secara dinamis saat runtime ketika `completed_at IS NULL` dan waktu saat ini melewati `deadline_at`. Kondisi ini tidak disimpan sebagai nilai status di database.
+- **Pengarsipan**: Mengisi timestamp `archived_at` tanpa mengganti status publikasi agar riwayat tetap utuh dan dapat diaudit.
+- **Review KM**: Penilaian review KM (`APPROVED`, `CHANGES_REQUESTED`, `REVOKED`) disimpan tersendiri dalam tabel `task_reviews` dan terikat pada versi tugas tertentu (`task_version`). Keputusan `CHANGES_REQUESTED` mengembalikan tugas menjadi `DRAFT`, sedangkan `REVOKED` mengubahnya menjadi `REVOKED`.
 
 ## 12. Notifikasi WhatsApp
 
@@ -327,6 +337,14 @@ Status yang digunakan:
 Perubahan besar pada akses, struktur kelas, status data, dan aturan publikasi harus mencantumkan dampaknya terhadap PRD, data model, API, migrasi, dan pengujian.
 
 ## 17. Changelog
+
+### 3.0.1, 23 September 2026
+
+- Menegaskan bahwa cakupan kelas dan semester dapat disimpan langsung atau diturunkan secara deterministik melalui relasi akademik.
+
+### 3.0.0, 23 September 2026
+
+- Menyelaraskan lifecycle status perubahan jadwal dan tugas dengan arsitektur decoupled v3.0.0 (memisahkan publication_status dari completed_at, archived_at, dan kalkulasi overdue).
 
 ### 1.0.0, 23 September 2026
 

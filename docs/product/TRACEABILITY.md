@@ -4,7 +4,7 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 1.0.0 |
+| Versi | 1.1.1 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
@@ -16,11 +16,11 @@ Dokumen ini menghubungkan kebutuhan pengguna dengan requirement kanonis, aturan 
 | User Requirement | Functional Requirement | Business Rule | User Flow | Entitas Utama |
 |---|---|---|---|---|
 | UR-ACCESS-001 | FR-ACCESS-001 | BR-CLASS-002 | UF-PORTAL-001 | `classes`, `class_settings`, `portal_sessions` |
-| UR-ACCESS-002 | FR-ACCESS-002, FR-ACCESS-003 | BR-ACCESS-001, BR-ACCESS-005 | UF-ACCESS-001, UF-ACCESS-002 | `users`, `role_invitations`, `user_sessions` |
+| UR-ACCESS-002 | FR-ACCESS-002, FR-ACCESS-003 | BR-ACCESS-001, BR-ACCESS-005, BR-ACCESS-007, BR-ACCESS-008 | UF-ACCESS-001, UF-ACCESS-002 | `users`, `login_attempts`, `role_invitations`, `user_sessions` |
 | UR-ACCESS-003 | FR-ACCESS-003, FR-ACCESS-004, FR-ACCESS-007 | BR-ACCESS-002, BR-ACCESS-003 | UF-ACCESS-002, UF-ACCESS-006 | `role_assignments`, `course_offerings` |
 | UR-ACCESS-004 | FR-ACCESS-003, FR-ACCESS-004, FR-ACCESS-007 | BR-ACCESS-003, BR-CLASS-001 | UF-ACCESS-001, UF-ACCESS-006 | `role_assignments`, `classes` |
-| UR-ACCESS-005 | FR-ACCESS-005 | BR-ACCESS-004 | UF-ACCESS-003, UF-ACCESS-004 | `users`, `role_assignments` |
-| UR-ACCESS-006 | FR-ACCESS-006 | BR-ACCESS-003, BR-ACCESS-006 | UF-ACCESS-005 | `recovery_tokens`, `user_sessions`, `audit_logs` |
+| UR-ACCESS-005 | FR-ACCESS-005 | BR-ACCESS-004, BR-ACCESS-007 | UF-ACCESS-003, UF-ACCESS-004 | `users`, `role_assignments`, `user_sessions` |
+| UR-ACCESS-006 | FR-ACCESS-006 | BR-ACCESS-003, BR-ACCESS-006, BR-ACCESS-007 | UF-ACCESS-005 | `recovery_tokens`, `user_sessions`, `audit_logs` |
 | UR-CLASS-001 | FR-CLASS-002 | BR-CLASS-001 | UF-PORTAL-001, UF-ACCESS-004 | `classes` dan seluruh FK kelas |
 | UR-CLASS-002 | FR-CLASS-001 | BR-CLASS-001 | UF-ACCESS-001, UF-SEM-002 | `classes`, `semesters` |
 | UR-SEM-001 | FR-SEM-001, FR-SEM-003, FR-SEM-004 | BR-SEM-001, BR-SEM-002, BR-SEM-003, BR-SEM-004 | UF-SEM-001, UF-SEM-002 | `semesters` |
@@ -34,12 +34,12 @@ Dokumen ini menghubungkan kebutuhan pengguna dengan requirement kanonis, aturan 
 | UR-SCH-006 | FR-SCH-005 | BR-SCH-003, BR-SCH-004 | UF-SCH-002 | `teaching_events`, `audit_logs` |
 | UR-SCH-007 | FR-SCH-007 | BR-SCH-005, BR-SCH-006 | UF-SCH-004 | `teaching_events`, `notification_messages` |
 | UR-SCH-008 | FR-SCH-001, FR-SCH-003 | BR-SCH-001 | UF-PORTAL-002 | `schedule_patterns`, `teaching_events` |
-| UR-SCH-009 | FR-SCH-008 | BR-SCH-008 | UF-SCH-005 | `teaching_events`, `teaching_event_offerings` |
+| UR-SCH-009 | FR-SCH-008 | BR-SCH-008, BR-SCH-009 | UF-SCH-005 | `teaching_events`, `teaching_event_offerings` |
 | UR-TASK-001 | FR-TASK-001, FR-TASK-002 | BR-TASK-001 | UF-TASK-001 | `tasks` |
 | UR-TASK-002 | FR-TASK-002, FR-TASK-005 | BR-TASK-001, BR-TASK-004 | UF-PORTAL-002, UF-TASK-001 | `tasks` |
 | UR-TASK-003 | FR-TASK-004 | BR-TASK-002 | UF-PORTAL-002 | `tasks` |
 | UR-TASK-004 | FR-TASK-004 | BR-TASK-002 | UF-PORTAL-002 | `tasks` |
-| UR-TASK-005 | FR-TASK-002, FR-TASK-003 | BR-TASK-003 | UF-TASK-001, UF-TASK-002 | `tasks`, `task_reviews` |
+| UR-TASK-005 | FR-TASK-002, FR-TASK-003 | BR-TASK-003, BR-TASK-006 | UF-TASK-001, UF-TASK-002 | `tasks`, `task_reviews` |
 | UR-TASK-006 | FR-TASK-006 | BR-TASK-002, BR-OPS-002 | UF-TASK-003 | `tasks`, `audit_logs` |
 | UR-TASK-007 | FR-TASK-007 | BR-TASK-005 | UF-PORTAL-002, UF-TASK-003 | `materials` |
 | UR-NOTIF-001 | FR-NOTIF-001, FR-NOTIF-005 | BR-NOTIF-001 sampai BR-NOTIF-003 | UF-PORTAL-002, UF-OPS-001 | `notification_messages`, `class_settings` |
@@ -71,6 +71,15 @@ Dokumen ini menghubungkan kebutuhan pengguna dengan requirement kanonis, aturan 
 - Validasi dokumen gagal jika satu UR, FR, BR, atau UF yang dirujuk tidak ditemukan pada dokumen sumber.
 
 ## Changelog
+
+### 1.1.1, 23 September 2026
+
+- Menyamakan versi header dengan riwayat perubahan.
+- Menambahkan pemetaan aturan sesi, pembatasan login, batas semester event, dan invariant review.
+
+### 1.1.0, 23 September 2026
+
+- Menambahkan entitas `login_attempts` pada pemetaan UR-ACCESS-002 sesuai FR-ACCESS-002 dan BR-ACCESS-008.
 
 ### 1.0.0, 23 September 2026
 
