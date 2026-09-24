@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+var ErrUnmappedScope = errors.New("scope belum terpetakan ke kelas terdaftar")
+
 type Repository struct {
 	db *sql.DB
 }
@@ -232,30 +234,16 @@ func (r *Repository) EnsureUser(ctx context.Context, identityKey, displayName st
 		displayName = identityKey
 	}
 
-	var id int64
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM users WHERE identity_key = ?", identityKey).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("gagal mencari user %s: %w", identityKey, err)
-	}
-
-	res, err := r.db.ExecContext(ctx, `
+	query := `
 		INSERT INTO users (identity_key, display_name, password_hash, status)
 		VALUES (?, ?, 'NOPASSWORD', 'ACTIVE')
-		ON CONFLICT(identity_key) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, identityKey, displayName)
+		ON CONFLICT(identity_key) DO UPDATE SET display_name = excluded.display_name, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	var id int64
+	err := r.db.QueryRowContext(ctx, query, identityKey, displayName).Scan(&id)
 	if err != nil {
-		return 0, fmt.Errorf("gagal menyisipkan user %s: %w", identityKey, err)
-	}
-
-	id, err = res.LastInsertId()
-	if err != nil || id == 0 {
-		err = r.db.QueryRowContext(ctx, "SELECT id FROM users WHERE identity_key = ?", identityKey).Scan(&id)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID user setelah insert: %w", err)
-		}
+		return 0, fmt.Errorf("gagal memastikan user %s: %w", identityKey, err)
 	}
 	return id, nil
 }
@@ -270,30 +258,16 @@ func (r *Repository) EnsureRoom(ctx context.Context, code, name string) (int64, 
 		name = code
 	}
 
-	var id int64
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM rooms WHERE code = ?", code).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("gagal mencari room %s: %w", code, err)
-	}
-
-	res, err := r.db.ExecContext(ctx, `
+	query := `
 		INSERT INTO rooms (code, name, status)
 		VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, code, name)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	var id int64
+	err := r.db.QueryRowContext(ctx, query, code, name).Scan(&id)
 	if err != nil {
-		return 0, fmt.Errorf("gagal menyisipkan room %s: %w", code, err)
-	}
-
-	id, err = res.LastInsertId()
-	if err != nil || id == 0 {
-		err = r.db.QueryRowContext(ctx, "SELECT id FROM rooms WHERE code = ?", code).Scan(&id)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID room setelah insert: %w", err)
-		}
+		return 0, fmt.Errorf("gagal memastikan room %s: %w", code, err)
 	}
 	return id, nil
 }
@@ -303,6 +277,9 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 	code := strings.TrimSpace(rawCode)
 	if code == "" {
 		return nil, fmt.Errorf("kode kelas tidak boleh kosong")
+	}
+	if strings.Contains(code, "@") {
+		return nil, fmt.Errorf("kode kelas %q tidak valid: JID WhatsApp tidak boleh digunakan sebagai kode kelas", code)
 	}
 
 	cls, err := r.GetClassByCode(ctx, code)
@@ -343,55 +320,79 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 		label = parts[len(parts)-1]
 	}
 
-	res, err := r.db.ExecContext(ctx, `
+	query := `
 		INSERT INTO classes (code, slug, study_program, cohort_year, group_label, status)
 		VALUES (?, ?, ?, ?, ?, 'ACTIVE')
 		ON CONFLICT(code) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, code, slugVal, program, cohort, label)
+		RETURNING id;
+	`
+	err = r.db.QueryRowContext(ctx, query, code, slugVal, program, cohort, label).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyisipkan class %s: %w", code, err)
-	}
-
-	id, err = res.LastInsertId()
-	if err != nil || id == 0 {
-		return r.GetClassByCode(ctx, code)
 	}
 	return r.GetClassByID(ctx, id)
 }
 
-// EnsureSemester memastikan kelas memiliki semester aktif.
-func (r *Repository) EnsureSemester(ctx context.Context, classID int64) (int64, error) {
+// EnsureSemesterForDate memastikan kelas memiliki semester aktif yang mencakup tanggal tertentu.
+func (r *Repository) EnsureSemesterForDate(ctx context.Context, classID int64, eventDate time.Time) (int64, error) {
+	dateStr := eventDate.Format("2006-01-02")
 	var semID int64
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1", classID).Scan(&semID)
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id FROM semesters
+		WHERE class_id = ? AND ? >= starts_on AND ? <= ends_on
+		LIMIT 1
+	`, classID, dateStr, dateStr).Scan(&semID)
 	if err == nil {
 		return semID, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("gagal mencari semester aktif untuk class ID %d: %w", classID, err)
+		return 0, fmt.Errorf("gagal memeriksa semester untuk tanggal %s: %w", dateStr, err)
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := r.db.ExecContext(ctx, `
+	year := eventDate.Year()
+	month := eventDate.Month()
+
+	var academicYear, term, startsOn, endsOn string
+	if month >= time.September {
+		academicYear = fmt.Sprintf("%d/%d", year, year+1)
+		term = "GANJIL"
+		startsOn = fmt.Sprintf("%d-09-01", year)
+		nextFebEnd := time.Date(year+1, time.March, 1, 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
+		endsOn = nextFebEnd.Format("2006-01-02")
+	} else if month <= time.February {
+		academicYear = fmt.Sprintf("%d/%d", year-1, year)
+		term = "GANJIL"
+		startsOn = fmt.Sprintf("%d-09-01", year-1)
+		febEnd := time.Date(year, time.March, 1, 0, 0, 0, 0, time.UTC).Add(-24 * time.Hour)
+		endsOn = febEnd.Format("2006-01-02")
+	} else {
+		academicYear = fmt.Sprintf("%d/%d", year-1, year)
+		term = "GENAP"
+		startsOn = fmt.Sprintf("%d-03-01", year)
+		endsOn = fmt.Sprintf("%d-08-31", year)
+	}
+
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	query := `
 		INSERT INTO semesters (class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
-		VALUES (?, '2024/2025', 'GANJIL', '2024-09-01', '2025-02-28', 'ACTIVE', ?, ?)
-		ON CONFLICT(class_id, academic_year, term) DO UPDATE SET status = 'ACTIVE'
-	`, classID, now, now)
+		VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
+		ON CONFLICT(class_id, academic_year, term) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	err = r.db.QueryRowContext(ctx, query, classID, academicYear, term, startsOn, endsOn, nowStr, nowStr).Scan(&semID)
 	if err != nil {
-		return 0, fmt.Errorf("gagal membuat semester default untuk class ID %d: %w", classID, err)
-	}
-
-	semID, err = res.LastInsertId()
-	if err != nil || semID == 0 {
-		err = r.db.QueryRowContext(ctx, "SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1", classID).Scan(&semID)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID semester setelah insert: %w", err)
-		}
+		return 0, fmt.Errorf("gagal membuat semester %s %s: %w", academicYear, term, err)
 	}
 	return semID, nil
 }
 
-// EnsureCourseOffering memastikan mata kuliah dan offering-nya terdaftar untuk kelas tertentu.
-func (r *Repository) EnsureCourseOffering(ctx context.Context, classID int64, courseCode, courseName, activityType string) (int64, error) {
+// EnsureSemester memastikan kelas memiliki semester aktif.
+func (r *Repository) EnsureSemester(ctx context.Context, classID int64) (int64, error) {
+	return r.EnsureSemesterForDate(ctx, classID, time.Now())
+}
+
+// EnsureCourseOfferingForDate memastikan mata kuliah dan offering-nya terdaftar untuk kelas dan tanggal tertentu.
+func (r *Repository) EnsureCourseOfferingForDate(ctx context.Context, classID int64, courseCode, courseName, activityType string, refDate time.Time) (int64, error) {
 	courseCode = strings.TrimSpace(courseCode)
 	if courseCode == "" {
 		courseCode = "MK-UMUM"
@@ -406,61 +407,39 @@ func (r *Repository) EnsureCourseOffering(ctx context.Context, classID int64, co
 	}
 
 	var courseID int64
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM courses WHERE code = ?", courseCode).Scan(&courseID)
-	if errors.Is(err, sql.ErrNoRows) {
-		res, err := r.db.ExecContext(ctx, `
-			INSERT INTO courses (code, name, status)
-			VALUES (?, ?, 'ACTIVE')
-			ON CONFLICT(code) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-		`, courseCode, courseName)
-		if err != nil {
-			return 0, fmt.Errorf("gagal menyisipkan course %s: %w", courseCode, err)
-		}
-		courseID, _ = res.LastInsertId()
-		if courseID == 0 {
-			_ = r.db.QueryRowContext(ctx, "SELECT id FROM courses WHERE code = ?", courseCode).Scan(&courseID)
-		}
-	} else if err != nil {
-		return 0, fmt.Errorf("gagal memeriksa course %s: %w", courseCode, err)
+	queryCourse := `
+		INSERT INTO courses (code, name, status)
+		VALUES (?, ?, 'ACTIVE')
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	err := r.db.QueryRowContext(ctx, queryCourse, courseCode, courseName).Scan(&courseID)
+	if err != nil {
+		return 0, fmt.Errorf("gagal memastikan course %s: %w", courseCode, err)
 	}
 
-	semID, err := r.EnsureSemester(ctx, classID)
+	semID, err := r.EnsureSemesterForDate(ctx, classID, refDate)
 	if err != nil {
 		return 0, err
 	}
 
 	var offeringID int64
-	err = r.db.QueryRowContext(ctx, `
-		SELECT id FROM course_offerings
-		WHERE semester_id = ? AND course_id = ? AND activity_type = ?
-	`, semID, courseID, activityType).Scan(&offeringID)
-	if err == nil {
-		return offeringID, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("gagal memeriksa course_offerings: %w", err)
-	}
-
-	res, err := r.db.ExecContext(ctx, `
+	queryOffering := `
 		INSERT INTO course_offerings (semester_id, course_id, activity_type, display_name, status)
 		VALUES (?, ?, ?, ?, 'ACTIVE')
-		ON CONFLICT(semester_id, course_id, activity_type) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, semID, courseID, activityType, courseName)
+		ON CONFLICT(semester_id, course_id, activity_type) DO UPDATE SET display_name = excluded.display_name, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	err = r.db.QueryRowContext(ctx, queryOffering, semID, courseID, activityType, courseName).Scan(&offeringID)
 	if err != nil {
-		return 0, fmt.Errorf("gagal menyisipkan course_offering: %w", err)
-	}
-
-	offeringID, err = res.LastInsertId()
-	if err != nil || offeringID == 0 {
-		err = r.db.QueryRowContext(ctx, `
-			SELECT id FROM course_offerings
-			WHERE semester_id = ? AND course_id = ? AND activity_type = ?
-		`, semID, courseID, activityType).Scan(&offeringID)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID course_offering: %w", err)
-		}
+		return 0, fmt.Errorf("gagal memastikan course_offering: %w", err)
 	}
 	return offeringID, nil
+}
+
+// EnsureCourseOffering memastikan mata kuliah dan offering-nya terdaftar untuk kelas tertentu.
+func (r *Repository) EnsureCourseOffering(ctx context.Context, classID int64, courseCode, courseName, activityType string) (int64, error) {
+	return r.EnsureCourseOfferingForDate(ctx, classID, courseCode, courseName, activityType, time.Now())
 }
 
 // EnsureSchedulePattern memastikan schedule_pattern tersedia untuk offering tertentu.
@@ -493,24 +472,13 @@ func (r *Repository) EnsureSchedulePattern(ctx context.Context, courseOfferingID
 		return 0, fmt.Errorf("gagal memeriksa schedule_patterns: %w", err)
 	}
 
-	res, err := r.db.ExecContext(ctx, `
+	err = r.db.QueryRowContext(ctx, `
 		INSERT INTO schedule_patterns (course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status)
 		VALUES (?, ?, ?, ?, ?, '2024-01-01', 'ACTIVE')
-	`, courseOfferingID, roomID, dayOfWeek, startTime, endTime)
+		RETURNING id;
+	`, courseOfferingID, roomID, dayOfWeek, startTime, endTime).Scan(&patternID)
 	if err != nil {
 		return 0, fmt.Errorf("gagal menyisipkan schedule_patterns: %w", err)
-	}
-
-	patternID, err = res.LastInsertId()
-	if err != nil || patternID == 0 {
-		err = r.db.QueryRowContext(ctx, `
-			SELECT id FROM schedule_patterns
-			WHERE course_offering_id = ? AND day_of_week = ? AND start_time = ?
-			LIMIT 1
-		`, courseOfferingID, dayOfWeek, startTime).Scan(&patternID)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID schedule_pattern: %w", err)
-		}
 	}
 	return patternID, nil
 }
@@ -572,7 +540,7 @@ func (r *Repository) ResolveClassIDFromScope(ctx context.Context, scopeJID strin
 		return classID, classCode, nil
 	}
 
-	return 0, "", sql.ErrNoRows
+	return 0, "", ErrUnmappedScope
 }
 
 // EnsureLecturer memastikan dosen terdaftar pada tabel lecturers.
@@ -588,30 +556,16 @@ func (r *Repository) EnsureLecturer(ctx context.Context, code, fullName string) 
 		fullName = code
 	}
 
-	var id int64
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM lecturers WHERE code = ?", code).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("gagal mencari lecturer %s: %w", code, err)
-	}
-
-	res, err := r.db.ExecContext(ctx, `
+	query := `
 		INSERT INTO lecturers (code, full_name, status)
 		VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET full_name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, code, fullName, fullName)
+		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	var id int64
+	err := r.db.QueryRowContext(ctx, query, code, fullName).Scan(&id)
 	if err != nil {
-		return 0, fmt.Errorf("gagal menyisipkan lecturer %s: %w", code, err)
-	}
-
-	id, err = res.LastInsertId()
-	if err != nil || id == 0 {
-		err = r.db.QueryRowContext(ctx, "SELECT id FROM lecturers WHERE code = ?", code).Scan(&id)
-		if err != nil {
-			return 0, fmt.Errorf("gagal mendapatkan ID lecturer: %w", err)
-		}
+		return 0, fmt.Errorf("gagal memastikan lecturer %s: %w", code, err)
 	}
 	return id, nil
 }
@@ -627,4 +581,81 @@ func (r *Repository) EnsureOfferingLecturer(ctx context.Context, offeringID, lec
 		return fmt.Errorf("gagal menghubungkan offering %d dengan lecturer %d: %w", offeringID, lecturerID, err)
 	}
 	return nil
+}
+
+// GetClassTimezone mengambil zona waktu kelas dari class_settings, default Asia/Jakarta
+func (r *Repository) GetClassTimezone(ctx context.Context, classID int64) (*time.Location, error) {
+	var tz string
+	err := r.db.QueryRowContext(ctx, "SELECT timezone FROM class_settings WHERE class_id = ?", classID).Scan(&tz)
+	if errors.Is(err, sql.ErrNoRows) || tz == "" {
+		tz = "Asia/Jakarta"
+	} else if err != nil {
+		return nil, fmt.Errorf("gagal membaca class_settings timezone: %w", err)
+	}
+
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		// Fallback fixed zone WIB (UTC+7) jika tz database tidak terpasang di OS
+		return time.FixedZone("WIB", 7*3600), nil
+	}
+	return loc, nil
+}
+
+// CreateImportBatch membuat catatan batch impor baru atau mengembalikan ID batch yang ada jika checksum sama.
+func (r *Repository) CreateImportBatch(ctx context.Context, classID, semesterID int64, sourceType, checksum string, userID int64) (int64, error) {
+	query := `
+		INSERT INTO import_batches (class_id, semester_id, source_type, source_checksum, status, created_by_user_id)
+		VALUES (?, ?, ?, ?, 'APPLIED', ?)
+		ON CONFLICT(class_id, semester_id, source_checksum) DO UPDATE SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		RETURNING id;
+	`
+	var batchID int64
+	err := r.db.QueryRowContext(ctx, query, classID, semesterID, sourceType, checksum, userID).Scan(&batchID)
+	return batchID, err
+}
+
+// RecordImportError mencatat detail kegagalan baris ke tabel import_errors.
+func (r *Repository) RecordImportError(ctx context.Context, batchID int64, sourceLoc, fieldName, errCode, msg string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO import_errors (batch_id, source_location, field_name, error_code, message, severity)
+		VALUES (?, ?, ?, ?, ?, 'ERROR');
+	`, batchID, sourceLoc, fieldName, errCode, msg)
+	return err
+}
+
+// UpdateImportBatchSummary memperbarui summary_json pada batch impor.
+func (r *Repository) UpdateImportBatchSummary(ctx context.Context, batchID int64, summaryJSON string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE import_batches
+		SET summary_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		WHERE id = ?;
+	`, summaryJSON, batchID)
+	return err
+}
+
+// UpdateImportBatchStats memperbarui summary_json pada batch impor dengan hitungan total, migrated, dan errors.
+func (r *Repository) UpdateImportBatchStats(ctx context.Context, batchID int64, total, migrated, errors int) error {
+	summary := fmt.Sprintf(`{"total":%d,"migrated":%d,"errors":%d}`, total, migrated, errors)
+	return r.UpdateImportBatchSummary(ctx, batchID, summary)
+}
+
+// EnsureMigrationBatch memastikan import_batch tersedia untuk pencatatan migrasi atau backfill.
+func (r *Repository) EnsureMigrationBatch(ctx context.Context, sourceType string) (int64, error) {
+	var classID int64
+	err := r.db.QueryRowContext(ctx, "SELECT id FROM classes LIMIT 1;").Scan(&classID)
+	if err != nil {
+		cls, errCls := r.EnsureClass(ctx, "GENERAL")
+		if errCls != nil {
+			return 0, errCls
+		}
+		classID = cls.ID
+	}
+	semID, err := r.EnsureSemester(ctx, classID)
+	if err != nil {
+		return 0, err
+	}
+
+	adminUserID, _ := r.EnsureUser(ctx, "system", "System Migration")
+	checksum := fmt.Sprintf("migration-%s-%s", sourceType, time.Now().Format("2006-01-02"))
+	return r.CreateImportBatch(ctx, classID, semID, sourceType, checksum, adminUserID)
 }

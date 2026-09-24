@@ -16,6 +16,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+var ErrUnmappedScope = academic.ErrUnmappedScope
+
+type BackfillReport struct {
+	SourceTable string   `json:"source_table"`
+	TotalRows   int      `json:"total_rows"`
+	SuccessRows int      `json:"success_rows"`
+	FailedRows  int      `json:"failed_rows"`
+	Errors      []string `json:"errors,omitempty"`
+}
+
 type ScheduleOverride struct {
 	ID           int
 	ScopeJID     string
@@ -51,7 +61,7 @@ func NewOverrideManager(db *sql.DB) (*OverrideManager, error) {
 	}
 
 	// Backfill data legacy jika tabel lama schedule_overrides masih ada di database
-	_ = om.backfillLegacyOverrides()
+	_, _ = om.BackfillLegacyOverridesContext(context.Background())
 
 	return om, nil
 }
@@ -93,55 +103,77 @@ func parseJam(jamStr string) (start, end string) {
 	return start, end
 }
 
-func parseTimeRange(dateStr, jamStr string) (startsAt, endsAt string) {
+func parseTimeRangeUTC(dateStr, jamStr string, loc *time.Location) (startsAt, endsAt string, err error) {
+	if loc == nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
 	start, end := parseJam(jamStr)
-	startsAt = dateStr + "T" + start + ":00Z"
-	endsAt = dateStr + "T" + end + ":00Z"
+	startTime, err := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+start, loc)
+	if err != nil {
+		return "", "", fmt.Errorf("gagal parsing jam mulai %s: %w", start, err)
+	}
+	endTime, err := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+end, loc)
+	if err != nil {
+		return "", "", fmt.Errorf("gagal parsing jam selesai %s: %w", end, err)
+	}
+	return startTime.UTC().Format(time.RFC3339), endTime.UTC().Format(time.RFC3339), nil
+}
+
+func parseTimeRange(dateStr, jamStr string) (startsAt, endsAt string) {
+	startsAt, endsAt, _ = parseTimeRangeUTC(dateStr, jamStr, time.FixedZone("WIB", 7*3600))
 	return startsAt, endsAt
 }
 
-func parseJamFromTimes(startsAt, endsAt string) string {
-	startTime := ""
-	endTime := ""
-	if len(startsAt) >= 16 {
-		if strings.Contains(startsAt, "T") {
-			parts := strings.Split(startsAt, "T")
-			if len(parts) > 1 && len(parts[1]) >= 5 {
-				startTime = parts[1][:5]
-			}
-		} else if strings.Contains(startsAt, " ") {
-			parts := strings.Split(startsAt, " ")
-			if len(parts) > 1 && len(parts[1]) >= 5 {
-				startTime = parts[1][:5]
-			}
+func parseJamFromTimes(startsAt, endsAt string, loc *time.Location) string {
+	if loc == nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+	var startTimeStr, endTimeStr string
+	if t, err := time.Parse(time.RFC3339, startsAt); err == nil {
+		startTimeStr = t.In(loc).Format("15:04")
+	} else if t, err := time.ParseInLocation("2006-01-02 15:04:05", startsAt, time.UTC); err == nil {
+		startTimeStr = t.In(loc).Format("15:04")
+	} else if len(startsAt) >= 16 && strings.Contains(startsAt, "T") {
+		parts := strings.Split(startsAt, "T")
+		if len(parts) > 1 && len(parts[1]) >= 5 {
+			startTimeStr = parts[1][:5]
+		}
+	} else if len(startsAt) >= 16 && strings.Contains(startsAt, " ") {
+		parts := strings.Split(startsAt, " ")
+		if len(parts) > 1 && len(parts[1]) >= 5 {
+			startTimeStr = parts[1][:5]
 		}
 	}
-	if len(endsAt) >= 16 {
-		if strings.Contains(endsAt, "T") {
-			parts := strings.Split(endsAt, "T")
-			if len(parts) > 1 && len(parts[1]) >= 5 {
-				endTime = parts[1][:5]
-			}
-		} else if strings.Contains(endsAt, " ") {
-			parts := strings.Split(endsAt, " ")
-			if len(parts) > 1 && len(parts[1]) >= 5 {
-				endTime = parts[1][:5]
-			}
+
+	if t, err := time.Parse(time.RFC3339, endsAt); err == nil {
+		endTimeStr = t.In(loc).Format("15:04")
+	} else if t, err := time.ParseInLocation("2006-01-02 15:04:05", endsAt, time.UTC); err == nil {
+		endTimeStr = t.In(loc).Format("15:04")
+	} else if len(endsAt) >= 16 && strings.Contains(endsAt, "T") {
+		parts := strings.Split(endsAt, "T")
+		if len(parts) > 1 && len(parts[1]) >= 5 {
+			endTimeStr = parts[1][:5]
+		}
+	} else if len(endsAt) >= 16 && strings.Contains(endsAt, " ") {
+		parts := strings.Split(endsAt, " ")
+		if len(parts) > 1 && len(parts[1]) >= 5 {
+			endTimeStr = parts[1][:5]
 		}
 	}
-	if startTime != "" && endTime != "" && (startTime != "00:00" || endTime != "23:59") {
-		return startTime + " - " + endTime
+
+	if startTimeStr != "" && endTimeStr != "" {
+		if startTimeStr == "00:00" && (endTimeStr == "23:59" || endTimeStr == "00:00") {
+			return ""
+		}
+		return startTimeStr + " - " + endTimeStr
 	}
 	return ""
 }
 
-// AddReschedule menambahkan perubahan jadwal kuliah ke tanggal/jam lain
-func (om *OverrideManager) AddReschedule(
-	scopeJID string, item JadwalItem, origDate, targetDate time.Time, newJam, newRuang, createdBy string,
+// AddRescheduleContext menambahkan perubahan jadwal kuliah ke tanggal/jam lain dengan context
+func (om *OverrideManager) AddRescheduleContext(
+	ctx context.Context, scopeJID string, item JadwalItem, origDate, targetDate time.Time, newJam, newRuang, createdBy string,
 ) (*ScheduleOverride, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	ruang := newRuang
 	if ruang == "" {
 		ruang = item.Ruang
@@ -152,12 +184,10 @@ func (om *OverrideManager) AddReschedule(
 
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err != nil {
-			return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
-		}
-		classID = cls.ID
+		return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, ErrUnmappedScope)
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
 
 	userID, err := om.academicRepo.EnsureUser(ctx, createdBy, createdBy)
 	if err != nil {
@@ -180,7 +210,7 @@ func (om *OverrideManager) AddReschedule(
 		}
 	}
 
-	offeringID, err := om.academicRepo.EnsureCourseOffering(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI")
+	offeringID, err := om.academicRepo.EnsureCourseOfferingForDate(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI", targetDate)
 	if err != nil {
 		return nil, fmt.Errorf("gagal memastikan course_offering: %w", err)
 	}
@@ -202,7 +232,10 @@ func (om *OverrideManager) AddReschedule(
 		return nil, fmt.Errorf("gagal memastikan schedule_pattern asal: %w", err)
 	}
 
-	startsAt, endsAt := parseTimeRange(targetDateStr, newJam)
+	startsAt, endsAt, err := parseTimeRangeUTC(targetDateStr, newJam, loc)
+	if err != nil {
+		return nil, err
+	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
 	tx, err := om.db.BeginTx(ctx, nil)
@@ -211,20 +244,18 @@ func (om *OverrideManager) AddReschedule(
 	}
 	defer tx.Rollback()
 
-	res, err := tx.ExecContext(ctx, `
+	queryEvent := `
 		INSERT INTO teaching_events (
 			origin_schedule_pattern_id, origin_occurrence_date, event_kind,
 			starts_at, ends_at, room_id, reason, lifecycle_status,
 			published_by_user_id, published_at
 		) VALUES (?, ?, 'REPLACEMENT', ?, ?, ?, '', 'PUBLISHED', ?, ?)
-	`, patternID, origDateStr, startsAt, endsAt, newRoomID, userID, nowStr)
+		RETURNING id;
+	`
+	var id int64
+	err = tx.QueryRowContext(ctx, queryEvent, patternID, origDateStr, startsAt, endsAt, newRoomID, userID, nowStr).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyisipkan teaching_events (REPLACEMENT): %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
 	}
 
 	_, err = tx.ExecContext(ctx, `
@@ -258,23 +289,27 @@ func (om *OverrideManager) AddReschedule(
 	}, nil
 }
 
-// AddCancel menandai kuliah ditiadakan pada tanggal tertentu
-func (om *OverrideManager) AddCancel(
-	scopeJID string, item JadwalItem, targetDate time.Time, alasan, createdBy string,
+// AddReschedule adapter dengan timeout bawaan
+func (om *OverrideManager) AddReschedule(
+	scopeJID string, item JadwalItem, origDate, targetDate time.Time, newJam, newRuang, createdBy string,
 ) (*ScheduleOverride, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return om.AddRescheduleContext(ctx, scopeJID, item, origDate, targetDate, newJam, newRuang, createdBy)
+}
 
+// AddCancelContext menandai kuliah ditiadakan pada tanggal tertentu dengan context
+func (om *OverrideManager) AddCancelContext(
+	ctx context.Context, scopeJID string, item JadwalItem, targetDate time.Time, alasan, createdBy string,
+) (*ScheduleOverride, error) {
 	dateStr := targetDate.Format("2006-01-02")
 
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err != nil {
-			return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
-		}
-		classID = cls.ID
+		return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, ErrUnmappedScope)
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
 
 	userID, err := om.academicRepo.EnsureUser(ctx, createdBy, createdBy)
 	if err != nil {
@@ -289,7 +324,7 @@ func (om *OverrideManager) AddCancel(
 		}
 	}
 
-	offeringID, err := om.academicRepo.EnsureCourseOffering(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI")
+	offeringID, err := om.academicRepo.EnsureCourseOfferingForDate(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI", targetDate)
 	if err != nil {
 		return nil, fmt.Errorf("gagal memastikan course_offering: %w", err)
 	}
@@ -311,7 +346,10 @@ func (om *OverrideManager) AddCancel(
 		return nil, fmt.Errorf("gagal memastikan schedule_pattern asal: %w", err)
 	}
 
-	startsAt, endsAt := parseTimeRange(dateStr, item.Jam)
+	startsAt, endsAt, err := parseTimeRangeUTC(dateStr, item.Jam, loc)
+	if err != nil {
+		return nil, err
+	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
 	tx, err := om.db.BeginTx(ctx, nil)
@@ -320,20 +358,18 @@ func (om *OverrideManager) AddCancel(
 	}
 	defer tx.Rollback()
 
-	res, err := tx.ExecContext(ctx, `
+	queryEvent := `
 		INSERT INTO teaching_events (
 			origin_schedule_pattern_id, origin_occurrence_date, event_kind,
 			starts_at, ends_at, room_id, reason, lifecycle_status,
 			published_by_user_id, published_at
 		) VALUES (?, ?, 'SESSION_CANCELLED', ?, ?, ?, ?, 'PUBLISHED', ?, ?)
-	`, patternID, dateStr, startsAt, endsAt, roomID, alasan, userID, nowStr)
+		RETURNING id;
+	`
+	var id int64
+	err = tx.QueryRowContext(ctx, queryEvent, patternID, dateStr, startsAt, endsAt, roomID, alasan, userID, nowStr).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyisipkan teaching_events (SESSION_CANCELLED): %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
 	}
 
 	_, err = tx.ExecContext(ctx, `
@@ -367,13 +403,19 @@ func (om *OverrideManager) AddCancel(
 	}, nil
 }
 
-// AddExtra menambahkan jadwal kuliah pengganti/ekstra di hari tertentu
-func (om *OverrideManager) AddExtra(
-	scopeJID string, item JadwalItem, targetDate time.Time, jam, ruang, alasan, createdBy string,
+// AddCancel adapter dengan timeout bawaan
+func (om *OverrideManager) AddCancel(
+	scopeJID string, item JadwalItem, targetDate time.Time, alasan, createdBy string,
 ) (*ScheduleOverride, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return om.AddCancelContext(ctx, scopeJID, item, targetDate, alasan, createdBy)
+}
 
+// AddExtraContext menambahkan jadwal kuliah pengganti/ekstra di hari tertentu dengan context
+func (om *OverrideManager) AddExtraContext(
+	ctx context.Context, scopeJID string, item JadwalItem, targetDate time.Time, jam, ruang, alasan, createdBy string,
+) (*ScheduleOverride, error) {
 	dateStr := targetDate.Format("2006-01-02")
 	if ruang == "" {
 		ruang = item.Ruang
@@ -381,12 +423,10 @@ func (om *OverrideManager) AddExtra(
 
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err != nil {
-			return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
-		}
-		classID = cls.ID
+		return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, ErrUnmappedScope)
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
 
 	userID, err := om.academicRepo.EnsureUser(ctx, createdBy, createdBy)
 	if err != nil {
@@ -401,7 +441,7 @@ func (om *OverrideManager) AddExtra(
 		}
 	}
 
-	offeringID, err := om.academicRepo.EnsureCourseOffering(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI")
+	offeringID, err := om.academicRepo.EnsureCourseOfferingForDate(ctx, classID, item.KodeMatkul, item.NamaMatkul, "TEORI", targetDate)
 	if err != nil {
 		return nil, fmt.Errorf("gagal memastikan course_offering: %w", err)
 	}
@@ -413,7 +453,10 @@ func (om *OverrideManager) AddExtra(
 		}
 	}
 
-	startsAt, endsAt := parseTimeRange(dateStr, jam)
+	startsAt, endsAt, err := parseTimeRangeUTC(dateStr, jam, loc)
+	if err != nil {
+		return nil, err
+	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
 	tx, err := om.db.BeginTx(ctx, nil)
@@ -422,19 +465,17 @@ func (om *OverrideManager) AddExtra(
 	}
 	defer tx.Rollback()
 
-	res, err := tx.ExecContext(ctx, `
+	queryEvent := `
 		INSERT INTO teaching_events (
 			event_kind, starts_at, ends_at, room_id, reason, lifecycle_status,
 			published_by_user_id, published_at
 		) VALUES ('EXTRA', ?, ?, ?, ?, 'PUBLISHED', ?, ?)
-	`, startsAt, endsAt, roomID, alasan, userID, nowStr)
+		RETURNING id;
+	`
+	var id int64
+	err = tx.QueryRowContext(ctx, queryEvent, startsAt, endsAt, roomID, alasan, userID, nowStr).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyisipkan teaching_events (EXTRA): %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
 	}
 
 	_, err = tx.ExecContext(ctx, `
@@ -467,20 +508,27 @@ func (om *OverrideManager) AddExtra(
 	}, nil
 }
 
-// GetOverridesForDate mengambil seluruh catatan override yang mempengaruhi tanggal tertentu
-func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) ([]ScheduleOverride, error) {
+// AddExtra adapter dengan timeout bawaan
+func (om *OverrideManager) AddExtra(
+	scopeJID string, item JadwalItem, targetDate time.Time, jam, ruang, alasan, createdBy string,
+) (*ScheduleOverride, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return om.AddExtraContext(ctx, scopeJID, item, targetDate, jam, ruang, alasan, createdBy)
+}
 
-	dateStr := date.Format("2006-01-02")
-
+// GetOverridesForDateContext mengambil seluruh catatan override yang mempengaruhi tanggal tertentu dengan context
+func (om *OverrideManager) GetOverridesForDateContext(ctx context.Context, scopeJID string, date time.Time) ([]ScheduleOverride, error) {
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err == nil && cls != nil {
-			classID = cls.ID
-		}
+		return nil, nil
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
+	dateStr := date.Format("2006-01-02")
+	tLocal, _ := time.ParseInLocation("2006-01-02", dateStr, loc)
+	startOfDayUTC := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).UTC().Format(time.RFC3339)
+	endOfDayUTC := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 23, 59, 59, 999999999, loc).UTC().Format(time.RFC3339)
 
 	query := `
 		SELECT
@@ -510,11 +558,11 @@ func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) 
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND (te.origin_occurrence_date = ? OR date(te.starts_at) = ?)
+		  AND (te.origin_occurrence_date = ? OR (te.starts_at >= ? AND te.starts_at <= ?))
 		GROUP BY te.id
 		ORDER BY te.id ASC;
 	`
-	rows, err := om.db.QueryContext(ctx, query, classID, dateStr, dateStr)
+	rows, err := om.db.QueryContext(ctx, query, classID, dateStr, startOfDayUTC, endOfDayUTC)
 	if err != nil {
 		return nil, err
 	}
@@ -551,7 +599,9 @@ func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) 
 		}
 
 		targetDate := ""
-		if len(startsAt) >= 10 {
+		if t, err := time.Parse(time.RFC3339, startsAt); err == nil {
+			targetDate = t.In(loc).Format("2006-01-02")
+		} else if len(startsAt) >= 10 {
 			targetDate = startsAt[:10]
 		}
 
@@ -560,7 +610,7 @@ func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) 
 			origDate = targetDate
 		}
 
-		newJam := parseJamFromTimes(startsAt, endsAt)
+		newJam := parseJamFromTimes(startsAt, endsAt, loc)
 		if overrideType == "CANCEL" {
 			newJam = ""
 		}
@@ -597,20 +647,24 @@ func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) 
 	return list, nil
 }
 
-// GetActiveOverrides mengambil semua override yang tanggal targetnya belum lewat
-func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([]ScheduleOverride, error) {
+// GetOverridesForDate adapter dengan timeout bawaan
+func (om *OverrideManager) GetOverridesForDate(scopeJID string, date time.Time) ([]ScheduleOverride, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return om.GetOverridesForDateContext(ctx, scopeJID, date)
+}
 
-	todayStr := now.Format("2006-01-02")
-
+// GetActiveOverridesContext mengambil semua override yang tanggal targetnya belum lewat dengan context
+func (om *OverrideManager) GetActiveOverridesContext(ctx context.Context, scopeJID string, now time.Time) ([]ScheduleOverride, error) {
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err == nil && cls != nil {
-			classID = cls.ID
-		}
+		return nil, nil
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
+	todayStr := now.Format("2006-01-02")
+	tLocal, _ := time.ParseInLocation("2006-01-02", todayStr, loc)
+	startOfDayUTC := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).UTC().Format(time.RFC3339)
 
 	query := `
 		SELECT
@@ -640,11 +694,11 @@ func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND (date(te.starts_at) >= ? OR te.origin_occurrence_date >= ?)
+		  AND (te.starts_at >= ? OR te.origin_occurrence_date >= ?)
 		GROUP BY te.id
 		ORDER BY date(te.starts_at) ASC, te.id ASC;
 	`
-	rows, err := om.db.QueryContext(ctx, query, classID, todayStr, todayStr)
+	rows, err := om.db.QueryContext(ctx, query, classID, startOfDayUTC, todayStr)
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +735,9 @@ func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([
 		}
 
 		targetDate := ""
-		if len(startsAt) >= 10 {
+		if t, err := time.Parse(time.RFC3339, startsAt); err == nil {
+			targetDate = t.In(loc).Format("2006-01-02")
+		} else if len(startsAt) >= 10 {
 			targetDate = startsAt[:10]
 		}
 
@@ -690,7 +746,7 @@ func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([
 			origDate = targetDate
 		}
 
-		newJam := parseJamFromTimes(startsAt, endsAt)
+		newJam := parseJamFromTimes(startsAt, endsAt, loc)
 		if overrideType == "CANCEL" {
 			newJam = ""
 		}
@@ -727,67 +783,70 @@ func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([
 	return list, nil
 }
 
-func (om *OverrideManager) CancelOverride(scopeJID string, id int) (bool, error) {
+// GetActiveOverrides adapter dengan timeout bawaan
+func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([]ScheduleOverride, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return om.GetActiveOverridesContext(ctx, scopeJID, now)
+}
 
+// CancelOverrideContext membatalkan override aktif dengan context dan atribusi actor yang benar
+func (om *OverrideManager) CancelOverrideContext(ctx context.Context, scopeJID string, id int, actorJID string) (bool, error) {
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err == nil && cls != nil {
-			classID = cls.ID
-		}
+		return false, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, ErrUnmappedScope)
 	}
 
-	systemUserID, err := om.academicRepo.EnsureUser(ctx, "system", "System Administrator")
+	actorKey := strings.TrimSpace(actorJID)
+	if actorKey == "" {
+		actorKey = "system"
+	}
+
+	actorUserID, err := om.academicRepo.EnsureUser(ctx, actorKey, actorKey)
 	if err != nil {
-		systemUserID = 1
+		return false, fmt.Errorf("gagal memastikan user untuk actor %s: %w", actorKey, err)
 	}
 
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
-	var res sql.Result
-	if classID > 0 {
-		res, err = om.db.ExecContext(ctx, `
-			UPDATE teaching_events
-			SET lifecycle_status = 'REVOKED',
-				revoked_by_user_id = ?,
-				revoked_at = ?,
-				revocation_reason = 'Dibatalkan oleh pengguna',
-				updated_at = ?
-			WHERE id = ?
-			  AND lifecycle_status = 'PUBLISHED'
-			  AND id IN (
-				  SELECT teo.teaching_event_id
-				  FROM teaching_event_offerings teo
-				  JOIN course_offerings co ON co.id = teo.course_offering_id
-				  JOIN semesters s ON s.id = co.semester_id
-				  WHERE s.class_id = ?
-			  );
-		`, systemUserID, nowStr, nowStr, id, classID)
-	} else {
-		res, err = om.db.ExecContext(ctx, `
-			UPDATE teaching_events
-			SET lifecycle_status = 'REVOKED',
-				revoked_by_user_id = ?,
-				revoked_at = ?,
-				revocation_reason = 'Dibatalkan oleh pengguna',
-				updated_at = ?
-			WHERE id = ? AND lifecycle_status = 'PUBLISHED';
-		`, systemUserID, nowStr, nowStr, id)
-	}
+	res, err := om.db.ExecContext(ctx, `
+		UPDATE teaching_events
+		SET lifecycle_status = 'REVOKED',
+			revoked_by_user_id = ?,
+			revoked_at = ?,
+			revocation_reason = 'Dibatalkan oleh pengguna',
+			updated_at = ?
+		WHERE id = ?
+		  AND lifecycle_status = 'PUBLISHED'
+		  AND id IN (
+			  SELECT teo.teaching_event_id
+			  FROM teaching_event_offerings teo
+			  JOIN course_offerings co ON co.id = teo.course_offering_id
+			  JOIN semesters s ON s.id = co.semester_id
+			  WHERE s.class_id = ?
+		  );
+	`, actorUserID, nowStr, nowStr, id, classID)
 	if err != nil {
 		return false, err
 	}
+
 	affected, err := res.RowsAffected()
 	return affected > 0, err
 }
 
-// AddHoliday menambahkan pengumuman libur harian (seluruh perkuliahan pada tanggal tersebut ditiadakan)
-func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, alasan string, createdBy string) (*ScheduleOverride, error) {
+// CancelOverride adapter dengan variadic actorJID dan timeout bawaan
+func (om *OverrideManager) CancelOverride(scopeJID string, id int, actorJID ...string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	actor := "system"
+	if len(actorJID) > 0 && actorJID[0] != "" {
+		actor = actorJID[0]
+	}
+	return om.CancelOverrideContext(ctx, scopeJID, id, actor)
+}
 
+// AddHolidayContext menambahkan pengumuman libur harian dengan context
+func (om *OverrideManager) AddHolidayContext(ctx context.Context, scopeJID string, targetDate time.Time, alasan, createdBy string) (*ScheduleOverride, error) {
 	tglStr := targetDate.Format("2006-01-02")
 	if alasan == "" {
 		alasan = "Libur Perkuliahan"
@@ -795,25 +854,24 @@ func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, ala
 
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err != nil {
-			return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
-		}
-		classID = cls.ID
+		return nil, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, ErrUnmappedScope)
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
 
 	userID, err := om.academicRepo.EnsureUser(ctx, createdBy, createdBy)
 	if err != nil {
 		return nil, fmt.Errorf("gagal memastikan user %s: %w", createdBy, err)
 	}
 
-	offeringID, err := om.academicRepo.EnsureCourseOffering(ctx, classID, "LIBUR", "LIBUR SEHARIAN", "TEORI")
+	offeringID, err := om.academicRepo.EnsureCourseOfferingForDate(ctx, classID, "LIBUR", "LIBUR SEHARIAN", "TEORI", targetDate)
 	if err != nil {
 		return nil, fmt.Errorf("gagal memastikan course_offering libur: %w", err)
 	}
 
-	startsAt := tglStr + "T00:00:00Z"
-	endsAt := tglStr + "T23:59:59Z"
+	tLocal, _ := time.ParseInLocation("2006-01-02", tglStr, loc)
+	startsAt := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).UTC().Format(time.RFC3339)
+	endsAt := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 23, 59, 59, 0, loc).UTC().Format(time.RFC3339)
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
 	tx, err := om.db.BeginTx(ctx, nil)
@@ -822,19 +880,17 @@ func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, ala
 	}
 	defer tx.Rollback()
 
-	res, err := tx.ExecContext(ctx, `
+	queryEvent := `
 		INSERT INTO teaching_events (
 			event_kind, starts_at, ends_at, reason, lifecycle_status,
 			published_by_user_id, published_at
 		) VALUES ('HOLIDAY', ?, ?, ?, 'PUBLISHED', ?, ?)
-	`, startsAt, endsAt, alasan, userID, nowStr)
+		RETURNING id;
+	`
+	var id int64
+	err = tx.QueryRowContext(ctx, queryEvent, startsAt, endsAt, alasan, userID, nowStr).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyisipkan teaching_events (HOLIDAY): %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
 	}
 
 	_, err = tx.ExecContext(ctx, `
@@ -869,19 +925,27 @@ func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, ala
 	}, nil
 }
 
+// AddHoliday adapter dengan timeout bawaan
+func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, alasan string, createdBy string) (*ScheduleOverride, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return om.AddHolidayContext(ctx, scopeJID, targetDate, alasan, createdBy)
+}
+
 func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *ScheduleOverride {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	tglStr := date.Format("2006-01-02")
-
 	classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil || classID == 0 {
-		cls, err := om.academicRepo.EnsureClass(ctx, scopeJID)
-		if err == nil && cls != nil {
-			classID = cls.ID
-		}
+		return nil
 	}
+
+	loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
+	tglStr := date.Format("2006-01-02")
+	tLocal, _ := time.ParseInLocation("2006-01-02", tglStr, loc)
+	startOfDayUTC := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).UTC().Format(time.RFC3339)
+	endOfDayUTC := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 23, 59, 59, 999999999, loc).UTC().Format(time.RFC3339)
 
 	query := `
 		SELECT
@@ -900,11 +964,11 @@ func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
 		  AND te.event_kind = 'HOLIDAY'
-		  AND date(te.starts_at) = ?
+		  AND (te.starts_at >= ? AND te.starts_at <= ?)
 		ORDER BY te.id DESC
 		LIMIT 1;
 	`
-	row := om.db.QueryRowContext(ctx, query, classID, tglStr)
+	row := om.db.QueryRowContext(ctx, query, classID, startOfDayUTC, endOfDayUTC)
 
 	var (
 		id                               int
@@ -935,15 +999,16 @@ func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *
 	}
 }
 
-// backfillLegacyOverrides menyalin data dari tabel legacy schedule_overrides ke teaching_events & teaching_event_offerings
-func (om *OverrideManager) backfillLegacyOverrides() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// BackfillLegacyOverridesContext menyalin data dari tabel legacy schedule_overrides ke teaching_events dengan manifest dan error tracking
+func (om *OverrideManager) BackfillLegacyOverridesContext(ctx context.Context) (*BackfillReport, error) {
+	report := &BackfillReport{
+		SourceTable: "schedule_overrides",
+	}
 
 	var tblName string
 	err := om.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='schedule_overrides';").Scan(&tblName)
 	if errors.Is(err, sql.ErrNoRows) || err != nil {
-		return nil
+		return report, nil
 	}
 
 	rows, err := om.db.QueryContext(ctx, `
@@ -952,7 +1017,7 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 		FROM schedule_overrides;
 	`)
 	if err != nil {
-		return nil
+		return report, fmt.Errorf("gagal query schedule_overrides: %w", err)
 	}
 
 	type legacyRow struct {
@@ -967,24 +1032,44 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 		if err := rows.Scan(
 			&lr.id, &lr.scopeJID, &lr.oType, &lr.kodeMatkul, &lr.namaMatkul, &lr.dosen, &lr.inisialDosen,
 			&lr.origDate, &lr.origJam, &lr.targetDate, &lr.newJam, &lr.ruang, &lr.alasan, &lr.createdBy, &lr.createdAt,
-		); err == nil {
-			legacyRows = append(legacyRows, lr)
+		); err != nil {
+			report.Errors = append(report.Errors, fmt.Sprintf("Gagal scan baris: %v", err))
+			report.FailedRows++
+			continue
 		}
+		legacyRows = append(legacyRows, lr)
 	}
 	_ = rows.Close()
+
+	report.TotalRows = len(legacyRows)
+	if report.TotalRows == 0 {
+		return report, nil
+	}
+
+	batchID, batchErr := om.academicRepo.EnsureMigrationBatch(ctx, "LEGACY_SCHEDULE_OVERRIDES")
 
 	for _, lr := range legacyRows {
 		classID, _, err := om.academicRepo.ResolveClassIDFromScope(ctx, lr.scopeJID)
 		if err != nil || classID == 0 {
-			cls, err := om.academicRepo.EnsureClass(ctx, lr.scopeJID)
-			if err != nil {
-				continue
+			errMsg := fmt.Sprintf("Baris ID %d: scope %s tidak terpetakan ke kelas terdaftar", lr.id, lr.scopeJID)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "scope_jid", "UNMAPPED_SCOPE", errMsg)
 			}
-			classID = cls.ID
+			continue
 		}
+
+		loc, _ := om.academicRepo.GetClassTimezone(ctx, classID)
 
 		userID, err := om.academicRepo.EnsureUser(ctx, lr.createdBy, lr.createdBy)
 		if err != nil {
+			errMsg := fmt.Sprintf("Baris ID %d: gagal memastikan user %s: %v", lr.id, lr.createdBy, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "created_by", "USER_ERROR", errMsg)
+			}
 			continue
 		}
 
@@ -996,8 +1081,19 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 			}
 		}
 
-		offeringID, err := om.academicRepo.EnsureCourseOffering(ctx, classID, lr.kodeMatkul, lr.namaMatkul, "TEORI")
+		targetTime, _ := time.Parse("2006-01-02", lr.targetDate)
+		if targetTime.IsZero() {
+			targetTime = time.Now()
+		}
+
+		offeringID, err := om.academicRepo.EnsureCourseOfferingForDate(ctx, classID, lr.kodeMatkul, lr.namaMatkul, "TEORI", targetTime)
 		if err != nil {
+			errMsg := fmt.Sprintf("Baris ID %d: gagal memastikan course_offering: %v", lr.id, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "course_offering", "OFFERING_ERROR", errMsg)
+			}
 			continue
 		}
 
@@ -1030,7 +1126,10 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 				originPatternID = &patID
 			}
 			originOccDate = &lr.origDate
-			startsAt, endsAt = parseTimeRange(lr.targetDate, lr.newJam)
+			startsAt, endsAt, err = parseTimeRangeUTC(lr.targetDate, lr.newJam, loc)
+			if err != nil {
+				startsAt, endsAt = parseTimeRange(lr.targetDate, lr.newJam)
+			}
 
 		case "CANCEL":
 			eventKind = "SESSION_CANCELLED"
@@ -1048,18 +1147,32 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 				originPatternID = &patID
 			}
 			originOccDate = &lr.targetDate
-			startsAt, endsAt = parseTimeRange(lr.targetDate, lr.origJam)
+			startsAt, endsAt, err = parseTimeRangeUTC(lr.targetDate, lr.origJam, loc)
+			if err != nil {
+				startsAt, endsAt = parseTimeRange(lr.targetDate, lr.origJam)
+			}
 
 		case "EXTRA":
 			eventKind = "EXTRA"
-			startsAt, endsAt = parseTimeRange(lr.targetDate, lr.newJam)
+			var errExtra error
+			startsAt, endsAt, errExtra = parseTimeRangeUTC(lr.targetDate, lr.newJam, loc)
+			if errExtra != nil {
+				startsAt, endsAt = parseTimeRange(lr.targetDate, lr.newJam)
+			}
 
 		case "HOLIDAY":
 			eventKind = "HOLIDAY"
-			startsAt = lr.targetDate + "T00:00:00Z"
-			endsAt = lr.targetDate + "T23:59:59Z"
+			tLocal, _ := time.ParseInLocation("2006-01-02", lr.targetDate, loc)
+			startsAt = time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).UTC().Format(time.RFC3339)
+			endsAt = time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 23, 59, 59, 0, loc).UTC().Format(time.RFC3339)
 
 		default:
+			errMsg := fmt.Sprintf("Baris ID %d: tipe override %s tidak valid", lr.id, lr.oType)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "override_type", "INVALID_TYPE", errMsg)
+			}
 			continue
 		}
 
@@ -1070,29 +1183,39 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 			WHERE teo.course_offering_id = ? AND te.event_kind = ? AND te.starts_at = ?
 		`, offeringID, eventKind, startsAt).Scan(&existingID)
 		if err == nil && existingID > 0 {
+			report.SuccessRows++
 			continue
 		}
 
 		tx, err := om.db.BeginTx(ctx, nil)
 		if err != nil {
+			errMsg := fmt.Sprintf("Baris ID %d: gagal memulai tx: %v", lr.id, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "transaction", "TX_ERROR", errMsg)
+			}
 			continue
 		}
 
-		res, err := tx.ExecContext(ctx, `
+		queryInsertEvent := `
 			INSERT INTO teaching_events (
 				origin_schedule_pattern_id, origin_occurrence_date, event_kind,
 				starts_at, ends_at, room_id, reason, lifecycle_status,
 				published_by_user_id, published_at, created_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?, ?)
-		`, originPatternID, originOccDate, eventKind, startsAt, endsAt, roomID, lr.alasan, userID, lr.createdAt, lr.createdAt)
+			RETURNING id;
+		`
+		var evID int64
+		err = tx.QueryRowContext(ctx, queryInsertEvent, originPatternID, originOccDate, eventKind, startsAt, endsAt, roomID, lr.alasan, userID, lr.createdAt, lr.createdAt).Scan(&evID)
 		if err != nil {
 			_ = tx.Rollback()
-			continue
-		}
-
-		evID, err := res.LastInsertId()
-		if err != nil {
-			_ = tx.Rollback()
+			errMsg := fmt.Sprintf("Baris ID %d: gagal insert teaching_events: %v", lr.id, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "teaching_events", "INSERT_ERROR", errMsg)
+			}
 			continue
 		}
 
@@ -1103,13 +1226,41 @@ func (om *OverrideManager) backfillLegacyOverrides() error {
 		`, evID, offeringID)
 		if err != nil {
 			_ = tx.Rollback()
+			errMsg := fmt.Sprintf("Baris ID %d: gagal insert teaching_event_offerings: %v", lr.id, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "teaching_event_offerings", "INSERT_ERROR", errMsg)
+			}
 			continue
 		}
 
-		_ = tx.Commit()
+		if err := tx.Commit(); err != nil {
+			errMsg := fmt.Sprintf("Baris ID %d: gagal commit tx: %v", lr.id, err)
+			report.Errors = append(report.Errors, errMsg)
+			report.FailedRows++
+			if batchErr == nil {
+				_ = om.academicRepo.RecordImportError(ctx, batchID, fmt.Sprintf("row:%d", lr.id), "transaction", "COMMIT_ERROR", errMsg)
+			}
+			continue
+		}
+
+		report.SuccessRows++
 	}
 
-	return nil
+	if batchErr == nil {
+		summaryJSON := fmt.Sprintf(`{"total_rows":%d,"applied_rows":%d,"failed_rows":%d}`, report.TotalRows, report.SuccessRows, report.FailedRows)
+		_ = om.academicRepo.UpdateImportBatchSummary(ctx, batchID, summaryJSON)
+	}
+
+	return report, nil
+}
+
+// BackfillLegacyOverrides adapter
+func (om *OverrideManager) BackfillLegacyOverrides() (*BackfillReport, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return om.BackfillLegacyOverridesContext(ctx)
 }
 
 // ParseOverrideDate mengekstrak tanggal target dari input teks fleksibel

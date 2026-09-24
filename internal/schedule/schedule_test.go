@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"bot-jadwal/internal/database"
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -217,6 +218,16 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 
 	groupJID := "test_group_smart@g.us"
 	userJID := "test_admin@s.whatsapp.net"
+
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
 
 	om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Libur Kuliah Lapangan", cfg, tSeninSore)
 

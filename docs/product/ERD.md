@@ -455,6 +455,7 @@ erDiagram
     direction LR
 
     classes ||--o{ whatsappChannels : uses
+    classes ||--o{ chatClassContexts : contexts
     whatsappChannels ||--o{ notificationMessages : receives
     notificationMessages ||--o{ notificationAttempts : retries
     notificationMessages o|..o{ notificationMessages : supersedes
@@ -464,6 +465,12 @@ erDiagram
         int id PK
         string code UK
         string slug UK
+    }
+    chatClassContexts["chat_class_contexts"] {
+        string chat_jid PK
+        int class_id FK
+        datetime created_at
+        datetime updated_at
     }
     whatsappChannels["whatsapp_channels"] {
         int id PK

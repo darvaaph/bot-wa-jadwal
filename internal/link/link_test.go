@@ -2,6 +2,7 @@ package link
 
 import (
 	"bot-jadwal/internal/database"
+	"context"
 	"database/sql"
 	"strings"
 	"testing"
@@ -77,6 +78,26 @@ func TestLinkManager_CRUD_And_Permissions(t *testing.T) {
 	userAdmin := "628111111111@s.whatsapp.net"
 	userMember := "628222222222@s.whatsapp.net"
 
+	// Petakan scope chat ke kelas resmi sesuai DATA_MODEL
+	ctx := context.Background()
+	clsA, err := lm.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, clsA.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
+
+	clsB, err := lm.academicRepo.EnsureClass(ctx, "2B")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2B: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO chat_class_contexts (chat_jid, class_id) VALUES (?, ?)`, dmJID, clsB.ID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan chat_class_contexts: %v", err)
+	}
+
 	rejectReply := lm.HandleCommand(groupJID, true, userMember, false, "!link tambah Drive Kelas | https://s.id/drive-d4a")
 	if !strings.Contains(rejectReply, "Akses Ditolak") {
 		t.Errorf("Expected non-admin addition to be rejected, got: %s", rejectReply)
@@ -151,5 +172,26 @@ func TestLinkManager_CRUD_And_Permissions(t *testing.T) {
 	helpReply := lm.HandleCommand(groupJID, true, userMember, false, "!link bantuan")
 	if !strings.Contains(helpReply, "PANDUAN MODUL TAUTAN PENTING KELAS") {
 		t.Errorf("Expected help guide, got: %s", helpReply)
+	}
+}
+
+func TestLinkManager_RejectUnmappedScope(t *testing.T) {
+	db, lm := setupTestLinkDB(t)
+	defer db.Close()
+
+	unmappedJID := "120363999999999999@g.us"
+	_, err := lm.AddLink(unmappedJID, true, "Drive Materi", "https://s.id/drive-unmapped", "", "admin@s.whatsapp.net")
+	if err == nil {
+		t.Fatalf("Expected AddLink to reject unmapped scope, but got nil error")
+	}
+	if !strings.Contains(err.Error(), "scope belum terpetakan") {
+		t.Errorf("Expected ErrUnmappedScope, got: %v", err)
+	}
+
+	// Pastikan classes tidak bertambah dengan code berupa JID WhatsApp
+	var count int
+	_ = db.QueryRow("SELECT COUNT(*) FROM classes WHERE code = ?", unmappedJID).Scan(&count)
+	if count != 0 {
+		t.Errorf("DATA_MODEL violation: class must NOT be created with WhatsApp JID as code")
 	}
 }

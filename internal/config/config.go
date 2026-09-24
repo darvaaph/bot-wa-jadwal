@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	APIPort        string
-	StorageDir     string
-	AppDBPath      string
-	SessionDBPath  string
-	ReminderPath   string
-	DataJadwalDir  string
-	DefaultJadwal  string
+	APIPort       string
+	StorageDir    string
+	AppDBPath     string
+	SessionDBPath string
+	ReminderPath  string
+	DataJadwalDir string
+	DefaultJadwal string
 }
 
 // LoadConfig mengembalikan konfigurasi default atau berdasarkan environment variable

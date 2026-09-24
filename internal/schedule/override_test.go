@@ -3,6 +3,7 @@ package schedule
 import (
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/util"
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -34,6 +35,24 @@ func TestOverrideManager(t *testing.T) {
 	refNow := time.Date(2026, 9, 7, 10, 0, 0, 0, time.Local) // 7 Sep 2026 adalah Senin
 	groupJID := "120363001@g.us"
 	userJID := "628120001@s.whatsapp.net"
+
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
+
+	// Verifikasi penolakan JID yang belum dipetakan (P1)
+	unmappedJID := "120363999999@g.us"
+	dummyItem := JadwalItem{KodeMatkul: "TI101", NamaMatkul: "Aljabar", Jam: "07:00 - 08:40"}
+	_, err = om.AddReschedule(unmappedJID, dummyItem, refNow, refNow.Add(24*time.Hour), "15:00 - 16:40", "Lab", "user")
+	if err == nil || !strings.Contains(err.Error(), "scope belum terpetakan") {
+		t.Errorf("Expected ErrUnmappedScope for unmapped scope, got: %v", err)
+	}
 
 	itemSBD, _ := cfg.FindMataKuliah("sbd", refNow)
 	if itemSBD == nil || !strings.Contains(itemSBD.NamaMatkul, "Sistem Basis Data") {

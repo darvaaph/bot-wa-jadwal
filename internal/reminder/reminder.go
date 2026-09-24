@@ -27,9 +27,9 @@ type ReminderGroup struct {
 }
 
 type ReminderConfig struct {
-	Hour    int             `json:"hour"`   // Jam pengingat (default 6)
-	Minute  int             `json:"minute"` // Menit pengingat (default 30)
-	Groups  []ReminderGroup `json:"groups"`
+	Hour   int             `json:"hour"`   // Jam pengingat (default 6)
+	Minute int             `json:"minute"` // Menit pengingat (default 30)
+	Groups []ReminderGroup `json:"groups"`
 }
 
 type ReminderManager struct {

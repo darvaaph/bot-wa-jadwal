@@ -1,11 +1,13 @@
 package reminder
 
 import (
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
+	"context"
 	"database/sql"
 	"path/filepath"
 	"strings"
@@ -85,6 +87,17 @@ func TestBuildMorningReminder_WithMeetingLinks(t *testing.T) {
 
 	groupJID := "120363009@g.us"
 	cfg := classMgr.GetDefaultClass()
+
+	ctx := context.Background()
+	academicRepo := academic.NewRepository(db)
+	cls, err := academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
 
 	loc, _ := time.LoadLocation("Asia/Jakarta")
 	seninPagi := time.Date(2026, 9, 7, 6, 30, 0, 0, loc)

@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/database"
 	"context"
 	"database/sql"
@@ -32,6 +33,16 @@ func TestTeachingEventsMigration_ForeignKeysAndModelTarget(t *testing.T) {
 	userJID := "628999999@s.whatsapp.net"
 	now := time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)
 	targetDate := now.Add(24 * time.Hour)
+
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
 
 	item := JadwalItem{
 		KodeMatkul:   "TI201",
@@ -127,12 +138,13 @@ func TestTeachingEventsMigration_ForeignKeysAndModelTarget(t *testing.T) {
 		t.Errorf("GetHolidayOverride gagal mendeteksi libur: %+v", hol)
 	}
 
-	// 7. Uji Pembatalan Override (CancelOverride -> REVOKED)
-	ok, err := om.CancelOverride(groupJID, resched.ID)
+	// 7. Uji Pembatalan Override dengan Atribusi Aktor Nyata (P1)
+	ok, err := om.CancelOverride(groupJID, resched.ID, userJID)
 	if err != nil || !ok {
 		t.Fatalf("CancelOverride gagal: %v (ok=%v)", err, ok)
 	}
 
+	expectedUserID, _ := om.academicRepo.EnsureUser(ctx, userJID, userJID)
 	var newLifecycle, revReason string
 	var revUserID sql.NullInt64
 	err = db.QueryRow(`
@@ -144,6 +156,9 @@ func TestTeachingEventsMigration_ForeignKeysAndModelTarget(t *testing.T) {
 	}
 	if newLifecycle != "REVOKED" || !revUserID.Valid || revReason == "" {
 		t.Errorf("Check constraint REVOKED tidak terpenuhi: lifecycle=%s, reason=%s", newLifecycle, revReason)
+	}
+	if revUserID.Int64 != expectedUserID {
+		t.Errorf("Atribusi revoked_by_user_id salah: got %d, want %d (harus userJID, bukan fallback 1)", revUserID.Int64, expectedUserID)
 	}
 
 	// Setelah dibatalkan, resched tidak boleh muncul lagi di GetOverridesForDate
@@ -162,7 +177,19 @@ func TestTeachingEventsMigration_LegacyBackfill(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Buat tabel legacy dan isi data lama
+	ctx := context.Background()
+	// Daftarkan kelas dan petakan legacy-group@g.us sebelum migrasi dijalankan
+	repo := academic.NewRepository(db)
+	cls, err := repo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal EnsureClass 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, 'legacy-group@g.us', 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels untuk legacy group: %v", err)
+	}
+
+	// Buat tabel legacy dan isi data lama (3 valid terpetakan, 1 unmapped)
 	_, err = db.Exec(`
 		CREATE TABLE schedule_overrides (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,7 +214,8 @@ func TestTeachingEventsMigration_LegacyBackfill(t *testing.T) {
 		) VALUES
 		('legacy-group@g.us', 'RESCHEDULE', 'CS101', 'Algoritma', 'Dr. John', 'DJ', '2026-10-01', '08:00 - 09:40', '2026-10-02', '13:00 - 14:40', 'Lab 2', 'Pindah jadwal', 'admin@s.whatsapp.net'),
 		('legacy-group@g.us', 'CANCEL', 'CS102', 'Struktur Data', 'Dr. Jane', 'JA', '2026-10-03', '10:00 - 11:40', '2026-10-03', '', 'Lab 1', 'Dosen sakit', 'admin@s.whatsapp.net'),
-		('legacy-group@g.us', 'EXTRA', 'CS103', 'Basis Data', 'Dr. Bob', 'BO', '', '', '2026-10-04', '09:00 - 11:00', 'Lab 3', 'Tambahan materi', 'admin@s.whatsapp.net');
+		('legacy-group@g.us', 'EXTRA', 'CS103', 'Basis Data', 'Dr. Bob', 'BO', '', '', '2026-10-04', '09:00 - 11:00', 'Lab 3', 'Tambahan materi', 'admin@s.whatsapp.net'),
+		('unmapped-legacy@g.us', 'EXTRA', 'CS104', 'Jaringan', 'Dr. Alice', 'AL', '', '', '2026-10-05', '08:00 - 10:00', 'Lab 4', 'Tambahan unmapped', 'admin@s.whatsapp.net');
 	`)
 	if err != nil {
 		t.Fatalf("Gagal membuat data legacy: %v", err)
@@ -199,7 +227,7 @@ func TestTeachingEventsMigration_LegacyBackfill(t *testing.T) {
 		t.Fatalf("Gagal inisialisasi NewOverrideManager: %v", err)
 	}
 
-	// Verifikasi apakah 3 baris legacy telah berhasil dimigrasikan ke teaching_events
+	// Verifikasi apakah 3 baris legacy terpetakan berhasil dimigrasikan ke teaching_events
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM teaching_events WHERE lifecycle_status = 'PUBLISHED'").Scan(&count)
 	if err != nil {
@@ -207,6 +235,13 @@ func TestTeachingEventsMigration_LegacyBackfill(t *testing.T) {
 	}
 	if count != 3 {
 		t.Errorf("Diharapkan 3 teaching_events hasil backfill, didapat %d", count)
+	}
+
+	// Verifikasi bahwa 1 baris unmapped dicatat ke import_errors (P1)
+	var errCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM import_errors WHERE error_code = 'UNMAPPED_SCOPE'").Scan(&errCount)
+	if err != nil || errCount < 1 {
+		t.Errorf("Expected unmapped legacy row to be recorded in import_errors, got count=%d, err=%v", errCount, err)
 	}
 
 	// Verifikasi apakah query GetOverridesForDate membaca data yang dimigrasikan
@@ -235,6 +270,16 @@ func TestTeachingEventsMigration_NoRuntimeLegacyUsage(t *testing.T) {
 		t.Fatalf("Gagal inisialisasi: %v", err)
 	}
 
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, 'regression@g.us', 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan channel: %v", err)
+	}
+
 	now := time.Now()
 	item := JadwalItem{
 		KodeMatkul: "TEST1",
@@ -253,6 +298,129 @@ func TestTeachingEventsMigration_NoRuntimeLegacyUsage(t *testing.T) {
 	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='schedule_overrides';").Scan(&tblName)
 	if !strings.Contains(err.Error(), "no rows") && err != sql.ErrNoRows {
 		t.Errorf("Tabel legacy schedule_overrides tidak boleh dibuat di runtime database baru, ditemukan: %s (err: %v)", tblName, err)
+	}
+}
+
+func TestTeachingEvents_TimezoneConversionAndSemanticUTC(t *testing.T) {
+	db, err := database.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi database: %v", err)
+	}
+	defer db.Close()
+
+	om, err := NewOverrideManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init OverrideManager: %v", err)
+	}
+
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal EnsureClass 2A: %v", err)
+	}
+	groupJID := "120363_tz@g.us"
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan channel: %v", err)
+	}
+
+	// 13:00 - 14:40 WIB pada tanggal 2026-09-25
+	eventDate, _ := time.Parse("2006-01-02", "2026-09-25")
+	item := JadwalItem{
+		KodeMatkul: "TZ101",
+		NamaMatkul: "Uji Timezone",
+		Jam:        "13:00 - 14:40",
+		Ruang:      "R101",
+	}
+
+	extra, err := om.AddExtra(groupJID, item, eventDate, "13:00 - 14:40", "R102", "Kuliah siang WIB", "admin")
+	if err != nil {
+		t.Fatalf("AddExtra gagal: %v", err)
+	}
+
+	// Verifikasi di tabel teaching_events: 13:00 WIB (UTC+7) harus disimpan sebagai 06:00:00Z di starts_at
+	var startsAt, endsAt string
+	err = db.QueryRow("SELECT starts_at, ends_at FROM teaching_events WHERE id = ?", extra.ID).Scan(&startsAt, &endsAt)
+	if err != nil {
+		t.Fatalf("Gagal query starts_at: %v", err)
+	}
+
+	if !strings.HasSuffix(startsAt, "Z") {
+		t.Errorf("starts_at harus berakhiran Z (UTC), got %s", startsAt)
+	}
+	if !strings.Contains(startsAt, "06:00:00Z") {
+		t.Errorf("13:00 WIB harus dikonversi menjadi 06:00:00Z, got %s", startsAt)
+	}
+	if !strings.Contains(endsAt, "07:40:00Z") {
+		t.Errorf("14:40 WIB harus dikonversi menjadi 07:40:00Z, got %s", endsAt)
+	}
+
+	// Verifikasi saat dibaca kembali: harus terformat sebagai waktu lokal 13:00 - 14:40
+	overrides, err := om.GetOverridesForDate(groupJID, eventDate)
+	if err != nil || len(overrides) == 0 {
+		t.Fatalf("GetOverridesForDate gagal: %v", err)
+	}
+	if overrides[0].NewJam != "13:00 - 14:40" {
+		t.Errorf("Waktu lokal terbaca kembali salah: got %s, want 13:00 - 14:40", overrides[0].NewJam)
+	}
+}
+
+func TestTeachingEvents_DynamicSemesterValidation(t *testing.T) {
+	db, err := database.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi database: %v", err)
+	}
+	defer db.Close()
+
+	om, err := NewOverrideManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init OverrideManager: %v", err)
+	}
+
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal EnsureClass 2A: %v", err)
+	}
+	groupJID := "120363_sem@g.us"
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan channel: %v", err)
+	}
+
+	// Tanggal di tahun 2026: September 2026 (Semester Ganjil 2026/2027)
+	eventDate2026, _ := time.Parse("2006-01-02", "2026-09-25")
+	item := JadwalItem{KodeMatkul: "SEM1", NamaMatkul: "Semester Dinamis", Jam: "08:00 - 09:40", Ruang: "R1"}
+
+	extra, err := om.AddExtra(groupJID, item, eventDate2026, "08:00 - 09:40", "R1", "Uji semester 2026", "admin")
+	if err != nil {
+		t.Fatalf("AddExtra gagal: %v", err)
+	}
+
+	var semAcademicYear, semStartsOn, semEndsOn, semTerm string
+	err = db.QueryRow(`
+		SELECT s.academic_year, s.starts_on, s.ends_on, s.term
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		JOIN semesters s ON s.id = co.semester_id
+		WHERE te.id = ?
+	`, extra.ID).Scan(&semAcademicYear, &semStartsOn, &semEndsOn, &semTerm)
+	if err != nil {
+		t.Fatalf("Gagal membaca semester untuk event 2026: %v", err)
+	}
+
+	if semAcademicYear == "2024/2025" {
+		t.Errorf("DATA_MODEL violation: semester tidak boleh hardcoded 2024/2025 untuk event 2026! got %s", semAcademicYear)
+	}
+	if semAcademicYear != "2026/2027" {
+		t.Errorf("Semester academic_year harus 2026/2027, got %s", semAcademicYear)
+	}
+	if semTerm != "GANJIL" {
+		t.Errorf("Semester di bulan September harus GANJIL, got %s", semTerm)
+	}
+	if "2026-09-25" < semStartsOn || "2026-09-25" > semEndsOn {
+		t.Errorf("Event date 2026-09-25 harus berada di antara starts_on (%s) dan ends_on (%s)", semStartsOn, semEndsOn)
 	}
 }
 

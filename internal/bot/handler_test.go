@@ -21,10 +21,12 @@ func TestHandleIncomingMessage_RateLimiter(t *testing.T) {
 	makeMsg := func(id string, text string) *events.Message {
 		return &events.Message{
 			Info: types.MessageInfo{
-				ID:      types.MessageID(id),
-				Sender:  senderJID,
-				Chat:    chatJID,
-				IsGroup: true,
+				MessageSource: types.MessageSource{
+					Chat:    chatJID,
+					Sender:  senderJID,
+					IsGroup: true,
+				},
+				ID: types.MessageID(id),
 			},
 			Message: &waE2E.Message{
 				Conversation: proto.String(text),

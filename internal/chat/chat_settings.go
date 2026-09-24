@@ -98,16 +98,39 @@ func (csm *ChatSettingsManager) loadCache() error {
 	return nil
 }
 
+type BackfillReport struct {
+	TotalLegacy int
+	Migrated    int
+	Skipped     int
+	Errors      []string
+}
+
 func (csm *ChatSettingsManager) backfillLegacyChatSettings(ctx context.Context) {
+	_, _ = csm.BackfillLegacyChatSettingsContext(ctx)
+}
+
+// BackfillLegacyChatSettingsContext melakukan migrasi chat_settings legacy ke whatsapp_channels dan chat_class_contexts dengan pencatatan import_errors.
+func (csm *ChatSettingsManager) BackfillLegacyChatSettingsContext(ctx context.Context) (*BackfillReport, error) {
+	report := &BackfillReport{}
 	var tableName string
 	err := csm.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_settings'").Scan(&tableName)
 	if err != nil || tableName == "" {
-		return
+		return report, nil
+	}
+
+	batchID, err := csm.academicRepo.EnsureMigrationBatch(ctx, "chat_settings")
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal memastikan migration batch: %v", err))
 	}
 
 	rows, err := csm.db.QueryContext(ctx, "SELECT scope_jid, class_id FROM chat_settings")
 	if err != nil {
-		return
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal query chat_settings: %v", err))
+		if batchID > 0 {
+			_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "table", "QUERY_FAILED", err.Error())
+			_ = csm.academicRepo.UpdateImportBatchStats(ctx, batchID, 0, 0, 1)
+		}
+		return report, err
 	}
 
 	type legacyEntry struct {
@@ -126,30 +149,55 @@ func (csm *ChatSettingsManager) backfillLegacyChatSettings(ctx context.Context) 
 	}
 	_ = rows.Close()
 
+	report.TotalLegacy = len(entries)
 	for _, entry := range entries {
 		if entry.scopeJID == "" || entry.classID == "" {
+			report.Skipped++
 			continue
 		}
 
 		cls, err := csm.academicRepo.EnsureClass(ctx, schedule.NormalizeClassID(entry.classID))
 		if err != nil || cls == nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("invalid class %s for scope %s: %v", entry.classID, entry.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "class_id", "CLASS_NOT_FOUND", errDetail)
+			}
 			continue
 		}
 
 		if strings.HasSuffix(entry.scopeJID, "@g.us") {
-			_, _ = csm.db.ExecContext(ctx, `
+			_, err = csm.db.ExecContext(ctx, `
 				INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
 				VALUES (?, ?, 'GROUP', ?, 'ACTIVE')
-				ON CONFLICT(jid) DO UPDATE SET class_id = excluded.class_id, status = 'ACTIVE'
+				ON CONFLICT(jid) DO UPDATE SET class_id = excluded.class_id, status = 'ACTIVE';
 			`, cls.ID, entry.scopeJID, cls.Code)
 		} else {
-			_, _ = csm.db.ExecContext(ctx, `
+			_, err = csm.db.ExecContext(ctx, `
 				INSERT INTO chat_class_contexts (chat_jid, class_id)
 				VALUES (?, ?)
-				ON CONFLICT(chat_jid) DO UPDATE SET class_id = excluded.class_id
+				ON CONFLICT(chat_jid) DO UPDATE SET class_id = excluded.class_id;
 			`, entry.scopeJID, cls.ID)
 		}
+
+		if err != nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("gagal insert channel/context scope %s: %v", entry.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "table", "INSERT_FAILED", errDetail)
+			}
+			continue
+		}
+
+		report.Migrated++
 	}
+
+	if batchID > 0 {
+		_ = csm.academicRepo.UpdateImportBatchStats(ctx, batchID, report.TotalLegacy, report.Migrated, len(report.Errors))
+	}
+	return report, nil
 }
 
 // GetClass mengambil ID kelas yang diatur untuk suatu chat/grup (mengembalikan string kosong jika belum diatur)
@@ -160,14 +208,17 @@ func (csm *ChatSettingsManager) GetClass(scopeJID string) string {
 	return csm.cache[scopeJID]
 }
 
-func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) error {
+// GetClassContext adalah varian context-aware dari GetClass
+func (csm *ChatSettingsManager) GetClassContext(ctx context.Context, scopeJID string) string {
+	return csm.GetClass(scopeJID)
+}
+
+// SetClassContext menyetel kelas aktif untuk scope chat dengan context-awareness
+func (csm *ChatSettingsManager) SetClassContext(ctx context.Context, scopeJID string, rawClassID string) error {
 	classID := schedule.NormalizeClassID(rawClassID)
 	if classID == "" {
 		return fmt.Errorf("nama kelas tidak boleh kosong")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	cls, err := csm.academicRepo.EnsureClass(ctx, classID)
 	if err != nil {
@@ -207,10 +258,15 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 	return nil
 }
 
-func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
+// SetClass adalah adapter kompatibilitas untuk SetClassContext
+func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return csm.SetClassContext(ctx, scopeJID, rawClassID)
+}
 
+// DeleteClassContext menghapus pengaturan kelas chat dengan context-awareness
+func (csm *ChatSettingsManager) DeleteClassContext(ctx context.Context, scopeJID string) error {
 	if strings.HasSuffix(scopeJID, "@g.us") {
 		_, err := csm.db.ExecContext(ctx, `DELETE FROM whatsapp_channels WHERE jid = ?`, scopeJID)
 		if err != nil {
@@ -228,6 +284,23 @@ func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
 	csm.mu.Unlock()
 
 	return nil
+}
+
+// DeleteClass adalah adapter kompatibilitas untuk DeleteClassContext
+func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return csm.DeleteClassContext(ctx, scopeJID)
+}
+
+// ResetClassContext adalah alias untuk DeleteClassContext
+func (csm *ChatSettingsManager) ResetClassContext(ctx context.Context, scopeJID string) error {
+	return csm.DeleteClassContext(ctx, scopeJID)
+}
+
+// ResetClass adalah alias untuk DeleteClass
+func (csm *ChatSettingsManager) ResetClass(scopeJID string) error {
+	return csm.DeleteClass(scopeJID)
 }
 
 func (csm *ChatSettingsManager) CountSettings() int {

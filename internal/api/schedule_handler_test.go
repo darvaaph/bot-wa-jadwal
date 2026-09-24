@@ -258,4 +258,3 @@ func TestHandleSchedule_NilClassManager_404(t *testing.T) {
 		t.Errorf("Ekspektasi pesan 'Kelas tidak ditemukan', didapat: '%s'", errResp["message"])
 	}
 }
-

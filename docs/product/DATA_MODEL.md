@@ -45,7 +45,7 @@ Model data harus:
 | Akademik | `classes`, `class_settings`, `semesters`, `courses`, `course_offerings`, `lecturers`, `offering_lecturers` | Identitas kelas, semester, mata kuliah, dan dosen |
 | Jadwal | `rooms`, `schedule_patterns`, `teaching_events`, `teaching_event_offerings`, `room_confirmations` | Pola reguler, kejadian aktual, partisipasi lintas kelas, konflik, dan ruangan |
 | Tugas dan materi | `tasks`, `task_reviews`, `materials` | Tugas, review KM, deadline, tautan pengumpulan, dan materi |
-| WhatsApp | `whatsapp_channels`, `notification_messages`, `notification_attempts` | Tujuan siaran, antrean, idempotensi, dan hasil kirim |
+| WhatsApp | `whatsapp_channels`, `chat_class_contexts`, `notification_messages`, `notification_attempts` | Tujuan siaran, konteks chat pribadi, antrean, idempotensi, dan hasil kirim |
 | Operasional | `audit_logs`, `import_batches`, `import_errors`, `backup_records` | Audit, impor, backup, dan pemulihan |
 
 ## 4. ERD Identitas dan Akses
@@ -523,7 +523,11 @@ Tabel ini menggantikan ketergantungan langsung pada `scope_jid` sebagai pemilik 
 
 Status kanal: `ACTIVE`, `DISCONNECTED`, `REVOKED`. Putusnya kanal tidak mengubah kelas, semester, jadwal, atau tugas.
 
-### 8.2 `notification_messages`
+### 8.2 `chat_class_contexts`
+
+Tabel teknis ini menyimpan preferensi pemilihan kelas aktif sementara untuk percakapan pribadi pengguna (Direct Message) dengan bot WhatsApp. Berbeda dengan `whatsapp_channels` yang mewakili saluran grup permanen siaran kelas, `chat_class_contexts` memungkinkan mahasiswa mengatur konteks kelas saat berinteraksi pribadi tanpa mengubah nomor pribadi mereka menjadi saluran resmi kelas.
+
+### 8.3 `notification_messages`
 
 Status: `PENDING`, `PROCESSING`, `SENT`, `FAILED`, `CANCELLED`, atau `SUPERSEDED`.
 

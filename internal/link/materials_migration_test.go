@@ -2,6 +2,7 @@ package link
 
 import (
 	"bot-jadwal/internal/database"
+	"context"
 	"database/sql"
 	"testing"
 )
@@ -20,6 +21,12 @@ func TestMaterialsMigration_TableVerificationAndBackfill(t *testing.T) {
 
 	scope := "D4-TI-1A"
 	user := "6285551234@s.whatsapp.net"
+
+	ctx := context.Background()
+	_, err = lm.academicRepo.EnsureClass(ctx, scope)
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas %s: %v", scope, err)
+	}
 
 	// 1. Tambah link
 	id, err := lm.AddLink(scope, true, "Slide Algoritma", "https://drive.google.com/slide1", "Materi Pekan 1", user)
@@ -65,7 +72,7 @@ func TestMaterialsMigration_TableVerificationAndBackfill(t *testing.T) {
 		t.Errorf("Foreign key check gagal setelah insert materials: %s", fkCheck)
 	}
 
-	// 3. Uji Backfill dari tabel legacy class_links
+	// 3. Uji Backfill dari tabel legacy class_links dengan manifest & import_errors
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS class_links (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +87,8 @@ func TestMaterialsMigration_TableVerificationAndBackfill(t *testing.T) {
 		);
 		INSERT INTO class_links (scope_jid, is_group, title, url, category, description, created_by)
 		VALUES ('D4-TI-1A', 1, 'Legacy Zoom Link', 'https://zoom.us/j/legacy123', 'meeting', 'Kelas pengganti', '628999@s.whatsapp.net');
+		INSERT INTO class_links (scope_jid, is_group, title, url, category, description, created_by)
+		VALUES ('120363unmapped@g.us', 1, 'Unmapped Group Link', 'https://zoom.us/j/unmapped', 'meeting', 'Kelas gaib', '628999@s.whatsapp.net');
 	`)
 	if err != nil {
 		t.Fatalf("Gagal membuat tabel legacy class_links: %v", err)
@@ -88,6 +97,27 @@ func TestMaterialsMigration_TableVerificationAndBackfill(t *testing.T) {
 	lmReloaded, err := NewLinkManager(db)
 	if err != nil {
 		t.Fatalf("Gagal NewLinkManager untuk backfill: %v", err)
+	}
+
+	report, err := lmReloaded.BackfillLegacyLinksContext(ctx)
+	if err != nil {
+		t.Fatalf("BackfillLegacyLinksContext error: %v", err)
+	}
+	if report.TotalLegacy != 2 {
+		t.Errorf("Expected 2 total legacy items, got %d", report.TotalLegacy)
+	}
+	if report.Migrated != 1 {
+		t.Errorf("Expected 1 migrated item, got %d", report.Migrated)
+	}
+	if report.Skipped != 1 {
+		t.Errorf("Expected 1 skipped item (unmapped), got %d", report.Skipped)
+	}
+
+	// Verifikasi pencatatan error ke import_errors
+	var errCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM import_errors WHERE error_code = 'UNMAPPED_SCOPE'").Scan(&errCount)
+	if err != nil || errCount < 1 {
+		t.Errorf("Expected import_errors for UNMAPPED_SCOPE, got count=%d, err=%v", errCount, err)
 	}
 
 	links, err := lmReloaded.GetLinks("D4-TI-1A")

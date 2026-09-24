@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+var ErrUnmappedScope = academic.ErrUnmappedScope
+
+type BackfillReport struct {
+	TotalLegacy int
+	Migrated    int
+	Skipped     int
+	Errors      []string
+}
+
 type LinkItem struct {
 	ID          int64     `json:"id"`
 	ScopeJID    string    `json:"scope_jid"`
@@ -79,10 +88,21 @@ func MaterialTypeToCategory(matType string) string {
 }
 
 func (lm *LinkManager) backfillLegacyLinks(ctx context.Context) {
+	_, _ = lm.BackfillLegacyLinksContext(ctx)
+}
+
+// BackfillLegacyLinksContext melakukan migrasi data dari tabel legacy class_links ke materials dengan manifest error.
+func (lm *LinkManager) BackfillLegacyLinksContext(ctx context.Context) (*BackfillReport, error) {
+	report := &BackfillReport{}
 	var tableName string
 	err := lm.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='class_links'").Scan(&tableName)
 	if err != nil || tableName == "" {
-		return
+		return report, nil
+	}
+
+	batchID, err := lm.academicRepo.EnsureMigrationBatch(ctx, "class_links")
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal memastikan migration batch: %v", err))
 	}
 
 	rows, err := lm.db.QueryContext(ctx, `
@@ -90,7 +110,12 @@ func (lm *LinkManager) backfillLegacyLinks(ctx context.Context) {
 		FROM class_links
 	`)
 	if err != nil {
-		return
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal query class_links: %v", err))
+		if batchID > 0 {
+			_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "table", "QUERY_FAILED", err.Error())
+			_ = lm.academicRepo.UpdateImportBatchStats(ctx, batchID, 0, 0, 1)
+		}
+		return report, err
 	}
 
 	type legacyLink struct {
@@ -111,18 +136,27 @@ func (lm *LinkManager) backfillLegacyLinks(ctx context.Context) {
 	}
 	_ = rows.Close()
 
+	report.TotalLegacy = len(legacyItems)
 	for _, item := range legacyItems {
 		classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, item.scopeJID)
 		if err != nil {
-			cls, ensureErr := lm.academicRepo.EnsureClass(ctx, item.scopeJID)
-			if ensureErr != nil {
-				continue
+			report.Skipped++
+			errDetail := fmt.Sprintf("unmapped scope %s: %v", item.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "scope_jid", "UNMAPPED_SCOPE", errDetail)
 			}
-			classID = cls.ID
+			continue
 		}
 
 		userID, err := lm.academicRepo.EnsureUser(ctx, item.createdBy, item.createdBy)
 		if err != nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("gagal memastikan user %s: %v", item.createdBy, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "created_by", "USER_ERROR", errDetail)
+			}
 			continue
 		}
 
@@ -135,12 +169,31 @@ func (lm *LinkManager) backfillLegacyLinks(ctx context.Context) {
 		var exists int
 		_ = lm.db.QueryRowContext(ctx, `SELECT 1 FROM materials WHERE class_id = ? AND url = ? LIMIT 1`, classID, item.url).Scan(&exists)
 		if exists == 0 {
-			_, _ = lm.db.ExecContext(ctx, `
+			var newID int64
+			err := lm.db.QueryRowContext(ctx, `
 				INSERT INTO materials (class_id, title, material_type, url, description, visibility, status, created_by_user_id)
 				VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)
-			`, classID, item.title, matType, item.url, item.description, visibility, userID)
+				RETURNING id;
+			`, classID, item.title, matType, item.url, item.description, visibility, userID).Scan(&newID)
+			if err != nil {
+				report.Skipped++
+				errDetail := fmt.Sprintf("gagal insert materials (%s): %v", item.title, err)
+				report.Errors = append(report.Errors, errDetail)
+				if batchID > 0 {
+					_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "materials", "INSERT_FAILED", errDetail)
+				}
+				continue
+			}
+			report.Migrated++
+		} else {
+			report.Migrated++
 		}
 	}
+
+	if batchID > 0 {
+		_ = lm.academicRepo.UpdateImportBatchStats(ctx, batchID, report.TotalLegacy, report.Migrated, len(report.Errors))
+	}
+	return report, nil
 }
 
 // NormalizeURL memastikan URL diawali http:// atau https:// agar otomatis clickable di WhatsApp
@@ -173,8 +226,8 @@ func DetectLinkCategory(title, rawURL string) string {
 	return "umum"
 }
 
-// AddLink menambahkan tautan baru ke database target materials dengan normalisasi URL dan deteksi kategori cerdas
-func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
+// AddLinkContext menambahkan tautan baru ke database target materials dengan context-awareness.
+func (lm *LinkManager) AddLinkContext(ctx context.Context, scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
 	title = strings.TrimSpace(title)
 	rawURL = NormalizeURL(rawURL)
 	desc = strings.TrimSpace(desc)
@@ -192,29 +245,9 @@ func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, des
 		return 0, fmt.Errorf("format URL '%s' tidak valid", rawURL)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil {
-		cls, ensureErr := lm.academicRepo.EnsureClass(ctx, scopeJID)
-		if ensureErr != nil {
-			return 0, fmt.Errorf("gagal mengaitkan tautan ke kelas: %w", ensureErr)
-		}
-		classID = cls.ID
-		if strings.HasSuffix(scopeJID, "@g.us") {
-			_, _ = lm.db.ExecContext(ctx, `
-				INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
-				VALUES (?, ?, 'GROUP', ?, 'ACTIVE')
-				ON CONFLICT(jid) DO NOTHING;
-			`, cls.ID, scopeJID, cls.Code)
-		} else {
-			_, _ = lm.db.ExecContext(ctx, `
-				INSERT INTO chat_class_contexts (chat_jid, class_id)
-				VALUES (?, ?)
-				ON CONFLICT(chat_jid) DO NOTHING;
-			`, scopeJID, cls.ID)
-		}
+		return 0, fmt.Errorf("gagal mengaitkan tautan ke kelas: %w", err)
 	}
 
 	userID, err := lm.academicRepo.EnsureUser(ctx, createdBy, createdBy)
@@ -232,25 +265,32 @@ func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, des
 
 	query := `
 		INSERT INTO materials (class_id, title, material_type, url, description, visibility, status, created_by_user_id)
-		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?);
+		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)
+		RETURNING id;
 	`
-	res, err := lm.db.ExecContext(ctx, query, classID, title, matType, rawURL, desc, visibility, userID)
+	var insertedID int64
+	err = lm.db.QueryRowContext(ctx, query, classID, title, matType, rawURL, desc, visibility, userID).Scan(&insertedID)
 	if err != nil {
 		return 0, fmt.Errorf("gagal menambahkan tautan ke materials: %w", err)
 	}
 
-	return res.LastInsertId()
+	return insertedID, nil
 }
 
-func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
+// AddLink adalah adapter kompatibilitas untuk AddLinkContext
+func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return lm.AddLinkContext(ctx, scopeJID, isGroup, title, rawURL, desc, createdBy)
+}
 
+// DeleteLinkContext menghapus tautan dengan context-awareness
+func (lm *LinkManager) DeleteLinkContext(ctx context.Context, scopeJID string, id int64) (bool, error) {
 	classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil {
 		cls, ensureErr := lm.academicRepo.GetClassByCode(ctx, scopeJID)
 		if ensureErr != nil || cls == nil {
-			return false, nil
+			return false, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
 		}
 		classID = cls.ID
 	}
@@ -275,25 +315,49 @@ func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
 	return affected > 0, nil
 }
 
-// GetLinks mengambil seluruh tautan aktif pada scope chat terurut berdasarkan kategori utama
-func (lm *LinkManager) GetLinks(scopeJID string) ([]LinkItem, error) {
+// DeleteLink adalah adapter kompatibilitas untuk DeleteLinkContext
+func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return lm.DeleteLinkContext(ctx, scopeJID, id)
+}
+
+// GetLinksContext mengambil seluruh tautan aktif pada scope chat terurut berdasarkan kategori utama dengan context-awareness
+func (lm *LinkManager) GetLinksContext(ctx context.Context, scopeJID string) ([]LinkItem, error) {
 	return lm.queryLinks(ctx, scopeJID, "")
 }
 
-func (lm *LinkManager) GetLinksByCategory(scopeJID, category string) ([]LinkItem, error) {
+// GetLinks adalah adapter kompatibilitas untuk GetLinksContext
+func (lm *LinkManager) GetLinks(scopeJID string) ([]LinkItem, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return lm.GetLinksContext(ctx, scopeJID)
+}
+
+// GetLinksByCategoryContext mengambil tautan berdasarkan kategori dengan context-awareness
+func (lm *LinkManager) GetLinksByCategoryContext(ctx context.Context, scopeJID, category string) ([]LinkItem, error) {
 	matType := CategoryToMaterialType(category)
 	return lm.queryLinks(ctx, scopeJID, "AND m.material_type = ?", matType)
 }
 
+// GetLinksByCategory adalah adapter kompatibilitas untuk GetLinksByCategoryContext
+func (lm *LinkManager) GetLinksByCategory(scopeJID, category string) ([]LinkItem, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.GetLinksByCategoryContext(ctx, scopeJID, category)
+}
+
+// SearchLinksContext mencari tautan berdasarkan kata kunci dengan context-awareness
+func (lm *LinkManager) SearchLinksContext(ctx context.Context, scopeJID, keyword string) ([]LinkItem, error) {
+	pattern := "%" + strings.ToLower(strings.TrimSpace(keyword)) + "%"
+	return lm.queryLinks(ctx, scopeJID, "AND (LOWER(m.title) LIKE ? OR LOWER(m.description) LIKE ? OR LOWER(m.material_type) LIKE ?)", pattern, pattern, pattern)
+}
+
+// SearchLinks adalah adapter kompatibilitas untuk SearchLinksContext
 func (lm *LinkManager) SearchLinks(scopeJID, keyword string) ([]LinkItem, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	pattern := "%" + strings.ToLower(strings.TrimSpace(keyword)) + "%"
-	return lm.queryLinks(ctx, scopeJID, "AND (LOWER(m.title) LIKE ? OR LOWER(m.description) LIKE ? OR LOWER(m.material_type) LIKE ?)", pattern, pattern, pattern)
+	return lm.SearchLinksContext(ctx, scopeJID, keyword)
 }
 
 func (lm *LinkManager) queryLinks(ctx context.Context, scopeJID string, filterClause string, args ...any) ([]LinkItem, error) {

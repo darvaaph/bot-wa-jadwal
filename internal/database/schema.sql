@@ -569,6 +569,16 @@ CREATE TABLE whatsapp_channels (
 
 CREATE INDEX idx_whatsapp_channels_class_status ON whatsapp_channels(class_id, status);
 
+CREATE TABLE chat_class_contexts (
+    chat_jid TEXT PRIMARY KEY,
+    class_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_chat_class_contexts_class_id ON chat_class_contexts(class_id);
+
 CREATE TABLE notification_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_id INTEGER NOT NULL,
