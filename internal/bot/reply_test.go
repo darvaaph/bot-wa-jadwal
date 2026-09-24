@@ -14,7 +14,6 @@ func TestBuildQuotedReplyMessage(t *testing.T) {
 		Conversation: proto.String("!jadwal"),
 	}
 
-	// 1. Uji Quoted Reply di Grup
 	groupReply := BuildQuotedReplyMessage("Berikut jadwal kuliah:", "MSG-1001", senderJID, quotedMsg, true)
 	if groupReply.GetExtendedTextMessage() == nil {
 		t.Fatalf("Expected ExtendedTextMessage for group reply, got nil")
@@ -36,7 +35,6 @@ func TestBuildQuotedReplyMessage(t *testing.T) {
 		t.Errorf("QuotedMessage was not preserved correctly")
 	}
 
-	// 2. Uji Quoted Reply di DM Pribadi
 	dmReply := BuildQuotedReplyMessage("Info pribadi:", "MSG-1002", senderJID, quotedMsg, false)
 	if dmReply.GetExtendedTextMessage() == nil {
 		t.Fatalf("Expected ExtendedTextMessage for DM reply, got nil")
@@ -52,7 +50,6 @@ func TestBuildQuotedReplyMessage(t *testing.T) {
 		t.Errorf("Expected empty Participant in DM, got '%s'", dmCtx.GetParticipant())
 	}
 
-	// 3. Uji Broadcast tanpa MsgID
 	broadcastMsg := BuildQuotedReplyMessage("Pengingat pagi:", "", senderJID, nil, true)
 	if broadcastMsg.GetConversation() != "Pengingat pagi:" {
 		t.Errorf("Expected regular conversation message for broadcast, got %v", broadcastMsg)

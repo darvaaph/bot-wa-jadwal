@@ -19,13 +19,11 @@ func TestConfig_EnsureStorageAndMigrate(t *testing.T) {
 		t.Fatalf("EnsureStorageAndMigrate failed: %v", err)
 	}
 
-	// Pastikan folder terbuat
 	info, err := os.Stat(tempStorage)
 	if err != nil || !info.IsDir() {
 		t.Fatalf("Folder %s harus terbuat", tempStorage)
 	}
 
-	// Uji migrasi file tiruan
 	dummyRoot := "dummy_test_migrate.db"
 	err = os.WriteFile(dummyRoot, []byte("test data"), 0644)
 	if err != nil {
@@ -33,7 +31,6 @@ func TestConfig_EnsureStorageAndMigrate(t *testing.T) {
 	}
 	defer os.Remove(dummyRoot)
 
-	// Ubah nama migration files sementara di fungsi jika perlu atau tes manual
 	destPath := filepath.Join(tempStorage, dummyRoot)
 	err = moveFile(dummyRoot, destPath)
 	if err != nil {

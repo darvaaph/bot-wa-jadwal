@@ -17,37 +17,31 @@ func TestSchedule(t *testing.T) {
 		t.Fatalf("Jadwal kosong")
 	}
 
-	// 1. Test GetByHari
 	seninResult := cfg.GetByHari("senin")
 	if !strings.Contains(seninResult, "Aljabar Linear") {
 		t.Errorf("Expected 'Aljabar Linear' in Senin schedule, got: %s", seninResult)
 	}
 
-	// 2. Test SearchDosen yang ada jadwal
 	dosenResult := cfg.SearchDosen("MR")
 	if !strings.Contains(dosenResult, "Muhammad Rizqi Sholahuddin") {
 		t.Errorf("Expected dosen Muhammad Rizqi Sholahuddin for MR, got: %s", dosenResult)
 	}
 
-	// 3. Test SearchDosen master JTK tanpa jadwal di kelas ini
 	dosenMasterResult := cfg.SearchDosen("PH")
 	if !strings.Contains(dosenMasterResult, "Priyanto Hidayatullah") {
 		t.Errorf("Expected master dosen Priyanto for PH, got: %s", dosenMasterResult)
 	}
 
-	// 4. Test SearchRuangan
 	ruangResult := cfg.SearchRuangan("Lab")
 	if !strings.Contains(ruangResult, "Lab") {
 		t.Errorf("Expected Lab in results, got: %s", ruangResult)
 	}
 
-	// 5. Test Menu
 	menuResult := cfg.GetMenu()
 	if !strings.Contains(menuResult, "!hari ini") || !strings.Contains(menuResult, "!seminggu") {
 		t.Errorf("Expected menu to contain !hari ini and !seminggu, got: %s", menuResult)
 	}
 
-	// 6. Test GetJadwalSeminggu
 	semingguResult := cfg.GetJadwalSeminggu()
 	if !strings.Contains(semingguResult, "JADWAL SENIN - JUMAT") ||
 		!strings.Contains(semingguResult, "SENIN") ||
@@ -55,49 +49,41 @@ func TestSchedule(t *testing.T) {
 		t.Errorf("GetJadwalSeminggu invalid result, got: %s", semingguResult)
 	}
 
-	// 7. Test GetDaftarMatkul
 	matkulResult := cfg.GetDaftarMatkul()
 	if !strings.Contains(matkulResult, "DAFTAR MATA KULIAH") ||
 		!strings.Contains(matkulResult, "Aljabar Linear") {
 		t.Errorf("GetDaftarMatkul invalid result, got: %s", matkulResult)
 	}
 
-	// 8. Test Reload
 	reloadMsg, err := cfg.Reload()
 	if err != nil || !strings.Contains(reloadMsg, "berhasil dimuat ulang") {
 		t.Errorf("Reload failed, err: %v, msg: %s", err, reloadMsg)
 	}
 
-	// 9. Test GetNextClass berbagai kondisi waktu
-	// 9a. Saat kuliah sedang berlangsung (Selasa 07:30)
 	tSelasaOngoing := time.Date(2026, 9, 1, 7, 30, 0, 0, time.Local) // 1 Sep 2026 adalah Selasa
 	resOngoing := cfg.GetNextClass(tSelasaOngoing)
 	if !strings.Contains(resOngoing, "SEDANG BERLANGSUNG") || !strings.Contains(resOngoing, "Matematika Diskrit Lanjut") {
 		t.Errorf("GetNextClass ongoing failed, got: %s", resOngoing)
 	}
 
-	// 9b. Sebelum kuliah pertama dimulai (Selasa 06:00)
 	tSelasaPagi := time.Date(2026, 9, 1, 6, 0, 0, 0, time.Local)
 	resPagi := cfg.GetNextClass(tSelasaPagi)
 	if !strings.Contains(resPagi, "KULIAH BERIKUTNYA") || !strings.Contains(resPagi, "Matematika Diskrit Lanjut") {
 		t.Errorf("GetNextClass upcoming failed, got: %s", resPagi)
 	}
 
-	// 9c. Setelah semua kuliah selesai (Selasa 16:00)
 	tSelasaSore := time.Date(2026, 9, 1, 16, 0, 0, 0, time.Local)
 	resSore := cfg.GetNextClass(tSelasaSore)
 	if !strings.Contains(resSore, "KULIAH HARI INI SELESAI") {
 		t.Errorf("GetNextClass finished failed, got: %s", resSore)
 	}
 
-	// 9d. Hari Libur (Sabtu)
 	tSabtu := time.Date(2026, 9, 5, 10, 0, 0, 0, time.Local) // 5 Sep 2026 adalah Sabtu
 	resSabtu := cfg.GetNextClass(tSabtu)
 	if !strings.Contains(resSabtu, "LIBUR") {
 		t.Errorf("GetNextClass weekend failed, got: %s", resSabtu)
 	}
 
-	// 10. Test ProcessMessage - Pintasan Cepat & Perintah Baru
 	cases := []struct {
 		input       string
 		mustContain string
@@ -141,14 +127,12 @@ func TestSchedule(t *testing.T) {
 		}
 	}
 
-	// Test pesan non-perintah tidak boleh membalas (harus empty string)
 	randomMsg := cfg.ProcessMessage("halo lagi ngapain?")
 	if randomMsg != "" {
 		t.Errorf("Expected empty reply for normal chat, got: %s", randomMsg)
 	}
 
-	// 10b. Test Strategi Hybrid: Di grup wajib ada prefix (!), di DM bebas
-	// Di Grup Chat (isGroup = true):
+	// Grup memerlukan prefix, sedangkan DM tidak.
 	if res := cfg.ProcessMessage("!senin", true); !strings.Contains(res, "Aljabar Linear") {
 		t.Errorf("Expected '!senin' in group to be processed, got: %s", res)
 	}
@@ -172,7 +156,6 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Fatalf("Gagal load jadwal.json: %v", err)
 	}
 
-	// 1. Uji akhir pekan (Sabtu): Harusnya otomatis menampilkan hari Senin dengan catatan libur akhir pekan
 	tSabtu := time.Date(2026, 9, 5, 14, 0, 0, 0, time.Local) // 5 Sep 2026 adalah Sabtu
 	resSabtu := cfg.ProcessMessage("!jadwal", tSabtu)
 	if !strings.Contains(resSabtu, "libur akhir pekan") {
@@ -182,15 +165,12 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Errorf("Expected Monday schedule on Saturday, got:\n%s", resSabtu)
 	}
 
-	// 2. Uji akhir pekan (Minggu): Harusnya otomatis menampilkan hari Senin
 	tMinggu := time.Date(2026, 9, 6, 10, 0, 0, 0, time.Local) // 6 Sep 2026 adalah Minggu
 	resMinggu := cfg.ProcessMessage("!jadwal", tMinggu)
 	if !strings.Contains(resMinggu, "libur akhir pekan") || !strings.Contains(resMinggu, "Aljabar Linear") {
 		t.Errorf("Expected Monday schedule on Sunday, got:\n%s", resMinggu)
 	}
 
-	// 3. Uji hari aktif sebelum/saat jam kuliah (Senin 08:00 WIB):
-	// Harus menampilkan hari Senin langsung tanpa catatan "telah selesai"
 	tSeninPagi := time.Date(2026, 9, 7, 8, 0, 0, 0, time.Local) // 7 Sep 2026 adalah Senin
 	resSeninPagi := cfg.ProcessMessage("!jadwal", tSeninPagi)
 	if strings.Contains(resSeninPagi, "telah selesai") {
@@ -200,8 +180,6 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Errorf("Expected Monday schedule on Monday morning, got:\n%s", resSeninPagi)
 	}
 
-	// 4. Uji hari aktif setelah jam kuliah selesai (Senin 16:00 WIB, matkul terakhir Senin selesai 14:40):
-	// Harus menampilkan hari Selasa dengan catatan "Perkuliahan hari ini telah selesai"
 	tSeninSore := time.Date(2026, 9, 7, 16, 0, 0, 0, time.Local)
 	resSeninSore := cfg.ProcessMessage("!jadwal", tSeninSore)
 	if !strings.Contains(resSeninSore, "Perkuliahan hari ini telah selesai") || !strings.Contains(resSeninSore, "Selasa") {
@@ -211,8 +189,6 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Errorf("Expected Tuesday course on Monday evening, got:\n%s", resSeninSore)
 	}
 
-	// 5. Uji hari Jumat sore setelah perkuliahan selesai (matkul terakhir Jumat selesai 18:10):
-	// Melewati Sabtu dan Minggu, langsung melompat ke Senin pekan depan
 	tJumatSore := time.Date(2026, 9, 11, 19, 0, 0, 0, time.Local) // 11 Sep 2026 adalah Jumat
 	resJumatSore := cfg.ProcessMessage("!jadwal", tJumatSore)
 	if !strings.Contains(resJumatSore, "Perkuliahan hari ini telah selesai") {
@@ -222,14 +198,11 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Errorf("Expected Monday schedule after Friday classes ended, got:\n%s", resJumatSore)
 	}
 
-	// 6. Uji pembanding perintah literal "!hari ini":
-	// Di Senin sore (!hari ini) tetap harus menampilkan jadwal Senin secara penuh
 	resHariIni := cfg.ProcessMessage("!hari ini", tSeninSore)
 	if !strings.Contains(resHariIni, "Aljabar Linear") || strings.Contains(resHariIni, "Matematika Diskrit Lanjut") {
 		t.Errorf("Expected '!hari ini' to strictly return Monday schedule even in evening, got:\n%s", resHariIni)
 	}
 
-	// 7. Uji dengan OverrideManager: Libur di hari berikutnya
 	db, err := database.InitDB(":memory:")
 	if err != nil {
 		t.Fatalf("Gagal inisialisasi DB memory: %v", err)
@@ -245,10 +218,8 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 	groupJID := "test_group_smart@g.us"
 	userJID := "test_admin@s.whatsapp.net"
 
-	// Set Selasa libur: "!libur besok | Libur Kuliah Lapangan" (saat tSeninSore)
 	om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Libur Kuliah Lapangan", cfg, tSeninSore)
 
-	// Saat Senin sore memanggil !jadwal di grup, karena Selasa libur, harus otomatis loncat ke Rabu
 	resOverride := cfg.ProcessMessage("!jadwal", true, groupJID, tSeninSore)
 	if !strings.Contains(resOverride, "Perkuliahan hari ini telah selesai") {
 		t.Errorf("Expected completed note, got:\n%s", resOverride)

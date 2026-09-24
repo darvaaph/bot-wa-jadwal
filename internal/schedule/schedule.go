@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// JadwalItem merepresentasikan satu sesi perkuliahan dalam jadwal
 type JadwalItem struct {
 	Hari         string `json:"hari"`
 	Jam          string `json:"jam"`
@@ -24,7 +23,6 @@ type JadwalItem struct {
 	Ruang        string `json:"ruang"`
 }
 
-// JadwalConfig merepresentasikan struktur keseluruhan file jadwal.json
 type JadwalConfig struct {
 	mu              sync.RWMutex
 	FilePath        string            `json:"-"`
@@ -35,14 +33,12 @@ type JadwalConfig struct {
 	Jadwal          []JadwalItem      `json:"jadwal"`
 }
 
-// SetOverrideManager menghubungkan pengelola jadwal pengganti ke JadwalConfig
 func (j *JadwalConfig) SetOverrideManager(om *OverrideManager) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.OverrideManager = om
 }
 
-// LoadJadwal membaca file JSON dan mengubahnya menjadi struct JadwalConfig di memori
 func LoadJadwal(filepath string) (*JadwalConfig, error) {
 	resolvedPath := util.FindDataDir(filepath)
 	data, err := os.ReadFile(resolvedPath)
@@ -60,7 +56,6 @@ func LoadJadwal(filepath string) (*JadwalConfig, error) {
 	return &config, nil
 }
 
-// Reload membaca ulang file JSON dari disk tanpa perlu me-restart aplikasi
 func (j *JadwalConfig) Reload() (string, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -100,7 +95,6 @@ func formatDurasi(menit int) string {
 // ParseClassMetadata mengekstrak informasi akademik (prodi, semester, tingkat, huruf kelas)
 // dari metadata kampus dan nama file kurikulum (misal: "data/jadwal/D4-TI-SMT3-A.json")
 func ParseClassMetadata(kampusStr, filePath string) (prodi string, semester int, tingkat int, kelasLetter string) {
-	// 1. Coba deteksi dari nama file (misal: D4-TI-SMT3-A.json)
 	base := filepath.Base(filePath)
 	baseNoExt := strings.TrimSuffix(base, filepath.Ext(base))
 	parts := strings.Split(baseNoExt, "-")
@@ -123,7 +117,6 @@ func ParseClassMetadata(kampusStr, filePath string) (prodi string, semester int,
 		}
 	}
 
-	// 2. Jika belum lengkap, lengkapi dari teks kampusStr
 	if prodi == "" {
 		upperK := strings.ToUpper(kampusStr)
 		if strings.Contains(upperK, "D4") {
@@ -154,7 +147,6 @@ func ParseClassMetadata(kampusStr, filePath string) (prodi string, semester int,
 	return prodi, semester, tingkat, kelasLetter
 }
 
-// FormatClassBanner menghasilkan header identitas kelas yang rapi dan terstruktur untuk tampilan WhatsApp
 func (j *JadwalConfig) FormatClassBanner() string {
 	j.mu.RLock()
 	kampusStr := j.Kampus
@@ -177,7 +169,7 @@ func (j *JadwalConfig) FormatClassBanner() string {
 		return sb.String()
 	}
 
-	// Fallback jika tidak terdeteksi pattern semester/kelas
+	// Pertahankan identitas sumber bila metadata kelas tidak dapat dikenali.
 	if kampusStr != "" {
 		clean := strings.TrimSpace(strings.ReplaceAll(kampusStr, "(Transisi)", ""))
 		clean = strings.TrimSpace(strings.ReplaceAll(clean, "  ", " "))
@@ -186,7 +178,6 @@ func (j *JadwalConfig) FormatClassBanner() string {
 	return ""
 }
 
-// FormatList merapikan daftar item jadwal menjadi teks WhatsApp yang ringkas dan ramah mobile
 func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 	banner := j.FormatClassBanner()
 	if len(items) == 0 {
@@ -215,7 +206,6 @@ func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 	return sb.String()
 }
 
-// GetJadwalSeminggu mengembalikan jadwal perkuliahan lengkap dari Senin sampai Jumat
 func (j *JadwalConfig) GetJadwalSeminggu() string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -255,7 +245,6 @@ func (j *JadwalConfig) GetJadwalSeminggu() string {
 	return sb.String()
 }
 
-// GetNextClass mengecek kuliah yang sedang berlangsung atau kuliah berikutnya hari ini
 func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -337,11 +326,9 @@ func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 		return sb.String()
 	}
 
-	// Semua perkuliahan hari ini sudah lewat
 	return fmt.Sprintf("✅ *KULIAH HARI INI SELESAI*\nSemua perkuliahan hari %s telah berakhir. Selamat istirahat!\n\nKetik `!besok` untuk melihat jadwal esok hari.", hariIndonesia)
 }
 
-// GetDaftarMatkul menampilkan seluruh mata kuliah semester ini dengan format ringkas
 func (j *JadwalConfig) GetDaftarMatkul() string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -356,7 +343,6 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 	matkulMap := make(map[string]*matkulInfo)
 	var listKode []string
 
-	// Ambil dari master mata_kuliah jika ada
 	for kode, nama := range j.MataKuliah {
 		matkulMap[kode] = &matkulInfo{
 			Kode: kode,
@@ -365,7 +351,6 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 		listKode = append(listKode, kode)
 	}
 
-	// Petakan dosen dan hari dari daftar jadwal
 	for _, item := range j.Jadwal {
 		info, exists := matkulMap[item.KodeMatkul]
 		if !exists {
@@ -416,7 +401,6 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 	return sb.String()
 }
 
-// FormatAvailableCourses menyusun daftar ringkas mata kuliah kelas beserta kata kunci/alias inputnya
 func (j *JadwalConfig) FormatAvailableCourses() string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -454,7 +438,6 @@ func (j *JadwalConfig) FormatAvailableCourses() string {
 }
 
 
-// GetByHari mencari jadwal berdasarkan hari tertentu, termasuk alias 'hari ini' dan 'besok'
 func (j *JadwalConfig) GetByHari(hariInput string, refTime ...time.Time) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -567,7 +550,6 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 		}
 	}
 
-	// Cek berdasarkan waktu acuan refTime jika diberikan
 	if len(refTime) > 0 && !refTime[0].IsZero() {
 		refDate := refTime[0]
 		todayHari := strings.ToLower(util.GetHariIndonesia(refDate))
@@ -615,7 +597,6 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 	return &candidates[0], candidates
 }
 
-// RenderScheduleEntry merepresentasikan item jadwal yang diformat untuk tampilan akhir
 type RenderScheduleEntry struct {
 	StartTime    time.Time
 	JamDisplay   string
@@ -658,7 +639,6 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 		return j.GetByHari(hariInput, waktuSekarang)
 	}
 
-	// Periksa apakah seluruh hari ini dinyatakan LIBUR (HOLIDAY)
 	for _, o := range overrides {
 		if o.Type == "HOLIDAY" {
 			var sb strings.Builder
@@ -690,7 +670,6 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 
 	var entries []RenderScheduleEntry
 
-	// 1. Proses jadwal normal
 	for _, it := range normalItems {
 		var matchedOverride *ScheduleOverride
 		for _, o := range overrides {
@@ -736,7 +715,6 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 		}
 	}
 
-	// 2. Proses jadwal masuk (reschedule inbound atau extra)
 	for _, o := range overrides {
 		if o.TargetDate == targetDateStr {
 			if o.Type == "RESCHEDULE" && (o.OrigDate != targetDateStr || o.OrigJam != o.NewJam) {
@@ -775,7 +753,6 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 		return fmt.Sprintf("❌ *JADWAL %s*\n──────────\nTidak ada jadwal yang ditemukan.", strings.ToUpper(hariTarget))
 	}
 
-	// Urutkan entri secara kronologis berdasarkan StartTime
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].StartTime.Before(entries[j].StartTime)
 	})
@@ -816,7 +793,7 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 			if e.Catatan != "" {
 				sb.WriteString(fmt.Sprintf("   └ ℹ️ *%s*\n", e.Catatan))
 			}
-		default: // NORMAL
+		default:
 			sb.WriteString(fmt.Sprintf("*%d. %s*\n", i+1, e.NamaMatkul))
 			sb.WriteString(fmt.Sprintf("   • Jam   : %s WIB\n", e.JamDisplay))
 			sb.WriteString(fmt.Sprintf("   • Ruang : %s\n", e.Ruang))
@@ -830,7 +807,6 @@ func (j *JadwalConfig) GetByHariWithOverrides(
 	return sb.String()
 }
 
-// ActiveCandidate merepresentasikan sesi kuliah yang aktif pada tanggal dan jam tertentu
 type ActiveCandidate struct {
 	NamaMatkul   string
 	Jam          string
@@ -869,7 +845,6 @@ func (j *JadwalConfig) getActiveItemsForDate(targetDate time.Time, scopeJID stri
 	}
 	j.mu.RUnlock()
 
-	// 1. Masukkan jadwal normal yang tidak dicancel atau dipindah keluar
 	for _, item := range normalItems {
 		isCancelledOrMoved := false
 		for _, o := range overrides {
@@ -900,7 +875,6 @@ func (j *JadwalConfig) getActiveItemsForDate(targetDate time.Time, scopeJID stri
 		})
 	}
 
-	// 2. Masukkan jadwal masuk (reschedule inbound atau extra)
 	for _, o := range overrides {
 		if o.TargetDate == targetDateStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
 			start, end, err := util.ParseJamRange(o.NewJam, targetDate)
@@ -923,10 +897,8 @@ func (j *JadwalConfig) getActiveItemsForDate(targetDate time.Time, scopeJID stri
 	return false, "", items
 }
 
-// GetSmartUpcomingSchedule mencari jadwal perkuliahan terdekat yang masih aktif.
-// Jika hari ini masih ada kuliah yang sedang atau belum berlangsung, tampilkan hari ini.
-// Jika hari ini libur atau seluruh sesi telah selesai, bot mencari hari pertama berikutnya
-// (maksimal 7 hari ke depan) yang memiliki jadwal aktif.
+// GetSmartUpcomingSchedule memakai jadwal hari ini bila masih aktif; selebihnya mencari
+// hari aktif berikutnya hingga tujuh hari ke depan.
 func (j *JadwalConfig) GetSmartUpcomingSchedule(
 	scopeJID string, om *OverrideManager, refTime ...time.Time,
 ) string {
@@ -935,7 +907,6 @@ func (j *JadwalConfig) GetSmartUpcomingSchedule(
 		waktuSekarang = refTime[0]
 	}
 
-	// 1. Periksa sesi perkuliahan aktif hari ini (offset = 0)
 	isHoliday0, _, items0 := j.getActiveItemsForDate(waktuSekarang, scopeJID, om)
 
 	var latestEndTime0 time.Time
@@ -953,7 +924,6 @@ func (j *JadwalConfig) GetSmartUpcomingSchedule(
 		return j.GetByHari("hari ini", waktuSekarang)
 	}
 
-	// Tentukan alasan mengapa hari ini dilewati untuk catatan kontekstual pengguna
 	reason := ""
 	if isHoliday0 {
 		reason = "holiday"
@@ -968,7 +938,6 @@ func (j *JadwalConfig) GetSmartUpcomingSchedule(
 		}
 	}
 
-	// 2. Iterasi hari-hari berikutnya (+1 s/d +7 hari) untuk mencari hari terdekat yang ada jadwal aktif
 	var targetDate time.Time
 	var targetDayOffset int
 	found := false
@@ -995,7 +964,6 @@ func (j *JadwalConfig) GetSmartUpcomingSchedule(
 		return j.GetByHari("hari ini", waktuSekarang)
 	}
 
-	// 3. Render jadwal untuk targetDate
 	var scheduleText string
 	if om != nil && scopeJID != "" {
 		scheduleText = j.GetByHariWithOverrides("hari ini", scopeJID, om, targetDate)
@@ -1003,7 +971,6 @@ func (j *JadwalConfig) GetSmartUpcomingSchedule(
 		scheduleText = j.GetByHari("hari ini", targetDate)
 	}
 
-	// 4. Susun catatan kontekstual
 	targetHari := util.GetHariIndonesia(targetDate)
 	var note string
 	switch reason {
@@ -1109,7 +1076,6 @@ func (j *JadwalConfig) GetNextClassWithOverrides(
 	return fmt.Sprintf("✅ *KULIAH HARI INI SELESAI*\nSemua perkuliahan hari %s telah berakhir. Selamat istirahat!\n\nKetik `!besok` untuk melihat jadwal esok hari.", hariIndonesia)
 }
 
-// SearchDosen mencari jadwal berdasarkan inisial atau nama dosen
 func (j *JadwalConfig) SearchDosen(keyword string) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -1131,7 +1097,6 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 		return j.FormatList(hasil, fmt.Sprintf("DOSEN: \"%s\"", strings.ToUpper(keyword)))
 	}
 
-	// Cek apakah dosen terdaftar di master data jurusan meskipun tidak mengajar di kelas ini
 	for id, nama := range j.Dosen {
 		if strings.ToLower(id) == keyword || strings.Contains(strings.ToLower(nama), keyword) {
 			var sb strings.Builder
@@ -1148,7 +1113,6 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 	return fmt.Sprintf("❌ *DOSEN: \"%s\"*\nData tidak ditemukan di daftar dosen maupun jadwal.", keyword)
 }
 
-// SearchRuangan mencari jadwal di ruangan tertentu
 func (j *JadwalConfig) SearchRuangan(keyword string) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -1168,7 +1132,6 @@ func (j *JadwalConfig) SearchRuangan(keyword string) string {
 	return j.FormatList(hasil, fmt.Sprintf("RUANGAN: \"%s\"", strings.ToUpper(keyword)))
 }
 
-// SearchGlobal mencari jadwal berdasarkan kata kunci apa pun (matkul, dosen, ruangan, kode)
 func (j *JadwalConfig) SearchGlobal(keyword string) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -1195,9 +1158,8 @@ func (j *JadwalConfig) SearchGlobal(keyword string) string {
 	return j.FormatList(hasil, fmt.Sprintf("PENCARIAN: \"%s\"", strings.ToUpper(keyword)))
 }
 
-// ProcessMessage memproses pesan masuk dan mencocokkan dengan perintah jadwal yang tersedia.
-// Menerapkan strategi Hybrid: di grup chat, pesan harus diawali prefix (! / / / #)
-// agar tidak mengganggu obrolan umum. Di personal chat (DM), pengguna bebas mengetik tanpa prefix.
+// ProcessMessage mewajibkan prefix !, /, atau # di grup agar percakapan biasa diabaikan;
+// pesan DM tidak memerlukan prefix.
 func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 	trimmed := strings.TrimSpace(rawMsg)
 	if trimmed == "" {
@@ -1222,20 +1184,17 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 	hasPrefix := false
 	clean := trimmed
 
-	// Deteksi prefix perintah (! / / / #)
 	if strings.HasPrefix(clean, "!") || strings.HasPrefix(clean, "/") || strings.HasPrefix(clean, "#") {
 		hasPrefix = true
 		clean = strings.TrimSpace(clean[1:])
 	}
 
-	// Aturan Grup (Strategi Hybrid): Abaikan pesan di grup jika tidak diawali prefix perintah
 	if inGroup && !hasPrefix {
 		return ""
 	}
 
 	lower := strings.ToLower(clean)
 
-	// 1. Menu Utama & Panduan Keyword
 	if lower == "menu" {
 		return j.GetMenu()
 	}
@@ -1243,7 +1202,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetKeywords()
 	}
 
-	// 2. Kuliah Berikutnya / Sedang Berlangsung
 	if lower == "next" || lower == "sekarang" || lower == "kuliah" || lower == "kuliah berikutnya" || lower == "ongoing" {
 		if j.OverrideManager != nil && scopeJID != "" {
 			return j.GetNextClassWithOverrides(now, scopeJID, j.OverrideManager)
@@ -1251,12 +1209,10 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetNextClass(now)
 	}
 
-	// 3. Daftar Mata Kuliah
 	if lower == "matkul" || lower == "matakuliah" || lower == "mata kuliah" || lower == "daftar matkul" || lower == "daftarmatkul" {
 		return j.GetDaftarMatkul()
 	}
 
-	// 4. Reload Data Jadwal dari Disk
 	if lower == "reload" || lower == "refresh" || lower == "update" {
 		res, err := j.Reload()
 		if err != nil {
@@ -1265,7 +1221,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return res
 	}
 
-	// 5. Jadwal Seminggu / Senin - Jumat
 	switch lower {
 	case "seminggu", "senin-jumat", "senin - jumat", "senin jumat", "senin_jumat",
 		"sepekan", "pekan ini", "minggu ini", "all", "semua", "full",
@@ -1273,7 +1228,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetJadwalSeminggu()
 	}
 
-	// 6. Pintasan Waktu Cepat (Hari Ini & Besok)
 	if lower == "hari ini" || lower == "hariini" || lower == "today" || lower == "now" {
 		if j.OverrideManager != nil && scopeJID != "" {
 			return j.GetByHariWithOverrides("hari ini", scopeJID, j.OverrideManager, now)
@@ -1287,7 +1241,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetByHari("besok", now)
 	}
 
-	// 7. Pintasan Nama Hari Langsung (misal: "!senin", "senin", "!jumat")
 	namaHari := map[string]string{
 		"senin":     "senin",
 		"monday":    "senin",
@@ -1313,7 +1266,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetByHari(targetHari, now)
 	}
 
-	// 8. Perintah Jadwal Lengkap (misal: "!jadwal", "!jadwal senin", "!jadwal besok", "!jadwal seminggu")
 	if strings.HasPrefix(lower, "jadwal") {
 		parts := strings.SplitN(clean, " ", 2)
 		arg := ""
@@ -1334,7 +1286,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.GetByHari(arg, now)
 	}
 
-	// 9. Perintah Dosen (misal: "!dosen MR", "dosen Rizqi")
 	if strings.HasPrefix(lower, "dosen") {
 		parts := strings.SplitN(clean, " ", 2)
 		arg := ""
@@ -1344,7 +1295,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.SearchDosen(arg)
 	}
 
-	// 10. Perintah Ruang / Ruangan / Lab (misal: "!ruang D105", "!lab")
 	if strings.HasPrefix(lower, "ruang") || strings.HasPrefix(lower, "ruangan") || strings.HasPrefix(lower, "lab") {
 		parts := strings.SplitN(clean, " ", 2)
 		arg := ""
@@ -1357,7 +1307,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.SearchRuangan(arg)
 	}
 
-	// 11. Perintah Cari Global (misal: "!cari sistem operasi")
 	if strings.HasPrefix(lower, "cari") || strings.HasPrefix(lower, "search") {
 		parts := strings.SplitN(clean, " ", 2)
 		arg := ""
@@ -1367,7 +1316,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 		return j.SearchGlobal(arg)
 	}
 
-	// 12. Fallback jika diawali prefix perintah tetapi tidak dikenali
 	if hasPrefix {
 		return fmt.Sprintf("⚠️ Perintah *\"%s\"* tidak dikenali.\n\nKetik *!menu* untuk melihat panduan perintah.", trimmed)
 	}
@@ -1375,7 +1323,6 @@ func (j *JadwalConfig) ProcessMessage(rawMsg string, opts ...any) string {
 	return ""
 }
 
-// GetMenu mengembalikan menu utama yang ringkas, bersih, dan nyaman dibaca di layar HP
 func (j *JadwalConfig) GetMenu() string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -1384,7 +1331,6 @@ func (j *JadwalConfig) GetMenu() string {
 	hariStr := util.GetHariIndonesia(now)
 	tanggalStr := fmt.Sprintf("%s, %d %s", hariStr, now.Day(), util.GetBulanIndonesia(now))
 
-	// Hitung ringkasan jumlah matkul hari ini
 	todayDayLower := strings.ToLower(hariStr)
 	var todayCount int
 	for _, item := range j.Jadwal {
@@ -1440,7 +1386,6 @@ func (j *JadwalConfig) GetMenu() string {
 	return sb.String()
 }
 
-// GetKeywords mengembalikan daftar lengkap seluruh kata kunci dan panduan perintah bot
 func (j *JadwalConfig) GetKeywords() string {
 	var sb strings.Builder
 	sb.WriteString("📖 *DAFTAR LENGKAP KEYWORD*\n")

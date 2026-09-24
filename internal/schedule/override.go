@@ -13,7 +13,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// ScheduleOverride merepresentasikan satu catatan perubahan/jadwal pengganti sementara
 type ScheduleOverride struct {
 	ID           int
 	ScopeJID     string
@@ -32,7 +31,6 @@ type ScheduleOverride struct {
 	CreatedAt    time.Time
 }
 
-// OverrideManager mengelola database jadwal pengganti sementara
 type OverrideManager struct {
 	db *sql.DB
 }
@@ -80,7 +78,6 @@ func NewOverrideManagerWithPath(dbPath string) (*OverrideManager, error) {
 	return NewOverrideManager(db)
 }
 
-// Close menutup koneksi database
 func (om *OverrideManager) Close() error {
 	if om.db != nil {
 		return om.db.Close()
@@ -282,7 +279,6 @@ func (om *OverrideManager) GetActiveOverrides(scopeJID string, now time.Time) ([
 	return list, nil
 }
 
-// CancelOverride menghapus perubahan jadwal sementara berdasarkan ID
 func (om *OverrideManager) CancelOverride(scopeJID string, id int) (bool, error) {
 	res, err := om.db.Exec(`DELETE FROM schedule_overrides WHERE scope_jid = ? AND id = ?`, scopeJID, id)
 	if err != nil {
@@ -333,7 +329,6 @@ func (om *OverrideManager) AddHoliday(scopeJID string, targetDate time.Time, ala
 	}, nil
 }
 
-// GetHolidayOverride mengecek apakah tanggal tertentu ditandai sebagai hari libur
 func (om *OverrideManager) GetHolidayOverride(scopeJID string, date time.Time) *ScheduleOverride {
 	tglStr := date.Format("2006-01-02")
 	row := om.db.QueryRow(`
@@ -443,7 +438,6 @@ func (om *OverrideManager) FormatActiveOverrides(overrides []ScheduleOverride) s
 
 
 
-// ScheduleConflict menyimpan informasi mata kuliah yang bertabrakan waktu
 type ScheduleConflict struct {
 	Matkul string
 	Jam    string
@@ -469,7 +463,6 @@ func (om *OverrideManager) CheckScheduleConflict(
 
 	overrides, _ := om.GetOverridesForDate(scopeJID, targetDate)
 
-	// 1. Cek jadwal reguler pada hari tersebut
 	cfg.mu.RLock()
 	var normalItems []JadwalItem
 	for _, it := range cfg.Jadwal {
@@ -517,7 +510,6 @@ func (om *OverrideManager) CheckScheduleConflict(
 		}
 	}
 
-	// 2. Cek jadwal pengganti (inbound RESCHEDULE atau EXTRA) di tanggal tersebut
 	for _, o := range overrides {
 		if o.TargetDate == targetDateStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
 			if ignoreItem != nil && o.KodeMatkul == ignoreItem.KodeMatkul {
@@ -611,7 +603,6 @@ func (om *OverrideManager) HandleCommand(
 		baseDuration := util.CalculateDurationInMinutes(item.Jam)
 		newJam := util.AutoCompleteJamRange(timeRaw, baseDuration)
 
-		// Periksa bentrok jadwal pada tanggal & jam tujuan
 		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, item, cfg)
 		if conflict != nil && !isForce {
 			hariTgt := util.GetHariIndonesia(targetDate)
@@ -809,7 +800,7 @@ func (om *OverrideManager) HandleCommand(
 		item, candidates := cfg.FindMataKuliah(matkulQuery, now)
 		if item == nil {
 			if len(candidates) > 1 {
-				item = &candidates[0] // default ke kandidat pertama
+				item = &candidates[0]
 			} else {
 				return fmt.Sprintf("❌ Mata kuliah *\"%s\"* tidak ditemukan.", matkulQuery)
 			}
@@ -819,7 +810,6 @@ func (om *OverrideManager) HandleCommand(
 		baseDuration := util.CalculateDurationInMinutes(item.Jam)
 		newJam := util.AutoCompleteJamRange(timeRaw, baseDuration)
 
-		// Periksa bentrok jadwal pada tanggal & jam kuliah pengganti
 		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, nil, cfg)
 		if conflict != nil && !isForce {
 			hariTgt := util.GetHariIndonesia(targetDate)

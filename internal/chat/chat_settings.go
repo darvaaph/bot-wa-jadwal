@@ -10,7 +10,6 @@ import (
 	"sync"
 )
 
-// ChatSettingsManager mengelola konfigurasi dan preferensi per grup/chat (seperti pemilihan kelas)
 type ChatSettingsManager struct {
 	db    *sql.DB
 	mu    sync.RWMutex
@@ -40,7 +39,7 @@ func NewChatSettingsManager(db *sql.DB) (*ChatSettingsManager, error) {
 		cache: make(map[string]string),
 	}
 
-	// Warm-up cache dari database saat startup agar pembacaan saat pesan masuk berkecepatan nanosekon (O(1))
+	// Muat cache saat startup agar jalur pembacaan pesan tidak mengakses database.
 	if err := csm.loadCache(); err != nil {
 		return nil, fmt.Errorf("gagal memuat data chat_settings: %w", err)
 	}
@@ -48,7 +47,6 @@ func NewChatSettingsManager(db *sql.DB) (*ChatSettingsManager, error) {
 	return csm, nil
 }
 
-// loadCache membaca seluruh setelan dari database ke memori
 func (csm *ChatSettingsManager) loadCache() error {
 	rows, err := csm.db.Query(`SELECT scope_jid, class_id FROM chat_settings`)
 	if err != nil {
@@ -77,7 +75,6 @@ func (csm *ChatSettingsManager) GetClass(scopeJID string) string {
 	return csm.cache[scopeJID]
 }
 
-// SetClass menyimpan atau memperbarui pilihan kelas untuk suatu chat/grup
 func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) error {
 	classID := schedule.NormalizeClassID(rawClassID)
 	if classID == "" {
@@ -93,7 +90,6 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 		return fmt.Errorf("gagal menyimpan setelan kelas ke database: %w", err)
 	}
 
-	// Perbarui in-memory cache
 	csm.mu.Lock()
 	csm.cache[scopeJID] = classID
 	csm.mu.Unlock()
@@ -101,7 +97,6 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 	return nil
 }
 
-// DeleteClass menghapus pilihan kelas untuk chat tertentu (kembali ke default)
 func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
 	_, err := csm.db.Exec(`DELETE FROM chat_settings WHERE scope_jid = ?`, scopeJID)
 	if err != nil {
@@ -115,7 +110,6 @@ func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
 	return nil
 }
 
-// CountSettings mengembalikan jumlah grup/chat yang telah melakukan binding kelas
 func (csm *ChatSettingsManager) CountSettings() int {
 	csm.mu.RLock()
 	defer csm.mu.RUnlock()
@@ -273,7 +267,6 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 			pName = "D3 TEKNIK INFORMATIKA"
 		}
 
-		// Ekstrak digit semester dari string seperti "D4-TI-SMT3-A"
 		sem := 0
 		if idx := strings.Index(c, "SMT"); idx != -1 && len(c) > idx+3 {
 			digit := c[idx+3]
@@ -297,7 +290,6 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		sBucket.items = append(sBucket.items, classItem{id: c, desc: desc})
 	}
 
-	// Urutkan semester di setiap bucket
 	for _, pb := range progMap {
 		sort.Slice(pb.semesters, func(i, j int) bool {
 			return pb.semesters[i].semester < pb.semesters[j].semester
@@ -401,13 +393,11 @@ func (csm *ChatSettingsManager) HandleCommand(
 			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mengubah pengaturan kelas untuk grup ini."
 		}
 
-		// Validasi keberadaan kelas
 		cfg, exists := classMgr.GetClass(canonicalClass)
 		if !exists || canonicalClass == "" {
 			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas 2A`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
 		}
 
-		// Simpan canonicalClass ke database dan cache
 		if err := csm.SetClass(chatJID, canonicalClass); err != nil {
 			return fmt.Sprintf("⚠️ Gagal menyimpan pengaturan kelas: %v", err)
 		}

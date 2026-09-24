@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/task"
 )
 
@@ -18,7 +18,8 @@ func newTestServer(t *testing.T) *Server {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "api_test.db")
-	db, err := database.InitDB(dbPath)
+	// Handler tugas lama memakai tabel pra-v3 yang terpisah dari schema target.
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		t.Fatalf("Gagal inisialisasi test database: %v", err)
 	}
@@ -358,7 +359,6 @@ func TestTaskHandler_CreateTask_WithClassID(t *testing.T) {
 func TestTaskHandler_GetTasks_FilterByClass(t *testing.T) {
 	s := newTestServer(t)
 
-	// Buat 1 tugas di D4-TI-3A dan 1 tugas di D3-TI-1A
 	_, _, err := s.taskManager.AddWebTask("SBD", "Tugas 3A", "besok 23:59", "web-dashboard", time.Now(), "D4-TI-3A")
 	if err != nil {
 		t.Fatalf("Failed to create task: %v", err)
@@ -368,7 +368,6 @@ func TestTaskHandler_GetTasks_FilterByClass(t *testing.T) {
 		t.Fatalf("Failed to create task: %v", err)
 	}
 
-	// 1. Filter D4-TI-3A -> harus hanya mengembalikan 1 tugas D4-TI-3A
 	rr3A := performRequest(t, s, "GET", "/api/tasks?class=D4-TI-3A", nil)
 	if rr3A.Code != http.StatusOK {
 		t.Fatalf("Expected status 200, got %d", rr3A.Code)
@@ -385,7 +384,6 @@ func TestTaskHandler_GetTasks_FilterByClass(t *testing.T) {
 		t.Errorf("Unexpected task content for 3A: %+v", resp3A.Data[0])
 	}
 
-	// 2. Filter D3-TI-1A -> harus hanya mengembalikan 1 tugas D3-TI-1A
 	rr1A := performRequest(t, s, "GET", "/api/tasks?class=D3-TI-1A", nil)
 	var resp1A struct {
 		Status string             `json:"status"`
@@ -399,7 +397,6 @@ func TestTaskHandler_GetTasks_FilterByClass(t *testing.T) {
 		t.Errorf("Unexpected task content for 1A: %+v", resp1A.Data[0])
 	}
 
-	// 3. Tanpa filter -> mengembalikan semua (2 tugas)
 	rrAll := performRequest(t, s, "GET", "/api/tasks", nil)
 	var respAll struct {
 		Status string             `json:"status"`

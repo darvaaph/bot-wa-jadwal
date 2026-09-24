@@ -4,10 +4,10 @@
 
 | Atribut | Nilai |
 |---|---|
-| Versi | 3.0.2 |
+| Versi | 3.0.3 |
 | Status | Approved |
 | Pemilik | Tim Bot Jadwal |
-| Terakhir diperbarui | 23 September 2026 |
+| Terakhir diperbarui | 24 September 2026 |
 | Model sumber | [Data Model](DATA_MODEL.md) |
 
 Dokumen ini memvisualisasikan target logical data model Bot Jadwal. Diagram dapat dirender pada Markdown yang mendukung Mermaid atau disalin ke [Mermaid Live Editor](https://mermaid.live). Detail constraint, status, indeks, dan strategi migrasi tetap mengikuti `DATA_MODEL.md`.
@@ -217,7 +217,8 @@ erDiagram
         string status
     }
     classSettings["class_settings"] {
-        int class_id PK, FK
+        int id PK
+        int class_id FK, UK
         string timezone
         string portal_access_mode
         string portal_code_hash
@@ -263,13 +264,16 @@ erDiagram
         string status
     }
     offeringLecturers["offering_lecturers"] {
-        int course_offering_id PK, FK
-        int lecturer_id PK, FK
+        int id PK
+        int course_offering_id FK
+        int lecturer_id FK
         string responsibility
     }
 ```
 
 Satu kelas hanya memiliki satu semester `ACTIVE`. Teori dan praktikum dapat menjadi course offering berbeda agar jadwal, dosen, serta PJ dapat dikelola secara terpisah.
+
+`class_settings.class_id` unik. Kombinasi `offering_lecturers(course_offering_id, lecturer_id)` juga unik walaupun physical schema memakai `id` sebagai primary key.
 
 ## 5. Jadwal dan Ruangan
 
@@ -335,8 +339,9 @@ erDiagram
         int version
     }
     teachingEventOfferings["teaching_event_offerings"] {
-        int teaching_event_id PK, FK
-        int course_offering_id PK, FK
+        int id PK
+        int teaching_event_id FK
+        int course_offering_id FK
         string participation_role
         string participation_status
         int responded_by_user_id FK
@@ -360,6 +365,8 @@ erDiagram
 ```
 
 `event_kind` memakai `REPLACEMENT`, `EXTRA`, `HOLIDAY`, atau `SESSION_CANCELLED`. Lifecycle publikasi memakai `DRAFT`, `PUBLISHED`, atau `REVOKED`. Kelas pemilik diturunkan dari tepat satu offering `OWNER`. Offering peserta harus berasal dari kelas lain dan baru terlihat setelah KM kelasnya menerima partisipasi. Konfirmasi TU terikat pada event draf; `recorded_at` selalu terisi, sedangkan `confirmed_at` hanya terisi untuk hasil `CONFIRMED`.
+
+Kombinasi `teaching_event_offerings(teaching_event_id, course_offering_id)` unik. `teaching_events.result_schedule_pattern_id` juga unik ketika terisi agar relasi pola hasil tetap nol-atau-satu pada kedua arah.
 
 ## 6. Tugas dan Materi
 
@@ -587,7 +594,7 @@ erDiagram
     }
 ```
 
-Audit log bersifat append-only. Relasi `entity_type` dan `entity_id` adalah referensi logis agar satu audit log dapat mencatat banyak jenis objek. Snapshot tidak boleh menyimpan password, token, kode portal, atau rahasia sesi.
+Audit log bersifat append-only dan physical schema menolak `UPDATE` serta `DELETE` melalui trigger. Relasi `entity_type` dan `entity_id` adalah referensi logis agar satu audit log dapat mencatat banyak jenis objek. Snapshot tidak boleh menyimpan password, token, kode portal, atau rahasia sesi.
 
 ## 9. Batas Diagram
 
@@ -603,6 +610,7 @@ ERD tidak menggambarkan seluruh aturan berikut karena aturan tersebut ditegakkan
 - Soft delete dan kebijakan retensi.
 - Foreign key polimorfik pada notifikasi dan audit.
 - Transaksi aktivasi semester, publikasi, pembatalan, impor, dan restore.
+- Tabel teknis `schema_migrations`, karena tabel tersebut bukan bagian dari domain bisnis.
 
 Rincian lengkapnya tersedia pada [Data Model](DATA_MODEL.md), [Business Rules](BUSINESS_RULES.md), dan [Functional Requirements](FUNCTIONAL_REQUIREMENTS.md).
 
@@ -615,6 +623,12 @@ Rincian lengkapnya tersedia pada [Data Model](DATA_MODEL.md), [Business Rules](B
 5. Ubah sumber Mermaid dalam repository lebih dahulu agar diagram hasil ekspor tidak menjadi sumber kebenaran terpisah.
 
 ## 11. Changelog
+
+### 3.0.3, 24 September 2026
+
+- Menyelaraskan primary key physical schema pada `class_settings`, `offering_lecturers`, dan `teaching_event_offerings`.
+- Menegaskan unique business key tabel relasi serta kardinalitas satu-ke-satu pola hasil teaching event.
+- Menegaskan proteksi append-only untuk audit log dan task review.
 
 ### 3.0.2, 23 September 2026
 

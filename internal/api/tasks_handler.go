@@ -10,7 +10,6 @@ import (
 	"bot-jadwal/internal/task"
 )
 
-// TaskResponseItem adalah representasi tugas pada respons JSON API
 type TaskResponseItem struct {
 	ID        int    `json:"id"`
 	ClassID   string `json:"class_id,omitempty"`
@@ -20,7 +19,6 @@ type TaskResponseItem struct {
 	IsDone    bool   `json:"is_done"`
 }
 
-// CreateTaskRequest adalah payload form pembuatan tugas dari Web Dashboard
 type CreateTaskRequest struct {
 	ClassID   string `json:"class_id"`
 	Matkul    string `json:"matkul"`

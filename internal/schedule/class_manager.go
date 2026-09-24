@@ -10,7 +10,6 @@ import (
 	"sync"
 )
 
-// ClassManager mengelola banyak jadwal kelas (multi-tenant) yang dimuat dari file JSON
 type ClassManager struct {
 	mu              sync.RWMutex
 	dirPath         string
@@ -126,25 +125,23 @@ func (cm *ClassManager) loadFromDirectory(dirPath string) (int, error) {
 // registerAliases mendaftarkan berbagai pola penulisan singkat dan alias umum untuk satu ID kelas kanonikal
 func (cm *ClassManager) registerAliases(canonicalID string) {
 	norm := NormalizeClassID(canonicalID)
-	// Bentuk standar: e.g. D4-TI-SMT3-A atau D3-TI-SMT1-B
 	parts := strings.Split(norm, "-")
 	if len(parts) >= 3 {
-		prodi := parts[0] // "D4" atau "D3"
+		prodi := parts[0]
 		subProdi := ""
 		smtPart := ""
-		kelasPart := parts[len(parts)-1] // "A", "B", "C", "D"
+		kelasPart := parts[len(parts)-1]
 
 		if len(parts) == 4 {
-			subProdi = parts[1] // "TI"
-			smtPart = parts[2]  // "SMT3"
+			subProdi = parts[1]
+			smtPart = parts[2]
 		} else if len(parts) == 3 {
-			smtPart = parts[1] // "SMT3"
+			smtPart = parts[1]
 		}
 
 		semester := strings.TrimPrefix(smtPart, "SMT")
 		semester = strings.TrimPrefix(semester, "SEM")
 
-		// 1. Variasi dengan dan tanpa "TI":
 		if subProdi != "" {
 			cm.aliases[fmt.Sprintf("%s-%s-%s%s", prodi, subProdi, semester, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("%s-%s-%s-%s", prodi, subProdi, semester, kelasPart)] = norm
@@ -163,13 +160,12 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 		cm.aliases[fmt.Sprintf("%s-SEM%s%s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s%s%s", prodi, semester, kelasPart)] = norm
 
-		// 2. Variasi berbasis spasi:
 		cm.aliases[fmt.Sprintf("%s SMT %s %s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s SEM %s %s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s %s %s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s %s%s", prodi, semester, kelasPart)] = norm
 
-		// 3. Khusus Prodi D4 (prodi utama/default), daftarkan alias langsung tanpa prefix prodi:
+		// Alias D4 boleh menghilangkan prefix prodi karena D4 adalah prodi default.
 		if prodi == "D4" {
 			cm.aliases[fmt.Sprintf("SMT%s%s", semester, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("SEM%s%s", semester, kelasPart)] = norm
@@ -180,13 +176,12 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 			cm.aliases[fmt.Sprintf("SEMESTER %s %s", semester, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("SEMESTER %s%s", semester, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("SEMESTER %s KELAS %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%s%s", semester, kelasPart)] = norm       // e.g. "3A", "3B"
-			cm.aliases[fmt.Sprintf("%s %s", semester, kelasPart)] = norm      // e.g. "3 A", "3 B"
-			cm.aliases[fmt.Sprintf("KELAS %s%s", semester, kelasPart)] = norm // e.g. "KELAS 3A"
+			cm.aliases[fmt.Sprintf("%s%s", semester, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s %s", semester, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("KELAS %s%s", semester, kelasPart)] = norm
 		}
 
-		// 4. Khusus SMT3: Daftarkan alias kelas tingkat 2 (misal: "2A", "2B", "KELAS 2A")
-		// agar mahasiswa yang menyebut Tingkat 2 / Kelas 2 otomatis terhubung ke SMT3 tanpa menimpa alias kelas lain.
+		// Alias tingkat 2 dipetakan ke semester 3 tanpa menimpa alias kelas lain.
 		if semester == "3" {
 			if subProdi != "" {
 				cm.aliases[fmt.Sprintf("%s-%s-2%s", prodi, subProdi, kelasPart)] = norm
@@ -196,12 +191,12 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 			cm.aliases[fmt.Sprintf("%s 2%s", prodi, kelasPart)] = norm
 
 			if prodi == "D4" {
-				cm.aliases[fmt.Sprintf("2%s", kelasPart)] = norm                // e.g. "2A"
-				cm.aliases[fmt.Sprintf("2 %s", kelasPart)] = norm               // e.g. "2 A"
-				cm.aliases[fmt.Sprintf("KELAS 2%s", kelasPart)] = norm          // e.g. "KELAS 2A"
-				cm.aliases[fmt.Sprintf("TINGKAT 2 %s", kelasPart)] = norm       // e.g. "TINGKAT 2 A"
-				cm.aliases[fmt.Sprintf("TINGKAT 2%s", kelasPart)] = norm        // e.g. "TINGKAT 2A"
-				cm.aliases[fmt.Sprintf("TINGKAT 2 KELAS %s", kelasPart)] = norm // e.g. "TINGKAT 2 KELAS A"
+				cm.aliases[fmt.Sprintf("2%s", kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("2 %s", kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("KELAS 2%s", kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("TINGKAT 2 %s", kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("TINGKAT 2%s", kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("TINGKAT 2 KELAS %s", kelasPart)] = norm
 			}
 		}
 	}
@@ -223,19 +218,16 @@ func (cm *ClassManager) resolveInternal(input string) string {
 
 	norm := NormalizeClassID(raw)
 
-	// 1. Cek langsung ke map kelas kanonikal
 	if _, ok := cm.classes[norm]; ok {
 		return norm
 	}
 
-	// 2. Cek langsung ke map alias
 	if canonical, ok := cm.aliases[norm]; ok {
 		if _, exists := cm.classes[canonical]; exists {
 			return canonical
 		}
 	}
 
-	// 3. Normalisasi karakter separator & kata kunci
 	clean := strings.ReplaceAll(raw, "_", " ")
 	clean = strings.ReplaceAll(clean, "/", " ")
 	clean = strings.ReplaceAll(clean, ".", " ")
@@ -260,7 +252,6 @@ func (cm *ClassManager) resolveInternal(input string) string {
 		return canonical
 	}
 
-	// 4. Deteksi komponen: Prodi (D3/D4), Semester (1/3/5/7), dan Huruf Kelas (A/B/C/D)
 	isD3 := strings.Contains(clean, "D3")
 	prodiPrefix := "D4-TI-"
 	if isD3 && !strings.Contains(clean, "D4") {
@@ -308,7 +299,6 @@ func (cm *ClassManager) resolveInternal(input string) string {
 	return ""
 }
 
-// SetOverrideManager menghubungkan OverrideManager ke seluruh jadwal kelas yang telah dimuat
 func (cm *ClassManager) SetOverrideManager(om *OverrideManager) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -349,7 +339,6 @@ func (cm *ClassManager) GetClassOrDefault(classID string) *JadwalConfig {
 	return cm.GetDefaultClass()
 }
 
-// GetDefaultClass mengambil jadwal kelas default
 func (cm *ClassManager) GetDefaultClass() *JadwalConfig {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -363,14 +352,12 @@ func (cm *ClassManager) GetDefaultClass() *JadwalConfig {
 	return nil
 }
 
-// GetDefaultClassID mengembalikan nama ID kelas default (contoh: "D4-TI-SMT3-A")
 func (cm *ClassManager) GetDefaultClassID() string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	return cm.defaultClass
 }
 
-// HasClass mengecek apakah suatu kelas terdaftar di sistem (mendukung alias)
 func (cm *ClassManager) HasClass(classID string) bool {
 	_, ok := cm.GetClass(classID)
 	return ok

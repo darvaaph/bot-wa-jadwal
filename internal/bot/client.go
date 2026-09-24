@@ -15,7 +15,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// BotClient membungkus klien whatsmeow dan database session storage
 type BotClient struct {
 	Client         *whatsmeow.Client
 	container      *sqlstore.Container
@@ -48,7 +47,6 @@ func NewBotClient(sessionDBPath string) (*BotClient, error) {
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// Ketahanan Sambungan Internet (Auto-Reconnect Resilience)
 	client.EnableAutoReconnect = true
 	client.AutoReconnectHook = func(err error) bool {
 		fmt.Printf("⚠️ [Auto-Reconnect] Sambungan putus (%v). Mencoba menyambung kembali...\n", err)
@@ -85,7 +83,6 @@ func (b *BotClient) Connect(ctx context.Context) error {
 		fmt.Println("🟢 [Bot] Berhasil terhubung ke WhatsApp!")
 	}
 
-	// Jalankan Watchdog Supervisor di background goroutine
 	watchdogCtx, cancel := context.WithCancel(context.Background())
 	b.cancelWatchdog = cancel
 	go b.runWatchdog(watchdogCtx)
@@ -126,7 +123,6 @@ func (b *BotClient) runWatchdog(ctx context.Context) {
 	}
 }
 
-// Disconnect memutuskan koneksi WhatsApp dan menghentikan watchdog
 func (b *BotClient) Disconnect() {
 	if b.cancelWatchdog != nil {
 		b.cancelWatchdog()
@@ -136,7 +132,6 @@ func (b *BotClient) Disconnect() {
 	}
 }
 
-// Close menutup sqlstore database sesi
 func (b *BotClient) Close() error {
 	if b.container != nil {
 		return b.container.Close()

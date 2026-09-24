@@ -13,7 +13,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// TaskItem merepresentasikan satu catatan tugas perkuliahan
 type TaskItem struct {
 	ID         int
 	ScopeJID   string
@@ -28,7 +27,6 @@ type TaskItem struct {
 	CreatedAt  time.Time
 }
 
-// TaskManager mengelola operasi CRUD tugas ke database SQLite
 type TaskManager struct {
 	db *sql.DB
 }
@@ -78,7 +76,6 @@ func NewTaskManagerWithPath(dbPath string) (*TaskManager, error) {
 	return NewTaskManager(db)
 }
 
-// Close menutup koneksi database
 func (tm *TaskManager) Close() error {
 	if tm.db != nil {
 		return tm.db.Close()
@@ -91,7 +88,6 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 	clean := strings.TrimSpace(rawInput)
 	lower := strings.ToLower(clean)
 
-	// Cari jam (format HH:MM)
 	jamStr := "23:59"
 	hasExplicitTime := false
 	if match := util.TimeRe.FindString(clean); match != "" {
@@ -104,20 +100,17 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 
 	loc := refNow.Location()
 
-	// 1. Hari ini / Today
 	if strings.Contains(lower, "hari ini") || strings.Contains(lower, "hariini") || strings.Contains(lower, "today") {
 		target := time.Date(refNow.Year(), refNow.Month(), refNow.Day(), jam, menit, 0, 0, loc)
 		return target, fmt.Sprintf("Hari Ini, %02d:%02d WIB", jam, menit)
 	}
 
-	// 2. Besok / Tomorrow
 	if strings.Contains(lower, "besok") || strings.Contains(lower, "tomorrow") {
 		t := refNow.Add(24 * time.Hour)
 		target := time.Date(t.Year(), t.Month(), t.Day(), jam, menit, 0, 0, loc)
 		return target, fmt.Sprintf("Besok (%s), %02d:%02d WIB", util.GetHariIndonesia(target), jam, menit)
 	}
 
-	// 3. Nama Hari (Senin, Selasa, Rabu, Kamis, Jumat, Sabtu, Minggu)
 	for dayName, weekday := range util.NamaHariMap {
 		if strings.Contains(lower, dayName) {
 			daysAhead := int(weekday - refNow.Weekday())
@@ -138,7 +131,6 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 		}
 	}
 
-	// 4. Format Tanggal Eksplisit (cth: 12-09-2026, 2026-09-12, 12/09/2026)
 	layouts := []string{
 		"02-01-2006 15:04", "02/01/2006 15:04", "2006-01-02 15:04",
 		"02-01-2006", "02/01/2006", "2006-01-02",
@@ -154,14 +146,12 @@ func parseDeadline(rawInput string, refNow time.Time) (time.Time, string) {
 		}
 	}
 
-	// 5. Format Tanggal dengan Nama/Singkatan Bulan Indonesia (cth: "5 sep", "5 sep 22.15", "8 september", "25 Desember 2026")
 	if dateWord, ok := util.ParseIndonesianDateWord(lower, refNow, loc); ok {
 		target := time.Date(dateWord.Year(), dateWord.Month(), dateWord.Day(), jam, menit, 0, 0, loc)
 		return target, fmt.Sprintf("%s, %d %s %02d:%02d WIB",
 			util.GetHariIndonesia(target), target.Day(), util.GetBulanIndonesia(target), jam, menit)
 	}
 
-	// 6. Format Hanya Jam Tanpa Tanggal (cth: "22.22", "22:22", "jam 22.22", "pukul 15:00", "22:22 WIB")
 	// Jika pengguna hanya memasukkan jam, artikan sebagai tenggat hari ini
 	if hasExplicitTime {
 		rem := util.TimeRe.ReplaceAllString(lower, "")
@@ -192,7 +182,6 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 		return "⌛ *LEWAT TENGGAT*"
 	}
 
-	// Cek apakah jatuh tempo hari ini (tanggal & tahun sama)
 	if deadlineAt.Year() == now.Year() && deadlineAt.YearDay() == now.YearDay() {
 		hours := int(diff.Hours())
 		mins := int(diff.Minutes()) % 60
@@ -202,13 +191,11 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 		return fmt.Sprintf("🚨 *DEADLINE HARI INI* (Sisa ~%d menit)", mins)
 	}
 
-	// Cek apakah jatuh tempo besok (H-1)
 	tomorrow := now.Add(24 * time.Hour)
 	if deadlineAt.Year() == tomorrow.Year() && deadlineAt.YearDay() == tomorrow.YearDay() {
 		return "⚠️ *DEADLINE BESOK (H-1)*"
 	}
 
-	// Hitung hari tersisa
 	days := int(diff.Hours() / 24)
 	if days <= 0 {
 		days = 1
@@ -219,7 +206,6 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 	return fmt.Sprintf("⏳ *H-%d* (%d hari lagi)", days, days)
 }
 
-// CheckDuplicate memeriksa apakah tugas serupa sudah pernah dibuat dan masih aktif
 func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string, optClassID ...string) (bool, *TaskItem, error) {
 	classID := ""
 	if len(optClassID) > 0 {
@@ -407,7 +393,6 @@ func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time
 	return filtered, nil
 }
 
-// CompleteTask menandai tugas sebagai selesai berdasarkan ID
 func (tm *TaskManager) CompleteTask(scopeJID string, taskID int, optClassID ...string) (bool, error) {
 	classID := ""
 	if len(optClassID) > 0 {
@@ -440,7 +425,6 @@ func (tm *TaskManager) CompleteTask(scopeJID string, taskID int, optClassID ...s
 	return affected > 0, nil
 }
 
-// GetCompletedTasks mengambil daftar riwayat tugas yang telah diselesaikan (arsip)
 func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Time, optClassID ...string) ([]TaskItem, error) {
 	if limit <= 0 {
 		limit = 50
@@ -494,7 +478,6 @@ func (tm *TaskManager) GetCompletedTasks(scopeJID string, limit int, now time.Ti
 	return items, nil
 }
 
-// DeleteTask menghapus tugas secara permanen dari database
 func (tm *TaskManager) DeleteTask(scopeJID string, taskID int, optClassID ...string) (bool, error) {
 	classID := ""
 	if len(optClassID) > 0 {
@@ -525,7 +508,6 @@ func (tm *TaskManager) DeleteTask(scopeJID string, taskID int, optClassID ...str
 	return affected > 0, nil
 }
 
-// GetAllActiveTasks mengambil seluruh tugas aktif dari semua scope (untuk Web Admin API)
 func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
 	_, _ = tm.db.Exec(`
 		UPDATE tasks
@@ -564,7 +546,6 @@ func (tm *TaskManager) GetAllActiveTasks(now time.Time) ([]TaskItem, error) {
 	return items, nil
 }
 
-// GetTasksByClassID mengambil seluruh tugas aktif khusus untuk kode kelas kanonikal tertentu
 func (tm *TaskManager) GetTasksByClassID(classID string, now time.Time) ([]TaskItem, error) {
 	classID = strings.TrimSpace(classID)
 	if classID == "" {
@@ -608,7 +589,6 @@ func (tm *TaskManager) GetTasksByClassID(classID string, now time.Time) ([]TaskI
 	return items, nil
 }
 
-// AddWebTask menambahkan tugas baru dari Web Admin Dashboard ke scope web dengan opsi kelas kanonikal
 func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy string, now time.Time, optClassID ...string) (int64, string, error) {
 	classID := ""
 	scopeJID := "web-dashboard"
@@ -619,7 +599,6 @@ func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy stri
 	return tm.AddTask(scopeJID, false, matkul, deskripsi, rawDeadline, createdBy, now, classID)
 }
 
-// CompleteTaskByID menandai tugas selesai berdasarkan ID tanpa filter scope (untuk Web Admin API)
 func (tm *TaskManager) CompleteTaskByID(taskID int) (bool, error) {
 	res, err := tm.db.Exec(`
 		UPDATE tasks
@@ -637,7 +616,6 @@ func (tm *TaskManager) CompleteTaskByID(taskID int) (bool, error) {
 	return affected > 0, nil
 }
 
-// DeleteTaskByID menghapus tugas permanen berdasarkan ID tanpa filter scope (untuk Web Admin API)
 func (tm *TaskManager) DeleteTaskByID(taskID int) (bool, error) {
 	res, err := tm.db.Exec(`
 		DELETE FROM tasks
@@ -654,7 +632,6 @@ func (tm *TaskManager) DeleteTaskByID(taskID int) (bool, error) {
 	return affected > 0, nil
 }
 
-// UpdateTask memperbarui tenggat waktu dan/atau deskripsi tugas yang sudah ada
 func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time, optClassID ...string) (*TaskItem, string, error) {
 	classID := ""
 	if len(optClassID) > 0 {
@@ -745,7 +722,6 @@ func matchesHint(text string, keywords []string) bool {
 	return false
 }
 
-// FilterTasksByQuery menyaring tugas aktif berdasarkan nama mata kuliah atau kata kunci
 func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *schedule.JadwalConfig, now time.Time, optClassID ...string) ([]TaskItem, string, error) {
 	allTasks, err := tm.GetActiveTasks(scopeJID, now, optClassID...)
 	if err != nil {
@@ -802,7 +778,6 @@ func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *sc
 	return filtered, targetTitle, nil
 }
 
-// FormatTaskList merapikan daftar tugas aktif menjadi pesan WhatsApp dengan badge urgensi otomatis
 func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.Time, judulCustom ...string) string {
 	var sb strings.Builder
 	judul := "📋 *DAFTAR TUGAS KELAS*"
@@ -842,7 +817,6 @@ func (tm *TaskManager) FormatTaskList(tasks []TaskItem, isGroup bool, now time.T
 	return sb.String()
 }
 
-// FormatCompletedTaskList menyusun tampilan riwayat tugas selesai secara rapi
 func (tm *TaskManager) FormatCompletedTaskList(tasks []TaskItem, isGroup bool) string {
 	var sb strings.Builder
 
@@ -950,12 +924,11 @@ func (tm *TaskManager) HandleCommand(
 		return tm.FormatTaskList(tasks, isGroup, now, header)
 
 	case "tambah", "add":
-		// Pengecekan Hak Akses: Di grup WAJIB Admin
+		// Perubahan tugas grup hanya boleh dilakukan admin.
 		if isGroup && !isAdmin {
 			return "🔒 *Akses Ditolak*\nDi grup kelas, penambahan tugas hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil) agar daftar tugas tetap teratur."
 		}
 
-		// Validasi format pemisah pipa: Matkul | Deskripsi | Deadline
 		segments := strings.Split(payload, "|")
 		if len(segments) < 3 {
 			return "⚠️ *Format Penambahan Tugas Kurang Tepat*\n\n" +
@@ -975,7 +948,6 @@ func (tm *TaskManager) HandleCommand(
 			return "⚠️ Seluruh kolom (Matkul, Deskripsi, dan Tenggat Waktu) wajib diisi."
 		}
 
-		// Validasi Mata Kuliah terhadap jadwal kelas
 		lowerMatkul := strings.ToLower(matkul)
 		isGeneral := lowerMatkul == "umum" || lowerMatkul == "lainnya" || lowerMatkul == "lain-lain" ||
 			lowerMatkul == "kegiatan" || lowerMatkul == "pribadi"
@@ -989,7 +961,6 @@ func (tm *TaskManager) HandleCommand(
 				return fmt.Sprintf("❌ *Mata Kuliah \"%s\" Tidak Terdaftar!*\n\n%s\n💡 *Format:* `!tugas tambah [Matkul] | [Deskripsi] | [Deadline]`\n_Contoh:_ `!tugas tambah SBD praktikum | Lapres Modul 2 | 22.22`", matkul, guide)
 			}
 
-			// Cek apakah mata kuliah memiliki kedua sesi (Teori dan Praktikum)
 			var candPrak, candTeori *schedule.JadwalItem
 			for i := range candidates {
 				cLower := strings.ToLower(candidates[i].NamaMatkul)
@@ -1062,7 +1033,6 @@ func (tm *TaskManager) HandleCommand(
 			}
 		}
 
-		// Pengecekan Anti-Duplikasi
 		isDup, existing, err := tm.CheckDuplicate(scopeJID, matkul, deskripsi, classID)
 		if err != nil {
 			return fmt.Sprintf("❌ Terjadi kesalahan pengecekan data: %v", err)
@@ -1207,7 +1177,6 @@ func (tm *TaskManager) HandleCommand(
 		return sb.String()
 
 	default:
-		// Jika pengguna mengetik nama matkul atau kata pencarian langsung (cth: "!tugas sbd", "!tugas aljabar", "!tugas mtk")
 		query := rest
 		if query != "" {
 			tasks, title, err := tm.FilterTasksByQuery(scopeJID, query, cfg, now, classID)
@@ -1229,7 +1198,6 @@ func (tm *TaskManager) HandleCommand(
 			}
 		}
 
-		// Fallback ke bantuan jika benar-benar tidak cocok
 		var sb strings.Builder
 		sb.WriteString("📖 *PANDUAN DEADLINE TRACKER TUGAS*\n")
 		sb.WriteString("──────────\n\n")

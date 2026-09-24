@@ -3,32 +3,34 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/web"
 )
 
-// Server mengelola HTTP REST API untuk Web Admin Dashboard
 type Server struct {
 	httpServer   *http.Server
 	botClient    *bot.BotClient
 	classManager *schedule.ClassManager
 	taskManager  *task.TaskManager
+	academicRepo *academic.Repository
 }
 
-// HealthResponse adalah payload untuk endpoint /api/health
 type HealthResponse struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 	Uptime    string    `json:"uptime"`
 }
 
-// StatusResponse adalah payload telemetri untuk endpoint /api/status
 type StatusResponse struct {
 	Status        string    `json:"status"`
 	Timestamp     time.Time `json:"timestamp"`
@@ -40,36 +42,57 @@ type StatusResponse struct {
 
 var startTime = time.Now()
 
+const academicQueryTimeout = 3 * time.Second
+
+func (s *Server) writeAcademicQueryError(w http.ResponseWriter, err error, message string) {
+	status := http.StatusInternalServerError
+	if errors.Is(err, context.DeadlineExceeded) {
+		status = http.StatusGatewayTimeout
+		message = "Waktu pemrosesan data akademik habis"
+	} else if errors.Is(err, context.Canceled) {
+		status = http.StatusRequestTimeout
+		message = "Permintaan data akademik dibatalkan"
+	}
+	s.writeJSON(w, status, map[string]string{
+		"status": "error",
+		"error":  message,
+	})
+}
+
 // NewServer membuat instance baru HTTP API server dengan middleware CORS dan logging
-func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager) *Server {
+func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager, academicRepo ...*academic.Repository) *Server {
 	mux := http.NewServeMux()
+
+	var repo *academic.Repository
+	if len(academicRepo) > 0 {
+		repo = academicRepo[0]
+	}
 
 	s := &Server{
 		botClient:    botClient,
 		classManager: classManager,
 		taskManager:  taskManager,
+		academicRepo: repo,
 	}
 
-	// Registrasi Route API Scaffolding (Fase A)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
-	// Registrasi Route Jadwal & Kelas
+	mux.HandleFunc("GET /api/academic/classes", s.handleAcademicClasses)
+	mux.HandleFunc("GET /api/academic/classes/{id}/courses", s.handleAcademicCourses)
+
 	mux.HandleFunc("GET /api/classes", s.handleClasses)
 	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
-	// Registrasi Route API Tugas (Fase B)
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
 	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
 	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
 
-	// Fallback untuk route API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
 			"error": "Endpoint belum tersedia (dijadwalkan pada Fase B)",
 		})
 	})
 
-	// Menyajikan aset web statis (Dashboard Admin) dari web.Files embedded
 	mux.Handle("/", http.FileServer(http.FS(web.Files)))
 
 	handler := s.corsMiddleware(s.recoveryMiddleware(mux))
@@ -84,7 +107,6 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	return s
 }
 
-// handleHealth mengembalikan sinyal hidup (health check) server
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	resp := HealthResponse{
 		Status:    "ok",
@@ -94,7 +116,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
-// handleStatus mengembalikan telemetri bot dan sistem kelas
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	botStatus := "uninitialized"
 	if s.botClient != nil {
@@ -121,7 +142,6 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
-// writeJSON adalah helper pengirim respon JSON seragam
 func (s *Server) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statusCode)
@@ -159,7 +179,6 @@ func (s *Server) recoveryMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Start menjalankan HTTP Server di background goroutine
 func (s *Server) Start() error {
 	fmt.Printf("🌐 [Web API] Server REST API aktif di http://localhost%s\n", s.httpServer.Addr)
 	go func() {
@@ -170,10 +189,73 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// Shutdown mematikan HTTP server secara anggun (graceful shutdown)
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.httpServer != nil {
 		return s.httpServer.Shutdown(ctx)
 	}
 	return nil
+}
+
+func (s *Server) SetAcademicRepo(repo *academic.Repository) {
+	s.academicRepo = repo
+}
+
+func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {
+	if s.academicRepo == nil {
+		s.writeJSON(w, http.StatusOK, map[string]any{
+			"status": "success",
+			"data":   []any{},
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), academicQueryTimeout)
+	defer cancel()
+
+	classes, err := s.academicRepo.GetClasses(ctx)
+	if err != nil {
+		log.Printf("academic classes query failed: %v", err)
+		s.writeAcademicQueryError(w, err, "Gagal mengambil data kelas")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"status": "success",
+		"data":   classes,
+	})
+}
+
+func (s *Server) handleAcademicCourses(w http.ResponseWriter, r *http.Request) {
+	if s.academicRepo == nil {
+		s.writeJSON(w, http.StatusOK, map[string]any{
+			"status": "success",
+			"data":   []any{},
+		})
+		return
+	}
+
+	idStr := r.PathValue("id")
+	classID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || classID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Parameter ID kelas tidak valid",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), academicQueryTimeout)
+	defer cancel()
+
+	courses, err := s.academicRepo.GetCoursesByClassID(ctx, classID)
+	if err != nil {
+		log.Printf("academic courses query failed for class ID %d: %v", classID, err)
+		s.writeAcademicQueryError(w, err, "Gagal mengambil daftar mata kuliah")
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"status": "success",
+		"data":   courses,
+	})
 }

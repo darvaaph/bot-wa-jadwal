@@ -114,7 +114,6 @@ func TestHandleSchedule_DefaultClass_FullWeek(t *testing.T) {
 		t.Error("Ekspektasi data jadwal tidak kosong untuk kelas default")
 	}
 
-	// Pastikan field-field DTO terisi dengan benar
 	first := resp.Data[0]
 	if first.Hari == "" || first.Jam == "" || first.Matkul == "" || first.Ruang == "" {
 		t.Errorf("Field pada item jadwal belum lengkap: %+v", first)
@@ -189,7 +188,6 @@ func TestHandleSchedule_FilterToday(t *testing.T) {
 func TestHandleSchedule_AliasClass(t *testing.T) {
 	server := setupTestServer(t)
 
-	// Uji menggunakan alias penulisan singkat "3A"
 	req := httptest.NewRequest("GET", "/api/schedule?class=3A&day=Senin", nil)
 	rr := httptest.NewRecorder()
 

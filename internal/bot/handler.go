@@ -26,7 +26,6 @@ func SetDefaultCommandLimiter(limiter *RateLimiter) {
 	defaultCommandLimiter = limiter
 }
 
-// GetDefaultCommandLimiter mengembalikan instance default command rate limiter
 func GetDefaultCommandLimiter() *RateLimiter {
 	return defaultCommandLimiter
 }
@@ -36,7 +35,6 @@ func ResolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup b
 	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, isGroup, groupJID, senderJID, senderAltJID)
 }
 
-// InvalidateGroupAdminCache menghapus cache info grup saat terjadi perubahan admin / grup
 func InvalidateGroupAdminCache(groupJID types.JID) {
 	defaultGroupAdminResolver.Invalidate(groupJID)
 }
@@ -58,7 +56,6 @@ func HandleIncomingMessage(
 		}
 	}()
 
-	// Ekstraksi teks pesan dari tipe Conversation atau ExtendedTextMessage
 	var msgText string
 	if v.Message.GetConversation() != "" {
 		msgText = v.Message.GetConversation()
@@ -71,7 +68,7 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// Cek Rate Limiter Anti-Spam: Abaikan perintah beruntun dari pengirim yang sama (mencegah bot spam/ban)
+	// Batasi command per pengirim agar bot tidak memicu proteksi spam WhatsApp.
 	if IsCommandMessage(msgText, v.Info.IsGroup) {
 		senderKey := v.Info.Sender.ToNonAD().User
 		if senderKey == "" {
@@ -83,12 +80,10 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// Log pesan yang diterima di konsol
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
 	lowerMsg := strings.ToLower(msgText)
 
-	// Helper terpusat untuk membalas pesan pengguna dengan Quoted Reply
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
 		ReplyWithTyping(
 			context.Background(),
@@ -105,7 +100,6 @@ func HandleIncomingMessage(
 		)
 	}
 
-	// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
 	if classManager == nil {
 		return
 	}
@@ -115,7 +109,6 @@ func HandleIncomingMessage(
 	}
 	activeJadwal := classManager.GetClassOrDefault(activeClassID)
 
-	// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
 	if chatSettingsManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
@@ -125,7 +118,6 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// 2. Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reload") {
 		count, errs := classManager.ReloadAll()
 		var reloadReply string
@@ -138,7 +130,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 3. Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
 		parts := strings.Fields(lowerMsg)
 		subCmd := ""
@@ -182,7 +173,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 4. Handler Khusus Perintah Tugas (!tugas)
 	if taskManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "tugas") {
 		if activeClassID == "" && chatSettingsManager != nil {
 			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding tugas")
@@ -194,7 +184,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 	if overrideManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
 		if activeClassID == "" && chatSettingsManager != nil {
 			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
@@ -206,7 +195,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 6. Handler Khusus Perintah Tautan Penting Kelas (!link, !tautan, !drive, !gdrive, !zoom, !gmeet, !meet)
 	if linkManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "drive", "gdrive", "zoom", "gmeet", "meet") {
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		linkReply := linkManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText)
@@ -214,7 +202,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 7. Proses pesan masuk dengan parser perintah jadwal (menerapkan aturan Hybrid & Override)
 	replyText := activeJadwal.ProcessMessage(msgText, v.Info.IsGroup, v.Info.Chat.String())
 
 	if replyText != "" {

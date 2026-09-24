@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// LinkItem merepresentasikan satu rekaman tautan kelas di database
 type LinkItem struct {
 	ID          int64     `json:"id"`
 	ScopeJID    string    `json:"scope_jid"`
@@ -22,7 +21,6 @@ type LinkItem struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// LinkManager mengelola penyimpanan dan kueri tautan kelas berbasis SQLite
 type LinkManager struct {
 	db *sql.DB
 }
@@ -67,7 +65,7 @@ func NormalizeURL(raw string) string {
 	return raw
 }
 
-// DetectLinkCategory mendeteksi kategori tautan secara cerdas dari judul dan URL
+// DetectLinkCategory menentukan kategori dari judul dan host URL.
 func DetectLinkCategory(title, rawURL string) string {
 	combined := strings.ToLower(title + " " + rawURL)
 	if strings.Contains(combined, "drive.google.com") || strings.Contains(combined, "onedrive") || strings.Contains(combined, "dropbox") || strings.Contains(combined, "drive") || strings.Contains(combined, "materi") {
@@ -98,7 +96,6 @@ func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, des
 		return 0, fmt.Errorf("URL tautan tidak boleh kosong")
 	}
 
-	// Validasi struktur URL
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Host == "" {
 		return 0, fmt.Errorf("format URL '%s' tidak valid", rawURL)
@@ -118,7 +115,6 @@ func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, des
 	return res.LastInsertId()
 }
 
-// DeleteLink menghapus tautan berdasarkan ID dan scope chat
 func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
 	query := `DELETE FROM class_links WHERE id = ? AND scope_jid = ?;`
 	res, err := lm.db.Exec(query, id, scopeJID)
@@ -151,7 +147,6 @@ func (lm *LinkManager) GetLinks(scopeJID string) ([]LinkItem, error) {
 	return lm.queryLinks(query, scopeJID)
 }
 
-// GetLinksByCategory mengambil tautan berdasarkan kategori tertentu (misal: "drive", "meeting")
 func (lm *LinkManager) GetLinksByCategory(scopeJID, category string) ([]LinkItem, error) {
 	query := `
 	SELECT id, scope_jid, is_group, title, url, category, description, created_by, created_at
@@ -162,7 +157,6 @@ func (lm *LinkManager) GetLinksByCategory(scopeJID, category string) ([]LinkItem
 	return lm.queryLinks(query, scopeJID, category)
 }
 
-// SearchLinks mencari tautan berdasarkan kata kunci pada judul, deskripsi, atau kategori
 func (lm *LinkManager) SearchLinks(scopeJID, keyword string) ([]LinkItem, error) {
 	pattern := "%" + strings.ToLower(strings.TrimSpace(keyword)) + "%"
 	query := `
@@ -205,7 +199,6 @@ func (lm *LinkManager) queryLinks(query string, args ...any) ([]LinkItem, error)
 	return links, nil
 }
 
-// FormatLinkList menyusun daftar tautan ke format pesan WhatsApp yang rapi dan dikelompokkan
 func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHeader ...string) string {
 	var sb strings.Builder
 
@@ -228,7 +221,6 @@ func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHead
 		return sb.String()
 	}
 
-	// Kelompokkan per kategori
 	categoryMap := map[string][]LinkItem{
 		"drive":   {},
 		"meeting": {},
@@ -280,7 +272,6 @@ func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHead
 	return sb.String()
 }
 
-// FormatDriveShortcut menyusun tampilan akses cepat untuk shortcut !drive / !gdrive
 func (lm *LinkManager) FormatDriveShortcut(links []LinkItem, isGroup bool) string {
 	var sb strings.Builder
 
@@ -314,7 +305,6 @@ func (lm *LinkManager) FormatDriveShortcut(links []LinkItem, isGroup bool) strin
 	return sb.String()
 }
 
-// FormatMeetingShortcut menyusun tampilan akses cepat untuk shortcut !zoom / !gmeet / !meet
 func (lm *LinkManager) FormatMeetingShortcut(links []LinkItem, isGroup bool) string {
 	var sb strings.Builder
 
@@ -359,14 +349,12 @@ func (lm *LinkManager) HandleCommand(
 	cleanMsg := strings.TrimSpace(rawMsg)
 	lowerMsg := strings.ToLower(cleanMsg)
 
-	// Pisahkan kata pertama sebagai command root
 	parts := strings.Fields(lowerMsg)
 	if len(parts) == 0 {
 		return ""
 	}
 	rootCmd := strings.TrimPrefix(parts[0], "!")
 
-	// 1. Shortcut !drive / !gdrive
 	if rootCmd == "drive" || rootCmd == "gdrive" {
 		links, err := lm.GetLinksByCategory(scopeJID, "drive")
 		if err != nil {
@@ -379,7 +367,6 @@ func (lm *LinkManager) HandleCommand(
 		return lm.FormatDriveShortcut(links, isGroup)
 	}
 
-	// 2. Shortcut !zoom / !gmeet / !meet
 	if rootCmd == "zoom" || rootCmd == "gmeet" || rootCmd == "meet" {
 		links, err := lm.GetLinksByCategory(scopeJID, "meeting")
 		if err != nil {
@@ -395,9 +382,7 @@ func (lm *LinkManager) HandleCommand(
 		return lm.FormatMeetingShortcut(links, isGroup)
 	}
 
-	// 3. Perintah Utama !link / !tautan
 	if rootCmd == "link" || rootCmd == "tautan" {
-		// Jika hanya "!link" atau "!tautan" tanpa sub-perintah
 		if len(parts) == 1 {
 			links, err := lm.GetLinks(scopeJID)
 			if err != nil {
@@ -417,7 +402,6 @@ func (lm *LinkManager) HandleCommand(
 				return "❌ *Akses Ditolak: Hanya Admin Grup yang dapat menambahkan tautan penting kelas.*"
 			}
 
-			// Ambil sisa teks setelah "!link tambah"
 			rawArgs := strings.TrimSpace(cleanMsg[len(parts[0]):])
 			rawArgs = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(rawArgs, subCmd), strings.ToUpper(subCmd)))
 
@@ -496,12 +480,10 @@ func (lm *LinkManager) HandleCommand(
 			return fmt.Sprintf("🗑️ *TAUTAN BERHASIL DIHAPUS!*\nTautan dengan ID #%d telah dibersihkan dari sistem.", id)
 
 		default:
-			// Filter atau cari tautan berdasarkan kata kunci: !link [kata] atau !link cari [kata]
 			keyword := subCmd
 			if (subCmd == "cari" || subCmd == "search") && len(parts) > 2 {
 				keyword = strings.Join(parts[2:], " ")
 			} else if len(parts) > 1 {
-				// Ambil sisa teks setelah !link
 				keyword = strings.TrimSpace(cleanMsg[len(parts[0]):])
 			}
 

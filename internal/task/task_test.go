@@ -1,23 +1,30 @@
 package task
 
 import (
-	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/schedule"
-	"os"
+	"database/sql"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestTaskManager(t *testing.T) {
-	testDB := "test_tugas.db"
-	defer os.Remove(testDB)
+func openLegacyTaskTestDB(t *testing.T, path string) *sql.DB {
+	t.Helper()
 
-	db, err := database.InitDB(testDB)
+	// Pengujian ini mencakup adapter tugas pra-v3, bukan schema akademik target.
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		t.Fatalf("Gagal inisialisasi database SQLite: %v", err)
+		t.Fatalf("Gagal membuka database SQLite: %v", err)
 	}
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func TestTaskManager(t *testing.T) {
+	testDB := filepath.Join(t.TempDir(), "test_tugas.db")
+
+	db := openLegacyTaskTestDB(t, testDB)
 
 	tm, err := NewTaskManager(db)
 	if err != nil {
@@ -36,35 +43,29 @@ func TestTaskManager(t *testing.T) {
 	userJID := "628120001@s.whatsapp.net"
 	otherUserJID := "628120002@s.whatsapp.net"
 
-	// 1. Test Tambah Tugas di Grup oleh Non-Admin (Harus Ditolak)
 	nonAdminReply := tm.HandleCommand(groupJID, true, userJID, false, "!tugas tambah SBD | Laporan 1 | Jumat 23:59", cfg, refNow)
 	if !strings.Contains(nonAdminReply, "Akses Ditolak") {
 		t.Errorf("Expected non-admin to be rejected in group, got: %s", nonAdminReply)
 	}
 
-	// 2. Test Tambah Tugas di Grup oleh Admin (Harus Berhasil dengan nama matkul dinormalisasi)
 	adminReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah SBD | Laporan Praktikum Modul 1 | Jumat 23:59", cfg, refNow)
 	if !strings.Contains(adminReply, "BERHASIL DITAMBAHKAN") || !strings.Contains(adminReply, "SISTEM BASIS DATA") {
 		t.Errorf("Expected admin to succeed in group with normalized matkul, got: %s", adminReply)
 	}
 
-	// 3. Test Anti-Duplikasi di Grup (Tugas serupa harus ditolak)
 	dupReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah SBD | Laporan Praktikum Modul 1 | Sabtu 12:00", cfg, refNow)
 	if !strings.Contains(dupReply, "Tugas Serupa Sudah Terdaftar") {
 		t.Errorf("Expected duplicate task to be rejected, got: %s", dupReply)
 	}
 
-	// 4. Test Validasi Format Pipa Salah
 	badFormatReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah Tugas Tanpa Pipa", cfg, refNow)
 	if !strings.Contains(badFormatReply, "Format Penambahan Tugas Kurang Tepat") {
 		t.Errorf("Expected format validation error, got: %s", badFormatReply)
 	}
 
-	// 5. Test Tambah Tugas Jatuh Tempo Hari Ini dan Besok
 	_ = tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah Aljabar | Kuis Hari Ini | hari ini 23:59", cfg, refNow)
 	_ = tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah Matdis | PR Logika | besok 14:00", cfg, refNow)
 
-	// 6. Test Lihat Daftar Tugas Grup (!tugas) dengan Badge Urgensi
 	listReply := tm.HandleCommand(groupJID, true, userJID, false, "!tugas", cfg, refNow)
 	if !strings.Contains(listReply, "DAFTAR TUGAS KELAS") ||
 		!strings.Contains(listReply, "SISTEM BASIS DATA") ||
@@ -73,25 +74,21 @@ func TestTaskManager(t *testing.T) {
 		t.Errorf("Expected group task list with urgency badges, got: %s", listReply)
 	}
 
-	// 7. Test Filter !tugas hari ini
 	todayReply := tm.HandleCommand(groupJID, true, userJID, false, "!tugas hari ini", cfg, refNow)
 	if !strings.Contains(todayReply, "DEADLINE HARI INI") || !strings.Contains(todayReply, "ALJABAR LINEAR") {
 		t.Errorf("Expected today's task to be Aljabar, got: %s", todayReply)
 	}
 
-	// 8. Test Filter !tugas besok
 	tomorrowReply := tm.HandleCommand(groupJID, true, userJID, false, "!tugas besok", cfg, refNow)
 	if !strings.Contains(tomorrowReply, "DEADLINE BESOK") || !strings.Contains(tomorrowReply, "MATEMATIKA DISKRIT LANJUT") {
 		t.Errorf("Expected tomorrow's task to be Matdis, got: %s", tomorrowReply)
 	}
 
-	// 9. Test Pemisahan Scope (Tugas grup TIDAK boleh bocor ke DM user)
 	dmListReply := tm.HandleCommand(userJID, false, userJID, true, "!tugas", cfg, refNow)
 	if !strings.Contains(dmListReply, "Tidak ada tugas aktif") {
 		t.Errorf("Expected empty tasks in fresh personal DM, got: %s", dmListReply)
 	}
 
-	// 10. Test Tambah Tugas Pribadi di DM (Bebas tanpa admin)
 	userReply := tm.HandleCommand(userJID, false, userJID, true, "!tugas tambah Pribadi | Belajar Golang | Minggu 20:00", cfg, refNow)
 	if !strings.Contains(userReply, "BERHASIL DITAMBAHKAN") {
 		t.Errorf("Expected user to add personal task in DM, got: %s", userReply)
@@ -103,26 +100,21 @@ func TestTaskManager(t *testing.T) {
 		t.Errorf("Expected user2 tasks to be empty, got: %s", user2ListReply)
 	}
 
-	// 11. Test Selesaikan Tugas (!tugas selesai 1)
-	// Non-admin di grup mencoba menyelesaikan (Harus Ditolak)
 	nonAdminDone := tm.HandleCommand(groupJID, true, userJID, false, "!tugas selesai 1", cfg, refNow)
 	if !strings.Contains(nonAdminDone, "Akses Ditolak") {
 		t.Errorf("Expected non-admin to be rejected completing task in group, got: %s", nonAdminDone)
 	}
 
-	// Admin menyelesaikan tugas 1
 	adminDone := tm.HandleCommand(groupJID, true, userJID, true, "!tugas selesai 1", cfg, refNow)
 	if !strings.Contains(adminDone, "TUGAS SELESAI") {
 		t.Errorf("Expected admin to complete task 1, got: %s", adminDone)
 	}
 
-	// 13. Test Panduan Perintah (!tugas bantuan)
 	helpReply := tm.HandleCommand(groupJID, true, userJID, false, "!tugas bantuan", cfg, refNow)
 	if !strings.Contains(helpReply, "PANDUAN DEADLINE TRACKER TUGAS") {
 		t.Errorf("Expected help guide for tasks, got: %s", helpReply)
 	}
 
-	// 14. Test Parsing Format Nama Bulan Indonesia ("5 sep 22.15" dan "8 september")
 	// Acuan: Sabtu, 5 September 2026 pukul 20:00 WIB
 	tSabtu := time.Date(2026, 9, 5, 20, 0, 0, 0, time.Local)
 	targetToday, labelToday := parseDeadline("5 sep 22.15", tSabtu)
@@ -151,7 +143,6 @@ func TestTaskManager(t *testing.T) {
 		t.Errorf("Expected H-3 for '8 september' from 5 Sep, got: %s", badge8Sep)
 	}
 
-	// 15. Test Parsing Format Jam Saja Tanpa Tanggal ("22.22", "22:22", "jam 22.22")
 	targetJamSaja, labelJamSaja := parseDeadline("22.22", tSabtu)
 	if targetJamSaja.Day() != 5 || targetJamSaja.Month() != 9 || targetJamSaja.Hour() != 22 || targetJamSaja.Minute() != 22 {
 		t.Errorf("Expected 5 Sep 22:22, got: %v", targetJamSaja)
@@ -160,101 +151,81 @@ func TestTaskManager(t *testing.T) {
 		t.Errorf("Expected 'Hari Ini (Sabtu), 22:22 WIB', got: %s", labelJamSaja)
 	}
 
-	// 16. Test Validasi Mata Kuliah dan Alias Pintar
-	// Matkul tidak terdaftar (Kalkulus) -> Harus Ditolak dengan rekomendasi daftar matkul
 	badMatkulReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah Kalkulus | Latihan 1 | 22.22", cfg, tSabtu)
 	if !strings.Contains(badMatkulReply, "Tidak Terdaftar") || !strings.Contains(badMatkulReply, "Daftar Mata Kuliah Kelas") {
 		t.Errorf("Expected unlisted matkul error with course guide, got: %s", badMatkulReply)
 	}
 
-	// Alias "mtk" -> Harus berhasil dan dinormalisasi menjadi "Matematika Diskrit Lanjut"
 	mtkReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah mtk | Tugas Graph | 22.22", cfg, tSabtu)
 	if !strings.Contains(mtkReply, "BERHASIL DITAMBAHKAN") || !strings.Contains(mtkReply, "MATEMATIKA DISKRIT LANJUT") {
 		t.Errorf("Expected 'mtk' to normalize to 'Matematika Diskrit Lanjut', got: %s", mtkReply)
 	}
 
-	// Alias "matematika" -> Harus berhasil dan dinormalisasi
 	matematikaReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah matematika | Tugas Tree | besok 10:00", cfg, tSabtu)
 	if !strings.Contains(matematikaReply, "BERHASIL DITAMBAHKAN") || !strings.Contains(matematikaReply, "MATEMATIKA DISKRIT LANJUT") {
 		t.Errorf("Expected 'matematika' to normalize to 'Matematika Diskrit Lanjut', got: %s", matematikaReply)
 	}
 
-	// Matkul "Umum" -> Harus diterima sebagai tugas non-matkul
 	umumReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah umum | Bawa Perlengkapan Lab | 22.22", cfg, tSabtu)
 	if !strings.Contains(umumReply, "BERHASIL DITAMBAHKAN") || !strings.Contains(umumReply, "UMUM") {
 		t.Errorf("Expected 'umum' task to succeed, got: %s", umumReply)
 	}
 
-	// 17. Test Edit / Perpanjangan Tenggat Waktu Tugas (!tugas edit / !tugas mundur)
-	// Non-admin di grup mencoba mengedit (Harus Ditolak)
 	nonAdminEdit := tm.HandleCommand(groupJID, true, userJID, false, "!tugas edit 2 | Minggu 23:59", cfg, tSabtu)
 	if !strings.Contains(nonAdminEdit, "Akses Ditolak") {
 		t.Errorf("Expected non-admin edit to be rejected in group, got: %s", nonAdminEdit)
 	}
 
-	// Admin mengedit tenggat saja (!tugas edit 2 | Minggu 23:59)
 	adminEdit := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 2 | Minggu 23:59", cfg, tSabtu)
 	if !strings.Contains(adminEdit, "BERHASIL DIPERBARUI") || !strings.Contains(adminEdit, "Minggu") {
 		t.Errorf("Expected admin edit deadline to succeed, got: %s", adminEdit)
 	}
 
-	// Admin mengedit deskripsi dan tenggat sekaligus (!tugas edit 2 | Revisi Lapres 1 | Senin 12:00)
 	adminEditBoth := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 2 | Revisi Lapres 1 | Senin 12:00", cfg, tSabtu)
 	if !strings.Contains(adminEditBoth, "BERHASIL DIPERBARUI") || !strings.Contains(adminEditBoth, "Revisi Lapres 1") {
 		t.Errorf("Expected admin edit both desc and deadline to succeed, got: %s", adminEditBoth)
 	}
 
-	// Edit tugas dengan ID yang tidak ada
 	badIDEdit := tm.HandleCommand(groupJID, true, userJID, true, "!tugas edit 999 | besok", cfg, tSabtu)
 	if !strings.Contains(badIDEdit, "tidak ditemukan") {
 		t.Errorf("Expected non-existent task to report not found, got: %s", badIDEdit)
 	}
 
-	// 18. Test Filter Tugas per Mata Kuliah (!tugas sbd, !tugas aljabar, !tugas matkul sbd)
-	// Filter tugas SBD (harus memunculkan tugas SBD dan tidak memunculkan Aljabar)
 	filterSBD := tm.HandleCommand(groupJID, true, userJID, false, "!tugas sbd", cfg, tSabtu)
 	if !strings.Contains(filterSBD, "SISTEM BASIS DATA") || strings.Contains(filterSBD, "ALJABAR LINEAR") {
 		t.Errorf("Expected filter SBD to only show SBD tasks, got:\n%s", filterSBD)
 	}
 
-	// Filter tugas Aljabar
 	filterAljabar := tm.HandleCommand(groupJID, true, userJID, false, "!tugas aljabar", cfg, tSabtu)
 	if !strings.Contains(filterAljabar, "ALJABAR LINEAR") || strings.Contains(filterAljabar, "SISTEM BASIS DATA") {
 		t.Errorf("Expected filter Aljabar to only show Aljabar tasks, got:\n%s", filterAljabar)
 	}
 
-	// Filter matkul yang belum ada tugas aktifnya (misal Sistem Operasi / SO)
 	filterSO := tm.HandleCommand(groupJID, true, userJID, false, "!tugas so", cfg, tSabtu)
 	if !strings.Contains(filterSO, "Tidak ada tugas aktif") || !strings.Contains(filterSO, "SISTEM OPERASI") {
 		t.Errorf("Expected empty message for SO filter, got:\n%s", filterSO)
 	}
 
-	// Sub-perintah !tugas matkul sbd
 	filterMatkulSBD := tm.HandleCommand(groupJID, true, userJID, false, "!tugas matkul sbd", cfg, tSabtu)
 	if !strings.Contains(filterMatkulSBD, "SISTEM BASIS DATA") {
 		t.Errorf("Expected !tugas matkul sbd to work, got:\n%s", filterMatkulSBD)
 	}
 
-	// 19. Test Riwayat Tugas Selesai (!tugas riwayat / !tugas arsip)
-	// Tugas ID #1 sudah diselesaikan pada step 11 di atas, verifikasi muncul di !tugas riwayat
 	riwayatResp := tm.HandleCommand(groupJID, true, userJID, false, "!tugas riwayat", cfg, tSabtu)
 	if !strings.Contains(riwayatResp, "ARSIP & RIWAYAT TUGAS SELESAI") || !strings.Contains(riwayatResp, "#1") || !strings.Contains(riwayatResp, "✅") {
 		t.Errorf("Expected task #1 in riwayat, got: %s", riwayatResp)
 	}
 
-	// Alias !tugas arsip
 	arsipResp := tm.HandleCommand(groupJID, true, userJID, false, "!tugas arsip", cfg, tSabtu)
 	if !strings.Contains(arsipResp, "ARSIP & RIWAYAT TUGAS SELESAI") || !strings.Contains(arsipResp, "#1") {
 		t.Errorf("Expected task #1 in arsip, got: %s", arsipResp)
 	}
 
-	// Selesaikan tugas ID #2
 	doneResp2 := tm.HandleCommand(groupJID, true, userJID, true, "!tugas selesai 2", cfg, tSabtu)
 	if !strings.Contains(doneResp2, "TUGAS SELESAI") || !strings.Contains(doneResp2, "#2") {
 		t.Errorf("Expected task #2 to be completed, got: %s", doneResp2)
 	}
 
-	// Cek daftar riwayat terbaru (ID #2 dan #1 harus ada)
 	riwayatResp2 := tm.HandleCommand(groupJID, true, userJID, false, "!tugas riwayat", cfg, tSabtu)
 	if !strings.Contains(riwayatResp2, "#2") || !strings.Contains(riwayatResp2, "#1") {
 		t.Errorf("Expected both task #1 and #2 in riwayat, got: %s", riwayatResp2)
@@ -262,14 +233,9 @@ func TestTaskManager(t *testing.T) {
 }
 
 func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
-	testDB := "test_teori_prak.db"
-	defer os.Remove(testDB)
+	testDB := filepath.Join(t.TempDir(), "test_teori_prak.db")
 
-	db, err := database.InitDB(testDB)
-	if err != nil {
-		t.Fatalf("InitDB error: %v", err)
-	}
-	defer db.Close()
+	db := openLegacyTaskTestDB(t, testDB)
 
 	tm, err := NewTaskManager(db)
 	if err != nil {
@@ -285,7 +251,7 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 	groupJID := "test_group@g.us"
 	userJID := "628111111@s.whatsapp.net"
 
-	// 1. Kasus Ambigu: Alin tanpa kata kunci teori/praktikum baik di nama maupun deskripsi
+	// Input tanpa penanda teori atau praktikum harus tetap ambigu.
 	ambiguResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Pertemuan-1 | besok 8:40", cfg, refNow)
 	if !strings.Contains(ambiguResp, "Sesi Belum Spesifik") ||
 		!strings.Contains(ambiguResp, "Praktikum") ||
@@ -295,7 +261,6 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 		t.Errorf("Expected ambiguity warning with lecturer details, got:\n%s", ambiguResp)
 	}
 
-	// 2. Eksplisit Praktikum di kolom matkul
 	prakResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin praktikum | Pertemuan-1 | besok 8:40", cfg, refNow)
 	if !strings.Contains(prakResp, "BERHASIL DITAMBAHKAN") ||
 		!strings.Contains(prakResp, "ALJABAR LINEAR (PRAKTIKUM)") ||
@@ -303,7 +268,6 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 		t.Errorf("Expected explicit praktikum task added, got:\n%s", prakResp)
 	}
 
-	// 3. Eksplisit Teori di kolom matkul
 	teoriResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin teori | Pertemuan-1 | besok 8:40", cfg, refNow)
 	if !strings.Contains(teoriResp, "BERHASIL DITAMBAHKAN") ||
 		!strings.Contains(teoriResp, "ALJABAR LINEAR (TEORI)") ||
@@ -311,28 +275,25 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 		t.Errorf("Expected explicit teori task added, got:\n%s", teoriResp)
 	}
 
-	// 4. Auto-detect Praktikum dari deskripsi
 	descPrakResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Laporan Praktikum Modul 2 | jumat 23:59", cfg, refNow)
 	if !strings.Contains(descPrakResp, "BERHASIL DITAMBAHKAN") ||
 		!strings.Contains(descPrakResp, "ALJABAR LINEAR (PRAKTIKUM)") {
 		t.Errorf("Expected auto-detect praktikum from desc, got:\n%s", descPrakResp)
 	}
 
-	// 5. Auto-detect Teori dari deskripsi
 	descTeoriResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah alin | Resume Bab 2 Transformasi Linier | jumat 23:59", cfg, refNow)
 	if !strings.Contains(descTeoriResp, "BERHASIL DITAMBAHKAN") ||
 		!strings.Contains(descTeoriResp, "ALJABAR LINEAR (TEORI)") {
 		t.Errorf("Expected auto-detect teori from desc, got:\n%s", descTeoriResp)
 	}
 
-	// 6. Matkul sesi tunggal (AOK - hanya ada Teori) tidak boleh terhambat ambigu
+	// Mata kuliah dengan satu jenis sesi tidak memerlukan disambiguasi.
 	aokResp := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah aok | Tugas Pipeline | besok 10:00", cfg, refNow)
 	if !strings.Contains(aokResp, "BERHASIL DITAMBAHKAN") ||
 		!strings.Contains(aokResp, "ARSITEKTUR DAN ORGANISASI KOMPUTER") {
 		t.Errorf("Expected single session course to be added directly, got:\n%s", aokResp)
 	}
 
-	// 7. Filter spesifik praktikum vs umum
 	filterAll := tm.HandleCommand(groupJID, true, userJID, false, "!tugas alin", cfg, refNow)
 	if !strings.Contains(filterAll, "ALJABAR LINEAR (PRAKTIKUM)") || !strings.Contains(filterAll, "ALJABAR LINEAR (TEORI)") {
 		t.Errorf("Expected !tugas alin to show both, got:\n%s", filterAll)
@@ -345,14 +306,9 @@ func TestTaskTeoriPraktikumDisambiguation(t *testing.T) {
 }
 
 func TestTaskClassScopingAndTwoWaySync(t *testing.T) {
-	testDB := "test_class_sync.db"
-	defer os.Remove(testDB)
+	testDB := filepath.Join(t.TempDir(), "test_class_sync.db")
 
-	db, err := database.InitDB(testDB)
-	if err != nil {
-		t.Fatalf("Gagal inisialisasi database SQLite: %v", err)
-	}
-	defer db.Close()
+	db := openLegacyTaskTestDB(t, testDB)
 
 	tm, err := NewTaskManager(db)
 	if err != nil {
@@ -370,13 +326,11 @@ func TestTaskClassScopingAndTwoWaySync(t *testing.T) {
 	adminJID := "628120001@s.whatsapp.net"
 	userDM := "628129999@s.whatsapp.net"
 
-	// 1. Tambah tugas via Web untuk kelas 3A
 	webTaskID, _, err := tm.AddWebTask("SBD", "Tugas Web Dashboard", "Jumat 23:59", "web-dashboard", refNow, class3A)
 	if err != nil {
 		t.Fatalf("AddWebTask failed: %v", err)
 	}
 
-	// 2. Query GetTasksByClassID harus melihat tugas tersebut
 	tasks3A, err := tm.GetTasksByClassID(class3A, refNow)
 	if err != nil || len(tasks3A) != 1 {
 		t.Fatalf("Expected 1 task for class 3A, got %d (err: %v)", len(tasks3A), err)
@@ -385,31 +339,28 @@ func TestTaskClassScopingAndTwoWaySync(t *testing.T) {
 		t.Errorf("Expected ClassID %s, got %s", class3A, tasks3A[0].ClassID)
 	}
 
-	// 3. Query kelas lain (D3-TI-1A) tidak boleh melihat tugas 3A
 	tasks1A, err := tm.GetTasksByClassID("D3-TI-1A", refNow)
 	if err != nil || len(tasks1A) != 0 {
 		t.Fatalf("Expected 0 task for class 1A, got %d", len(tasks1A))
 	}
 
-	// 4. Two-Way Sync: Grup WhatsApp 3A mengetik !tugas (dengan classID 3A) harus melihat tugas web
+	// Tugas dari web harus terlihat dari grup WhatsApp untuk kelas yang sama.
 	waListReply := tm.HandleCommand(group3AJID, true, adminJID, false, "!tugas", cfg, refNow, class3A)
 	if !strings.Contains(waListReply, "Tugas Web Dashboard") {
 		t.Errorf("Expected WA group 3A to see web task, got:\n%s", waListReply)
 	}
 
-	// 5. Admin di grup WA 3A menyelesaikan tugas web lewat !tugas selesai <id>
 	doneReply := tm.HandleCommand(group3AJID, true, adminJID, true, "!tugas selesai "+strings.TrimSpace(string(rune('0'+webTaskID))), cfg, refNow, class3A)
 	if !strings.Contains(doneReply, "TUGAS SELESAI") {
 		t.Errorf("Expected task to be completed by WA admin, got:\n%s", doneReply)
 	}
 
-	// 6. Tugas di web juga harus sudah selesai (GetTasksByClassID kosong)
 	tasksAfterDone, err := tm.GetTasksByClassID(class3A, refNow)
 	if err != nil || len(tasksAfterDone) != 0 {
 		t.Errorf("Expected 0 active tasks after completion, got %d", len(tasksAfterDone))
 	}
 
-	// 7. Tugas Personal di DM tidak memiliki class_id dan tidak masuk ke tugas kelas
+	// Tugas pribadi tidak boleh masuk ke scope kelas.
 	dmReply := tm.HandleCommand(userDM, false, userDM, false, "!tugas tambah Pribadi | Beli buku catatan | besok", cfg, refNow)
 	if !strings.Contains(dmReply, "BERHASIL DITAMBAHKAN") {
 		t.Fatalf("Expected personal task added, got:\n%s", dmReply)
@@ -419,5 +370,3 @@ func TestTaskClassScopingAndTwoWaySync(t *testing.T) {
 		t.Errorf("Personal task leaked into class tasks! Found %d tasks", len(tasksClassCheck))
 	}
 }
-
-
