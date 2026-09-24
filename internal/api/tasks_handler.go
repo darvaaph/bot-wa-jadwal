@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -179,5 +180,198 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "success",
 		"message": "Tugas berhasil dihapus",
+	})
+}
+
+func (s *Server) handleListTasksV1(w http.ResponseWriter, r *http.Request) {
+	if s.taskRepo == nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Modul tugas belum diinisialisasi",
+		})
+		return
+	}
+
+	classID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("class_id")), 10, 64)
+	if err != nil || classID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Parameter class_id tidak valid",
+		})
+		return
+	}
+
+	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	if statusFilter != "" {
+		switch statusFilter {
+		case "DRAFT", "PUBLISHED", "REVOKED":
+		default:
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{
+				"status": "error",
+				"error":  "Parameter status tidak valid",
+			})
+			return
+		}
+	}
+
+	items, err := s.taskRepo.ListTasksByClass(r.Context(), classID, statusFilter)
+	if err != nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Gagal mengambil daftar tugas",
+		})
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"status": "success",
+		"data":   items,
+	})
+}
+
+func (s *Server) handleCreateTaskV1(w http.ResponseWriter, r *http.Request) {
+	if s.taskRepo == nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Modul tugas belum diinisialisasi",
+		})
+		return
+	}
+
+	var input task.CreateTaskInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Format JSON tidak valid",
+		})
+		return
+	}
+
+	if input.CourseOfferingID <= 0 || strings.TrimSpace(input.Title) == "" || strings.TrimSpace(input.DeadlineAt) == "" {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Field course_offering_id, title, dan deadline_at wajib diisi",
+		})
+		return
+	}
+
+	created, err := s.taskRepo.CreateTask(r.Context(), input)
+	if err != nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Gagal menyimpan tugas",
+		})
+		return
+	}
+
+	s.writeJSON(w, http.StatusCreated, map[string]any{
+		"status": "success",
+		"data":   created,
+	})
+}
+
+func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
+	if s.taskRepo == nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Modul tugas belum diinisialisasi",
+		})
+		return
+	}
+
+	taskID, err := strconv.ParseInt(strings.TrimSpace(r.PathValue("id")), 10, 64)
+	if err != nil || taskID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "ID tugas tidak valid",
+		})
+		return
+	}
+
+	var payload struct {
+		Decision                 string  `json:"decision"`
+		Note                     *string `json:"note"`
+		ReviewerRoleAssignmentID int64   `json:"reviewer_role_assignment_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Format JSON tidak valid",
+		})
+		return
+	}
+
+	payload.Decision = strings.ToUpper(strings.TrimSpace(payload.Decision))
+	if payload.Decision == "" || payload.ReviewerRoleAssignmentID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Field decision dan reviewer_role_assignment_id wajib diisi",
+		})
+		return
+	}
+
+	err = s.taskRepo.SubmitReview(r.Context(), task.ReviewTaskInput{
+		TaskID:                   taskID,
+		Decision:                 payload.Decision,
+		Note:                     payload.Note,
+		ReviewerRoleAssignmentID: payload.ReviewerRoleAssignmentID,
+	})
+	if err != nil {
+		if errors.Is(err, task.ErrNotFound) {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{
+				"status": "error",
+				"error":  "Tugas tidak ditemukan",
+			})
+			return
+		}
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "Gagal menyimpan review tugas",
+		})
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Review tugas berhasil disimpan",
+	})
+}
+
+func (s *Server) handleCompleteTaskV1(w http.ResponseWriter, r *http.Request) {
+	if s.taskRepo == nil {
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Modul tugas belum diinisialisasi",
+		})
+		return
+	}
+
+	taskID, err := strconv.ParseInt(strings.TrimSpace(r.PathValue("id")), 10, 64)
+	if err != nil || taskID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{
+			"status": "error",
+			"error":  "ID tugas tidak valid",
+		})
+		return
+	}
+
+	if err := s.taskRepo.CompleteTask(r.Context(), taskID); err != nil {
+		if errors.Is(err, task.ErrNotFound) {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{
+				"status": "error",
+				"error":  "Tugas tidak ditemukan",
+			})
+			return
+		}
+		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"status": "error",
+			"error":  "Gagal menyelesaikan tugas",
+		})
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Tugas ditandai selesai",
 	})
 }

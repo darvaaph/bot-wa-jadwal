@@ -22,6 +22,7 @@ type Server struct {
 	botClient    *bot.BotClient
 	classManager *schedule.ClassManager
 	taskManager  *task.TaskManager
+	taskRepo     *task.Repository
 	academicRepo *academic.Repository
 }
 
@@ -86,6 +87,11 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
 	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
 	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
+
+	mux.HandleFunc("GET /api/v1/tasks", s.handleListTasksV1)
+	mux.HandleFunc("POST /api/v1/tasks", s.handleCreateTaskV1)
+	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.handleReviewTaskV1)
+	mux.HandleFunc("PATCH /api/v1/tasks/{id}/complete", s.handleCompleteTaskV1)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
@@ -152,7 +158,7 @@ func (s *Server) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
@@ -198,6 +204,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) SetAcademicRepo(repo *academic.Repository) {
 	s.academicRepo = repo
+}
+
+func (s *Server) SetTaskRepo(repo *task.Repository) {
+	s.taskRepo = repo
 }
 
 func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {

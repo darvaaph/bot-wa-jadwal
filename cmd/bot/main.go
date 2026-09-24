@@ -101,6 +101,7 @@ func main() {
 	}
 
 	var taskManager *task.TaskManager
+	var taskRepo *task.Repository
 	if appDB != nil {
 		taskManager, err = task.NewTaskManager(appDB)
 		if err != nil {
@@ -108,6 +109,7 @@ func main() {
 		} else {
 			fmt.Println("Berhasil menginisialisasi modul tugas")
 		}
+		taskRepo = task.NewRepository(appDB)
 	}
 
 	var overrideManager *schedule.OverrideManager
@@ -177,6 +179,9 @@ func main() {
 	}
 
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, academicRepo)
+	if taskRepo != nil {
+		apiServer.SetTaskRepo(taskRepo)
+	}
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 
