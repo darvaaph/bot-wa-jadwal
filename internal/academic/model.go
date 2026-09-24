@@ -92,3 +92,43 @@ type OfferingLecturer struct {
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
+
+type User struct {
+	ID             int64      `json:"id"`
+	IdentityKey    string     `json:"identity_key"`
+	DisplayName    string     `json:"display_name"`
+	PasswordHash   string     `json:"-"`
+	Status         string     `json:"status"`
+	SessionVersion int        `json:"session_version"`
+	LastLoginAt    *time.Time `json:"last_login_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type Room struct {
+	ID              int64     `json:"id"`
+	Code            string    `json:"code"`
+	Name            string    `json:"name"`
+	Building        *string   `json:"building,omitempty"`
+	RoomType        *string   `json:"room_type,omitempty"`
+	Capacity        *int      `json:"capacity,omitempty"`
+	Status          string    `json:"status"`
+	SourceUpdatedAt *string   `json:"source_updated_at,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type SchedulePattern struct {
+	ID               int64     `json:"id"`
+	CourseOfferingID int64     `json:"course_offering_id"`
+	RoomID           *int64    `json:"room_id,omitempty"`
+	DayOfWeek        int       `json:"day_of_week"`
+	StartTime        string    `json:"start_time"`
+	EndTime          string    `json:"end_time"`
+	EffectiveFrom    string    `json:"effective_from"`
+	EffectiveUntil   *string   `json:"effective_until,omitempty"`
+	Status           string    `json:"status"`
+	Version          int       `json:"version"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}

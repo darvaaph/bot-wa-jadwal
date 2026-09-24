@@ -1,8 +1,8 @@
 package schedule
 
 import (
-	"bot-jadwal/internal/util"
 	"bot-jadwal/internal/database"
+	"bot-jadwal/internal/util"
 	"os"
 	"strings"
 	"testing"
@@ -137,7 +137,6 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected next week schedule to be normal without moved status, got:\n%s", seninDepanSchedule)
 	}
 	tSelasaPagi := time.Date(2026, 9, 8, 6, 30, 0, 0, time.Local)
-	
 
 	msgBesok := cfg.ProcessMessage("!besok", true, groupJID, refNow)
 	if !strings.Contains(msgBesok, "KULIAH DITIADAKAN") || !strings.Contains(msgBesok, "Dosen dinas luar") {
@@ -176,8 +175,6 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected holiday card on Tuesday, got:\n%s", selasaLiburSchedule)
 	}
 
-	
-
 	nextLibur := cfg.GetNextClassWithOverrides(tSelasaPagi, groupJID, om)
 	if !strings.Contains(nextLibur, "Hari Ini Libur Perkuliahan") || !strings.Contains(nextLibur, "Hari Kemerdekaan RI") {
 		t.Errorf("Expected next class on holiday to report holiday, got:\n%s", nextLibur)
@@ -186,4 +183,3 @@ func TestOverrideManager(t *testing.T) {
 	_ = selasaDate
 	_ = sabtuDate
 }
-

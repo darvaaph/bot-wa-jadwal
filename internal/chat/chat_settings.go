@@ -1,70 +1,155 @@
 package chat
 
 import (
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ChatSettingsManager struct {
-	db    *sql.DB
-	mu    sync.RWMutex
-	cache map[string]string // key: scope_jid, value: class_id (uppercase)
+	db           *sql.DB
+	academicRepo *academic.Repository
+	mu           sync.RWMutex
+	cache        map[string]string // key: scope_jid, value: class_id (canonical code)
 }
 
-// NewChatSettingsManager menginisialisasi tabel chat_settings pada SQLite dan memuat cache ke memori
+// NewChatSettingsManager menginisialisasi ChatSettingsManager menggunakan model target whatsapp_channels dan chat_class_contexts.
 func NewChatSettingsManager(db *sql.DB) (*ChatSettingsManager, error) {
 	if db == nil {
 		return nil, fmt.Errorf("koneksi database tidak boleh nil")
 	}
 
-	query := `
-	CREATE TABLE IF NOT EXISTS chat_settings (
-		scope_jid TEXT PRIMARY KEY,
-		class_id TEXT NOT NULL,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	_, err := db.Exec(query)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuat tabel chat_settings: %w", err)
-	}
-
 	csm := &ChatSettingsManager{
-		db:    db,
-		cache: make(map[string]string),
+		db:           db,
+		academicRepo: academic.NewRepository(db),
+		cache:        make(map[string]string),
 	}
 
-	// Muat cache saat startup agar jalur pembacaan pesan tidak mengakses database.
 	if err := csm.loadCache(); err != nil {
-		return nil, fmt.Errorf("gagal memuat data chat_settings: %w", err)
+		return nil, fmt.Errorf("gagal memuat data chat settings dari model target: %w", err)
 	}
 
 	return csm, nil
 }
 
 func (csm *ChatSettingsManager) loadCache() error {
-	rows, err := csm.db.Query(`SELECT scope_jid, class_id FROM chat_settings`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. Backfill otomatis data lama jika tabel legacy chat_settings masih ada
+	csm.backfillLegacyChatSettings(ctx)
 
 	csm.mu.Lock()
 	defer csm.mu.Unlock()
 
-	for rows.Next() {
-		var scopeJID, classID string
-		if err := rows.Scan(&scopeJID, &classID); err == nil {
-			csm.cache[scopeJID] = schedule.NormalizeClassID(classID)
+	// 2. Baca dari whatsapp_channels untuk kanal grup aktif
+	rowsChannels, err := csm.db.QueryContext(ctx, `
+		SELECT wc.jid, c.code
+		FROM whatsapp_channels wc
+		JOIN classes c ON c.id = wc.class_id
+		WHERE wc.status = 'ACTIVE'
+	`)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("gagal membaca whatsapp_channels: %w", err)
+	}
+	if err == nil {
+		defer rowsChannels.Close()
+		for rowsChannels.Next() {
+			var jid, code string
+			if err := rowsChannels.Scan(&jid, &code); err == nil {
+				csm.cache[jid] = schedule.NormalizeClassID(code)
+			}
+		}
+		if err := rowsChannels.Err(); err != nil {
+			return err
 		}
 	}
 
-	return rows.Err()
+	// 3. Baca dari chat_class_contexts untuk preferensi chat pribadi
+	rowsContexts, err := csm.db.QueryContext(ctx, `
+		SELECT ccc.chat_jid, c.code
+		FROM chat_class_contexts ccc
+		JOIN classes c ON c.id = ccc.class_id
+	`)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("gagal membaca chat_class_contexts: %w", err)
+	}
+	if err == nil {
+		defer rowsContexts.Close()
+		for rowsContexts.Next() {
+			var jid, code string
+			if err := rowsContexts.Scan(&jid, &code); err == nil {
+				csm.cache[jid] = schedule.NormalizeClassID(code)
+			}
+		}
+		if err := rowsContexts.Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (csm *ChatSettingsManager) backfillLegacyChatSettings(ctx context.Context) {
+	var tableName string
+	err := csm.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_settings'").Scan(&tableName)
+	if err != nil || tableName == "" {
+		return
+	}
+
+	rows, err := csm.db.QueryContext(ctx, "SELECT scope_jid, class_id FROM chat_settings")
+	if err != nil {
+		return
+	}
+
+	type legacyEntry struct {
+		scopeJID string
+		classID  string
+	}
+	var entries []legacyEntry
+	for rows.Next() {
+		var scopeJID, classID string
+		if err := rows.Scan(&scopeJID, &classID); err == nil {
+			entries = append(entries, legacyEntry{
+				scopeJID: strings.TrimSpace(scopeJID),
+				classID:  strings.TrimSpace(classID),
+			})
+		}
+	}
+	_ = rows.Close()
+
+	for _, entry := range entries {
+		if entry.scopeJID == "" || entry.classID == "" {
+			continue
+		}
+
+		cls, err := csm.academicRepo.EnsureClass(ctx, schedule.NormalizeClassID(entry.classID))
+		if err != nil || cls == nil {
+			continue
+		}
+
+		if strings.HasSuffix(entry.scopeJID, "@g.us") {
+			_, _ = csm.db.ExecContext(ctx, `
+				INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
+				VALUES (?, ?, 'GROUP', ?, 'ACTIVE')
+				ON CONFLICT(jid) DO UPDATE SET class_id = excluded.class_id, status = 'ACTIVE'
+			`, cls.ID, entry.scopeJID, cls.Code)
+		} else {
+			_, _ = csm.db.ExecContext(ctx, `
+				INSERT INTO chat_class_contexts (chat_jid, class_id)
+				VALUES (?, ?)
+				ON CONFLICT(chat_jid) DO UPDATE SET class_id = excluded.class_id
+			`, entry.scopeJID, cls.ID)
+		}
+	}
 }
 
 // GetClass mengambil ID kelas yang diatur untuk suatu chat/grup (mengembalikan string kosong jika belum diatur)
@@ -81,13 +166,38 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 		return fmt.Errorf("nama kelas tidak boleh kosong")
 	}
 
-	query := `
-	INSERT OR REPLACE INTO chat_settings (scope_jid, class_id, updated_at)
-	VALUES (?, ?, CURRENT_TIMESTAMP);`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	_, err := csm.db.Exec(query, scopeJID, classID)
+	cls, err := csm.academicRepo.EnsureClass(ctx, classID)
 	if err != nil {
-		return fmt.Errorf("gagal menyimpan setelan kelas ke database: %w", err)
+		return fmt.Errorf("gagal memastikan data kelas %s: %w", classID, err)
+	}
+
+	if strings.HasSuffix(scopeJID, "@g.us") {
+		query := `
+			INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status, updated_at)
+			VALUES (?, ?, 'GROUP', ?, 'ACTIVE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			ON CONFLICT(jid) DO UPDATE SET
+				class_id = excluded.class_id,
+				display_name = excluded.display_name,
+				status = 'ACTIVE',
+				updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+		`
+		if _, err := csm.db.ExecContext(ctx, query, cls.ID, scopeJID, cls.Code); err != nil {
+			return fmt.Errorf("gagal menyimpan kanal grup whatsapp: %w", err)
+		}
+	} else {
+		query := `
+			INSERT INTO chat_class_contexts (chat_jid, class_id, updated_at)
+			VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			ON CONFLICT(chat_jid) DO UPDATE SET
+				class_id = excluded.class_id,
+				updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+		`
+		if _, err := csm.db.ExecContext(ctx, query, scopeJID, cls.ID); err != nil {
+			return fmt.Errorf("gagal menyimpan konteks kelas chat: %w", err)
+		}
 	}
 
 	csm.mu.Lock()
@@ -98,9 +208,19 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 }
 
 func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
-	_, err := csm.db.Exec(`DELETE FROM chat_settings WHERE scope_jid = ?`, scopeJID)
-	if err != nil {
-		return fmt.Errorf("gagal menghapus setelan kelas: %w", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if strings.HasSuffix(scopeJID, "@g.us") {
+		_, err := csm.db.ExecContext(ctx, `DELETE FROM whatsapp_channels WHERE jid = ?`, scopeJID)
+		if err != nil {
+			return fmt.Errorf("gagal menghapus kanal whatsapp: %w", err)
+		}
+	} else {
+		_, err := csm.db.ExecContext(ctx, `DELETE FROM chat_class_contexts WHERE chat_jid = ?`, scopeJID)
+		if err != nil {
+			return fmt.Errorf("gagal menghapus konteks kelas chat: %w", err)
+		}
 	}
 
 	csm.mu.Lock()

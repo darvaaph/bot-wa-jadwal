@@ -437,7 +437,6 @@ func (j *JadwalConfig) FormatAvailableCourses() string {
 	return sb.String()
 }
 
-
 func (j *JadwalConfig) GetByHari(hariInput string, refTime ...time.Time) string {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
@@ -485,13 +484,13 @@ func (j *JadwalConfig) FindMataKuliah(query string, refTime ...time.Time) (*Jadw
 	}
 
 	aliasMap := map[string]string{
-		"sbd":        "25TI2104",
-		"basis data": "25TI2104",
-		"basisdata":  "25TI2104",
-		"matdis":     "25TI2102",
-		"diskrit":    "25TI2102",
-		"mtk":        "25TI2102",
-		"matematika": "25TI2102",
+		"sbd":            "25TI2104",
+		"basis data":     "25TI2104",
+		"basisdata":      "25TI2104",
+		"matdis":         "25TI2102",
+		"diskrit":        "25TI2102",
+		"mtk":            "25TI2102",
+		"matematika":     "25TI2102",
 		"aljabar":        "25TI2103",
 		"al":             "25TI2103",
 		"alin":           "25TI2103",
@@ -1447,4 +1446,3 @@ func (j *JadwalConfig) GetKeywords() string {
 	sb.WriteString("_Ketik !menu untuk menu utama ringkas._")
 	return sb.String()
 }
-

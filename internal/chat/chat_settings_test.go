@@ -298,5 +298,3 @@ func TestChatSettings_BackwardCompatibilityMigration(t *testing.T) {
 		t.Errorf("Chat tidak boleh kembali ke unconfigured")
 	}
 }
-
-

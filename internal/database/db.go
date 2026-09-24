@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 2
+const LatestSchemaVersion = 3
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL
@@ -166,8 +166,12 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		PRAGMA synchronous = NORMAL;
 	`)
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	if dbPath == ":memory:" {
+		db.SetMaxOpenConns(1)
+	} else {
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(5)
+	}
 	db.SetConnMaxLifetime(time.Hour)
 
 	if err := db.PingContext(ctx); err != nil {
