@@ -19,9 +19,14 @@ Seluruh acuan kerja, arsitektur, dan panduan operasional tim telah didokumentasi
 | Dokumen | Deskripsi & Target Pembaca |
 | :--- | :--- |
 | 🚀 [**docs/TEAM_ONBOARDING.md**](docs/TEAM_ONBOARDING.md) | **Panduan Onboarding & Kickoff Meeting Tim** *(Wajib untuk seluruh tim baru: visi v2.0, roadmap sprint, dan panduan PM).* |
-| 📱 [**docs/DASHBOARD_PRD.md**](docs/DASHBOARD_PRD.md) | **Spesifikasi Produk Web Dashboard** *(Wajib untuk UI/UX & Frontend: gambaran 4 tab, data field, tombol aksi, dan variasi state).* |
+| 📋 [**docs/PRD.md**](docs/PRD.md) | **Ruang Lingkup Produk** *(Tujuan, epic, prioritas rilis, dan ukuran keberhasilan).* |
+| 🧭 [**docs/product/PRODUCT_DEFINITION.md**](docs/product/PRODUCT_DEFINITION.md) | **Arah dan Keputusan Produk** *(Sumber keputusan alur, akses, peran, dan aturan utama).* |
+| ✅ [**docs/product/FUNCTIONAL_REQUIREMENTS.md**](docs/product/FUNCTIONAL_REQUIREMENTS.md) | **Kebutuhan Fungsional Kanonis** *(Satu-satunya sumber ID FR dan acceptance criteria).* |
+| 🗂️ [**docs/product/INFORMATION_ARCHITECTURE.md**](docs/product/INFORMATION_ARCHITECTURE.md) | **Struktur Informasi** *(Peta halaman, navigasi, konteks, dan state).* |
+| 🔗 [**docs/product/TRACEABILITY.md**](docs/product/TRACEABILITY.md) | **Matriks Ketertelusuran** *(Pemetaan UR, FR, BR, user flow, dan entitas).* |
 | 🤝 [**docs/CONTRIBUTING.md**](docs/CONTRIBUTING.md) | **Panduan Standar Kontribusi & Git Flow** *(Aturan branching, Conventional Commits, dan ceklis Pull Request).* |
-| 🏗️ [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) | **Cetak Biru Arsitektur Teknis** *(Diagram alur data, SQLite WAL mode, multi-kelas engine, dan isolasi sesi).* |
+| 🧱 [**docs/product/DATA_MODEL.md**](docs/product/DATA_MODEL.md) | **Model Data Target** *(Entitas, constraint, migrasi, dan kepemilikan data).* |
+| 🕸️ [**docs/product/ERD.md**](docs/product/ERD.md) | **ERD Mermaid** *(Visualisasi model data per domain).* |
 | ☁️ [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | **Panduan Server Azure & DevOps** *(Operasional server Linux Azure VM, service systemd, dan rilis produksi).* |
 | 📖 [**docs/PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) | **Panduan Lengkap Perintah Bot** *(Cheat sheet perintah WhatsApp, format tanggal alami, dan otorisasi admin grup).* |
 | 🤖 [**.agent/skills/vibe-coding-guide/**](.agent/skills/vibe-coding-guide/SKILL.md) | **Guardrails Vibe Coding AI** *(Aturan anti-bloat: dilarang npm, Go single binary, dan protokol tutor edukasi).* |
@@ -173,9 +178,10 @@ bot-jadwal/
 │   └── reminder_groups.json # Data preferensi broadcast pengingat
 ├── docs/                    # Dokumentasi lengkap sistem & tim
 │   ├── TEAM_ONBOARDING.md   # Panduan kickoff meeting tim pengembang
-│   ├── DASHBOARD_PRD.md     # Spesifikasi fitur Web Dashboard untuk UI/UX & Frontend
+│   ├── PRD.md               # Ruang lingkup dan prioritas produk
+│   ├── DASHBOARD_PRD.md     # Arsip spesifikasi dashboard lama (superseded)
 │   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
-│   ├── ARCHITECTURE.md      # Cetak biru arsitektur teknis sistem
+│   ├── product/             # Dokumen produk kanonis, data model, dan ERD
 │   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
 │   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
 │   ├── PRD.md               # Spesifikasi awal produk bot

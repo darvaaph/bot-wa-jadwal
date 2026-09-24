@@ -19,6 +19,17 @@ import (
 )
 
 var defaultGroupAdminResolver = chat.NewGroupAdminResolver(3 * time.Minute)
+var defaultCommandLimiter = NewRateLimiter(2 * time.Second)
+
+// SetDefaultCommandLimiter mengganti instance default command rate limiter (berguna untuk testing/kustomisasi)
+func SetDefaultCommandLimiter(limiter *RateLimiter) {
+	defaultCommandLimiter = limiter
+}
+
+// GetDefaultCommandLimiter mengembalikan instance default command rate limiter
+func GetDefaultCommandLimiter() *RateLimiter {
+	return defaultCommandLimiter
+}
 
 // ResolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA)
 func ResolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup bool, groupJID, senderJID, senderAltJID types.JID) bool {
@@ -60,6 +71,18 @@ func HandleIncomingMessage(
 		return
 	}
 
+	// Cek Rate Limiter Anti-Spam: Abaikan perintah beruntun dari pengirim yang sama (mencegah bot spam/ban)
+	if IsCommandMessage(msgText, v.Info.IsGroup) {
+		senderKey := v.Info.Sender.ToNonAD().User
+		if senderKey == "" {
+			senderKey = v.Info.Sender.String()
+		}
+		if defaultCommandLimiter != nil && !defaultCommandLimiter.Allow(senderKey) {
+			fmt.Printf("⏳ [Rate Limit] Perintah dari %s diabaikan (cooldown aktif)\n", senderKey)
+			return
+		}
+	}
+
 	// Log pesan yang diterima di konsol
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
@@ -83,6 +106,9 @@ func HandleIncomingMessage(
 	}
 
 	// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
+	if classManager == nil {
+		return
+	}
 	var activeClassID string
 	if chatSettingsManager != nil {
 		activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
@@ -163,7 +189,7 @@ func HandleIncomingMessage(
 			return
 		}
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now(), activeClassID)
 		reply(tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 		return
 	}
