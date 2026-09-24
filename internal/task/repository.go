@@ -372,6 +372,45 @@ func (r *Repository) SubmitReview(ctx context.Context, in ReviewTaskInput) error
 	return tx.Commit()
 }
 
+func (r *Repository) ListReviews(ctx context.Context, taskID int64) ([]TaskReview, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, task_id, reviewer_user_id,
+		reviewer_role_assignment_id, task_version, decision, note, created_at, updated_at
+	FROM task_reviews
+	WHERE task_id = ?
+	ORDER BY created_at ASC, id ASC`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	reviews := []TaskReview{}
+	for rows.Next() {
+		var review TaskReview
+		var note sql.NullString
+		if err := rows.Scan(
+			&review.ID,
+			&review.TaskID,
+			&review.ReviewerUserID,
+			&review.ReviewerRoleAssignmentID,
+			&review.TaskVersion,
+			&review.Decision,
+			&note,
+			&review.CreatedAt,
+			&review.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		review.Note = strPtr(note)
+		reviews = append(reviews, review)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return reviews, nil
+}
+
 func (r *Repository) CompleteTask(ctx context.Context, id int64) error {
 	res, err := r.db.ExecContext(ctx, `UPDATE tasks
 	SET completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),

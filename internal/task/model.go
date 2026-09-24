@@ -26,11 +26,11 @@ type Task struct {
 type TaskReview struct {
 	ID                       int64   `json:"id"`
 	TaskID                   int64   `json:"task_id"`
+	ReviewerUserID           int64   `json:"reviewer_user_id"`
+	ReviewerRoleAssignmentID int64   `json:"reviewer_role_assignment_id"`
 	TaskVersion              int     `json:"task_version"`
 	Decision                 string  `json:"decision"`
 	Note                     *string `json:"note,omitempty"`
-	ReviewerRoleAssignmentID int64   `json:"reviewer_role_assignment_id"`
-	ReviewedAt               string  `json:"reviewed_at"`
 	CreatedAt                string  `json:"created_at"`
 	UpdatedAt                string  `json:"updated_at"`
 }

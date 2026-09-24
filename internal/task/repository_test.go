@@ -11,6 +11,7 @@ import (
 type taskSeedCtx struct {
 	repo           *Repository
 	pjUserID       int64
+	kmUserID       int64
 	kmAssignmentID int64
 	classAID       int64
 	classBID       int64
@@ -75,6 +76,7 @@ func newTaskSeedCtx(t *testing.T) *taskSeedCtx {
 	return &taskSeedCtx{
 		repo:           NewRepository(db),
 		pjUserID:       pjID,
+		kmUserID:       kmID,
 		kmAssignmentID: kmAssignmentID,
 		classAID:       classAID,
 		classBID:       classBID,
@@ -310,5 +312,59 @@ func TestRepository_DeleteTask(t *testing.T) {
 		if item.ID == created.ID {
 			t.Fatalf("tugas yang dihapus masih muncul pada daftar aktif")
 		}
+	}
+}
+
+func TestRepository_ListReviews(t *testing.T) {
+	seed := newTaskSeedCtx(t)
+	ctx := context.Background()
+
+	submission := "Kumpulkan melalui LMS kelas"
+	created, err := seed.repo.CreateTask(ctx, CreateTaskInput{
+		CourseOfferingID: seed.offeringAID,
+		Title:            "Tugas Direview",
+		Instructions:     "Instruksi tugas review.",
+		DeadlineAt:       "2026-09-29T10:00:00.000Z",
+		TaskType:         "INDIVIDUAL",
+		SubmissionText:   &submission,
+		CreatedByUserID:  seed.pjUserID,
+	})
+	if err != nil {
+		t.Fatalf("CreateTask gagal: %v", err)
+	}
+
+	if err := seed.repo.SubmitReview(ctx, ReviewTaskInput{
+		TaskID:                   created.ID,
+		Decision:                 "APPROVED",
+		ReviewerRoleAssignmentID: seed.kmAssignmentID,
+	}); err != nil {
+		t.Fatalf("SubmitReview gagal: %v", err)
+	}
+
+	reviews, err := seed.repo.ListReviews(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ListReviews gagal: %v", err)
+	}
+	if len(reviews) != 1 {
+		t.Fatalf("diharapkan 1 review, didapat %d", len(reviews))
+	}
+	got := reviews[0]
+	if got.TaskID != created.ID {
+		t.Errorf("task_id = %d, diharapkan %d", got.TaskID, created.ID)
+	}
+	if got.ReviewerUserID != seed.kmUserID {
+		t.Errorf("reviewer_user_id = %d, diharapkan %d", got.ReviewerUserID, seed.kmUserID)
+	}
+	if got.ReviewerRoleAssignmentID != seed.kmAssignmentID {
+		t.Errorf("reviewer_role_assignment_id = %d, diharapkan %d", got.ReviewerRoleAssignmentID, seed.kmAssignmentID)
+	}
+	if got.TaskVersion != 1 {
+		t.Errorf("task_version = %d, diharapkan 1", got.TaskVersion)
+	}
+	if got.Decision != "APPROVED" {
+		t.Errorf("decision = %q, diharapkan APPROVED", got.Decision)
+	}
+	if got.CreatedAt == "" || got.UpdatedAt == "" {
+		t.Errorf("created_at/updated_at seharusnya terisi")
 	}
 }
