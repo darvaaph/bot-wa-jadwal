@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>bot-jadwal | Portal Kelas</title>
+  <title>bot-jadwal | Area Pengelola</title>
   
   <!-- Font Primaries: Funnel Sans & IBM Plex Mono via Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,19 +13,12 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/config.js"></script>
-  <link rel="stylesheet" href="css/app.css">
-
-  <!-- Core App Modules (Loaded before Alpine.js) -->
-  <script src="js/mock.js"></script>
-  <script src="js/format.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/portal.js"></script>
-
   <!-- Alpine.js CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body
-  x-data="portalApp()"
+  x-data="pengelolaApp()"
   x-init="initApp()"
   @keydown.escape.window="closeAllModals()"
  class="bg-canvas text-text-primary font-sans antialiased min-h-screen flex flex-col md:flex-row"
@@ -46,10 +39,10 @@
         </div>
         <div>
           <h1 class="font-bold text-base leading-tight tracking-tight text-white">bot-jadwal</h1>
-          <p class="text-xs text-primary-light font-mono">Portal Mahasiswa</p>
+          <p class="text-xs text-primary-light font-mono">Area Pengelola</p>
         </div>
       </div>
-      <span class="text-[10px] font-mono bg-border-dark text-primary-light px-2 py-0.5 rounded" title="Versi Aplikasi">v2.0</span>
+      <span class="text-[10px] font-mono bg-border-dark text-primary-light px-2 py-0.5 rounded" title="Versi Aplikasi">v3.0</span>
     </div>
 
     <!-- Active Management Context ("Sedang mengelola") -->
@@ -104,6 +97,13 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
           </svg>
           <span>Daftar Tugas</span>
+        </div>
+        <span 
+          x-show="pendingReviewCount > 0 && currentRole === 'km'" 
+          class="bg-warning-bg text-warning-text font-mono text-[11px] font-bold px-2 py-0.5 rounded-full"
+          x-text="pendingReviewCount"
+          title="Tugas butuh review KM"
+        ></span>
       </button>
       <!-- Perubahan Jadwal Tab -->
       <button 
@@ -117,7 +117,67 @@
         <span>Perubahan Jadwal</span>
       </button>
 
+      <!-- Pengelola / Review Tab (Only for PJ and KM) -->
+      <template x-if="currentRole !== 'mahasiswa'">
+        <button 
+          @click="switchTab('pengelola')" 
+          :class="activeTab === 'pengelola' ? 'bg-primary-brand text-white font-semibold' : 'text-primary-light hover:bg-[#2A2E39] hover:text-white'"
+          class="w-full h-11 px-3.5 rounded flex items-center justify-between text-sm transition-colors text-left mt-2 pt-2 border-t border-border-dark/70"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Pemeriksaan KM</span>
+          </div>
+          <span 
+            x-show="pendingReviewCount > 0" 
+            class="bg-amber-400 text-surface-dark font-mono text-[11px] font-bold px-1.5 py-0.5 rounded"
+            x-text="pendingReviewCount"
+          ></span>
+        </button>
+      </template>
     </nav>
+    <!-- WhatsApp Telemetry Status Box -->
+    <div class="p-3 mx-3 my-2 rounded border border-border-dark bg-[#181A20]">
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-primary-light font-medium">WhatsApp Bot</span>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full" :class="waStatus === 'Terhubung' ? 'bg-emerald-400 animate-pulse' : (waStatus === 'Standby' ? 'bg-amber-400' : 'bg-gray-400')"></span>
+          <span class="font-mono font-semibold" :class="waStatus === 'Terhubung' ? 'text-emerald-400' : (waStatus === 'Standby' ? 'text-amber-400' : 'text-gray-400')" x-text="waStatus">Memeriksa...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile & Account Footer -->
+    <div class="p-3.5 border-t border-border-dark flex items-center justify-between bg-surface-dark">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded bg-primary-brand text-white font-mono font-semibold flex items-center justify-center text-xs flex-shrink-0">
+          PC
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold text-white truncate">Pengguna Contoh</p>
+          <p class="text-[11px] text-primary-light truncate" x-text="roleDisplayBadge"></p>
+        </div>
+      </div>
+      <button 
+        @click="openSwitchContextModal()" 
+        class="text-primary-light hover:text-white p-1.5 rounded hover:bg-[#2A2E39] transition-colors"
+        title="Pindah kelas atau peran"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+        </svg>
+      </button>
+      <button 
+        x-show="authUser"
+        @click="doLogout()" 
+        class="text-xs text-primary-light hover:text-white px-2 py-2 rounded hover:bg-[#2A2E39] transition-colors underline decoration-dotted"
+        title="Keluar dari sesi pengelola"
+      >
+        Keluar
+      </button>
+    </div>
   </aside>
   <!-- ========================================== -->
   <!-- 2. MOBILE TOP APP BAR (< 768px)            -->
@@ -190,11 +250,59 @@
       <button @click="toast.show = false" class="text-xs font-bold underline ml-4">Tutup</button>
     </div>
 
+    <!-- Login Pengelola (ditampilkan bila sesi belum ada) -->
+    <div
+      x-show="authChecked && authRequired && !authUser"
+      x-cloak
+      class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-canvas"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="login-title"
+    >
+      <form @submit.prevent="doLogin()" class="bg-white rounded-lg border border-border-subtle max-w-sm w-full p-6 shadow-sm space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-primary-brand text-white font-mono font-bold text-base flex items-center justify-center rounded">BJ</div>
+          <div>
+            <h2 id="login-title" class="font-bold text-lg text-text-primary">Masuk Area Pengelola</h2>
+            <p class="text-xs text-text-muted">PJ, Ketua Murid, dan System Admin masuk dengan akun undangan.</p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1" for="login-identity">Identitas Akun</label>
+          <input id="login-identity" type="text" x-model="loginForm.identity_key" autocomplete="username"
+            class="w-full h-11 px-3 bg-white border border-border-control rounded text-sm text-text-primary" placeholder="Nomor WhatsApp atau email">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1" for="login-password">Kata Sandi</label>
+          <input id="login-password" type="password" x-model="loginForm.password" autocomplete="current-password"
+            class="w-full h-11 px-3 bg-white border border-border-control rounded text-sm text-text-primary" placeholder="Kata sandi">
+        </div>
+        <p x-show="authError" x-text="authError" class="text-xs text-danger-text" role="alert"></p>
+        <button type="submit" :disabled="isSubmitting"
+          class="w-full h-11 px-4 bg-primary-brand text-white rounded text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50">
+          <span x-text="isSubmitting ? 'Memeriksa...' : 'Masuk'"></span>
+        </button>
+      </form>
+    </div>
+
       <!-- Header Title with Quick Action -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 class="text-2xl font-bold text-text-primary tracking-tight">Ringkasan Perkuliahan</h2>
           <p class="text-sm text-text-muted mt-0.5" x-text="'Pantauan jadwal dan tenggat akademik hari ini, ' + todayFormatted"></p>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <template x-if="currentRole !== 'mahasiswa'">
+            <button 
+              @click="openCreateTaskModal()"
+              class="h-10 px-4 bg-primary-brand text-white font-medium text-sm rounded shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Tambah Tugas</span>
+            </button>
+          </template>
         </div>
       </div>
 
@@ -329,6 +437,17 @@
         </div>
 
       </div>
+      <!-- Alert Siaran WhatsApp Info Box -->
+      <div class="p-4 rounded border border-warning-border bg-warning-bg text-warning-text flex items-start gap-3 text-xs md:text-sm">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-warning-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="space-y-1">
+          <p class="font-semibold">Sinkronisasi Otomatis WhatsApp</p>
+          <p class="leading-relaxed">Setiap jadwal kuliah harian dan tugas baru yang terbit dikirim otomatis ke grup WhatsApp kelas pada jam pengingat terjadwal. Anda juga dapat menggunakan bot melalui command chat.</p>
+        </div>
+      </div>
+
     </div>
 
     <!-- ============================================== -->
@@ -430,6 +549,18 @@
           <h2 class="text-2xl font-bold text-text-primary tracking-tight">Daftar Tugas Kuliah</h2>
           <p class="text-sm text-text-muted mt-0.5">Kelola dan pantau tenggat tugas perkuliahan kelas.</p>
         </div>
+        <div class="flex items-center gap-2.5">
+          <template x-if="currentRole !== 'mahasiswa'">
+            <button 
+              @click="openCreateTaskModal()"
+              class="h-10 px-4 bg-primary-brand text-white font-medium text-sm rounded shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Buat Tugas Baru</span>
+            </button>
+          </template>
         </div>
       </div>
       <!-- Search & Filter Controls -->
@@ -468,6 +599,13 @@
               Mendesak
             </button>
             <button 
+              @click="taskFilter = 'DRAFT'"
+              :class="taskFilter === 'DRAFT' ? 'bg-amber-600 text-white font-semibold' : 'bg-canvas text-text-primary hover:bg-border-subtle/50'"
+              class="h-11 px-3 rounded text-xs transition-colors flex-shrink-0"
+            >
+              Draf
+            </button>
+            <button 
               @click="taskFilter = 'SELESAI'"
               :class="taskFilter === 'SELESAI' ? 'bg-success-text text-white font-semibold' : 'bg-canvas text-text-primary hover:bg-border-subtle/50'"
               class="h-11 px-3 rounded text-xs transition-colors flex-shrink-0"
@@ -501,6 +639,14 @@
                     x-text="task.status === 'PUBLISHED' ? 'Terbit' : 'Draf'"
                   ></span>
 
+                  <!-- Review Status Badge for KM -->
+                  <template x-if="task.review_status">
+                    <span 
+                      class="font-mono text-[11px] px-2 py-0.5 rounded font-medium"
+                      :class="task.review_status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : (task.review_status === 'CHANGES_REQUESTED' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800')"
+                      x-text="task.review_status === 'APPROVED' ? 'Sudah Diperiksa' : (task.review_status === 'CHANGES_REQUESTED' ? 'Perlu Revisi' : 'Perlu Diperiksa KM')"
+                    ></span>
+                  </template>
 
                   <!-- Urgent Badge -->
                   <template x-if="!task.is_completed && isTaskUrgent(task.deadline_at)">
@@ -533,6 +679,31 @@
               <!-- Action Buttons based on Role & State -->
               <div class="flex items-center md:flex-col md:items-end gap-2 flex-shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-border-subtle">
                 
+                <!-- Complete Button (Available to all) -->
+                <template x-if="!task.is_completed">
+                  <button 
+                    @click="markTaskComplete(task.id)"
+                    class="h-11 px-3 bg-white border border-border-control rounded text-xs font-semibold text-text-primary hover:bg-canvas transition-colors flex items-center gap-1.5"
+                  >
+                    <svg class="w-4 h-4 text-success-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Tandai Selesai</span>
+                  </button>
+                </template>
+
+                <!-- KM Review Button (For KM on pending tasks) -->
+                <template x-if="currentRole === 'km' && task.review_status === 'NOT_REVIEWED' && task.status === 'PUBLISHED'">
+                  <button 
+                    @click="openReviewModal(task)"
+                    class="h-11 px-3.5 bg-amber-500 text-surface-dark font-bold text-xs rounded hover:bg-amber-400 transition-colors flex items-center gap-1.5"
+                  >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Pemeriksaan KM</span>
+                  </button>
+                </template>
                 <!-- Detail Button -->
                 <button 
                   @click="openTaskDetail(task)"
@@ -646,6 +817,77 @@
 
     </div>
 
+    <!-- ============================================== -->
+    <!-- TAB 5: PENGELOLA / PEMERIKSAAN KM              -->
+    <!-- ============================================== -->
+    <div x-show="activeTab === 'pengelola'" x-transition class="p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6">
+
+      <!-- Header Pengelola -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 class="text-2xl font-bold text-text-primary tracking-tight">Antrean Pemeriksaan KM</h2>
+          <p class="text-sm text-text-muted mt-0.5">Tinjau dan setujui tugas yang diajukan oleh Penanggung Jawab (PJ) Mata Kuliah.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs font-bold px-3 py-1.5 bg-amber-100 text-amber-800 rounded">
+            Hak Akses: Ketua Murid
+          </span>
+        </div>
+      </div>
+
+      <!-- Pending Tasks Queue -->
+      <div class="space-y-4">
+        <template x-for="task in reviewPendingTasks" :key="task.id">
+          <div class="bg-white rounded-lg border border-amber-300 p-5 shadow-sm space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-xs font-bold text-primary-brand bg-primary-tint px-2 py-0.5 rounded" x-text="task.course_code || task.course_name"></span>
+                  <span class="text-xs text-text-muted" x-text="'Oleh: ' + (task.creator_name || 'PJ Mata Kuliah')"></span>
+                  <span class="text-xs font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">Perlu Diperiksa</span>
+                </div>
+                <h3 class="text-lg font-bold text-text-primary" x-text="task.title"></h3>
+                <p class="text-sm text-text-muted" x-text="task.instructions || 'Tidak ada petunjuk tambahan.'"></p>
+                <div class="text-xs font-mono text-text-muted pt-1" x-text="'Tenggat: ' + formatDateLong(task.deadline_at)"></div>
+              </div>
+            </div>
+
+            <!-- KM Review Decision Actions -->
+            <div class="pt-3 border-t border-border-subtle flex items-center justify-end gap-2.5">
+              <button 
+                @click="openReviewModal(task, 'CHANGES_REQUESTED')"
+                class="h-11 px-3.5 border border-danger-text text-danger-text rounded text-xs font-semibold hover:bg-danger-bg transition-colors"
+              >
+                Minta Perbaikan
+              </button>
+              <button 
+                @click="submitDirectReview(task.id, 'APPROVED')"
+                class="h-11 px-4 bg-primary-brand text-white rounded text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Setujui & Terbitkan
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="reviewPendingTasks.length === 0">
+          <div class="bg-white rounded-lg border border-dashed border-border-subtle p-12 text-center space-y-3">
+            <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-base text-text-primary">Antrean Pemeriksaan Bersih</h4>
+              <p class="text-xs text-text-muted mt-1 max-w-sm mx-auto">Tidak ada tugas baru dari PJ yang menunggu pemeriksaan saat ini.</p>
+            </div>
+          </div>
+        </template>
+      </div>
+
+    </div>
+
+  </main>
   <!-- ========================================== -->
   <!-- 4. BOTTOM NAVIGATION MOBILE (< 768px)      -->
   <!-- ========================================== -->
@@ -676,6 +918,7 @@
       <span class="text-[10px] mt-0.5">Jadwal</span>
     </button>
 
+    <!-- Tugas -->
     <button 
       @click="switchTab('tugas')"
       :class="activeTab === 'tugas' ? 'text-primary-brand bg-primary-tint font-bold' : 'text-text-muted'"
@@ -686,20 +929,211 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
       <span class="text-[10px] mt-0.5">Tugas</span>
+      <span 
+        x-show="pendingReviewCount > 0 && currentRole === 'km'" 
+        class="absolute top-1 right-3 w-2 h-2 rounded-full bg-amber-500"
+      ></span>
     </button>
-    <!-- Perubahan -->
+    <!-- Perubahan / Pengelola -->
     <button 
-      @click="switchTab('perubahan')"
-      :class="activeTab === 'perubahan' ? 'text-primary-brand bg-primary-tint font-bold' : 'text-text-muted'"
+      @click="switchTab(currentRole === 'mahasiswa' ? 'perubahan' : 'pengelola')"
+      :class="(activeTab === 'perubahan' || activeTab === 'pengelola') ? 'text-primary-brand bg-primary-tint font-bold' : 'text-text-muted'"
       class="flex flex-col items-center justify-center h-12 w-16 rounded transition-colors"
-      aria-label="Perubahan"
+      aria-label="Menu Tambahan"
     >
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
       </svg>
-      <span class="text-[10px] mt-0.5">Perubahan</span>
+      <span class="text-[10px] mt-0.5" x-text="currentRole === 'mahasiswa' ? 'Perubahan' : 'Pemeriksaan'"></span>
     </button>
   </nav>
+  <!-- ========================================== -->
+  <!-- MODAL 1: TAMBAH TUGAS (Create Task)        -->
+  <!-- ========================================== -->
+  <div 
+    x-show="modals.createTask" 
+    x-cloak 
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-create-task-title"
+  >
+    <div 
+      @click.outside="modals.createTask = false"
+      class="bg-white rounded-lg border border-border-subtle max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+    >
+      <div class="flex items-center justify-between border-b border-border-subtle pb-3">
+        <div>
+          <h3 id="modal-create-task-title" class="font-bold text-lg text-text-primary">Tambah Tugas Baru</h3>
+          <p class="text-xs text-text-muted">Isi formulir rincian tugas untuk dipublikasikan ke mahasiswa.</p>
+        </div>
+        <button @click="modals.createTask = false" class="text-text-muted hover:text-text-primary p-1 rounded">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form @submit.prevent="submitCreateTask()" class="space-y-4">
+        
+        <!-- Pilihan Mata Kuliah (Offering) -->
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Mata Kuliah</label>
+          <select 
+            x-model="newTaskForm.course_offering_id" 
+            required 
+            class="w-full h-10 px-3 bg-white border border-border-control rounded text-sm text-text-primary"
+          >
+            <option value="">Pilih Mata Kuliah...</option>
+            <template x-for="course in courseOfferings" :key="course.id">
+              <option :value="course.id" x-text="course.code + ' - ' + course.name"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Judul Tugas -->
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Judul Tugas</label>
+          <input 
+            type="text" 
+            x-model="newTaskForm.title" 
+            required 
+            placeholder="Contoh: Normalisasi Skema Perpustakaan"
+            class="w-full h-10 px-3 bg-white border border-border-control rounded text-sm text-text-primary placeholder-text-muted"
+          >
+        </div>
+
+        <!-- Tenggat Waktu (Deadline) -->
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Tenggat Waktu Pengumpulan</label>
+          <input 
+            type="datetime-local" 
+            x-model="newTaskForm.deadline_at" 
+            required 
+            class="w-full h-10 px-3 bg-white border border-border-control rounded text-sm text-text-primary font-mono"
+          >
+        </div>
+
+        <!-- Instruksi / Deskripsi -->
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Petunjuk Pengerjaan</label>
+          <textarea 
+            x-model="newTaskForm.instructions" 
+            rows="3" 
+            placeholder="Tuliskan petunjuk atau kriteria pengumpulan tugas..."
+            class="w-full p-3 bg-white border border-border-control rounded text-sm text-text-primary placeholder-text-muted"
+          ></textarea>
+        </div>
+
+        <!-- Tempat Pengumpulan -->
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Tempat Pengumpulan</label>
+          <input 
+            type="text" 
+            x-model="newTaskForm.submission_target" 
+            placeholder="Contoh: Tautan LMS kelas atau Google Drive"
+            class="w-full h-10 px-3 bg-white border border-border-control rounded text-sm text-text-primary placeholder-text-muted"
+          >
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="pt-3 border-t border-border-subtle flex items-center justify-end gap-2.5">
+          <button 
+            type="button" 
+            @click="modals.createTask = false"
+            class="h-10 px-4 border border-border-control text-text-primary rounded text-xs font-medium hover:bg-canvas transition-colors"
+          >
+            Batal
+          </button>
+          <button 
+            type="submit"
+            :disabled="isSubmitting" 
+            class="h-10 px-5 bg-primary-brand text-white rounded text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <span x-text="isSubmitting ? 'Menyimpan...' : 'Terbitkan Tugas'"></span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+  <!-- ========================================== -->
+  <!-- MODAL 2: PEMERIKSAAN KM (Review Task)      -->
+  <!-- ========================================== -->
+  <div 
+    x-show="modals.reviewTask" 
+    x-cloak 
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-review-title"
+  >
+    <div 
+      @click.outside="modals.reviewTask = false"
+      class="bg-white rounded-lg border border-border-subtle max-w-md w-full p-6 shadow-2xl space-y-4"
+    >
+      <div class="flex items-center justify-between border-b border-border-subtle pb-3">
+        <div>
+          <h3 id="modal-review-title" class="font-bold text-lg text-text-primary">Pemeriksaan Tugas KM</h3>
+          <p class="text-xs text-text-muted">Tentukan persetujuan publikasi tugas ini.</p>
+        </div>
+        <button @click="modals.reviewTask = false" class="text-text-muted hover:text-text-primary p-1 rounded">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-3 bg-canvas rounded border border-border-subtle space-y-1 text-xs">
+        <div class="font-mono text-text-muted" x-text="activeReviewTask ? activeReviewTask.course_name : ''"></div>
+        <div class="font-bold text-sm text-text-primary" x-text="activeReviewTask ? activeReviewTask.title : ''"></div>
+        <div class="text-text-muted font-mono" x-text="activeReviewTask ? 'Tenggat: ' + formatDateShort(activeReviewTask.deadline_at) : ''"></div>
+      </div>
+
+      <form @submit.prevent="submitReviewModal()" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Keputusan Pemeriksaan</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="border p-2.5 rounded flex items-center gap-2 cursor-pointer transition-colors" :class="reviewForm.decision === 'APPROVED' ? 'border-primary-brand bg-primary-tint/50 font-bold text-primary-brand' : 'border-border-control text-text-primary'">
+              <input type="radio" value="APPROVED" x-model="reviewForm.decision" class="text-primary-brand">
+              <span>Setujui (Terbit)</span>
+            </label>
+            <label class="border p-2.5 rounded flex items-center gap-2 cursor-pointer transition-colors" :class="reviewForm.decision === 'CHANGES_REQUESTED' ? 'border-danger-text bg-danger-bg font-bold text-danger-text' : 'border-border-control text-text-primary'">
+              <input type="radio" value="CHANGES_REQUESTED" x-model="reviewForm.decision" class="text-danger-text">
+              <span>Minta Revisi</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Catatan Tambahan (Opsional)</label>
+          <textarea 
+            x-model="reviewForm.note" 
+            rows="3" 
+            placeholder="Tuliskan catatan perbaikan atau konfirmasi untuk PJ..."
+            class="w-full p-2.5 bg-white border border-border-control rounded text-xs text-text-primary placeholder-text-muted"
+          ></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-border-subtle flex items-center justify-end gap-2.5">
+          <button 
+            type="button" 
+            @click="modals.reviewTask = false"
+            class="h-11 px-4 border border-border-control text-text-primary rounded text-xs font-medium hover:bg-canvas"
+          >
+            Batal
+          </button>
+          <button 
+            type="submit" 
+            :disabled="isSubmitting"
+            class="h-11 px-4 bg-primary-brand text-white rounded text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <span x-text="isSubmitting ? 'Mengirim...' : 'Kirim Hasil Pemeriksaan'"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
   <!-- ========================================== -->
   <!-- MODAL 3: PINDAH KELAS DAN PERAN           -->
   <!-- ========================================== -->
@@ -727,7 +1161,18 @@
         </button>
       </div>
 
-      <div class="space-y-3">
+      <div x-show="authUser && !demoMode" class="space-y-2">
+        <label class="block text-xs font-bold text-text-primary mb-1">Pilih Kelas dan Peran</label>
+        <template x-for="assignment in authAssignments" :key="assignment.id">
+          <label class="border p-2.5 rounded flex items-center gap-2.5 cursor-pointer text-xs transition-colors" :class="pickedAssignmentId === assignment.id ? 'border-primary-brand bg-primary-tint/40 font-semibold' : 'border-border-control'">
+            <input type="radio" :value="assignment.id" x-model.number="pickedAssignmentId" class="text-primary-brand">
+            <div>
+              <div class="text-text-primary font-bold" x-text="assignmentLabel(assignment)"></div>
+            </div>
+          </label>
+        </template>
+      </div>
+      <div class="space-y-3" x-show="!authUser || demoMode">
         <div>
           <label class="block text-xs font-bold text-text-primary mb-1">Kelas Perkuliahan</label>
           <select 
@@ -739,9 +1184,32 @@
             </template>
           </select>
         </div>
-      <div class="rounded border border-border-subtle bg-canvas/40 p-3 text-xs text-text-muted">
-        Masuk sebagai pengelola untuk menambah tugas dan memeriksa? Buka <a href="./app.html" class="text-primary-brand font-semibold underline">Area Pengelola</a>.
-      </div>
+        <div>
+          <label class="block text-xs font-bold text-text-primary mb-1">Peran Aktif</label>
+          <div class="space-y-2">
+            <label class="border p-2.5 rounded flex items-center gap-2.5 cursor-pointer text-xs transition-colors" :class="tempRole === 'km' ? 'border-primary-brand bg-primary-tint/40 font-semibold' : 'border-border-control'">
+              <input type="radio" value="km" x-model="tempRole" class="text-primary-brand">
+              <div>
+                <div class="text-text-primary font-bold">Ketua Murid (KM)</div>
+                <div class="text-[11px] text-text-muted">Wewenang penuh seluruh mata kuliah dan pemeriksaan</div>
+              </div>
+            </label>
+            <label class="border p-2.5 rounded flex items-center gap-2.5 cursor-pointer text-xs transition-colors" :class="tempRole === 'pj' ? 'border-primary-brand bg-primary-tint/40 font-semibold' : 'border-border-control'">
+              <input type="radio" value="pj" x-model="tempRole" class="text-primary-brand">
+              <div>
+                <div class="text-text-primary font-bold">PJ Mata Kuliah</div>
+                <div class="text-[11px] text-text-muted">Mengelola mata kuliah yang ditugaskan</div>
+              </div>
+            </label>
+            <label class="border p-2.5 rounded flex items-center gap-2.5 cursor-pointer text-xs transition-colors" :class="tempRole === 'mahasiswa' ? 'border-primary-brand bg-primary-tint/40 font-semibold' : 'border-border-control'">
+              <input type="radio" value="mahasiswa" x-model="tempRole" class="text-primary-brand">
+              <div>
+                <div class="text-text-primary font-bold">Mahasiswa (Portal Kelas)</div>
+                <div class="text-[11px] text-text-muted">Hanya membaca jadwal dan tugas terbit</div>
+              </div>
+            </label>
+          </div>
+        </div>
       <div class="pt-3 border-t border-border-subtle flex items-center justify-end gap-2.5">
         <button 
           @click="modals.switchContext = false"
@@ -801,9 +1269,27 @@
             <span class="font-bold text-text-primary" x-text="activeDetailTask && activeDetailTask.submission_target ? activeDetailTask.submission_target : 'LMS Kampus'"></span>
           </div>
         </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-border-subtle text-xs font-mono">
+          <div>
+            <span class="text-text-muted block">Status Publikasi</span>
+            <span class="font-semibold text-success-text" x-text="activeDetailTask && activeDetailTask.status === 'PUBLISHED' ? 'Terbit' : 'Draf'"></span>
+          </div>
+          <div>
+            <span class="text-text-muted block">Status Pemeriksaan</span>
+            <span class="font-semibold text-text-primary" x-text="activeDetailTask && activeDetailTask.review_status === 'APPROVED' ? 'Sudah Diperiksa' : 'Belum Diperiksa'"></span>
+          </div>
+        </div>
       </div>
 
       <div class="pt-3 border-t border-border-subtle flex items-center justify-between">
+        <button 
+          x-show="activeDetailTask && !activeDetailTask.is_completed"
+          @click="markTaskComplete(activeDetailTask.id); modals.taskDetail = false;"
+          class="h-11 px-3 bg-white border border-border-control rounded text-xs font-semibold text-text-primary hover:bg-canvas"
+        >
+          Tandai Selesai
+        </button>
         <button 
           @click="modals.taskDetail = false"
           class="h-11 px-4 bg-surface-dark text-white rounded text-xs font-bold hover:bg-black transition-colors ml-auto"
@@ -813,5 +1299,9 @@
       </div>
     </div>
   </div>
+  <script defer src="js/mock.js"></script>
+  <script defer src="js/format.js"></script>
+  <script defer src="js/api.js"></script>
+  <script defer src="js/pengelola.js"></script>
 </body>
 </html>

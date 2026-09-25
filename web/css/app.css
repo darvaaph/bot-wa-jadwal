@@ -1,0 +1,7 @@
+    [x-cloak] { display: none !important; }
+    
+    /* Ensure high contrast focus outlines for keyboard navigation (R-32) */
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid #315CBE !important;
+      outline-offset: 2px !important;
+    }

@@ -19,6 +19,51 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) DB() *sql.DB {
+	return r.db
+}
+
+func (r *Repository) GetClassBySlug(ctx context.Context, slug string) (*Class, error) {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return nil, nil
+	}
+	query := `
+		SELECT id, code, slug, study_program, cohort_year, group_label, status, created_at, updated_at
+		FROM classes
+		WHERE LOWER(slug) = LOWER(?) OR LOWER(code) = LOWER(?)
+		LIMIT 1;
+	`
+	var c Class
+	var createdAt, updatedAt string
+	err := r.db.QueryRowContext(ctx, query, slug, slug).Scan(
+		&c.ID,
+		&c.Code,
+		&c.Slug,
+		&c.StudyProgram,
+		&c.CohortYear,
+		&c.GroupLabel,
+		&c.Status,
+		&createdAt,
+		&updatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil kelas %q: %w", slug, err)
+	}
+	c.CreatedAt, err = parseTime(createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("timestamp created_at kelas %q tidak valid: %w", slug, err)
+	}
+	c.UpdatedAt, err = parseTime(updatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("timestamp updated_at kelas %q tidak valid: %w", slug, err)
+	}
+	return &c, nil
+}
+
 func parseTime(raw string) (time.Time, error) {
 	if raw == "" {
 		return time.Time{}, fmt.Errorf("timestamp kosong")

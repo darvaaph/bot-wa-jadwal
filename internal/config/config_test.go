@@ -44,3 +44,16 @@ func TestConfig_EnsureStorageAndMigrate(t *testing.T) {
 		t.Errorf("File sumber harus terhapus setelah migrasi: %s", dummyRoot)
 	}
 }
+
+func TestLoadConfig_AuthSettings(t *testing.T) {
+	t.Setenv("BOT_JADWAL_AUTH_HASH_KEY", "0123456789abcdef0123456789abcdef")
+	t.Setenv("BOT_JADWAL_SECURE_COOKIES", "true")
+
+	cfg := LoadConfig()
+	if cfg.AuthHashKey != "0123456789abcdef0123456789abcdef" {
+		t.Fatal("auth hash key tidak dimuat dari environment")
+	}
+	if !cfg.SecureCookies {
+		t.Fatal("secure cookies seharusnya aktif")
+	}
+}

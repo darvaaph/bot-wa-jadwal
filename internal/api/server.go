@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"bot-jadwal/internal/academic"
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
@@ -18,12 +21,14 @@ import (
 )
 
 type Server struct {
-	httpServer   *http.Server
-	botClient    *bot.BotClient
-	classManager *schedule.ClassManager
-	taskManager  *task.TaskManager
-	taskRepo     *task.Repository
-	academicRepo *academic.Repository
+	httpServer    *http.Server
+	botClient     *bot.BotClient
+	classManager  *schedule.ClassManager
+	taskManager   *task.TaskManager
+	taskRepo      *task.Repository
+	academicRepo  *academic.Repository
+	authService   *auth.Service
+	secureCookies bool
 }
 
 type HealthResponse struct {
@@ -77,21 +82,31 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	}
 
 	mux.HandleFunc("GET /api/health", s.handleHealth)
-	mux.HandleFunc("GET /api/status", s.handleStatus)
+	mux.HandleFunc("GET /api/status", s.authenticateIfConfigured(s.handleStatus))
 
-	mux.HandleFunc("GET /api/academic/classes", s.handleAcademicClasses)
-	mux.HandleFunc("GET /api/academic/classes/{id}/courses", s.handleAcademicCourses)
+	mux.HandleFunc("GET /api/academic/classes", s.authenticateIfConfigured(s.handleAcademicClasses))
+	mux.HandleFunc("GET /api/academic/classes/{id}/courses", s.authenticateIfConfigured(s.handleAcademicCourses))
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.handleAuthLogout)
+	mux.HandleFunc("GET /api/v1/auth/session", s.handleAuthSession)
+	mux.HandleFunc("POST /api/v1/auth/switch-context", s.handleAuthSwitchContext)
 
 	mux.HandleFunc("GET /api/classes", s.handleClasses)
 	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
-	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
-	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
+	mux.HandleFunc("POST /api/tasks", s.disableLegacyMutationWhenAuthConfigured(s.handleCreateTask))
+	mux.HandleFunc("DELETE /api/tasks/{id}", s.disableLegacyMutationWhenAuthConfigured(s.handleDeleteTask))
 
-	mux.HandleFunc("GET /api/v1/tasks", s.handleListTasksV1)
-	mux.HandleFunc("POST /api/v1/tasks", s.handleCreateTaskV1)
-	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.handleReviewTaskV1)
-	mux.HandleFunc("PATCH /api/v1/tasks/{id}/complete", s.handleCompleteTaskV1)
+	mux.HandleFunc("GET /api/v1/tasks", s.authenticateIfConfigured(s.handleListTasksV1))
+	mux.HandleFunc("POST /api/v1/tasks", s.authenticateMutationIfConfigured(s.handleCreateTaskV1))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.authenticateMutationIfConfigured(s.handleReviewTaskV1))
+	mux.HandleFunc("PATCH /api/v1/tasks/{id}/complete", s.authenticateMutationIfConfigured(s.handleCompleteTaskV1))
+
+	mux.HandleFunc("GET /api/portal/{slug}/summary", s.handlePortalSummary)
+	mux.HandleFunc("GET /api/portal/{slug}/schedule", s.handlePortalSchedule)
+	mux.HandleFunc("GET /api/portal/{slug}/tasks", s.handlePortalTasks)
+	mux.HandleFunc("GET /api/portal/{slug}/changes", s.handlePortalChanges)
+	mux.HandleFunc("GET /api/portal/{slug}/semesters", s.handlePortalSemesters)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
@@ -104,10 +119,12 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	handler := s.corsMiddleware(s.recoveryMiddleware(mux))
 
 	s.httpServer = &http.Server{
-		Addr:         addr,
-		Handler:      handler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	return s
@@ -123,6 +140,10 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+		return
+	}
 	botStatus := "uninitialized"
 	if s.botClient != nil {
 		botStatus = s.botClient.Status()
@@ -154,12 +175,29 @@ func (s *Server) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-// corsMiddleware memungkinkan Web Dashboard (UI/UX) diakses lintas port saat masa pengembangan
+// corsMiddleware hanya mengizinkan origin yang sama agar cookie sesi tidak dapat
+// dipakai oleh situs lain. Dashboard produksi dilayani dari server ini.
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "same-origin")
+		if s.secureCookies {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		origin := strings.TrimSpace(r.Header.Get("Origin"))
+		if origin != "" {
+			parsed, err := url.Parse(origin)
+			if err != nil || !strings.EqualFold(parsed.Host, r.Host) {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Origin tidak diizinkan"})
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Add("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -210,6 +248,11 @@ func (s *Server) SetTaskRepo(repo *task.Repository) {
 	s.taskRepo = repo
 }
 
+func (s *Server) SetAuthService(service *auth.Service, secureCookies bool) {
+	s.authService = service
+	s.secureCookies = secureCookies
+}
+
 func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {
 	if s.academicRepo == nil {
 		s.writeJSON(w, http.StatusOK, map[string]any{
@@ -227,6 +270,15 @@ func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {
 		log.Printf("academic classes query failed: %v", err)
 		s.writeAcademicQueryError(w, err, "Gagal mengambil data kelas")
 		return
+	}
+	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() {
+		filtered := classes[:0]
+		for _, class := range classes {
+			if principal.ClassID != nil && class.ID == *principal.ClassID {
+				filtered = append(filtered, class)
+			}
+		}
+		classes = filtered
 	}
 
 	s.writeJSON(w, http.StatusOK, map[string]any{
@@ -251,6 +303,11 @@ func (s *Server) handleAcademicCourses(w http.ResponseWriter, r *http.Request) {
 			"status": "error",
 			"error":  "Parameter ID kelas tidak valid",
 		})
+		return
+	}
+	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() &&
+		(principal.ClassID == nil || *principal.ClassID != classID) {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
 		return
 	}
 

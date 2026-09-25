@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/task"
 )
 
@@ -200,6 +201,11 @@ func (s *Server) handleListTasksV1(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() &&
+		(principal.ClassID == nil || *principal.ClassID != classID) {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+		return
+	}
 
 	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
 	if statusFilter != "" {
@@ -254,6 +260,22 @@ func (s *Server) handleCreateTaskV1(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if principal, ok := principalFromRequest(r); ok {
+		scope, err := s.taskRepo.GetOfferingScope(r.Context(), input.CourseOfferingID)
+		if err != nil {
+			if errors.Is(err, task.ErrNotFound) {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
+			s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memeriksa cakupan tugas"})
+			return
+		}
+		if err := s.authService.RequireOfferingMutation(r.Context(), *principal, auth.Scope{ClassID: scope.ClassID, SemesterID: scope.SemesterID, CourseOfferingID: scope.CourseOfferingID}); err != nil {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
+		input.CreatedByUserID = principal.UserID
+	}
 
 	created, err := s.taskRepo.CreateTask(r.Context(), input)
 	if err != nil {
@@ -302,11 +324,30 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload.Decision = strings.ToUpper(strings.TrimSpace(payload.Decision))
-	if payload.Decision == "" || payload.ReviewerRoleAssignmentID <= 0 {
+	if payload.Decision == "" {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
-			"error":  "Field decision dan reviewer_role_assignment_id wajib diisi",
+			"error":  "Field decision wajib diisi",
 		})
+		return
+	}
+	if principal, ok := principalFromRequest(r); ok {
+		scope, err := s.taskRepo.GetTaskScope(r.Context(), taskID)
+		if err != nil {
+			if errors.Is(err, task.ErrNotFound) {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
+			s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memeriksa cakupan tugas"})
+			return
+		}
+		if err := s.authService.RequireOfferingMutation(r.Context(), *principal, auth.Scope{ClassID: scope.ClassID, SemesterID: scope.SemesterID, CourseOfferingID: scope.CourseOfferingID}); err != nil || !principal.CanReviewClass(scope.ClassID) {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
+		payload.ReviewerRoleAssignmentID = principal.RoleAssignmentID
+	} else if payload.ReviewerRoleAssignmentID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field reviewer_role_assignment_id wajib diisi"})
 		return
 	}
 
@@ -353,6 +394,21 @@ func (s *Server) handleCompleteTaskV1(w http.ResponseWriter, r *http.Request) {
 			"error":  "ID tugas tidak valid",
 		})
 		return
+	}
+	if principal, ok := principalFromRequest(r); ok {
+		scope, err := s.taskRepo.GetTaskScope(r.Context(), taskID)
+		if err != nil {
+			if errors.Is(err, task.ErrNotFound) {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
+			s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memeriksa cakupan tugas"})
+			return
+		}
+		if err := s.authService.RequireOfferingMutation(r.Context(), *principal, auth.Scope{ClassID: scope.ClassID, SemesterID: scope.SemesterID, CourseOfferingID: scope.CourseOfferingID}); err != nil {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
 	}
 
 	if err := s.taskRepo.CompleteTask(r.Context(), taskID); err != nil {

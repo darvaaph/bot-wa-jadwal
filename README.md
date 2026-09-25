@@ -111,6 +111,20 @@ Sebelum membuka PR, developer wajib memastikan seluruh unit test lulus:
 go test -v ./...
 ```
 
+### 4. Provisioning Login Pengurus
+
+Server membutuhkan secret lokal minimal 32 byte untuk hashing metadata percobaan login. Jangan commit nilainya.
+
+```powershell
+$env:BOT_JADWAL_AUTH_HASH_KEY = "ganti-dengan-secret-acak-minimal-32-byte"
+$env:BOT_JADWAL_ADMIN_PASSWORD = "kata-sandi-admin-minimal-12-karakter"
+go run ./cmd/provision-admin -identity "admin@example.test" -display-name "System Admin"
+Remove-Item Env:BOT_JADWAL_ADMIN_PASSWORD
+go run ./cmd/bot -web-only
+```
+
+Provisioning hanya dapat membuat System Admin pertama. Untuk deployment HTTPS, set `BOT_JADWAL_SECURE_COOKIES=true`; password admin hanya dibaca dari environment agar tidak tersimpan dalam riwayat command line.
+
 ---
 
 ## 🛠️ Toolkit Resmi Tim (100% Gratis & Ringan)

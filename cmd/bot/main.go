@@ -11,6 +11,7 @@ import (
 
 	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api"
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/config"
@@ -60,14 +61,30 @@ func main() {
 
 	appDB, err := database.InitDB(cfg.AppDBPath)
 	if err != nil {
-		fmt.Printf("Peringatan inisialisasi database utama: %v\n", err)
+		fmt.Printf("❌ Gagal menginisialisasi database utama: %v\n", err)
+		return
 	} else {
 		fmt.Printf("Berhasil menghubungkan database utama (%s) [WAL Mode]\n", cfg.AppDBPath)
 	}
 
 	var academicRepo *academic.Repository
+	var authService *auth.Service
 	if appDB != nil {
 		academicRepo = academic.NewRepository(appDB)
+		if cfg.AuthHashKey == "" {
+			fmt.Println("❌ BOT_JADWAL_AUTH_HASH_KEY wajib diatur (minimal 32 byte); server tidak dijalankan")
+			_ = appDB.Close()
+			return
+		} else {
+			authService, err = auth.NewService(appDB, auth.Config{HashKey: []byte(cfg.AuthHashKey)})
+			if err != nil {
+				fmt.Printf("❌ Konfigurasi autentikasi pengurus tidak valid: %v\n", err)
+				_ = appDB.Close()
+				return
+			} else {
+				fmt.Println("🔐 Autentikasi pengurus siap")
+			}
+		}
 		ctx, cancelAcademicStartup := context.WithTimeout(context.Background(), 30*time.Second)
 		count, err := academicRepo.CountClasses(ctx)
 		if err == nil && count == 0 {
@@ -182,6 +199,9 @@ func main() {
 	if taskRepo != nil {
 		apiServer.SetTaskRepo(taskRepo)
 	}
+	if authService != nil {
+		apiServer.SetAuthService(authService, cfg.SecureCookies)
+	}
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 
@@ -210,9 +230,11 @@ func main() {
 		}
 	}
 
-	fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
-	if err := botClient.Close(); err != nil {
-		fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+	if botClient != nil {
+		fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
+		if err := botClient.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+		}
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")

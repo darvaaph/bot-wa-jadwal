@@ -13,8 +13,45 @@ type Repository struct {
 	db *sql.DB
 }
 
+type AcademicScope struct {
+	ClassID          int64
+	SemesterID       int64
+	CourseOfferingID int64
+}
+
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
+}
+
+func (r *Repository) GetOfferingScope(ctx context.Context, offeringID int64) (AcademicScope, error) {
+	var scope AcademicScope
+	err := r.db.QueryRowContext(ctx, `SELECT sem.class_id, co.semester_id, co.id
+		FROM course_offerings co
+		JOIN semesters sem ON sem.id = co.semester_id
+		WHERE co.id = ?`, offeringID).Scan(&scope.ClassID, &scope.SemesterID, &scope.CourseOfferingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return scope, ErrNotFound
+	}
+	if err != nil {
+		return scope, err
+	}
+	return scope, nil
+}
+
+func (r *Repository) GetTaskScope(ctx context.Context, taskID int64) (AcademicScope, error) {
+	var scope AcademicScope
+	err := r.db.QueryRowContext(ctx, `SELECT sem.class_id, co.semester_id, co.id
+		FROM tasks t
+		JOIN course_offerings co ON co.id = t.course_offering_id
+		JOIN semesters sem ON sem.id = co.semester_id
+		WHERE t.id = ? AND t.deleted_at IS NULL`, taskID).Scan(&scope.ClassID, &scope.SemesterID, &scope.CourseOfferingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return scope, ErrNotFound
+	}
+	if err != nil {
+		return scope, err
+	}
+	return scope, nil
 }
 
 func strPtr(s sql.NullString) *string {
