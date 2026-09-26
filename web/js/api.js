@@ -110,6 +110,147 @@ const BotApi = {
     return true;
   },
 
+  async getTaskDetail(taskId) {
+    const res = await fetch('/api/v1/tasks/' + taskId, { credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  },
+
+  async getTaskReviews(taskId) {
+    const res = await fetch('/api/v1/tasks/' + taskId + '/reviews', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || [];
+  },
+
+  async publishTask(taskId) {
+    const res = await fetch('/api/v1/tasks/' + taskId + '/publish', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders()
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (res.status === 409) {
+      const err = new Error('Versi data sudah berubah, muat ulang sebelum menyimpan.');
+      err.code = 'VERSION_CONFLICT';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Gagal mempublikasikan tugas.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  async updateTask(taskId, payload) {
+    const res = await fetch('/api/v1/tasks/' + taskId, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (res.status === 409) {
+      const err = new Error('Versi data sudah berubah, muat ulang sebelum menyimpan.');
+      err.code = 'VERSION_CONFLICT';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Gagal mengubah tugas.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  async archiveTask(taskId, unarchive) {
+    const res = await fetch('/api/v1/tasks/' + taskId + (unarchive ? '/unarchive' : '/archive'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders()
+    });
+    if (!res.ok) {
+      const err = new Error('Gagal mengubah status arsip.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  async deleteTaskV1(taskId) {
+    const res = await fetch('/api/v1/tasks/' + taskId, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: mutationHeaders()
+    });
+    if (!res.ok) {
+      const err = new Error('Gagal menghapus tugas.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
+  },
+
+  async restoreTask(taskId, reason) {
+    const res = await fetch('/api/v1/tasks/' + taskId + '/restore', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason })
+    });
+    if (!res.ok) {
+      const err = new Error('Gagal memulihkan tugas.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  async getMaterials(classId, offeringId) {
+    let url = '/api/v1/materials?class_id=' + classId;
+    if (offeringId) url += '&course_offering_id=' + offeringId;
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || [];
+  },
+
+  async createMaterial(payload) {
+    const res = await fetch('/api/v1/materials', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal menyimpan materi.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
   async getStatus() {
     const res = await fetch('/api/status', { credentials: 'same-origin' });
     if (!res.ok) return null;

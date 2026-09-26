@@ -99,8 +99,21 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 
 	mux.HandleFunc("GET /api/v1/tasks", s.authenticateIfConfigured(s.handleListTasksV1))
 	mux.HandleFunc("POST /api/v1/tasks", s.authenticateMutationIfConfigured(s.handleCreateTaskV1))
+	mux.HandleFunc("GET /api/v1/tasks/{id}", s.authenticateIfConfigured(s.handleGetTaskV1Detail))
+	mux.HandleFunc("PUT /api/v1/tasks/{id}", s.authenticateMutationIfConfigured(s.handleUpdateTaskV1))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/publish", s.authenticateMutationIfConfigured(s.handlePublishTaskV1))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.authenticateMutationIfConfigured(s.handleReviewTaskV1))
+	mux.HandleFunc("GET /api/v1/tasks/{id}/reviews", s.authenticateIfConfigured(s.handleListTaskReviewsV1))
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}/complete", s.authenticateMutationIfConfigured(s.handleCompleteTaskV1))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.authenticateMutationIfConfigured(s.handleArchiveTaskV1))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/unarchive", s.authenticateMutationIfConfigured(s.handleUnarchiveTaskV1))
+	mux.HandleFunc("DELETE /api/v1/tasks/{id}", s.authenticateMutationIfConfigured(s.handleDeleteTaskV1))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.authenticateMutationIfConfigured(s.handleRestoreTaskV1))
+
+	mux.HandleFunc("GET /api/v1/materials", s.authenticateIfConfigured(s.handleListMaterialsV1))
+	mux.HandleFunc("POST /api/v1/materials", s.authenticateMutationIfConfigured(s.handleCreateMaterialV1))
+	mux.HandleFunc("PUT /api/v1/materials/{id}", s.authenticateMutationIfConfigured(s.handleUpdateMaterialV1))
+	mux.HandleFunc("DELETE /api/v1/materials/{id}", s.authenticateMutationIfConfigured(s.handleDeleteMaterialV1))
 
 	mux.HandleFunc("GET /api/portal/{slug}/summary", s.handlePortalSummary)
 	mux.HandleFunc("GET /api/portal/{slug}/schedule", s.handlePortalSchedule)
