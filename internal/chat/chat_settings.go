@@ -47,8 +47,9 @@ func (csm *ChatSettingsManager) loadCache() error {
 	// 1. Backfill otomatis data lama jika tabel legacy chat_settings masih ada
 	csm.backfillLegacyChatSettings(ctx)
 
-	csm.mu.Lock()
-	defer csm.mu.Unlock()
+	// Rebuild ke map baru agar entri basi (kanal yang dicabut) ikut hilang
+	// saat Refresh dipanggil pasca operasi dashboard.
+	fresh := make(map[string]string)
 
 	// 2. Baca dari whatsapp_channels untuk kanal grup aktif
 	rowsChannels, err := csm.db.QueryContext(ctx, `
@@ -65,7 +66,7 @@ func (csm *ChatSettingsManager) loadCache() error {
 		for rowsChannels.Next() {
 			var jid, code string
 			if err := rowsChannels.Scan(&jid, &code); err == nil {
-				csm.cache[jid] = schedule.NormalizeClassID(code)
+				fresh[jid] = schedule.NormalizeClassID(code)
 			}
 		}
 		if err := rowsChannels.Err(); err != nil {
@@ -87,13 +88,17 @@ func (csm *ChatSettingsManager) loadCache() error {
 		for rowsContexts.Next() {
 			var jid, code string
 			if err := rowsContexts.Scan(&jid, &code); err == nil {
-				csm.cache[jid] = schedule.NormalizeClassID(code)
+				fresh[jid] = schedule.NormalizeClassID(code)
 			}
 		}
 		if err := rowsContexts.Err(); err != nil {
 			return err
 		}
 	}
+
+	csm.mu.Lock()
+	csm.cache = fresh
+	csm.mu.Unlock()
 
 	return nil
 }
@@ -310,6 +315,36 @@ func (csm *ChatSettingsManager) CountSettings() int {
 	return len(csm.cache)
 }
 
+// Refresh memuat ulang cache JID->kelas dari database. Dipanggil setelah
+// admin menautkan/melepas kanal via dashboard agar bot langsung konsisten.
+func (csm *ChatSettingsManager) Refresh() error {
+	return csm.loadCache()
+}
+
+// NoteSeenChat mencatat chat yang pernah terlihat bot (observasi pasif) agar
+// admin dapat menautkannya dari dashboard. Tidak pernah gagal: dipakai di
+// jalur pesan masuk dan tidak boleh mengganggu balasan bot.
+func (csm *ChatSettingsManager) NoteSeenChat(chatJID, displayName string, isGroup bool) {
+	chatJID = strings.TrimSpace(chatJID)
+	if chatJID == "" {
+		return
+	}
+	isGroupFlag := 0
+	if isGroup {
+		isGroupFlag = 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, _ = csm.db.ExecContext(ctx, `
+		INSERT INTO seen_chats (chat_jid, display_name, is_group)
+		VALUES (?, ?, ?)
+		ON CONFLICT(chat_jid) DO UPDATE SET
+			display_name = CASE WHEN excluded.display_name <> '' THEN excluded.display_name ELSE seen_chats.display_name END,
+			last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+	`, chatJID, strings.TrimSpace(displayName), isGroupFlag)
+}
+
 // SyncWithClassManager menyelaraskan dan meng-upgrade setelan kelas lama (misal: "3A" -> "D4-TI-SMT3-A")
 func (csm *ChatSettingsManager) SyncWithClassManager(classMgr *schedule.ClassManager) int {
 	if classMgr == nil {
@@ -344,12 +379,12 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 	if isGroup {
 		sb.WriteString("Grup ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Silakan tentukan kelas terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian yang sesuai.\n\n")
-		sb.WriteString("👉 *Cara Memilih Kelas (Admin Grup):*\n")
-		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
-		sb.WriteString("Contoh: `!setkelas D4-TI-SMT3-A` atau `!setkelas smt 3 a`\n\n")
+		sb.WriteString("👉 *Cara Menautkan Grup (Admin):*\n")
+		sb.WriteString("Buka Dashboard → Kanal WhatsApp, pilih chat ini, lalu tautkan ke kelas.\n")
+		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: http://localhost:8080/\n\n")
 		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("⚠️ _Catatan: Di grup WhatsApp, hanya Admin Grup yang berhak mengatur kelas._")
+		sb.WriteString("⚠️ _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard._")
 	} else {
 		sb.WriteString("Chat pribadi ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Silakan tentukan kelas Anda terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian Anda.\n\n")
@@ -392,7 +427,7 @@ func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	sb.WriteString("• `!cari [kata]` ➔ Pencarian global\n\n")
 
 	if isGroup {
-		sb.WriteString("💡 _Catatan: Di grup WhatsApp, hanya Admin Grup yang dapat menyetel kelas (`!setkelas`)._")
+		sb.WriteString("💡 _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard (Kanal WhatsApp)._")
 	} else {
 		sb.WriteString("💡 _Di chat pribadi (DM), Anda bebas menyetel kelas sesuai perkuliahan Anda._")
 	}
@@ -574,6 +609,9 @@ func (csm *ChatSettingsManager) HandleCommand(
 		return csm.FormatClassListMessage(classMgr, chatJID, isGroup)
 
 	case "setkelas", "pilihkelas":
+		if isGroup {
+			return util.DashboardRedirectNotice("pengaturan kanal/kelas") + "\n\n👉 Minta admin menautkan grup ini via Dashboard → Kanal WhatsApp."
+		}
 		if len(fields) < 2 {
 			return "ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas D4-TI-SMT3-A` (atau cukup `!setkelas smt 3 a`)\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester."
 		}
@@ -581,11 +619,8 @@ func (csm *ChatSettingsManager) HandleCommand(
 		targetRaw := strings.TrimSpace(rawMsg[len(fields[0]):])
 		canonicalClass := classMgr.ResolveClassID(targetRaw)
 
-		// Otorisasi: Di grup hanya admin yang boleh menyetel
-		if isGroup && !isAdmin {
-			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mengubah pengaturan kelas untuk grup ini."
-		}
-
+		// Grup selalu dialihkan ke dashboard (cabang di atas); sisa alur ini
+		// hanya untuk preferensi pribadi di DM.
 		cfg, exists := classMgr.GetClass(canonicalClass)
 		if !exists || canonicalClass == "" {
 			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas 2A`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
@@ -604,8 +639,8 @@ func (csm *ChatSettingsManager) HandleCommand(
 		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", classLabel, cfg.Kampus)
 
 	case "resetkelas", "hapuskelas":
-		if isGroup && !isAdmin {
-			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mereset pengaturan kelas untuk grup ini."
+		if isGroup {
+			return util.DashboardRedirectNotice("pengaturan kanal/kelas") + "\n\n👉 Minta admin melepas tautan grup ini via Dashboard → Kanal WhatsApp."
 		}
 
 		_ = csm.DeleteClass(chatJID)

@@ -219,6 +219,9 @@ func main() {
 		apiServer.SetNotifyService(notifySvc, sender)
 		apiServer.SetRoomsService(rooms.NewService(appDB))
 		apiServer.SetBackupService(backup.NewService(appDB, cfg.StorageDir+"/backups"))
+		if chatSettingsManager != nil {
+			apiServer.SetChatRefresher(chatSettingsManager)
+		}
 		go runNotifyScheduler(notifySvc, sender)
 	}
 	_ = apiServer.Start()

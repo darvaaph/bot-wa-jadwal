@@ -26,6 +26,80 @@ func SetDefaultCommandLimiter(limiter *RateLimiter) {
 	defaultCommandLimiter = limiter
 }
 
+// DashboardBaseURL adalah basis URL Web Dashboard. Ganti dengan domain
+// produksi saat deploy (contoh: https://jadwal.kelas.ac.id).
+const DashboardBaseURL = "http://localhost:8080"
+
+// PortalBaseURL adalah basis URL Portal Kelas Mahasiswa.
+const PortalBaseURL = "http://localhost:8080"
+
+var tugasMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "selesai", "done", "edit", "update", "mundur", "perpanjang", "ganti"}
+
+var linkMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "edit", "ubah"}
+
+var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", "batal", "cancel", "libur", "holiday", "kuliahganti", "tambahkelas", "extraclass", "batalganti", "hapusganti", "rmganti"}
+
+// MutationRedirectEntity memeriksa apakah pesan adalah perintah mutasi yang
+// sudah dipensiunkan. Mengembalikan label entitas untuk pesan pengalihan.
+// Perintah baca (jadwal, daftar tugas, tautan, portal) tidak cocok.
+func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {
+	clean := strings.TrimSpace(msgText)
+	if clean == "" {
+		return "", false
+	}
+	lower := strings.ToLower(clean)
+	hasSymbol := strings.HasPrefix(lower, "!") || strings.HasPrefix(lower, "/") || strings.HasPrefix(lower, "#")
+	if isGroup && !hasSymbol {
+		return "", false
+	}
+	cmdName := lower
+	if hasSymbol {
+		cmdName = lower[1:]
+	}
+	fields := strings.Fields(cmdName)
+	if len(fields) == 0 {
+		return "", false
+	}
+	root := fields[0]
+
+	switch root {
+	case "tugas":
+		if len(fields) > 1 && util.Contains(tugasMutationWords, fields[1]) {
+			return "tugas", true
+		}
+		return "", false
+	case "link", "tautan":
+		if len(fields) > 1 && util.Contains(linkMutationWords, fields[1]) {
+			return "tautan", true
+		}
+		return "", false
+	default:
+		if util.Contains(scheduleMutationRoots, root) {
+			return "jadwal kuliah", true
+		}
+		return "", false
+	}
+}
+
+// RedirectMessage menyusun pesan pengalihan standar ke Web Dashboard.
+func RedirectMessage(entity string) string {
+	return util.DashboardRedirectNotice(entity)
+}
+
+// PortalMessage menyusun balasan perintah !portal/!web.
+func PortalMessage() string {
+	var sb strings.Builder
+	sb.WriteString("🌐 *PORTAL & DASHBOARD*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
+	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
+	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
+	sb.WriteString(DashboardBaseURL + "/app.html\n")
+	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
+	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
+	return sb.String()
+}
+
 func GetDefaultCommandLimiter() *RateLimiter {
 	return defaultCommandLimiter
 }
@@ -103,6 +177,25 @@ func HandleIncomingMessage(
 	if classManager == nil {
 		return
 	}
+	if chatSettingsManager != nil {
+		seenName := ""
+		if !v.Info.IsGroup {
+			seenName = v.Info.Sender.ToNonAD().User
+		}
+		chatSettingsManager.NoteSeenChat(v.Info.Chat.String(), seenName, v.Info.IsGroup)
+	}
+
+	// Antarmuka WhatsApp murni read-only: perintah mutasi dialihkan ke dashboard.
+	if entity, ok := MutationRedirectEntity(msgText, v.Info.IsGroup); ok {
+		reply(RedirectMessage(entity), "⚠️", 600*time.Millisecond, "pengalihan dashboard")
+		return
+	}
+
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
+		reply(PortalMessage(), "🌐", 600*time.Millisecond, "perintah portal")
+		return
+	}
+
 	var activeClassID string
 	if chatSettingsManager != nil {
 		activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())

@@ -141,31 +141,31 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 	}
 
 	helpResp := csm.HandleCommand(groupJID, true, userJID, true, "!setkelas", classMgr)
-	if !strings.Contains(helpResp, "Panduan Penggunaan !setkelas") {
-		t.Errorf("Expected panduan !setkelas, got: %s", helpResp)
+	if !strings.Contains(helpResp, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected grup !setkelas to be redirected to dashboard, got: %s", helpResp)
 	}
 
 	nonAdminResp := csm.HandleCommand(groupJID, true, userJID, false, "!setkelas 3B", classMgr)
-	if !strings.Contains(nonAdminResp, "AKSES DITOLAK") {
-		t.Errorf("Non-admin di grup harus ditolak, got: %s", nonAdminResp)
+	if !strings.Contains(nonAdminResp, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Grup !setkelas harus dialihkan ke dashboard, got: %s", nonAdminResp)
 	}
 
 	invalidClassResp := csm.HandleCommand(groupJID, true, userJID, true, "!setkelas 99Z", classMgr)
-	if !strings.Contains(invalidClassResp, "Tidak Ditemukan") {
-		t.Errorf("Kelas tidak ada harus menghasilkan error, got: %s", invalidClassResp)
+	if !strings.Contains(invalidClassResp, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Grup !setkelas invalid harus dialihkan ke dashboard, got: %s", invalidClassResp)
 	}
 
 	adminSetResp := csm.HandleCommand(groupJID, true, userJID, true, "!setkelas 3B", classMgr)
-	if !strings.Contains(adminSetResp, "BERHASIL DIATUR") || !strings.Contains(adminSetResp, "D4-TI-SMT3-B") {
-		t.Errorf("Admin set kelas harus sukses, got: %s", adminSetResp)
+	if !strings.Contains(adminSetResp, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Admin grup !setkelas harus dialihkan ke dashboard, got: %s", adminSetResp)
 	}
-	if class := csm.GetClass(groupJID); class != "D4-TI-SMT3-B" {
-		t.Errorf("Kelas aktif harus D4-TI-SMT3-B, got: %s", class)
+	if class := csm.GetClass(groupJID); class != "" {
+		t.Errorf("Grup !setkelas tidak boleh menulis pengaturan, got: %s", class)
 	}
 
 	kelasResp := csm.HandleCommand(groupJID, true, userJID, false, "!kelas", classMgr)
-	if !strings.Contains(kelasResp, "D4-TI-SMT3-B") || !strings.Contains(kelasResp, "Aktif") {
-		t.Errorf("Respon !kelas harus menunjukkan D4-TI-SMT3-B aktif: %s", kelasResp)
+	if strings.Contains(kelasResp, "(Aktif)") {
+		t.Errorf("Respon !kelas grup yang belum tertaut tidak boleh menandai kelas aktif: %s", kelasResp)
 	}
 
 	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
@@ -187,16 +187,16 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 	}
 
 	nonAdminReset := csm.HandleCommand(groupJID, true, userJID, false, "!resetkelas", classMgr)
-	if !strings.Contains(nonAdminReset, "AKSES DITOLAK") {
-		t.Errorf("Non-admin reset kelas harus ditolak, got: %s", nonAdminReset)
+	if !strings.Contains(nonAdminReset, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Grup !resetkelas harus dialihkan ke dashboard, got: %s", nonAdminReset)
 	}
 
 	adminReset := csm.HandleCommand(groupJID, true, userJID, true, "!resetkelas", classMgr)
-	if !strings.Contains(adminReset, "DIRESET") || !strings.Contains(adminReset, "Belum Diatur") {
-		t.Errorf("Admin reset kelas harus sukses dan menyebut Belum Diatur, got: %s", adminReset)
+	if !strings.Contains(adminReset, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Grup !resetkelas harus dialihkan ke dashboard, got: %s", adminReset)
 	}
 	if class := csm.GetClass(groupJID); class != "" {
-		t.Errorf("Setelah reset kelas harus kosong (unconfigured), got: %s", class)
+		t.Errorf("Setelah redirect, kelas grup harus tetap kosong, got: %s", class)
 	}
 
 	postResetDaftar := csm.HandleCommand(groupJID, true, userJID, false, "!daftarkelas", classMgr)
@@ -218,7 +218,7 @@ func TestChatSettings_Onboarding(t *testing.T) {
 	}
 
 	groupPrompt := csm.GetOnboardingPrompt(true)
-	if !strings.Contains(groupPrompt, "KELAS BELUM DIATUR") || !strings.Contains(groupPrompt, "Admin Grup") || !strings.Contains(groupPrompt, "!setkelas") {
+	if !strings.Contains(groupPrompt, "KELAS BELUM DIATUR") || !strings.Contains(groupPrompt, "Kanal WhatsApp") || !strings.Contains(groupPrompt, "Dashboard") {
 		t.Errorf("Onboarding prompt grup tidak valid: %s", groupPrompt)
 	}
 
@@ -228,7 +228,7 @@ func TestChatSettings_Onboarding(t *testing.T) {
 	}
 
 	groupMenu := csm.BuildUnconfiguredMenu(true)
-	if !strings.Contains(groupMenu, "STATUS: KELAS BELUM DIATUR") || !strings.Contains(groupMenu, "Admin Grup") {
+	if !strings.Contains(groupMenu, "STATUS: KELAS BELUM DIATUR") || !strings.Contains(groupMenu, "Kanal WhatsApp") {
 		t.Errorf("Unconfigured menu grup tidak valid: %s", groupMenu)
 	}
 
@@ -296,5 +296,50 @@ func TestChatSettings_BackwardCompatibilityMigration(t *testing.T) {
 
 	if csm.GetClass(g1) == "" {
 		t.Errorf("Chat tidak boleh kembali ke unconfigured")
+	}
+}
+
+func TestChatSettings_NoteSeenChat(t *testing.T) {
+	db, err := database.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal init DB: %v", err)
+	}
+	defer db.Close()
+
+	csm, err := NewChatSettingsManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init CSM: %v", err)
+	}
+
+	// JID kosong tidak boleh menulis apa pun dan tidak boleh panic.
+	csm.NoteSeenChat("   ", "X", true)
+
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM seen_chats`).Scan(&n); err != nil {
+		t.Fatalf("Query seen_chats: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("JID kosong tercatat: %d", n)
+	}
+
+	csm.NoteSeenChat("120363007@g.us", "", true)
+	csm.NoteSeenChat("120363007@g.us", "Kelas 3A", true)
+	csm.NoteSeenChat("628120001@s.whatsapp.net", "628120001", false)
+
+	if err := db.QueryRow(`SELECT COUNT(*) FROM seen_chats`).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("Expected 2 seen chats, got %d (err: %v)", n, err)
+	}
+	var name string
+	var isGroup int
+	if err := db.QueryRow(`SELECT display_name, is_group FROM seen_chats WHERE chat_jid = ?`, "120363007@g.us").Scan(&name, &isGroup); err != nil {
+		t.Fatalf("Query seen grup: %v", err)
+	}
+	if name != "Kelas 3A" || isGroup != 1 {
+		t.Errorf("Upsert seen grup salah: name=%q is_group=%d", name, isGroup)
+	}
+
+	// Refresh tidak boleh gagal setelah ada data baru.
+	if err := csm.Refresh(); err != nil {
+		t.Errorf("Refresh failed: %v", err)
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1452,319 +1451,19 @@ func (om *OverrideManager) HandleCommand(
 
 	parts := strings.SplitN(clean, " ", 2)
 	cmd := strings.ToLower(parts[0])
-	payload := ""
-	if len(parts) > 1 {
-		payload = strings.TrimSpace(parts[1])
-	}
 
 	switch cmd {
 	case "pindah", "ganti", "reschedule":
-		if isGroup && !isAdmin {
-			return "🔒 *Akses Ditolak*\nDi grup kelas, perubahan jadwal hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
-		}
-
-		segments := strings.Split(payload, "|")
-		isForce := false
-		var cleanSegments []string
-		for _, seg := range segments {
-			trimmed := strings.TrimSpace(seg)
-			if strings.EqualFold(trimmed, "paksa") || strings.EqualFold(trimmed, "force") {
-				isForce = true
-			} else {
-				cleanSegments = append(cleanSegments, trimmed)
-			}
-		}
-		segments = cleanSegments
-
-		if len(segments) < 2 {
-			return "⚠️ *Format Perintah Pindah Kurang Tepat*\n\n" +
-				"Gunakan format pemisah pipa `|`:\n" +
-				"`!pindah [Matkul] | [Hari/Tanggal & Jam Baru] | [Ruang (Opsional)]`\n\n" +
-				"*Contoh:*\n" +
-				"• `!pindah aljabar | besok 13:00`\n" +
-				"• `!pindah sbd | jumat 15:00 - 16:40 | Lab 312`\n" +
-				"• `!pindah matdis | 10-09-2026 09:00 | D105`"
-		}
-
-		matkulQuery := strings.TrimSpace(segments[0])
-		timeRaw := strings.TrimSpace(segments[1])
-		ruangBaru := ""
-		if len(segments) > 2 {
-			ruangBaru = strings.TrimSpace(segments[2])
-		}
-
-		item, candidates := cfg.FindMataKuliah(matkulQuery, now)
-		if item == nil {
-			if len(candidates) > 1 {
-				var sb strings.Builder
-				sb.WriteString("⚠️ *Ditemukan beberapa sesi mata kuliah yang cocok:*\n")
-				for _, c := range candidates {
-					sb.WriteString(fmt.Sprintf("• [%s] %s (%s, %s)\n", c.KodeMatkul, c.NamaMatkul, c.Hari, c.Jam))
-				}
-				sb.WriteString("\nSilakan perjelas nama sesi (contoh: `!pindah aljabar teori | ...` atau `!pindah aljabar senin | ...`)")
-				return sb.String()
-			}
-			return fmt.Sprintf("❌ Mata kuliah *\"%s\"* tidak ditemukan. Ketik `!matkul` untuk melihat daftar mata kuliah.", matkulQuery)
-		}
-
-		origDate := util.GetDateForDayName(item.Hari, now)
-		targetDate := ParseOverrideDate(timeRaw, now)
-		baseDuration := util.CalculateDurationInMinutes(item.Jam)
-		newJam := util.AutoCompleteJamRange(timeRaw, baseDuration)
-
-		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, item, cfg)
-		if conflict != nil && !isForce {
-			hariTgt := util.GetHariIndonesia(targetDate)
-			tglTgt := targetDate.Format("02-01-2006")
-			var sb strings.Builder
-			sb.WriteString("⚠️ *PERINGATAN BENTROK JADWAL!*\n")
-			sb.WriteString("──────────\n")
-			sb.WriteString(fmt.Sprintf("Waktu baru yang dipilih (*%s, %s, %s WIB*) bertabrakan dengan jadwal:\n\n", hariTgt, tglTgt, newJam))
-			sb.WriteString(fmt.Sprintf("• *%s*\n", conflict.Matkul))
-			sb.WriteString(fmt.Sprintf("  └ Jam   : %s WIB\n", conflict.Jam))
-			sb.WriteString(fmt.Sprintf("  └ Ruang : %s\n", conflict.Ruang))
-			if conflict.Dosen != "" {
-				sb.WriteString(fmt.Sprintf("  └ Dosen : %s\n", conflict.Dosen))
-			}
-			sb.WriteString("──────────\n")
-			sb.WriteString("Jadwal tidak dipindahkan untuk mencegah jadwal kuliah ganda.\n\n")
-			sb.WriteString("💡 *Apakah tetap ingin memindahkan?*\n")
-			sb.WriteString(fmt.Sprintf("1. Pilih jam lain yang kosong (ketik `!%s` untuk cek jam kosong).\n", strings.ToLower(hariTgt)))
-			sb.WriteString("2. Jika jam tersebut memang disepakati (misal kelas tersebut ditiadakan), tambahkan kata `paksa` di akhir:\n")
-			sb.WriteString(fmt.Sprintf("   `!pindah %s | %s | paksa`", matkulQuery, timeRaw))
-			return sb.String()
-		}
-
-		if ruangBaru == "" {
-			ruangBaru = item.Ruang
-		}
-
-		override, err := om.AddReschedule(scopeJID, *item, origDate, targetDate, newJam, ruangBaru, senderJID)
-		if err != nil {
-			return fmt.Sprintf("❌ Gagal menyimpan perubahan jadwal: %v", err)
-		}
-
-		var sb strings.Builder
-		sb.WriteString("✅ *JADWAL BERHASIL DIPINDAHKAN*\n")
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("• ID Perubahan: #%d\n", override.ID))
-		sb.WriteString(fmt.Sprintf("• Matkul      : %s\n", override.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Semula      : %s (%s WIB)\n", override.OrigDate, override.OrigJam))
-		sb.WriteString(fmt.Sprintf("• Menjadi     : %s (%s WIB)\n", override.TargetDate, override.NewJam))
-		sb.WriteString(fmt.Sprintf("• Ruang       : %s\n", override.Ruang))
-		sb.WriteString(fmt.Sprintf("• Dosen       : %s (%s)\n", item.Dosen, item.InisialDosen))
-		if isForce {
-			sb.WriteString("• Peringatan  : ⚠️ *Jadwal dipindahkan dengan konfirmasi bentrok (dipaksa oleh Admin).*\n")
-		}
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("_Tips: Jadwal ini otomatis kedaluwarsa setelah tanggal lewat. Ketik `!batalganti %d` jika ingin membatalkan._", override.ID))
-		return sb.String()
+		return util.DashboardRedirectNotice("jadwal kuliah")
 
 	case "kosong", "batal", "cancel":
-		if isGroup && !isAdmin {
-			return "🔒 *Akses Ditolak*\nDi grup kelas, peniadaan jadwal kuliah hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
-		}
-
-		segments := strings.Split(payload, "|")
-		matkulQuery := strings.TrimSpace(segments[0])
-		if matkulQuery == "" {
-			return "⚠️ *Format Perintah Kosong Kurang Tepat*\n\n" +
-				"Gunakan format:\n" +
-				"`!kosong [Matkul] | [Hari/Tanggal (Opsional)] | [Alasan (Opsional)]`\n\n" +
-				"*Contoh:*\n" +
-				"• `!kosong aljabar` (meniadakan jadwal terdekat)\n" +
-				"• `!kosong aljabar | besok | Dosen dinas luar`"
-		}
-
-		item, candidates := cfg.FindMataKuliah(matkulQuery, now)
-		if item == nil {
-			if len(candidates) > 1 {
-				var sb strings.Builder
-				sb.WriteString("⚠️ *Ditemukan beberapa sesi mata kuliah yang cocok:*\n")
-				for _, c := range candidates {
-					sb.WriteString(fmt.Sprintf("• [%s] %s (%s, %s)\n", c.KodeMatkul, c.NamaMatkul, c.Hari, c.Jam))
-				}
-				sb.WriteString("\nSilakan perjelas nama sesi (contoh: `!kosong aljabar teori`).")
-				return sb.String()
-			}
-			return fmt.Sprintf("❌ Mata kuliah *\"%s\"* tidak ditemukan.", matkulQuery)
-		}
-
-		targetDate := now
-		if !strings.EqualFold(item.Hari, util.GetHariIndonesia(now)) {
-			targetDate = util.GetDateForDayName(item.Hari, now)
-		}
-		alasan := ""
-
-		if len(segments) > 1 {
-			val := strings.TrimSpace(segments[1])
-			if strings.Contains(strings.ToLower(val), "besok") || strings.Contains(strings.ToLower(val), "hari ini") || util.IsDayName(val) || util.IsDatePattern(val) {
-				targetDate = ParseOverrideDate(val, now)
-				if len(segments) > 2 {
-					alasan = strings.TrimSpace(segments[2])
-				}
-			} else {
-				alasan = val
-			}
-		}
-
-		override, err := om.AddCancel(scopeJID, *item, targetDate, alasan, senderJID)
-		if err != nil {
-			return fmt.Sprintf("❌ Gagal meniadakan jadwal: %v", err)
-		}
-
-		var sb strings.Builder
-		sb.WriteString("✅ *KULIAH DITANDAI DITIADAKAN*\n")
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("• ID Perubahan: #%d\n", override.ID))
-		sb.WriteString(fmt.Sprintf("• Matkul      : %s\n", override.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Tanggal     : %s (%s WIB)\n", override.TargetDate, override.OrigJam))
-		if override.Alasan != "" {
-			sb.WriteString(fmt.Sprintf("• Keterangan  : %s\n", override.Alasan))
-		}
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("_Jadwal pada tanggal tersebut akan dicoret. Ketik `!batalganti %d` untuk mengaktifkan kembali._", override.ID))
-		return sb.String()
+		return util.DashboardRedirectNotice("jadwal kuliah")
 
 	case "libur", "holiday":
-		if isGroup && !isAdmin {
-			return "🔒 *Akses Ditolak*\nDi grup kelas, pengumuman libur harian hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
-		}
-
-		segments := strings.Split(payload, "|")
-		dayOrDate := strings.TrimSpace(segments[0])
-		if dayOrDate == "" {
-			return "⚠️ *Format Perintah Libur Kurang Tepat*\n\n" +
-				"Gunakan format pemisah pipa `|`:\n" +
-				"`!libur [Hari/Tanggal] | [Keterangan/Nama Libur]`\n\n" +
-				"*Contoh:*\n" +
-				"• `!libur besok | Hari Kemerdekaan RI`\n" +
-				"• `!libur senin | Libur Nasional Maulid Nabi`\n" +
-				"• `!libur 17-08-2026 | HUT RI`"
-		}
-
-		alasan := "Libur Perkuliahan"
-		if len(segments) > 1 {
-			if trimmed := strings.TrimSpace(segments[1]); trimmed != "" {
-				alasan = trimmed
-			}
-		}
-
-		targetDate := ParseOverrideDate(dayOrDate, now)
-
-		override, err := om.AddHoliday(scopeJID, targetDate, alasan, senderJID)
-		if err != nil {
-			return fmt.Sprintf("❌ Gagal menetapkan hari libur: %v", err)
-		}
-
-		hariTgt := util.GetHariIndonesia(targetDate)
-		tglTgt := targetDate.Format("02-01-2006")
-
-		var sb strings.Builder
-		sb.WriteString("🌴 *PENGUMUMAN LIBUR BERHASIL DITETAPKAN*\n")
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("• ID Perubahan : #%d\n", override.ID))
-		sb.WriteString(fmt.Sprintf("• Tanggal Libur: %s, %s (Seharian)\n", hariTgt, tglTgt))
-		sb.WriteString(fmt.Sprintf("• Keterangan   : %s\n", override.Alasan))
-		sb.WriteString("──────────\n")
-		sb.WriteString("✨ Seluruh perkuliahan pada hari tersebut otomatis ditiadakan.\n")
-		sb.WriteString("⏰ Pengingat pagi pukul 06:00 WIB otomatis mengirimkan ucapan selamat libur.\n")
-		sb.WriteString(fmt.Sprintf("_Ketik `!batalganti %d` jika ingin membatalkan status libur._", override.ID))
-		return sb.String()
+		return util.DashboardRedirectNotice("jadwal kuliah")
 
 	case "kuliahganti", "tambahkelas", "extraclass":
-		if isGroup && !isAdmin {
-			return "🔒 *Akses Ditolak*\nDi grup kelas, penambahan kuliah pengganti hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
-		}
-
-		segments := strings.Split(payload, "|")
-		isForce := false
-		var cleanSegments []string
-		for _, seg := range segments {
-			trimmed := strings.TrimSpace(seg)
-			if strings.EqualFold(trimmed, "paksa") || strings.EqualFold(trimmed, "force") {
-				isForce = true
-			} else {
-				cleanSegments = append(cleanSegments, trimmed)
-			}
-		}
-		segments = cleanSegments
-
-		if len(segments) < 2 {
-			return "⚠️ *Format Kuliah Pengganti Kurang Tepat*\n\n" +
-				"Gunakan format:\n" +
-				"`!kuliahganti [Matkul] | [Hari/Tanggal & Jam] | [Ruang (Opsional)]`\n\n" +
-				"*Contoh:*\n" +
-				"• `!kuliahganti matdis | sabtu 09:00 - 11:30 | D105`\n" +
-				"• `!kuliahganti sbd | sabtu 13:00 | Lab 312`"
-		}
-
-		matkulQuery := strings.TrimSpace(segments[0])
-		timeRaw := strings.TrimSpace(segments[1])
-		ruangBaru := ""
-		if len(segments) > 2 {
-			ruangBaru = strings.TrimSpace(segments[2])
-		}
-
-		item, candidates := cfg.FindMataKuliah(matkulQuery, now)
-		if item == nil {
-			if len(candidates) > 1 {
-				item = &candidates[0]
-			} else {
-				return fmt.Sprintf("❌ Mata kuliah *\"%s\"* tidak ditemukan.", matkulQuery)
-			}
-		}
-
-		targetDate := ParseOverrideDate(timeRaw, now)
-		baseDuration := util.CalculateDurationInMinutes(item.Jam)
-		newJam := util.AutoCompleteJamRange(timeRaw, baseDuration)
-
-		conflict := om.CheckScheduleConflict(scopeJID, targetDate, newJam, nil, cfg)
-		if conflict != nil && !isForce {
-			hariTgt := util.GetHariIndonesia(targetDate)
-			tglTgt := targetDate.Format("02-01-2006")
-			var sb strings.Builder
-			sb.WriteString("⚠️ *PERINGATAN BENTROK JADWAL!*\n")
-			sb.WriteString("──────────\n")
-			sb.WriteString(fmt.Sprintf("Waktu kuliah pengganti (*%s, %s, %s WIB*) bertabrakan dengan jadwal:\n\n", hariTgt, tglTgt, newJam))
-			sb.WriteString(fmt.Sprintf("• *%s*\n", conflict.Matkul))
-			sb.WriteString(fmt.Sprintf("  └ Jam   : %s WIB\n", conflict.Jam))
-			sb.WriteString(fmt.Sprintf("  └ Ruang : %s\n", conflict.Ruang))
-			if conflict.Dosen != "" {
-				sb.WriteString(fmt.Sprintf("  └ Dosen : %s\n", conflict.Dosen))
-			}
-			sb.WriteString("──────────\n")
-			sb.WriteString("Kuliah pengganti tidak ditambahkan untuk mencegah jadwal kuliah ganda.\n\n")
-			sb.WriteString("💡 *Apakah tetap ingin menambahkan?*\n")
-			sb.WriteString(fmt.Sprintf("1. Pilih jam lain yang kosong (ketik `!%s` untuk cek jam kosong).\n", strings.ToLower(hariTgt)))
-			sb.WriteString("2. Jika jam tersebut memang disepakati, tambahkan kata `paksa` di akhir:\n")
-			sb.WriteString(fmt.Sprintf("   `!kuliahganti %s | %s | paksa`", matkulQuery, timeRaw))
-			return sb.String()
-		}
-
-		if ruangBaru == "" {
-			ruangBaru = item.Ruang
-		}
-
-		override, err := om.AddExtra(scopeJID, *item, targetDate, newJam, ruangBaru, "Kuliah Pengganti", senderJID)
-		if err != nil {
-			return fmt.Sprintf("❌ Gagal menambahkan kuliah pengganti: %v", err)
-		}
-
-		var sb strings.Builder
-		sb.WriteString("✅ *KULIAH PENGGANTI DITAMBAHKAN*\n")
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("• ID Perubahan: #%d\n", override.ID))
-		sb.WriteString(fmt.Sprintf("• Matkul      : %s\n", override.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Tanggal     : %s (%s WIB)\n", override.TargetDate, override.NewJam))
-		sb.WriteString(fmt.Sprintf("• Ruang       : %s\n", override.Ruang))
-		sb.WriteString(fmt.Sprintf("• Dosen       : %s (%s)\n", item.Dosen, item.InisialDosen))
-		if isForce {
-			sb.WriteString("• Peringatan  : ⚠️ *Kuliah pengganti ditambahkan dengan konfirmasi bentrok (dipaksa oleh Admin).*\n")
-		}
-		sb.WriteString("──────────\n")
-		sb.WriteString(fmt.Sprintf("_Bot akan otomatis menyertakan jadwal ini pada pengingat. Ketik `!batalganti %d` untuk menghapus._", override.ID))
-		return sb.String()
+		return util.DashboardRedirectNotice("jadwal kuliah")
 
 	case "jadwalganti", "overrides", "listganti":
 		list, err := om.GetActiveOverrides(scopeJID, now)
@@ -1774,42 +1473,17 @@ func (om *OverrideManager) HandleCommand(
 		return om.FormatActiveOverrides(list)
 
 	case "batalganti", "hapusganti", "rmganti":
-		if isGroup && !isAdmin {
-			return "🔒 *Akses Ditolak*\nDi grup kelas, pembatalan jadwal pengganti hanya dapat dilakukan oleh *Admin Grup* (Komti/Wakil)."
-		}
-
-		id, err := strconv.Atoi(payload)
-		if err != nil || id <= 0 {
-			return "⚠️ Sertakan ID perubahan yang ingin dibatalkan.\nContoh: `!batalganti 1`\n\nKetik `!jadwalganti` untuk melihat daftar ID perubahan aktif."
-		}
-
-		ok, err := om.CancelOverride(scopeJID, id)
-		if err != nil {
-			return fmt.Sprintf("❌ Gagal membatalkan jadwal pengganti: %v", err)
-		}
-		if !ok {
-			return fmt.Sprintf("ℹ️ Jadwal pengganti dengan ID #%d tidak ditemukan.", id)
-		}
-
-		return fmt.Sprintf("🎉 *JADWAL PENGGANTI DIBATALKAN*\nPerubahan dengan ID #%d telah dihapus. Jadwal pada tanggal tersebut kembali normal.", id)
+		return util.DashboardRedirectNotice("jadwal kuliah")
 
 	default:
 		var sb strings.Builder
-		sb.WriteString("📖 *PANDUAN JADWAL PENGGANTI (OVERRIDE)*\n")
+		sb.WriteString("📖 *JADWAL PENGGANTI (OVERRIDE)*\n")
 		sb.WriteString("──────────\n\n")
-		sb.WriteString("• `!pindah [Matkul] | [Waktu Baru] | [Ruang]`\n")
-		sb.WriteString("  ➔ Memindahkan jam/hari kuliah sementara\n")
-		sb.WriteString("  _Cth: `!pindah aljabar | besok 13:00 | Lab 312`_\n\n")
-		sb.WriteString("• `!kosong [Matkul] | [Hari/Tanggal] | [Alasan]`\n")
-		sb.WriteString("  ➔ Menandai kuliah ditiadakan/kosong sementara\n")
-		sb.WriteString("  _Cth: `!kosong sbd | besok | Dosen dinas luar`_\n\n")
-		sb.WriteString("• `!kuliahganti [Matkul] | [Waktu] | [Ruang]`\n")
-		sb.WriteString("  ➔ Menambah kuliah pengganti di hari lain\n")
-		sb.WriteString("  _Cth: `!kuliahganti matdis | sabtu 09:00 | D105`_\n\n")
 		sb.WriteString("• `!jadwalganti`\n")
 		sb.WriteString("  ➔ Melihat daftar perubahan jadwal aktif\n\n")
-		sb.WriteString("• `!batalganti [ID]`\n")
-		sb.WriteString("  ➔ Membatalkan perubahan (kembali ke normal)\n")
+		sb.WriteString("──────────\n")
+		sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan jadwal kuliah kini hanya melalui Web Dashboard Pengelola:*\n")
+		sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n")
 		sb.WriteString("──────────\n")
 		return sb.String()
 	}

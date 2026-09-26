@@ -40,6 +40,7 @@ type Server struct {
 	notifySender    notify.Sender
 	roomsService    *rooms.Service
 	backupService   *backup.Service
+	chatRefresher   chatCacheRefresher
 	secureCookies   bool
 }
 
@@ -189,6 +190,11 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/admin/backups", s.authenticateIfConfigured(s.handleListBackups))
 	mux.HandleFunc("POST /api/v1/admin/backups/{id}/restore", s.authenticateMutationIfConfigured(s.handleRestoreBackup))
 	mux.HandleFunc("GET /api/v1/admin/system-status", s.authenticateIfConfigured(s.handleSystemStatus))
+
+	mux.HandleFunc("GET /api/v1/admin/channels", s.authenticateIfConfigured(s.handleListChannels))
+	mux.HandleFunc("GET /api/v1/admin/chats/unlinked", s.authenticateIfConfigured(s.handleListUnlinkedChats))
+	mux.HandleFunc("POST /api/v1/admin/channels", s.authenticateMutationIfConfigured(s.handleLinkChannel))
+	mux.HandleFunc("POST /api/v1/admin/channels/{id}/revoke", s.authenticateMutationIfConfigured(s.handleRevokeChannel))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
@@ -358,6 +364,10 @@ func (s *Server) SetRoomsService(service *rooms.Service) {
 
 func (s *Server) SetBackupService(service *backup.Service) {
 	s.backupService = service
+}
+
+func (s *Server) SetChatRefresher(refresher chatCacheRefresher) {
+	s.chatRefresher = refresher
 }
 
 func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {

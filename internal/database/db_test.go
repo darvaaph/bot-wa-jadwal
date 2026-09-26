@@ -107,6 +107,7 @@ func TestSchemaVerification(t *testing.T) {
 		"import_errors",
 		"backup_records",
 		"chat_class_contexts",
+		"seen_chats",
 	}
 
 	rows, err := db.Query(`

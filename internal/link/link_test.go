@@ -99,23 +99,19 @@ func TestLinkManager_CRUD_And_Permissions(t *testing.T) {
 	}
 
 	rejectReply := lm.HandleCommand(groupJID, true, userMember, false, "!link tambah Drive Kelas | https://s.id/drive-d4a")
-	if !strings.Contains(rejectReply, "Akses Ditolak") {
-		t.Errorf("Expected non-admin addition to be rejected, got: %s", rejectReply)
+	if !strings.Contains(rejectReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", rejectReply)
 	}
 
-	addDriveReply := lm.HandleCommand(groupJID, true, userAdmin, true, "!link tambah Drive Materi | https://s.id/drive-d4a | Folder slide & rekaman")
-	if !strings.Contains(addDriveReply, "BERHASIL DISIMPAN") || !strings.Contains(addDriveReply, "Penyimpanan Materi") {
-		t.Errorf("Expected drive link to be saved, got: %s", addDriveReply)
+	// Seed bacaan via jalur non-perintah (dashboard/API), bukan via command.
+	if _, err := lm.AddLink(groupJID, true, "Drive Materi", "https://s.id/drive-d4a", "Folder slide & rekaman", userAdmin); err != nil {
+		t.Fatalf("AddLink drive failed: %v", err)
 	}
-
-	addZoomReply := lm.HandleCommand(groupJID, true, userAdmin, true, "!link tambah Zoom Aljabar Linear | https://meet.google.com/abc-xyz | Dosen: Bu Retno")
-	if !strings.Contains(addZoomReply, "BERHASIL DISIMPAN") || !strings.Contains(addZoomReply, "Kuliah Daring") {
-		t.Errorf("Expected zoom link to be saved, got: %s", addZoomReply)
+	if _, err := lm.AddLink(groupJID, true, "Zoom Aljabar Linear", "https://meet.google.com/abc-xyz", "Dosen: Bu Retno", userAdmin); err != nil {
+		t.Fatalf("AddLink zoom failed: %v", err)
 	}
-
-	addRepoReply := lm.HandleCommand(groupJID, true, userAdmin, true, "!link tambah Repo Praktikum SBD | github.com/d4ti-sbd")
-	if !strings.Contains(addRepoReply, "BERHASIL DISIMPAN") || !strings.Contains(addRepoReply, "https://github.com/d4ti-sbd") {
-		t.Errorf("Expected repo link to be saved with normalized URL, got: %s", addRepoReply)
+	if _, err := lm.AddLink(groupJID, true, "Repo Praktikum SBD", "github.com/d4ti-sbd", "", userAdmin); err != nil {
+		t.Fatalf("AddLink repo failed: %v", err)
 	}
 
 	listReply := lm.HandleCommand(groupJID, true, userMember, false, "!link")
@@ -150,18 +146,21 @@ func TestLinkManager_CRUD_And_Permissions(t *testing.T) {
 	}
 
 	dmAddReply := lm.HandleCommand(dmJID, false, dmJID, false, "!link tambah Drive Pribadi | https://s.id/pribadi")
-	if !strings.Contains(dmAddReply, "BERHASIL DISIMPAN") {
-		t.Errorf("Expected user to add link in DM without admin restriction, got: %s", dmAddReply)
+	if !strings.Contains(dmAddReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected DM mutation to be redirected to dashboard, got: %s", dmAddReply)
 	}
 
 	delReject := lm.HandleCommand(groupJID, true, userMember, false, "!link hapus 1")
-	if !strings.Contains(delReject, "Akses Ditolak") {
-		t.Errorf("Expected non-admin deletion to be rejected, got: %s", delReject)
+	if !strings.Contains(delReject, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected deletion to be redirected to dashboard, got: %s", delReject)
 	}
 
 	delSuccess := lm.HandleCommand(groupJID, true, userAdmin, true, "!link hapus 1")
-	if !strings.Contains(delSuccess, "BERHASIL DIHAPUS") {
-		t.Errorf("Expected admin deletion to succeed, got: %s", delSuccess)
+	if !strings.Contains(delSuccess, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected admin deletion to be redirected to dashboard, got: %s", delSuccess)
+	}
+	if ok, err := lm.DeleteLink(groupJID, 1); err != nil || !ok {
+		t.Fatalf("DeleteLink #1 failed: ok=%v err=%v", ok, err)
 	}
 
 	afterDelList := lm.HandleCommand(groupJID, true, userMember, false, "!link")

@@ -229,7 +229,13 @@ func TestSmartUpcomingSchedule(t *testing.T) {
 		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
 	}
 
-	om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Libur Kuliah Lapangan", cfg, tSeninSore)
+	liburReply := om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Libur Kuliah Lapangan", cfg, tSeninSore)
+	if !strings.Contains(liburReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", liburReply)
+	}
+	if _, err := om.AddHoliday(groupJID, ParseOverrideDate("besok", tSeninSore), "Libur Kuliah Lapangan", userJID); err != nil {
+		t.Fatalf("AddHoliday seed failed: %v", err)
+	}
 
 	resOverride := cfg.ProcessMessage("!jadwal", true, groupJID, tSeninSore)
 	if !strings.Contains(resOverride, "Perkuliahan hari ini telah selesai") {

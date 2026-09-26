@@ -2,11 +2,11 @@ package link
 
 import (
 	"bot-jadwal/internal/academic"
+	"bot-jadwal/internal/util"
 	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -621,86 +621,10 @@ func (lm *LinkManager) HandleCommand(
 			return lm.buildHelp(isGroup)
 
 		case "tambah", "add":
-			if isGroup && !isAdmin {
-				return "❌ *Akses Ditolak: Hanya Admin Grup yang dapat menambahkan tautan penting kelas.*"
-			}
-
-			rawArgs := strings.TrimSpace(cleanMsg[len(parts[0]):])
-			rawArgs = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(rawArgs, subCmd), strings.ToUpper(subCmd)))
-
-			segments := strings.Split(rawArgs, "|")
-			if len(segments) < 2 {
-				return "⚠️ *Format Penambahan Tautan Kurang Tepat!*\n──────────\n" +
-					"Gunakan tanda pemisah pipa `|`:\n" +
-					"`!link tambah [Judul] | [URL] (| [Catatan Opsional])`\n\n" +
-					"*Contoh:*\n" +
-					"• `!link tambah Drive Materi | https://s.id/drive-d4a`\n" +
-					"• `!link tambah Zoom Aljabar | https://meet.google.com/abc-xyz | Dosen: Bu Retno`\n" +
-					"• `!link tambah Repo Praktikum | https://github.com/kelas-sbd`"
-			}
-
-			title := strings.TrimSpace(segments[0])
-			rawURL := strings.TrimSpace(segments[1])
-			desc := ""
-			if len(segments) >= 3 {
-				desc = strings.TrimSpace(segments[2])
-			}
-
-			id, err := lm.AddLink(scopeJID, isGroup, title, rawURL, desc, senderJID)
-			if err != nil {
-				return fmt.Sprintf("❌ Gagal menyimpan tautan: %v", err)
-			}
-
-			cat := DetectLinkCategory(title, rawURL)
-			catName := "Tautan Umum"
-			switch cat {
-			case "drive":
-				catName = "Google Drive / Penyimpanan Materi"
-			case "meeting":
-				catName = "Kuliah Daring (Zoom / GMeet)"
-			case "repo":
-				catName = "Repositori / Proyek (GitHub / GitLab)"
-			case "portal":
-				catName = "Portal Akademik (SIAKAD / LMS)"
-			}
-
-			var sb strings.Builder
-			sb.WriteString("✅ *TAUTAN BERHASIL DISIMPAN!*\n")
-			sb.WriteString("──────────\n")
-			sb.WriteString(fmt.Sprintf("• ID Tautan : #%d\n", id))
-			sb.WriteString(fmt.Sprintf("• Judul     : %s\n", title))
-			sb.WriteString(fmt.Sprintf("• Kategori  : %s\n", catName))
-			sb.WriteString(fmt.Sprintf("• URL       : %s\n", NormalizeURL(rawURL)))
-			if desc != "" {
-				sb.WriteString(fmt.Sprintf("• Catatan   : %s\n", desc))
-			}
-			sb.WriteString("\n_Tautan ini dapat diakses kapan saja menggunakan perintah `!link`._")
-			return sb.String()
+			return util.DashboardRedirectNotice("tautan")
 
 		case "hapus", "delete", "rm":
-			if isGroup && !isAdmin {
-				return "❌ *Akses Ditolak: Hanya Admin Grup yang dapat menghapus tautan.*"
-			}
-
-			if len(parts) < 3 {
-				return "⚠️ *ID Tautan Tidak Valid!*\nFormat: `!link hapus [ID]` (Contoh: `!link hapus 1`)\nKetik `!link` untuk melihat daftar ID tautan."
-			}
-
-			idStr := strings.TrimPrefix(parts[2], "#")
-			id, err := strconv.ParseInt(idStr, 10, 64)
-			if err != nil || id <= 0 {
-				return "⚠️ *ID Tautan Harus Berupa Angka Positif!*\nContoh: `!link hapus 1`"
-			}
-
-			deleted, err := lm.DeleteLink(scopeJID, id)
-			if err != nil {
-				return fmt.Sprintf("❌ Terjadi kesalahan saat menghapus tautan: %v", err)
-			}
-			if !deleted {
-				return fmt.Sprintf("⚠️ Tautan dengan ID #%d tidak ditemukan pada chat/grup ini.", id)
-			}
-
-			return fmt.Sprintf("🗑️ *TAUTAN BERHASIL DIHAPUS*\nTautan #%d telah dihapus dari daftar.", id)
+			return util.DashboardRedirectNotice("tautan")
 
 		case "drive", "gdrive":
 			links, err := lm.GetLinksByCategory(scopeJID, "drive")
@@ -766,11 +690,8 @@ func (lm *LinkManager) buildHelp(isGroup bool) string {
 	sb.WriteString("• `!zoom` / `!gmeet` / `!meet`\n  ➔ Shortcut instan link ruang kuliah daring\n")
 	sb.WriteString("• `!link [kata kunci]`\n  ➔ Mencari tautan spesifik (Contoh: `!link alin`, `!link sbd`)\n\n")
 
-	sb.WriteString("*Perintah Pengelolaan (Khusus Admin di Grup):*\n")
-	sb.WriteString("• `!link tambah [Judul] | [URL] (| [Catatan])`\n  ➔ Menambahkan tautan baru\n")
-	sb.WriteString("  _Contoh:_ `!link tambah Drive Materi | https://s.id/drive-d4a`\n")
-	sb.WriteString("  _Contoh:_ `!link tambah Zoom Alin | https://meet.google.com/abc | Bu Retno`\n\n")
-	sb.WriteString("• `!link hapus [ID]`\n  ➔ Menghapus tautan (Contoh: `!link hapus 1`)\n\n")
+	sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan tautan kini hanya melalui Web Dashboard Pengelola:*\n")
+	sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n\n")
 
 	sb.WriteString("──────────\n")
 	sb.WriteString("_Tips: URL otomatis dinormalisasi menjadi HTTPS agar langsung bisa diklik di ponsel._")
