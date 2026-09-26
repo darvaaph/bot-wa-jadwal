@@ -14,9 +14,11 @@ import (
 
 	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/auth"
+	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/portal"
+	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
@@ -36,6 +38,8 @@ type Server struct {
 	scheduleEvents  *schedule.EventService
 	notifyService   *notify.Service
 	notifySender    notify.Sender
+	roomsService    *rooms.Service
+	backupService   *backup.Service
 	secureCookies   bool
 }
 
@@ -170,6 +174,19 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/notifications", s.authenticateIfConfigured(s.handleListNotifications))
 	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.authenticateMutationIfConfigured(s.handleRetryNotification))
 	mux.HandleFunc("POST /api/v1/admin/notifications/process", s.authenticateMutationIfConfigured(s.handleProcessNotifications))
+
+	mux.HandleFunc("GET /api/v1/rooms", s.authenticateIfConfigured(s.handleListRooms))
+	mux.HandleFunc("POST /api/v1/admin/rooms", s.authenticateMutationIfConfigured(s.handleCreateRoom))
+	mux.HandleFunc("PUT /api/v1/admin/rooms/{id}", s.authenticateMutationIfConfigured(s.handleUpdateRoom))
+	mux.HandleFunc("GET /api/v1/rooms/availability", s.authenticateIfConfigured(s.handleRoomAvailability))
+	mux.HandleFunc("POST /api/v1/rooms/proposals", s.authenticateMutationIfConfigured(s.handleRoomProposal))
+
+	mux.HandleFunc("GET /api/v1/audit", s.authenticateIfConfigured(s.handleListAudit))
+
+	mux.HandleFunc("POST /api/v1/admin/backups", s.authenticateMutationIfConfigured(s.handleCreateBackup))
+	mux.HandleFunc("GET /api/v1/admin/backups", s.authenticateIfConfigured(s.handleListBackups))
+	mux.HandleFunc("POST /api/v1/admin/backups/{id}/restore", s.authenticateMutationIfConfigured(s.handleRestoreBackup))
+	mux.HandleFunc("GET /api/v1/admin/system-status", s.authenticateIfConfigured(s.handleSystemStatus))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
@@ -331,6 +348,14 @@ func (s *Server) SetScheduleEventService(service *schedule.EventService) {
 func (s *Server) SetNotifyService(service *notify.Service, sender notify.Sender) {
 	s.notifyService = service
 	s.notifySender = sender
+}
+
+func (s *Server) SetRoomsService(service *rooms.Service) {
+	s.roomsService = service
+}
+
+func (s *Server) SetBackupService(service *backup.Service) {
+	s.backupService = service
 }
 
 func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {

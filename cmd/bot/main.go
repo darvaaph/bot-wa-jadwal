@@ -12,6 +12,7 @@ import (
 	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api"
 	"bot-jadwal/internal/auth"
+	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/config"
@@ -20,6 +21,7 @@ import (
 	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/reminder"
+	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
@@ -215,6 +217,8 @@ func main() {
 			sender = botClient
 		}
 		apiServer.SetNotifyService(notifySvc, sender)
+		apiServer.SetRoomsService(rooms.NewService(appDB))
+		apiServer.SetBackupService(backup.NewService(appDB, cfg.StorageDir+"/backups"))
 		go runNotifyScheduler(notifySvc, sender)
 	}
 	_ = apiServer.Start()

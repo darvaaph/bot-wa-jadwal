@@ -412,6 +412,55 @@ const BotApi = {
     return true;
   },
 
+  async getRooms(status) {
+    const res = await fetch('/api/v1/rooms?status=' + encodeURIComponent(status || 'ACTIVE'), { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data || [];
+  },
+
+  async getRoomAvailability(date, start, end) {
+    const res = await fetch('/api/v1/rooms/availability?date=' + encodeURIComponent(date) + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end), { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async getAudit(params) {
+    const qs = new URLSearchParams(params || {}).toString();
+    const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data || [];
+  },
+
+  async getSystemStatus() {
+    const res = await fetch('/api/v1/admin/system-status', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async createBackup(payload) {
+    const res = await fetch('/api/v1/admin/backups', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal membuat backup.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async restoreBackup(backupId, reason) {
+    const res = await fetch('/api/v1/admin/backups/' + backupId + '/restore', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ reason: reason })
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal menjalankan restore.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return true;
+  },
+
   async getStatus() {
     const res = await fetch('/api/status', { credentials: 'same-origin' });
     if (!res.ok) return null;
