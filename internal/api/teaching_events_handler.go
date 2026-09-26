@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -552,7 +553,9 @@ func (s *Server) enqueueScheduleChange(eventID int64, published *schedule.EventR
 	if published.Reason != nil && *published.Reason != "" {
 		text += "\nKeterangan: " + *published.Reason
 	}
-	_, _ = s.notifyService.EnqueueEventPublished(context.Background(), published.OwnerClassID, eventID, text, nil)
+	if _, err := s.notifyService.EnqueueEventPublished(context.Background(), published.OwnerClassID, eventID, text, nil); err != nil {
+		log.Printf("notifikasi perubahan event %d tidak diantrekan: %v", eventID, err)
+	}
 }
 
 // enqueueScheduleCorrection posts a PRD correction message and supersedes pending change.
@@ -565,5 +568,7 @@ func (s *Server) enqueueScheduleCorrection(eventID int64, revoked *schedule.Even
 		reason = *revoked.RevocationReason
 	}
 	text := "*KOREKSI JADWAL*\n" + revoked.OwnerDisplay + "\nPerubahan sebelumnya dicabut oleh KM.\nAlasan: " + reason
-	_, _ = s.notifyService.EnqueueEventRevoked(context.Background(), revoked.OwnerClassID, eventID, text, nil)
+	if _, err := s.notifyService.EnqueueEventRevoked(context.Background(), revoked.OwnerClassID, eventID, text, nil); err != nil {
+		log.Printf("notifikasi koreksi event %d tidak diantrekan: %v", eventID, err)
+	}
 }

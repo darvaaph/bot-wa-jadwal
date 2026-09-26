@@ -88,15 +88,10 @@ func (s *Server) handleRequestRecovery(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field identity_key wajib diisi"})
 		return
 	}
-	token, err := s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method, "")
-	if err != nil {
-		// Generic response to avoid account enumeration.
-		s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Jika identitas terdaftar, instruksi pemulihan telah dibuat"})
-		return
-	}
-	_ = token
-	// Identical generic response: the token is never disclosed here. It is
-	// relayed out-of-band (WhatsApp/admin) via the admin issue endpoint.
+	// Generic response in all cases (unknown identity, throttle, success):
+	// the token is never disclosed here. It is relayed out-of-band
+	// (WhatsApp/admin) via the admin issue endpoint.
+	_, _ = s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method, "")
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Jika identitas terdaftar, instruksi pemulihan telah dibuat"})
 }
 
@@ -128,6 +123,10 @@ func (s *Server) handleIssueRecovery(w http.ResponseWriter, r *http.Request) {
 	}
 	token, err := s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method, payload.Reason)
 	if err != nil {
+		if errors.Is(err, auth.ErrTooFrequent) {
+			s.writeJSON(w, http.StatusTooManyRequests, map[string]string{"status": "error", "error": "Token aktif masih berlaku, coba lagi nanti"})
+			return
+		}
 		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Identitas tidak terdaftar"})
 		return
 	}

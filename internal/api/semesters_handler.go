@@ -222,7 +222,12 @@ func (s *Server) handleSemesterActivate(w http.ResponseWriter, r *http.Request) 
 	var payload struct {
 		Version int `json:"version"`
 	}
-	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload)
+	if r.Body != nil && r.ContentLength != 0 {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
+			return
+		}
+	}
 	if payload.Version < 1 {
 		// Fall back to the previewed version so callers that only previewed
 		// can still activate without an extra round-trip.
@@ -235,6 +240,14 @@ func (s *Server) handleSemesterActivate(w http.ResponseWriter, r *http.Request) 
 		}
 		if errors.Is(err, semester.ErrVersion) {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Versi semester sudah berubah, muat ulang preview sebelum mengaktifkan"})
+			return
+		}
+		if errors.Is(err, semester.ErrNotFound) {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Semester tidak ditemukan"})
+			return
+		}
+		if errors.Is(err, semester.ErrInvalidInput) {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Semester bukan milik kelas ini"})
 			return
 		}
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal mengaktifkan semester"})

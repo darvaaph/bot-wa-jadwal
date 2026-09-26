@@ -187,12 +187,14 @@ func (s *Server) handleRoomProposal(w http.ResponseWriter, r *http.Request) {
 	}
 	var classID any
 	var actorUser, actorRA any
+	actorType := "SYSTEM"
 	if ok {
 		if principal.ClassID != nil {
 			classID = *principal.ClassID
 		}
 		actorUser = principal.UserID
 		actorRA = principal.RoleAssignmentID
+		actorType = "USER"
 	}
 	var entityID any
 	if payload.RoomID != nil {
@@ -202,8 +204,8 @@ func (s *Server) handleRoomProposal(w http.ResponseWriter, r *http.Request) {
 	corr := audit.NewCorrelationID()
 	if _, err := db.ExecContext(r.Context(), `INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, actor_type,
 		action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at)
-		VALUES (?, ?, ?, 'USER', 'ROOM_PROPOSAL', 'ROOM', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, actorUser, actorRA, entityID, after, strings.TrimSpace(payload.Note), corr); err != nil {
+		VALUES (?, ?, ?, ?, 'ROOM_PROPOSAL', 'ROOM', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		classID, actorUser, actorRA, actorType, entityID, after, strings.TrimSpace(payload.Note), corr); err != nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal menyimpan usulan"})
 		return
 	}

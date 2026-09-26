@@ -248,8 +248,50 @@ func TestAccess_InvitationAndRoleLifecycle(t *testing.T) {
 func TestAccess_RecoveryFlow(t *testing.T) {
 	srv, _ := newAccessTestServer(t)
 
+	// Admin issues the token after out-of-band verification (reason mandatory).
+	cookies, csrf, _ := loginAs(t, srv, "admin@example.test", "kata-sandi-yang-sangat-kuat")
+	rr := authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test"}, cookies, csrf)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("issue tanpa reason: diharapkan 400, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "tidak-ada@example.test", "reason": "x"}, cookies, csrf)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("issue unknown: diharapkan 404, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test", "reason": "lupa kata sandi, verifikasi via telepon"}, cookies, csrf)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("issue: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Data struct {
+			RecoveryToken string `json:"recovery_token"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Data.RecoveryToken == "" {
+		t.Fatalf("recovery token kosong")
+	}
+	// Throttle: second issue while a token is active.
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test", "reason": "lagi"}, cookies, csrf)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("issue ganda: diharapkan 429, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/confirm", map[string]any{
+		"token": body.Data.RecoveryToken, "new_password": "kata-sandi-baru-yang-kuat",
+	}, nil, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("confirm recovery: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/confirm", map[string]any{
+		"token": body.Data.RecoveryToken, "new_password": "kata-sandi-lain-yang-kuat",
+	}, nil, "")
+	if rr.Code == http.StatusOK {
+		t.Fatalf("reuse recovery token: seharusnya ditolak")
+	}
 	// Public endpoint must be shape-identical for known and unknown identities.
-	rr := authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/request", map[string]any{"identity_key": "admin@example.test"}, nil, "")
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/request", map[string]any{"identity_key": "admin@example.test"}, nil, "")
 	if rr.Code != http.StatusOK {
 		t.Fatalf("request recovery: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
 	}
@@ -268,40 +310,6 @@ func TestAccess_RecoveryFlow(t *testing.T) {
 	}
 	if leaked.Data != nil {
 		t.Fatalf("respons publik membocorkan data: %+v", leaked.Data)
-	}
-
-	// Admin issues the token after out-of-band verification (reason mandatory).
-	cookies, csrf, _ := loginAs(t, srv, "admin@example.test", "kata-sandi-yang-sangat-kuat")
-	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test"}, cookies, csrf)
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("issue tanpa reason: diharapkan 400, didapat %d: %s", rr.Code, rr.Body.String())
-	}
-	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test", "reason": "lupa kata sandi, verifikasi via telepon"}, cookies, csrf)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("issue: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
-	}
-	var body struct {
-		Data struct {
-			RecoveryToken string `json:"recovery_token"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.Data.RecoveryToken == "" {
-		t.Fatalf("recovery token kosong")
-	}
-	rr = authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/confirm", map[string]any{
-		"token": body.Data.RecoveryToken, "new_password": "kata-sandi-baru-yang-kuat",
-	}, nil, "")
-	if rr.Code != http.StatusOK {
-		t.Fatalf("confirm recovery: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
-	}
-	rr = authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/confirm", map[string]any{
-		"token": body.Data.RecoveryToken, "new_password": "kata-sandi-lain-yang-kuat",
-	}, nil, "")
-	if rr.Code == http.StatusOK {
-		t.Fatalf("reuse recovery token: seharusnya ditolak")
 	}
 	if _, _, _ = loginAs(t, srv, "admin@example.test", "kata-sandi-baru-yang-kuat"); true {
 		// login sukses berarti password terganti; helper sudah assert 200.

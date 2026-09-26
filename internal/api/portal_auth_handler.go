@@ -150,13 +150,6 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 		s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Versi pengaturan sudah berubah, muat ulang sebelum menyimpan"})
 		return
 	}
-	if payload.PortalCode != nil && strings.TrimSpace(*payload.PortalCode) != "" {
-		if err := s.portalService.SetClassCode(r.Context(), classID, *payload.PortalCode); err != nil {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Kode kelas tidak valid"})
-			return
-		}
-		payload.Version++
-	}
 	if payload.PortalAccessMode != nil {
 		mode := strings.ToUpper(strings.TrimSpace(*payload.PortalAccessMode))
 		if mode != "LINK" && mode != "CODE" {
@@ -172,6 +165,63 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 				return
 			}
 		}
+	}
+	meetingVisibility := ""
+	if payload.MeetingLinkVisibility != nil {
+		meetingVisibility = strings.ToUpper(strings.TrimSpace(*payload.MeetingLinkVisibility))
+		if meetingVisibility != "VALID_CLASS_ACCESS" && meetingVisibility != "WHATSAPP_ONLY" {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "meeting_link_visibility tidak valid"})
+			return
+		}
+	}
+	morning := ""
+	morningSet := false
+	if payload.MorningReminderTime != nil {
+		morning = strings.TrimSpace(*payload.MorningReminderTime)
+		morningSet = true
+		if morning != "" && !validHHMM(morning) {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "morning_reminder_time harus HH:MM"})
+			return
+		}
+	}
+	afternoon := ""
+	afternoonSet := false
+	if payload.AfternoonReminderTime != nil {
+		afternoon = strings.TrimSpace(*payload.AfternoonReminderTime)
+		afternoonSet = true
+		if afternoon != "" && !validHHMM(afternoon) {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "afternoon_reminder_time harus HH:MM"})
+			return
+		}
+	}
+	if payload.ReplacementReminderMinutes != nil && *payload.ReplacementReminderMinutes < 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "replacement_reminder_minutes tidak valid"})
+		return
+	}
+	timezone := ""
+	if payload.Timezone != nil {
+		timezone = strings.TrimSpace(*payload.Timezone)
+		if timezone == "" {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "timezone tidak valid"})
+			return
+		}
+		if _, err := time.LoadLocation(timezone); err != nil {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "timezone tidak dikenal"})
+			return
+		}
+	}
+	// All validation passed; writes below cannot fail validation.
+	rotatedCode := false
+	if payload.PortalCode != nil && strings.TrimSpace(*payload.PortalCode) != "" {
+		if err := s.portalService.SetClassCode(r.Context(), classID, *payload.PortalCode); err != nil {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Kode kelas tidak valid"})
+			return
+		}
+		payload.Version++
+		rotatedCode = true
+	}
+	if payload.PortalAccessMode != nil {
+		mode := strings.ToUpper(strings.TrimSpace(*payload.PortalAccessMode))
 		if err := s.portalService.SetAccessMode(r.Context(), classID, mode); err != nil {
 			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Gagal mengubah mode akses portal"})
 			return
@@ -181,60 +231,32 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 	updates := []string{}
 	args := []any{}
 	if payload.MeetingLinkVisibility != nil {
-		v := strings.ToUpper(strings.TrimSpace(*payload.MeetingLinkVisibility))
-		if v != "VALID_CLASS_ACCESS" && v != "WHATSAPP_ONLY" {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "meeting_link_visibility tidak valid"})
-			return
-		}
 		updates = append(updates, "meeting_link_visibility = ?")
-		args = append(args, v)
+		args = append(args, meetingVisibility)
 	}
-	if payload.MorningReminderTime != nil {
-		v := strings.TrimSpace(*payload.MorningReminderTime)
-		if v != "" && !validHHMM(v) {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "morning_reminder_time harus HH:MM"})
-			return
-		}
-		if v == "" {
+	if morningSet {
+		if morning == "" {
 			updates = append(updates, "morning_reminder_time = NULL")
 		} else {
 			updates = append(updates, "morning_reminder_time = ?")
-			args = append(args, v)
+			args = append(args, morning)
 		}
 	}
-	if payload.AfternoonReminderTime != nil {
-		v := strings.TrimSpace(*payload.AfternoonReminderTime)
-		if v != "" && !validHHMM(v) {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "afternoon_reminder_time harus HH:MM"})
-			return
-		}
-		if v == "" {
+	if afternoonSet {
+		if afternoon == "" {
 			updates = append(updates, "afternoon_reminder_time = NULL")
 		} else {
 			updates = append(updates, "afternoon_reminder_time = ?")
-			args = append(args, v)
+			args = append(args, afternoon)
 		}
 	}
 	if payload.ReplacementReminderMinutes != nil {
-		if *payload.ReplacementReminderMinutes < 0 {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "replacement_reminder_minutes tidak valid"})
-			return
-		}
 		updates = append(updates, "replacement_reminder_minutes = ?")
 		args = append(args, *payload.ReplacementReminderMinutes)
 	}
 	if payload.Timezone != nil {
-		tz := strings.TrimSpace(*payload.Timezone)
-		if tz == "" {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "timezone tidak valid"})
-			return
-		}
-		if _, err := time.LoadLocation(tz); err != nil {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "timezone tidak dikenal"})
-			return
-		}
 		updates = append(updates, "timezone = ?")
-		args = append(args, tz)
+		args = append(args, timezone)
 	}
 	if len(updates) > 0 {
 		updates = append(updates, "version = version + 1")
@@ -251,7 +273,11 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	s.writeClassSettingsAudit(r, classID, payload)
-	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Pengaturan kelas disimpan, sesi portal lama otomatis dicabut"})
+	message := "Pengaturan kelas disimpan"
+	if rotatedCode {
+		message += ", kode akses dirotasi dan sesi portal lama otomatis dicabut"
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": message})
 }
 
 func (s *Server) handleGetClassSettings(w http.ResponseWriter, r *http.Request) {

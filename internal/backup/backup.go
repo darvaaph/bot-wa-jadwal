@@ -219,21 +219,6 @@ func (s *Service) Restore(ctx context.Context, backupID, userID int64, reason st
 		return err
 	}
 	defer tx.Rollback()
-	semFilter := ""
-	args := []any{rec.ClassID}
-	if rec.SemesterID != nil {
-		semFilter = " AND co.semester_id = ?"
-		args = append(args, *rec.SemesterID)
-	}
-	// Delete dependents first (class-scoped). Audit logs are append-only: never deleted.
-	queries := []string{
-		`DELETE FROM room_confirmations WHERE teaching_event_id IN (SELECT te.id FROM teaching_events te JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id JOIN course_offerings co ON co.id = teo.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE sem.class_id = ?` + semesterScope(rec.SemesterID) + `)`,
-		`DELETE FROM teaching_event_offerings WHERE teaching_event_id IN (SELECT te.id FROM teaching_events te JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id JOIN course_offerings co ON co.id = teo.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE sem.class_id = ?` + semesterScope(rec.SemesterID) + `)`,
-		`DELETE FROM teaching_events WHERE id NOT IN (SELECT teaching_event_id FROM teaching_event_offerings) AND id IN (SELECT te.id FROM teaching_events te LEFT JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id LEFT JOIN course_offerings co ON co.id = teo.course_offering_id LEFT JOIN semesters sem ON sem.id = co.semester_id WHERE sem.class_id = ?` + semesterScope(rec.SemesterID) + ` OR te.id NOT IN (SELECT teaching_event_id FROM teaching_event_offerings))`,
-	}
-	_ = queries
-	_ = args
-	_ = semFilter
 	if err := s.restoreDumpTx(ctx, tx, &d, rec); err != nil {
 		return err
 	}
@@ -284,7 +269,7 @@ func (s *Service) buildDump(ctx context.Context, classID int64, semesterID *int6
 	d.Parts = rowsMap(ctx, s.db, `SELECT teo.teaching_event_id, teo.course_offering_id, teo.participation_role, teo.participation_status FROM teaching_event_offerings teo JOIN course_offerings co ON co.id = teo.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE `+semWhere, semArgs)
 	d.Confirms = rowsMap(ctx, s.db, `SELECT rc.teaching_event_id, rc.room_id, rc.confirmation_status, rc.external_contact, rc.note, rc.recorded_by_user_id, rc.recorded_at, rc.confirmed_at FROM room_confirmations rc JOIN teaching_events te ON te.id = rc.teaching_event_id JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id JOIN course_offerings co ON co.id = teo.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE `+semWhere+` GROUP BY rc.teaching_event_id, rc.room_id, rc.confirmation_status, rc.external_contact, rc.note, rc.recorded_by_user_id, rc.recorded_at, rc.confirmed_at`, semArgs)
 	d.Tasks = rowsMap(ctx, s.db, `SELECT t.id, t.course_offering_id, t.title, t.instructions, t.deadline_at, t.task_type, t.submission_text, t.submission_url, t.publication_status, t.review_state, t.reviewed_version, t.created_by_user_id, t.published_at, t.completed_at, t.archived_at, t.version FROM tasks t JOIN course_offerings co ON co.id = t.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE `+semWhere+` AND t.deleted_at IS NULL`, semArgs)
-	d.Reviews = rowsMap(ctx, s.db, `SELECT tr.task_id, tr.reviewer_user_id, tr.reviewer_role_assignment_id, tr.task_version, tr.decision, tr.note FROM task_reviews tr JOIN tasks t ON t.id = tr.task_id JOIN course_offerings co ON co.id = t.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE `+semWhere, semArgs)
+	d.Reviews = rowsMap(ctx, s.db, `SELECT tr.task_id, tr.reviewer_user_id, tr.reviewer_role_assignment_id, tr.task_version, tr.decision, tr.note FROM task_reviews tr JOIN tasks t ON t.id = tr.task_id JOIN course_offerings co ON co.id = t.course_offering_id JOIN semesters sem ON sem.id = co.semester_id WHERE `+semWhere+` AND t.deleted_at IS NULL`, semArgs)
 	d.Materials = rowsMap(ctx, s.db, `SELECT m.id, m.class_id, m.course_offering_id, m.task_id, m.title, m.material_type, m.url, m.description, m.visibility, m.status, m.created_by_user_id FROM materials m WHERE m.class_id = ? AND m.deleted_at IS NULL`, []any{classID})
 	d.Channels = rowsMap(ctx, s.db, `SELECT id, class_id, jid, channel_type, display_name, status FROM whatsapp_channels WHERE class_id = ?`, []any{classID})
 	// Referenced masters.
@@ -295,11 +280,6 @@ func (s *Service) buildDump(ctx context.Context, classID int64, semesterID *int6
 
 // restoreDumpTx replaces class-scope academic data from dump. Global masters upserted.
 func (s *Service) restoreDumpTx(ctx context.Context, tx *sql.Tx, d *dump, rec *Record) error {
-	semIDs := map[int64]bool{}
-	for _, sm := range d.Semesters {
-		id := int64Val(sm["id"])
-		semIDs[id] = true
-	}
 	var scopeArgs []any
 	ownerEventScope := `SELECT te.id FROM teaching_events te
 		JOIN teaching_event_offerings owner ON owner.teaching_event_id = te.id AND owner.participation_role = 'OWNER'
@@ -428,38 +408,8 @@ func (s *Service) restoreDumpTx(ctx context.Context, tx *sql.Tx, d *dump, rec *R
 			return err
 		}
 	}
-	_ = semIDs
+	_ = scopeArgs
 	return nil
-}
-
-func semesterScopeTx(semID *int64) string {
-	if semID != nil {
-		return " AND sem.id = " + fmt.Sprint(*semID)
-	}
-	return ""
-}
-func semesterScopeOnly(semID *int64) string {
-	if semID != nil {
-		return " AND id = " + fmt.Sprint(*semID)
-	}
-	return ""
-}
-func classArgs(rec *Record, mode int) []any {
-	if mode == 0 {
-		if rec.SemesterID != nil {
-			return []any{rec.ClassID}
-		}
-		return []any{rec.ClassID}
-	}
-	if rec.SemesterID != nil {
-		return []any{rec.ClassID, *rec.SemesterID}
-	}
-	return []any{rec.ClassID}
-}
-
-func rowMap(row *sql.Row) map[string]any {
-	// Generic single-row fetch is handled by callers via rowsMap; keep stub for class/settings.
-	return map[string]any{}
 }
 
 func rowsMap(ctx context.Context, db *sql.DB, query string, args []any) []map[string]any {

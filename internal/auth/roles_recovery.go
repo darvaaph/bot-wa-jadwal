@@ -161,6 +161,19 @@ func (s *Service) RequestRecovery(ctx context.Context, identityKey, method, reas
 		return "", err
 	}
 	now := s.clock().UTC()
+	// Throttle: one active token per user; re-request within 5 minutes is rejected
+	// to prevent token-spam invalidating legitimate tokens.
+	var lastCreated string
+	err = s.db.QueryRowContext(ctx, `SELECT created_at FROM recovery_tokens
+		WHERE user_id = ? AND used_at IS NULL AND expires_at > ?
+		ORDER BY created_at DESC LIMIT 1`, userID, formatTime(now)).Scan(&lastCreated)
+	if err == nil {
+		if created, perr := parseTime(lastCreated); perr == nil && now.Sub(created) < 5*time.Minute {
+			return "", ErrTooFrequent
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
 	token, err := s.newToken()
 	if err != nil {
 		return "", err

@@ -272,6 +272,19 @@ func ParseTimeString(s string, loc *time.Location) time.Time {
 	return time.Time{}
 }
 
+// DashboardRedirectNotice menyusun pesan pengalihan standar ketika perintah
+// mutasi WhatsApp dinonaktifkan. Seluruh pengelolaan data wajib melalui
+// Web Dashboard Pengelola agar tercatat dengan autentikasi dan audit yang benar.
+func DashboardRedirectNotice(entity string) string {
+	var sb strings.Builder
+	sb.WriteString("⚠️ *PENGELOLAAN DATA TERPUSAT*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("Penambahan, perubahan, dan pembatalan " + entity + " kini dilakukan sepenuhnya melalui Web Dashboard Pengelola demi keamanan dan validitas data.\n")
+	sb.WriteString("\n👉 Kelola di sini:\n")
+	sb.WriteString("http://localhost:8080/app.html (atau domain portal Anda)")
+	return sb.String()
+}
+
 // Contains memeriksa apakah suatu string terdapat dalam slice (case-insensitive)
 func Contains(slice []string, val string) bool {
 	for _, item := range slice {

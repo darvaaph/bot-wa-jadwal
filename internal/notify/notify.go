@@ -367,7 +367,7 @@ func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int6
 	if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED', supersedes_message_id=?,
 		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
 		WHERE entity_type='TEACHING_EVENT' AND entity_id=? AND id != ?
-		AND status IN ('PENDING','PROCESSING','FAILED')`, id, eventID, id); err != nil {
+		AND event_type='SCHEDULE_CHANGE' AND status IN ('PENDING','PROCESSING','FAILED')`, id, eventID, id); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -478,9 +478,9 @@ func (s *Service) finishAttempt(ctx context.Context, messageID int64, attempt in
 		return err
 	}
 	if ok {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, sent_at=?, updated_at=? WHERE id=?`, status, finished, finished, messageID)
+		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, sent_at=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, finished, messageID)
 	} else {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, updated_at=? WHERE id=?`, status, finished, messageID)
+		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, messageID)
 	}
 	return tx.Commit()
 }

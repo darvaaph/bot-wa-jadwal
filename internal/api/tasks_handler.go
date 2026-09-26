@@ -377,6 +377,13 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		if errors.Is(err, task.ErrVersionConflict) {
+			s.writeJSON(w, http.StatusConflict, map[string]string{
+				"status": "error",
+				"error":  "Tugas berubah saat ditinjau, muat ulang versi terbaru",
+			})
+			return
+		}
 		if errors.Is(err, task.ErrValidation) {
 			s.writeJSON(w, http.StatusBadRequest, map[string]string{
 				"status": "error",
@@ -441,6 +448,13 @@ func (s *Server) handleCompleteTaskV1(w http.ResponseWriter, r *http.Request) {
 			s.writeJSON(w, http.StatusNotFound, map[string]string{
 				"status": "error",
 				"error":  "Tugas tidak ditemukan",
+			})
+			return
+		}
+		if errors.Is(err, task.ErrInvalidState) {
+			s.writeJSON(w, http.StatusConflict, map[string]string{
+				"status": "error",
+				"error":  "Tugas REVOKED tidak dapat ditandai selesai",
 			})
 			return
 		}

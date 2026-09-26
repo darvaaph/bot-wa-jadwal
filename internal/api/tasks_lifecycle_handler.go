@@ -379,11 +379,19 @@ func (s *Server) handleListTaskReviewsV1(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if principal, ok := principalFromRequest(r); ok {
-		if scope, scopeErr := s.taskRepo.GetTaskScope(r.Context(), taskID); scopeErr == nil {
-			if !principal.IsSystemAdmin() && (principal.ClassID == nil || *principal.ClassID != scope.ClassID) {
-				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
-				return
-			}
+		scope, scopeErr := s.taskRepo.GetTaskScope(r.Context(), taskID)
+		if scopeErr != nil {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Tugas tidak ditemukan"})
+			return
+		}
+		if !principal.IsSystemAdmin() && (principal.ClassID == nil || *principal.ClassID != scope.ClassID) {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
+	} else {
+		if _, scopeErr := s.taskRepo.GetTaskScope(r.Context(), taskID); scopeErr != nil {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Tugas tidak ditemukan"})
+			return
 		}
 	}
 	reviews, err := s.taskRepo.ListReviews(r.Context(), taskID)

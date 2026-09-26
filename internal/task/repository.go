@@ -425,32 +425,37 @@ func (r *Repository) SubmitReview(ctx context.Context, in ReviewTaskInput) error
 		return err
 	}
 
+	// Optimistic lock: fail if the task changed under review.
+	var updateRes sql.Result
 	switch in.Decision {
 	case "APPROVED":
-		_, err = tx.ExecContext(ctx, `UPDATE tasks
+		updateRes, err = tx.ExecContext(ctx, `UPDATE tasks
 		SET review_state = 'APPROVED',
 			publication_status = 'PUBLISHED',
 			published_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
 			reviewed_version = ?,
 			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-		WHERE id = ?`, version, in.TaskID)
+		WHERE id = ? AND version = ?`, version, in.TaskID, version)
 	case "CHANGES_REQUESTED":
-		_, err = tx.ExecContext(ctx, `UPDATE tasks
+		updateRes, err = tx.ExecContext(ctx, `UPDATE tasks
 		SET review_state = 'CHANGES_REQUESTED',
 			publication_status = 'DRAFT',
 			reviewed_version = ?,
 			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-		WHERE id = ?`, version, in.TaskID)
+		WHERE id = ? AND version = ?`, version, in.TaskID, version)
 	case "REVOKED":
-		_, err = tx.ExecContext(ctx, `UPDATE tasks
+		updateRes, err = tx.ExecContext(ctx, `UPDATE tasks
 		SET review_state = 'REVOKED',
 			publication_status = 'REVOKED',
 			reviewed_version = ?,
 			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-		WHERE id = ?`, version, in.TaskID)
+		WHERE id = ? AND version = ?`, version, in.TaskID, version)
 	}
 	if err != nil {
 		return err
+	}
+	if n, _ := updateRes.RowsAffected(); n != 1 {
+		return ErrVersionConflict
 	}
 
 	after, err := getTaskInTx(ctx, tx, in.TaskID)
@@ -518,6 +523,16 @@ func (r *Repository) CompleteTask(ctx context.Context, id int64, actor ActorInfo
 			return ErrNotFound
 		}
 		return err
+	}
+	if current.PublicationStatus == "REVOKED" {
+		return ErrInvalidState
+	}
+	if current.CompletedAt != nil && strings.TrimSpace(*current.CompletedAt) != "" {
+		// Idempotent: already completed, no state change and no new audit.
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		return nil
 	}
 	beforeJSON := taskToJSON(current)
 	res, err := tx.ExecContext(ctx, `UPDATE tasks

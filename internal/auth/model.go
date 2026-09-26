@@ -21,6 +21,7 @@ var (
 	ErrInvalidSession       = errors.New("sesi tidak valid")
 	ErrInvalidInput         = errors.New("input tidak valid")
 	ErrAlreadyProvisioned   = errors.New("system admin awal sudah tersedia")
+	ErrTooFrequent          = errors.New("permintaan terlalu sering, coba lagi nanti")
 )
 
 type User struct {

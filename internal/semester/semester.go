@@ -298,7 +298,7 @@ func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE semesters SET status='ACTIVE',
-		published_at=COALESCE(published_at, ?), activated_at=?, updated_at=? WHERE id = ?`,
+		published_at=COALESCE(published_at, ?), activated_at=?, version=version+1, updated_at=? WHERE id = ?`,
 		now, now, now, semesterID); err != nil {
 		return err
 	}
