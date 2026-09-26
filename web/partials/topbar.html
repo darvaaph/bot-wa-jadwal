@@ -1,0 +1,18 @@
+<!-- partials/topbar.html — Topbar sticky: hamburger (mobile), search, aksi kanan -->
+<header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#EEEEEE]">
+  <div class="flex items-center gap-3 px-4 md:px-8 h-16 max-w-[1280px] mx-auto w-full">
+    <button type="button" @click="drawerOpen = true" aria-label="Buka menu" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+    <div class="relative flex-1 max-w-xl">
+      <img src="/assets/icons/search.svg" alt="" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" />
+      <input type="text" x-model="searchQuery" @keydown.enter="searchGo()" placeholder="Cari tugas, jadwal, materi..."
+             class="w-full h-11 pl-10 pr-4 rounded-xl border border-[#EEEEEE] bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+    </div>
+    <div class="ml-auto flex items-center gap-1.5 shrink-0">
+      <button type="button" @click="soon('Ganti tema')" aria-label="Ganti tema" class="w-11 h-11 hidden sm:flex items-center justify-center rounded-full bg-[#E9EAFF] text-[#3965FB] hover:bg-[#dbe4ff]"><span class="material-symbols-outlined">light_mode</span></button>
+      <button type="button" @click="soon('Notifikasi')" aria-label="Notifikasi" class="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-slate-100 text-[#1F1F1F]"><img src="/assets/icons/bell.svg" alt="" class="w-5 h-5" /><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#FF6C48]"></span></button>
+      <button type="button" @click="soon('Profil')" aria-label="Profil" class="w-9 h-9 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold text-[14px] flex items-center justify-center">?</button>
+    </div>
+  </div>
+</header>

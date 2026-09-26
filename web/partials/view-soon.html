@@ -1,0 +1,8 @@
+<!-- partials/view-soon.html — VIEW: MENU BELUM TERSEDIA (monitoring/materi/notifikasi/event/pengaturan/profil) -->
+<section x-show="['monitoring','materi','notifikasi','event','pengaturan','profil'].includes(activeView)" x-cloak>
+  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+    <span class="material-symbols-outlined text-[36px] text-slate-300">construction</span>
+    <p class="text-[15px] font-semibold text-[#1D1B3A] mt-2" x-text="viewTitle(activeView)">-</p>
+    <p class="text-[13px] text-slate-500 mt-1">Fitur belum tersedia — butuh endpoint backend. Mengikuti struktur nav Figma.</p>
+  </div>
+</section>

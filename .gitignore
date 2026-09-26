@@ -22,4 +22,7 @@ reminder_groups.json
 .env
 .env.local
 
+# Local test server logs (go run ... > webonly.log)
+webonly*.log
+
 TEAM_ONBOARDING.md

@@ -1,0 +1,30 @@
+<!-- partials/drawer.html — Drawer mobile slide dari kiri (mirror sidebar.html) -->
+<div x-show="drawerOpen" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-40 md:hidden" @click="drawerOpen = false" aria-hidden="true"></div>
+<aside x-show="drawerOpen" x-cloak
+       x-transition:enter="transition ease-out duration-300 transform"
+       x-transition:enter-start="-translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200 transform"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="-translate-x-full"
+       class="fixed left-0 top-0 h-full w-72 max-w-[85vw] bg-white z-50 md:hidden flex flex-col px-4 py-5 overflow-y-auto shadow-2xl"
+       role="dialog" aria-modal="true" aria-label="Menu navigasi mobile">
+  <div class="flex items-center justify-between px-2">
+    <div class="flex items-center gap-2">
+      <svg width="28" height="28" viewBox="0 0 34 34" fill="none" aria-hidden="true"><path d="M17 3v28M3 17h28M7 7l20 20M27 7L7 27" stroke="#3965FB" stroke-width="5" stroke-linecap="round"/></svg>
+      <span class="text-[20px] font-bold text-[#3965FB]" style="font-family:'Poppins',sans-serif">Asterisk</span>
+    </div>
+    <button type="button" @click="drawerOpen = false" aria-label="Tutup menu" class="p-2 min-w-[44px] min-h-[44px] rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <nav aria-label="Navigasi mobile" class="mt-6 flex flex-col gap-0.5 text-[14px]">
+    <template x-for="item in navItems" :key="item.id">
+      <button type="button" @click="switchView(item.id)"
+        :class="activeView === item.id ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+        <img x-show="item.img" class="w-5 h-5 shrink-0" :src="item.img" alt="" />
+        <span x-show="!item.img" class="w-5 h-5 rounded-full bg-[#E9EAFF] text-[#3965FB] flex items-center justify-center text-[10px] font-bold shrink-0">?</span>
+        <span x-text="item.label">-</span>
+      </button>
+    </template>
+  </nav>
+</aside>

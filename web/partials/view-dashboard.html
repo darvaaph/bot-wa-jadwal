@@ -1,0 +1,75 @@
+<!-- partials/view-dashboard.html — VIEW: DASHBOARD (data asli API) -->
+<section x-show="activeView === 'dashboard'" x-cloak>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
+      <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
+    </div>
+    <button type="button" @click="switchView('tugas')" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
+      <span class="material-symbols-outlined text-[18px]">add_box</span><span>Tambah tugas</span>
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Tugas</p>
+      <p class="text-[32px] font-bold text-[#1D1B3A] leading-tight" x-text="tasks.length">0</p>
+      <p class="text-[12px] text-[#3965FB]" x-text="urgentCount + ' mendekati deadline'">-</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Jadwal hari ini</p>
+      <p class="text-[32px] font-bold text-[#1D1B3A] leading-tight" x-text="todaySchedule.length">0</p>
+      <p class="text-[12px] text-[#3965FB]">sesi kuliah</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Status bot</p>
+      <p class="text-[22px] font-bold leading-tight pt-1" :class="botOnline ? 'text-emerald-600' : 'text-[#FF6C48]'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
+      <p class="text-[12px] text-[#3965FB]" x-text="'Kelas ' + selectedClass">-</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
+    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Tugas mendekati deadline</h2>
+        <button type="button" @click="switchView('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semua</button>
+      </div>
+      <div x-show="urgentTasks.length === 0" class="py-8 text-center text-[13px] text-slate-400">✅ Tidak ada tugas mendesak.</div>
+      <div class="divide-y divide-[#EEEEEE]">
+        <template x-for="t in urgentTasks" :key="t.id">
+          <div class="py-4 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-[15px] font-medium text-[#1F1F1F] line-clamp-1" x-text="t.deskripsi">-</p>
+              <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul">-</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-[12px] text-slate-500 hidden sm:inline" x-text="t.deadline">-</span>
+              <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484] text-[#1F1F1F]' : 'bg-[#E1FFB7] text-[#1F1F1F]')" x-text="t.countdown">-</span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Jadwal hari ini</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
+      <div x-show="todaySchedule.length === 0" class="py-6 text-center text-[13px] text-slate-400">🎉 Tidak ada jadwal hari ini.</div>
+      <div class="mt-2 divide-y divide-[#EEEEEE]">
+        <template x-for="s in todaySchedule" :key="s.id">
+          <div class="py-3 flex gap-3">
+            <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-12" x-text="s.timeStart">-</span>
+            <div class="min-w-0"><p class="text-[14px] font-medium text-[#1F1F1F] line-clamp-1" x-text="s.matkul">-</p><p class="text-[12px] text-slate-500" x-text="s.ruang">-</p></div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Log Aktivitas</h2>
+      <span class="text-[13px] text-slate-400">Menyusul endpoint backend →</span>
+    </div>
+    <div class="py-6 text-center text-[13px] text-slate-400">Riwayat perubahan tampil di sini setelah endpoint audit tersedia.</div>
+  </div>
+</section>

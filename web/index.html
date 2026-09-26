@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Asterisk — Dashboard Kelas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=20260926c" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="/js/api.js?v=20260926c"></script>
+  <script src="/js/app.js?v=20260926c"></script>
+</head>
+<!--
+  SHELL: kerangka saja. Isi per bagian ada di web/partials/*.html
+  dan dimuat oleh loadPartials() di js/app.js:
+    sidebar.html   -> #slot-sidebar    (nav desktop)
+    topbar.html    -> #slot-topbar     (search + aksi)
+    view-dashboard.html, view-jadwal.html, view-dosen.html,
+    view-tugas.html (KEMAL), view-soon.html -> slot view
+    drawer.html    -> #slot-drawer     (navigasi mobile slide)
+    toast.html     -> #slot-toast
+-->
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="dashboardApp()" x-init="initDashboard()" @keydown.escape.window="drawerOpen = false">
+
+  <div id="slot-sidebar"></div>
+
+  <div class="flex flex-col min-h-screen min-w-0 transition-all duration-300" :class="sidebarCollapsed ? 'md:pl-20' : 'md:pl-[248px]'">
+    <div id="slot-topbar"></div>
+    <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
+      <div id="slot-dashboard"></div>
+      <div id="slot-jadwal"></div>
+      <div id="slot-dosen"></div>
+      <div id="slot-tugas"></div>
+      <div id="slot-soon"></div>
+    </main>
+  </div>
+
+  <div id="slot-drawer"></div>
+  <div id="slot-toast"></div>
+
+</body>
+</html>
