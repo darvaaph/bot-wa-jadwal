@@ -1,0 +1,72 @@
+<!-- partials/sidebar.html — Sidebar desktop collapsible (mirror drawer.html untuk mobile) -->
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 transition-all duration-300 overflow-hidden"
+       :class="sidebarCollapsed ? 'w-20' : 'w-[248px]'">
+  <button type="button" @click="toggleSidebar()" :aria-label="sidebarCollapsed ? 'Buka navigasi' : 'Ciutkan navigasi'" title="Buka/tutup navigasi"
+    class="flex items-center gap-2 px-2 min-h-[44px] rounded-xl hover:bg-slate-50 text-left" :class="sidebarCollapsed && 'justify-center px-0'">
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true" class="shrink-0">
+      <path d="M17 3v28M3 17h28M7 7l20 20M27 7L7 27" stroke="#3965FB" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+    <span x-show="!sidebarCollapsed" class="text-[24px] font-bold text-[#3965FB] tracking-tight whitespace-nowrap" style="font-family:'Poppins',sans-serif">Asterisk</span>
+  </button>
+
+  <nav aria-label="Navigasi utama" class="mt-8 flex flex-col gap-0.5 text-[14px]">
+    <p x-show="!sidebarCollapsed" class="px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">RINGKASAN</p>
+    <button type="button" @click="switchView('dashboard')" title="Dashboard"
+      :class="activeView === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">home</span><span x-show="!sidebarCollapsed">Dashboard</span>
+    </button>
+    <button type="button" @click="switchView('monitoring')" title="Monitoring"
+      :class="activeView === 'monitoring' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">monitoring</span><span x-show="!sidebarCollapsed">Monitoring</span>
+    </button>
+
+    <p x-show="!sidebarCollapsed" class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
+    <button type="button" @click="switchView('tugas')" title="Tugas"
+      :class="activeView === 'tugas' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">assignment</span><span x-show="!sidebarCollapsed">Tugas</span>
+    </button>
+    <button type="button" @click="switchView('jadwal')" title="Jadwal"
+      :class="activeView === 'jadwal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">calendar_month</span><span x-show="!sidebarCollapsed">Jadwal</span>
+    </button>
+    <button type="button" @click="switchView('dosen')" title="Dosen berhalangan"
+      :class="activeView === 'dosen' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">book</span><span x-show="!sidebarCollapsed">Dosen berhalangan</span>
+    </button>
+    <button type="button" @click="switchView('materi')" title="Materi"
+      :class="activeView === 'materi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">folder</span><span x-show="!sidebarCollapsed">Materi</span>
+    </button>
+
+    <p x-show="!sidebarCollapsed" class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">KOMUNIKASI</p>
+    <button type="button" @click="switchView('notifikasi')" title="Notifikasi"
+      :class="activeView === 'notifikasi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">notifications</span><span x-show="!sidebarCollapsed">Notifikasi</span>
+    </button>
+    <button type="button" @click="switchView('event')" title="Event"
+      :class="activeView === 'event' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">event</span><span x-show="!sidebarCollapsed">Event</span>
+    </button>
+  </nav>
+
+  <div class="mt-auto flex flex-col gap-0.5">
+    <button type="button" @click="switchView('pengaturan')" title="Pengaturan"
+      :class="activeView === 'pengaturan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[14px] min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="material-symbols-outlined text-[20px]">settings</span><span x-show="!sidebarCollapsed">Pengaturan</span>
+    </button>
+    <button type="button" @click="switchView('profil')" title="Profil"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[14px] text-[#1F1F1F] hover:bg-slate-50 min-h-[44px]" :class="sidebarCollapsed && 'justify-center px-0'">
+      <span class="w-6 h-6 rounded-full bg-[#E9EAFF] text-[#3965FB] flex items-center justify-center text-[12px] font-bold shrink-0">?</span>
+      <span x-show="!sidebarCollapsed"><span class="block">Profil</span><span class="block text-[11px] text-slate-400">Belum masuk</span></span>
+    </button>
+  </div>
+</aside>

@@ -1,0 +1,14 @@
+<!-- partials/view-tugas.html — VIEW: TUGAS (milik Kemal — stub, jangan dikerjakan di sini) -->
+<!-- KEMAL: ganti file ini dengan implementasi tab Tugas (D02/M02 + D03/M03 + preview WA).
+     Helper API siap: API.getTasks(classId), API.createTask({matkul, deskripsi, deadline}),
+     API.deleteTask(id). State global tersedia: tasks, searchQuery, urgentTasks. -->
+<section x-show="activeView === 'tugas'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Tugas</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Pantau tugas dari seluruh mata kuliah.</p>
+  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#9AB7FD] bg-[#E9EAFF]/40 text-center">
+    <span class="material-symbols-outlined text-[36px] text-[#3965FB]">assignment</span>
+    <p class="text-[15px] font-semibold text-[#1D1B3A] mt-2">Area kerja Kemal</p>
+    <p class="text-[13px] text-slate-500 mt-1">Tab ini diimplementasikan di branch <code class="font-mono text-[12px]">feat/ui-tugas</code>.</p>
+    <p class="text-[13px] text-slate-500">Data mentah tersedia: <span class="font-mono" x-text="tasks.length + ' tugas di API'">-</span></p>
+  </div>
+</section>

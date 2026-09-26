@@ -1,0 +1,69 @@
+<!-- partials/view-dosen.html — VIEW: DOSEN BERHALANGAN (form + preview live, publish = draf+salin) -->
+<section x-show="activeView === 'dosen'" x-cloak>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Dosen Berhalangan</h1>
+      <p class="text-[14px] text-slate-500 mt-1">Catat perubahan perkuliahan dan beri kabar ke kelas</p>
+    </div>
+    <button type="button" @click="publishDosen()" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Publish info</button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-5 items-start">
+    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Informasi perkuliahan</h2>
+      <p class="text-[12px] text-slate-500">Pilih kelas yang terdampak hari ini.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Mata kuliah <span class="text-[#FF6C48]">*</span></label>
+          <select x-model="dosenForm.matkul" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB] bg-white">
+            <option value="">-- Pilih --</option>
+            <template x-for="m in matkulList" :key="m"><option :value="m" x-text="m">-</option></template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Tanggal kelas <span class="text-[#FF6C48]">*</span></label>
+          <input type="text" x-model="dosenForm.tanggal" placeholder="24 September 2026" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        </div>
+      </div>
+      <p class="text-[13px] font-medium mt-4 mb-2">Mode perkuliahan pengganti <span class="text-[#FF6C48]">*</span></p>
+      <div class="grid grid-cols-2 gap-3">
+        <button type="button" @click="dosenForm.mode = 'online'"
+          :class="dosenForm.mode === 'online' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE] text-[#1F1F1F]'"
+          class="h-12 rounded-xl border text-[14px] min-h-[44px]">Kelas online</button>
+        <button type="button" @click="dosenForm.mode = 'ganti'"
+          :class="dosenForm.mode === 'ganti' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE] text-[#1F1F1F]'"
+          class="h-12 rounded-xl border text-[14px] min-h-[44px]">Ganti hari</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Alasan dosen <span class="text-[#FF6C48]">*</span></label>
+          <input type="text" x-model="dosenForm.alasan" placeholder="Berhalangan hadir" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Link meeting</label>
+          <input type="text" x-model="dosenForm.link" placeholder="meet.google.com/kelas-..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        </div>
+      </div>
+      <div class="mt-4 p-3 rounded-xl bg-slate-50 text-[12px] text-slate-500">Jika kelas diganti hari — lanjutkan ke alur Pindah Jadwal untuk memilih slot dan ruang yang tersedia.</div>
+      <div class="flex flex-col sm:flex-row gap-3 mt-5">
+        <button type="button" @click="previewDosen()" class="flex-1 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] font-medium min-h-[44px]">Lihat preview</button>
+        <button type="button" @click="publishDosen()" class="flex-1 h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white font-semibold min-h-[44px]">Konfirmasi &amp; publish</button>
+      </div>
+    </div>
+    <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Preview pengumuman</h2>
+      <p class="text-[12px] text-slate-500">Pesan otomatis untuk grup kelas</p>
+      <div class="mt-3 p-4 rounded-2xl bg-[#E1FFB7]/60 border border-[#d3f5a0]">
+        <p class="text-[11px] font-semibold tracking-wide text-slate-600">INFO PERKULIAHAN • <span x-text="selectedClass">-</span></p>
+        <p class="text-[18px] font-semibold text-[#1D1B3A] mt-1" x-text="dosenForm.mode === 'ganti' ? 'Jadwal diganti hari' : 'Perkuliahan dialihkan online'">-</p>
+        <p class="text-[13px] mt-2" x-text="(dosenForm.tanggal || '—') + (dosenForm.jam ? ' • ' + dosenForm.jam + ' WIB' : '')">-</p>
+        <p class="text-[13px] mt-1" x-text="dosenForm.alasan || 'Alasan belum diisi.'">-</p>
+        <p class="text-[13px] text-[#3965FB] mt-1" x-show="dosenForm.link" x-text="'Tautan pertemuan: ' + dosenForm.link">-</p>
+      </div>
+      <span class="inline-block mt-3 px-3 py-1.5 rounded-lg bg-[#FCD484] text-[12px] font-semibold">Menunggu publish</span>
+      <button type="button" @click="copyDosen()" class="mt-3 w-full h-11 rounded-xl border border-[#EEEEEE] text-[14px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">content_copy</span><span>Salin teks pengumuman</span>
+      </button>
+    </div>
+  </div>
+</section>
