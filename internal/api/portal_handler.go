@@ -51,7 +51,9 @@ func (s *Server) resolvePortalContext(r *http.Request) (*portalClassContext, int
 		accessMode = "LINK"
 	}
 	if strings.ToUpper(strings.TrimSpace(accessMode)) == "CODE" {
-		return nil, http.StatusForbidden, "Portal kelas ini memerlukan kode akses"
+		if !s.portalAuthorized(r, cls.ID) {
+			return nil, http.StatusForbidden, "Portal kelas ini memerlukan kode akses"
+		}
 	}
 
 	semesterID := int64(0)

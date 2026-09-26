@@ -17,8 +17,11 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/notify"
+	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
 
 	"go.mau.fi/whatsmeow/types/events"
@@ -202,9 +205,20 @@ func main() {
 	if authService != nil {
 		apiServer.SetAuthService(authService, cfg.SecureCookies)
 	}
+	if appDB != nil {
+		apiServer.SetPortalService(portal.NewService(appDB))
+		apiServer.SetSemesterService(semester.NewService(appDB))
+		apiServer.SetScheduleEventService(schedule.NewEventService(appDB))
+		notifySvc := notify.NewService(appDB)
+		var sender notify.Sender
+		if botClient != nil {
+			sender = botClient
+		}
+		apiServer.SetNotifyService(notifySvc, sender)
+		go runNotifyScheduler(notifySvc, sender)
+	}
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
-
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 	<-stopSig
@@ -238,4 +252,22 @@ func main() {
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")
+}
+
+// runNotifyScheduler enqueues due reminders every 30s and drains the outbox when a sender exists.
+// Web publish never depends on WA: enqueue always runs, delivery is best-effort.
+func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now().UTC()
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		_, _ = svc.EnsureDailySummaries(ctx, now)
+		_, _ = svc.EnsureTaskReminders(ctx, now)
+		_, _ = svc.EnsureReplacementReminders(ctx, now)
+		if sender != nil {
+			_, _, _ = svc.ProcessDue(ctx, sender, 20, now)
+		}
+		cancel()
+	}
 }

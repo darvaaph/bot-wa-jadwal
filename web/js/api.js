@@ -251,6 +251,167 @@ const BotApi = {
     return json.data;
   },
 
+  async createClass(payload) {
+    const res = await fetch('/api/v1/classes', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal membuat kelas.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async getSemesters(classId) {
+    const res = await fetch('/api/v1/classes/' + classId + '/semesters', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data || [];
+  },
+
+  async createSemesterDraft(classId, payload) {
+    const res = await fetch('/api/v1/classes/' + classId + '/semesters/draft', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal membuat semester draf.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async previewSemester(classId, semesterId) {
+    const res = await fetch('/api/v1/classes/' + classId + '/semesters/' + semesterId + '/preview', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async activateSemester(classId, semesterId) {
+    const res = await fetch('/api/v1/classes/' + classId + '/semesters/' + semesterId + '/activate', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal mengaktifkan semester.');
+      err.code = res.status === 409 ? 'NOT_READY' : 'SAVE_FAILED'; throw err;
+    }
+    return true;
+  },
+
+  async importSemester(classId, payload) {
+    const res = await fetch('/api/v1/classes/' + classId + '/semesters/import', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 422) {
+      const err = new Error((json && json.error) || 'Impor ditolak.');
+      err.code = 'IMPORT_INVALID'; err.errors = json && json.errors ? json.errors : []; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.error) || 'Gagal mengimpor semester.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return json.data;
+  },
+
+  async verifyPortalCode(slug, code) {
+    const res = await fetch('/api/portal/' + encodeURIComponent(slug) + '/verify-code', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
+    });
+    if (res.status === 429) {
+      const err = new Error('Terlalu banyak percobaan, coba lagi nanti.');
+      err.code = 'RATE_LIMITED'; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Kode kelas tidak valid.');
+      err.code = 'INVALID_CODE'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async getTeachingEvents(classId, filters) {
+    let url = '/api/v1/teaching-events?class_id=' + classId;
+    if (filters && filters.lifecycle) url += '&lifecycle=' + encodeURIComponent(filters.lifecycle);
+    if (filters && filters.kind) url += '&kind=' + encodeURIComponent(filters.kind);
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data || [];
+  },
+
+  async getTeachingEventDetail(eventId) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async previewTeachingEvent(eventId) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async createTeachingEventDraft(payload) {
+    const res = await fetch('/api/v1/teaching-events/draft', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal membuat draf event.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async publishTeachingEvent(eventId, conflictOverrideReason) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/publish', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ conflict_override_reason: conflictOverrideReason || null })
+    });
+    if (res.status === 409) {
+      const err = new Error('Konflik memblokir publikasi, periksa preview.');
+      err.code = 'CONFLICT'; throw err;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal mempublikasikan event.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async revokeTeachingEvent(eventId, reason) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/revoke', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ reason: reason })
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal mencabut publikasi.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
+  },
+
+  async getNotifications(classId, status) {
+    let url = '/api/v1/notifications?class_id=' + classId;
+    if (status) url += '&status=' + encodeURIComponent(status);
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data || [];
+  },
+
+  async retryNotification(messageId) {
+    const res = await fetch('/api/v1/notifications/' + messageId + '/retry', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    if (!res.ok) {
+      const err = new Error('Gagal menjadwalkan ulang notifikasi.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return true;
+  },
+
   async getStatus() {
     const res = await fetch('/api/status', { credentials: 'same-origin' });
     if (!res.ok) return null;

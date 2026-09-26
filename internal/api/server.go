@@ -15,20 +15,28 @@ import (
 	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
+	"bot-jadwal/internal/notify"
+	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/web"
 )
 
 type Server struct {
-	httpServer    *http.Server
-	botClient     *bot.BotClient
-	classManager  *schedule.ClassManager
-	taskManager   *task.TaskManager
-	taskRepo      *task.Repository
-	academicRepo  *academic.Repository
-	authService   *auth.Service
-	secureCookies bool
+	httpServer      *http.Server
+	botClient       *bot.BotClient
+	classManager    *schedule.ClassManager
+	taskManager     *task.TaskManager
+	taskRepo        *task.Repository
+	academicRepo    *academic.Repository
+	authService     *auth.Service
+	portalService   *portal.Service
+	semesterService *semester.Service
+	scheduleEvents  *schedule.EventService
+	notifyService   *notify.Service
+	notifySender    notify.Sender
+	secureCookies   bool
 }
 
 type HealthResponse struct {
@@ -120,6 +128,48 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/portal/{slug}/tasks", s.handlePortalTasks)
 	mux.HandleFunc("GET /api/portal/{slug}/changes", s.handlePortalChanges)
 	mux.HandleFunc("GET /api/portal/{slug}/semesters", s.handlePortalSemesters)
+	mux.HandleFunc("POST /api/portal/{slug}/verify-code", s.handlePortalVerifyCode)
+	mux.HandleFunc("GET /api/portal/{slug}/access", s.handlePortalAccess)
+
+	mux.HandleFunc("POST /api/v1/invitations", s.authenticateMutationIfConfigured(s.handleCreateInvitation))
+	mux.HandleFunc("GET /api/v1/invitations", s.authenticateIfConfigured(s.handleListInvitations))
+	mux.HandleFunc("GET /api/v1/invitations/{token}", s.handleGetInvitationByToken)
+	mux.HandleFunc("POST /api/v1/invitations/{token}/accept", s.handleAcceptInvitation)
+	mux.HandleFunc("POST /api/v1/invitations/{id}/revoke", s.authenticateMutationIfConfigured(s.handleRevokeInvitation))
+	mux.HandleFunc("POST /api/v1/invitations/{id}/resend", s.authenticateMutationIfConfigured(s.handleResendInvitation))
+
+	mux.HandleFunc("GET /api/v1/role-assignments", s.authenticateIfConfigured(s.handleListRoleAssignments))
+	mux.HandleFunc("PATCH /api/v1/role-assignments/{id}", s.authenticateMutationIfConfigured(s.handleUpdateRoleAssignment))
+
+	mux.HandleFunc("POST /api/v1/auth/recovery/request", s.handleRequestRecovery)
+	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", s.handleConfirmRecovery)
+
+	mux.HandleFunc("PATCH /api/v1/classes/{id}/settings", s.authenticateMutationIfConfigured(s.handleUpdateClassSettings))
+
+	mux.HandleFunc("POST /api/v1/classes", s.authenticateMutationIfConfigured(s.handleCreateClass))
+	mux.HandleFunc("GET /api/v1/classes/{id}/semesters", s.authenticateIfConfigured(s.handleListSemesters))
+	mux.HandleFunc("POST /api/v1/classes/{id}/semesters/draft", s.authenticateMutationIfConfigured(s.handleCreateSemesterDraft))
+	mux.HandleFunc("POST /api/v1/classes/{id}/semesters/import", s.authenticateMutationIfConfigured(s.handleSemesterImport))
+	mux.HandleFunc("GET /api/v1/classes/{id}/semesters/{sid}/preview", s.authenticateIfConfigured(s.handleSemesterPreview))
+	mux.HandleFunc("POST /api/v1/classes/{id}/semesters/{sid}/activate", s.authenticateMutationIfConfigured(s.handleSemesterActivate))
+	mux.HandleFunc("POST /api/v1/classes/{id}/semesters/{sid}/offerings", s.authenticateMutationIfConfigured(s.handleAddOffering))
+	mux.HandleFunc("POST /api/v1/patterns", s.authenticateMutationIfConfigured(s.handleAddPattern))
+
+	mux.HandleFunc("POST /api/v1/teaching-events/draft", s.authenticateMutationIfConfigured(s.handleCreateTeachingEventDraft))
+	mux.HandleFunc("PUT /api/v1/teaching-events/{id}", s.authenticateMutationIfConfigured(s.handleUpdateTeachingEventDraft))
+	mux.HandleFunc("DELETE /api/v1/teaching-events/{id}", s.authenticateMutationIfConfigured(s.handleDeleteTeachingEventDraft))
+	mux.HandleFunc("GET /api/v1/teaching-events", s.authenticateIfConfigured(s.handleListTeachingEvents))
+	mux.HandleFunc("GET /api/v1/teaching-events/{id}", s.authenticateIfConfigured(s.handleGetTeachingEventDetail))
+	mux.HandleFunc("GET /api/v1/teaching-events/{id}/preview", s.authenticateIfConfigured(s.handlePreviewTeachingEvent))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", s.authenticateMutationIfConfigured(s.handlePublishTeachingEvent))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", s.authenticateMutationIfConfigured(s.handleRevokeTeachingEvent))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participants", s.authenticateMutationIfConfigured(s.handleAddEventParticipant))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participants/{offeringId}/respond", s.authenticateMutationIfConfigured(s.handleRespondEventParticipant))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmation", s.authenticateMutationIfConfigured(s.handleRecordRoomConfirmation))
+
+	mux.HandleFunc("GET /api/v1/notifications", s.authenticateIfConfigured(s.handleListNotifications))
+	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.authenticateMutationIfConfigured(s.handleRetryNotification))
+	mux.HandleFunc("POST /api/v1/admin/notifications/process", s.authenticateMutationIfConfigured(s.handleProcessNotifications))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
@@ -264,6 +314,23 @@ func (s *Server) SetTaskRepo(repo *task.Repository) {
 func (s *Server) SetAuthService(service *auth.Service, secureCookies bool) {
 	s.authService = service
 	s.secureCookies = secureCookies
+}
+
+func (s *Server) SetPortalService(service *portal.Service) {
+	s.portalService = service
+}
+
+func (s *Server) SetSemesterService(service *semester.Service) {
+	s.semesterService = service
+}
+
+func (s *Server) SetScheduleEventService(service *schedule.EventService) {
+	s.scheduleEvents = service
+}
+
+func (s *Server) SetNotifyService(service *notify.Service, sender notify.Sender) {
+	s.notifyService = service
+	s.notifySender = sender
 }
 
 func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {

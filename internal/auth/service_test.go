@@ -308,8 +308,8 @@ func insertAssignment(t *testing.T, db *sql.DB, userID int64, role, scope string
 	t.Helper()
 	var id int64
 	err := db.QueryRow(`INSERT INTO role_assignments (
-		user_id, role, scope_type, class_id, semester_id, course_offering_id, status
-	) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE') RETURNING id`, userID, role, scope, classID, semesterID, offeringID).Scan(&id)
+		user_id, role, scope_type, class_id, semester_id, course_offering_id, status, valid_from
+	) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', '2026-01-01T00:00:00Z') RETURNING id`, userID, role, scope, classID, semesterID, offeringID).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
 	}

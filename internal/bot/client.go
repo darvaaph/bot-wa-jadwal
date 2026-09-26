@@ -10,8 +10,11 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
+	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite"
 )
 
@@ -151,4 +154,20 @@ func (b *BotClient) Status() string {
 		return "reconnecting"
 	}
 	return "waiting_qr"
+}
+
+// SendText implements notify.Sender over WhatsApp.
+func (b *BotClient) SendText(ctx context.Context, jid, text string) (string, error) {
+	if b == nil || b.Client == nil || !b.Client.IsConnected() {
+		return "", fmt.Errorf("koneksi WhatsApp tidak aktif")
+	}
+	target, err := types.ParseJID(jid)
+	if err != nil {
+		return "", fmt.Errorf("JID tidak valid: %w", err)
+	}
+	resp, err := b.Client.SendMessage(ctx, target, &waE2E.Message{Conversation: proto.String(text)})
+	if err != nil {
+		return "", err
+	}
+	return string(resp.ID), nil
 }
