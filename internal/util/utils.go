@@ -272,6 +272,19 @@ func ParseTimeString(s string, loc *time.Location) time.Time {
 	return time.Time{}
 }
 
+// DashboardRedirectNotice menyusun pesan pengalihan standar ketika perintah
+// mutasi WhatsApp dinonaktifkan. Seluruh pengelolaan data wajib melalui
+// Web Dashboard Pengelola agar tercatat dengan autentikasi dan audit yang benar.
+func DashboardRedirectNotice(entity string) string {
+	var sb strings.Builder
+	sb.WriteString("⚠️ *PENGELOLAAN DATA TERPUSAT*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("Penambahan, perubahan, dan pembatalan " + entity + " kini dilakukan sepenuhnya melalui Web Dashboard Pengelola demi keamanan dan validitas data.\n")
+	sb.WriteString("\n👉 Kelola di sini:\n")
+	sb.WriteString("http://localhost:8080/app.html (atau domain portal Anda)")
+	return sb.String()
+}
+
 // Contains memeriksa apakah suatu string terdapat dalam slice (case-insensitive)
 func Contains(slice []string, val string) bool {
 	for _, item := range slice {
@@ -291,9 +304,7 @@ func CleanCommandPrefix(msg string) string {
 	return clean
 }
 
-// MatchCommandPrefix memeriksa apakah teks pesan diawali oleh salah satu kata kunci perintah.
-// - Di grup WhatsApp: Pesan WAJIB diawali simbol prefix (!, /, atau #).
-// - Di chat pribadi (DM): Simbol prefix bersifat opsional.
+// MatchCommandPrefix mewajibkan prefix !, /, atau # di grup; prefix bersifat opsional di DM.
 // Fungsi ini juga menjamin batas kata (word boundary) sehingga "!tugas" cocok, tetapi "!tugaskemarin" tidak.
 func MatchCommandPrefix(msg string, isGroup bool, keywords ...string) bool {
 	clean := strings.TrimSpace(msg)
@@ -328,9 +339,8 @@ func IsMenuOrHelpCommand(msg string, isGroup bool) bool {
 	return MatchCommandPrefix(msg, isGroup, "menu", "help", "keyword", "keywords", "bantuan", "panduan")
 }
 
-// FindDataDir mencari path direktori atau file data (misal "data/jadwal" atau "jadwal.json")
-// dengan mengecek direktori saat ini dan menaik hingga 4 tingkat parent directories.
-// Ini menjamin test di subpackage maupun proses runtime di root selalu menemukan file data.
+// FindDataDir mencari target dari working directory hingga empat direktori induk agar
+// pemanggilan dari root maupun subpackage memakai data yang sama.
 func FindDataDir(targetPath string) string {
 	if targetPath == "" {
 		return targetPath

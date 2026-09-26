@@ -20,21 +20,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ReminderGroup menyimpan data grup WhatsApp yang terdaftar menerima pengingat otomatis
 type ReminderGroup struct {
 	JID     string    `json:"jid"`
 	Name    string    `json:"name"`
 	AddedAt time.Time `json:"added_at"`
 }
 
-// ReminderConfig menyimpan konfigurasi jadwal pengingat dan daftar grup
 type ReminderConfig struct {
-	Hour    int             `json:"hour"`   // Jam pengingat (default 6)
-	Minute  int             `json:"minute"` // Menit pengingat (default 30)
-	Groups  []ReminderGroup `json:"groups"`
+	Hour   int             `json:"hour"`   // Jam pengingat (default 6)
+	Minute int             `json:"minute"` // Menit pengingat (default 30)
+	Groups []ReminderGroup `json:"groups"`
 }
 
-// ReminderManager mengelola scheduler dan persistensi data grup pengingat
 type ReminderManager struct {
 	mu          sync.RWMutex
 	filePath    string
@@ -69,7 +66,6 @@ func LoadReminderManager(filepath string) *ReminderManager {
 	return rm
 }
 
-// Save menyimpan konfigurasi grup pengingat ke file JSON
 func (rm *ReminderManager) Save() error {
 	data, err := json.MarshalIndent(rm.config, "", "  ")
 	if err != nil {
@@ -78,7 +74,6 @@ func (rm *ReminderManager) Save() error {
 	return os.WriteFile(rm.filePath, data, 0644)
 }
 
-// AddGroup mendaftarkan grup baru ke daftar pengingat
 func (rm *ReminderManager) AddGroup(jid string, name string) (bool, string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
@@ -103,7 +98,6 @@ func (rm *ReminderManager) AddGroup(jid string, name string) (bool, string) {
 	return true, fmt.Sprintf("✅ *Pengingat Otomatis Diaktifkan!*\nJadwal kuliah akan otomatis dikirim ke grup ini setiap hari *Senin - Jumat* pukul *%02d:%02d WIB*.\n\nKetik `!reminder test` untuk mencoba simulasi pengiriman.", rm.config.Hour, rm.config.Minute)
 }
 
-// RemoveGroup menghapus grup dari daftar pengingat otomatis
 func (rm *ReminderManager) RemoveGroup(jid string) (bool, string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
@@ -125,7 +119,6 @@ func (rm *ReminderManager) RemoveGroup(jid string) (bool, string) {
 	return true, "🔕 *Pengingat Otomatis Dinonaktifkan!*\nGrup ini tidak akan menerima jadwal otomatis harian lagi."
 }
 
-// Status menampilkan informasi status pengingat saat ini
 func (rm *ReminderManager) Status(currentJID string) string {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
@@ -243,7 +236,6 @@ func (rm *ReminderManager) StartScheduler(
 			rm.mu.RUnlock()
 
 			todayStr := now.Format("2006-01-02")
-			// Cek apakah tepat jam pengingat dan belum pernah dikirim hari ini
 			if now.Hour() == targetHour && now.Minute() == targetMinute && rm.lastRunDate != todayStr {
 				rm.lastRunDate = todayStr
 

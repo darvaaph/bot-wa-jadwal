@@ -59,13 +59,11 @@ func ReplyWithTyping(
 		return
 	}
 
-	// 1. Berikan reaksi emoji pada pesan yang dikirim pengguna
 	if emoji != "" && msgID != "" {
 		reactionMsg := client.BuildReaction(chat, sender, msgID, emoji)
 		_, _ = client.SendMessage(ctx, chat, reactionMsg)
 	}
 
-	// 2. Simulasi status "sedang mengetik..."
 	if typingDuration <= 0 {
 		typingDuration = 600 * time.Millisecond
 	}
@@ -73,7 +71,6 @@ func ReplyWithTyping(
 	time.Sleep(typingDuration)
 	_ = client.SendChatPresence(ctx, chat, types.ChatPresencePaused, types.ChatPresenceMediaText)
 
-	// 3. Susun dan kirim pesan balasan dengan Quoted Reply
 	msgToSend := BuildQuotedReplyMessage(replyText, msgID, sender, quotedMsg, isGroup)
 	_, err := client.SendMessage(ctx, chat, msgToSend)
 	if err != nil {

@@ -5,17 +5,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
-// Config menyimpan seluruh konfigurasi operasional bot dan web dashboard
 type Config struct {
-	APIPort        string
-	StorageDir     string
-	AppDBPath      string
-	SessionDBPath  string
-	ReminderPath   string
-	DataJadwalDir  string
-	DefaultJadwal  string
+	APIPort       string
+	StorageDir    string
+	AppDBPath     string
+	SessionDBPath string
+	ReminderPath  string
+	DataJadwalDir string
+	DefaultJadwal string
+	AuthHashKey   string
+	SecureCookies bool
 }
 
 // LoadConfig mengembalikan konfigurasi default atau berdasarkan environment variable
@@ -33,6 +35,8 @@ func LoadConfig() *Config {
 		storageDir = "storage"
 	}
 
+	secureCookies, _ := strconv.ParseBool(os.Getenv("BOT_JADWAL_SECURE_COOKIES"))
+
 	return &Config{
 		APIPort:       port,
 		StorageDir:    storageDir,
@@ -41,18 +45,18 @@ func LoadConfig() *Config {
 		ReminderPath:  filepath.Join(storageDir, "reminder_groups.json"),
 		DataJadwalDir: "data/jadwal",
 		DefaultJadwal: "jadwal.json",
+		AuthHashKey:   os.Getenv("BOT_JADWAL_AUTH_HASH_KEY"),
+		SecureCookies: secureCookies,
 	}
 }
 
-// EnsureStorageAndMigrate memastikan direktori storage tersedia dan memindahkan
-// database/file runtime lama dari root workspace ke direktori storage jika ditemukan.
-// Termasuk file sidecar SQLite (-wal dan -shm) untuk mencegah file terkunci / corrupt.
+// EnsureStorageAndMigrate memindahkan file runtime lama beserta sidecar SQLite ke storage
+// agar migrasi tidak meninggalkan WAL atau SHM yang terkunci.
 func (c *Config) EnsureStorageAndMigrate() error {
 	if err := os.MkdirAll(c.StorageDir, 0755); err != nil {
 		return fmt.Errorf("gagal membuat direktori storage '%s': %w", c.StorageDir, err)
 	}
 
-	// Daftar file yang perlu dimigrasi dari root ke storage
 	migrationFiles := []string{
 		"tugas.db",
 		"tugas.db-wal",
@@ -67,7 +71,6 @@ func (c *Config) EnsureStorageAndMigrate() error {
 		srcPath := fileName
 		destPath := filepath.Join(c.StorageDir, fileName)
 
-		// Jika file ada di root tapi belum ada di storage, pindahkan
 		if srcInfo, err := os.Stat(srcPath); err == nil && !srcInfo.IsDir() {
 			if _, destErr := os.Stat(destPath); os.IsNotExist(destErr) {
 				fmt.Printf("📦 [Migrasi Storage] Memindahkan %s -> %s...\n", srcPath, destPath)

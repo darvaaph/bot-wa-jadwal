@@ -1,15 +1,25 @@
 package link
 
 import (
+	"bot-jadwal/internal/academic"
+	"bot-jadwal/internal/util"
+	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
 
-// LinkItem merepresentasikan satu rekaman tautan kelas di database
+var ErrUnmappedScope = academic.ErrUnmappedScope
+
+type BackfillReport struct {
+	TotalLegacy int
+	Migrated    int
+	Skipped     int
+	Errors      []string
+}
+
 type LinkItem struct {
 	ID          int64     `json:"id"`
 	ScopeJID    string    `json:"scope_jid"`
@@ -22,37 +32,168 @@ type LinkItem struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// LinkManager mengelola penyimpanan dan kueri tautan kelas berbasis SQLite
 type LinkManager struct {
-	db *sql.DB
+	db           *sql.DB
+	academicRepo *academic.Repository
 }
 
-// NewLinkManager menginisialisasi tabel class_links pada instance *sql.DB bersama
+// NewLinkManager menginisialisasi LinkManager yang bertumpu pada tabel target materials.
 func NewLinkManager(db *sql.DB) (*LinkManager, error) {
 	if db == nil {
 		return nil, fmt.Errorf("koneksi database tidak boleh nil")
 	}
 
-	query := `
-	CREATE TABLE IF NOT EXISTS class_links (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		scope_jid TEXT NOT NULL,
-		is_group BOOLEAN NOT NULL,
-		title TEXT NOT NULL,
-		url TEXT NOT NULL,
-		category TEXT NOT NULL DEFAULT 'umum',
-		description TEXT DEFAULT '',
-		created_by TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_links_scope ON class_links(scope_jid);
-	`
-	_, err := db.Exec(query)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuat tabel class_links: %w", err)
+	lm := &LinkManager{
+		db:           db,
+		academicRepo: academic.NewRepository(db),
 	}
 
-	return &LinkManager{db: db}, nil
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	lm.backfillLegacyLinks(ctx)
+
+	return lm, nil
+}
+
+// CategoryToMaterialType memetakan kategori lama ke material_type tabel materials.
+func CategoryToMaterialType(cat string) string {
+	switch strings.ToLower(strings.TrimSpace(cat)) {
+	case "drive":
+		return "DOCUMENT"
+	case "meeting":
+		return "MEETING"
+	case "repo":
+		return "REPOSITORY"
+	case "portal":
+		return "PORTAL"
+	default:
+		return "OTHER"
+	}
+}
+
+// MaterialTypeToCategory memetakan material_type tabel materials ke kategori lama LinkItem.
+func MaterialTypeToCategory(matType string) string {
+	switch strings.ToUpper(strings.TrimSpace(matType)) {
+	case "DOCUMENT":
+		return "drive"
+	case "MEETING":
+		return "meeting"
+	case "REPOSITORY":
+		return "repo"
+	case "PORTAL":
+		return "portal"
+	default:
+		return "umum"
+	}
+}
+
+func (lm *LinkManager) backfillLegacyLinks(ctx context.Context) {
+	_, _ = lm.BackfillLegacyLinksContext(ctx)
+}
+
+// BackfillLegacyLinksContext melakukan migrasi data dari tabel legacy class_links ke materials dengan manifest error.
+func (lm *LinkManager) BackfillLegacyLinksContext(ctx context.Context) (*BackfillReport, error) {
+	report := &BackfillReport{}
+	var tableName string
+	err := lm.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='class_links'").Scan(&tableName)
+	if err != nil || tableName == "" {
+		return report, nil
+	}
+
+	batchID, err := lm.academicRepo.EnsureMigrationBatch(ctx, "class_links")
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal memastikan migration batch: %v", err))
+	}
+
+	rows, err := lm.db.QueryContext(ctx, `
+		SELECT scope_jid, is_group, title, url, category, description, created_by
+		FROM class_links
+	`)
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal query class_links: %v", err))
+		if batchID > 0 {
+			_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "table", "QUERY_FAILED", err.Error())
+			_ = lm.academicRepo.UpdateImportBatchStats(ctx, batchID, 0, 0, 1)
+		}
+		return report, err
+	}
+
+	type legacyLink struct {
+		scopeJID    string
+		isGroup     bool
+		title       string
+		url         string
+		category    string
+		description string
+		createdBy   string
+	}
+	var legacyItems []legacyLink
+	for rows.Next() {
+		var l legacyLink
+		if err := rows.Scan(&l.scopeJID, &l.isGroup, &l.title, &l.url, &l.category, &l.description, &l.createdBy); err == nil {
+			legacyItems = append(legacyItems, l)
+		}
+	}
+	_ = rows.Close()
+
+	report.TotalLegacy = len(legacyItems)
+	for _, item := range legacyItems {
+		classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, item.scopeJID)
+		if err != nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("unmapped scope %s: %v", item.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "scope_jid", "UNMAPPED_SCOPE", errDetail)
+			}
+			continue
+		}
+
+		userID, err := lm.academicRepo.EnsureUser(ctx, item.createdBy, item.createdBy)
+		if err != nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("gagal memastikan user %s: %v", item.createdBy, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "created_by", "USER_ERROR", errDetail)
+			}
+			continue
+		}
+
+		matType := CategoryToMaterialType(item.category)
+		visibility := "CLASS_ACCESS"
+		if !item.isGroup {
+			visibility = "WHATSAPP_ONLY"
+		}
+
+		var exists int
+		_ = lm.db.QueryRowContext(ctx, `SELECT 1 FROM materials WHERE class_id = ? AND url = ? LIMIT 1`, classID, item.url).Scan(&exists)
+		if exists == 0 {
+			var newID int64
+			err := lm.db.QueryRowContext(ctx, `
+				INSERT INTO materials (class_id, title, material_type, url, description, visibility, status, created_by_user_id)
+				VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)
+				RETURNING id;
+			`, classID, item.title, matType, item.url, item.description, visibility, userID).Scan(&newID)
+			if err != nil {
+				report.Skipped++
+				errDetail := fmt.Sprintf("gagal insert materials (%s): %v", item.title, err)
+				report.Errors = append(report.Errors, errDetail)
+				if batchID > 0 {
+					_ = lm.academicRepo.RecordImportError(ctx, batchID, "class_links", "materials", "INSERT_FAILED", errDetail)
+				}
+				continue
+			}
+			report.Migrated++
+		} else {
+			report.Migrated++
+		}
+	}
+
+	if batchID > 0 {
+		_ = lm.academicRepo.UpdateImportBatchStats(ctx, batchID, report.TotalLegacy, report.Migrated, len(report.Errors))
+	}
+	return report, nil
 }
 
 // NormalizeURL memastikan URL diawali http:// atau https:// agar otomatis clickable di WhatsApp
@@ -67,7 +208,7 @@ func NormalizeURL(raw string) string {
 	return raw
 }
 
-// DetectLinkCategory mendeteksi kategori tautan secara cerdas dari judul dan URL
+// DetectLinkCategory menentukan kategori dari judul dan host URL.
 func DetectLinkCategory(title, rawURL string) string {
 	combined := strings.ToLower(title + " " + rawURL)
 	if strings.Contains(combined, "drive.google.com") || strings.Contains(combined, "onedrive") || strings.Contains(combined, "dropbox") || strings.Contains(combined, "drive") || strings.Contains(combined, "materi") {
@@ -85,11 +226,12 @@ func DetectLinkCategory(title, rawURL string) string {
 	return "umum"
 }
 
-// AddLink menambahkan tautan baru ke database dengan normalisasi URL dan deteksi kategori cerdas
-func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
+// AddLinkContext menambahkan tautan baru ke database target materials dengan context-awareness.
+func (lm *LinkManager) AddLinkContext(ctx context.Context, scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
 	title = strings.TrimSpace(title)
 	rawURL = NormalizeURL(rawURL)
 	desc = strings.TrimSpace(desc)
+	createdBy = strings.TrimSpace(createdBy)
 
 	if title == "" {
 		return 0, fmt.Errorf("judul tautan tidak boleh kosong")
@@ -98,30 +240,71 @@ func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, des
 		return 0, fmt.Errorf("URL tautan tidak boleh kosong")
 	}
 
-	// Validasi struktur URL
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Host == "" {
 		return 0, fmt.Errorf("format URL '%s' tidak valid", rawURL)
 	}
 
-	category := DetectLinkCategory(title, rawURL)
-
-	query := `
-	INSERT INTO class_links (scope_jid, is_group, title, url, category, description, created_by, created_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-	`
-	res, err := lm.db.Exec(query, scopeJID, isGroup, title, rawURL, category, desc, createdBy)
+	classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
 	if err != nil {
-		return 0, fmt.Errorf("gagal menambahkan tautan ke database: %w", err)
+		return 0, fmt.Errorf("gagal mengaitkan tautan ke kelas: %w", err)
 	}
 
-	return res.LastInsertId()
+	userID, err := lm.academicRepo.EnsureUser(ctx, createdBy, createdBy)
+	if err != nil {
+		return 0, fmt.Errorf("gagal memetakan user pembuat tautan: %w", err)
+	}
+
+	category := DetectLinkCategory(title, rawURL)
+	matType := CategoryToMaterialType(category)
+
+	visibility := "CLASS_ACCESS"
+	if !isGroup {
+		visibility = "WHATSAPP_ONLY"
+	}
+
+	query := `
+		INSERT INTO materials (class_id, title, material_type, url, description, visibility, status, created_by_user_id)
+		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)
+		RETURNING id;
+	`
+	var insertedID int64
+	err = lm.db.QueryRowContext(ctx, query, classID, title, matType, rawURL, desc, visibility, userID).Scan(&insertedID)
+	if err != nil {
+		return 0, fmt.Errorf("gagal menambahkan tautan ke materials: %w", err)
+	}
+
+	return insertedID, nil
 }
 
-// DeleteLink menghapus tautan berdasarkan ID dan scope chat
-func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
-	query := `DELETE FROM class_links WHERE id = ? AND scope_jid = ?;`
-	res, err := lm.db.Exec(query, id, scopeJID)
+// AddLink adalah adapter kompatibilitas untuk AddLinkContext
+func (lm *LinkManager) AddLink(scopeJID string, isGroup bool, title, rawURL, desc, createdBy string) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.AddLinkContext(ctx, scopeJID, isGroup, title, rawURL, desc, createdBy)
+}
+
+// DeleteLinkContext menghapus tautan dengan context-awareness
+func (lm *LinkManager) DeleteLinkContext(ctx context.Context, scopeJID string, id int64) (bool, error) {
+	classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
+	if err != nil {
+		cls, ensureErr := lm.academicRepo.GetClassByCode(ctx, scopeJID)
+		if ensureErr != nil || cls == nil {
+			return false, fmt.Errorf("gagal memetakan kelas untuk scope %s: %w", scopeJID, err)
+		}
+		classID = cls.ID
+	}
+
+	userID, _ := lm.academicRepo.EnsureUser(ctx, "system", "System")
+
+	query := `
+		UPDATE materials
+		SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+		    deleted_by_user_id = ?,
+		    status = 'INACTIVE'
+		WHERE id = ? AND class_id = ? AND deleted_at IS NULL;
+	`
+	res, err := lm.db.ExecContext(ctx, query, userID, id, classID)
 	if err != nil {
 		return false, fmt.Errorf("gagal menghapus tautan: %w", err)
 	}
@@ -132,50 +315,78 @@ func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
 	return affected > 0, nil
 }
 
-// GetLinks mengambil seluruh tautan aktif pada scope chat terurut berdasarkan kategori utama
+// DeleteLink adalah adapter kompatibilitas untuk DeleteLinkContext
+func (lm *LinkManager) DeleteLink(scopeJID string, id int64) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.DeleteLinkContext(ctx, scopeJID, id)
+}
+
+// GetLinksContext mengambil seluruh tautan aktif pada scope chat terurut berdasarkan kategori utama dengan context-awareness
+func (lm *LinkManager) GetLinksContext(ctx context.Context, scopeJID string) ([]LinkItem, error) {
+	return lm.queryLinks(ctx, scopeJID, "")
+}
+
+// GetLinks adalah adapter kompatibilitas untuk GetLinksContext
 func (lm *LinkManager) GetLinks(scopeJID string) ([]LinkItem, error) {
-	query := `
-	SELECT id, scope_jid, is_group, title, url, category, description, created_by, created_at
-	FROM class_links
-	WHERE scope_jid = ?
-	ORDER BY 
-		CASE category
-			WHEN 'drive' THEN 1
-			WHEN 'meeting' THEN 2
-			WHEN 'repo' THEN 3
-			WHEN 'portal' THEN 4
-			ELSE 5
-		END,
-		created_at ASC;
-	`
-	return lm.queryLinks(query, scopeJID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.GetLinksContext(ctx, scopeJID)
 }
 
-// GetLinksByCategory mengambil tautan berdasarkan kategori tertentu (misal: "drive", "meeting")
+// GetLinksByCategoryContext mengambil tautan berdasarkan kategori dengan context-awareness
+func (lm *LinkManager) GetLinksByCategoryContext(ctx context.Context, scopeJID, category string) ([]LinkItem, error) {
+	matType := CategoryToMaterialType(category)
+	return lm.queryLinks(ctx, scopeJID, "AND m.material_type = ?", matType)
+}
+
+// GetLinksByCategory adalah adapter kompatibilitas untuk GetLinksByCategoryContext
 func (lm *LinkManager) GetLinksByCategory(scopeJID, category string) ([]LinkItem, error) {
-	query := `
-	SELECT id, scope_jid, is_group, title, url, category, description, created_by, created_at
-	FROM class_links
-	WHERE scope_jid = ? AND category = ?
-	ORDER BY created_at ASC;
-	`
-	return lm.queryLinks(query, scopeJID, category)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.GetLinksByCategoryContext(ctx, scopeJID, category)
 }
 
-// SearchLinks mencari tautan berdasarkan kata kunci pada judul, deskripsi, atau kategori
-func (lm *LinkManager) SearchLinks(scopeJID, keyword string) ([]LinkItem, error) {
+// SearchLinksContext mencari tautan berdasarkan kata kunci dengan context-awareness
+func (lm *LinkManager) SearchLinksContext(ctx context.Context, scopeJID, keyword string) ([]LinkItem, error) {
 	pattern := "%" + strings.ToLower(strings.TrimSpace(keyword)) + "%"
-	query := `
-	SELECT id, scope_jid, is_group, title, url, category, description, created_by, created_at
-	FROM class_links
-	WHERE scope_jid = ? AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(category) LIKE ?)
-	ORDER BY created_at ASC;
-	`
-	return lm.queryLinks(query, scopeJID, pattern, pattern, pattern)
+	return lm.queryLinks(ctx, scopeJID, "AND (LOWER(m.title) LIKE ? OR LOWER(m.description) LIKE ? OR LOWER(m.material_type) LIKE ?)", pattern, pattern, pattern)
 }
 
-func (lm *LinkManager) queryLinks(query string, args ...any) ([]LinkItem, error) {
-	rows, err := lm.db.Query(query, args...)
+// SearchLinks adalah adapter kompatibilitas untuk SearchLinksContext
+func (lm *LinkManager) SearchLinks(scopeJID, keyword string) ([]LinkItem, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lm.SearchLinksContext(ctx, scopeJID, keyword)
+}
+
+func (lm *LinkManager) queryLinks(ctx context.Context, scopeJID string, filterClause string, args ...any) ([]LinkItem, error) {
+	classID, _, err := lm.academicRepo.ResolveClassIDFromScope(ctx, scopeJID)
+	if err != nil {
+		cls, errGet := lm.academicRepo.GetClassByCode(ctx, scopeJID)
+		if errGet != nil || cls == nil {
+			return nil, nil
+		}
+		classID = cls.ID
+	}
+
+	query := `
+		SELECT m.id, m.title, m.url, m.material_type, COALESCE(m.description, ''), u.identity_key, m.created_at, m.visibility
+		FROM materials m
+		JOIN users u ON u.id = m.created_by_user_id
+		WHERE m.class_id = ? AND m.deleted_at IS NULL AND m.status = 'ACTIVE' ` + filterClause + `
+		ORDER BY
+			CASE m.material_type
+				WHEN 'DOCUMENT' THEN 1
+				WHEN 'MEETING' THEN 2
+				WHEN 'REPOSITORY' THEN 3
+				WHEN 'PORTAL' THEN 4
+				ELSE 5
+			END,
+			m.created_at ASC;
+	`
+	fullArgs := append([]any{classID}, args...)
+	rows, err := lm.db.QueryContext(ctx, query, fullArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,28 +395,35 @@ func (lm *LinkManager) queryLinks(query string, args ...any) ([]LinkItem, error)
 	var links []LinkItem
 	for rows.Next() {
 		var item LinkItem
-		var rawCreatedAt string
+		var matType, rawCreatedAt, visibility string
 		err := rows.Scan(
 			&item.ID,
-			&item.ScopeJID,
-			&item.IsGroup,
 			&item.Title,
 			&item.URL,
-			&item.Category,
+			&matType,
 			&item.Description,
 			&item.CreatedBy,
 			&rawCreatedAt,
+			&visibility,
 		)
 		if err != nil {
 			return nil, err
 		}
-		item.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", rawCreatedAt)
+		item.ScopeJID = scopeJID
+		item.IsGroup = (visibility == "CLASS_ACCESS")
+		item.Category = MaterialTypeToCategory(matType)
+		item.CreatedAt, _ = time.Parse(time.RFC3339, rawCreatedAt)
+		if item.CreatedAt.IsZero() {
+			item.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", rawCreatedAt)
+		}
 		links = append(links, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return links, nil
 }
 
-// FormatLinkList menyusun daftar tautan ke format pesan WhatsApp yang rapi dan dikelompokkan
 func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHeader ...string) string {
 	var sb strings.Builder
 
@@ -228,7 +446,6 @@ func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHead
 		return sb.String()
 	}
 
-	// Kelompokkan per kategori
 	categoryMap := map[string][]LinkItem{
 		"drive":   {},
 		"meeting": {},
@@ -280,7 +497,6 @@ func (lm *LinkManager) FormatLinkList(links []LinkItem, isGroup bool, customHead
 	return sb.String()
 }
 
-// FormatDriveShortcut menyusun tampilan akses cepat untuk shortcut !drive / !gdrive
 func (lm *LinkManager) FormatDriveShortcut(links []LinkItem, isGroup bool) string {
 	var sb strings.Builder
 
@@ -314,7 +530,6 @@ func (lm *LinkManager) FormatDriveShortcut(links []LinkItem, isGroup bool) strin
 	return sb.String()
 }
 
-// FormatMeetingShortcut menyusun tampilan akses cepat untuk shortcut !zoom / !gmeet / !meet
 func (lm *LinkManager) FormatMeetingShortcut(links []LinkItem, isGroup bool) string {
 	var sb strings.Builder
 
@@ -359,34 +574,29 @@ func (lm *LinkManager) HandleCommand(
 	cleanMsg := strings.TrimSpace(rawMsg)
 	lowerMsg := strings.ToLower(cleanMsg)
 
-	// Pisahkan kata pertama sebagai command root
 	parts := strings.Fields(lowerMsg)
 	if len(parts) == 0 {
 		return ""
 	}
 	rootCmd := strings.TrimPrefix(parts[0], "!")
 
-	// 1. Shortcut !drive / !gdrive
 	if rootCmd == "drive" || rootCmd == "gdrive" {
 		links, err := lm.GetLinksByCategory(scopeJID, "drive")
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat tautan Drive: %v", err)
 		}
 		if len(links) == 0 {
-			// Fallback: coba cari link yang judulnya mengandung kata "drive"
 			links, _ = lm.SearchLinks(scopeJID, "drive")
 		}
 		return lm.FormatDriveShortcut(links, isGroup)
 	}
 
-	// 2. Shortcut !zoom / !gmeet / !meet
 	if rootCmd == "zoom" || rootCmd == "gmeet" || rootCmd == "meet" {
 		links, err := lm.GetLinksByCategory(scopeJID, "meeting")
 		if err != nil {
 			return fmt.Sprintf("❌ Gagal memuat tautan meeting: %v", err)
 		}
 		if len(links) == 0 {
-			// Fallback: coba cari link yang judulnya mengandung zoom / meet
 			links, _ = lm.SearchLinks(scopeJID, "zoom")
 			if len(links) == 0 {
 				links, _ = lm.SearchLinks(scopeJID, "meet")
@@ -395,9 +605,7 @@ func (lm *LinkManager) HandleCommand(
 		return lm.FormatMeetingShortcut(links, isGroup)
 	}
 
-	// 3. Perintah Utama !link / !tautan
 	if rootCmd == "link" || rootCmd == "tautan" {
-		// Jika hanya "!link" atau "!tautan" tanpa sub-perintah
 		if len(parts) == 1 {
 			links, err := lm.GetLinks(scopeJID)
 			if err != nil {
@@ -413,95 +621,44 @@ func (lm *LinkManager) HandleCommand(
 			return lm.buildHelp(isGroup)
 
 		case "tambah", "add":
-			if isGroup && !isAdmin {
-				return "❌ *Akses Ditolak: Hanya Admin Grup yang dapat menambahkan tautan penting kelas.*"
-			}
+			return util.DashboardRedirectNotice("tautan")
 
-			// Ambil sisa teks setelah "!link tambah"
-			rawArgs := strings.TrimSpace(cleanMsg[len(parts[0]):])
-			rawArgs = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(rawArgs, subCmd), strings.ToUpper(subCmd)))
+		case "hapus", "delete", "rm":
+			return util.DashboardRedirectNotice("tautan")
 
-			segments := strings.Split(rawArgs, "|")
-			if len(segments) < 2 {
-				return "⚠️ *Format Penambahan Tautan Kurang Tepat!*\n──────────\n" +
-					"Gunakan tanda pemisah pipa `|`:\n" +
-					"`!link tambah [Judul] | [URL] (| [Catatan Opsional])`\n\n" +
-					"*Contoh:*\n" +
-					"• `!link tambah Drive Materi | https://s.id/drive-d4a`\n" +
-					"• `!link tambah Zoom Aljabar | https://meet.google.com/abc-xyz | Dosen: Bu Retno`\n" +
-					"• `!link tambah Repo Praktikum | https://github.com/kelas-sbd`"
-			}
-
-			title := strings.TrimSpace(segments[0])
-			rawURL := strings.TrimSpace(segments[1])
-			desc := ""
-			if len(segments) >= 3 {
-				desc = strings.TrimSpace(segments[2])
-			}
-
-			id, err := lm.AddLink(scopeJID, isGroup, title, rawURL, desc, senderJID)
+		case "drive", "gdrive":
+			links, err := lm.GetLinksByCategory(scopeJID, "drive")
 			if err != nil {
-				return fmt.Sprintf("❌ Gagal menyimpan tautan: %v", err)
+				return fmt.Sprintf("❌ Gagal memuat tautan: %v", err)
 			}
+			return lm.FormatDriveShortcut(links, isGroup)
 
-			cat := DetectLinkCategory(title, rawURL)
-			catName := "Tautan Umum"
-			switch cat {
-			case "drive":
-				catName = "Google Drive / Penyimpanan Materi"
-			case "meeting":
-				catName = "Kuliah Daring (Zoom / GMeet)"
-			case "repo":
-				catName = "Repositori / Proyek (GitHub / GitLab)"
-			case "portal":
-				catName = "Portal Akademik (SIAKAD / LMS)"
-			}
-
-			var sb strings.Builder
-			sb.WriteString("✅ *TAUTAN BERHASIL DISIMPAN!*\n")
-			sb.WriteString("──────────\n")
-			sb.WriteString(fmt.Sprintf("• ID Tautan : #%d\n", id))
-			sb.WriteString(fmt.Sprintf("• Judul     : %s\n", title))
-			sb.WriteString(fmt.Sprintf("• Kategori  : %s\n", catName))
-			sb.WriteString(fmt.Sprintf("• URL       : %s\n", NormalizeURL(rawURL)))
-			if desc != "" {
-				sb.WriteString(fmt.Sprintf("• Catatan   : %s\n", desc))
-			}
-			sb.WriteString("──────────\n")
-			sb.WriteString("_Tautan kini dapat diakses oleh seluruh anggota kelas dengan mengetik `!link`._")
-			return sb.String()
-
-		case "hapus", "delete", "del", "remove":
-			if isGroup && !isAdmin {
-				return "❌ *Akses Ditolak: Hanya Admin Grup yang dapat menghapus tautan penting kelas.*"
-			}
-			if len(parts) < 3 {
-				return "⚠️ *Harap tentukan ID tautan yang ingin dihapus!*\nContoh: `!link hapus 1`\n\nKetik `!link` untuk melihat daftar ID tautan."
-			}
-
-			rawID := strings.TrimPrefix(parts[2], "#")
-			id, err := strconv.ParseInt(rawID, 10, 64)
-			if err != nil || id <= 0 {
-				return fmt.Sprintf("⚠️ ID tautan '%s' tidak valid. Gunakan angka, contoh: `!link hapus 2`.", parts[2])
-			}
-
-			deleted, err := lm.DeleteLink(scopeJID, id)
+		case "zoom", "meet", "gmeet":
+			links, err := lm.GetLinksByCategory(scopeJID, "meeting")
 			if err != nil {
-				return fmt.Sprintf("❌ Gagal menghapus tautan: %v", err)
+				return fmt.Sprintf("❌ Gagal memuat tautan: %v", err)
 			}
-			if !deleted {
-				return fmt.Sprintf("⚠️ Tautan dengan ID #%d tidak ditemukan pada chat ini.", id)
-			}
+			return lm.FormatMeetingShortcut(links, isGroup)
 
-			return fmt.Sprintf("🗑️ *TAUTAN BERHASIL DIHAPUS!*\nTautan dengan ID #%d telah dibersihkan dari sistem.", id)
+		case "repo", "github":
+			links, err := lm.GetLinksByCategory(scopeJID, "repo")
+			if err != nil {
+				return fmt.Sprintf("❌ Gagal memuat tautan: %v", err)
+			}
+			return lm.FormatLinkList(links, isGroup, "🐙 *REPOSITORI & PROYEK (GITHUB / GITLAB)*")
+
+		case "portal", "siakad":
+			links, err := lm.GetLinksByCategory(scopeJID, "portal")
+			if err != nil {
+				return fmt.Sprintf("❌ Gagal memuat tautan: %v", err)
+			}
+			return lm.FormatLinkList(links, isGroup, "🌐 *PORTAL AKADEMIK (SIAKAD / LMS)*")
 
 		default:
-			// Filter atau cari tautan berdasarkan kata kunci: !link [kata] atau !link cari [kata]
 			keyword := subCmd
 			if (subCmd == "cari" || subCmd == "search") && len(parts) > 2 {
 				keyword = strings.Join(parts[2:], " ")
 			} else if len(parts) > 1 {
-				// Ambil sisa teks setelah !link
 				keyword = strings.TrimSpace(cleanMsg[len(parts[0]):])
 			}
 
@@ -533,11 +690,8 @@ func (lm *LinkManager) buildHelp(isGroup bool) string {
 	sb.WriteString("• `!zoom` / `!gmeet` / `!meet`\n  ➔ Shortcut instan link ruang kuliah daring\n")
 	sb.WriteString("• `!link [kata kunci]`\n  ➔ Mencari tautan spesifik (Contoh: `!link alin`, `!link sbd`)\n\n")
 
-	sb.WriteString("*Perintah Pengelolaan (Khusus Admin di Grup):*\n")
-	sb.WriteString("• `!link tambah [Judul] | [URL] (| [Catatan])`\n  ➔ Menambahkan tautan baru\n")
-	sb.WriteString("  _Contoh:_ `!link tambah Drive Materi | https://s.id/drive-d4a`\n")
-	sb.WriteString("  _Contoh:_ `!link tambah Zoom Alin | https://meet.google.com/abc | Bu Retno`\n\n")
-	sb.WriteString("• `!link hapus [ID]`\n  ➔ Menghapus tautan (Contoh: `!link hapus 1`)\n\n")
+	sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan tautan kini hanya melalui Web Dashboard Pengelola:*\n")
+	sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n\n")
 
 	sb.WriteString("──────────\n")
 	sb.WriteString("_Tips: URL otomatis dinormalisasi menjadi HTTPS agar langsung bisa diklik di ponsel._")

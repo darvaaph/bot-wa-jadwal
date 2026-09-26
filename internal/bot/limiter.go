@@ -15,7 +15,6 @@ type RateLimiter struct {
 	lastCleanup     time.Time
 }
 
-// NewRateLimiter membuat instance RateLimiter baru dengan cooldown yang ditentukan.
 func NewRateLimiter(cooldown time.Duration) *RateLimiter {
 	if cooldown <= 0 {
 		cooldown = 2 * time.Second
@@ -43,7 +42,6 @@ func (rl *RateLimiter) AllowAt(key string, now time.Time) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	// Bersihkan record usang secara berkala
 	if now.Sub(rl.lastCleanup) >= rl.cleanupInterval {
 		rl.cleanupLocked(now)
 	}
@@ -84,7 +82,6 @@ func (rl *RateLimiter) RemainingAt(key string, now time.Time) time.Duration {
 	return 0
 }
 
-// Reset menghapus riwayat cooldown untuk pengirim tertentu.
 func (rl *RateLimiter) Reset(key string) {
 	if rl == nil {
 		return
@@ -94,7 +91,6 @@ func (rl *RateLimiter) Reset(key string) {
 	delete(rl.records, key)
 }
 
-// Clear menghapus seluruh riwayat cooldown.
 func (rl *RateLimiter) Clear() {
 	if rl == nil {
 		return
@@ -104,7 +100,7 @@ func (rl *RateLimiter) Clear() {
 	rl.records = make(map[string]time.Time)
 }
 
-// cleanupLocked menghapus entri yang sudah melewati 2x masa cooldown untuk menghemat memori.
+// cleanupLocked membuang entri setelah dua kali durasi cooldown untuk membatasi penggunaan memori.
 func (rl *RateLimiter) cleanupLocked(now time.Time) {
 	cutoff := rl.cooldown * 2
 	for k, t := range rl.records {
@@ -115,9 +111,7 @@ func (rl *RateLimiter) cleanupLocked(now time.Time) {
 	rl.lastCleanup = now
 }
 
-// IsCommandMessage memeriksa apakah pesan teks berpotensi sebagai perintah bot:
-// - Di grup chat: Pesan WAJIB diawali simbol prefix (!, /, atau #).
-// - Di pesan pribadi (DM): Setiap teks dianggap berpotensi perintah.
+// IsCommandMessage mewajibkan prefix !, /, atau # di grup; semua teks DM dianggap command.
 func IsCommandMessage(msgText string, isGroup bool) bool {
 	clean := strings.TrimSpace(msgText)
 	if clean == "" {

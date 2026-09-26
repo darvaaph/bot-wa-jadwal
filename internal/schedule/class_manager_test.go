@@ -39,7 +39,6 @@ func TestClassManager_GetClass(t *testing.T) {
 		t.Fatalf("Gagal inisialisasi ClassManager: %v", err)
 	}
 
-	// 1. Tes pencocokan nama kanonikal, alias case-insensitive, dan variasi input bebas
 	testCases := []struct {
 		input       string
 		shouldExist bool
@@ -87,7 +86,6 @@ func TestClassManager_GetClass(t *testing.T) {
 		}
 	}
 
-	// 2. Pastikan jadwal 3A dan 3B benar-benar berbeda
 	cfg3A, _ := cm.GetClass("3A")
 	cfg3B, _ := cm.GetClass("3B")
 	if !strings.Contains(cfg3A.Kampus, "3A") {
@@ -114,19 +112,16 @@ func TestClassManager_DefaultClass(t *testing.T) {
 		t.Fatalf("Default class config tidak boleh nil")
 	}
 
-	// GetClassOrDefault dengan alias valid (3B)
 	c3b := cm.GetClassOrDefault("3B")
 	if !strings.Contains(c3b.Kampus, "3B") {
 		t.Errorf("GetClassOrDefault(3B) gagal mengambil kelas 3B")
 	}
 
-	// GetClassOrDefault dengan ID kanonikal valid
 	c3bKanonikal := cm.GetClassOrDefault("D4-TI-SMT3-B")
 	if c3bKanonikal != c3b {
 		t.Errorf("GetClassOrDefault(D4-TI-SMT3-B) harus sama dengan GetClassOrDefault(3B)")
 	}
 
-	// GetClassOrDefault dengan kelas tidak valid harus fallback ke default
 	cInvalid := cm.GetClassOrDefault("KELAS_GHOIB")
 	if cInvalid != defCfg {
 		t.Errorf("GetClassOrDefault kelas invalid harus fallback ke default class")
@@ -134,7 +129,6 @@ func TestClassManager_DefaultClass(t *testing.T) {
 }
 
 func TestClassManager_FallbackSingleFile(t *testing.T) {
-	// Tes memuat direktori non-eksisten dengan fallback ke jadwal.json
 	cm, err := NewClassManager("folder_tidak_ada_xyz", "jadwal.json")
 	if err != nil {
 		t.Fatalf("Harus sukses memuat via fallbackSingleFile: %v", err)
