@@ -26,6 +26,41 @@ type Service struct {
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
 
+// Actor carries audit identity for semester operations.
+type Actor struct {
+	UserID           int64
+	RoleAssignmentID int64
+	CorrelationID    string
+}
+
+func auditIdentity(actor Actor) (any, any, string, string) {
+	corr := strings.TrimSpace(actor.CorrelationID)
+	if corr == "" {
+		corr = nowStr()
+	}
+	var actorUser, actorAssignment any
+	actorType := "USER"
+	if actor.UserID > 0 {
+		actorUser = actor.UserID
+	} else {
+		actorType = "SYSTEM"
+	}
+	if actor.RoleAssignmentID > 0 {
+		actorAssignment = actor.RoleAssignmentID
+	}
+	return actorUser, actorAssignment, actorType, corr
+}
+
+func insertSemesterAudit(ctx context.Context, tx *sql.Tx, actor Actor, classID int64, semesterID *int64, action, entityType string, entityID int64, after, reason *string) error {
+	actorUser, actorAssignment, actorType, corr := auditIdentity(actor)
+	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		classID, semesterID, actorUser, actorAssignment, actorType, action, entityType, entityID, after, reason, corr)
+	return err
+}
+
 func nowStr() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
 func checksum(data []byte) string {
@@ -34,7 +69,7 @@ func checksum(data []byte) string {
 }
 
 // CreateClass creates a permanent class + default settings. Admin only (enforced in handler).
-func (s *Service) CreateClass(ctx context.Context, code, slug, studyProgram string, cohortYear int, groupLabel, timezone string) (int64, error) {
+func (s *Service) CreateClass(ctx context.Context, actor Actor, code, slug, studyProgram string, cohortYear int, groupLabel, timezone string) (int64, error) {
 	code = strings.TrimSpace(code)
 	slug = strings.ToLower(strings.TrimSpace(slug))
 	studyProgram = strings.TrimSpace(studyProgram)
@@ -70,6 +105,10 @@ func (s *Service) CreateClass(ctx context.Context, code, slug, studyProgram stri
 		VALUES (?, ?, 'LINK', 60)`, classID, tz); err != nil {
 		return 0, err
 	}
+	after := `{"code":"` + code + `"}`
+	if err := insertSemesterAudit(ctx, tx, actor, classID, nil, "CREATE", "CLASS", classID, &after, nil); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
@@ -85,7 +124,7 @@ type DraftInput struct {
 }
 
 // CreateDraft creates a DRAFT semester, optionally copying structure from a source semester.
-func (s *Service) CreateDraft(ctx context.Context, classID int64, in DraftInput) (int64, error) {
+func (s *Service) CreateDraft(ctx context.Context, actor Actor, classID int64, in DraftInput) (int64, error) {
 	year := strings.TrimSpace(in.AcademicYear)
 	term := strings.ToUpper(strings.TrimSpace(in.Term))
 	starts := strings.TrimSpace(in.StartsOn)
@@ -117,6 +156,10 @@ func (s *Service) CreateDraft(ctx context.Context, classID int64, in DraftInput)
 		if err := copySemesterStructure(ctx, tx, classID, *in.SourceSemesterID, newID); err != nil {
 			return 0, err
 		}
+	}
+	after := `{"academic_year":"` + year + `","term":"` + term + `"}`
+	if err := insertSemesterAudit(ctx, tx, actor, classID, &newID, "CREATE", "SEMESTER", newID, &after, nil); err != nil {
+		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
@@ -222,7 +265,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 }
 
 // Activate performs DRAFT->ACTIVE + archive old ACTIVE in one transaction.
-func (s *Service) Activate(ctx context.Context, classID, semesterID int64) error {
+func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -252,6 +295,10 @@ func (s *Service) Activate(ctx context.Context, classID, semesterID int64) error
 	if _, err := tx.ExecContext(ctx, `UPDATE semesters SET status='ACTIVE',
 		published_at=COALESCE(published_at, ?), activated_at=?, updated_at=? WHERE id = ?`,
 		now, now, now, semesterID); err != nil {
+		return err
+	}
+	after := `{"status":"ACTIVE"}`
+	if err := insertSemesterAudit(ctx, tx, actor, classID, &semesterID, "ACTIVATE", "SEMESTER", semesterID, &after, nil); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -425,7 +472,7 @@ func (s *Service) Preview(ctx context.Context, classID, semesterID int64) (*Prev
 }
 
 // AddOffering creates a course offering manually in a DRAFT semester.
-func (s *Service) AddOffering(ctx context.Context, classID, semesterID int64, courseCode, courseName, activityType, displayName string) (int64, error) {
+func (s *Service) AddOffering(ctx context.Context, actor Actor, classID, semesterID int64, courseCode, courseName, activityType, displayName string) (int64, error) {
 	courseCode = strings.TrimSpace(courseCode)
 	courseName = strings.TrimSpace(courseName)
 	if courseName == "" {
@@ -470,6 +517,10 @@ func (s *Service) AddOffering(ctx context.Context, classID, semesterID int64, co
 	if err != nil {
 		return 0, ErrConflict
 	}
+	after := `{"display_name":"` + strings.ReplaceAll(displayName, `"`, ``) + `"}`
+	if err := insertSemesterAudit(ctx, tx, actor, classID, &semesterID, "CREATE", "COURSE_OFFERING", offeringID, &after, nil); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
@@ -477,7 +528,7 @@ func (s *Service) AddOffering(ctx context.Context, classID, semesterID int64, co
 }
 
 // AddPattern creates a regular schedule pattern (basic validation; full conflict engine in BE-D).
-func (s *Service) AddPattern(ctx context.Context, offeringID int64, roomID *int64, dayOfWeek int, startTime, endTime, effectiveFrom string) (int64, error) {
+func (s *Service) AddPattern(ctx context.Context, actor Actor, offeringID int64, roomID *int64, dayOfWeek int, startTime, endTime, effectiveFrom string) (int64, error) {
 	if dayOfWeek < 1 || dayOfWeek > 7 {
 		return 0, ErrInvalidInput
 	}
@@ -492,19 +543,36 @@ func (s *Service) AddPattern(ctx context.Context, offeringID int64, roomID *int6
 	if _, err := time.Parse("2006-01-02", effectiveFrom); err != nil {
 		return 0, ErrInvalidInput
 	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
 	var id int64
-	err := s.db.QueryRowContext(ctx, `INSERT INTO schedule_patterns
+	err = tx.QueryRowContext(ctx, `INSERT INTO schedule_patterns
 		(course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status)
 		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE') RETURNING id`,
 		offeringID, roomID, dayOfWeek, startTime, endTime, effectiveFrom).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
+	var classID, semesterID int64
+	if err := tx.QueryRowContext(ctx, `SELECT sem.class_id, co.semester_id FROM course_offerings co
+		JOIN semesters sem ON sem.id = co.semester_id WHERE co.id = ?`, offeringID).Scan(&classID, &semesterID); err != nil {
+		return 0, err
+	}
+	after := fmt.Sprintf(`{"day_of_week":%d,"start_time":%q}`, dayOfWeek, startTime)
+	if err := insertSemesterAudit(ctx, tx, actor, classID, &semesterID, "CREATE", "SCHEDULE_PATTERN", id, &after, nil); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 	return id, nil
 }
 
 // ImportJSON validates and applies a legacy jadwal JSON into a DRAFT semester.
-func (s *Service) ImportJSON(ctx context.Context, classID int64, semesterID *int64, academicYear, term, startsOn, endsOn string, raw json.RawMessage, userID int64) (int64, []ImportError, error) {
+func (s *Service) ImportJSON(ctx context.Context, actor Actor, classID int64, semesterID *int64, academicYear, term, startsOn, endsOn string, raw json.RawMessage, userID int64) (int64, []ImportError, error) {
 	type rawItem struct {
 		Hari         string `json:"hari"`
 		Jam          string `json:"jam"`
@@ -590,7 +658,7 @@ func (s *Service) ImportJSON(ctx context.Context, classID int64, semesterID *int
 		return batchID, errs, ErrInvalidInput
 	}
 	// Apply: create/fetch DRAFT semester then seed courses/offerings/patterns/lecturers/rooms.
-	targetSem, err := s.resolveOrCreateDraft(ctx, classID, semesterID, academicYear, term, startsOn, endsOn)
+	targetSem, err := s.resolveOrCreateDraft(ctx, actor, classID, semesterID, academicYear, term, startsOn, endsOn)
 	if err != nil {
 		return batchID, errs, err
 	}
@@ -603,6 +671,12 @@ func (s *Service) ImportJSON(ctx context.Context, classID int64, semesterID *int
 		"warning_rows": len(errs), "error_rows": 0, "applied_rows": applied, "semester_id": targetSem,
 	})
 	_, _ = s.db.ExecContext(ctx, `UPDATE import_batches SET status='APPLIED', semester_id=?, summary_json=? WHERE id=?`, targetSem, string(sumData), batchID)
+	actorUser, actorAssignment, actorType, corr := auditIdentity(actor)
+	_, _ = s.db.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, 'IMPORT', 'SEMESTER', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		classID, targetSem, actorUser, actorAssignment, actorType, targetSem,
+		fmt.Sprintf(`{"applied_rows":%d,"batch_id":%d}`, applied, batchID), corr)
 	return targetSem, errs, nil
 }
 
@@ -671,7 +745,7 @@ func (s *Service) recordImportError(ctx context.Context, batchID int64, e Import
 	return err
 }
 
-func (s *Service) resolveOrCreateDraft(ctx context.Context, classID int64, semesterID *int64, year, term, starts, ends string) (int64, error) {
+func (s *Service) resolveOrCreateDraft(ctx context.Context, actor Actor, classID int64, semesterID *int64, year, term, starts, ends string) (int64, error) {
 	if semesterID != nil && *semesterID > 0 {
 		var status string
 		var c int64
@@ -686,7 +760,7 @@ func (s *Service) resolveOrCreateDraft(ctx context.Context, classID int64, semes
 	if year == "" || term == "" || starts == "" || ends == "" || starts >= ends {
 		return 0, ErrInvalidInput
 	}
-	return s.CreateDraft(ctx, classID, DraftInput{AcademicYear: year, Term: strings.ToUpper(term), StartsOn: starts, EndsOn: ends})
+	return s.CreateDraft(ctx, actor, classID, DraftInput{AcademicYear: year, Term: strings.ToUpper(term), StartsOn: starts, EndsOn: ends})
 }
 
 func (s *Service) applyImport(ctx context.Context, classID, semesterID int64, doc any) (int, error) {

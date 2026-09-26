@@ -61,9 +61,20 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if principal, ok := principalFromRequest(r); ok {
-		if !principal.IsSystemAdmin() && principal.Role != "KM" {
-			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Hanya KM atau System Admin yang dapat mencoba ulang"})
-			return
+		if !principal.IsSystemAdmin() {
+			if principal.Role != "KM" || principal.ClassID == nil {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Hanya KM atau System Admin yang dapat mencoba ulang"})
+				return
+			}
+			msgClass, err := s.notifyService.GetMessageClass(r.Context(), messageID)
+			if err != nil {
+				s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Notifikasi gagal tidak ditemukan atau tidak dalam status FAILED"})
+				return
+			}
+			if msgClass != *principal.ClassID {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
 		}
 	} else if s.authService != nil {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})

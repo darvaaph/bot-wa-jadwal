@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
 )
 
@@ -226,7 +227,57 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 			return
 		}
 	}
+	s.writeClassSettingsAudit(r, classID, payload)
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Pengaturan kelas disimpan, sesi portal lama otomatis dicabut"})
+}
+
+// writeClassSettingsAudit records one UPDATE row for class settings changes.
+// Best-effort: settings are already committed; a failed audit insert must not
+// mask the success response (failures are surfaced via server logs by callers
+// that need guarantees; critical paths use in-transaction audit instead).
+func (s *Server) writeClassSettingsAudit(r *http.Request, classID int64, payload struct {
+	PortalAccessMode           *string `json:"portal_access_mode"`
+	PortalCode                 *string `json:"portal_code"`
+	MeetingLinkVisibility      *string `json:"meeting_link_visibility"`
+	MorningReminderTime        *string `json:"morning_reminder_time"`
+	AfternoonReminderTime      *string `json:"afternoon_reminder_time"`
+	ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes"`
+	Timezone                   *string `json:"timezone"`
+}) {
+	changed := []string{}
+	if payload.PortalAccessMode != nil {
+		changed = append(changed, "portal_access_mode")
+	}
+	if payload.PortalCode != nil && strings.TrimSpace(*payload.PortalCode) != "" {
+		changed = append(changed, "portal_code(rotated)")
+	}
+	if payload.MeetingLinkVisibility != nil {
+		changed = append(changed, "meeting_link_visibility")
+	}
+	if payload.MorningReminderTime != nil || payload.AfternoonReminderTime != nil || payload.ReplacementReminderMinutes != nil {
+		changed = append(changed, "reminder_times")
+	}
+	if payload.Timezone != nil {
+		changed = append(changed, "timezone")
+	}
+	if len(changed) == 0 {
+		return
+	}
+	principal, _ := principalFromRequest(r)
+	var actorUser, actorAssignment any
+	actorType := "SYSTEM"
+	if principal != nil {
+		actorUser = principal.UserID
+		actorAssignment = principal.RoleAssignmentID
+		actorType = "USER"
+	}
+	after := `{"changed":["` + strings.Join(changed, `","`) + `"]}`
+	corr := audit.NewCorrelationID()
+	_, _ = s.academicRepo.DB().ExecContext(r.Context(), `INSERT INTO audit_logs (
+		class_id, actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, 'UPDATE', 'CLASS_SETTING', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		classID, actorUser, actorAssignment, actorType, classID, after, corr)
 }
 
 func validHHMM(v string) bool {

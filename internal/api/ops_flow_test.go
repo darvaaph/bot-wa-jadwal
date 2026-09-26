@@ -12,6 +12,7 @@ import (
 	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/notify"
+	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/semester"
@@ -98,6 +99,7 @@ func newOpsTestServer(t *testing.T) (*Server, map[string]int64) {
 	srv := NewServer(":8080", nil, nil, nil, academic.NewRepository(db))
 	srv.SetTaskRepo(task.NewRepository(db))
 	srv.SetAuthService(svc, false)
+	srv.SetPortalService(portal.NewService(db))
 	srv.SetSemesterService(semester.NewService(db))
 	srv.SetScheduleEventService(schedule.NewEventService(db))
 	srv.SetNotifyService(notify.NewService(db), &stubSender{})

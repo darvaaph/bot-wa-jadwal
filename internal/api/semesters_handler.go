@@ -15,6 +15,14 @@ func authScope(classID, semesterID, offeringID int64) auth.Scope {
 	return auth.Scope{ClassID: classID, SemesterID: semesterID, CourseOfferingID: offeringID}
 }
 
+func semesterActor(r *http.Request) semester.Actor {
+	principal, ok := principalFromRequest(r)
+	if !ok {
+		return semester.Actor{}
+	}
+	return semester.Actor{UserID: principal.UserID, RoleAssignmentID: principal.RoleAssignmentID}
+}
+
 func semesterService(r *http.Request, s *Server) (*semester.Service, bool) {
 	if s.semesterService == nil {
 		return nil, false
@@ -61,7 +69,7 @@ func (s *Server) handleCreateClass(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
-	id, err := svc.CreateClass(r.Context(), payload.Code, payload.Slug, payload.StudyProgram, payload.CohortYear, payload.GroupLabel, payload.Timezone)
+	id, err := svc.CreateClass(r.Context(), semesterActor(r), payload.Code, payload.Slug, payload.StudyProgram, payload.CohortYear, payload.GroupLabel, payload.Timezone)
 	if err != nil {
 		if errors.Is(err, semester.ErrConflict) {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Identitas atau slug kelas sudah digunakan"})
@@ -132,7 +140,7 @@ func (s *Server) handleCreateSemesterDraft(w http.ResponseWriter, r *http.Reques
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
-	id, err := svc.CreateDraft(r.Context(), classID, semester.DraftInput{
+	id, err := svc.CreateDraft(r.Context(), semesterActor(r), classID, semester.DraftInput{
 		AcademicYear: payload.AcademicYear, Term: payload.Term,
 		StartsOn: payload.StartsOn, EndsOn: payload.EndsOn, SourceSemesterID: payload.SourceSemesterID,
 	})
@@ -211,7 +219,7 @@ func (s *Server) handleSemesterActivate(w http.ResponseWriter, r *http.Request) 
 		s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Semester belum siap diaktifkan: " + strings.Join(preview.Blockers, "; ")})
 		return
 	}
-	if err := svc.Activate(r.Context(), classID, semID); err != nil {
+	if err := svc.Activate(r.Context(), semesterActor(r), classID, semID); err != nil {
 		if errors.Is(err, semester.ErrInvalidState) {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Hanya semester DRAFT yang dapat diaktifkan"})
 			return
@@ -263,7 +271,7 @@ func (s *Server) handleSemesterImport(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field data wajib diisi"})
 		return
 	}
-	semID, importErrs, err := svc.ImportJSON(r.Context(), classID, payload.SemesterID,
+	semID, importErrs, err := svc.ImportJSON(r.Context(), semesterActor(r), classID, payload.SemesterID,
 		payload.AcademicYear, payload.Term, payload.StartsOn, payload.EndsOn, payload.Data, actorID)
 	if importErrs == nil {
 		importErrs = []semester.ImportError{}
@@ -309,7 +317,7 @@ func (s *Server) handleAddOffering(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
-	id, err := svc.AddOffering(r.Context(), classID, semID, payload.CourseCode, payload.CourseName, payload.ActivityType, payload.DisplayName)
+	id, err := svc.AddOffering(r.Context(), semesterActor(r), classID, semID, payload.CourseCode, payload.CourseName, payload.ActivityType, payload.DisplayName)
 	if err != nil {
 		if errors.Is(err, semester.ErrConflict) {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Offering tersebut sudah ada di semester ini"})
@@ -371,7 +379,7 @@ func (s *Server) handleAddPattern(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	id, err := svc.AddPattern(r.Context(), payload.CourseOfferingID, roomID, payload.DayOfWeek, payload.StartTime, payload.EndTime, payload.EffectiveFrom)
+	id, err := svc.AddPattern(r.Context(), semesterActor(r), payload.CourseOfferingID, roomID, payload.DayOfWeek, payload.StartTime, payload.EndTime, payload.EffectiveFrom)
 	if err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Data pola jadwal tidak valid"})
 		return

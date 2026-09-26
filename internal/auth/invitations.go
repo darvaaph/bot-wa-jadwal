@@ -125,6 +125,32 @@ func (s *Service) CreateInvitation(ctx context.Context, inviter Principal, in In
 	defer tx.Rollback()
 
 	// Revoke prior pending invitations for same identity+scope (resend semantics).
+	revRows, err := tx.QueryContext(ctx, `SELECT id, class_id, semester_id FROM role_invitations
+		WHERE invited_identity_key=? AND role=? AND status='PENDING'
+		AND COALESCE(class_id,0)=COALESCE(?,0) AND COALESCE(semester_id,0)=COALESCE(?,0)
+		AND COALESCE(course_offering_id,0)=COALESCE(?,0)`,
+		identity, role, in.ClassID, in.SemesterID, in.CourseOfferingID)
+	if err != nil {
+		return nil, "", err
+	}
+	type revokedInvite struct {
+		id         int64
+		classID    sql.NullInt64
+		semesterID sql.NullInt64
+	}
+	var revoked []revokedInvite
+	for revRows.Next() {
+		var ri revokedInvite
+		if err := revRows.Scan(&ri.id, &ri.classID, &ri.semesterID); err != nil {
+			revRows.Close()
+			return nil, "", err
+		}
+		revoked = append(revoked, ri)
+	}
+	revRows.Close()
+	if err := revRows.Err(); err != nil {
+		return nil, "", err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE role_invitations SET status='REVOKED',
 		revoked_at=?, updated_at=? WHERE invited_identity_key=? AND role=? AND status='PENDING'
 		AND COALESCE(class_id,0)=COALESCE(?,0) AND COALESCE(semester_id,0)=COALESCE(?,0)
@@ -153,6 +179,24 @@ func (s *Service) CreateInvitation(ctx context.Context, inviter Principal, in In
 		id, `{"role":"`+role+`","identity":"`+identity+`"}`, corr, formatTime(now), formatTime(now),
 	); err != nil {
 		return nil, "", err
+	}
+	for _, ri := range revoked {
+		var rc, rs any
+		if ri.classID.Valid {
+			rc = ri.classID.Int64
+		}
+		if ri.semesterID.Valid {
+			rs = ri.semesterID.Int64
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+			class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
+			action, entity_type, entity_id, reason, correlation_id, created_at, updated_at
+		) VALUES (?, ?, ?, ?, 'USER', 'REVOKE', 'ROLE_INVITATION', ?, ?, ?, ?, ?)`,
+			rc, rs, inviter.UserID, inviter.RoleAssignmentID,
+			ri.id, "superseded by resend", corr, formatTime(now), formatTime(now),
+		); err != nil {
+			return nil, "", err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, "", err
@@ -320,9 +364,9 @@ func nullableInt(n sql.NullInt64) any {
 func (s *Service) RevokeInvitation(ctx context.Context, actor Principal, invitationID int64) error {
 	now := s.clock().UTC()
 	var role, status string
-	var classID sql.NullInt64
-	err := s.db.QueryRowContext(ctx, `SELECT role, status, class_id FROM role_invitations WHERE id=?`, invitationID).
-		Scan(&role, &status, &classID)
+	var classID, semesterID sql.NullInt64
+	err := s.db.QueryRowContext(ctx, `SELECT role, status, class_id, semester_id FROM role_invitations WHERE id=?`, invitationID).
+		Scan(&role, &status, &classID, &semesterID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrInvalidInput
 	}
@@ -337,7 +381,12 @@ func (s *Service) RevokeInvitation(ctx context.Context, actor Principal, invitat
 			return ErrAccessDenied
 		}
 	}
-	res, err := s.db.ExecContext(ctx, `UPDATE role_invitations SET status='REVOKED', revoked_at=?, updated_at=?
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE role_invitations SET status='REVOKED', revoked_at=?, updated_at=?
 		WHERE id=? AND status='PENDING'`, formatTime(now), formatTime(now), invitationID)
 	if err != nil {
 		return err
@@ -345,7 +394,23 @@ func (s *Service) RevokeInvitation(ctx context.Context, actor Principal, invitat
 	if n, _ := res.RowsAffected(); n != 1 {
 		return ErrInvalidInput
 	}
-	return nil
+	corr, _ := s.newToken()
+	var rc, rs any
+	if classID.Valid {
+		rc = classID.Int64
+	}
+	if semesterID.Valid {
+		rs = semesterID.Int64
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, correlation_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, 'USER', 'REVOKE', 'ROLE_INVITATION', ?, ?, ?, ?)`,
+		rc, rs, actor.UserID, actor.RoleAssignmentID, invitationID, corr, formatTime(now), formatTime(now),
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // ResendInvitation revokes the old pending invite and issues a new token with same scope.

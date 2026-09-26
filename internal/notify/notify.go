@@ -450,6 +450,16 @@ func nullIfEmpty(s string) any {
 	return s
 }
 
+// GetMessageClass returns the owning class of a notification message.
+func (s *Service) GetMessageClass(ctx context.Context, messageID int64) (int64, error) {
+	var classID int64
+	err := s.db.QueryRowContext(ctx, `SELECT class_id FROM notification_messages WHERE id = ?`, messageID).Scan(&classID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return classID, err
+}
+
 // Retry requeues a FAILED message.
 func (s *Service) Retry(ctx context.Context, messageID int64) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PENDING',

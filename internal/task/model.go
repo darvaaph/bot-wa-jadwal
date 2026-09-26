@@ -43,19 +43,21 @@ type TaskItemView struct {
 }
 
 type CreateTaskInput struct {
-	CourseOfferingID int64   `json:"course_offering_id"`
-	Title            string  `json:"title"`
-	Instructions     string  `json:"instructions"`
-	DeadlineAt       string  `json:"deadline_at"`
-	TaskType         string  `json:"task_type"`
-	SubmissionText   *string `json:"submission_text,omitempty"`
-	SubmissionURL    *string `json:"submission_url,omitempty"`
-	CreatedByUserID  int64   `json:"created_by_user_id"`
+	CourseOfferingID int64     `json:"course_offering_id"`
+	Title            string    `json:"title"`
+	Instructions     string    `json:"instructions"`
+	DeadlineAt       string    `json:"deadline_at"`
+	TaskType         string    `json:"task_type"`
+	SubmissionText   *string   `json:"submission_text,omitempty"`
+	SubmissionURL    *string   `json:"submission_url,omitempty"`
+	CreatedByUserID  int64     `json:"created_by_user_id"`
+	Actor            ActorInfo `json:"-"`
 }
 
 type ReviewTaskInput struct {
-	TaskID                   int64   `json:"task_id"`
-	Decision                 string  `json:"decision"`
-	Note                     *string `json:"note,omitempty"`
-	ReviewerRoleAssignmentID int64   `json:"reviewer_role_assignment_id"`
+	TaskID                   int64     `json:"task_id"`
+	Decision                 string    `json:"decision"`
+	Note                     *string   `json:"note,omitempty"`
+	ReviewerRoleAssignmentID int64     `json:"reviewer_role_assignment_id"`
+	Actor                    ActorInfo `json:"-"`
 }

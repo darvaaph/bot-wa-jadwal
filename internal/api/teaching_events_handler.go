@@ -250,20 +250,29 @@ func (s *Server) handleGetTeachingEventDetail(w http.ResponseWriter, r *http.Req
 		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Event tidak ditemukan"})
 		return
 	}
-	if principal, hasPrincipal := principalFromRequest(r); hasPrincipal && !principal.IsSystemAdmin() {
-		visible := false
-		for _, p := range detail.Participations {
-			if principal.ClassID != nil && p.ClassID == *principal.ClassID && (p.Role == "OWNER" || p.Status == "ACCEPTED") {
-				visible = true
-				break
-			}
-		}
-		if !visible {
-			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
-			return
-		}
+	if principal, hasPrincipal := principalFromRequest(r); hasPrincipal && !eventVisibleTo(principal, detail) {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": detail})
+}
+
+// eventVisibleTo centralizes read visibility: System Admin sees all, otherwise
+// the principal's class must own the event or have an ACCEPTED participation.
+// A nil principal means dev/no-auth passthrough (same as other read handlers).
+func eventVisibleTo(principal *auth.Principal, detail *schedule.EventDetail) bool {
+	if principal == nil {
+		return true
+	}
+	if principal.IsSystemAdmin() {
+		return true
+	}
+	for _, p := range detail.Participations {
+		if principal.ClassID != nil && p.ClassID == *principal.ClassID && (p.Role == "OWNER" || p.Status == "ACCEPTED") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handlePreviewTeachingEvent(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +284,15 @@ func (s *Server) handlePreviewTeachingEvent(w http.ResponseWriter, r *http.Reque
 	eventID, err := strconv.ParseInt(strings.TrimSpace(r.PathValue("id")), 10, 64)
 	if err != nil || eventID <= 0 {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "ID event tidak valid"})
+		return
+	}
+	detail, err := svc.GetFullDetail(r.Context(), eventID)
+	if err != nil {
+		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Event tidak ditemukan"})
+		return
+	}
+	if principal, hasPrincipal := principalFromRequest(r); hasPrincipal && !eventVisibleTo(principal, detail) {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
 		return
 	}
 	preview, err := svc.Preview(r.Context(), eventID)
@@ -467,7 +485,7 @@ func (s *Server) handleRespondEventParticipant(w http.ResponseWriter, r *http.Re
 
 func (s *Server) handleRecordRoomConfirmation(w http.ResponseWriter, r *http.Request) {
 	svc, ok := s.eventService()
-	if !ok {
+	if !ok || s.taskRepo == nil {
 		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "error", "error": "Layanan jadwal belum tersedia"})
 		return
 	}
@@ -486,7 +504,25 @@ func (s *Server) handleRecordRoomConfirmation(w http.ResponseWriter, r *http.Req
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "room_id dan status wajib diisi"})
 		return
 	}
-	if _, hasPrincipal := principalFromRequest(r); !hasPrincipal && s.authService != nil {
+	if principal, hasPrincipal := principalFromRequest(r); hasPrincipal {
+		detail, detailErr := svc.GetFullDetail(r.Context(), eventID)
+		if detailErr != nil {
+			s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Event tidak ditemukan"})
+			return
+		}
+		scope, err := s.taskRepo.GetOfferingScope(r.Context(), detail.Event.OwnerOfferingID)
+		if err != nil {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
+		if s.authService != nil {
+			if err := s.authService.RequireOfferingMutation(r.Context(), *principal,
+				auth.Scope{ClassID: scope.ClassID, SemesterID: scope.SemesterID, CourseOfferingID: scope.CourseOfferingID}); err != nil {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
+		}
+	} else if s.authService != nil {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
 		return
 	}

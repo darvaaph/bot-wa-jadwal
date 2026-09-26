@@ -20,6 +20,36 @@ type Service struct {
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
 
+// Actor carries audit identity for room operations.
+type Actor struct {
+	UserID           int64
+	RoleAssignmentID int64
+	CorrelationID    string
+}
+
+func insertRoomAudit(ctx context.Context, tx *sql.Tx, actor Actor, action string, roomID int64, after *string) error {
+	corr := strings.TrimSpace(actor.CorrelationID)
+	if corr == "" {
+		corr = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	var actorUser, actorAssignment any
+	actorType := "USER"
+	if actor.UserID > 0 {
+		actorUser = actor.UserID
+	} else {
+		actorType = "SYSTEM"
+	}
+	if actor.RoleAssignmentID > 0 {
+		actorAssignment = actor.RoleAssignmentID
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+		actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, 'ROOM', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		actorUser, actorAssignment, actorType, action, roomID, after, corr)
+	return err
+}
+
 type Room struct {
 	ID              int64   `json:"id"`
 	Code            string  `json:"code"`
@@ -57,7 +87,7 @@ func scanRoom(row interface{ Scan(...any) error }) (*Room, error) {
 	return &r, nil
 }
 
-func (s *Service) Create(ctx context.Context, code, name, building, roomType string, capacity *int) (*Room, error) {
+func (s *Service) Create(ctx context.Context, actor Actor, code, name, building, roomType string, capacity *int) (*Room, error) {
 	code = strings.TrimSpace(code)
 	name = strings.TrimSpace(name)
 	if code == "" || name == "" {
@@ -67,12 +97,24 @@ func (s *Service) Create(ctx context.Context, code, name, building, roomType str
 		return nil, ErrInvalidInput
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 	var id int64
-	err := s.db.QueryRowContext(ctx, `INSERT INTO rooms (code, name, building, room_type, capacity, status, source_updated_at)
+	err = tx.QueryRowContext(ctx, `INSERT INTO rooms (code, name, building, room_type, capacity, status, source_updated_at)
 		VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?) RETURNING id`,
 		code, name, nullStr(building), nullStr(roomType), nullInt(capacity), now).Scan(&id)
 	if err != nil {
 		return nil, ErrConflict
+	}
+	after := `{"code":"` + code + `","name":"` + strings.ReplaceAll(name, `"`, ``) + `"}`
+	if err := insertRoomAudit(ctx, tx, actor, "CREATE", id, &after); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return s.Get(ctx, id)
 }
@@ -115,7 +157,7 @@ type UpdateInput struct {
 	ExpectedVersion int // reserved; rooms has no version column, ignored
 }
 
-func (s *Service) Update(ctx context.Context, id int64, in UpdateInput) (*Room, error) {
+func (s *Service) Update(ctx context.Context, actor Actor, id int64, in UpdateInput) (*Room, error) {
 	current, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -160,8 +202,20 @@ func (s *Service) Update(ctx context.Context, id int64, in UpdateInput) (*Room, 
 		status = v
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	if _, err := s.db.ExecContext(ctx, `UPDATE rooms SET name=?, building=?, room_type=?, capacity=?, status=?, source_updated_at=?, updated_at=?
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE rooms SET name=?, building=?, room_type=?, capacity=?, status=?, source_updated_at=?, updated_at=?
 		WHERE id=?`, name, building, roomType, nullInt(capacity), status, now, now, id); err != nil {
+		return nil, err
+	}
+	after := `{"name":"` + strings.ReplaceAll(name, `"`, ``) + `","status":"` + status + `"}`
+	if err := insertRoomAudit(ctx, tx, actor, "UPDATE", id, &after); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return s.Get(ctx, id)

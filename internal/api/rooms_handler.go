@@ -38,6 +38,14 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": items})
 }
 
+func roomActor(r *http.Request) rooms.Actor {
+	principal, ok := principalFromRequest(r)
+	if !ok {
+		return rooms.Actor{}
+	}
+	return rooms.Actor{UserID: principal.UserID, RoleAssignmentID: principal.RoleAssignmentID}
+}
+
 func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	if s.roomsService == nil {
 		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "error", "error": "Layanan ruangan belum tersedia"})
@@ -71,7 +79,7 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	if payload.RoomType != nil {
 		roomType = *payload.RoomType
 	}
-	created, err := s.roomsService.Create(r.Context(), payload.Code, payload.Name, building, roomType, payload.Capacity)
+	created, err := s.roomsService.Create(r.Context(), roomActor(r), payload.Code, payload.Name, building, roomType, payload.Capacity)
 	if err != nil {
 		if strings.Contains(err.Error(), "sudah digunakan") {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Kode ruangan sudah digunakan"})
@@ -115,7 +123,7 @@ func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
-	updated, err := s.roomsService.Update(r.Context(), roomID, rooms.UpdateInput{
+	updated, err := s.roomsService.Update(r.Context(), roomActor(r), roomID, rooms.UpdateInput{
 		Name: payload.Name, Building: payload.Building, RoomType: payload.RoomType,
 		Capacity: payload.Capacity, ClearCapacity: payload.ClearCapacity, Status: payload.Status,
 	})

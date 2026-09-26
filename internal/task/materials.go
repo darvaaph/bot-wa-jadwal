@@ -26,15 +26,16 @@ type Material struct {
 }
 
 type CreateMaterialInput struct {
-	ClassID          int64   `json:"class_id"`
-	CourseOfferingID *int64  `json:"course_offering_id,omitempty"`
-	TaskID           *int64  `json:"task_id,omitempty"`
-	Title            string  `json:"title"`
-	MaterialType     string  `json:"material_type"`
-	URL              string  `json:"url"`
-	Description      *string `json:"description,omitempty"`
-	Visibility       string  `json:"visibility"`
-	CreatedByUserID  int64   `json:"created_by_user_id"`
+	ClassID          int64     `json:"class_id"`
+	CourseOfferingID *int64    `json:"course_offering_id,omitempty"`
+	TaskID           *int64    `json:"task_id,omitempty"`
+	Title            string    `json:"title"`
+	MaterialType     string    `json:"material_type"`
+	URL              string    `json:"url"`
+	Description      *string   `json:"description,omitempty"`
+	Visibility       string    `json:"visibility"`
+	CreatedByUserID  int64     `json:"created_by_user_id"`
+	Actor            ActorInfo `json:"-"`
 }
 
 type UpdateMaterialInput struct {
@@ -156,7 +157,12 @@ func (r *Repository) CreateMaterial(ctx context.Context, in CreateMaterialInput)
 	}
 
 	var id int64
-	err = r.db.QueryRowContext(ctx, `INSERT INTO materials (
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	err = tx.QueryRowContext(ctx, `INSERT INTO materials (
 		class_id, course_offering_id, task_id, title, material_type, url, description,
 		visibility, status, created_by_user_id, version
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, 1) RETURNING id`,
@@ -165,8 +171,18 @@ func (r *Repository) CreateMaterial(ctx context.Context, in CreateMaterialInput)
 	if err != nil {
 		return nil, err
 	}
-	row := r.db.QueryRowContext(ctx, `SELECT `+materialColumns+` FROM materials WHERE id = ?`, id)
-	return scanMaterialRow(row)
+	row := tx.QueryRowContext(ctx, `SELECT `+materialColumns+` FROM materials WHERE id = ?`, id)
+	created, err := scanMaterialRow(row)
+	if err != nil {
+		return nil, err
+	}
+	if err := insertMaterialAudit(ctx, tx, in.Actor, "CREATE", created, nil); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (r *Repository) ListMaterialsByClass(ctx context.Context, classID int64, offeringID *int64) ([]Material, error) {
@@ -297,20 +313,96 @@ func (r *Repository) UpdateMaterial(ctx context.Context, id int64, in UpdateMate
 }
 
 func (r *Repository) SoftDeleteMaterial(ctx context.Context, id int64, actor ActorInfo) error {
-	deletedBy := actor.UserID
-	if deletedBy <= 0 {
-		if err := r.db.QueryRowContext(ctx, `SELECT created_by_user_id FROM materials WHERE id = ?`, id).Scan(&deletedBy); err != nil {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(ctx, `SELECT `+materialColumns+` FROM materials WHERE id = ? AND deleted_at IS NULL`, id)
+	current, err := scanMaterialRow(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
+		return err
+	}
+	deletedBy := actor.UserID
+	if deletedBy <= 0 {
+		deletedBy = current.CreatedByUserID
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	res, err := r.db.ExecContext(ctx, `UPDATE materials SET deleted_at=?, deleted_by_user_id=?, updated_at=?
-		WHERE id=? AND deleted_at IS NULL`, now, actor.UserID, now, id)
+	res, err := tx.ExecContext(ctx, `UPDATE materials SET deleted_at=?, deleted_by_user_id=?, updated_at=?
+		WHERE id=? AND deleted_at IS NULL`, now, deletedBy, now, id)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
 		return ErrNotFound
 	}
-	return nil
+	if err := insertMaterialAudit(ctx, tx, actor, "DELETE", current, nil); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// insertMaterialAudit writes one MATERIAL audit row inside the caller's transaction.
+func insertMaterialAudit(ctx context.Context, tx *sql.Tx, actor ActorInfo, action string, m *Material, beforeTitle *string) error {
+	corr := strings.TrimSpace(actor.CorrelationID)
+	if corr == "" {
+		corr = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	var actorUser any
+	var actorAssignment any
+	actorType := "USER"
+	if actor.UserID > 0 {
+		actorUser = actor.UserID
+	} else {
+		actorType = "SYSTEM"
+	}
+	if actor.RoleAssignmentID > 0 {
+		actorAssignment = actor.RoleAssignmentID
+	}
+	var semID any
+	if actor.SemesterID != nil {
+		semID = *actor.SemesterID
+	}
+	var classID any = m.ClassID
+	if actor.ClassID != nil {
+		classID = *actor.ClassID
+	}
+	before := `{}`
+	if beforeTitle != nil {
+		before = `{"title":"` + strings.ReplaceAll(*beforeTitle, `"`, ``) + `"}`
+	}
+	after := `{"title":"` + strings.ReplaceAll(m.Title, `"`, ``) + `"}`
+	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
+		action, entity_type, entity_id, before_json, after_json, correlation_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, 'MATERIAL', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		classID, semID, actorUser, actorAssignment, actorType, action, m.ID, before, after, corr,
+	)
+	return err
+}
+
+// MaterialScope carries the ownership of a material for pre-write authorization.
+type MaterialScope struct {
+	ClassID          int64
+	CourseOfferingID *int64
+}
+
+// GetMaterialScope returns the class (and optional offering) of an active material.
+func (r *Repository) GetMaterialScope(ctx context.Context, id int64) (MaterialScope, error) {
+	var scope MaterialScope
+	var offeringID sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `SELECT class_id, course_offering_id FROM materials WHERE id = ? AND deleted_at IS NULL`,
+		id).Scan(&scope.ClassID, &offeringID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return scope, ErrNotFound
+	}
+	if err != nil {
+		return scope, err
+	}
+	scope.CourseOfferingID = int64Ptr(offeringID)
+	return scope, nil
 }

@@ -54,6 +54,23 @@ func (r *Repository) GetTaskScope(ctx context.Context, taskID int64) (AcademicSc
 	return scope, nil
 }
 
+// GetTaskScopeIncludingDeleted resolves scope for soft-deleted rows (restore flow).
+func (r *Repository) GetTaskScopeIncludingDeleted(ctx context.Context, taskID int64) (AcademicScope, error) {
+	var scope AcademicScope
+	err := r.db.QueryRowContext(ctx, `SELECT sem.class_id, co.semester_id, co.id
+		FROM tasks t
+		JOIN course_offerings co ON co.id = t.course_offering_id
+		JOIN semesters sem ON sem.id = co.semester_id
+		WHERE t.id = ?`, taskID).Scan(&scope.ClassID, &scope.SemesterID, &scope.CourseOfferingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return scope, ErrNotFound
+	}
+	if err != nil {
+		return scope, err
+	}
+	return scope, nil
+}
+
 func strPtr(s sql.NullString) *string {
 	if !s.Valid {
 		return nil
@@ -149,7 +166,13 @@ func (r *Repository) CreateTask(ctx context.Context, in CreateTaskInput) (*Task,
 		publication_status, review_state, created_by_user_id, version
 	) VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT', 'NOT_REVIEWED', ?, 1)`
 
-	res, err := r.db.ExecContext(ctx, query,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx, query,
 		in.CourseOfferingID,
 		in.Title,
 		in.Instructions,
@@ -168,8 +191,18 @@ func (r *Repository) CreateTask(ctx context.Context, in CreateTaskInput) (*Task,
 		return nil, err
 	}
 
-	row := r.db.QueryRowContext(ctx, `SELECT `+taskColumns+` FROM tasks t WHERE t.id = ?`, id)
-	return scanTaskRow(row)
+	row := tx.QueryRowContext(ctx, `SELECT `+taskColumns+` FROM tasks t WHERE t.id = ?`, id)
+	created, err := scanTaskRow(row)
+	if err != nil {
+		return nil, err
+	}
+	if err := insertTaskAudit(ctx, tx, in.Actor, "CREATE", id, nil, str(taskToJSON(created)), nil); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 func (r *Repository) GetTaskByID(ctx context.Context, id int64) (*TaskItemView, error) {
@@ -406,6 +439,15 @@ func (r *Repository) SubmitReview(ctx context.Context, in ReviewTaskInput) error
 		return err
 	}
 
+	after, err := getTaskInTx(ctx, tx, in.TaskID)
+	if err != nil {
+		return err
+	}
+	action := "REVIEW_" + in.Decision
+	if err := insertTaskAudit(ctx, tx, in.Actor, action, in.TaskID, nil, str(taskToJSON(after)), in.Note); err != nil {
+		return err
+	}
+
 	return tx.Commit()
 }
 
@@ -448,8 +490,23 @@ func (r *Repository) ListReviews(ctx context.Context, taskID int64) ([]TaskRevie
 	return reviews, nil
 }
 
-func (r *Repository) CompleteTask(ctx context.Context, id int64) error {
-	res, err := r.db.ExecContext(ctx, `UPDATE tasks
+func (r *Repository) CompleteTask(ctx context.Context, id int64, actor ActorInfo) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(ctx, `SELECT `+taskColumns+` FROM tasks t WHERE t.id = ? AND t.deleted_at IS NULL`, id)
+	current, err := scanTaskRow(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	beforeJSON := taskToJSON(current)
+	res, err := tx.ExecContext(ctx, `UPDATE tasks
 	SET completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
 		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 	WHERE id = ? AND deleted_at IS NULL`, id)
@@ -464,7 +521,14 @@ func (r *Repository) CompleteTask(ctx context.Context, id int64) error {
 	if affected == 0 {
 		return ErrNotFound
 	}
-	return nil
+	after, err := getTaskInTx(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := insertTaskAudit(ctx, tx, actor, "COMPLETE", id, &beforeJSON, str(taskToJSON(after)), nil); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *Repository) DeleteTask(ctx context.Context, id int64, userID int64) error {

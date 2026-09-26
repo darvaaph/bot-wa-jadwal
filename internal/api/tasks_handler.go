@@ -275,6 +275,7 @@ func (s *Server) handleCreateTaskV1(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		input.CreatedByUserID = principal.UserID
+		input.Actor = actorInfo(principal, scope)
 	}
 
 	created, err := s.taskRepo.CreateTask(r.Context(), input)
@@ -331,7 +332,9 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if principal, ok := principalFromRequest(r); ok {
+	principal, hasPrincipal := principalFromRequest(r)
+	var reviewScope task.AcademicScope
+	if hasPrincipal {
 		scope, err := s.taskRepo.GetTaskScope(r.Context(), taskID)
 		if err != nil {
 			if errors.Is(err, task.ErrNotFound) {
@@ -346,6 +349,7 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		payload.ReviewerRoleAssignmentID = principal.RoleAssignmentID
+		reviewScope = scope
 	} else if payload.ReviewerRoleAssignmentID <= 0 {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field reviewer_role_assignment_id wajib diisi"})
 		return
@@ -356,6 +360,7 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 		Decision:                 payload.Decision,
 		Note:                     payload.Note,
 		ReviewerRoleAssignmentID: payload.ReviewerRoleAssignmentID,
+		Actor:                    actorInfo(principal, reviewScope),
 	})
 	if err != nil {
 		if errors.Is(err, task.ErrNotFound) {
@@ -395,7 +400,9 @@ func (s *Server) handleCompleteTaskV1(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if principal, ok := principalFromRequest(r); ok {
+	principal, hasPrincipal := principalFromRequest(r)
+	var completeScope task.AcademicScope
+	if hasPrincipal {
 		scope, err := s.taskRepo.GetTaskScope(r.Context(), taskID)
 		if err != nil {
 			if errors.Is(err, task.ErrNotFound) {
@@ -409,9 +416,13 @@ func (s *Server) handleCompleteTaskV1(w http.ResponseWriter, r *http.Request) {
 			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
 			return
 		}
+		completeScope = scope
+	} else if s.authService != nil {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
+		return
 	}
 
-	if err := s.taskRepo.CompleteTask(r.Context(), taskID); err != nil {
+	if err := s.taskRepo.CompleteTask(r.Context(), taskID, actorInfo(principal, completeScope)); err != nil {
 		if errors.Is(err, task.ErrNotFound) {
 			s.writeJSON(w, http.StatusNotFound, map[string]string{
 				"status": "error",

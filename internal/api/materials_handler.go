@@ -44,6 +44,7 @@ func (s *Server) handleCreateMaterialV1(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		input.CreatedByUserID = principal.UserID
+		input.Actor = task.ActorInfo{UserID: principal.UserID, RoleAssignmentID: principal.RoleAssignmentID, ClassID: &input.ClassID}
 	}
 	created, err := s.taskRepo.CreateMaterial(r.Context(), input)
 	if err != nil {
@@ -114,10 +115,30 @@ func (s *Server) handleUpdateMaterialV1(w http.ResponseWriter, r *http.Request) 
 	var actor task.ActorInfo
 	if hasPrincipal {
 		actor = task.ActorInfo{UserID: principal.UserID, RoleAssignmentID: principal.RoleAssignmentID}
+	} else if s.authService != nil {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
+		return
 	}
-	// Scope enforcement happens inside repository class check via list filter;
-	// fetch single row scope by scanning all class materials is wasteful, so rely on
-	// principal class match after update attempt. Fetch via direct query below.
+	// Pre-write scope check: resolve ownership before mutating.
+	if hasPrincipal && !principal.IsSystemAdmin() {
+		scope, scopeErr := s.taskRepo.GetMaterialScope(r.Context(), materialID)
+		if scopeErr != nil {
+			if errors.Is(scopeErr, task.ErrNotFound) {
+				s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Materi tidak ditemukan"})
+			} else {
+				s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memeriksa cakupan materi"})
+			}
+			return
+		}
+		if principal.ClassID == nil || *principal.ClassID != scope.ClassID {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+			return
+		}
+		if principal.Role == "PJ" && (scope.CourseOfferingID == nil || principal.CourseOfferingID == nil || *principal.CourseOfferingID != *scope.CourseOfferingID) {
+			s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "PJ hanya dapat mengubah materi pada offering penugasannya"})
+			return
+		}
+	}
 	updated, updateErr := s.taskRepo.UpdateMaterial(r.Context(), materialID, task.UpdateMaterialInput{
 		Title: payload.Title, Description: payload.Description, URL: payload.URL,
 		Visibility: payload.Visibility, Status: payload.Status, ExpectedVersion: payload.Version,
@@ -132,10 +153,6 @@ func (s *Server) handleUpdateMaterialV1(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": updateErr.Error()})
-		return
-	}
-	if hasPrincipal && !principal.IsSystemAdmin() && principal.ClassID != nil && *principal.ClassID != updated.ClassID {
-		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": updated})
@@ -155,6 +172,26 @@ func (s *Server) handleDeleteMaterialV1(w http.ResponseWriter, r *http.Request) 
 	var actor task.ActorInfo
 	if hasPrincipal {
 		actor = task.ActorInfo{UserID: principal.UserID, RoleAssignmentID: principal.RoleAssignmentID}
+		// Pre-write scope check: resolve ownership before mutating.
+		if !principal.IsSystemAdmin() {
+			scope, scopeErr := s.taskRepo.GetMaterialScope(r.Context(), materialID)
+			if scopeErr != nil {
+				if errors.Is(scopeErr, task.ErrNotFound) {
+					s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Materi tidak ditemukan"})
+				} else {
+					s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memeriksa cakupan materi"})
+				}
+				return
+			}
+			if principal.ClassID == nil || *principal.ClassID != scope.ClassID {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+				return
+			}
+			if principal.Role == "PJ" && (scope.CourseOfferingID == nil || principal.CourseOfferingID == nil || *principal.CourseOfferingID != *scope.CourseOfferingID) {
+				s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "PJ hanya dapat menghapus materi pada offering penugasannya"})
+				return
+			}
+		}
 	} else if s.authService != nil {
 		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
 		return
