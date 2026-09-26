@@ -299,3 +299,110 @@ func newRetryScopeServer(t *testing.T) (*Server, map[string]int64) {
 	srv.SetNotifyService(notify.NewService(db), &stubSender{})
 	return srv, ids
 }
+
+// TestAuthz_ReviewStateGuards verifies S-8: APPROVED requires complete task
+// data; REVOKED tasks cannot be re-reviewed without re-publish.
+func TestAuthz_ReviewStateGuards(t *testing.T) {
+	srv, ids := newOpsTestServer(t)
+	kmCookies, kmCSRF, _ := loginAs(t, srv, "km-a@example.test", "kata-sandi-km-a-kuat")
+	pjCookies, pjCSRF, _ := loginAs(t, srv, "pj-a@example.test", "kata-sandi-pj-a-kuat")
+
+	// Incomplete DRAFT (no instructions, no submission).
+	raw, _ := json.Marshal(map[string]any{
+		"course_offering_id": ids["offA"], "title": "Draf Kosong",
+		"deadline_at": "2026-09-30T16:00:00.000Z",
+	})
+	rr := authHTTPRequest(t, srv, "POST", "/api/v1/tasks", json.RawMessage(raw), pjCookies, pjCSRF)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create draft: %d %s", rr.Code, rr.Body.String())
+	}
+	var draft struct {
+		Data task.Task `json:"data"`
+	}
+	decodeResponse(t, rr, &draft)
+
+	approve, _ := json.Marshal(map[string]any{"decision": "APPROVED"})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/tasks/%d/reviews", draft.Data.ID), json.RawMessage(approve), kmCookies, kmCSRF)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("APPROVED atas draf tak lengkap: diharapkan 400, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Complete task -> publish -> KM REVOKED -> CHANGES must conflict.
+	full, _ := json.Marshal(map[string]any{
+		"course_offering_id": ids["offA"], "title": "Tugas Penuh", "instructions": "Kerjakan.",
+		"deadline_at": "2026-09-30T16:00:00.000Z", "submission_text": "LMS",
+	})
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/tasks", json.RawMessage(full), pjCookies, pjCSRF)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create full: %d", rr.Code)
+	}
+	var created struct {
+		Data task.Task `json:"data"`
+	}
+	decodeResponse(t, rr, &created)
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/tasks/%d/publish", created.Data.ID), nil, pjCookies, pjCSRF)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("publish: %d %s", rr.Code, rr.Body.String())
+	}
+	revoke, _ := json.Marshal(map[string]any{"decision": "REVOKED", "note": "batal"})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/tasks/%d/reviews", created.Data.ID), json.RawMessage(revoke), kmCookies, kmCSRF)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("revoke review: %d %s", rr.Code, rr.Body.String())
+	}
+	changes, _ := json.Marshal(map[string]any{"decision": "CHANGES_REQUESTED", "note": "perbaiki"})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/tasks/%d/reviews", created.Data.ID), json.RawMessage(changes), kmCookies, kmCSRF)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("CHANGES atas REVOKED: diharapkan 409, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestAuthz_VersionGuards verifies S-4: materials update and semester
+// activate reject stale/missing versions.
+func TestAuthz_VersionGuards(t *testing.T) {
+	srv, ids := newOpsTestServer(t)
+	kmCookies, kmCSRF, _ := loginAs(t, srv, "km-a@example.test", "kata-sandi-km-a-kuat")
+
+	// Materials update without version.
+	matBody, _ := json.Marshal(map[string]any{
+		"class_id": ids["classA"], "title": "M", "material_type": "DOCUMENT",
+		"url": "https://example.com/m.pdf",
+	})
+	rr := authHTTPRequest(t, srv, "POST", "/api/v1/materials", json.RawMessage(matBody), kmCookies, kmCSRF)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create material: %d %s", rr.Code, rr.Body.String())
+	}
+	var mat struct {
+		Data task.Material `json:"data"`
+	}
+	decodeResponse(t, rr, &mat)
+	noVer, _ := json.Marshal(map[string]any{"title": "M v2"})
+	rr = authHTTPRequest(t, srv, "PUT", fmt.Sprintf("/api/v1/materials/%d", mat.Data.ID), json.RawMessage(noVer), kmCookies, kmCSRF)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("update tanpa version: diharapkan 400, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Semester activate with bogus version.
+	draftBody, _ := json.Marshal(map[string]any{
+		"academic_year": "2027/2028", "term": "GANJIL", "starts_on": "2027-09-01", "ends_on": "2028-01-31",
+	})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/classes/%d/semesters/draft", ids["classA"]), json.RawMessage(draftBody), kmCookies, kmCSRF)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("draft: %d %s", rr.Code, rr.Body.String())
+	}
+	var draft struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	decodeResponse(t, rr, &draft)
+	offBody, _ := json.Marshal(map[string]any{"course_code": "VG", "course_name": "VerGuard"})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/classes/%d/semesters/%d/offerings", ids["classA"], draft.Data.ID), json.RawMessage(offBody), kmCookies, kmCSRF)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("offering: %d %s", rr.Code, rr.Body.String())
+	}
+	badVer, _ := json.Marshal(map[string]any{"version": 999})
+	rr = authHTTPRequest(t, srv, "POST", fmt.Sprintf("/api/v1/classes/%d/semesters/%d/activate", ids["classA"], draft.Data.ID), json.RawMessage(badVer), kmCookies, kmCSRF)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("activate versi basi: diharapkan 409, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+}

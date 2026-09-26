@@ -105,20 +105,33 @@ func (s *Service) Create(ctx context.Context, classID int64, semesterID *int64, 
 		return nil, err
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 	var id int64
-	err = s.db.QueryRowContext(ctx, `INSERT INTO backup_records
+	err = tx.QueryRowContext(ctx, `INSERT INTO backup_records
 		(class_id, semester_id, artifact_ref, checksum, status, created_by_user_id, reason, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'READY', ?, ?, ?, ?) RETURNING id`,
 		classID, semesterID, path, check, userID, strings.TrimSpace(reason), now, now).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
-	_, _ = s.db.ExecContext(ctx, `UPDATE backup_records SET status='VERIFIED', verified_at=?, updated_at=? WHERE id=?`, now, now, id)
+	if _, err := tx.ExecContext(ctx, `UPDATE backup_records SET status='VERIFIED', verified_at=?, updated_at=? WHERE id=?`, now, now, id); err != nil {
+		return nil, err
+	}
 	corr := check[:16]
-	_, _ = s.db.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_type, action,
+	afterJSON, _ := json.Marshal(map[string]string{"artifact": path})
+	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_type, action,
 		entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at)
 		VALUES (?, ?, ?, 'USER', 'BACKUP', 'BACKUP', ?, ?, ?, ?, ?, ?)`,
-		classID, semesterID, userID, id, fmt.Sprintf(`{"artifact":"%s"}`, path), strings.TrimSpace(reason), corr, now, now)
+		classID, semesterID, userID, id, string(afterJSON), strings.TrimSpace(reason), corr, now, now); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return s.Get(ctx, id)
 }
 

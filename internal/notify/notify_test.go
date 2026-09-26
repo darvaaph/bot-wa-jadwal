@@ -147,3 +147,25 @@ func TestNotify_Schedulers(t *testing.T) {
 		t.Fatalf("build tasks: %v", err)
 	}
 }
+
+func TestNotify_ReapsStaleProcessing(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	sender := &fakeSender{}
+	id, _, err := svc.Enqueue(ctx, 1, 1, "DAILY_SUMMARY", "CLASS", 1, "daily:1:2026-10-07", "pagi", "", time.Date(2026, 10, 7, 6, 0, 0, 0, time.UTC), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a worker crash: row stuck in PROCESSING with old heartbeat.
+	old := time.Date(2026, 10, 7, 6, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	if _, err := svc.db.ExecContext(ctx, `UPDATE notification_messages SET status='PROCESSING', updated_at=? WHERE id=?`, old, id); err != nil {
+		t.Fatal(err)
+	}
+	sent, failed, err := svc.ProcessDue(ctx, sender, 10, time.Date(2026, 10, 7, 8, 0, 0, 0, time.UTC))
+	if err != nil || sent != 1 || failed != 0 {
+		t.Fatalf("reaped process: sent=%d failed=%d err=%v", sent, failed, err)
+	}
+	items, _ := svc.List(ctx, 1, "SENT", 10)
+	if len(items) != 1 {
+		t.Fatalf("pesan reaped harus SENT, didapat %+v", items)
+	}
+}

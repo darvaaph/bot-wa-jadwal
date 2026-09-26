@@ -219,9 +219,22 @@ func (s *Server) handleSemesterActivate(w http.ResponseWriter, r *http.Request) 
 		s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Semester belum siap diaktifkan: " + strings.Join(preview.Blockers, "; ")})
 		return
 	}
-	if err := svc.Activate(r.Context(), semesterActor(r), classID, semID); err != nil {
+	var payload struct {
+		Version int `json:"version"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload)
+	if payload.Version < 1 {
+		// Fall back to the previewed version so callers that only previewed
+		// can still activate without an extra round-trip.
+		payload.Version = preview.Semester.Version
+	}
+	if err := svc.Activate(r.Context(), semesterActor(r), classID, semID, payload.Version); err != nil {
 		if errors.Is(err, semester.ErrInvalidState) {
 			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Hanya semester DRAFT yang dapat diaktifkan"})
+			return
+		}
+		if errors.Is(err, semester.ErrVersion) {
+			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Versi semester sudah berubah, muat ulang preview sebelum mengaktifkan"})
 			return
 		}
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal mengaktifkan semester"})

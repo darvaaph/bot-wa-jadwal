@@ -89,7 +89,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
 			"error":  "Format JSON tidak valid",
@@ -245,7 +245,7 @@ func (s *Server) handleCreateTaskV1(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input task.CreateTaskInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&input); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
 			"error":  "Format JSON tidak valid",
@@ -316,7 +316,7 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 		Note                     *string `json:"note"`
 		ReviewerRoleAssignmentID int64   `json:"reviewer_role_assignment_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
 			"error":  "Format JSON tidak valid",
@@ -367,6 +367,20 @@ func (s *Server) handleReviewTaskV1(w http.ResponseWriter, r *http.Request) {
 			s.writeJSON(w, http.StatusNotFound, map[string]string{
 				"status": "error",
 				"error":  "Tugas tidak ditemukan",
+			})
+			return
+		}
+		if errors.Is(err, task.ErrInvalidState) {
+			s.writeJSON(w, http.StatusConflict, map[string]string{
+				"status": "error",
+				"error":  "Tugas REVOKED tidak dapat direview, publikasikan ulang",
+			})
+			return
+		}
+		if errors.Is(err, task.ErrValidation) {
+			s.writeJSON(w, http.StatusBadRequest, map[string]string{
+				"status": "error",
+				"error":  "Data minimum tugas belum lengkap untuk persetujuan",
 			})
 			return
 		}

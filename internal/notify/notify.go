@@ -13,6 +13,7 @@ import (
 var (
 	ErrNotFound     = errors.New("notifikasi tidak ditemukan")
 	ErrInvalidInput = errors.New("input tidak valid")
+	ErrNoChannel    = errors.New("kelas belum memiliki kanal WhatsApp aktif")
 )
 
 // Sender abstracts WhatsApp delivery. Implementations must return provider message ID on success.
@@ -329,32 +330,73 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 func (s *Service) EnqueueEventPublished(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
 	chID, _, err := s.ChannelForClass(ctx, classID)
 	if err != nil {
-		return 0, nil
+		return 0, ErrNoChannel
 	}
 	id, _, err := s.Enqueue(ctx, classID, chID, "SCHEDULE_CHANGE", "TEACHING_EVENT", eventID, eventPublishKey(eventID), text, "", time.Now().UTC(), triggeredBy)
 	return id, err
 }
 
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
+// Both writes happen in one transaction so a crash cannot leave duplicates.
 func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
 	chID, _, err := s.ChannelForClass(ctx, classID)
 	if err != nil {
-		return 0, nil
+		return 0, ErrNoChannel
 	}
-	id, _, err := s.Enqueue(ctx, classID, chID, "SCHEDULE_CORRECTION", "TEACHING_EVENT", eventID, eventRevokeKey(eventID), text, "", time.Now().UTC(), triggeredBy)
+	payload, _ := json.Marshal(Payload{Text: text})
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	// Supersede older pending change messages for the same event.
-	_, _ = s.db.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED', supersedes_message_id=?,
+	defer tx.Rollback()
+	var id int64
+	err = tx.QueryRowContext(ctx, `INSERT INTO notification_messages
+		(class_id, whatsapp_channel_id, event_type, entity_type, entity_id, idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id)
+		VALUES (?, ?, 'SCHEDULE_CORRECTION', 'TEACHING_EVENT', ?, ?, ?, 'PENDING', ?, ?)
+		ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
+		classID, chID, eventID, eventRevokeKey(eventID), string(payload), now, triggeredBy,
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		if err := tx.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, eventRevokeKey(eventID)).Scan(&id); err != nil {
+			return 0, err
+		}
+	} else if err != nil {
+		return 0, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED', supersedes_message_id=?,
 		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
 		WHERE entity_type='TEACHING_EVENT' AND entity_id=? AND id != ?
-		AND status IN ('PENDING','PROCESSING','FAILED')`, id, eventID, id)
+		AND status IN ('PENDING','PROCESSING','FAILED')`, id, eventID, id); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 	return id, nil
+}
+
+// staleProcessingTimeout bounds how long a message may sit in PROCESSING
+// (e.g. worker crash between claim and attempt write) before requeue.
+const staleProcessingTimeout = 10 * time.Minute
+
+// ReapStaleProcessing returns stuck PROCESSING rows to PENDING.
+func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64, error) {
+	cutoff := now.Add(-staleProcessingTimeout).UTC().Format(time.RFC3339Nano)
+	res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PENDING',
+		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE status='PROCESSING' AND updated_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 // ProcessDue claims and sends due messages. Returns (sent, failed).
 func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now time.Time) (int, int, error) {
+	// Reap rows stuck in PROCESSING by a crashed worker before claiming.
+	_, _ = s.ReapStaleProcessing(ctx, now)
 	if limit <= 0 {
 		limit = 20
 	}

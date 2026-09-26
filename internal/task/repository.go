@@ -212,7 +212,7 @@ func (r *Repository) GetTaskByID(ctx context.Context, id int64) (*TaskItemView, 
 	JOIN courses c ON c.id = co.course_id
 	JOIN semesters s ON s.id = co.semester_id
 	JOIN classes cl ON cl.id = s.class_id
-	WHERE t.id = ?`
+	WHERE t.id = ? AND t.deleted_at IS NULL`
 
 	row := r.db.QueryRowContext(ctx, query, id)
 
@@ -385,12 +385,26 @@ func (r *Repository) SubmitReview(ctx context.Context, in ReviewTaskInput) error
 	defer tx.Rollback()
 
 	var version int
-	err = tx.QueryRowContext(ctx, `SELECT version FROM tasks WHERE id = ? AND deleted_at IS NULL`, in.TaskID).Scan(&version)
+	var pubStatus, title, instructions, deadline string
+	var subText, subURL sql.NullString
+	err = tx.QueryRowContext(ctx, `SELECT version, publication_status, title, instructions, deadline_at, submission_text, submission_url
+		FROM tasks WHERE id = ? AND deleted_at IS NULL`, in.TaskID).Scan(&version, &pubStatus, &title, &instructions, &deadline, &subText, &subURL)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
 		return err
+	}
+	if pubStatus == "REVOKED" {
+		return ErrInvalidState
+	}
+	if in.Decision == "APPROVED" {
+		hasSubmission := (subText.Valid && strings.TrimSpace(subText.String) != "") ||
+			(subURL.Valid && strings.TrimSpace(subURL.String) != "")
+		if strings.TrimSpace(title) == "" || strings.TrimSpace(instructions) == "" ||
+			strings.TrimSpace(deadline) == "" || !hasSubmission {
+			return ErrValidation
+		}
 	}
 
 	var reviewerUserID int64

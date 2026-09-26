@@ -138,8 +138,11 @@ func (s *Service) ListRoleAssignments(ctx context.Context, actor Principal, clas
 	return out, rows.Err()
 }
 
-// RequestRecovery creates a single-use recovery token. Returns raw token (relay via WA/admin in prod).
-func (s *Service) RequestRecovery(ctx context.Context, identityKey, method string) (string, error) {
+// RequestRecovery creates a single-use recovery token. The raw token is returned
+// to the caller, which must relay it over a verified channel (never in an
+// unauthenticated API response). Unknown identities yield ErrAuthenticationFailed
+// so public handlers can respond generically.
+func (s *Service) RequestRecovery(ctx context.Context, identityKey, method, reason string) (string, error) {
 	identity := NormalizeIdentity(identityKey)
 	if identity == "" {
 		return "", ErrInvalidInput
@@ -177,10 +180,14 @@ func (s *Service) RequestRecovery(ctx context.Context, identityKey, method strin
 		return "", err
 	}
 	corr, _ := s.newToken()
+	var reasonAny any
+	if strings.TrimSpace(reason) != "" {
+		reasonAny = strings.TrimSpace(reason)
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_user_id, actor_type, action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, 'USER', 'REQUEST_RECOVERY', 'USER', ?, ?, ?, ?, ?)`,
-		userID, userID, `{"method":"`+method+`"}`, corr, formatTime(now), formatTime(now)); err != nil {
+		actor_user_id, actor_type, action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at
+	) VALUES (?, 'USER', 'REQUEST_RECOVERY', 'USER', ?, ?, ?, ?, ?, ?)`,
+		userID, userID, `{"method":"`+method+`"}`, reasonAny, corr, formatTime(now), formatTime(now)); err != nil {
 		return "", err
 	}
 	if err := tx.Commit(); err != nil {

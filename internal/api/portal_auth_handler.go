@@ -45,7 +45,7 @@ func (s *Server) handlePortalVerifyCode(w http.ResponseWriter, r *http.Request) 
 	var payload struct {
 		Code string `json:"code"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || strings.TrimSpace(payload.Code) == "" {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil || strings.TrimSpace(payload.Code) == "" {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field code wajib diisi"})
 		return
 	}
@@ -129,9 +129,25 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 		AfternoonReminderTime      *string `json:"afternoon_reminder_time"`
 		ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes"`
 		Timezone                   *string `json:"timezone"`
+		Version                    int     `json:"version"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
+		return
+	}
+	if payload.Version < 1 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field version wajib diisi untuk deteksi konflik"})
+		return
+	}
+	// Pre-check before any write so a stale version fails fast without
+	// partially applying code/mode rotation.
+	var currentVersion int
+	if err := s.academicRepo.DB().QueryRowContext(r.Context(), `SELECT version FROM class_settings WHERE class_id = ?`, classID).Scan(&currentVersion); err != nil {
+		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Pengaturan kelas tidak ditemukan"})
+		return
+	}
+	if currentVersion != payload.Version {
+		s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Versi pengaturan sudah berubah, muat ulang sebelum menyimpan"})
 		return
 	}
 	if payload.PortalCode != nil && strings.TrimSpace(*payload.PortalCode) != "" {
@@ -139,6 +155,7 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Kode kelas tidak valid"})
 			return
 		}
+		payload.Version++
 	}
 	if payload.PortalAccessMode != nil {
 		mode := strings.ToUpper(strings.TrimSpace(*payload.PortalAccessMode))
@@ -159,6 +176,7 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Gagal mengubah mode akses portal"})
 			return
 		}
+		payload.Version++
 	}
 	updates := []string{}
 	args := []any{}
@@ -220,15 +238,68 @@ func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Reques
 	}
 	if len(updates) > 0 {
 		updates = append(updates, "version = version + 1")
-		query := "UPDATE class_settings SET " + strings.Join(updates, ", ") + ", updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id = ?"
-		args = append(args, classID)
-		if _, err := s.academicRepo.DB().ExecContext(r.Context(), query, args...); err != nil {
+		query := "UPDATE class_settings SET " + strings.Join(updates, ", ") + ", updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id = ? AND version = ?"
+		args = append(args, classID, payload.Version)
+		res, err := s.academicRepo.DB().ExecContext(r.Context(), query, args...)
+		if err != nil {
 			s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal menyimpan pengaturan kelas"})
+			return
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			s.writeJSON(w, http.StatusConflict, map[string]string{"status": "error", "error": "Versi pengaturan sudah berubah, muat ulang sebelum menyimpan"})
 			return
 		}
 	}
 	s.writeClassSettingsAudit(r, classID, payload)
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Pengaturan kelas disimpan, sesi portal lama otomatis dicabut"})
+}
+
+func (s *Server) handleGetClassSettings(w http.ResponseWriter, r *http.Request) {
+	if s.academicRepo == nil {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "error", "error": "Layanan akademik belum tersedia"})
+		return
+	}
+	classID, err := strconv.ParseInt(strings.TrimSpace(r.PathValue("id")), 10, 64)
+	if err != nil || classID <= 0 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "ID kelas tidak valid"})
+		return
+	}
+	principal, ok := principalFromRequest(r)
+	if !ok {
+		if s.authService != nil {
+			s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
+			return
+		}
+	} else if !principal.IsSystemAdmin() && (principal.ClassID == nil || *principal.ClassID != classID) {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
+		return
+	} else if !principal.IsSystemAdmin() && principal.Role != "KM" {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Hanya KM yang dapat melihat pengaturan kelas"})
+		return
+	}
+	var timezone, mode, visibility string
+	var morning, afternoon sql.NullString
+	var replacement, version int
+	err = s.academicRepo.DB().QueryRowContext(r.Context(), `SELECT timezone, portal_access_mode,
+		meeting_link_visibility, morning_reminder_time, afternoon_reminder_time,
+		replacement_reminder_minutes, version FROM class_settings WHERE class_id = ?`, classID).
+		Scan(&timezone, &mode, &visibility, &morning, &afternoon, &replacement, &version)
+	if err != nil {
+		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Pengaturan kelas tidak ditemukan"})
+		return
+	}
+	data := map[string]any{
+		"timezone": timezone, "portal_access_mode": mode,
+		"meeting_link_visibility":      visibility,
+		"replacement_reminder_minutes": replacement, "version": version,
+	}
+	if morning.Valid {
+		data["morning_reminder_time"] = morning.String
+	}
+	if afternoon.Valid {
+		data["afternoon_reminder_time"] = afternoon.String
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": data})
 }
 
 // writeClassSettingsAudit records one UPDATE row for class settings changes.
@@ -243,6 +314,7 @@ func (s *Server) writeClassSettingsAudit(r *http.Request, classID int64, payload
 	AfternoonReminderTime      *string `json:"afternoon_reminder_time"`
 	ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes"`
 	Timezone                   *string `json:"timezone"`
+	Version                    int     `json:"version"`
 }) {
 	changed := []string{}
 	if payload.PortalAccessMode != nil {

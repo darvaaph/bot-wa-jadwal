@@ -90,12 +90,35 @@ func TestAccess_PortalCodeFlow(t *testing.T) {
 	srv, _ := newAccessTestServer(t)
 
 	cookies, csrf, _ := loginAs(t, srv, "admin@example.test", "kata-sandi-yang-sangat-kuat")
+	settingsVersion := func() int {
+		t.Helper()
+		rr := authHTTPRequest(t, srv, "GET", "/api/v1/classes/1/settings", nil, cookies, "")
+		if rr.Code != http.StatusOK {
+			t.Fatalf("get settings: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
+		}
+		var body struct {
+			Data struct {
+				Version int `json:"version"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return body.Data.Version
+	}
 
 	rr := authHTTPRequest(t, srv, "PATCH", "/api/v1/classes/1/settings", map[string]any{
-		"portal_access_mode": "CODE", "portal_code": "kelas-rahasia-123",
+		"portal_access_mode": "CODE", "portal_code": "kelas-rahasia-123", "version": settingsVersion(),
 	}, cookies, csrf)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("set code: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	// Stale version must conflict.
+	rr = authHTTPRequest(t, srv, "PATCH", "/api/v1/classes/1/settings", map[string]any{
+		"morning_reminder_time": "06:30", "version": 1,
+	}, cookies, csrf)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("stale version: diharapkan 409, didapat %d: %s", rr.Code, rr.Body.String())
 	}
 
 	rr = authHTTPRequest(t, srv, "GET", "/api/portal/d4-ti-2024-a-acc/summary", nil, nil, "")
@@ -127,7 +150,7 @@ func TestAccess_PortalCodeFlow(t *testing.T) {
 		t.Fatalf("summary dengan kode: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
 	}
 
-	rr = authHTTPRequest(t, srv, "PATCH", "/api/v1/classes/1/settings", map[string]any{"portal_code": "kode-baru-456"}, cookies, csrf)
+	rr = authHTTPRequest(t, srv, "PATCH", "/api/v1/classes/1/settings", map[string]any{"portal_code": "kode-baru-456", "version": settingsVersion()}, cookies, csrf)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("rotasi kode: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
 	}
@@ -225,9 +248,37 @@ func TestAccess_InvitationAndRoleLifecycle(t *testing.T) {
 func TestAccess_RecoveryFlow(t *testing.T) {
 	srv, _ := newAccessTestServer(t)
 
+	// Public endpoint must be shape-identical for known and unknown identities.
 	rr := authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/request", map[string]any{"identity_key": "admin@example.test"}, nil, "")
 	if rr.Code != http.StatusOK {
 		t.Fatalf("request recovery: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rrUnknown := authHTTPRequest(t, srv, "POST", "/api/v1/auth/recovery/request", map[string]any{"identity_key": "tidak-ada@example.test"}, nil, "")
+	if rrUnknown.Code != http.StatusOK {
+		t.Fatalf("request unknown: diharapkan 200, didapat %d", rrUnknown.Code)
+	}
+	if rr.Body.String() != rrUnknown.Body.String() {
+		t.Fatalf("respons publik berbeda untuk identitas dikenal vs asing (oracle): %q vs %q", rr.Body.String(), rrUnknown.Body.String())
+	}
+	var leaked struct {
+		Data any `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &leaked); err != nil {
+		t.Fatal(err)
+	}
+	if leaked.Data != nil {
+		t.Fatalf("respons publik membocorkan data: %+v", leaked.Data)
+	}
+
+	// Admin issues the token after out-of-band verification (reason mandatory).
+	cookies, csrf, _ := loginAs(t, srv, "admin@example.test", "kata-sandi-yang-sangat-kuat")
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test"}, cookies, csrf)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("issue tanpa reason: diharapkan 400, didapat %d: %s", rr.Code, rr.Body.String())
+	}
+	rr = authHTTPRequest(t, srv, "POST", "/api/v1/admin/recovery/issue", map[string]any{"identity_key": "admin@example.test", "reason": "lupa kata sandi, verifikasi via telepon"}, cookies, csrf)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("issue: diharapkan 200, didapat %d: %s", rr.Code, rr.Body.String())
 	}
 	var body struct {
 		Data struct {

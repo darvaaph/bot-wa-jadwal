@@ -147,8 +147,10 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 
 	mux.HandleFunc("POST /api/v1/auth/recovery/request", s.handleRequestRecovery)
 	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", s.handleConfirmRecovery)
+	mux.HandleFunc("POST /api/v1/admin/recovery/issue", s.authenticateMutationIfConfigured(s.handleIssueRecovery))
 
 	mux.HandleFunc("PATCH /api/v1/classes/{id}/settings", s.authenticateMutationIfConfigured(s.handleUpdateClassSettings))
+	mux.HandleFunc("GET /api/v1/classes/{id}/settings", s.authenticateIfConfigured(s.handleGetClassSettings))
 
 	mux.HandleFunc("POST /api/v1/classes", s.authenticateMutationIfConfigured(s.handleCreateClass))
 	mux.HandleFunc("GET /api/v1/classes/{id}/semesters", s.authenticateIfConfigured(s.handleListSemesters))

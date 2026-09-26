@@ -18,6 +18,7 @@ var (
 	ErrConflict     = errors.New("data bertabrakan")
 	ErrInvalidState = errors.New("status tidak memungkinkan operasi ini")
 	ErrForbidden    = errors.New("tindakan tidak tersedia pada cakupan aktif")
+	ErrVersion      = errors.New("versi data sudah berubah, muat ulang sebelum menyimpan")
 )
 
 type Service struct {
@@ -265,7 +266,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 }
 
 // Activate performs DRAFT->ACTIVE + archive old ACTIVE in one transaction.
-func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID int64) error {
+func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID int64, expectedVersion int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -274,8 +275,9 @@ func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID
 	var status string
 	var semClass int64
 	var published sql.NullString
-	if err := tx.QueryRowContext(ctx, `SELECT status, class_id, published_at FROM semesters WHERE id = ?`, semesterID).
-		Scan(&status, &semClass, &published); err != nil {
+	var version int
+	if err := tx.QueryRowContext(ctx, `SELECT status, class_id, published_at, version FROM semesters WHERE id = ?`, semesterID).
+		Scan(&status, &semClass, &published, &version); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -286,6 +288,9 @@ func (s *Service) Activate(ctx context.Context, actor Actor, classID, semesterID
 	}
 	if status != "DRAFT" {
 		return ErrInvalidState
+	}
+	if expectedVersion > 0 && version != expectedVersion {
+		return ErrVersion
 	}
 	now := nowStr()
 	if _, err := tx.ExecContext(ctx, `UPDATE semesters SET status='ARCHIVED', archived_at=?, updated_at=?
@@ -316,13 +321,14 @@ type SemesterListItem struct {
 	PublishedAt  *string `json:"published_at,omitempty"`
 	ActivatedAt  *string `json:"activated_at,omitempty"`
 	ArchivedAt   *string `json:"archived_at,omitempty"`
+	Version      int     `json:"version"`
 	Offerings    int     `json:"offerings"`
 	Patterns     int     `json:"patterns"`
 }
 
 func (s *Service) ListSemesters(ctx context.Context, classID int64) ([]SemesterListItem, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT s.id, s.class_id, s.academic_year, s.term, s.starts_on, s.ends_on,
-		s.status, s.published_at, s.activated_at, s.archived_at,
+		s.status, s.published_at, s.activated_at, s.archived_at, s.version,
 		(SELECT COUNT(*) FROM course_offerings co WHERE co.semester_id = s.id),
 		(SELECT COUNT(*) FROM course_offerings co JOIN schedule_patterns sp ON sp.course_offering_id = co.id WHERE co.semester_id = s.id AND sp.status='ACTIVE')
 		FROM semesters s WHERE s.class_id = ? ORDER BY s.starts_on DESC, s.id DESC`, classID)
@@ -335,7 +341,7 @@ func (s *Service) ListSemesters(ctx context.Context, classID int64) ([]SemesterL
 		var it SemesterListItem
 		var pub, act, arch sql.NullString
 		if err := rows.Scan(&it.ID, &it.ClassID, &it.AcademicYear, &it.Term, &it.StartsOn, &it.EndsOn,
-			&it.Status, &pub, &act, &arch, &it.Offerings, &it.Patterns); err != nil {
+			&it.Status, &pub, &act, &arch, &it.Version, &it.Offerings, &it.Patterns); err != nil {
 			return nil, err
 		}
 		if pub.Valid {
@@ -369,12 +375,12 @@ func (s *Service) Preview(ctx context.Context, classID, semesterID int64) (*Prev
 	var it SemesterListItem
 	var pub, act, arch sql.NullString
 	err := s.db.QueryRowContext(ctx, `SELECT s.id, s.class_id, s.academic_year, s.term, s.starts_on, s.ends_on,
-		s.status, s.published_at, s.activated_at, s.archived_at,
+		s.status, s.published_at, s.activated_at, s.archived_at, s.version,
 		(SELECT COUNT(*) FROM course_offerings co WHERE co.semester_id = s.id),
 		(SELECT COUNT(*) FROM course_offerings co JOIN schedule_patterns sp ON sp.course_offering_id = co.id WHERE co.semester_id = s.id AND sp.status='ACTIVE')
 		FROM semesters s WHERE s.id = ? AND s.class_id = ?`, semesterID, classID).
 		Scan(&it.ID, &it.ClassID, &it.AcademicYear, &it.Term, &it.StartsOn, &it.EndsOn,
-			&it.Status, &pub, &act, &arch, &it.Offerings, &it.Patterns)
+			&it.Status, &pub, &act, &arch, &it.Version, &it.Offerings, &it.Patterns)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

@@ -161,7 +161,7 @@ func (s *Server) handleUpdateTaskV1(w http.ResponseWriter, r *http.Request) {
 		SubmissionURL  *string `json:"submission_url"`
 		Version        int     `json:"version"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
@@ -330,7 +330,7 @@ func (s *Server) handleRestoreTaskV1(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Reason string `json:"reason"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&payload)
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload)
 	if strings.TrimSpace(payload.Reason) == "" {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field reason wajib diisi untuk pemulihan"})
 		return

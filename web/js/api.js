@@ -287,9 +287,10 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async activateSemester(classId, semesterId) {
+  async activateSemester(classId, semesterId, version) {
     const res = await fetch('/api/v1/classes/' + classId + '/semesters/' + semesterId + '/activate', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ version: version || null })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -429,6 +430,40 @@ const BotApi = {
     const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), { credentials: 'same-origin' });
     if (!res.ok) return null;
     return (await res.json()).data || [];
+  },
+
+  async getClassSettings(classId) {
+    const res = await fetch('/api/v1/classes/' + classId + '/settings', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).data;
+  },
+
+  async updateClassSettings(classId, payload) {
+    const res = await fetch('/api/v1/classes/' + classId + '/settings', {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (res.status === 409) {
+      const err = new Error('Pengaturan berubah di tempat lain, muat ulang sebelum menyimpan.');
+      err.code = 'VERSION_CONFLICT'; throw err;
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error) || 'Gagal menyimpan pengaturan.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return true;
+  },
+
+  async issueRecovery(identityKey, reason) {
+    const res = await fetch('/api/v1/admin/recovery/issue', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ identity_key: identityKey, reason: reason })
+    });
+    if (!res.ok) {
+      const err = new Error('Gagal menerbitkan token pemulihan.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return (await res.json()).data;
   },
 
   async getSystemStatus() {

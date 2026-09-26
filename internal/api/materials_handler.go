@@ -16,7 +16,7 @@ func (s *Server) handleCreateMaterialV1(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var input task.CreateMaterialInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&input); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
@@ -107,8 +107,12 @@ func (s *Server) handleUpdateMaterialV1(w http.ResponseWriter, r *http.Request) 
 		Status      string  `json:"status"`
 		Version     int     `json:"version"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
+		return
+	}
+	if payload.Version < 1 {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field version wajib diisi untuk deteksi konflik"})
 		return
 	}
 	principal, hasPrincipal := principalFromRequest(r)

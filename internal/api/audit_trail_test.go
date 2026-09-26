@@ -190,7 +190,17 @@ func TestAuditTrail_CoversMutations(t *testing.T) {
 	}
 
 	// 8. Class settings update -> UPDATE/CLASS_SETTING.
-	setBody, _ := json.Marshal(map[string]any{"afternoon_reminder_time": "16:30"})
+	rr = authHTTPRequest(t, srv, "GET", fmt.Sprintf("/api/v1/classes/%d/settings", ids["classA"]), nil, kmCookies, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("get settings: %d %s", rr.Code, rr.Body.String())
+	}
+	var settings struct {
+		Data struct {
+			Version int `json:"version"`
+		} `json:"data"`
+	}
+	decodeResponse(t, rr, &settings)
+	setBody, _ := json.Marshal(map[string]any{"afternoon_reminder_time": "16:30", "version": settings.Data.Version})
 	rr = authHTTPRequest(t, srv, "PATCH", fmt.Sprintf("/api/v1/classes/%d/settings", ids["classA"]), json.RawMessage(setBody), kmCookies, kmCSRF)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("settings: %d %s", rr.Code, rr.Body.String())

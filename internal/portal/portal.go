@@ -207,7 +207,7 @@ func (s *Service) SetClassCode(ctx context.Context, classID int64, code string) 
 		return ErrInvalidInput
 	}
 	_, err := s.db.ExecContext(ctx, `UPDATE class_settings SET
-		portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = portal_code_version + 1,
+		portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = portal_code_version + 1, version = version + 1,
 		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id = ?`, hashCode(code), classID)
 	return err
 }
@@ -220,11 +220,11 @@ func (s *Service) SetAccessMode(ctx context.Context, classID int64, mode string)
 	}
 	if mode == "LINK" {
 		_, err := s.db.ExecContext(ctx, `UPDATE class_settings SET portal_access_mode='LINK',
-			portal_code_hash=NULL, portal_code_version=portal_code_version+1,
+			portal_code_hash=NULL, portal_code_version=portal_code_version+1, version = version + 1,
 			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID)
 		return err
 	}
-	_, err := s.db.ExecContext(ctx, `UPDATE class_settings SET portal_access_mode='CODE',
+	_, err := s.db.ExecContext(ctx, `UPDATE class_settings SET portal_access_mode='CODE', version = version + 1,
 		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID)
 	return err
 }

@@ -59,7 +59,7 @@ func (s *Server) handleUpdateRoleAssignment(w http.ResponseWriter, r *http.Reque
 		Status string `json:"status"`
 		Reason string `json:"reason"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Format JSON tidak valid"})
 		return
 	}
@@ -88,13 +88,49 @@ func (s *Server) handleRequestRecovery(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field identity_key wajib diisi"})
 		return
 	}
-	token, err := s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method)
+	token, err := s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method, "")
 	if err != nil {
 		// Generic response to avoid account enumeration.
 		s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Jika identitas terdaftar, instruksi pemulihan telah dibuat"})
 		return
 	}
-	// MVP: token dikembalikan agar admin/DМ WA dapat meneruskan. Produksi harus kirim via kanal aman.
+	_ = token
+	// Identical generic response: the token is never disclosed here. It is
+	// relayed out-of-band (WhatsApp/admin) via the admin issue endpoint.
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "success", "message": "Jika identitas terdaftar, instruksi pemulihan telah dibuat"})
+}
+
+// handleIssueRecovery lets a System Admin create a recovery token for manual
+// relay after out-of-band identity verification. The reason is mandatory audit.
+func (s *Server) handleIssueRecovery(w http.ResponseWriter, r *http.Request) {
+	setNoStore(w)
+	if s.authService == nil {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "error", "error": "Layanan autentikasi belum dikonfigurasi"})
+		return
+	}
+	principal, ok := principalFromRequest(r)
+	if !ok {
+		s.writeJSON(w, http.StatusUnauthorized, map[string]string{"status": "error", "error": "Sesi tidak valid atau telah berakhir"})
+		return
+	}
+	if !principal.IsSystemAdmin() {
+		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Hanya System Admin yang dapat menerbitkan token pemulihan"})
+		return
+	}
+	var payload struct {
+		IdentityKey string `json:"identity_key"`
+		Method      string `json:"method"`
+		Reason      string `json:"reason"`
+	}
+	if err := decodeLimitedJSON(w, r, &payload); err != nil || strings.TrimSpace(payload.IdentityKey) == "" || strings.TrimSpace(payload.Reason) == "" {
+		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Field identity_key dan reason wajib diisi"})
+		return
+	}
+	token, err := s.authService.RequestRecovery(r.Context(), payload.IdentityKey, payload.Method, payload.Reason)
+	if err != nil {
+		s.writeJSON(w, http.StatusNotFound, map[string]string{"status": "error", "error": "Identitas tidak terdaftar"})
+		return
+	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": map[string]any{"recovery_token": token}})
 }
 
