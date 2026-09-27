@@ -115,7 +115,7 @@ function dashboardApp() {
     // Muat partials HTML per bagian lalu daftarkan ke Alpine.
     // ASSET_V: naikkan tiap ada perubahan partial agar browser tidak pakai cache lama.
     async loadPartials() {
-      const ASSET_V = '20260926c';
+      const ASSET_V = '20260927d';
       const slots = [
         ['slot-sidebar', '/partials/sidebar.html'],
         ['slot-topbar', '/partials/topbar.html'],
@@ -134,8 +134,9 @@ function dashboardApp() {
           const html = await res.text();
           const el = document.getElementById(id);
           if (el) {
+            // Tanpa initTree manual: Alpine MutationObserver sudah
+            // menginisialisasi HTML injeksi; init ganda me-render x-for 2x.
             el.innerHTML = html;
-            if (window.Alpine && window.Alpine.initTree) window.Alpine.initTree(el);
           }
         } catch (err) {
           console.error(`Gagal memuat ${url}:`, err);
@@ -238,8 +239,8 @@ function dashboardApp() {
         const raw = await API.getTasks(this.selectedClass);
         this.tasks = (raw || []).map(t => {
           const u = this.urgencyOf(t.deadline);
-          return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi,
-                   deadline: t.deadline, urgency: u.level, countdown: u.badge };
+          return { id: t.id, class_id: t.class_id || '', matkul: t.matkul, deskripsi: t.deskripsi,
+                   deadline: t.deadline, is_done: !!t.is_done, urgency: u.level, countdown: u.badge };
         });
       } catch (e) { this.tasks = []; }
     },
@@ -313,6 +314,94 @@ function dashboardApp() {
       this.toast.message = msg;
       this.toast.show = true;
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
+    },
+
+    // ---------- AREA KEMAL: tab Tugas (branch feat/ui-tugas) ----------
+    // Backend riil: GET/POST/DELETE /api/tasks. Review KM, arsip/restore,
+    // dan ubah butuh endpoint BE → draf + toast jujur, tidak difungsikan penuh.
+    tugasMode: 'list',
+    tugasStep: 1,
+    filterOpen: false,
+    sortOpen: false,
+    tugasTab: 'semua',
+    tugasMatkul: '',
+    tugasSort: 'deadline',
+    tugasForm: { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', lampiran: '' },
+    tugasErr: {},
+    previewOpen: false,
+    publishOpen: false,
+    publishNote: false,
+
+    get tugasMatkulOpts() {
+      return Array.from(new Set((this.tasks || []).map(t => t.matkul).filter(Boolean))).sort();
+    },
+
+    tugasJudul() {
+      const m = { semua: 'Daftar tugas', aktif: 'Tugas aktif', terjadwal: 'Tugas terjadwal', selesai: 'Tugas selesai', permatkul: 'Tugas per mata kuliah' };
+      return m[this.tugasTab] || 'Daftar tugas';
+    },
+
+    tugasUrutLabel() {
+      return { deadline: 'deadline terdekat', terjauh: 'deadline terjauh', judul: 'judul A–Z' }[this.tugasSort] || 'deadline terdekat';
+    },
+
+    tugasJudulOf(t) { return String(t.deskripsi || '').split('\n')[0] || '—'; },
+    tugasTanggalOf(t) { return t.deadline || '—'; },
+
+    tugasBadge(u) {
+      if (u === 'mendesak') return 'bg-[#FF6C48] text-white';
+      if (u === 'mendekati') return 'bg-[#FCD484] text-[#1F1F1F]';
+      return 'bg-[#E1FFB7] text-[#1F1F1F]';
+    },
+
+    get tugasFiltered() {
+      let list = [...(this.tasks || [])];
+      const q = (this.searchQuery || '').trim().toLowerCase();
+      if (this.tugasTab === 'aktif') list = list.filter(t => !t.is_done);
+      else if (this.tugasTab === 'terjadwal') list = list.filter(t => !t.is_done && t.urgency !== 'mendesak');
+      else if (this.tugasTab === 'selesai') list = list.filter(t => t.is_done);
+      if (this.tugasMatkul) list = list.filter(t => t.matkul === this.tugasMatkul);
+      if (q) list = list.filter(t => `${t.matkul} ${t.deskripsi}`.toLowerCase().includes(q));
+      if (this.tugasSort === 'judul') list.sort((a, b) => this.tugasJudulOf(a).localeCompare(this.tugasJudulOf(b)));
+      else if (this.tugasSort === 'terjauh') list.reverse();
+      return list;
+    },
+
+    get tugasMatkulOptsAll() {
+      return Array.from(new Set([...(this.matkulList || []), ...this.tugasMatkulOpts])).sort();
+    },
+
+    resetTugasForm() {
+      this.tugasForm = { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', lampiran: '' };
+      this.tugasErr = {};
+    },
+
+    validTugas() {
+      this.tugasErr = {};
+      if (!this.tugasForm.matkul.trim()) this.tugasErr.matkul = 'Pilih mata kuliah.';
+      if (!this.tugasForm.judul.trim()) this.tugasErr.judul = 'Isi judul tugas.';
+      if (!this.tugasForm.tanggal.trim()) this.tugasErr.tanggal = 'Isi tanggal deadline.';
+      if (!this.tugasForm.jam.trim()) this.tugasErr.jam = 'Isi jam deadline.';
+      if (!this.tugasForm.deskripsi.trim()) this.tugasErr.deskripsi = 'Isi deskripsi tugas.';
+      return Object.keys(this.tugasErr).length === 0;
+    },
+
+    openPreview() {
+      if (!this.validTugas()) return;
+      this.tugasStep = 2;
+      this.previewOpen = true;
+    },
+
+    openPublish() {
+      if (!this.validTugas()) return;
+      this.publishNote = false;
+      this.publishOpen = true;
+    },
+
+    // UI murni tanpa tersambung API: konfirmasi hanya menampilkan
+    // tulisan fitur-belum-tersedia. POST /api/tasks menunggu endpoint BE.
+    confirmPublish() {
+      this.publishNote = true;
     }
   };
 }
