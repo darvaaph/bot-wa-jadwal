@@ -10,12 +10,14 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
+	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite"
 )
 
-// BotClient membungkus klien whatsmeow dan database session storage
 type BotClient struct {
 	Client         *whatsmeow.Client
 	container      *sqlstore.Container
@@ -48,7 +50,6 @@ func NewBotClient(sessionDBPath string) (*BotClient, error) {
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// Ketahanan Sambungan Internet (Auto-Reconnect Resilience)
 	client.EnableAutoReconnect = true
 	client.AutoReconnectHook = func(err error) bool {
 		fmt.Printf("⚠️ [Auto-Reconnect] Sambungan putus (%v). Mencoba menyambung kembali...\n", err)
@@ -85,7 +86,6 @@ func (b *BotClient) Connect(ctx context.Context) error {
 		fmt.Println("🟢 [Bot] Berhasil terhubung ke WhatsApp!")
 	}
 
-	// Jalankan Watchdog Supervisor di background goroutine
 	watchdogCtx, cancel := context.WithCancel(context.Background())
 	b.cancelWatchdog = cancel
 	go b.runWatchdog(watchdogCtx)
@@ -126,7 +126,6 @@ func (b *BotClient) runWatchdog(ctx context.Context) {
 	}
 }
 
-// Disconnect memutuskan koneksi WhatsApp dan menghentikan watchdog
 func (b *BotClient) Disconnect() {
 	if b.cancelWatchdog != nil {
 		b.cancelWatchdog()
@@ -136,7 +135,6 @@ func (b *BotClient) Disconnect() {
 	}
 }
 
-// Close menutup sqlstore database sesi
 func (b *BotClient) Close() error {
 	if b.container != nil {
 		return b.container.Close()
@@ -156,4 +154,20 @@ func (b *BotClient) Status() string {
 		return "reconnecting"
 	}
 	return "waiting_qr"
+}
+
+// SendText implements notify.Sender over WhatsApp.
+func (b *BotClient) SendText(ctx context.Context, jid, text string) (string, error) {
+	if b == nil || b.Client == nil || !b.Client.IsConnected() {
+		return "", fmt.Errorf("koneksi WhatsApp tidak aktif")
+	}
+	target, err := types.ParseJID(jid)
+	if err != nil {
+		return "", fmt.Errorf("JID tidak valid: %w", err)
+	}
+	resp, err := b.Client.SendMessage(ctx, target, &waE2E.Message{Conversation: proto.String(text)})
+	if err != nil {
+		return "", err
+	}
+	return string(resp.ID), nil
 }

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/task"
 )
 
-// TaskResponseItem adalah representasi tugas pada respons JSON API
 type TaskResponseItem struct {
 	ID        int    `json:"id"`
 	ClassID   string `json:"class_id,omitempty"`
@@ -21,7 +21,6 @@ type TaskResponseItem struct {
 	IsDone    bool   `json:"is_done"`
 }
 
-// CreateTaskRequest adalah payload form pembuatan tugas dari Web Dashboard
 type CreateTaskRequest struct {
 	ClassID   string `json:"class_id"`
 	Matkul    string `json:"matkul"`
@@ -92,7 +91,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
 			"error":  "Format JSON tidak valid",

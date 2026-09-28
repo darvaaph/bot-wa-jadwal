@@ -1,72 +1,208 @@
 package chat
 
 import (
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
-// ChatSettingsManager mengelola konfigurasi dan preferensi per grup/chat (seperti pemilihan kelas)
 type ChatSettingsManager struct {
-	db    *sql.DB
-	mu    sync.RWMutex
-	cache map[string]string // key: scope_jid, value: class_id (uppercase)
+	db           *sql.DB
+	academicRepo *academic.Repository
+	mu           sync.RWMutex
+	cache        map[string]string // key: scope_jid, value: class_id (canonical code)
 }
 
-// NewChatSettingsManager menginisialisasi tabel chat_settings pada SQLite dan memuat cache ke memori
+// NewChatSettingsManager menginisialisasi ChatSettingsManager menggunakan model target whatsapp_channels dan chat_class_contexts.
 func NewChatSettingsManager(db *sql.DB) (*ChatSettingsManager, error) {
 	if db == nil {
 		return nil, fmt.Errorf("koneksi database tidak boleh nil")
 	}
 
-	query := `
-	CREATE TABLE IF NOT EXISTS chat_settings (
-		scope_jid TEXT PRIMARY KEY,
-		class_id TEXT NOT NULL,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	_, err := db.Exec(query)
-	if err != nil {
-		return nil, fmt.Errorf("gagal membuat tabel chat_settings: %w", err)
-	}
-
 	csm := &ChatSettingsManager{
-		db:    db,
-		cache: make(map[string]string),
+		db:           db,
+		academicRepo: academic.NewRepository(db),
+		cache:        make(map[string]string),
 	}
 
-	// Warm-up cache dari database saat startup agar pembacaan saat pesan masuk berkecepatan nanosekon (O(1))
 	if err := csm.loadCache(); err != nil {
-		return nil, fmt.Errorf("gagal memuat data chat_settings: %w", err)
+		return nil, fmt.Errorf("gagal memuat data chat settings dari model target: %w", err)
 	}
 
 	return csm, nil
 }
 
-// loadCache membaca seluruh setelan dari database ke memori
 func (csm *ChatSettingsManager) loadCache() error {
-	rows, err := csm.db.Query(`SELECT scope_jid, class_id FROM chat_settings`)
-	if err != nil {
-		return err
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. Backfill otomatis data lama jika tabel legacy chat_settings masih ada
+	csm.backfillLegacyChatSettings(ctx)
+
+	// Rebuild ke map baru agar entri basi (kanal yang dicabut) ikut hilang
+	// saat Refresh dipanggil pasca operasi dashboard.
+	fresh := make(map[string]string)
+
+	// 2. Baca dari whatsapp_channels untuk kanal grup aktif
+	rowsChannels, err := csm.db.QueryContext(ctx, `
+		SELECT wc.jid, c.code
+		FROM whatsapp_channels wc
+		JOIN classes c ON c.id = wc.class_id
+		WHERE wc.status = 'ACTIVE'
+	`)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("gagal membaca whatsapp_channels: %w", err)
 	}
-	defer rows.Close()
-
-	csm.mu.Lock()
-	defer csm.mu.Unlock()
-
-	for rows.Next() {
-		var scopeJID, classID string
-		if err := rows.Scan(&scopeJID, &classID); err == nil {
-			csm.cache[scopeJID] = schedule.NormalizeClassID(classID)
+	if err == nil {
+		defer rowsChannels.Close()
+		for rowsChannels.Next() {
+			var jid, code string
+			if err := rowsChannels.Scan(&jid, &code); err == nil {
+				fresh[jid] = schedule.NormalizeClassID(code)
+			}
+		}
+		if err := rowsChannels.Err(); err != nil {
+			return err
 		}
 	}
 
-	return rows.Err()
+	// 3. Baca dari chat_class_contexts untuk preferensi chat pribadi
+	rowsContexts, err := csm.db.QueryContext(ctx, `
+		SELECT ccc.chat_jid, c.code
+		FROM chat_class_contexts ccc
+		JOIN classes c ON c.id = ccc.class_id
+	`)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("gagal membaca chat_class_contexts: %w", err)
+	}
+	if err == nil {
+		defer rowsContexts.Close()
+		for rowsContexts.Next() {
+			var jid, code string
+			if err := rowsContexts.Scan(&jid, &code); err == nil {
+				fresh[jid] = schedule.NormalizeClassID(code)
+			}
+		}
+		if err := rowsContexts.Err(); err != nil {
+			return err
+		}
+	}
+
+	csm.mu.Lock()
+	csm.cache = fresh
+	csm.mu.Unlock()
+
+	return nil
+}
+
+type BackfillReport struct {
+	TotalLegacy int
+	Migrated    int
+	Skipped     int
+	Errors      []string
+}
+
+func (csm *ChatSettingsManager) backfillLegacyChatSettings(ctx context.Context) {
+	_, _ = csm.BackfillLegacyChatSettingsContext(ctx)
+}
+
+// BackfillLegacyChatSettingsContext melakukan migrasi chat_settings legacy ke whatsapp_channels dan chat_class_contexts dengan pencatatan import_errors.
+func (csm *ChatSettingsManager) BackfillLegacyChatSettingsContext(ctx context.Context) (*BackfillReport, error) {
+	report := &BackfillReport{}
+	var tableName string
+	err := csm.db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_settings'").Scan(&tableName)
+	if err != nil || tableName == "" {
+		return report, nil
+	}
+
+	batchID, err := csm.academicRepo.EnsureMigrationBatch(ctx, "chat_settings")
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal memastikan migration batch: %v", err))
+	}
+
+	rows, err := csm.db.QueryContext(ctx, "SELECT scope_jid, class_id FROM chat_settings")
+	if err != nil {
+		report.Errors = append(report.Errors, fmt.Sprintf("gagal query chat_settings: %v", err))
+		if batchID > 0 {
+			_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "table", "QUERY_FAILED", err.Error())
+			_ = csm.academicRepo.UpdateImportBatchStats(ctx, batchID, 0, 0, 1)
+		}
+		return report, err
+	}
+
+	type legacyEntry struct {
+		scopeJID string
+		classID  string
+	}
+	var entries []legacyEntry
+	for rows.Next() {
+		var scopeJID, classID string
+		if err := rows.Scan(&scopeJID, &classID); err == nil {
+			entries = append(entries, legacyEntry{
+				scopeJID: strings.TrimSpace(scopeJID),
+				classID:  strings.TrimSpace(classID),
+			})
+		}
+	}
+	_ = rows.Close()
+
+	report.TotalLegacy = len(entries)
+	for _, entry := range entries {
+		if entry.scopeJID == "" || entry.classID == "" {
+			report.Skipped++
+			continue
+		}
+
+		cls, err := csm.academicRepo.EnsureClass(ctx, schedule.NormalizeClassID(entry.classID))
+		if err != nil || cls == nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("invalid class %s for scope %s: %v", entry.classID, entry.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "class_id", "CLASS_NOT_FOUND", errDetail)
+			}
+			continue
+		}
+
+		if strings.HasSuffix(entry.scopeJID, "@g.us") {
+			_, err = csm.db.ExecContext(ctx, `
+				INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
+				VALUES (?, ?, 'GROUP', ?, 'ACTIVE')
+				ON CONFLICT(jid) DO UPDATE SET class_id = excluded.class_id, status = 'ACTIVE';
+			`, cls.ID, entry.scopeJID, cls.Code)
+		} else {
+			_, err = csm.db.ExecContext(ctx, `
+				INSERT INTO chat_class_contexts (chat_jid, class_id)
+				VALUES (?, ?)
+				ON CONFLICT(chat_jid) DO UPDATE SET class_id = excluded.class_id;
+			`, entry.scopeJID, cls.ID)
+		}
+
+		if err != nil {
+			report.Skipped++
+			errDetail := fmt.Sprintf("gagal insert channel/context scope %s: %v", entry.scopeJID, err)
+			report.Errors = append(report.Errors, errDetail)
+			if batchID > 0 {
+				_ = csm.academicRepo.RecordImportError(ctx, batchID, "chat_settings", "table", "INSERT_FAILED", errDetail)
+			}
+			continue
+		}
+
+		report.Migrated++
+	}
+
+	if batchID > 0 {
+		_ = csm.academicRepo.UpdateImportBatchStats(ctx, batchID, report.TotalLegacy, report.Migrated, len(report.Errors))
+	}
+	return report, nil
 }
 
 // GetClass mengambil ID kelas yang diatur untuk suatu chat/grup (mengembalikan string kosong jika belum diatur)
@@ -77,23 +213,49 @@ func (csm *ChatSettingsManager) GetClass(scopeJID string) string {
 	return csm.cache[scopeJID]
 }
 
-// SetClass menyimpan atau memperbarui pilihan kelas untuk suatu chat/grup
-func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) error {
+// GetClassContext adalah varian context-aware dari GetClass
+func (csm *ChatSettingsManager) GetClassContext(ctx context.Context, scopeJID string) string {
+	return csm.GetClass(scopeJID)
+}
+
+// SetClassContext menyetel kelas aktif untuk scope chat dengan context-awareness
+func (csm *ChatSettingsManager) SetClassContext(ctx context.Context, scopeJID string, rawClassID string) error {
 	classID := schedule.NormalizeClassID(rawClassID)
 	if classID == "" {
 		return fmt.Errorf("nama kelas tidak boleh kosong")
 	}
 
-	query := `
-	INSERT OR REPLACE INTO chat_settings (scope_jid, class_id, updated_at)
-	VALUES (?, ?, CURRENT_TIMESTAMP);`
-
-	_, err := csm.db.Exec(query, scopeJID, classID)
+	cls, err := csm.academicRepo.EnsureClass(ctx, classID)
 	if err != nil {
-		return fmt.Errorf("gagal menyimpan setelan kelas ke database: %w", err)
+		return fmt.Errorf("gagal memastikan data kelas %s: %w", classID, err)
 	}
 
-	// Perbarui in-memory cache
+	if strings.HasSuffix(scopeJID, "@g.us") {
+		query := `
+			INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status, updated_at)
+			VALUES (?, ?, 'GROUP', ?, 'ACTIVE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			ON CONFLICT(jid) DO UPDATE SET
+				class_id = excluded.class_id,
+				display_name = excluded.display_name,
+				status = 'ACTIVE',
+				updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+		`
+		if _, err := csm.db.ExecContext(ctx, query, cls.ID, scopeJID, cls.Code); err != nil {
+			return fmt.Errorf("gagal menyimpan kanal grup whatsapp: %w", err)
+		}
+	} else {
+		query := `
+			INSERT INTO chat_class_contexts (chat_jid, class_id, updated_at)
+			VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			ON CONFLICT(chat_jid) DO UPDATE SET
+				class_id = excluded.class_id,
+				updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+		`
+		if _, err := csm.db.ExecContext(ctx, query, scopeJID, cls.ID); err != nil {
+			return fmt.Errorf("gagal menyimpan konteks kelas chat: %w", err)
+		}
+	}
+
 	csm.mu.Lock()
 	csm.cache[scopeJID] = classID
 	csm.mu.Unlock()
@@ -101,11 +263,25 @@ func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) err
 	return nil
 }
 
-// DeleteClass menghapus pilihan kelas untuk chat tertentu (kembali ke default)
-func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
-	_, err := csm.db.Exec(`DELETE FROM chat_settings WHERE scope_jid = ?`, scopeJID)
-	if err != nil {
-		return fmt.Errorf("gagal menghapus setelan kelas: %w", err)
+// SetClass adalah adapter kompatibilitas untuk SetClassContext
+func (csm *ChatSettingsManager) SetClass(scopeJID string, rawClassID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return csm.SetClassContext(ctx, scopeJID, rawClassID)
+}
+
+// DeleteClassContext menghapus pengaturan kelas chat dengan context-awareness
+func (csm *ChatSettingsManager) DeleteClassContext(ctx context.Context, scopeJID string) error {
+	if strings.HasSuffix(scopeJID, "@g.us") {
+		_, err := csm.db.ExecContext(ctx, `DELETE FROM whatsapp_channels WHERE jid = ?`, scopeJID)
+		if err != nil {
+			return fmt.Errorf("gagal menghapus kanal whatsapp: %w", err)
+		}
+	} else {
+		_, err := csm.db.ExecContext(ctx, `DELETE FROM chat_class_contexts WHERE chat_jid = ?`, scopeJID)
+		if err != nil {
+			return fmt.Errorf("gagal menghapus konteks kelas chat: %w", err)
+		}
 	}
 
 	csm.mu.Lock()
@@ -115,12 +291,58 @@ func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
 	return nil
 }
 
-// CountSettings mengembalikan jumlah grup/chat yang telah melakukan binding kelas
+// DeleteClass adalah adapter kompatibilitas untuk DeleteClassContext
+func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return csm.DeleteClassContext(ctx, scopeJID)
+}
+
+// ResetClassContext adalah alias untuk DeleteClassContext
+func (csm *ChatSettingsManager) ResetClassContext(ctx context.Context, scopeJID string) error {
+	return csm.DeleteClassContext(ctx, scopeJID)
+}
+
+// ResetClass adalah alias untuk DeleteClass
+func (csm *ChatSettingsManager) ResetClass(scopeJID string) error {
+	return csm.DeleteClass(scopeJID)
+}
+
 func (csm *ChatSettingsManager) CountSettings() int {
 	csm.mu.RLock()
 	defer csm.mu.RUnlock()
 
 	return len(csm.cache)
+}
+
+// Refresh memuat ulang cache JID->kelas dari database. Dipanggil setelah
+// admin menautkan/melepas kanal via dashboard agar bot langsung konsisten.
+func (csm *ChatSettingsManager) Refresh() error {
+	return csm.loadCache()
+}
+
+// NoteSeenChat mencatat chat yang pernah terlihat bot (observasi pasif) agar
+// admin dapat menautkannya dari dashboard. Tidak pernah gagal: dipakai di
+// jalur pesan masuk dan tidak boleh mengganggu balasan bot.
+func (csm *ChatSettingsManager) NoteSeenChat(chatJID, displayName string, isGroup bool) {
+	chatJID = strings.TrimSpace(chatJID)
+	if chatJID == "" {
+		return
+	}
+	isGroupFlag := 0
+	if isGroup {
+		isGroupFlag = 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, _ = csm.db.ExecContext(ctx, `
+		INSERT INTO seen_chats (chat_jid, display_name, is_group)
+		VALUES (?, ?, ?)
+		ON CONFLICT(chat_jid) DO UPDATE SET
+			display_name = CASE WHEN excluded.display_name <> '' THEN excluded.display_name ELSE seen_chats.display_name END,
+			last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+			updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+	`, chatJID, strings.TrimSpace(displayName), isGroupFlag)
 }
 
 // SyncWithClassManager menyelaraskan dan meng-upgrade setelan kelas lama (misal: "3A" -> "D4-TI-SMT3-A")
@@ -157,12 +379,12 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 	if isGroup {
 		sb.WriteString("Grup ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Silakan tentukan kelas terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian yang sesuai.\n\n")
-		sb.WriteString("👉 *Cara Memilih Kelas (Admin Grup):*\n")
-		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
-		sb.WriteString("Contoh: `!setkelas D4-TI-SMT3-A` atau `!setkelas smt 3 a`\n\n")
+		sb.WriteString("👉 *Cara Menautkan Grup (Admin):*\n")
+		sb.WriteString("Buka Dashboard → Kanal WhatsApp, pilih chat ini, lalu tautkan ke kelas.\n")
+		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: http://localhost:8080/\n\n")
 		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("⚠️ _Catatan: Di grup WhatsApp, hanya Admin Grup yang berhak mengatur kelas._")
+		sb.WriteString("⚠️ _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard._")
 	} else {
 		sb.WriteString("Chat pribadi ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Silakan tentukan kelas Anda terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian Anda.\n\n")
@@ -205,7 +427,7 @@ func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	sb.WriteString("• `!cari [kata]` ➔ Pencarian global\n\n")
 
 	if isGroup {
-		sb.WriteString("💡 _Catatan: Di grup WhatsApp, hanya Admin Grup yang dapat menyetel kelas (`!setkelas`)._")
+		sb.WriteString("💡 _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard (Kanal WhatsApp)._")
 	} else {
 		sb.WriteString("💡 _Di chat pribadi (DM), Anda bebas menyetel kelas sesuai perkuliahan Anda._")
 	}
@@ -273,7 +495,6 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 			pName = "D3 TEKNIK INFORMATIKA"
 		}
 
-		// Ekstrak digit semester dari string seperti "D4-TI-SMT3-A"
 		sem := 0
 		if idx := strings.Index(c, "SMT"); idx != -1 && len(c) > idx+3 {
 			digit := c[idx+3]
@@ -297,7 +518,6 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		sBucket.items = append(sBucket.items, classItem{id: c, desc: desc})
 	}
 
-	// Urutkan semester di setiap bucket
 	for _, pb := range progMap {
 		sort.Slice(pb.semesters, func(i, j int) bool {
 			return pb.semesters[i].semester < pb.semesters[j].semester
@@ -389,6 +609,9 @@ func (csm *ChatSettingsManager) HandleCommand(
 		return csm.FormatClassListMessage(classMgr, chatJID, isGroup)
 
 	case "setkelas", "pilihkelas":
+		if isGroup {
+			return util.DashboardRedirectNotice("pengaturan kanal/kelas") + "\n\n👉 Minta admin menautkan grup ini via Dashboard → Kanal WhatsApp."
+		}
 		if len(fields) < 2 {
 			return "ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas D4-TI-SMT3-A` (atau cukup `!setkelas smt 3 a`)\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester."
 		}
@@ -396,18 +619,13 @@ func (csm *ChatSettingsManager) HandleCommand(
 		targetRaw := strings.TrimSpace(rawMsg[len(fields[0]):])
 		canonicalClass := classMgr.ResolveClassID(targetRaw)
 
-		// Otorisasi: Di grup hanya admin yang boleh menyetel
-		if isGroup && !isAdmin {
-			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mengubah pengaturan kelas untuk grup ini."
-		}
-
-		// Validasi keberadaan kelas
+		// Grup selalu dialihkan ke dashboard (cabang di atas); sisa alur ini
+		// hanya untuk preferensi pribadi di DM.
 		cfg, exists := classMgr.GetClass(canonicalClass)
 		if !exists || canonicalClass == "" {
 			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas 2A`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
 		}
 
-		// Simpan canonicalClass ke database dan cache
 		if err := csm.SetClass(chatJID, canonicalClass); err != nil {
 			return fmt.Sprintf("⚠️ Gagal menyimpan pengaturan kelas: %v", err)
 		}
@@ -421,8 +639,8 @@ func (csm *ChatSettingsManager) HandleCommand(
 		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", classLabel, cfg.Kampus)
 
 	case "resetkelas", "hapuskelas":
-		if isGroup && !isAdmin {
-			return "⛔ *AKSES DITOLAK*\nMaaf, hanya *Admin Grup* yang berhak mereset pengaturan kelas untuk grup ini."
+		if isGroup {
+			return util.DashboardRedirectNotice("pengaturan kanal/kelas") + "\n\n👉 Minta admin melepas tautan grup ini via Dashboard → Kanal WhatsApp."
 		}
 
 		_ = csm.DeleteClass(chatJID)

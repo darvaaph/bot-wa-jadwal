@@ -7,20 +7,17 @@ import (
 	"time"
 )
 
-// ClassesResponse adalah format balasan untuk endpoint GET /api/classes
 type ClassesResponse struct {
 	Status string              `json:"status"`
 	Data   ClassesDataResponse `json:"data"`
 }
 
-// ClassesDataResponse adalah payload data kelas yang terdaftar
 type ClassesDataResponse struct {
 	DefaultClass string   `json:"default_class"`
 	TotalClasses int      `json:"total_classes"`
 	Classes      []string `json:"classes"`
 }
 
-// ScheduleItemResponse merepresentasikan entri jadwal perkuliahan individual untuk respons API
 type ScheduleItemResponse struct {
 	Hari   string `json:"hari"`
 	Jam    string `json:"jam"`
@@ -29,7 +26,6 @@ type ScheduleItemResponse struct {
 	Ruang  string `json:"ruang"`
 }
 
-// ScheduleResponse adalah format balasan untuk endpoint GET /api/schedule
 type ScheduleResponse struct {
 	Status string                 `json:"status"`
 	Class  string                 `json:"class"`
@@ -43,7 +39,17 @@ func (s *Server) handleClasses(w http.ResponseWriter, r *http.Request) {
 	defaultClass := ""
 	classes := make([]string, 0)
 
-	if s.classManager != nil {
+	if s.academicRepo != nil {
+		if dbClasses, err := s.academicRepo.GetClasses(r.Context()); err == nil && len(dbClasses) > 0 {
+			for _, c := range dbClasses {
+				classes = append(classes, c.Code)
+			}
+			defaultClass = dbClasses[0].Code
+		}
+	}
+
+	// Jadwal berbasis berkas tetap tersedia saat data akademik belum disemai.
+	if len(classes) == 0 && s.classManager != nil {
 		classes = s.classManager.ListClasses()
 		if classes == nil {
 			classes = make([]string, 0)

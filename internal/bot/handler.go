@@ -28,7 +28,80 @@ func SetDefaultCommandLimiter(limiter *RateLimiter) {
 	defaultCommandLimiter = limiter
 }
 
-// GetDefaultCommandLimiter mengembalikan instance default command rate limiter
+// DashboardBaseURL adalah basis URL Web Dashboard. Ganti dengan domain
+// produksi saat deploy (contoh: https://jadwal.kelas.ac.id).
+const DashboardBaseURL = "http://localhost:8080"
+
+// PortalBaseURL adalah basis URL Portal Kelas Mahasiswa.
+const PortalBaseURL = "http://localhost:8080"
+
+var tugasMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "selesai", "done", "edit", "update", "mundur", "perpanjang", "ganti"}
+
+var linkMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "edit", "ubah"}
+
+var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", "batal", "cancel", "libur", "holiday", "kuliahganti", "tambahkelas", "extraclass", "batalganti", "hapusganti", "rmganti"}
+
+// MutationRedirectEntity memeriksa apakah pesan adalah perintah mutasi yang
+// sudah dipensiunkan. Mengembalikan label entitas untuk pesan pengalihan.
+// Perintah baca (jadwal, daftar tugas, tautan, portal) tidak cocok.
+func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {
+	clean := strings.TrimSpace(msgText)
+	if clean == "" {
+		return "", false
+	}
+	lower := strings.ToLower(clean)
+	hasSymbol := strings.HasPrefix(lower, "!") || strings.HasPrefix(lower, "/") || strings.HasPrefix(lower, "#")
+	if isGroup && !hasSymbol {
+		return "", false
+	}
+	cmdName := lower
+	if hasSymbol {
+		cmdName = lower[1:]
+	}
+	fields := strings.Fields(cmdName)
+	if len(fields) == 0 {
+		return "", false
+	}
+	root := fields[0]
+
+	switch root {
+	case "tugas":
+		if len(fields) > 1 && util.Contains(tugasMutationWords, fields[1]) {
+			return "tugas", true
+		}
+		return "", false
+	case "link", "tautan":
+		if len(fields) > 1 && util.Contains(linkMutationWords, fields[1]) {
+			return "tautan", true
+		}
+		return "", false
+	default:
+		if util.Contains(scheduleMutationRoots, root) {
+			return "jadwal kuliah", true
+		}
+		return "", false
+	}
+}
+
+// RedirectMessage menyusun pesan pengalihan standar ke Web Dashboard.
+func RedirectMessage(entity string) string {
+	return util.DashboardRedirectNotice(entity)
+}
+
+// PortalMessage menyusun balasan perintah !portal/!web.
+func PortalMessage() string {
+	var sb strings.Builder
+	sb.WriteString("🌐 *PORTAL & DASHBOARD*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
+	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
+	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
+	sb.WriteString(DashboardBaseURL + "/app.html\n")
+	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
+	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
+	return sb.String()
+}
+
 func GetDefaultCommandLimiter() *RateLimiter {
 	return defaultCommandLimiter
 }
@@ -38,7 +111,6 @@ func ResolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup b
 	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, isGroup, groupJID, senderJID, senderAltJID)
 }
 
-// InvalidateGroupAdminCache menghapus cache info grup saat terjadi perubahan admin / grup
 func InvalidateGroupAdminCache(groupJID types.JID) {
 	defaultGroupAdminResolver.Invalidate(groupJID)
 }
@@ -61,7 +133,6 @@ func HandleIncomingMessage(
 		}
 	}()
 
-	// Ekstraksi teks pesan dari tipe Conversation atau ExtendedTextMessage
 	var msgText string
 	if v.Message.GetConversation() != "" {
 		msgText = v.Message.GetConversation()
@@ -74,7 +145,7 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// Cek Rate Limiter Anti-Spam: Abaikan perintah beruntun dari pengirim yang sama (mencegah bot spam/ban)
+	// Batasi command per pengirim agar bot tidak memicu proteksi spam WhatsApp.
 	if IsCommandMessage(msgText, v.Info.IsGroup) {
 		senderKey := v.Info.Sender.ToNonAD().User
 		if senderKey == "" {
@@ -86,12 +157,10 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// Log pesan yang diterima di konsol
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
 	lowerMsg := strings.ToLower(msgText)
 
-	// Helper terpusat untuk membalas pesan pengguna dengan Quoted Reply
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
 		ReplyWithTyping(
 			context.Background(),
@@ -108,10 +177,28 @@ func HandleIncomingMessage(
 		)
 	}
 
-	// Tentukan jadwal kelas aktif untuk chat/grup ini secara dinamis (Multi-Tenant)
 	if classManager == nil {
 		return
 	}
+	if chatSettingsManager != nil {
+		seenName := ""
+		if !v.Info.IsGroup {
+			seenName = v.Info.Sender.ToNonAD().User
+		}
+		chatSettingsManager.NoteSeenChat(v.Info.Chat.String(), seenName, v.Info.IsGroup)
+	}
+
+	// Antarmuka WhatsApp murni read-only: perintah mutasi dialihkan ke dashboard.
+	if entity, ok := MutationRedirectEntity(msgText, v.Info.IsGroup); ok {
+		reply(RedirectMessage(entity), "⚠️", 600*time.Millisecond, "pengalihan dashboard")
+		return
+	}
+
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
+		reply(PortalMessage(), "🌐", 600*time.Millisecond, "perintah portal")
+		return
+	}
+
 	var activeClassID string
 	if chatSettingsManager != nil {
 		activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
@@ -151,7 +238,6 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// 2. Handler Khusus Perintah Reload Jadwal Seluruh Kelas (!reload)
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reload") {
 		count, errs := classManager.ReloadAll()
 		var reloadReply string
@@ -164,7 +250,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 3. Handler Khusus Perintah Pengingat Otomatis (!reminder / !pengingat)
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
 		parts := strings.Fields(lowerMsg)
 		subCmd := ""
@@ -262,7 +347,6 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// 5. Handler Khusus Perintah Jadwal Pengganti / Override (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 	if overrideManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "pindah", "ganti", "kosong", "libur", "kuliahganti", "tambahkelas", "jadwalganti", "overrides", "batalganti") {
 		if activeClassID == "" && chatSettingsManager != nil {
 			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding override")
