@@ -1,0 +1,239 @@
+package api
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+// handleGetClassSemesters menangani GET /api/v1/classes/{slug}/semesters
+func (s *Server) handleGetClassSemesters(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	rows, err := s.v1DB.Query(`
+		SELECT id, academic_year, term, starts_on, ends_on, status, published_at, activated_at, version
+		FROM semesters
+		WHERE class_id = ?
+		ORDER BY starts_on DESC;
+	`, classID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+		return
+	}
+	defer rows.Close()
+
+	var semesters []map[string]any
+	for rows.Next() {
+		var id int64
+		var year, term, startsOn, endsOn, status string
+		var publishedAt, activatedAt sql.NullTime
+		var version int
+
+		if err := rows.Scan(&id, &year, &term, &startsOn, &endsOn, &status, &publishedAt, &activatedAt, &version); err == nil {
+			semesters = append(semesters, map[string]any{
+				"id":            id,
+				"academic_year": year,
+				"term":          term,
+				"starts_on":     startsOn,
+				"ends_on":       endsOn,
+				"status":        status,
+				"published_at": func() any {
+					if publishedAt.Valid {
+						return publishedAt.Time.Format(time.RFC3339)
+					}
+					return nil
+				}(),
+				"activated_at": func() any {
+					if activatedAt.Valid {
+						return activatedAt.Time.Format(time.RFC3339)
+					}
+					return nil
+				}(),
+				"version": version,
+			})
+		}
+	}
+
+	s.writeV1Success(w, http.StatusOK, semesters)
+}
+
+// CreateSemesterRequest adalah payload pembuatan semester baru
+type CreateSemesterRequest struct {
+	AcademicYear string `json:"academic_year"`
+	Term         string `json:"term"`
+	StartsOn     string `json:"starts_on"`
+	EndsOn       string `json:"ends_on"`
+}
+
+// handleCreateClassSemester menangani POST /api/v1/classes/{slug}/semesters
+func (s *Server) handleCreateClassSemester(w http.ResponseWriter, r *http.Request) {
+	u, ok := GetAuthContext(r)
+	if !ok {
+		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya KM atau System Admin yang berwenang membuat semester")
+		return
+	}
+
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	var req CreateSemesterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+
+	startDate, errStart := time.Parse("2006-01-02", req.StartsOn)
+	endDate, errEnd := time.Parse("2006-01-02", req.EndsOn)
+	if errStart != nil || errEnd != nil || !endDate.After(startDate) {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Format tanggal harus YYYY-MM-DD dan ends_on harus setelah starts_on")
+		return
+	}
+
+	var semID int64
+	err = s.v1DB.QueryRow(`
+		INSERT INTO semesters (class_id, academic_year, term, starts_on, ends_on, status, version)
+		VALUES (?, ?, ?, ?, ?, 'DRAFT', 1)
+		RETURNING id;
+	`, classID, req.AcademicYear, req.Term, req.StartsOn, req.EndsOn).Scan(&semID)
+
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan semester: %v", err))
+		return
+	}
+
+	s.writeV1Success(w, http.StatusCreated, map[string]any{
+		"id":     semID,
+		"status": "DRAFT",
+	})
+}
+
+// handleActivateSemester menangani POST /api/v1/classes/{slug}/semesters/{id}/activate
+func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) {
+	u, ok := GetAuthContext(r)
+	if !ok {
+		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya KM atau System Admin yang berwenang mengaktifkan semester")
+		return
+	}
+
+	semIDStr := r.PathValue("id")
+	semID, _ := strconv.ParseInt(semIDStr, 10, 64)
+
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi aktivasi")
+		return
+	}
+	defer tx.Rollback()
+
+	// 1. Arsipkan semester aktif lama
+	_, _ = tx.Exec(`
+		UPDATE semesters
+		SET status = 'ARCHIVED', archived_at = CURRENT_TIMESTAMP
+		WHERE class_id = ? AND status = 'ACTIVE';
+	`, classID)
+
+	// 2. Aktifkan semester baru
+	res, err := tx.Exec(`
+		UPDATE semesters
+		SET status = 'ACTIVE', published_at = CURRENT_TIMESTAMP, activated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND class_id = ?;
+	`, semID, classID)
+
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengaktifkan semester")
+		return
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Semester tidak ditemukan")
+		return
+	}
+
+	_ = tx.Commit()
+
+	s.writeV1Success(w, http.StatusOK, map[string]any{
+		"semester_id": semID,
+		"status":      "ACTIVE",
+	})
+}
+
+// handleGetSemesterOfferings menangani GET /api/v1/semesters/{id}/offerings
+func (s *Server) handleGetSemesterOfferings(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+
+	semIDStr := r.PathValue("id")
+	semID, _ := strconv.ParseInt(semIDStr, 10, 64)
+
+	rows, err := s.v1DB.Query(`
+		SELECT co.id, c.code, co.display_name, co.activity_type
+		FROM course_offerings co
+		JOIN courses c ON co.course_id = c.id
+		WHERE co.semester_id = ? AND co.status = 'ACTIVE'
+		ORDER BY co.display_name;
+	`, semID)
+
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat mata kuliah offering")
+		return
+	}
+	defer rows.Close()
+
+	var offerings []map[string]any
+	for rows.Next() {
+		var id int64
+		var code, displayName, actType string
+		if err := rows.Scan(&id, &code, &displayName, &actType); err == nil {
+			lecturers := s.getOfferingLecturers(id)
+			offerings = append(offerings, map[string]any{
+				"id":            id,
+				"course_code":   code,
+				"display_name":  displayName,
+				"activity_type": actType,
+				"lecturers":     lecturers,
+			})
+		}
+	}
+
+	s.writeV1Success(w, http.StatusOK, offerings)
+}

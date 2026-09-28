@@ -1,10 +1,18 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"bot-jadwal/internal/academic"
+	"bot-jadwal/internal/database"
 )
 
 func TestAPIServer_Health(t *testing.T) {
@@ -68,4 +76,3 @@ func TestAPIServer_WebStatic(t *testing.T) {
 		t.Errorf("Expected status 200 for index.html, got %d", rr.Code)
 	}
 }
-

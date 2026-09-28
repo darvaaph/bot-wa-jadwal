@@ -11,7 +11,6 @@ import (
 	"go.mau.fi/whatsmeow/types"
 )
 
-// groupAdminCacheEntry menyimpan cache data info grup dan waktu kedaluwarsa
 type groupAdminCacheEntry struct {
 	info      *types.GroupInfo
 	expiresAt time.Time
@@ -77,7 +76,6 @@ func CheckAdminStatus(
 		}
 	}
 
-	// 1. Periksa apakah pengirim adalah Pemilik Grup (Owner)
 	cleanOwner := info.OwnerJID.ToNonAD()
 	if cleanOwner.User != "" && candidates[cleanOwner.User] {
 		return true
@@ -87,25 +85,21 @@ func CheckAdminStatus(
 		return true
 	}
 
-	// 2. Periksa daftar partisipan grup
 	for _, p := range info.Participants {
 		if !p.IsAdmin && !p.IsSuperAdmin {
 			continue
 		}
 
-		// Cocokkan terhadap p.JID
 		pJID := p.JID.ToNonAD()
 		if pJID.User != "" && candidates[pJID.User] {
 			return true
 		}
 
-		// Cocokkan terhadap p.PhoneNumber (jika tersedia)
 		pPN := p.PhoneNumber.ToNonAD()
 		if pPN.User != "" && candidates[pPN.User] {
 			return true
 		}
 
-		// Cocokkan terhadap p.LID (jika tersedia)
 		pLID := p.LID.ToNonAD()
 		if pLID.User != "" && candidates[pLID.User] {
 			return true
@@ -137,7 +131,7 @@ func (r *GroupAdminResolver) GetGroupInfo(ctx context.Context, client *whatsmeow
 
 	info, err := client.GetGroupInfo(ctx, groupJID)
 	if err != nil {
-		// Fallback cerdas: Jika ada kendala jaringan sesaat, gunakan data cache yang sudah ada
+		// Saat request jaringan gagal, cache lama lebih berguna daripada kehilangan status admin.
 		if found && entry != nil && entry.info != nil {
 			return entry.info, nil
 		}

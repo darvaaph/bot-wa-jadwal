@@ -9,14 +9,21 @@ import (
 	"syscall"
 	"time"
 
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api"
+	"bot-jadwal/internal/auth"
+	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/notify"
+	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/reminder"
+	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
 
 	"go.mau.fi/whatsmeow/types/events"
@@ -30,7 +37,6 @@ func main() {
 
 	fmt.Println("🚀 [Boot] Memulai Bot WhatsApp Jadwal Kuliah & Web API Server...")
 
-	// 1. Muat konfigurasi aplikasi & lakukan migrasi file runtime lama ke folder storage/
 	cfg := config.LoadConfig()
 	if *sessionPath != "" {
 		cfg.SessionDBPath = *sessionPath
@@ -47,7 +53,6 @@ func main() {
 		fmt.Printf("⚠️ Peringatan direktori storage: %v\n", err)
 	}
 
-	// 2. Muat seluruh data jadwal kelas (Multi-Class Manager)
 	classManager, err := schedule.NewClassManager(cfg.DataJadwalDir, cfg.DefaultJadwal)
 	if err != nil {
 		fmt.Printf("Peringatan: %v\n", err)
@@ -57,15 +62,22 @@ func main() {
 	fmt.Printf("Berhasil memuat %d kelas perkuliahan: %v (Kelas Default: %s)\n",
 		len(classManager.ListClasses()), classManager.ListClasses(), classManager.GetDefaultClassID())
 
-	// 3. Setup Pengingat Otomatis (Reminder Manager)
 	reminderManager := reminder.LoadReminderManager(cfg.ReminderPath)
 
-	// 4. Setup Database Tunggal Aplikasi (SQLite - storage/tugas.db dengan WAL & Busy Timeout)
 	appDB, err := database.InitDB(cfg.AppDBPath)
 	if err != nil {
-		fmt.Printf("Peringatan inisialisasi database utama: %v\n", err)
+		fmt.Printf("❌ Gagal menginisialisasi database utama: %v\n", err)
+		return
 	} else {
 		fmt.Printf("Berhasil menghubungkan database utama (%s) [WAL Mode]\n", cfg.AppDBPath)
+	}
+
+	// 4b. Setup Database v1 (SQLite - storage/bot_v1.db dengan WAL & Busy Timeout)
+	v1DB, err := database.InitDB(cfg.V1DBPath)
+	if err != nil {
+		fmt.Printf("Peringatan inisialisasi database v1: %v\n", err)
+	} else {
+		fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
 	}
 
 	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
@@ -83,18 +95,18 @@ func main() {
 		}
 	}
 
-	// 6. Setup Pengelola Tugas (Task Manager)
 	var taskManager *task.TaskManager
+	var taskRepo *task.Repository
 	if appDB != nil {
 		taskManager, err = task.NewTaskManager(appDB)
 		if err != nil {
-			fmt.Printf("Peringatan inisialisasi modul tugas: %v\n", err)
+			fmt.Println("ℹ️  [Safe Purge] Modul tugas lama dinonaktifkan (menunggu migrasi ke skema akademik v3)")
 		} else {
 			fmt.Println("Berhasil menginisialisasi modul tugas")
 		}
+		taskRepo = task.NewRepository(appDB)
 	}
 
-	// 7. Setup Pengelola Jadwal Pengganti (Override Manager)
 	var overrideManager *schedule.OverrideManager
 	if appDB != nil {
 		overrideManager, err = schedule.NewOverrideManager(appDB)
@@ -106,7 +118,6 @@ func main() {
 		}
 	}
 
-	// 8. Setup Pengelola Tautan Penting Kelas (Link Manager)
 	var linkManager *link.LinkManager
 	if appDB != nil {
 		linkManager, err = link.NewLinkManager(appDB)
@@ -117,8 +128,8 @@ func main() {
 		}
 	}
 
-	// 9. Setup Klien WhatsApp (Hanya jika bukan mode -web-only)
 	var botClient *bot.BotClient
+	var notifWorker *bot.NotificationWorker
 	if !*webOnly {
 		var err error
 		botClient, err = bot.NewBotClient(cfg.SessionDBPath)
@@ -126,7 +137,6 @@ func main() {
 			panic(fmt.Sprintf("Gagal menginisialisasi BotClient: %v", err))
 		}
 
-		// 10. Daftarkan Event Handler WhatsApp
 		botClient.Client.AddEventHandler(func(evt interface{}) {
 			switch v := evt.(type) {
 			case *events.Connected:
@@ -150,33 +160,42 @@ func main() {
 					taskManager,
 					overrideManager,
 					linkManager,
+					v1DB,
 				)
 			}
 		})
 
-		// 11. Hubungkan Klien ke WhatsApp
 		err = botClient.Connect(context.Background())
 		if err != nil {
 			panic(fmt.Sprintf("Gagal menyambungkan WhatsApp: %v", err))
 		}
 
-		// 12. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB)
 		reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
+
+		// 12b. Jalankan background worker siaran notifikasi WhatsApp (bot_v1.db)
+		if v1DB != nil {
+			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
+			notifWorker.Start()
+		}
 	} else {
 		fmt.Println("🌐 [Mode Web-Only] Berjalan tanpa WhatsApp. Server Linux Azure AMAN 100%.")
 	}
 
-	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard
-	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager)
+	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
+	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
-
-	// 14. Tangkap sinyal interupsi (Ctrl+C / SIGTERM) untuk Graceful Shutdown
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 	<-stopSig
 
 	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
+
+	// Hentikan background worker notifikasi WhatsApp
+	if notifWorker != nil {
+		fmt.Println("⏳ Menghentikan background worker notifikasi WhatsApp...")
+		notifWorker.Stop()
+	}
 
 	// Matikan HTTP REST API Server (toleransi timeout 5 detik)
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
@@ -185,7 +204,6 @@ func main() {
 		fmt.Printf("⚠️ Gagal mematikan API server: %v\n", err)
 	}
 
-	// Putuskan koneksi WhatsApp dan matikan watchdog jika aktif
 	if botClient != nil {
 		fmt.Println("⏳ Memutuskan koneksi WhatsApp...")
 		botClient.Disconnect()
@@ -199,11 +217,39 @@ func main() {
 		}
 	}
 
+	// Tutup database v1 (bot_v1.db) untuk checkpoint WAL
+	if v1DB != nil {
+		fmt.Println("⏳ Menutup koneksi database v1 (bot_v1.db)...")
+		if err := v1DB.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup bot_v1.db: %v\n", err)
+		}
+	}
+
 	// Tutup database sesi bot (sesi_bot.db)
-	fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
-	if err := botClient.Close(); err != nil {
-		fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+	if botClient != nil {
+		fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
+		if err := botClient.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+		}
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")
+}
+
+// runNotifyScheduler enqueues due reminders every 30s and drains the outbox when a sender exists.
+// Web publish never depends on WA: enqueue always runs, delivery is best-effort.
+func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now().UTC()
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		_, _ = svc.EnsureDailySummaries(ctx, now)
+		_, _ = svc.EnsureTaskReminders(ctx, now)
+		_, _ = svc.EnsureReplacementReminders(ctx, now)
+		if sender != nil {
+			_, _, _ = svc.ProcessDue(ctx, sender, 20, now)
+		}
+		cancel()
+	}
 }

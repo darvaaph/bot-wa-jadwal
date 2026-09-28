@@ -190,7 +190,6 @@ func TestGroupAdminResolver_Cache(t *testing.T) {
 	resolver := NewGroupAdminResolver(100 * time.Millisecond)
 	groupJID := types.NewJID("120363000000000000", types.GroupServer)
 
-	// Inisialisasi entri cache langsung
 	dummyInfo := &types.GroupInfo{
 		JID: groupJID,
 		Participants: []types.GroupParticipant{
@@ -208,7 +207,6 @@ func TestGroupAdminResolver_Cache(t *testing.T) {
 	}
 	resolver.mu.Unlock()
 
-	// 1. Ambil dari cache valid
 	info, err := resolver.GetGroupInfo(context.Background(), nil, groupJID)
 	if err != nil || info == nil {
 		t.Fatalf("Expected cached info, got error: %v", err)
@@ -217,7 +215,6 @@ func TestGroupAdminResolver_Cache(t *testing.T) {
 		t.Errorf("Expected 1 participant from cache, got %d", len(info.Participants))
 	}
 
-	// 2. Invalidate cache
 	resolver.Invalidate(groupJID)
 	resolver.mu.RLock()
 	_, found := resolver.cache[groupJID.ToNonAD().String()]
@@ -226,7 +223,6 @@ func TestGroupAdminResolver_Cache(t *testing.T) {
 		t.Errorf("Expected cache to be invalidated")
 	}
 
-	// 3. Simpan lagi dan uji kedaluwarsa (TTL)
 	resolver.mu.Lock()
 	resolver.cache[groupJID.ToNonAD().String()] = &groupAdminCacheEntry{
 		info:      dummyInfo,

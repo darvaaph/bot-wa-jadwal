@@ -1,8 +1,9 @@
 package schedule
 
 import (
-	"bot-jadwal/internal/util"
 	"bot-jadwal/internal/database"
+	"bot-jadwal/internal/util"
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -35,7 +36,24 @@ func TestOverrideManager(t *testing.T) {
 	groupJID := "120363001@g.us"
 	userJID := "628120001@s.whatsapp.net"
 
-	// 1. Test Pencocokan Cerdas Mata Kuliah (FindMataKuliah)
+	ctx := context.Background()
+	cls, err := om.academicRepo.EnsureClass(ctx, "2A")
+	if err != nil {
+		t.Fatalf("Gagal memastikan kelas 2A: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status) VALUES (?, ?, 'GROUP', 'Kelas 2A', 'ACTIVE')`, cls.ID, groupJID)
+	if err != nil {
+		t.Fatalf("Gagal memetakan whatsapp_channels: %v", err)
+	}
+
+	// Verifikasi penolakan JID yang belum dipetakan (P1)
+	unmappedJID := "120363999999@g.us"
+	dummyItem := JadwalItem{KodeMatkul: "TI101", NamaMatkul: "Aljabar", Jam: "07:00 - 08:40"}
+	_, err = om.AddReschedule(unmappedJID, dummyItem, refNow, refNow.Add(24*time.Hour), "15:00 - 16:40", "Lab", "user")
+	if err == nil || !strings.Contains(err.Error(), "scope belum terpetakan") {
+		t.Errorf("Expected ErrUnmappedScope for unmapped scope, got: %v", err)
+	}
+
 	itemSBD, _ := cfg.FindMataKuliah("sbd", refNow)
 	if itemSBD == nil || !strings.Contains(itemSBD.NamaMatkul, "Sistem Basis Data") {
 		t.Errorf("Expected 'sbd' to find Sistem Basis Data, got: %v", itemSBD)
@@ -46,13 +64,11 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected 'matdis' to find Matematika Diskrit Lanjut, got: %v", itemMatdis)
 	}
 
-	// Disambiguasi: Aljabar Teori vs Praktikum
 	itemAljabarTeori, _ := cfg.FindMataKuliah("aljabar teori", refNow)
 	if itemAljabarTeori == nil || !strings.Contains(itemAljabarTeori.NamaMatkul, "Teori") {
 		t.Errorf("Expected 'aljabar teori' to match Teori session, got: %v", itemAljabarTeori)
 	}
 
-	// 2. Test Kalkulasi Durasi & Auto Complete Jam
 	dur := util.CalculateDurationInMinutes("07:00 - 08:40")
 	if dur != 100 {
 		t.Errorf("Expected duration 100 minutes, got %d", dur)
@@ -62,25 +78,31 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected '13:00 - 14:40', got '%s'", autoJam)
 	}
 
-	// 3. Test Non-Admin Ditolak di Grup
 	nonAdminReply := om.HandleCommand(groupJID, true, userJID, false, "!pindah aljabar | besok 13:00", cfg, refNow)
-	if !strings.Contains(nonAdminReply, "Akses Ditolak") {
-		t.Errorf("Expected non-admin to be rejected, got: %s", nonAdminReply)
+	if !strings.Contains(nonAdminReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", nonAdminReply)
 	}
 
-	// 4. Test Admin Reschedule Aljabar (Senin 07:00) ke Besok (Selasa) 15:00 di Lab 312
+	// Seed perubahan via jalur non-perintah (dashboard/API), bukan via command.
+	itemPrak, _ := cfg.FindMataKuliah("aljabar praktikum", refNow)
+	if itemPrak == nil {
+		t.Fatalf("Gagal menemukan sesi aljabar praktikum untuk seed")
+	}
+	origDate := util.GetDateForDayName(itemPrak.Hari, refNow)
+	targetBesok := ParseOverrideDate("besok 15:00", refNow)
+	if _, err := om.AddReschedule(groupJID, *itemPrak, origDate, targetBesok, "15:00 - 16:40", "Lab 312", userJID); err != nil {
+		t.Fatalf("AddReschedule seed failed: %v", err)
+	}
 	adminReply := om.HandleCommand(groupJID, true, userJID, true, "!pindah aljabar praktikum | besok 15:00 | Lab 312", cfg, refNow)
-	if !strings.Contains(adminReply, "BERHASIL DIPINDAHKAN") || !strings.Contains(adminReply, "Lab 312") {
-		t.Errorf("Expected reschedule success, got: %s", adminReply)
+	if !strings.Contains(adminReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected admin mutation to be redirected to dashboard, got: %s", adminReply)
 	}
 
-	// 5. Verifikasi Jadwal Hari Asal (Senin, 7 Sep 2026): Aljabar Praktikum harus dicoret / DIPINDAHKAN
 	seninSchedule := cfg.GetByHariWithOverrides("hari ini", groupJID, om, refNow)
 	if !strings.Contains(seninSchedule, "KULIAH DIPINDAHKAN") || !strings.Contains(seninSchedule, "Aljabar Linear") {
 		t.Errorf("Expected origin schedule (Senin) to mark class as moved, got:\n%s", seninSchedule)
 	}
 
-	// 6. Verifikasi Jadwal Hari Tujuan (Selasa, 8 Sep 2026): Aljabar Praktikum muncul sebagai KULIAH PENGGANTI di jam 15:00
 	selasaDate := refNow.Add(24 * time.Hour) // Selasa, 8 Sep 2026
 	selasaSchedule := cfg.GetByHariWithOverrides("besok", groupJID, om, refNow)
 	if !strings.Contains(selasaSchedule, "KULIAH PENGGANTI") ||
@@ -89,22 +111,25 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected destination schedule (Selasa) to contain make-up class, got:\n%s", selasaSchedule)
 	}
 
-	// 7. Test Kuliah Ditiadakan (!kosong SBD) pada hari Selasa
 	kosongReply := om.HandleCommand(groupJID, true, userJID, true, "!kosong sbd | besok | Dosen dinas luar", cfg, refNow)
-	if !strings.Contains(kosongReply, "DITANDAI DITIADAKAN") {
-		t.Errorf("Expected cancellation success, got: %s", kosongReply)
+	if !strings.Contains(kosongReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", kosongReply)
+	}
+	if _, err := om.AddCancel(groupJID, *itemSBD, ParseOverrideDate("besok", refNow), "Dosen dinas luar", userJID); err != nil {
+		t.Fatalf("AddCancel seed failed: %v", err)
 	}
 
-	// Cek jadwal Selasa lagi: SBD harus dicoret DITIADAKAN
 	selasaWithKosong := cfg.GetByHariWithOverrides("besok", groupJID, om, refNow)
 	if !strings.Contains(selasaWithKosong, "KULIAH DITIADAKAN") || !strings.Contains(selasaWithKosong, "Dosen dinas luar") {
 		t.Errorf("Expected Selasa SBD to be marked cancelled, got:\n%s", selasaWithKosong)
 	}
 
-	// 8. Test Kuliah Pengganti di Hari Libur (!kuliahganti Sabtu)
 	extraReply := om.HandleCommand(groupJID, true, userJID, true, "!kuliahganti matdis | sabtu 09:00 - 11:30 | D105", cfg, refNow)
-	if !strings.Contains(extraReply, "KULIAH PENGGANTI DITAMBAHKAN") {
-		t.Errorf("Expected extra class success, got: %s", extraReply)
+	if !strings.Contains(extraReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", extraReply)
+	}
+	if _, err := om.AddExtra(groupJID, *itemMatdis, ParseOverrideDate("sabtu 09:00 - 11:30", refNow), "09:00 - 11:30", "D105", "Kuliah Pengganti", userJID); err != nil {
+		t.Fatalf("AddExtra seed failed: %v", err)
 	}
 
 	sabtuDate := time.Date(2026, 9, 12, 10, 0, 0, 0, time.Local) // Sabtu, 12 Sep 2026
@@ -113,8 +138,6 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected Saturday to show extra class, got:\n%s", sabtuSchedule)
 	}
 
-	// 9. Test GetNextClassWithOverrides:
-	// Di hari Senin jam 07:15: Aljabar (yang dipindahkan) harus DILEWATI, kuliah berikutnya adalah Programming Pragmatics (13:00)
 	tSeninPagi := time.Date(2026, 9, 7, 7, 15, 0, 0, time.Local)
 	nextSenin := cfg.GetNextClassWithOverrides(tSeninPagi, groupJID, om)
 	if strings.Contains(nextSenin, "SEDANG BERLANGSUNG") && strings.Contains(nextSenin, "Aljabar") {
@@ -124,14 +147,12 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected next class to be Programming Pragmatics, got:\n%s", nextSenin)
 	}
 
-	// Di hari Selasa jam 15:10: Kelas pindahan Aljabar di Lab 312 harus SEDANG BERLANGSUNG
 	tSelasaSore := time.Date(2026, 9, 8, 15, 10, 0, 0, time.Local)
 	nextSelasa := cfg.GetNextClassWithOverrides(tSelasaSore, groupJID, om)
 	if !strings.Contains(nextSelasa, "SEDANG BERLANGSUNG") || !strings.Contains(nextSelasa, "Aljabar Linear") {
 		t.Errorf("Expected make-up class to be ongoing on Tuesday 15:10, got:\n%s", nextSelasa)
 	}
 
-	// 10. Test Daftar Jadwal Pengganti Aktif (!jadwalganti)
 	listReply := om.HandleCommand(groupJID, true, userJID, false, "!jadwalganti", cfg, refNow)
 	if !strings.Contains(listReply, "DAFTAR JADWAL PENGGANTI AKTIF") ||
 		!strings.Contains(listReply, "RESCHEDULE") ||
@@ -140,75 +161,56 @@ func TestOverrideManager(t *testing.T) {
 		t.Errorf("Expected active override list, got:\n%s", listReply)
 	}
 
-	// 11. Test Pembatalan Override (!batalganti 1)
 	cancelReply := om.HandleCommand(groupJID, true, userJID, true, "!batalganti 1", cfg, refNow)
-	if !strings.Contains(cancelReply, "DIBATALKAN") {
-		t.Errorf("Expected cancellation of override, got: %s", cancelReply)
+	if !strings.Contains(cancelReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", cancelReply)
 	}
 
-	// 12. Test Auto-Expiration di Minggu Depan (Senin, 14 Sep 2026)
-	// Aljabar harus kembali normal tanpa status dipindahkan!
 	seninDepan := time.Date(2026, 9, 14, 10, 0, 0, 0, time.Local)
 	seninDepanSchedule := cfg.GetByHariWithOverrides("hari ini", groupJID, om, seninDepan)
 	if strings.Contains(seninDepanSchedule, "DIPINDAHKAN") {
 		t.Errorf("Expected next week schedule to be normal without moved status, got:\n%s", seninDepanSchedule)
 	}
-	// 13. Test Integrasi Pengingat Pagi dengan Override (BuildMorningReminder)
-	// Pada hari Selasa (besok dari refNow), SBD ditiadakan (override #1 Aljabar sudah dibatalkan)
 	tSelasaPagi := time.Date(2026, 9, 8, 6, 30, 0, 0, time.Local)
-	
 
-	// 14. Test ProcessMessage dengan Chat JID (Pintasan !besok mengenali override grup)
 	msgBesok := cfg.ProcessMessage("!besok", true, groupJID, refNow)
 	if !strings.Contains(msgBesok, "KULIAH DITIADAKAN") || !strings.Contains(msgBesok, "Dosen dinas luar") {
 		t.Errorf("Expected ProcessMessage('!besok') with group JID to render overrides, got:\n%s", msgBesok)
 	}
 
-	// 15. Test Deteksi Bentrok Jadwal (Schedule Conflict Detection)
-	// Pada hari Rabu ada kuliah AOK (07:00 - 08:40).
-	// Admin mencoba memindahkan Aljabar ke Rabu 07:30 (akan bentrok dengan AOK):
 	bentrokReply := om.HandleCommand(groupJID, true, userJID, true, "!pindah aljabar praktikum | rabu 07:30", cfg, refNow)
-	if !strings.Contains(bentrokReply, "PERINGATAN BENTROK JADWAL") ||
-		!strings.Contains(bentrokReply, "Arsitektur dan Organisasi Komputer") ||
-		!strings.Contains(bentrokReply, "D111-Kelas") {
-		t.Errorf("Expected conflict warning for AOK on Rabu 07:30, got:\n%s", bentrokReply)
+	if !strings.Contains(bentrokReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", bentrokReply)
 	}
 
-	// Admin memindahkan dengan konfirmasi paksa (| paksa):
 	paksaReply := om.HandleCommand(groupJID, true, userJID, true, "!pindah aljabar praktikum | rabu 07:30 | paksa", cfg, refNow)
-	if !strings.Contains(paksaReply, "BERHASIL DIPINDAHKAN") || !strings.Contains(paksaReply, "dipaksa oleh Admin") {
-		t.Errorf("Expected forced reschedule to succeed, got:\n%s", paksaReply)
+	if !strings.Contains(paksaReply, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected forced mutation to be redirected to dashboard, got: %s", paksaReply)
 	}
 
-	// Kuliah pengganti bentrok: mencoba menambah kuliahganti yang bentrok dengan jadwal yang ada
 	bentrokExtra := om.HandleCommand(groupJID, true, userJID, true, "!kuliahganti sbd | rabu 07:00 - 09:00 | Lab 312", cfg, refNow)
-	if !strings.Contains(bentrokExtra, "PERINGATAN BENTROK JADWAL") {
-		t.Errorf("Expected extra class conflict warning, got:\n%s", bentrokExtra)
+	if !strings.Contains(bentrokExtra, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", bentrokExtra)
 	}
 
-	// 16. Test Fitur Pengumuman Hari Libur (!libur)
-	// Non-admin mencoba menetapkan libur (Harus Ditolak)
 	nonAdminLibur := om.HandleCommand(groupJID, true, userJID, false, "!libur besok | Hari Kemerdekaan RI", cfg, refNow)
-	if !strings.Contains(nonAdminLibur, "Akses Ditolak") {
-		t.Errorf("Expected non-admin holiday command to be rejected, got: %s", nonAdminLibur)
+	if !strings.Contains(nonAdminLibur, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", nonAdminLibur)
 	}
 
-	// Admin menetapkan hari libur untuk besok (Selasa)
 	adminLibur := om.HandleCommand(groupJID, true, userJID, true, "!libur besok | Hari Kemerdekaan RI", cfg, refNow)
-	if !strings.Contains(adminLibur, "PENGUMUMAN LIBUR BERHASIL DITETAPKAN") || !strings.Contains(adminLibur, "Hari Kemerdekaan RI") {
-		t.Errorf("Expected holiday announcement to succeed, got:\n%s", adminLibur)
+	if !strings.Contains(adminLibur, "PENGELOLAAN DATA TERPUSAT") {
+		t.Errorf("Expected mutation to be redirected to dashboard, got: %s", adminLibur)
+	}
+	if _, err := om.AddHoliday(groupJID, ParseOverrideDate("besok", refNow), "Hari Kemerdekaan RI", userJID); err != nil {
+		t.Fatalf("AddHoliday seed failed: %v", err)
 	}
 
-	// Cek jadwal hari Selasa dengan override libur (harus menampilkan pengumuman libur)
 	selasaLiburSchedule := cfg.GetByHariWithOverrides("besok", groupJID, om, refNow)
 	if !strings.Contains(selasaLiburSchedule, "PENGUMUMAN HARI LIBUR") || !strings.Contains(selasaLiburSchedule, "Hari Kemerdekaan RI") {
 		t.Errorf("Expected holiday card on Tuesday, got:\n%s", selasaLiburSchedule)
 	}
 
-	// Cek pengingat pagi hari Selasa (BuildMorningReminder)
-	
-
-	// Cek status !next pada hari libur
 	nextLibur := cfg.GetNextClassWithOverrides(tSelasaPagi, groupJID, om)
 	if !strings.Contains(nextLibur, "Hari Ini Libur Perkuliahan") || !strings.Contains(nextLibur, "Hari Kemerdekaan RI") {
 		t.Errorf("Expected next class on holiday to report holiday, got:\n%s", nextLibur)
@@ -217,4 +219,3 @@ func TestOverrideManager(t *testing.T) {
 	_ = selasaDate
 	_ = sabtuDate
 }
-

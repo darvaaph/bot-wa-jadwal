@@ -2,15 +2,16 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/task"
 )
 
-// TaskResponseItem adalah representasi tugas pada respons JSON API
 type TaskResponseItem struct {
 	ID        int    `json:"id"`
 	ClassID   string `json:"class_id,omitempty"`
@@ -20,7 +21,6 @@ type TaskResponseItem struct {
 	IsDone    bool   `json:"is_done"`
 }
 
-// CreateTaskRequest adalah payload form pembuatan tugas dari Web Dashboard
 type CreateTaskRequest struct {
 	ClassID   string `json:"class_id"`
 	Matkul    string `json:"matkul"`
@@ -30,8 +30,9 @@ type CreateTaskRequest struct {
 
 const webCreatorJID = "web-dashboard"
 
-// handleGetTasks menangani GET /api/tasks - daftar seluruh tugas aktif (dapat difilter per kelas)
+// handleGetTasks menangani GET /api/tasks - daftar seluruh tugas aktif (dapat difilter per kelas, Legacy Shim)
 func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	if s.taskManager == nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
 			"status": "error",
@@ -78,8 +79,9 @@ func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleCreateTask menangani POST /api/tasks - menyimpan catatan tugas baru
+// handleCreateTask menangani POST /api/tasks - menyimpan catatan tugas baru (Legacy Shim)
 func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	if s.taskManager == nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
 			"status": "error",
@@ -89,7 +91,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&req); err != nil {
 		s.writeJSON(w, http.StatusBadRequest, map[string]string{
 			"status": "error",
 			"error":  "Format JSON tidak valid",
@@ -128,6 +130,14 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Audit legacy shim jika v1DB tersedia
+	if s.v1DB != nil {
+		_, _ = s.v1DB.Exec(`
+			INSERT INTO audit_logs (action, entity_type, entity_id, after_state)
+			VALUES ('LEGACY_SHIM_CREATE_TASK', 'TASK', ?, ?);
+		`, id, fmt.Sprintf(`{"matkul":%q,"class_id":%q}`, req.Matkul, req.ClassID))
+	}
+
 	s.writeJSON(w, http.StatusCreated, map[string]any{
 		"status": "success",
 		"data": TaskResponseItem{
@@ -141,8 +151,9 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleDeleteTask menangani DELETE /api/tasks/{id} - menghapus tugas berdasarkan ID
+// handleDeleteTask menangani DELETE /api/tasks/{id} - menghapus tugas berdasarkan ID (Legacy Shim)
 func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	if s.taskManager == nil {
 		s.writeJSON(w, http.StatusInternalServerError, map[string]string{
 			"status": "error",
@@ -176,6 +187,14 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 			"error":  "Tugas tidak ditemukan",
 		})
 		return
+	}
+
+	// Audit legacy shim jika v1DB tersedia
+	if s.v1DB != nil {
+		_, _ = s.v1DB.Exec(`
+			INSERT INTO audit_logs (action, entity_type, entity_id)
+			VALUES ('LEGACY_SHIM_DELETE_TASK', 'TASK', ?);
+		`, taskID)
 	}
 
 	s.writeJSON(w, http.StatusOK, map[string]string{
