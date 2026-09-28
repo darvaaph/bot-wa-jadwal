@@ -9,13 +9,14 @@ import (
 
 // Config menyimpan seluruh konfigurasi operasional bot dan web dashboard
 type Config struct {
-	APIPort        string
-	StorageDir     string
-	AppDBPath      string
-	SessionDBPath  string
-	ReminderPath   string
-	DataJadwalDir  string
-	DefaultJadwal  string
+	APIPort       string
+	StorageDir    string
+	AppDBPath     string
+	V1DBPath      string
+	SessionDBPath string
+	ReminderPath  string
+	DataJadwalDir string
+	DefaultJadwal string
 }
 
 // LoadConfig mengembalikan konfigurasi default atau berdasarkan environment variable
@@ -37,6 +38,7 @@ func LoadConfig() *Config {
 		APIPort:       port,
 		StorageDir:    storageDir,
 		AppDBPath:     filepath.Join(storageDir, "tugas.db"),
+		V1DBPath:      filepath.Join(storageDir, "bot_v1.db"),
 		SessionDBPath: filepath.Join(storageDir, "sesi_bot.db"),
 		ReminderPath:  filepath.Join(storageDir, "reminder_groups.json"),
 		DataJadwalDir: "data/jadwal",

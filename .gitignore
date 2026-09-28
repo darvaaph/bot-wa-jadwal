@@ -23,3 +23,6 @@ reminder_groups.json
 .env.local
 
 TEAM_ONBOARDING.md
+
+# Scratch & Local Notes
+.scratch/api-v1/issues/

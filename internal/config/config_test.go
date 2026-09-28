@@ -6,6 +6,19 @@ import (
 	"testing"
 )
 
+func TestLoadConfig_MemuatJalurDatabaseV1(t *testing.T) {
+	cfg := LoadConfig()
+	if cfg.AppDBPath == "" || cfg.V1DBPath == "" {
+		t.Fatalf("AppDBPath dan V1DBPath harus terisi")
+	}
+	if cfg.AppDBPath == cfg.V1DBPath {
+		t.Errorf("Database v1 harus terpisah dari database lama agar bot tetap berjalan")
+	}
+	if filepath.Base(cfg.V1DBPath) != "bot_v1.db" {
+		t.Errorf("Database v1 harus bernama bot_v1.db, didapat %s", cfg.V1DBPath)
+	}
+}
+
 func TestConfig_EnsureStorageAndMigrate(t *testing.T) {
 	tempStorage := "test_storage_temp"
 	defer os.RemoveAll(tempStorage)
