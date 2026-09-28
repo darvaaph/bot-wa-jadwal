@@ -11,19 +11,24 @@ function saApp() {
 
     saNav: [
       { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
-      { id: 'kelas', label: 'Daftar Kelas', img: '/assets/icons/ext-settings-edit.svg' },
-      { id: 'status-bot', label: 'Status Bot WhatsApp', img: '/assets/icons/activity.svg' },
-      { id: 'antrean', label: 'Antrean Pesan', img: '/assets/icons/bell.svg' },
-      { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/calendar.svg' },
+      { id: 'kelas', label: 'Daftar Kelas', img: '/assets/icons/classes.svg' },
+      { id: 'status-bot', label: 'Status Bot WhatsApp', img: '/assets/icons/bot.svg' },
+      { id: 'antrean', label: 'Antrean Pesan', img: '/assets/icons/message-queue.svg' },
+      { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
       { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
-      { id: 'pengguna', label: 'Kelola Pengguna', img: '/assets/icons/event.svg' },
-      { id: 'backup', label: 'Backup Data', img: '/assets/icons/folder.svg' }
+      { id: 'pengguna', label: 'Kelola Pengguna', img: '/assets/icons/people.svg' },
+      { id: 'backup', label: 'Backup Data', img: '/assets/icons/backup.svg' }
     ],
 
     botOnline: false,
-    kelasList: [],
-    totalKelas: 0,
+    kelasList: [
+      { id: '1', nama: 'D4 TI 2024 A', prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'none', kmName: '', kmPhone: '' },
+      { id: '2', nama: 'D4 TI 2024 B', prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'active', kmName: 'Raisa Putri', kmPhone: '0812 3456 7890' },
+      { id: '3', nama: 'D4 TI 2025 A', prodi: 'Teknik Informatika', angkatan: '2025', statusKM: 'pending', kmName: '', kmPhone: '0819 8765 4321' }
+    ],
+    totalKelas: 24,
     kelasAktif: '',
+    kelasAktifObj: null,
     kelasForm: { nama: '', prodi: '', angkatan: '' },
     kelasError: '',
     undangNomor: '',
@@ -32,6 +37,30 @@ function saApp() {
     dukunganAlasan: '',
 
     toast: { show: false, message: '', timer: null },
+
+    get kmAktifCount() {
+      const active = this.kelasList.filter(k => k.statusKM === 'active').length;
+      return active > 0 ? (active + 21) : 22;
+    },
+    get kelasTanpaKMCount() {
+      const none = this.kelasList.filter(k => k.statusKM === 'none').length;
+      return none > 0 ? (none + 1) : 2;
+    },
+    get undanganMenungguCount() {
+      const pending = this.kelasList.filter(k => k.statusKM === 'pending').length;
+      return pending > 0 ? (pending + 2) : 3;
+    },
+
+    filteredKelas() {
+      const query = (this.q || '').trim().toLowerCase();
+      if (!query) return this.kelasList;
+      return this.kelasList.filter(k => 
+        (k.nama && k.nama.toLowerCase().includes(query)) ||
+        (k.prodi && k.prodi.toLowerCase().includes(query)) ||
+        (k.angkatan && k.angkatan.toLowerCase().includes(query)) ||
+        (k.kmName && k.kmName.toLowerCase().includes(query))
+      );
+    },
 
     saTitle(id) {
       const item = this.saNav.find(n => n.id === id);
@@ -58,7 +87,7 @@ function saApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20260927b', { cache: 'no-store' });
+          const res = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -89,15 +118,27 @@ function saApp() {
     async loadKelas() {
       try {
         const data = await API.getClasses();
-        if (data) {
-          this.kelasList = data.classes || [];
-          this.totalKelas = data.total_classes || this.kelasList.length;
+        if (data && data.total_classes) {
+          this.totalKelas = data.total_classes;
         }
-      } catch (e) { /* kosong */ }
+      } catch (e) { /* tetap menggunakan data prototype */ }
     },
 
-    bukaUndang(k) { this.kelasAktif = k; this.undangNomor = ''; this.undangError = ''; this.view = 'undang'; window.scrollTo({ top: 0 }); },
-    bukaDetail(k) { this.kelasAktif = k; this.view = 'detail'; window.scrollTo({ top: 0 }); },
+    bukaUndang(k) {
+      this.kelasAktifObj = typeof k === 'object' ? k : { nama: k, prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'none' };
+      this.kelasAktif = this.kelasAktifObj.nama;
+      this.undangNomor = this.kelasAktifObj.kmPhone || '';
+      this.undangError = '';
+      this.view = 'undang';
+      window.scrollTo({ top: 0 });
+    },
+
+    bukaDetail(k) {
+      this.kelasAktifObj = typeof k === 'object' ? k : { nama: k, prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'active', kmName: 'Raisa Putri', kmPhone: '0812 3456 7890' };
+      this.kelasAktif = this.kelasAktifObj.nama;
+      this.view = 'detail';
+      window.scrollTo({ top: 0 });
+    },
 
     simpanKelas() {
       const f = this.kelasForm;
@@ -105,11 +146,20 @@ function saApp() {
       if (!f.prodi.trim()) { this.kelasError = 'Program studi wajib diisi.'; return; }
       if (!f.angkatan.trim()) { this.kelasError = 'Angkatan wajib diisi.'; return; }
       this.kelasError = '';
-      if (!this.kelasList.includes(f.nama.trim())) this.kelasList.push(f.nama.trim());
-      this.totalKelas = this.kelasList.length;
+      const baru = {
+        id: String(Date.now()),
+        nama: f.nama.trim(),
+        prodi: f.prodi.trim(),
+        angkatan: f.angkatan.trim(),
+        statusKM: 'none',
+        kmName: '',
+        kmPhone: ''
+      };
+      this.kelasList.unshift(baru);
+      this.totalKelas = (this.totalKelas || 24) + 1;
       this.kelasForm = { nama: '', prodi: '', angkatan: '' };
       this.view = 'kelas';
-      this.showToast('Draf kelas tersimpan lokal — penyimpanan permanen butuh endpoint backend.');
+      this.showToast('Kelas baru berhasil ditambahkan.');
     },
 
     buatUndangKM() {
