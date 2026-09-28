@@ -76,23 +76,25 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 		t.Fatalf("Gagal insert schedule items: %v", err)
 	}
 
-	// 5. Masukkan Pengguna (KM & PJ) dengan password bcrypt: "password123"
+	// 5. Masukkan Pengguna (KM, PJ, dan SYSTEM_ADMIN) dengan password bcrypt: "password123"
 	pwdHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	_, err = db.Exec(`
 		INSERT INTO users (id, identity_key, display_name, password_hash, status)
 		VALUES (1, '+6281234567890', 'Ketua Murid', ?, 'ACTIVE'),
-		       (2, '+6281298765432', 'Penanggung Jawab', ?, 'ACTIVE');
-	`, string(pwdHash), string(pwdHash))
+		       (2, '+6281298765432', 'Penanggung Jawab', ?, 'ACTIVE'),
+		       (3, '+6281111111111', 'Admin Utama', ?, 'ACTIVE');
+	`, string(pwdHash), string(pwdHash), string(pwdHash))
 	if err != nil {
 		t.Fatalf("Gagal insert users: %v", err)
 	}
 
-	// 6. Masukkan Penugasan Peran (KM & PJ)
+	// 6. Masukkan Penugasan Peran (KM, PJ, dan SYSTEM_ADMIN)
 	_, err = db.Exec(`
 		INSERT INTO role_assignments (id, user_id, role, scope_type, class_id, semester_id, course_offering_id, status)
 		VALUES (1, 1, 'KM', 'CLASS', 1, 1, NULL, 'ACTIVE'),
 		       (2, 2, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
-		       (3, 1, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE');
+		       (3, 1, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
+		       (4, 3, 'SYSTEM_ADMIN', 'GLOBAL', NULL, NULL, NULL, 'ACTIVE');
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert role assignments: %v", err)
@@ -603,45 +605,334 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 }
 
 // ============================================================================
-// 4. Deferred v1.1 Endpoints Tests (HTTP 501 NOT_IMPLEMENTED)
+// 4. Fitur v1.1+ Tests (Status Kelas, Ruangan, Notifikasi, Audit, Backup, Admin, Impor)
 // ============================================================================
 
-func TestV1Deferred_501NotImplemented(t *testing.T) {
+func TestV1Classes_PatchStatus(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
 
-	deferredRoutes := []struct {
-		method string
-		path   string
-	}{
-		{"GET", "/api/v1/rooms/candidates"},
-		{"POST", "/api/v1/teaching-events/1/room-confirmations"},
-		{"GET", "/api/v1/notifications"},
-		{"POST", "/api/v1/notifications/1/retry"},
-		{"GET", "/api/v1/audit"},
-		{"POST", "/api/v1/backups"},
-		{"POST", "/api/v1/restores"},
-		{"GET", "/api/v1/admin/status"},
-		{"POST", "/api/v1/admin/users/1/suspend"},
-		{"POST", "/api/v1/admin/users/1/recover"},
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// 1. Ubah status menjadi INACTIVE
+	body, _ := json.Marshal(map[string]string{"status": "INACTIVE"})
+	req := httptest.NewRequest("PATCH", "/api/v1/classes/d4-ti-2024-a", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("PATCH class status expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 
-	for _, tc := range deferredRoutes {
-		t.Run(fmt.Sprintf("%s %s", tc.method, tc.path), func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
-			w := httptest.NewRecorder()
-			s.httpServer.Handler.ServeHTTP(w, req)
+	var statusInDB string
+	_ = db.QueryRow(`SELECT status FROM classes WHERE slug = 'd4-ti-2024-a';`).Scan(&statusInDB)
+	if statusInDB != "INACTIVE" {
+		t.Errorf("DB class status expected INACTIVE, got %s", statusInDB)
+	}
 
-			if w.Code != http.StatusNotImplemented {
-				t.Errorf("Route %s %s expected 501, got %d", tc.method, tc.path, w.Code)
-			}
+	// 2. Ubah status menjadi ARCHIVED
+	body, _ = json.Marshal(map[string]string{"status": "ARCHIVED"})
+	req = httptest.NewRequest("PATCH", "/api/v1/classes/d4-ti-2024-a", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PATCH class status to ARCHIVED expected 200, got %d", w.Code)
+	}
 
-			var errResp V1ErrorResponse
-			_ = json.Unmarshal(w.Body.Bytes(), &errResp)
-			if errResp.Error.Code != CodeNotImplemented {
-				t.Errorf("Error code expected %s, got %s", CodeNotImplemented, errResp.Error.Code)
-			}
-		})
+	// 3. Status tidak valid
+	body, _ = json.Marshal(map[string]string{"status": "INVALID_STATUS"})
+	req = httptest.NewRequest("PATCH", "/api/v1/classes/d4-ti-2024-a", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("Invalid status expected 422, got %d", w.Code)
+	}
+}
+
+func TestV1Rooms_CandidatesAndConfirmation(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// 1. Cari kandidat ruangan
+	startsAt := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
+	endsAt := time.Now().Add(3 * time.Hour).UTC().Format(time.RFC3339)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/rooms/candidates?starts_at=%s&ends_at=%s", startsAt, endsAt), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET room candidates expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Konfirmasi ruangan TU
+	body, _ := json.Marshal(map[string]any{
+		"room_id":             1,
+		"confirmation_status": "CONFIRMED",
+		"note":                "Disetujui staf TU",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/teaching-events/1/room-confirmations", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST room confirmation expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1Notifications_ListAndRetry(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Masukkan pesan notifikasi berstatus FAILED
+	_, err := db.Exec(`
+		INSERT INTO notification_messages (id, class_id, event_type, idempotency_key, status)
+		VALUES (10, 1, 'TASK_PUBLISHED', 'test-failed-notif', 'FAILED');
+	`)
+	if err != nil {
+		t.Fatalf("Gagal insert notifikasi uji: %v", err)
+	}
+
+	// 1. Ambil daftar notifikasi
+	req := httptest.NewRequest("GET", "/api/v1/notifications?status=FAILED", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET notifications expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Coba ulang (retry) pengiriman
+	req = httptest.NewRequest("POST", "/api/v1/notifications/10/retry", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST notification retry expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	var statusInDB string
+	_ = db.QueryRow(`SELECT status FROM notification_messages WHERE id = 10;`).Scan(&statusInDB)
+	if statusInDB != "PENDING" {
+		t.Errorf("Notif status expected PENDING after retry, got %s", statusInDB)
+	}
+}
+
+func TestV1Audit_ListWithScoping(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// Sisipkan rekam audit uji
+	_, _ = db.Exec(`
+		INSERT INTO audit_logs (class_id, actor_user_id, action, entity_type, entity_id)
+		VALUES (1, 1, 'TEST_ACTION', 'CLASS', 1);
+	`)
+
+	// 1. KM membaca audit kelas miliknya
+	req := httptest.NewRequest("GET", "/api/v1/audit", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM GET audit expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Admin membaca audit global
+	req = httptest.NewRequest("GET", "/api/v1/audit", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Admin GET audit expected 200, got %d", w.Code)
+	}
+}
+
+func TestV1Backups_CreateAndVerifyRestore(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// 1. Buat backup (KM)
+	body, _ := json.Marshal(map[string]string{"reason": "Uji cadangan berkala"})
+	req := httptest.NewRequest("POST", "/api/v1/backups", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST backups expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	var backupResp struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &backupResp)
+	backupID := backupResp.Data.ID
+
+	// 2. Verifikasi restore (Admin)
+	restoreBody, _ := json.Marshal(map[string]any{"backup_id": backupID})
+	req = httptest.NewRequest("POST", "/api/v1/restores", bytes.NewReader(restoreBody))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST restores expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1Admin_StatusAndUserSuspendRecover(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// 1. Ambil status telemetri admin
+	req := httptest.NewRequest("GET", "/api/v1/admin/status", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET admin status expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Suspend pengguna (PJ, ID 2)
+	suspendBody, _ := json.Marshal(map[string]string{"reason": "Akun dinonaktifkan sementara"})
+	req = httptest.NewRequest("POST", "/api/v1/admin/users/2/suspend", bytes.NewReader(suspendBody))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST suspend user expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// Cek status di DB
+	var userStatus string
+	_ = db.QueryRow(`SELECT status FROM users WHERE id = 2;`).Scan(&userStatus)
+	if userStatus != "SUSPENDED" {
+		t.Errorf("User status expected SUSPENDED, got %s", userStatus)
+	}
+
+	// 3. Recover pengguna dengan kata sandi baru
+	recoverBody, _ := json.Marshal(map[string]string{
+		"new_password": "passwordBaru123",
+		"reason":       "Akun telah diverifikasi kembali",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/admin/users/2/recover", bytes.NewReader(recoverBody))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST recover user expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// Verifikasi login dengan password baru
+	pjToken := helperLogin(t, s, "+6281298765432", "passwordBaru123")
+	if pjToken == "" {
+		t.Errorf("Login PJ setelah pemulihan gagal")
+	}
+}
+
+func TestV1Curriculum_ImportValidateAndApply(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	curriculumPayload := CurriculumImportPayload{
+		SourceType: "JSON",
+		Courses: []CourseImportItem{
+			{Code: "IF301", Name: "Kecerdasan Buatan"},
+		},
+		Lecturers: []LecturerImportItem{
+			{Code: "DSN002", FullName: "Prof. Agus M.Kom"},
+		},
+		Offerings: []OfferingImportItem{
+			{
+				CourseCode:    "IF301",
+				ActivityType:  "TEORI",
+				DisplayName:   "Kecerdasan Buatan (Teori)",
+				LecturerCodes: []string{"DSN002"},
+			},
+		},
+		SchedulePatterns: []SchedulePatternImportItem{
+			{
+				CourseCode:   "IF301",
+				ActivityType: "TEORI",
+				DayOfWeek:    2,
+				StartTime:    "10:00",
+				DurationMin:  100,
+			},
+		},
+	}
+
+	body, _ := json.Marshal(curriculumPayload)
+
+	// 1. Validasi Impor
+	req := httptest.NewRequest("POST", "/api/v1/semesters/1/import-validate", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST import-validate expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	var valResp struct {
+		Data struct {
+			BatchID int64  `json:"batch_id"`
+			Status  string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &valResp)
+	if valResp.Data.Status != "READY" {
+		t.Fatalf("Batch status expected READY, got %s", valResp.Data.Status)
+	}
+
+	batchID := valResp.Data.BatchID
+
+	// 2. Terapkan Impor
+	applyBody, _ := json.Marshal(map[string]any{"batch_id": batchID})
+	req = httptest.NewRequest("POST", "/api/v1/semesters/1/import-apply", bytes.NewReader(applyBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST import-apply expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 3. Verifikasi mata kuliah baru tersimpan di DB
+	var courseName string
+	err := db.QueryRow(`SELECT name FROM courses WHERE code = 'IF301';`).Scan(&courseName)
+	if err != nil || courseName != "Kecerdasan Buatan" {
+		t.Errorf("Course IF301 tidak ditemukan setelah import apply: %v", err)
 	}
 }
 

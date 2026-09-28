@@ -78,6 +78,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
 	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1Classes)
+	mux.HandleFunc("PATCH /api/v1/classes/{slug}", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handlePatchV1ClassStatus)))
 	mux.HandleFunc("POST /api/v1/invitations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateInvitation)))
 	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)
 
@@ -122,17 +123,17 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/materials", s.handleGetV1Materials)
 	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.handleCreateV1Material))
 
-	// 7. Ditunda v1.1+ (501 Not Implemented, §7)
-	mux.HandleFunc("GET /api/v1/rooms/candidates", s.handleGetRoomCandidates)
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.handleCreateRoomConfirmation)
-	mux.HandleFunc("GET /api/v1/notifications", s.handleGetNotifications)
-	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.handleRetryNotification)
-	mux.HandleFunc("GET /api/v1/audit", s.handleGetAuditLogs)
-	mux.HandleFunc("POST /api/v1/backups", s.handleCreateBackup)
-	mux.HandleFunc("POST /api/v1/restores", s.handleRestoreBackup)
-	mux.HandleFunc("GET /api/v1/admin/status", s.handleGetAdminStatus)
-	mux.HandleFunc("POST /api/v1/admin/users/{id}/suspend", s.handleAdminSuspendUser)
-	mux.HandleFunc("POST /api/v1/admin/users/{id}/recover", s.handleAdminRecoverUser)
+	// 7. Fitur Lanjutan v1.1+ (Ruangan, Notifikasi, Audit, Backup/Restore, Admin)
+	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.handleGetRoomCandidates))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
+	mux.HandleFunc("GET /api/v1/notifications", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotifications)))
+	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRetryNotification)))
+	mux.HandleFunc("GET /api/v1/audit", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetAuditLogs)))
+	mux.HandleFunc("POST /api/v1/backups", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateBackup)))
+	mux.HandleFunc("POST /api/v1/restores", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleRestoreBackup)))
+	mux.HandleFunc("GET /api/v1/admin/status", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetAdminStatus)))
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/suspend", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminSuspendUser)))
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/recover", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminRecoverUser)))
 
 	// Fallback untuk route API v1 yang belum diimplementasikan
 	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {

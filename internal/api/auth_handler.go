@@ -37,11 +37,12 @@ type LoginRequest struct {
 
 // RoleAssignmentItem merepresentasikan penugasan peran pengurus
 type RoleAssignmentItem struct {
-	ID         int64  `json:"id"`
-	Role       string `json:"role"`
-	ClassSlug  string `json:"class_slug,omitempty"`
-	SemesterID *int64 `json:"semester_id,omitempty"`
-	OfferingID *int64 `json:"offering_id,omitempty"`
+	ID           int64  `json:"id"`
+	Role         string `json:"role"`
+	ClassSlug    string `json:"class_slug,omitempty"`
+	SemesterID   *int64 `json:"semester_id,omitempty"`
+	OfferingID   *int64 `json:"offering_id,omitempty"`
+	OfferingName string `json:"offering_name,omitempty"`
 }
 
 // LoginResponse adalah payload data respons login sukses
@@ -136,9 +137,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 6. Ambil seluruh penugasan peran aktif pengguna
 	rows, err := s.v1DB.Query(`
-		SELECT ra.id, ra.role, c.slug, ra.semester_id, ra.course_offering_id
+		SELECT ra.id, ra.role, c.slug, ra.semester_id, ra.course_offering_id, COALESCE(co.display_name, '')
 		FROM role_assignments ra
 		LEFT JOIN classes c ON ra.class_id = c.id
+		LEFT JOIN course_offerings co ON ra.course_offering_id = co.id
 		WHERE ra.user_id = ? AND ra.status = 'ACTIVE';
 	`, userID)
 
@@ -149,7 +151,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			var a RoleAssignmentItem
 			var slug sql.NullString
 			var semID, offID sql.NullInt64
-			if err := rows.Scan(&a.ID, &a.Role, &slug, &semID, &offID); err == nil {
+			var offName string
+			if err := rows.Scan(&a.ID, &a.Role, &slug, &semID, &offID, &offName); err == nil {
 				if slug.Valid {
 					a.ClassSlug = slug.String
 				}
@@ -159,6 +162,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 				if offID.Valid {
 					a.OfferingID = &offID.Int64
 				}
+				a.OfferingName = offName
 				assignments = append(assignments, a)
 			}
 		}
@@ -292,6 +296,10 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 
 	var activeAssignmentData any
 	if u.ActiveAssignmentID > 0 {
+		var offeringName string
+		if u.ActiveCourseOfferingID.Valid {
+			_ = s.v1DB.QueryRow(`SELECT display_name FROM course_offerings WHERE id = ?;`, u.ActiveCourseOfferingID.Int64).Scan(&offeringName)
+		}
 		activeAssignmentData = map[string]any{
 			"id":         u.ActiveAssignmentID,
 			"role":       u.ActiveRole,
@@ -310,6 +318,7 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 				}
 				return nil
 			}(),
+			"offering_name": offeringName,
 		}
 	}
 
@@ -440,6 +449,77 @@ func (s *Server) handleGetV1Classes(w http.ResponseWriter, r *http.Request) {
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"classes": classes,
+	})
+}
+
+// UpdateClassStatusRequest adalah payload perubahan status kelas
+type UpdateClassStatusRequest struct {
+	Status string `json:"status"` // ACTIVE, INACTIVE, ARCHIVED
+}
+
+// handlePatchV1ClassStatus menangani PATCH /api/v1/classes/{slug}
+func (s *Server) handlePatchV1ClassStatus(w http.ResponseWriter, r *http.Request) {
+	u, ok := GetAuthContext(r)
+	if !ok {
+		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	slug := r.PathValue("slug")
+	if strings.TrimSpace(slug) == "" {
+		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Slug kelas tidak valid")
+		return
+	}
+
+	var req UpdateClassStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+
+	newStatus := strings.ToUpper(strings.TrimSpace(req.Status))
+	if newStatus != "ACTIVE" && newStatus != "INACTIVE" && newStatus != "ARCHIVED" {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Status harus salah satu dari: ACTIVE, INACTIVE, ARCHIVED")
+		return
+	}
+
+	var classID int64
+	var oldStatus string
+	err := s.v1DB.QueryRow(`SELECT id, status FROM classes WHERE slug = ?;`, slug).Scan(&classID, &oldStatus)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi kelas")
+		return
+	}
+
+	// Otorisasi: SYSTEM_ADMIN boleh ubah status kelas mana saja; KM hanya boleh untuk kelas miliknya
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		if u.ActiveRole != "KM" || !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID {
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya KM kelas ini atau System Admin yang berwenang mengubah status kelas")
+			return
+		}
+	}
+
+	_, err = s.v1DB.Exec(`UPDATE classes SET status = ? WHERE id = ?;`, newStatus, classID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status kelas")
+		return
+	}
+
+	// Catat audit_logs
+	_, _ = s.v1DB.Exec(`
+		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json)
+		VALUES (?, ?, ?, 'UPDATE_CLASS_STATUS', 'CLASS', ?, ?, ?);
+	`, classID, u.UserID, u.ActiveAssignmentID, classID,
+		fmt.Sprintf(`{"status":%q}`, oldStatus),
+		fmt.Sprintf(`{"status":%q}`, newStatus),
+	)
+
+	s.writeV1Success(w, http.StatusOK, map[string]any{
+		"slug":   slug,
+		"status": newStatus,
 	})
 }
 
