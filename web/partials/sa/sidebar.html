@@ -1,0 +1,55 @@
+<!-- partials/sa/sidebar.html — Sidebar Superadmin desktop -->
+<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
+  <div class="flex items-center gap-2 px-2">
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+  </div>
+  <nav aria-label="Navigasi Superadmin" class="mt-8 flex flex-col gap-0.5 text-[14px]">
+    <p class="px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">SUPERADMIN</p>
+    <button type="button" @click="go('dashboard')"
+      :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span>Dashboard</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">ADMINISTRASI</p>
+    <button type="button" @click="go('kelas')"
+      :class="['kelas','buat','detail'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/ext-settings-edit.svg" alt="" class="w-5 h-5 shrink-0" /><span>Daftar Kelas</span>
+    </button>
+    <button type="button" @click="go('status-bot')"
+      :class="view === 'status-bot' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span>Status Bot WhatsApp</span>
+    </button>
+    <button type="button" @click="go('antrean')"
+      :class="view === 'antrean' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/bell.svg" alt="" class="w-5 h-5 shrink-0" /><span>Antrean Pesan</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">DATA &amp; SISTEM</p>
+    <button type="button" @click="go('master-ruangan')"
+      :class="view === 'master-ruangan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span>Master Ruangan</span>
+    </button>
+    <button type="button" @click="go('master-matkul')"
+      :class="view === 'master-matkul' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/book.svg" alt="" class="w-5 h-5 shrink-0" /><span>Master Mata Kuliah</span>
+    </button>
+    <button type="button" @click="go('pengguna')"
+      :class="view === 'pengguna' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/event.svg" alt="" class="w-5 h-5 shrink-0" /><span>Kelola Pengguna</span>
+    </button>
+    <button type="button" @click="go('backup')"
+      :class="view === 'backup' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Backup Data</span>
+    </button>
+  </nav>
+  <div class="mt-auto pt-4 text-[13px]">
+    <p class="font-semibold text-[#1F1F1F]">Superadmin · Kampus</p>
+    <p class="text-[12px] text-slate-500">Pengelola sistem</p>
+  </div>
+</aside>
