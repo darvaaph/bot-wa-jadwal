@@ -1,34 +1,38 @@
-<!-- partials/sa/view-dashboard.html — Superadmin Dashboard: Ringkasan sistem -->
+<!-- partials/sa/view-dashboard.html — Superadmin Dashboard: Ringkasan sistem (100% Persis Figma: 620:42709) -->
 <section x-show="view === 'dashboard'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Ringkasan sistem</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Pantau kelas, pengurus, dan pesan bot dalam satu tampilan.</p>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Ringkasan sistem</h1>
+    <p class="text-[14px] text-[#667085] mt-1">Pantau kelas, pengurus, dan pesan bot dalam satu tampilan.</p>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-    <div class="p-6 rounded-2xl bg-[#E9EAFF]">
-      <p class="text-[36px] font-bold text-[#1D1B3A] leading-none" x-text="totalKelas">0</p>
-      <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Kelas aktif</p>
-      <p class="text-[12px] text-slate-500">Semester berjalan</p>
+    <!-- 4 Baris Statistik (2x2 Grid) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6">
+      <div class="p-6 rounded-2xl bg-[#E9EAFF]">
+        <p class="text-[36px] font-bold text-[#1D1B3A] leading-none" x-text="totalKelas">24</p>
+        <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Kelas aktif</p>
+        <p class="text-[12px] text-[#667085] mt-1">Semester Ganjil 2026/2027</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#E1FFB7]">
+        <p class="text-[36px] font-bold text-[#1D1B3A] leading-none" x-text="kmAktifCount">22</p>
+        <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">KM aktif</p>
+        <p class="text-[12px] text-[#667085] mt-1">Mengelola kelas kampus</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#FCD484]">
+        <p class="text-[36px] font-bold text-[#1D1B3A] leading-none" x-text="kelasTanpaKMCount">2</p>
+        <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Kelas tanpa KM</p>
+        <p class="text-[12px] text-[#667085] mt-1">Perlu undangan pengurus</p>
+      </div>
+      <div class="p-6 rounded-2xl bg-[#E9EAFF]">
+        <p class="text-[36px] font-bold text-[#1D1B3A] leading-none" x-text="undanganMenungguCount">3</p>
+        <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Undangan menunggu</p>
+        <p class="text-[12px] text-[#667085] mt-1">Aktivasi melalui WhatsApp</p>
+      </div>
     </div>
-    <div class="p-6 rounded-2xl bg-[#E1FFB7]">
-      <p class="text-[36px] font-bold text-[#1D1B3A] leading-none">—</p>
-      <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">KM aktif</p>
-      <p class="text-[12px] text-slate-500">Mengelola kelas kampus · butuh endpoint pengguna</p>
-    </div>
-    <div class="p-6 rounded-2xl bg-[#FCD484]">
-      <p class="text-[36px] font-bold text-[#1D1B3A] leading-none">—</p>
-      <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Kelas tanpa KM</p>
-      <p class="text-[12px] text-slate-500">Perlu undangan pengurus · butuh endpoint pengguna</p>
-    </div>
-    <div class="p-6 rounded-2xl bg-[#E9EAFF]">
-      <p class="text-[36px] font-bold text-[#1D1B3A] leading-none">—</p>
-      <p class="text-[16px] font-bold text-[#1D1B3A] mt-2">Undangan menunggu</p>
-      <p class="text-[12px] text-slate-500">Aktivasi melalui WhatsApp · butuh endpoint undangan</p>
-    </div>
-  </div>
 
-  <div class="p-6 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-    <h2 class="text-[18px] font-semibold" x-text="botOnline ? 'Bot WhatsApp terhubung' : 'Bot WhatsApp terputus'">-</h2>
-    <p class="text-[13px] text-slate-500 mt-1">Periksa antrean pesan dan undangan yang menunggu aktivasi.</p>
-    <button type="button" @click="go('kelas')" class="mt-4 h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">Buka daftar kelas</button>
+    <!-- Kondisi bot dan tindakan -->
+    <div class="p-6 rounded-2xl border border-[#EEEEEE] bg-white mt-6">
+      <h2 class="text-[18px] font-bold text-[#1D1B3A]" x-text="botOnline ? 'Bot WhatsApp terhubung' : 'Bot WhatsApp terputus'">Bot WhatsApp terhubung</h2>
+      <p class="text-[13px] text-[#667085] mt-1">Periksa antrean pesan dan undangan yang menunggu aktivasi.</p>
+      <button type="button" @click="go('kelas')" class="mt-4 h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">Buka daftar kelas</button>
+    </div>
   </div>
 </section>

@@ -2,25 +2,35 @@
 <section x-show="view === 'dukungan'" x-cloak>
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
     <h1 class="text-[24px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Mode Dukungan</h1>
-    <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan. Setiap perubahan dicatat sebagai akses dukungan beserta alasan.</p>
+    <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan. Setiap perubahan dicatat sebagai akses
+      dukungan beserta alasan.</p>
     <div class="mt-4">
       <label class="block text-[14px] font-bold mb-1">Kelas tujuan</label>
-      <select x-model="kelasAktif" class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+      <select x-model="kelasAktif"
+        class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
         <option value="">-- Pilih kelas --</option>
-        <template x-for="k in kelasList" :key="k"><option :value="k" x-text="k">-</option></template>
+        <template x-for="k in kelasList" :key="k">
+          <option :value="k" x-text="k">-</option>
+        </template>
       </select>
     </div>
     <div class="mt-4">
       <label class="block text-[14px] font-bold mb-1">Alasan dukungan <span class="text-[#FF6C48]">*</span></label>
-      <input type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM" class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+      <input type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM"
+        class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
     </div>
-    <button type="button" @click="masukDukungan()" class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px]">Masuk mode dukungan</button>
+    <button type="button" @click="masukDukungan()"
+      class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px]">Masuk mode
+      dukungan</button>
     <p class="text-[11px] text-amber-800 mt-3">Mode dukungan penuh butuh endpoint autentikasi backend.</p>
   </div>
 </section>
 
 <section x-show="view === 'pembaruan'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Pembaruan terbaru</h1>
+  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Pembaruan
+    terbaru</h1>
   <p class="text-[14px] text-slate-500 mt-1">Perubahan sistem dan publikasi terakhir.</p>
-  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Butuh endpoint audit — riwayat tampil setelah backend siap.</div>
+  <div
+    class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">
+    Butuh endpoint audit — riwayat tampil setelah backend siap.</div>
 </section>
