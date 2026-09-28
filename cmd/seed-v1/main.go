@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/seed"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -54,6 +57,11 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Proses seed pilot gagal: %v\n", err)
 		os.Exit(1)
+	}
+
+	// 4b. Seed akun demo KM & PJ untuk pengujian API & Postman
+	if err := seedDemoUsers(targetDB); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️ Gagal membuat akun demo pengurus: %v\n", err)
 	}
 
 	// 5. Tampilkan laporan
@@ -111,3 +119,60 @@ func printHumanReport(report *seed.SeedReport, dbPath string) {
 	fmt.Println("🎉 Seed pilot berhasil diselesaikan dengan aman dan idempoten!")
 	fmt.Println("================================================================================")
 }
+
+func seedDemoUsers(db *sql.DB) error {
+	pwdHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// 1. Insert or update KM demo user (+6281234567890)
+	var kmUserID int64
+	err = db.QueryRow(`
+		INSERT INTO users (identity_key, display_name, password_hash, status)
+		VALUES ('+6281234567890', 'Ketua Murid (Demo)', ?, 'ACTIVE')
+		ON CONFLICT(identity_key) DO UPDATE SET password_hash = excluded.password_hash, status = 'ACTIVE'
+		RETURNING id;
+	`, string(pwdHash)).Scan(&kmUserID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Insert or update PJ demo user (+6281298765432)
+	var pjUserID int64
+	err = db.QueryRow(`
+		INSERT INTO users (identity_key, display_name, password_hash, status)
+		VALUES ('+6281298765432', 'PJ Mata Kuliah (Demo)', ?, 'ACTIVE')
+		ON CONFLICT(identity_key) DO UPDATE SET password_hash = excluded.password_hash, status = 'ACTIVE'
+		RETURNING id;
+	`, string(pwdHash)).Scan(&pjUserID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Pastikan role assignment KM dan PJ ada
+	var classID, semesterID int64
+	err = db.QueryRow(`SELECT id FROM classes WHERE slug = 'd4-ti-2024-a' LIMIT 1;`).Scan(&classID)
+	if err != nil {
+		return nil
+	}
+	_ = db.QueryRow(`SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1;`, classID).Scan(&semesterID)
+
+	var offeringID int64
+	_ = db.QueryRow(`SELECT id FROM course_offerings WHERE semester_id = ? LIMIT 1;`, semesterID).Scan(&offeringID)
+
+	_, _ = db.Exec(`
+		INSERT OR IGNORE INTO role_assignments (user_id, role, scope_type, class_id, semester_id, status)
+		VALUES (?, 'KM', 'CLASS', ?, ?, 'ACTIVE');
+	`, kmUserID, classID, semesterID)
+
+	if offeringID > 0 {
+		_, _ = db.Exec(`
+			INSERT OR IGNORE INTO role_assignments (user_id, role, scope_type, class_id, semester_id, course_offering_id, status)
+			VALUES (?, 'PJ', 'COURSE_OFFERING', ?, ?, ?, 'ACTIVE');
+		`, pjUserID, classID, semesterID, offeringID)
+	}
+
+	return nil
+}
+

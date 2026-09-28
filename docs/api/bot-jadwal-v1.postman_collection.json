@@ -1,0 +1,992 @@
+{
+  "info": {
+    "_postman_id": "bot-jadwal-v1-api-collection",
+    "name": "Bot Jadwal v3.0 - API v1 Collection",
+    "description": "Koleksi lengkap Postman untuk pengujian REST API Bot Jadwal v3.0 (API v1, Portal Mahasiswa, Auth Pengurus, Tugas & Review KM, Teaching Events, dan Legacy Shim).\n\nVariabel bawaan:\n- base_url: http://localhost:8080\n- class_slug: d4-ti-2024-a\n- token: terisi otomatis saat mengeksekusi request Login KM / PJ!",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "class_slug",
+      "value": "d4-ti-2024-a",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Health & Telemetri",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Pengecekan status hidup server HTTP dan waktu aktif (uptime)."
+          }
+        },
+        {
+          "name": "System Status & Telemetri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "status"]
+            },
+            "description": "Mengecek telemetri server, status koneksi bot WhatsApp, dan daftar kelas terdaftar."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Autentikasi Pengurus (v1)",
+      "item": [
+        {
+          "name": "Login KM (Ketua Murid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set(\"token\", json.data.token);",
+                  "        console.log(\"✅ Token KM otomatis tersimpan:\", json.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity_key\": \"+6281234567890\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Login sebagai KM demo. Token Bearer otomatis disimpan ke variabel {{token}} pada koleksi."
+          }
+        },
+        {
+          "name": "Login PJ (Penanggung Jawab)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set(\"token\", json.data.token);",
+                  "        console.log(\"✅ Token PJ otomatis tersimpan:\", json.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity_key\": \"+6281298765432\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Login sebagai PJ demo. Token Bearer otomatis disimpan ke variabel {{token}} pada koleksi."
+          }
+        },
+        {
+          "name": "Get Current User & Context (/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Mendapatkan profil pengguna aktif dan daftar peran (role assignments) yang dimiliki."
+          }
+        },
+        {
+          "name": "Switch Role Context",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set(\"token\", json.data.token);",
+                  "        console.log(\"✅ Token baru setelah switch context tersimpan:\", json.data.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_assignment_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/switch-context",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "switch-context"]
+            },
+            "description": "Mengganti konteks peran aktif dan merotasi token sesi pengurus."
+          }
+        },
+        {
+          "name": "Daftar Kelas (Classes v1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/classes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "classes"]
+            },
+            "description": "Daftar kelas v1 resmi beserta program studi, angkatan, dan rombel."
+          }
+        },
+        {
+          "name": "Buat Undangan Pengurus (Invitation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"PJ\",\n  \"class_slug\": \"{{class_slug}}\",\n  \"semester_id\": 1,\n  \"offering_id\": 1,\n  \"invited_identity_key\": \"+62899998888\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invitations"]
+            },
+            "description": "KM/Admin membuat token undangan baru untuk calon pengurus kelas."
+          }
+        },
+        {
+          "name": "Terima Undangan (Accept Invitation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"INVITATION_TOKEN_HERE\",\n  \"password\": \"rahasia123\",\n  \"display_name\": \"Budi PJ Baru\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/invitations/accept",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invitations", "accept"]
+            },
+            "description": "Menerima undangan peran dan membuat akun/password baru."
+          }
+        },
+        {
+          "name": "Logout Pengurus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Mencabut token sesi aktif dari server."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Portal Mahasiswa (Tanpa Akun)",
+      "item": [
+        {
+          "name": "Portal - Ringkasan Kelas (Summary)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/summary?date=2026-09-28",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "summary"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-09-28"
+                }
+              ]
+            },
+            "description": "Ringkasan kelas: kuliah saat ini, kuliah berikutnya, perubahan hari ini, dan 3 tugas terdekat."
+          }
+        },
+        {
+          "name": "Portal - Jadwal Efektif Hari Ini / Tanggal",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/schedule?date=2026-09-28",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "schedule"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-09-28"
+                }
+              ]
+            },
+            "description": "Jadwal gabungan pola reguler dan teaching events (pengganti, tambahan, libur)."
+          }
+        },
+        {
+          "name": "Portal - Daftar Tugas Terbit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/tasks?group=mendatang",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "tasks"],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "mendatang",
+                  "description": "Pilihan: hari_ini | minggu_ini | mendatang | terlewat"
+                }
+              ]
+            },
+            "description": "Daftar tugas yang telah terbit untuk mahasiswa, terurut tenggat waktu terdekat."
+          }
+        },
+        {
+          "name": "Portal - Detail Tugas & Materi Terkait",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/tasks/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "tasks", "1"]
+            },
+            "description": "Rincian instruksi tugas beserta tautan pengumpulan dan materi pendukung."
+          }
+        },
+        {
+          "name": "Portal - Perubahan Jadwal Terbaru (Changes)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/changes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "changes"]
+            },
+            "description": "Daftar riwayat perubahan jadwal perkuliahan terbit dan koreksi terbaru."
+          }
+        },
+        {
+          "name": "Portal - Direktori Materi & Tautan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/portal/{{class_slug}}/materials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "portal", "{{class_slug}}", "materials"]
+            },
+            "description": "Tautan materi Google Drive, Zoom, dan repositori resmi kelas."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Tugas & Review KM (v1)",
+      "item": [
+        {
+          "name": "Daftar Tugas Pengelola (Filter Tab)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks?tab=aktif",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks"],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "aktif",
+                  "description": "aktif | draf | review | selesai | terlewat | arsip"
+                }
+              ]
+            },
+            "description": "Tabel tugas pengelola dengan filter status dan riwayat review."
+          }
+        },
+        {
+          "name": "Buat Tugas Baru (Draf)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offering_id\": 1,\n  \"title\": \"Draf Latihan Normalisasi SBD\",\n  \"instructions\": \"Kerjakan di kertas folio\",\n  \"deadline_at\": \"2026-10-15T16:59:00Z\",\n  \"save_as\": \"draft\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks"]
+            },
+            "description": "Menyimpan draf tugas sebelum dipublikasikan."
+          }
+        },
+        {
+          "name": "Publikasikan Tugas Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offering_id\": 1,\n  \"title\": \"Tugas ERD dan Relasi Tabel\",\n  \"instructions\": \"Kerjakan modul praktikum halaman 25\",\n  \"deadline_at\": \"2026-10-20T16:59:00Z\",\n  \"submission_url\": \"https://classroom.google.com/c/sample\",\n  \"save_as\": \"published\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks"]
+            },
+            "description": "PJ memublikasikan tugas langsung ke portal (status review NOT_REVIEWED jika PJ, atau APPROVED jika KM)."
+          }
+        },
+        {
+          "name": "Detail & Riwayat Review Tugas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1"]
+            },
+            "description": "Melihat detail tugas lengkap beserta log tinjauan review KM."
+          }
+        },
+        {
+          "name": "Edit Tugas (Optimistic Locking)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tugas ERD dan Relasi Tabel (Revisi Modul)\",\n  \"instructions\": \"Kerjakan soal nomor 1 sampai 5 saja\",\n  \"deadline_at\": \"2026-10-22T16:59:00Z\",\n  \"version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1"]
+            },
+            "description": "Memperbarui tugas dengan validasi versi konkurensi (version match)."
+          }
+        },
+        {
+          "name": "Review KM - Setujui (APPROVED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"note\": \"Tenggat dan instruksi sudah sesuai arahan dosen\",\n  \"task_version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1", "reviews"]
+            },
+            "description": "KM menyetujui tugas secara retrospektif."
+          }
+        },
+        {
+          "name": "Review KM - Minta Koreksi (CHANGES_REQUESTED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"CHANGES_REQUESTED\",\n  \"note\": \"Link Google Classroom salah kelas, mohon diperbaiki\",\n  \"task_version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1", "reviews"]
+            },
+            "description": "KM meminta koreksi, tugas ditarik kembali menjadi DRAFT."
+          }
+        },
+        {
+          "name": "Tandai Tugas Selesai (Complete)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1", "complete"]
+            },
+            "description": "Menandai seluruh kelas telah mengumpulkan tugas."
+          }
+        },
+        {
+          "name": "Arsipkan Tugas (Archive)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/1/archive",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "tasks", "1", "archive"]
+            },
+            "description": "Memindahkan tugas ke arsip riwayat semester."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Jadwal & Teaching Events (v1)",
+      "item": [
+        {
+          "name": "Daftar Pola Jadwal Reguler",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/schedule/patterns?offering_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "schedule", "patterns"],
+              "query": [
+                {
+                  "key": "offering_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Melihat pola jadwal mingguan master."
+          }
+        },
+        {
+          "name": "Buat Draf Kejadian Perkuliahan (Teaching Event)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner_offering_id\": 1,\n  \"event_kind\": \"REPLACEMENT\",\n  \"starts_at\": \"2026-10-05T08:00:00Z\",\n  \"ends_at\": \"2026-10-05T09:40:00Z\",\n  \"reason\": \"Kuliah pengganti pertemuan 2\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/teaching-events",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "teaching-events"]
+            },
+            "description": "Membuat draf jadwal pengganti atau kuliah tambahan."
+          }
+        },
+        {
+          "name": "Daftar Teaching Events Pengelola",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/teaching-events?scope=mine&status=draft",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "teaching-events"],
+              "query": [
+                {
+                  "key": "scope",
+                  "value": "mine"
+                },
+                {
+                  "key": "status",
+                  "value": "draft"
+                }
+              ]
+            },
+            "description": "Melihat daftar teaching events draf atau terbit."
+          }
+        },
+        {
+          "name": "Preview Konflik Perubahan Jadwal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/teaching-events/1/preview",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "teaching-events", "1", "preview"]
+            },
+            "description": "Simulasi perbandingan sebelum vs sesudah serta deteksi bentrok jadwal."
+          }
+        },
+        {
+          "name": "Publikasikan Perubahan Jadwal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-event-pub-001"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/teaching-events/1/publish",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "teaching-events", "1", "publish"]
+            },
+            "description": "PJ memublikasikan perubahan ke portal & memicu antrean siaran WhatsApp."
+          }
+        },
+        {
+          "name": "KM Cabut Publikasi Jadwal (Revoke)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Dosen mengabarkan tidak jadi hadir\",\n  \"version\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/teaching-events/1/revoke",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "teaching-events", "1", "revoke"]
+            },
+            "description": "KM mencabut jadwal yang keliru, memicu notifikasi koreksi jika telah tersiar."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Semester & Kelas (v1)",
+      "item": [
+        {
+          "name": "Daftar Semester Kelas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/classes/{{class_slug}}/semesters",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "classes", "{{class_slug}}", "semesters"]
+            },
+            "description": "Melihat riwayat semester aktif, draf, dan arsip."
+          }
+        },
+        {
+          "name": "Daftar Penawaran Mata Kuliah (Offerings)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/semesters/1/offerings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "semesters", "1", "offerings"]
+            },
+            "description": "Melihat seluruh mata kuliah yang ditawarkan pada semester aktif beserta dosen dan PJ."
+          }
+        },
+        {
+          "name": "Aktivasi Semester Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/classes/{{class_slug}}/semesters/1/activate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "classes", "{{class_slug}}", "semesters", "1", "activate"]
+            },
+            "description": "Mengaktifkan semester baru secara atomik dan mengarsipkan semester lama."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Materi & Tautan (v1)",
+      "item": [
+        {
+          "name": "Daftar Materi Kelas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/materials?class_slug={{class_slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "materials"],
+              "query": [
+                {
+                  "key": "class_slug",
+                  "value": "{{class_slug}}"
+                }
+              ]
+            },
+            "description": "Daftar materi dan tautan kelas."
+          }
+        },
+        {
+          "name": "Tambah Materi Baru",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"class_slug\": \"{{class_slug}}\",\n  \"offering_id\": 1,\n  \"title\": \"Slide Kuliah Pertemuan 3\",\n  \"material_type\": \"DRIVE\",\n  \"url\": \"https://drive.google.com/sample\",\n  \"description\": \"Materi normalisasi database\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/materials",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "materials"]
+            },
+            "description": "PJ/KM menambahkan tautan materi baru."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Fitur Ditunda v1.1 (501 Not Implemented)",
+      "item": [
+        {
+          "name": "Kandidat Ruangan (v1.1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/candidates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "candidates"]
+            },
+            "description": "Verifikasi respons 501 terstruktur untuk fitur fase v1.1."
+          }
+        },
+        {
+          "name": "Antrean Notifikasi Admin (v1.1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "notifications"]
+            },
+            "description": "Verifikasi respons 501 terstruktur untuk fitur fase v1.1."
+          }
+        },
+        {
+          "name": "Audit Log Global (v1.1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "audit"]
+            },
+            "description": "Verifikasi respons 501 terstruktur untuk fitur fase v1.1."
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Legacy Shim (Deprecation: true)",
+      "item": [
+        {
+          "name": "Legacy - Daftar Kelas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/classes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "classes"]
+            },
+            "description": "Endpoint legacy yang tetap melayani kontrak lama dengan header 'Deprecation: true'."
+          }
+        },
+        {
+          "name": "Legacy - Jadwal Kelas Pilot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/schedule?class={{class_slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "schedule"],
+              "query": [
+                {
+                  "key": "class",
+                  "value": "{{class_slug}}"
+                }
+              ]
+            },
+            "description": "Endpoint legacy jadwal yang membaca dari database baru untuk kelas pilot."
+          }
+        },
+        {
+          "name": "Legacy - Tugas Kelas Pilot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tasks?class={{class_slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks"],
+              "query": [
+                {
+                  "key": "class",
+                  "value": "{{class_slug}}"
+                }
+              ]
+            },
+            "description": "Endpoint legacy tugas yang membaca dari database baru."
+          }
+        }
+      ]
+    }
+  ]
+}
