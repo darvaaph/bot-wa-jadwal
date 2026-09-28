@@ -82,13 +82,20 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 - `GET /api/v1/materials?class_slug=&offering_id=` → list (portal + pengelola).
 - `POST /api/v1/materials` `{class_slug, offering_id?, task_id?, title, material_type, url, description}` → PJ hanya offering-nya; KM boleh umum. (Tulis di v1; jika kepepet, tulis geser ke v1.1 tanpa ubah baca.)
 
-## 7. Ditunda v1.1+ (balas 501 terstruktur)
+## 7. Fitur Lanjutan v1 (Ruangan, Notifikasi, Audit, Backup, Admin)
 
-`GET /api/v1/rooms/candidates`, `POST /api/v1/teaching-events/:id/room-confirmations`,
-`GET /api/v1/notifications`, `POST /api/v1/notifications/:id/retry`,
-`GET /api/v1/audit`, `POST /api/v1/backups`, `POST /api/v1/restores`,
-`GET /api/v1/admin/status`, user suspend/recovery admin.
-Body 501: `{status:"error", error:{code:"NOT_IMPLEMENTED", message:"Tahap v1.1: <nama fitur>"}}`.
+| Method & Path | Body penting / Query | Aturan & Akses |
+|---|---|---|
+| `GET /api/v1/rooms/candidates` | `?starts_at=&ends_at=` | Auth; Cari ruangan yang tidak bentrok dengan jadwal lain |
+| `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
+| `GET /api/v1/notifications` | `?status=PENDING\|SENT\|FAILED&limit=` | KM / Admin; Antrean siaran pesan WhatsApp |
+| `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pengiriman pesan gagal |
+| `GET /api/v1/audit` | `?entity_type=&action=&limit=` | KM / Admin; Rekam jejak audit trail perubahan sistem |
+| `POST /api/v1/backups` | `{class_slug?, reason?}` | KM / Admin; Snapshot basis data aman via `VACUUM INTO` |
+| `POST /api/v1/restores` | `{backup_id, reason?}` | Admin; Verifikasi berkas fisik dan kecocokan checksum |
+| `GET /api/v1/admin/status` | — | Admin; Telemetri runtime, koneksi bot, dan status migrasi |
+| `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
+| `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
 
 ## 8. Shim legacy → v1
 

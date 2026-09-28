@@ -347,5 +347,20 @@ func FindDataDir(targetPath string) string {
 		}
 	}
 
+	// Cek juga dalam subdirektori data/ jika belum ditemukan
+	if !strings.HasPrefix(targetPath, "data") {
+		dataP := filepath.Join("data", targetPath)
+		if _, err := os.Stat(dataP); err == nil {
+			return dataP
+		}
+		p = dataP
+		for i := 0; i < 4; i++ {
+			p = filepath.Join("..", p)
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+
 	return targetPath
 }

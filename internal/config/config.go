@@ -42,7 +42,7 @@ func LoadConfig() *Config {
 		SessionDBPath: filepath.Join(storageDir, "sesi_bot.db"),
 		ReminderPath:  filepath.Join(storageDir, "reminder_groups.json"),
 		DataJadwalDir: "data/jadwal",
-		DefaultJadwal: "jadwal.json",
+		DefaultJadwal: filepath.Join("data", "jadwal.json"),
 	}
 }
 

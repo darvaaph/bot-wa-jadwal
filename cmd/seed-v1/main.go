@@ -10,19 +10,29 @@ import (
 
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/seed"
+	"bot-jadwal/internal/util"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
-	manifestPath := flag.String("manifest", "migration_manifest.json", "Jalur berkas manifest migrasi JSON")
+	manifestDefault := filepath.Join("data", "migration_manifest.json")
+	if _, err := os.Stat(manifestDefault); os.IsNotExist(err) {
+		if _, errRoot := os.Stat("migration_manifest.json"); errRoot == nil {
+			manifestDefault = "migration_manifest.json"
+		}
+	}
+
+	manifestPath := flag.String("manifest", manifestDefault, "Jalur berkas manifest migrasi JSON")
 	targetDBPath := flag.String("db", filepath.Join("storage", "bot_v1.db"), "Jalur database target v1 SQLite")
 	legacyDBPath := flag.String("legacy-db", filepath.Join("storage", "tugas.db"), "Jalur database lama SQLite (hanya-baca)")
 	jsonOutput := flag.Bool("json", false, "Keluarkan laporan dalam format JSON murni")
 	flag.Parse()
 
+	resolvedManifest := util.FindDataDir(*manifestPath)
+
 	// 1. Validasi keberadaan manifest
-	if _, err := os.Stat(*manifestPath); err != nil {
+	if _, err := os.Stat(resolvedManifest); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Berkas manifest tidak ditemukan: %s\n", *manifestPath)
 		os.Exit(1)
 	}
@@ -190,4 +200,3 @@ func seedDemoUsers(db *sql.DB) error {
 
 	return nil
 }
-

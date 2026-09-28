@@ -21,6 +21,7 @@ type Server struct {
 	classManager *schedule.ClassManager
 	taskManager  *task.TaskManager
 	v1DB         *sql.DB
+	storageDir   string
 }
 
 // HealthResponse adalah payload untuk endpoint /api/health
@@ -68,9 +69,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
 	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
 
-	// ==========================================
-	// Registrasi Route API v1 (Lapis L2)
-	// ==========================================
+	// Route API v1 (Lapis L2 & Fitur Lanjutan)
 
 	// 1. Auth & Konteks (§1)
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
@@ -294,4 +293,16 @@ func (s *Server) queueNotification(classID int64, eventType, entityType string, 
 		}
 		return nil
 	}(), eventType, entityType, entityID, idempotencyKey, string(payloadBytes), userID)
+}
+
+// SetStorageDir menentukan direktori penyimpanan berkas runtime/backup (berguna untuk pengujian terisolasi)
+func (s *Server) SetStorageDir(dir string) {
+	s.storageDir = dir
+}
+
+func (s *Server) getStorageDir() string {
+	if s.storageDir != "" {
+		return s.storageDir
+	}
+	return "storage"
 }

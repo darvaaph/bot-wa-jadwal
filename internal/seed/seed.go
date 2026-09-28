@@ -15,6 +15,7 @@ import (
 
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/schedule"
+	"bot-jadwal/internal/util"
 	_ "modernc.org/sqlite"
 )
 
@@ -103,7 +104,8 @@ type SeedReport struct {
 
 // LoadManifest membaca dan mengurai manifest dari path file.
 func LoadManifest(manifestPath string) (*Manifest, error) {
-	data, err := os.ReadFile(manifestPath)
+	resolvedPath := util.FindDataDir(manifestPath)
+	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membaca file manifest: %w", err)
 	}
@@ -193,7 +195,7 @@ func ValidateManifest(manifest *Manifest) error {
 		}
 
 		// Validasi keberadaan file kurikulum sumber
-		if _, err := os.Stat(cm.SourceFile); err != nil {
+		if _, err := os.Stat(util.FindDataDir(cm.SourceFile)); err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("%s: berkas kurikulum sumber tidak ditemukan: %s", prefix, cm.SourceFile))
 		}
 	}
@@ -276,7 +278,7 @@ func SeedClasses(manifest *Manifest, manifestChecksum string, targetDB *sql.DB, 
 
 // seedSingleClass mengeksekusi seed untuk satu kelas pilot dalam transaksi database tunggal.
 func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*ClassSeedReport, error) {
-	sourceHash, err := ComputeFileHash(cm.SourceFile)
+	sourceHash, err := ComputeFileHash(util.FindDataDir(cm.SourceFile))
 	if err != nil {
 		sourceHash = "unknown"
 	}

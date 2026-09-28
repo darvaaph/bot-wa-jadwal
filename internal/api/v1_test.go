@@ -127,6 +127,7 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 	})
 
 	server := NewServer(":0", nil, nil, nil, db)
+	server.SetStorageDir(t.TempDir())
 	return db, server
 }
 
@@ -160,9 +161,7 @@ func helperLogin(t *testing.T, s *Server, identityKey, password string) string {
 	return resp.Data.Token
 }
 
-// ============================================================================
 // 1. Auth & Context Tests
-// ============================================================================
 
 func TestV1Auth_LoginSuccess(t *testing.T) {
 	db, s := setupV1TestEnv(t)
@@ -365,9 +364,7 @@ func TestV1Auth_SwitchContext_TokenRotation(t *testing.T) {
 	}
 }
 
-// ============================================================================
 // 2. Portal Read Endpoints Tests
-// ============================================================================
 
 func TestV1Portal_Endpoints(t *testing.T) {
 	db, s := setupV1TestEnv(t)
@@ -422,9 +419,7 @@ func TestV1Portal_Endpoints(t *testing.T) {
 	}
 }
 
-// ============================================================================
 // 3. Tasks Management & Optimistic Locking Tests
-// ============================================================================
 
 func TestV1Tasks_CreateDraftAndPublish(t *testing.T) {
 	db, s := setupV1TestEnv(t)
@@ -605,9 +600,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// 4. Fitur v1.1+ Tests (Status Kelas, Ruangan, Notifikasi, Audit, Backup, Admin, Impor)
-// ============================================================================
+// 4. Fitur Lanjutan Tests (Status Kelas, Ruangan, Notifikasi, Audit, Backup, Admin, Impor)
 
 func TestV1Classes_PatchStatus(t *testing.T) {
 	db, s := setupV1TestEnv(t)
@@ -937,9 +930,7 @@ func TestV1Curriculum_ImportValidateAndApply(t *testing.T) {
 	}
 }
 
-// ============================================================================
 // 5. Legacy Shim Tests (Header Deprecation & Backward Compatibility)
-// ============================================================================
 
 func TestLegacyShim_HeadersAndTelemetry(t *testing.T) {
 	db, s := setupV1TestEnv(t)

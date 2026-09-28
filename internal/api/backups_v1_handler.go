@@ -47,7 +47,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	var req BackupRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	backupDir := "storage/backups"
+	backupDir := filepath.Join(s.getStorageDir(), "backups")
 	_ = os.MkdirAll(backupDir, 0755)
 
 	timestamp := time.Now().Format("20060102_150405")
