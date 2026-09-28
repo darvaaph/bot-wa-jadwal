@@ -68,6 +68,14 @@ func main() {
 		fmt.Printf("Berhasil menghubungkan database utama (%s) [WAL Mode]\n", cfg.AppDBPath)
 	}
 
+	// 4b. Setup Database v1 (SQLite - storage/bot_v1.db dengan WAL & Busy Timeout)
+	v1DB, err := database.InitDB(cfg.V1DBPath)
+	if err != nil {
+		fmt.Printf("Peringatan inisialisasi database v1: %v\n", err)
+	} else {
+		fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
+	}
+
 	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
 	var chatSettingsManager *chat.ChatSettingsManager
 	if appDB != nil {
@@ -166,8 +174,8 @@ func main() {
 		fmt.Println("🌐 [Mode Web-Only] Berjalan tanpa WhatsApp. Server Linux Azure AMAN 100%.")
 	}
 
-	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard
-	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager)
+	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
+	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 
@@ -196,6 +204,14 @@ func main() {
 		fmt.Println("⏳ Menutup koneksi database aplikasi (tugas.db)...")
 		if err := appDB.Close(); err != nil {
 			fmt.Printf("⚠️ Gagal menutup tugas.db: %v\n", err)
+		}
+	}
+
+	// Tutup database v1 (bot_v1.db) untuk checkpoint WAL
+	if v1DB != nil {
+		fmt.Println("⏳ Menutup koneksi database v1 (bot_v1.db)...")
+		if err := v1DB.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup bot_v1.db: %v\n", err)
 		}
 	}
 

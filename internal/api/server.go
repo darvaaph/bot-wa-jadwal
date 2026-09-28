@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,12 +14,13 @@ import (
 	"bot-jadwal/web"
 )
 
-// Server mengelola HTTP REST API untuk Web Admin Dashboard
+// Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
 	httpServer   *http.Server
 	botClient    *bot.BotClient
 	classManager *schedule.ClassManager
 	taskManager  *task.TaskManager
+	v1DB         *sql.DB
 }
 
 // HealthResponse adalah payload untuk endpoint /api/health
@@ -36,12 +38,13 @@ type StatusResponse struct {
 	TotalClasses  int       `json:"total_classes"`
 	DefaultClass  string    `json:"default_class"`
 	Classes       []string  `json:"classes"`
+	V1            string    `json:"v1,omitempty"`
 }
 
 var startTime = time.Now()
 
 // NewServer membuat instance baru HTTP API server dengan middleware CORS dan logging
-func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager) *Server {
+func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager, v1DB ...*sql.DB) *Server {
 	mux := http.NewServeMux()
 
 	s := &Server{
@@ -49,20 +52,94 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 		classManager: classManager,
 		taskManager:  taskManager,
 	}
+	if len(v1DB) > 0 && v1DB[0] != nil {
+		s.v1DB = v1DB[0]
+	}
 
-	// Registrasi Route API Scaffolding (Fase A)
+	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
-	// Registrasi Route Jadwal & Kelas
+	// Registrasi Route Jadwal & Kelas Legacy
 	mux.HandleFunc("GET /api/classes", s.handleClasses)
 	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
-	// Registrasi Route API Tugas (Fase B)
+	// Registrasi Route API Tugas Legacy
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
 	mux.HandleFunc("POST /api/tasks", s.handleCreateTask)
 	mux.HandleFunc("DELETE /api/tasks/{id}", s.handleDeleteTask)
 
-	// Fallback untuk route API yang belum diimplementasikan
+	// ==========================================
+	// Registrasi Route API v1 (Lapis L2)
+	// ==========================================
+
+	// 1. Auth & Konteks (§1)
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
+	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
+	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
+	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1Classes)
+	mux.HandleFunc("POST /api/v1/invitations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateInvitation)))
+	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)
+
+	// 2. Portal Mahasiswa (§2)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/summary", s.handlePortalSummary)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/schedule", s.handlePortalSchedule)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks", s.handlePortalTasks)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks/{id}", s.handlePortalTaskDetail)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/changes", s.handlePortalChanges)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/materials", s.handlePortalMaterials)
+
+	// 3. Semester & Offering (§3)
+	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters", s.RequireAuth(s.handleGetClassSemesters))
+	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateClassSemester)))
+	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters/{id}/activate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleActivateSemester)))
+	mux.HandleFunc("GET /api/v1/semesters/{id}/offerings", s.RequireAuth(s.handleGetSemesterOfferings))
+	mux.HandleFunc("POST /api/v1/semesters/{id}/import-validate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportValidate)))
+	mux.HandleFunc("POST /api/v1/semesters/{id}/import-apply", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportApply)))
+
+	// 4. Jadwal: Pola & Kejadian (§4)
+	mux.HandleFunc("GET /api/v1/schedule/patterns", s.RequireAuth(s.handleGetV1Patterns))
+	mux.HandleFunc("POST /api/v1/schedule/patterns", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Pattern)))
+	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Pattern)))
+	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
+	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.handleGetV1TeachingEvents))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.handlePreviewV1TeachingEvent))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePublishV1TeachingEvent)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRevokeV1TeachingEvent)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participation", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleParticipationV1TeachingEvent)))
+
+	// 5. Tugas & Review (§5)
+	mux.HandleFunc("GET /api/v1/tasks", s.RequireAuth(s.handleGetV1Tasks))
+	mux.HandleFunc("POST /api/v1/tasks", s.RequireAuth(s.handleCreateV1Task))
+	mux.HandleFunc("GET /api/v1/tasks/{id}", s.RequireAuth(s.handleGetV1TaskDetail))
+	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.handlePatchV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleReviewV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.handleCompleteV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.handleArchiveV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.handleRestoreV1Task))
+
+	// 6. Materi (§6)
+	mux.HandleFunc("GET /api/v1/materials", s.handleGetV1Materials)
+	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.handleCreateV1Material))
+
+	// 7. Ditunda v1.1+ (501 Not Implemented, §7)
+	mux.HandleFunc("GET /api/v1/rooms/candidates", s.handleGetRoomCandidates)
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.handleCreateRoomConfirmation)
+	mux.HandleFunc("GET /api/v1/notifications", s.handleGetNotifications)
+	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.handleRetryNotification)
+	mux.HandleFunc("GET /api/v1/audit", s.handleGetAuditLogs)
+	mux.HandleFunc("POST /api/v1/backups", s.handleCreateBackup)
+	mux.HandleFunc("POST /api/v1/restores", s.handleRestoreBackup)
+	mux.HandleFunc("GET /api/v1/admin/status", s.handleGetAdminStatus)
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/suspend", s.handleAdminSuspendUser)
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/recover", s.handleAdminRecoverUser)
+
+	// Fallback untuk route API v1 yang belum diimplementasikan
+	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Endpoint API v1 tidak ditemukan")
+	})
+
+	// Fallback untuk route legacy API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
 			"error": "Endpoint belum tersedia (dijadwalkan pada Fase B)",
@@ -84,8 +161,9 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	return s
 }
 
-// handleHealth mengembalikan sinyal hidup (health check) server
+// handleHealth mengembalikan sinyal hidup (health check) server dengan shim deprecation header
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	resp := HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now(),
@@ -94,8 +172,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
-// handleStatus mengembalikan telemetri bot dan sistem kelas
+// handleStatus mengembalikan telemetri bot dan sistem kelas dengan shim deprecation header
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	botStatus := "uninitialized"
 	if s.botClient != nil {
 		botStatus = s.botClient.Status()
@@ -117,6 +196,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		TotalClasses:  totalClasses,
 		DefaultClass:  defaultClass,
 		Classes:       classes,
+		V1:            "/api/v1/portal/:slug/summary",
 	}
 	s.writeJSON(w, http.StatusOK, resp)
 }

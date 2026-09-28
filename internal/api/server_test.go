@@ -68,4 +68,3 @@ func TestAPIServer_WebStatic(t *testing.T) {
 		t.Errorf("Expected status 200 for index.html, got %d", rr.Code)
 	}
 }
-
