@@ -72,42 +72,15 @@ func main() {
 		fmt.Printf("Berhasil menghubungkan database utama (%s) [WAL Mode]\n", cfg.AppDBPath)
 	}
 
-	var academicRepo *academic.Repository
-	var authService *auth.Service
-	if appDB != nil {
-		academicRepo = academic.NewRepository(appDB)
-		if cfg.AuthHashKey == "" {
-			fmt.Println("❌ BOT_JADWAL_AUTH_HASH_KEY wajib diatur (minimal 32 byte); server tidak dijalankan")
-			_ = appDB.Close()
-			return
-		} else {
-			authService, err = auth.NewService(appDB, auth.Config{HashKey: []byte(cfg.AuthHashKey)})
-			if err != nil {
-				fmt.Printf("❌ Konfigurasi autentikasi pengurus tidak valid: %v\n", err)
-				_ = appDB.Close()
-				return
-			} else {
-				fmt.Println("🔐 Autentikasi pengurus siap")
-			}
-		}
-		ctx, cancelAcademicStartup := context.WithTimeout(context.Background(), 30*time.Second)
-		count, err := academicRepo.CountClasses(ctx)
-		if err == nil && count == 0 {
-			seedPath := cfg.DefaultJadwal
-			if _, err := os.Stat(seedPath); os.IsNotExist(err) {
-				seedPath = "jadwal.json"
-			}
-			if err := academic.SeedFromJSON(ctx, appDB, seedPath); err != nil {
-				fmt.Printf("⚠️  Peringatan seeder otomatis: %v\n", err)
-			} else {
-				fmt.Printf("🌱 Berhasil menyemai data awal akademik dari %s\n", seedPath)
-			}
-		} else if count > 0 {
-			fmt.Printf("🎓 Berhasil memuat domain akademik (%d kelas aktif di database)\n", count)
-		}
-		cancelAcademicStartup()
+	// 4b. Setup Database v1 (SQLite - storage/bot_v1.db dengan WAL & Busy Timeout)
+	v1DB, err := database.InitDB(cfg.V1DBPath)
+	if err != nil {
+		fmt.Printf("Peringatan inisialisasi database v1: %v\n", err)
+	} else {
+		fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
 	}
 
+	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
 	var chatSettingsManager *chat.ChatSettingsManager
 	if appDB != nil {
 		chatSettingsManager, err = chat.NewChatSettingsManager(appDB)
@@ -156,6 +129,7 @@ func main() {
 	}
 
 	var botClient *bot.BotClient
+	var notifWorker *bot.NotificationWorker
 	if !*webOnly {
 		var err error
 		botClient, err = bot.NewBotClient(cfg.SessionDBPath)
@@ -186,6 +160,7 @@ func main() {
 					taskManager,
 					overrideManager,
 					linkManager,
+					v1DB,
 				)
 			}
 		})
@@ -196,34 +171,18 @@ func main() {
 		}
 
 		reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
+
+		// 12b. Jalankan background worker siaran notifikasi WhatsApp (bot_v1.db)
+		if v1DB != nil {
+			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
+			notifWorker.Start()
+		}
 	} else {
 		fmt.Println("🌐 [Mode Web-Only] Berjalan tanpa WhatsApp. Server Linux Azure AMAN 100%.")
 	}
 
-	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, academicRepo)
-	if taskRepo != nil {
-		apiServer.SetTaskRepo(taskRepo)
-	}
-	if authService != nil {
-		apiServer.SetAuthService(authService, cfg.SecureCookies)
-	}
-	if appDB != nil {
-		apiServer.SetPortalService(portal.NewService(appDB))
-		apiServer.SetSemesterService(semester.NewService(appDB))
-		apiServer.SetScheduleEventService(schedule.NewEventService(appDB))
-		notifySvc := notify.NewService(appDB)
-		var sender notify.Sender
-		if botClient != nil {
-			sender = botClient
-		}
-		apiServer.SetNotifyService(notifySvc, sender)
-		apiServer.SetRoomsService(rooms.NewService(appDB))
-		apiServer.SetBackupService(backup.NewService(appDB, cfg.StorageDir+"/backups"))
-		if chatSettingsManager != nil {
-			apiServer.SetChatRefresher(chatSettingsManager)
-		}
-		go runNotifyScheduler(notifySvc, sender)
-	}
+	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
+	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)
@@ -232,6 +191,13 @@ func main() {
 
 	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
 
+	// Hentikan background worker notifikasi WhatsApp
+	if notifWorker != nil {
+		fmt.Println("⏳ Menghentikan background worker notifikasi WhatsApp...")
+		notifWorker.Stop()
+	}
+
+	// Matikan HTTP REST API Server (toleransi timeout 5 detik)
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelShutdown()
 	if err := apiServer.Shutdown(shutdownCtx); err != nil {
@@ -251,6 +217,15 @@ func main() {
 		}
 	}
 
+	// Tutup database v1 (bot_v1.db) untuk checkpoint WAL
+	if v1DB != nil {
+		fmt.Println("⏳ Menutup koneksi database v1 (bot_v1.db)...")
+		if err := v1DB.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup bot_v1.db: %v\n", err)
+		}
+	}
+
+	// Tutup database sesi bot (sesi_bot.db)
 	if botClient != nil {
 		fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
 		if err := botClient.Close(); err != nil {

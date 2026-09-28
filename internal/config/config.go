@@ -12,12 +12,11 @@ type Config struct {
 	APIPort       string
 	StorageDir    string
 	AppDBPath     string
+	V1DBPath      string
 	SessionDBPath string
 	ReminderPath  string
 	DataJadwalDir string
 	DefaultJadwal string
-	AuthHashKey   string
-	SecureCookies bool
 }
 
 // LoadConfig mengembalikan konfigurasi default atau berdasarkan environment variable
@@ -41,12 +40,11 @@ func LoadConfig() *Config {
 		APIPort:       port,
 		StorageDir:    storageDir,
 		AppDBPath:     filepath.Join(storageDir, "tugas.db"),
+		V1DBPath:      filepath.Join(storageDir, "bot_v1.db"),
 		SessionDBPath: filepath.Join(storageDir, "sesi_bot.db"),
 		ReminderPath:  filepath.Join(storageDir, "reminder_groups.json"),
 		DataJadwalDir: "data/jadwal",
-		DefaultJadwal: "jadwal.json",
-		AuthHashKey:   os.Getenv("BOT_JADWAL_AUTH_HASH_KEY"),
-		SecureCookies: secureCookies,
+		DefaultJadwal: filepath.Join("data", "jadwal.json"),
 	}
 }
 

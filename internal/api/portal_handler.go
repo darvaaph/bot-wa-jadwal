@@ -2,723 +2,578 @@ package api
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
-type portalClassContext struct {
-	classID      int64
-	classCode    string
-	classSlug    string
-	semesterID   int64
-	semesterName string
-	location     *time.Location
-}
-
-func portalNotFound(w http.ResponseWriter, s *Server) {
-	s.writeJSON(w, http.StatusNotFound, map[string]string{
-		"status": "error",
-		"error":  "Portal kelas tidak ditemukan atau belum tersedia",
-	})
-}
-
-func (s *Server) resolvePortalContext(r *http.Request) (*portalClassContext, int, string) {
-	if s.academicRepo == nil {
-		return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-	}
-
-	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
-	if slug == "" {
-		return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-	}
-
-	ctx := r.Context()
-	cls, err := s.academicRepo.GetClassBySlug(ctx, slug)
-	if err != nil || cls == nil || cls.Status != "ACTIVE" {
-		return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-	}
-
-	var accessMode string
-	var loc *time.Location
-	loc, err = s.academicRepo.GetClassTimezone(ctx, cls.ID)
-	if err != nil || loc == nil {
-		loc = time.FixedZone("WIB", 7*3600)
-	}
-	if err := s.academicRepo.DB().QueryRowContext(ctx, `SELECT portal_access_mode FROM class_settings WHERE class_id = ?`, cls.ID).Scan(&accessMode); err != nil {
-		accessMode = "LINK"
-	}
-	if strings.ToUpper(strings.TrimSpace(accessMode)) == "CODE" {
-		if !s.portalAuthorized(r, cls.ID) {
-			return nil, http.StatusForbidden, "Portal kelas ini memerlukan kode akses"
-		}
-	}
-
-	semesterID := int64(0)
-	semesterName := ""
-	if rawSemester := strings.TrimSpace(r.URL.Query().Get("semester_id")); rawSemester != "" {
-		parsed, parseErr := strconv.ParseInt(rawSemester, 10, 64)
-		if parseErr != nil || parsed <= 0 {
-			return nil, http.StatusBadRequest, "Parameter semester_id tidak valid"
-		}
-		var status string
-		var publishedAt sql.NullString
-		var academicYear, term string
-		lookupErr := s.academicRepo.DB().QueryRowContext(ctx, `SELECT status, published_at, academic_year, term FROM semesters WHERE id = ? AND class_id = ?`, parsed, cls.ID).Scan(&status, &publishedAt, &academicYear, &term)
-		if lookupErr != nil {
-			return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-		}
-		if status == "DRAFT" || (status == "ARCHIVED" && !publishedAt.Valid) {
-			return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-		}
-		semesterID = parsed
-		semesterName = academicYear + " " + term
-	} else {
-		var activeID int64
-		var academicYear, term string
-		activeErr := s.academicRepo.DB().QueryRowContext(ctx, `SELECT id, academic_year, term FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1`, cls.ID).Scan(&activeID, &academicYear, &term)
-		if activeErr != nil {
-			return nil, http.StatusNotFound, "Portal kelas tidak ditemukan atau belum tersedia"
-		}
-		semesterID = activeID
-		semesterName = academicYear + " " + term
-	}
-
-	return &portalClassContext{
-		classID:      cls.ID,
-		classCode:    cls.Code,
-		classSlug:    cls.Slug,
-		semesterID:   semesterID,
-		semesterName: semesterName,
-		location:     loc,
-	}, 0, ""
-}
-
-func writePortalError(s *Server, w http.ResponseWriter, code int, message string) {
-	if code == http.StatusNotFound {
-		portalNotFound(w, s)
+// handlePortalSummary menangani GET /api/v1/portal/{slug}/summary
+func (s *Server) handlePortalSummary(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	s.writeJSON(w, code, map[string]string{
-		"status": "error",
-		"error":  message,
+
+	slug := r.PathValue("slug")
+	var classID int64
+	var timezone string
+	err := s.v1DB.QueryRow(`
+		SELECT c.id, cs.timezone
+		FROM classes c
+		JOIN class_settings cs ON c.id = cs.class_id
+		WHERE c.slug = ?;
+	`, slug).Scan(&classID, &timezone)
+
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+
+	dateParam := r.URL.Query().Get("date")
+	var targetDate time.Time
+	if dateParam != "" {
+		t, err := time.ParseInLocation("2006-01-02", dateParam, loc)
+		if err == nil {
+			targetDate = t
+		}
+	}
+	if targetDate.IsZero() {
+		targetDate = time.Now().In(loc)
+	}
+	dateStr := targetDate.Format("2006-01-02")
+	dayOfWeek := int(targetDate.Weekday())
+	if dayOfWeek == 0 {
+		dayOfWeek = 7 // Minggu = 7
+	}
+
+	// 1. Ambil jadwal hari ini (Patterns + Events PUBLISHED)
+	scheduleItems, _ := s.getScheduleForDate(classID, targetDate, dayOfWeek)
+
+	// 2. Cari now_event dan next_event berdasarkan waktu saat ini
+	nowTimeStr := targetDate.Format("15:04")
+	var nowEvent any
+	var nextEvent any
+
+	for _, item := range scheduleItems {
+		start := item["starts_at"].(string)
+		end := item["ends_at"].(string)
+
+		if nowTimeStr >= start && nowTimeStr <= end {
+			nowEvent = item
+		} else if nowTimeStr < start && nextEvent == nil {
+			nextEvent = item
+		}
+	}
+
+	// 3. Ambil perubahan hari ini
+	var changesToday []map[string]any
+	for _, item := range scheduleItems {
+		if item["kind"] != "REGULER" {
+			changesToday = append(changesToday, item)
+		}
+	}
+
+	// 4. Ambil tugas terdekat (hingga 3 tugas terdekat)
+	var nearestTasks []map[string]any
+	taskRows, err := s.v1DB.Query(`
+		SELECT t.id, co.display_name, t.title, t.deadline_at, t.submission_url
+		FROM tasks t
+		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		  AND t.publication_status = 'PUBLISHED'
+		  AND t.deleted_at IS NULL
+		  AND t.completed_at IS NULL
+		ORDER BY t.deadline_at ASC
+		LIMIT 3;
+	`, classID)
+
+	if err == nil {
+		defer taskRows.Close()
+		for taskRows.Next() {
+			var tID int64
+			var offering, title string
+			var deadlineAt time.Time
+			var subURL sql.NullString
+			if err := taskRows.Scan(&tID, &offering, &title, &deadlineAt, &subURL); err == nil {
+				nearestTasks = append(nearestTasks, map[string]any{
+					"id":             tID,
+					"offering":       offering,
+					"title":          title,
+					"deadline_at":    deadlineAt.Format(time.RFC3339),
+					"submission_url": subURL.String,
+				})
+			}
+		}
+	}
+
+	s.writeV1Success(w, http.StatusOK, map[string]any{
+		"class":         slug,
+		"date":          dateStr,
+		"now_event":     nowEvent,
+		"next_event":    nextEvent,
+		"today":         scheduleItems,
+		"changes_today": changesToday,
+		"nearest_tasks": nearestTasks,
 	})
 }
 
-type portalScheduleItem struct {
-	MataKuliah string   `json:"mata_kuliah"`
-	Jenis      string   `json:"jenis"`
-	JamMulai   string   `json:"jam_mulai"`
-	JamSelesai string   `json:"jam_selesai"`
-	Dosen      []string `json:"dosen"`
-	Ruangan    string   `json:"ruangan"`
-	Label      string   `json:"label"`
-	Keterangan string   `json:"keterangan,omitempty"`
-}
+// handlePortalSchedule menangani GET /api/v1/portal/{slug}/schedule
+func (s *Server) handlePortalSchedule(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
 
-func parseStoredTime(raw string) (time.Time, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return time.Time{}, errors.New("timestamp kosong")
+	slug := r.PathValue("slug")
+	var classID int64
+	var timezone string
+	err := s.v1DB.QueryRow(`
+		SELECT c.id, cs.timezone
+		FROM classes c
+		JOIN class_settings cs ON c.id = cs.class_id
+		WHERE c.slug = ?;
+	`, slug).Scan(&classID, &timezone)
+
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
 	}
-	layouts := []string{
-		time.RFC3339Nano,
-		time.RFC3339,
-		"2006-01-02T15:04:05.000Z",
-		"2006-01-02 15:04:05",
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
 	}
-	for _, layout := range layouts {
-		if parsed, err := time.Parse(layout, raw); err == nil {
-			return parsed, nil
+
+	dateParam := r.URL.Query().Get("date")
+	var targetDate time.Time
+	if dateParam != "" {
+		t, err := time.ParseInLocation("2006-01-02", dateParam, loc)
+		if err == nil {
+			targetDate = t
 		}
 	}
-	return time.Time{}, errors.New("format timestamp tidak didukung")
-}
-
-func formatClockIn(t time.Time, loc *time.Location) string {
-	return t.In(loc).Format("15.04")
-}
-
-func isoWeekday(date time.Time) int {
-	weekday := int(date.Weekday())
-	if weekday == 0 {
-		return 7
+	if targetDate.IsZero() {
+		targetDate = time.Now().In(loc)
 	}
-	return weekday
-}
+	dateStr := targetDate.Format("2006-01-02")
+	dayOfWeek := int(targetDate.Weekday())
+	if dayOfWeek == 0 {
+		dayOfWeek = 7
+	}
 
-func portalLecturers(db *sql.DB, r *http.Request, offeringID int64) []string {
-	names := []string{}
-	rows, err := db.QueryContext(r.Context(), `SELECT l.full_name FROM offering_lecturers ol
-	JOIN lecturers l ON l.id = ol.lecturer_id
-	WHERE ol.course_offering_id = ?
-	ORDER BY CASE ol.responsibility WHEN 'PRIMARY' THEN 0 WHEN 'ASSISTANT' THEN 1 ELSE 2 END, l.full_name ASC`, offeringID)
+	items, err := s.getScheduleForDate(classID, targetDate, dayOfWeek)
 	if err != nil {
-		return names
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat jadwal")
+		return
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err == nil && strings.TrimSpace(name) != "" {
-			names = append(names, name)
-		}
-	}
-	return names
+
+	s.writeV1Success(w, http.StatusOK, map[string]any{
+		"class": slug,
+		"date":  dateStr,
+		"items": items,
+	})
 }
 
-func portalRoomName(db *sql.DB, r *http.Request, roomID sql.NullInt64) string {
-	if !roomID.Valid {
-		return ""
-	}
-	var name string
-	if err := db.QueryRowContext(r.Context(), `SELECT name FROM rooms WHERE id = ?`, roomID.Int64).Scan(&name); err != nil {
-		return ""
-	}
-	return name
-}
+// getScheduleForDate mengumpulkan seluruh jadwal reguler dan kejadian perkuliahan terbit pada tanggal tertentu.
+func (s *Server) getScheduleForDate(classID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
+	dateStr := targetDate.Format("2006-01-02")
 
-type portalPatternRow struct {
-	patternID  int64
-	offeringID int64
-	courseName string
-	activity   string
-	startTime  string
-	endTime    string
-	roomID     sql.NullInt64
-}
+	// 1. Pola jadwal reguler aktif
+	patternRows, err := s.v1DB.Query(`
+		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
+		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until
+		FROM schedule_patterns sp
+		JOIN course_offerings co ON sp.course_offering_id = co.id
+		JOIN courses c ON co.course_id = c.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN rooms r ON sp.room_id = r.id
+		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		  AND sp.status = 'ACTIVE'
+		  AND sp.day_of_week = ?
+		  AND (sp.effective_from IS NULL OR sp.effective_from <= ?)
+		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+		ORDER BY sp.start_time ASC;
+	`, classID, dayOfWeek, dateStr, dateStr)
 
-type portalEventRow struct {
-	eventID       int64
-	kind          string
-	lifecycle     string
-	startsAt      string
-	endsAt        string
-	roomID        sql.NullInt64
-	reason        sql.NullString
-	originPattern sql.NullInt64
-	originDate    sql.NullString
-	courseName    string
-	activity      string
-	offeringID    int64
-	publishedAt   sql.NullString
-}
-
-func eventLabel(kind, lifecycle string) string {
-	if lifecycle == "REVOKED" {
-		return "Publikasi Dicabut"
-	}
-	switch kind {
-	case "REPLACEMENT":
-		return "Kelas Pengganti"
-	case "EXTRA":
-		return "Kelas Tambahan"
-	case "HOLIDAY":
-		return "Hari Libur"
-	case "SESSION_CANCELLED":
-		return "Sesi Dibatalkan"
-	default:
-		return "Perubahan Jadwal"
-	}
-}
-
-func (s *Server) buildEffectiveSchedule(pctx *portalClassContext, r *http.Request, localDate time.Time) ([]portalScheduleItem, bool, error) {
-	db := s.academicRepo.DB()
-	dayStart := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), 0, 0, 0, 0, pctx.location)
-	dayEnd := dayStart.Add(24 * time.Hour)
-	windowStart := dayStart.UTC().Format(time.RFC3339Nano)
-	windowEnd := dayEnd.UTC().Format(time.RFC3339Nano)
-	dateStr := dayStart.Format("2006-01-02")
-
-	patternRows, err := db.QueryContext(r.Context(), `SELECT sp.id, sp.course_offering_id, c.name, co.activity_type,
-		sp.start_time, sp.end_time, sp.room_id
-	FROM schedule_patterns sp
-	JOIN course_offerings co ON co.id = sp.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	WHERE co.semester_id = ? AND sp.status = 'ACTIVE' AND sp.day_of_week = ?
-	  AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
-	ORDER BY sp.start_time ASC, c.name ASC`, pctx.semesterID, isoWeekday(dayStart), dateStr, dateStr)
+	var items []map[string]any
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	defer patternRows.Close()
 
-	patterns := []portalPatternRow{}
 	for patternRows.Next() {
-		var row portalPatternRow
-		if err := patternRows.Scan(&row.patternID, &row.offeringID, &row.courseName, &row.activity, &row.startTime, &row.endTime, &row.roomID); err != nil {
-			return nil, false, err
-		}
-		patterns = append(patterns, row)
-	}
-	if err := patternRows.Err(); err != nil {
-		return nil, false, err
-	}
+		var patternID, offID int64
+		var offDisplay, courseName, actType, startTime, endTime, roomCode string
+		var effFrom, effUntil sql.NullString
 
-	eventRows, err := db.QueryContext(r.Context(), `SELECT te.id, te.event_kind, te.lifecycle_status, te.starts_at, te.ends_at,
-		te.room_id, te.reason, te.origin_schedule_pattern_id, te.origin_occurrence_date,
-		c.name, co.activity_type, co.id, te.published_at
-	FROM teaching_events te
-	JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id
-	JOIN course_offerings co ON co.id = teo.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	JOIN semesters sem ON sem.id = co.semester_id
-	WHERE sem.class_id = ? AND sem.id = ? AND te.lifecycle_status IN ('PUBLISHED', 'REVOKED')
-	  AND te.starts_at < ? AND te.ends_at > ?
-	  AND ((teo.participation_role = 'OWNER') OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
-	ORDER BY te.starts_at ASC, te.id ASC`, pctx.classID, pctx.semesterID, windowEnd, windowStart)
-	if err != nil {
-		return nil, false, err
-	}
-	defer eventRows.Close()
+		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil); err == nil {
+			// Dosen pengampu
+			lecturers := s.getOfferingLecturers(offID)
 
-	events := []portalEventRow{}
-	for eventRows.Next() {
-		var row portalEventRow
-		if err := eventRows.Scan(&row.eventID, &row.kind, &row.lifecycle, &row.startsAt, &row.endsAt,
-			&row.roomID, &row.reason, &row.originPattern, &row.originDate,
-			&row.courseName, &row.activity, &row.offeringID, &row.publishedAt); err != nil {
-			return nil, false, err
-		}
-		events = append(events, row)
-	}
-	if err := eventRows.Err(); err != nil {
-		return nil, false, err
-	}
-
-	suppressed := map[int64]bool{}
-	isHoliday := false
-	for _, event := range events {
-		if event.lifecycle != "PUBLISHED" {
-			continue
-		}
-		if event.kind == "HOLIDAY" {
-			isHoliday = true
-		}
-		if (event.kind == "REPLACEMENT" || event.kind == "SESSION_CANCELLED") && event.originPattern.Valid && event.originDate.Valid && event.originDate.String == dateStr {
-			suppressed[event.originPattern.Int64] = true
-		}
-	}
-
-	items := []portalScheduleItem{}
-	if !isHoliday {
-		for _, pattern := range patterns {
-			if suppressed[pattern.patternID] {
-				continue
-			}
-			items = append(items, portalScheduleItem{
-				MataKuliah: pattern.courseName,
-				Jenis:      pattern.activity,
-				JamMulai:   strings.ReplaceAll(pattern.startTime, ":", "."),
-				JamSelesai: strings.ReplaceAll(pattern.endTime, ":", "."),
-				Dosen:      portalLecturers(db, r, pattern.offeringID),
-				Ruangan:    portalRoomName(db, r, pattern.roomID),
-				Label:      "Reguler",
+			items = append(items, map[string]any{
+				"id":            fmt.Sprintf("pat_%d", patternID),
+				"kind":          "REGULER",
+				"offering":      offDisplay,
+				"title":         courseName,
+				"activity_type": actType,
+				"starts_at":     startTime,
+				"ends_at":       endTime,
+				"room":          roomCode,
+				"lecturers":     lecturers,
+				"source": map[string]any{
+					"pattern_id": patternID,
+				},
 			})
 		}
 	}
 
-	for _, event := range events {
-		if event.lifecycle != "PUBLISHED" || event.kind == "HOLIDAY" {
-			continue
+	// 2. Kejadian perkuliahan (teaching_events) berstatus PUBLISHED pada tanggal ini
+	eventRows, err := s.v1DB.Query(`
+		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
+		       strftime('%H:%M', te.starts_at) as start_time,
+		       strftime('%H:%M', te.ends_at) as end_time,
+		       COALESCE(r.code, ''), te.origin_schedule_pattern_id
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN courses c ON co.course_id = c.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN rooms r ON te.room_id = r.id
+		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		  AND te.lifecycle_status = 'PUBLISHED'
+		  AND date(te.starts_at) = ?;
+	`, classID, dateStr)
+
+	if err == nil {
+		defer eventRows.Close()
+		for eventRows.Next() {
+			var eventID, offID int64
+			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode string
+			var originPatID sql.NullInt64
+
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID); err == nil {
+				kindMap := map[string]string{
+					"REPLACEMENT":       "PENGGANTI",
+					"EXTRA":             "TAMBAHAN",
+					"HOLIDAY":           "LIBUR",
+					"SESSION_CANCELLED": "DIBATALKAN",
+				}
+				kindLabel, ok := kindMap[eventKind]
+				if !ok {
+					kindLabel = eventKind
+				}
+
+				lecturers := s.getOfferingLecturers(offID)
+
+				// Jika pengganti/pembatalan memiliki origin pattern, tandai/gantikan
+				items = append(items, map[string]any{
+					"id":            fmt.Sprintf("ev_%d", eventID),
+					"kind":          kindLabel,
+					"offering":      offDisplay,
+					"title":         courseName,
+					"activity_type": actType,
+					"starts_at":     startTime,
+					"ends_at":       endTime,
+					"room":          roomCode,
+					"lecturers":     lecturers,
+					"source": map[string]any{
+						"event_id":   eventID,
+						"pattern_id": originPatID.Int64,
+					},
+				})
+			}
 		}
-		starts, err := parseStoredTime(event.startsAt)
-		if err != nil {
-			continue
-		}
-		ends, err := parseStoredTime(event.endsAt)
-		if err != nil {
-			continue
-		}
-		note := ""
-		if event.reason.Valid {
-			note = event.reason.String
-		}
-		items = append(items, portalScheduleItem{
-			MataKuliah: event.courseName,
-			Jenis:      event.activity,
-			JamMulai:   formatClockIn(starts, pctx.location),
-			JamSelesai: formatClockIn(ends, pctx.location),
-			Dosen:      portalLecturers(db, r, event.offeringID),
-			Ruangan:    portalRoomName(db, r, event.roomID),
-			Label:      eventLabel(event.kind, event.lifecycle),
-			Keterangan: note,
-		})
 	}
 
-	if isHoliday {
-		items = append(items, portalScheduleItem{
-			MataKuliah: "Libur",
-			Label:      "Hari Libur",
-			Dosen:      []string{},
-		})
-	}
-
-	return items, isHoliday, nil
+	return items, nil
 }
 
-func (s *Server) handlePortalSummary(w http.ResponseWriter, r *http.Request) {
-	pctx, code, message := s.resolvePortalContext(r)
-	if pctx == nil {
-		writePortalError(s, w, code, message)
-		return
-	}
-
-	now := time.Now().In(pctx.location)
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, pctx.location)
-	schedule, _, err := s.buildEffectiveSchedule(pctx, r, today)
-	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat ringkasan kelas"})
-		return
-	}
-
-	db := s.academicRepo.DB()
-	taskRows, err := db.QueryContext(r.Context(), `SELECT t.id, c.name, t.title, t.deadline_at
-	FROM tasks t
-	JOIN course_offerings co ON co.id = t.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	WHERE co.semester_id = ? AND t.publication_status = 'PUBLISHED'
-	  AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.completed_at IS NULL
-	ORDER BY t.deadline_at ASC LIMIT 5`, pctx.semesterID)
-	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat ringkasan kelas"})
-		return
-	}
-	defer taskRows.Close()
-	nearest := []map[string]any{}
-	for taskRows.Next() {
-		var id int64
-		var course, title, deadline string
-		if err := taskRows.Scan(&id, &course, &title, &deadline); err != nil {
-			continue
+// getOfferingLecturers mengembalikan daftar nama dosen untuk suatu offering.
+func (s *Server) getOfferingLecturers(offeringID int64) []string {
+	var lecturers []string
+	rows, err := s.v1DB.Query(`
+		SELECT l.full_name
+		FROM offering_lecturers ol
+		JOIN lecturers l ON ol.lecturer_id = l.id
+		WHERE ol.course_offering_id = ?;
+	`, offeringID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				lecturers = append(lecturers, name)
+			}
 		}
-		nearest = append(nearest, map[string]any{"id": id, "mata_kuliah": course, "judul": title, "tenggat": deadline})
 	}
-
-	changeRows, err := db.QueryContext(r.Context(), `SELECT te.id, te.event_kind, te.lifecycle_status, te.starts_at, c.name
-	FROM teaching_events te
-	JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id
-	JOIN course_offerings co ON co.id = teo.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	JOIN semesters sem ON sem.id = co.semester_id
-	WHERE sem.class_id = ? AND sem.id = ? AND te.lifecycle_status IN ('PUBLISHED', 'REVOKED')
-	  AND ((teo.participation_role = 'OWNER') OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
-	GROUP BY te.id
-	ORDER BY te.starts_at DESC LIMIT 5`, pctx.classID, pctx.semesterID)
-	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat ringkasan kelas"})
-		return
-	}
-	defer changeRows.Close()
-	changes := []map[string]any{}
-	for changeRows.Next() {
-		var id int64
-		var kind, lifecycle, starts, course string
-		if err := changeRows.Scan(&id, &kind, &lifecycle, &starts, &course); err != nil {
-			continue
-		}
-		changes = append(changes, map[string]any{"id": id, "label": eventLabel(kind, lifecycle), "mata_kuliah": course, "waktu": starts})
-	}
-
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data": map[string]any{
-			"kelas":             pctx.classCode,
-			"semester":          pctx.semesterName,
-			"tanggal":           today.Format("2006-01-02"),
-			"jadwal_hari_ini":   schedule,
-			"tugas_terdekat":    nearest,
-			"perubahan_terbaru": changes,
-		},
-	})
+	return lecturers
 }
 
-func (s *Server) handlePortalSchedule(w http.ResponseWriter, r *http.Request) {
-	pctx, code, message := s.resolvePortalContext(r)
-	if pctx == nil {
-		writePortalError(s, w, code, message)
-		return
-	}
-
-	now := time.Now().In(pctx.location)
-	localDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, pctx.location)
-	if rawDate := strings.TrimSpace(r.URL.Query().Get("date")); rawDate != "" {
-		parsed, err := time.ParseInLocation("2006-01-02", rawDate, pctx.location)
-		if err != nil {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Parameter date tidak valid, gunakan format YYYY-MM-DD"})
-			return
-		}
-		localDate = parsed
-	}
-
-	items, isHoliday, err := s.buildEffectiveSchedule(pctx, r, localDate)
-	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat jadwal kelas"})
-		return
-	}
-
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data": map[string]any{
-			"kelas":      pctx.classCode,
-			"semester":   pctx.semesterName,
-			"tanggal":    localDate.Format("2006-01-02"),
-			"hari_libur": isHoliday,
-			"jadwal":     items,
-		},
-	})
-}
-
+// handlePortalTasks menangani GET /api/v1/portal/{slug}/tasks
 func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
-	pctx, code, message := s.resolvePortalContext(r)
-	if pctx == nil {
-		writePortalError(s, w, code, message)
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
 
-	group := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("group")))
-	if group == "" {
-		group = "all"
-	}
-	switch group {
-	case "all", "today", "week", "upcoming", "overdue":
-	default:
-		s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Parameter group tidak valid"})
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
 
-	now := time.Now().In(pctx.location)
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, pctx.location)
-	weekday := isoWeekday(todayStart)
-	weekStart := todayStart.AddDate(0, 0, -(weekday - 1))
-	weekEnd := weekStart.AddDate(0, 0, 7)
+	rows, err := s.v1DB.Query(`
+		SELECT t.id, co.display_name, t.title, t.instructions, t.deadline_at,
+		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version
+		FROM tasks t
+		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		  AND t.publication_status = 'PUBLISHED'
+		  AND t.deleted_at IS NULL
+		ORDER BY t.deadline_at ASC;
+	`, classID)
 
-	args := []any{pctx.semesterID}
-	query := `SELECT t.id, c.code, c.name, co.activity_type, t.title, t.instructions, t.deadline_at,
-		t.task_type, t.submission_text, t.submission_url
-	FROM tasks t
-	JOIN course_offerings co ON co.id = t.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	WHERE co.semester_id = ? AND t.publication_status = 'PUBLISHED'
-	  AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.completed_at IS NULL`
-	if rawOffering := strings.TrimSpace(r.URL.Query().Get("course_offering_id")); rawOffering != "" {
-		offeringID, err := strconv.ParseInt(rawOffering, 10, 64)
-		if err != nil || offeringID <= 0 {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Parameter course_offering_id tidak valid"})
-			return
-		}
-		query += ` AND t.course_offering_id = ?`
-		args = append(args, offeringID)
-	}
-	query += ` ORDER BY t.deadline_at ASC, t.id ASC`
-
-	rows, err := s.academicRepo.DB().QueryContext(r.Context(), query, args...)
 	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat tugas kelas"})
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas portal")
 		return
 	}
 	defer rows.Close()
 
-	items := []map[string]any{}
+	var tasks []map[string]any
 	for rows.Next() {
 		var id int64
-		var courseCode, courseName, activity, title, instructions, deadline, taskType string
-		var submissionText, submissionURL sql.NullString
-		if err := rows.Scan(&id, &courseCode, &courseName, &activity, &title, &instructions, &deadline, &taskType, &submissionText, &submissionURL); err != nil {
-			continue
+		var offering, title, instructions, subText, subURL string
+		var deadlineAt time.Time
+		var version int
+
+		if err := rows.Scan(&id, &offering, &title, &instructions, &deadlineAt, &subText, &subURL, &version); err == nil {
+			tasks = append(tasks, map[string]any{
+				"id":              id,
+				"offering":        offering,
+				"title":           title,
+				"instructions":    instructions,
+				"deadline_at":     deadlineAt.Format(time.RFC3339),
+				"submission_text": subText,
+				"submission_url":  subURL,
+				"version":         version,
+			})
 		}
-		deadlineTime, err := parseStoredTime(deadline)
-		if err != nil {
-			continue
-		}
-		local := deadlineTime.In(pctx.location)
-		bucket := "upcoming"
-		switch {
-		case !local.Before(todayStart) && local.Before(todayStart.Add(24*time.Hour)):
-			bucket = "today"
-		case !local.Before(weekStart) && local.Before(weekEnd):
-			bucket = "week"
-		case local.Before(todayStart):
-			bucket = "overdue"
-		}
-		if group != "all" && bucket != group {
-			continue
-		}
-		submission := ""
-		if submissionText.Valid && strings.TrimSpace(submissionText.String) != "" {
-			submission = submissionText.String
-		} else if submissionURL.Valid {
-			submission = submissionURL.String
-		}
-		items = append(items, map[string]any{
-			"id":                 id,
-			"mata_kuliah":        courseName,
-			"kode_mata_kuliah":   courseCode,
-			"jenis_kelas":        activity,
-			"judul":              title,
-			"instruksi":          instructions,
-			"tenggat":            local.Format("2006-01-02 15.04"),
-			"zona_waktu":         pctx.location.String(),
-			"jenis_tugas":        taskType,
-			"tempat_pengumpulan": submission,
-			"kelompok":           bucket,
-		})
 	}
-	if err := rows.Err(); err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat tugas kelas"})
+
+	s.writeV1Success(w, http.StatusOK, tasks)
+}
+
+// handlePortalTaskDetail menangani GET /api/v1/portal/{slug}/tasks/{id}
+func (s *Server) handlePortalTaskDetail(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data": map[string]any{
-			"kelas":    pctx.classCode,
-			"semester": pctx.semesterName,
-			"kelompok": group,
-			"tugas":    items,
+	slug := r.PathValue("slug")
+	taskIDStr := r.PathValue("id")
+	taskID, _ := strconv.ParseInt(taskIDStr, 10, 64)
+
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	var (
+		id           int64
+		offeringID   int64
+		offeringName string
+		title        string
+		instructions string
+		deadlineAt   time.Time
+		taskType     sql.NullString
+		subText      sql.NullString
+		subURL       sql.NullString
+		version      int
+		completedAt  sql.NullTime
+	)
+
+	err = s.v1DB.QueryRow(`
+		SELECT t.id, co.id, co.display_name, t.title, t.instructions, t.deadline_at,
+		       t.task_type, t.submission_text, t.submission_url, t.version, t.completed_at
+		FROM tasks t
+		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE t.id = ? AND sem.class_id = ? AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
+	`, taskID, classID).Scan(
+		&id, &offeringID, &offeringName, &title, &instructions, &deadlineAt,
+		&taskType, &subText, &subURL, &version, &completedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat detail tugas")
+		return
+	}
+
+	// Ambil materi terkait tugas ini
+	var materials []map[string]any
+	matRows, err := s.v1DB.Query(`
+		SELECT id, title, material_type, url, description
+		FROM materials
+		WHERE (task_id = ? OR course_offering_id = ?) AND status = 'ACTIVE' AND deleted_at IS NULL;
+	`, id, offeringID)
+	if err == nil {
+		defer matRows.Close()
+		for matRows.Next() {
+			var mID int64
+			var mTitle, mType string
+			var mURL, mDesc sql.NullString
+			if err := matRows.Scan(&mID, &mTitle, &mType, &mURL, &mDesc); err == nil {
+				materials = append(materials, map[string]any{
+					"id":            mID,
+					"title":         mTitle,
+					"material_type": mType,
+					"url":           mURL.String,
+					"description":   mDesc.String,
+				})
+			}
+		}
+	}
+
+	s.writeV1Success(w, http.StatusOK, map[string]any{
+		"task": map[string]any{
+			"id":              id,
+			"offering_id":     offeringID,
+			"offering":        offeringName,
+			"title":           title,
+			"instructions":    instructions,
+			"deadline_at":     deadlineAt.Format(time.RFC3339),
+			"task_type":       taskType.String,
+			"submission_text": subText.String,
+			"submission_url":  subURL.String,
+			"version":         version,
+			"is_completed":    completedAt.Valid,
 		},
+		"materials": materials,
 	})
 }
 
+// handlePortalChanges menangani GET /api/v1/portal/{slug}/changes
 func (s *Server) handlePortalChanges(w http.ResponseWriter, r *http.Request) {
-	pctx, code, message := s.resolvePortalContext(r)
-	if pctx == nil {
-		writePortalError(s, w, code, message)
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
 
-	limit := 20
-	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
-		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil || parsed <= 0 || parsed > 50 {
-			s.writeJSON(w, http.StatusBadRequest, map[string]string{"status": "error", "error": "Parameter limit tidak valid"})
-			return
-		}
-		limit = parsed
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
 	}
 
-	rows, err := s.academicRepo.DB().QueryContext(r.Context(), `SELECT te.id, te.event_kind, te.lifecycle_status,
-		te.starts_at, te.ends_at, te.room_id, te.reason, te.published_at,
-		c.name, co.activity_type, sp.day_of_week, sp.start_time, sp.end_time
-	FROM teaching_events te
-	JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id
-	JOIN course_offerings co ON co.id = teo.course_offering_id
-	JOIN courses c ON c.id = co.course_id
-	JOIN semesters sem ON sem.id = co.semester_id
-	LEFT JOIN schedule_patterns sp ON sp.id = te.origin_schedule_pattern_id
-	WHERE sem.class_id = ? AND sem.id = ? AND te.lifecycle_status IN ('PUBLISHED', 'REVOKED')
-	  AND ((teo.participation_role = 'OWNER') OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
-	GROUP BY te.id
-	ORDER BY te.starts_at DESC LIMIT ?`, pctx.classID, pctx.semesterID, limit)
+	rows, err := s.v1DB.Query(`
+		SELECT te.id, te.event_kind, co.display_name, te.starts_at, te.ends_at,
+		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.published_at
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN rooms r ON te.room_id = r.id
+		WHERE sem.class_id = ? AND te.lifecycle_status = 'PUBLISHED'
+		ORDER BY te.published_at DESC
+		LIMIT 50;
+	`, classID)
+
 	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat perubahan kelas"})
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat riwayat perubahan")
 		return
 	}
 	defer rows.Close()
 
-	db := s.academicRepo.DB()
-	changes := []map[string]any{}
+	var changes []map[string]any
 	for rows.Next() {
 		var id int64
-		var kind, lifecycle, starts, ends string
-		var roomID sql.NullInt64
-		var reason sql.NullString
-		var publishedAt sql.NullString
-		var course, activity string
-		var originDay sql.NullInt64
-		var originStart, originEnd sql.NullString
-		if err := rows.Scan(&id, &kind, &lifecycle, &starts, &ends, &roomID, &reason,
-			&publishedAt, &course, &activity, &originDay, &originStart, &originEnd); err != nil {
-			continue
+		var kind, offering, roomCode, reason string
+		var startsAt, endsAt time.Time
+		var publishedAt sql.NullTime
+
+		if err := rows.Scan(&id, &kind, &offering, &startsAt, &endsAt, &roomCode, &reason, &publishedAt); err == nil {
+			changes = append(changes, map[string]any{
+				"id":           id,
+				"event_kind":   kind,
+				"offering":     offering,
+				"starts_at":    startsAt.Format(time.RFC3339),
+				"ends_at":      endsAt.Format(time.RFC3339),
+				"room":         roomCode,
+				"reason":       reason,
+				"published_at": publishedAt.Time.Format(time.RFC3339),
+			})
 		}
-		startsTime, err := parseStoredTime(starts)
-		if err != nil {
-			continue
-		}
-		endsTime, err := parseStoredTime(ends)
-		if err != nil {
-			continue
-		}
-		before := ""
-		if originDay.Valid && originStart.Valid && originEnd.Valid {
-			before = strings.ReplaceAll(originStart.String, ":", ".") + " - " + strings.ReplaceAll(originEnd.String, ":", ".")
-		}
-		after := formatClockIn(startsTime, pctx.location) + " - " + formatClockIn(endsTime, pctx.location)
-		note := ""
-		if reason.Valid {
-			note = reason.String
-		}
-		changes = append(changes, map[string]any{
-			"id":            id,
-			"label":         eventLabel(kind, lifecycle),
-			"mata_kuliah":   course,
-			"jenis_kelas":   activity,
-			"jadwal_semula": before,
-			"jadwal_baru":   after,
-			"waktu_mulai":   startsTime.In(pctx.location).Format("2006-01-02 15.04"),
-			"ruangan":       portalRoomName(db, r, roomID),
-			"keterangan":    note,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat perubahan kelas"})
-		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data": map[string]any{
-			"kelas":     pctx.classCode,
-			"semester":  pctx.semesterName,
-			"perubahan": changes,
-		},
-	})
+	s.writeV1Success(w, http.StatusOK, changes)
 }
 
-func (s *Server) handlePortalSemesters(w http.ResponseWriter, r *http.Request) {
-	pctx, code, message := s.resolvePortalContext(r)
-	if pctx == nil {
-		writePortalError(s, w, code, message)
+// handlePortalMaterials menangani GET /api/v1/portal/{slug}/materials
+func (s *Server) handlePortalMaterials(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
 
-	rows, err := s.academicRepo.DB().QueryContext(r.Context(), `SELECT id, academic_year, term, starts_on, ends_on, status
-	FROM semesters
-	WHERE class_id = ? AND published_at IS NOT NULL
-	ORDER BY starts_on DESC`, pctx.classID)
+	slug := r.PathValue("slug")
+	var classID int64
+	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	rows, err := s.v1DB.Query(`
+		SELECT m.id, m.title, m.material_type, COALESCE(m.url, ''), COALESCE(m.description, '')
+		FROM materials m
+		WHERE m.class_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
+		ORDER BY m.created_at DESC;
+	`, classID)
+
 	if err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat arsip semester"})
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat materi kelas")
 		return
 	}
 	defer rows.Close()
 
-	items := []map[string]any{}
+	var materials []map[string]any
 	for rows.Next() {
 		var id int64
-		var academicYear, term, startsOn, endsOn, status string
-		if err := rows.Scan(&id, &academicYear, &term, &startsOn, &endsOn, &status); err != nil {
-			continue
+		var title, matType, urlStr, desc string
+		if err := rows.Scan(&id, &title, &matType, &urlStr, &desc); err == nil {
+			materials = append(materials, map[string]any{
+				"id":            id,
+				"title":         title,
+				"material_type": matType,
+				"url":           urlStr,
+				"description":   desc,
+			})
 		}
-		items = append(items, map[string]any{
-			"id":             id,
-			"semester":       academicYear + " " + term,
-			"mulai":          startsOn,
-			"selesai":        endsOn,
-			"status":         status,
-			"semester_aktif": id == pctx.semesterID,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		s.writeJSON(w, http.StatusInternalServerError, map[string]string{"status": "error", "error": "Gagal memuat arsip semester"})
-		return
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data": map[string]any{
-			"kelas":    pctx.classCode,
-			"semester": items,
-		},
-	})
+	s.writeV1Success(w, http.StatusOK, materials)
 }

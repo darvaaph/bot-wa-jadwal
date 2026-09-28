@@ -33,7 +33,9 @@ type ScheduleResponse struct {
 	Data   []ScheduleItemResponse `json:"data"`
 }
 
+// handleClasses menyajikan daftar seluruh kode kelas kanonikal beserta kelas default (Legacy Shim)
 func (s *Server) handleClasses(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	defaultClass := ""
 	classes := make([]string, 0)
 
@@ -67,7 +69,9 @@ func (s *Server) handleClasses(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// handleSchedule menyajikan jadwal perkuliahan berdasarkan kelas dan filter hari (Legacy Shim)
 func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	if s.classManager == nil {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
 			"status":  "error",

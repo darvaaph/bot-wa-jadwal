@@ -90,7 +90,7 @@ func TestRateLimiter_Cleanup(t *testing.T) {
 	rl.cleanupInterval = 1 * time.Second // Percepat interval cleanup untuk testing
 
 	baseTime := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	rl.lastCleanup = baseTime
+	rl.lastCleanup = baseTime // Pastikan waktu cleanup sinkron dengan baseTime pengujian
 	rl.AllowAt("old_user", baseTime)
 
 	// Setelah 10 detik, memanggil AllowAt untuk pengguna baru akan memicu cleanupLocked

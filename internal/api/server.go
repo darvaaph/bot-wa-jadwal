@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,23 +26,14 @@ import (
 	"bot-jadwal/web"
 )
 
+// Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
-	httpServer      *http.Server
-	botClient       *bot.BotClient
-	classManager    *schedule.ClassManager
-	taskManager     *task.TaskManager
-	taskRepo        *task.Repository
-	academicRepo    *academic.Repository
-	authService     *auth.Service
-	portalService   *portal.Service
-	semesterService *semester.Service
-	scheduleEvents  *schedule.EventService
-	notifyService   *notify.Service
-	notifySender    notify.Sender
-	roomsService    *rooms.Service
-	backupService   *backup.Service
-	chatRefresher   chatCacheRefresher
-	secureCookies   bool
+	httpServer   *http.Server
+	botClient    *bot.BotClient
+	classManager *schedule.ClassManager
+	taskManager  *task.TaskManager
+	v1DB         *sql.DB
+	storageDir   string
 }
 
 type HealthResponse struct {
@@ -57,6 +49,7 @@ type StatusResponse struct {
 	TotalClasses  int       `json:"total_classes"`
 	DefaultClass  string    `json:"default_class"`
 	Classes       []string  `json:"classes"`
+	V1            string    `json:"v1,omitempty"`
 }
 
 var startTime = time.Now()
@@ -79,7 +72,7 @@ func (s *Server) writeAcademicQueryError(w http.ResponseWriter, err error, messa
 }
 
 // NewServer membuat instance baru HTTP API server dengan middleware CORS dan logging
-func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager, academicRepo ...*academic.Repository) *Server {
+func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.ClassManager, taskManager *task.TaskManager, v1DB ...*sql.DB) *Server {
 	mux := http.NewServeMux()
 
 	var repo *academic.Repository
@@ -93,7 +86,11 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 		taskManager:  taskManager,
 		academicRepo: repo,
 	}
+	if len(v1DB) > 0 && v1DB[0] != nil {
+		s.v1DB = v1DB[0]
+	}
 
+	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/status", s.authenticateIfConfigured(s.handleStatus))
 
@@ -104,8 +101,10 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/auth/session", s.handleAuthSession)
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.handleAuthSwitchContext)
 
+	// Registrasi Route Jadwal & Kelas Legacy
 	mux.HandleFunc("GET /api/classes", s.handleClasses)
 	mux.HandleFunc("GET /api/schedule", s.handleSchedule)
+	// Registrasi Route API Tugas Legacy
 	mux.HandleFunc("GET /api/tasks", s.handleGetTasks)
 	mux.HandleFunc("POST /api/tasks", s.disableLegacyMutationWhenAuthConfigured(s.handleCreateTask))
 	mux.HandleFunc("DELETE /api/tasks/{id}", s.disableLegacyMutationWhenAuthConfigured(s.handleDeleteTask))
@@ -196,6 +195,77 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("POST /api/v1/admin/channels", s.authenticateMutationIfConfigured(s.handleLinkChannel))
 	mux.HandleFunc("POST /api/v1/admin/channels/{id}/revoke", s.authenticateMutationIfConfigured(s.handleRevokeChannel))
 
+	// Route API v1 (Lapis L2 & Fitur Lanjutan)
+
+	// 1. Auth & Konteks (§1)
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
+	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
+	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
+	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1Classes)
+	mux.HandleFunc("PATCH /api/v1/classes/{slug}", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handlePatchV1ClassStatus)))
+	mux.HandleFunc("POST /api/v1/invitations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateInvitation)))
+	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)
+
+	// 2. Portal Mahasiswa (§2)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/summary", s.handlePortalSummary)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/schedule", s.handlePortalSchedule)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks", s.handlePortalTasks)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks/{id}", s.handlePortalTaskDetail)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/changes", s.handlePortalChanges)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/materials", s.handlePortalMaterials)
+
+	// 3. Semester & Offering (§3)
+	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters", s.RequireAuth(s.handleGetClassSemesters))
+	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateClassSemester)))
+	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters/{id}/activate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleActivateSemester)))
+	mux.HandleFunc("GET /api/v1/semesters/{id}/offerings", s.RequireAuth(s.handleGetSemesterOfferings))
+	mux.HandleFunc("POST /api/v1/semesters/{id}/import-validate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportValidate)))
+	mux.HandleFunc("POST /api/v1/semesters/{id}/import-apply", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportApply)))
+
+	// 4. Jadwal: Pola & Kejadian (§4)
+	mux.HandleFunc("GET /api/v1/schedule/patterns", s.RequireAuth(s.handleGetV1Patterns))
+	mux.HandleFunc("POST /api/v1/schedule/patterns", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Pattern)))
+	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Pattern)))
+	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
+	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.handleGetV1TeachingEvents))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.handlePreviewV1TeachingEvent))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePublishV1TeachingEvent)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRevokeV1TeachingEvent)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participation", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleParticipationV1TeachingEvent)))
+
+	// 5. Tugas & Review (§5)
+	mux.HandleFunc("GET /api/v1/tasks", s.RequireAuth(s.handleGetV1Tasks))
+	mux.HandleFunc("POST /api/v1/tasks", s.RequireAuth(s.handleCreateV1Task))
+	mux.HandleFunc("GET /api/v1/tasks/{id}", s.RequireAuth(s.handleGetV1TaskDetail))
+	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.handlePatchV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleReviewV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.handleCompleteV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.handleArchiveV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.handleRestoreV1Task))
+
+	// 6. Materi (§6)
+	mux.HandleFunc("GET /api/v1/materials", s.handleGetV1Materials)
+	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.handleCreateV1Material))
+
+	// 7. Fitur Lanjutan v1.1+ (Ruangan, Notifikasi, Audit, Backup/Restore, Admin)
+	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.handleGetRoomCandidates))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
+	mux.HandleFunc("GET /api/v1/notifications", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotifications)))
+	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRetryNotification)))
+	mux.HandleFunc("GET /api/v1/audit", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetAuditLogs)))
+	mux.HandleFunc("POST /api/v1/backups", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateBackup)))
+	mux.HandleFunc("POST /api/v1/restores", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleRestoreBackup)))
+	mux.HandleFunc("GET /api/v1/admin/status", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetAdminStatus)))
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/suspend", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminSuspendUser)))
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/recover", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminRecoverUser)))
+
+	// Fallback untuk route API v1 yang belum diimplementasikan
+	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Endpoint API v1 tidak ditemukan")
+	})
+
+	// Fallback untuk route legacy API yang belum diimplementasikan
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, http.StatusNotFound, map[string]string{
 			"error": "Endpoint belum tersedia (dijadwalkan pada Fase B)",
@@ -218,7 +288,9 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	return s
 }
 
+// handleHealth mengembalikan sinyal hidup (health check) server dengan shim deprecation header
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "true")
 	resp := HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now(),
@@ -227,11 +299,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// handleStatus mengembalikan telemetri bot dan sistem kelas dengan shim deprecation header
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() {
-		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
-		return
-	}
+	w.Header().Set("Deprecation", "true")
 	botStatus := "uninitialized"
 	if s.botClient != nil {
 		botStatus = s.botClient.Status()
@@ -253,6 +323,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		TotalClasses:  totalClasses,
 		DefaultClass:  defaultClass,
 		Classes:       classes,
+		V1:            "/api/v1/portal/:slug/summary",
 	}
 	s.writeJSON(w, http.StatusOK, resp)
 }
@@ -328,118 +399,51 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) SetAcademicRepo(repo *academic.Repository) {
-	s.academicRepo = repo
-}
-
-func (s *Server) SetTaskRepo(repo *task.Repository) {
-	s.taskRepo = repo
-}
-
-func (s *Server) SetAuthService(service *auth.Service, secureCookies bool) {
-	s.authService = service
-	s.secureCookies = secureCookies
-}
-
-func (s *Server) SetPortalService(service *portal.Service) {
-	s.portalService = service
-}
-
-func (s *Server) SetSemesterService(service *semester.Service) {
-	s.semesterService = service
-}
-
-func (s *Server) SetScheduleEventService(service *schedule.EventService) {
-	s.scheduleEvents = service
-}
-
-func (s *Server) SetNotifyService(service *notify.Service, sender notify.Sender) {
-	s.notifyService = service
-	s.notifySender = sender
-}
-
-func (s *Server) SetRoomsService(service *rooms.Service) {
-	s.roomsService = service
-}
-
-func (s *Server) SetBackupService(service *backup.Service) {
-	s.backupService = service
-}
-
-func (s *Server) SetChatRefresher(refresher chatCacheRefresher) {
-	s.chatRefresher = refresher
-}
-
-func (s *Server) handleAcademicClasses(w http.ResponseWriter, r *http.Request) {
-	if s.academicRepo == nil {
-		s.writeJSON(w, http.StatusOK, map[string]any{
-			"status": "success",
-			"data":   []any{},
-		})
+// queueNotification mendaftarkan pesan notifikasi siaran ke tabel notification_messages
+func (s *Server) queueNotification(classID int64, eventType, entityType string, entityID int64, payload map[string]any, triggeredByUserID ...int64) {
+	if s.v1DB == nil {
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), academicQueryTimeout)
-	defer cancel()
-
-	classes, err := s.academicRepo.GetClasses(ctx)
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("academic classes query failed: %v", err)
-		s.writeAcademicQueryError(w, err, "Gagal mengambil data kelas")
-		return
+		payloadBytes = []byte("{}")
 	}
-	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() {
-		filtered := classes[:0]
-		for _, class := range classes {
-			if principal.ClassID != nil && class.ID == *principal.ClassID {
-				filtered = append(filtered, class)
-			}
+	idempotencyKey := fmt.Sprintf("%s:%s:%d:%d", eventType, entityType, entityID, time.Now().UnixNano())
+
+	var userID any
+	if len(triggeredByUserID) > 0 && triggeredByUserID[0] > 0 {
+		userID = triggeredByUserID[0]
+	}
+
+	// Cari kanal WhatsApp default yang aktif untuk kelas ini jika ada
+	var channelID sql.NullInt64
+	_ = s.v1DB.QueryRow(`
+		SELECT id FROM whatsapp_channels
+		WHERE class_id = ? AND status = 'ACTIVE'
+		ORDER BY id DESC LIMIT 1;
+	`, classID).Scan(&channelID)
+
+	_, _ = s.v1DB.Exec(`
+		INSERT INTO notification_messages (
+			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, triggered_by_user_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?);
+	`, classID, func() any {
+		if channelID.Valid {
+			return channelID.Int64
 		}
-		classes = filtered
-	}
-
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data":   classes,
-	})
+		return nil
+	}(), eventType, entityType, entityID, idempotencyKey, string(payloadBytes), userID)
 }
 
-func (s *Server) handleAcademicCourses(w http.ResponseWriter, r *http.Request) {
-	if s.academicRepo == nil {
-		s.writeJSON(w, http.StatusOK, map[string]any{
-			"status": "success",
-			"data":   []any{},
-		})
-		return
-	}
+// SetStorageDir menentukan direktori penyimpanan berkas runtime/backup (berguna untuk pengujian terisolasi)
+func (s *Server) SetStorageDir(dir string) {
+	s.storageDir = dir
+}
 
-	idStr := r.PathValue("id")
-	classID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || classID <= 0 {
-		s.writeJSON(w, http.StatusBadRequest, map[string]string{
-			"status": "error",
-			"error":  "Parameter ID kelas tidak valid",
-		})
-		return
+func (s *Server) getStorageDir() string {
+	if s.storageDir != "" {
+		return s.storageDir
 	}
-	if principal, ok := principalFromRequest(r); ok && !principal.IsSystemAdmin() &&
-		(principal.ClassID == nil || *principal.ClassID != classID) {
-		s.writeJSON(w, http.StatusForbidden, map[string]string{"status": "error", "error": "Tindakan tidak tersedia pada cakupan aktif"})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), academicQueryTimeout)
-	defer cancel()
-
-	courses, err := s.academicRepo.GetCoursesByClassID(ctx, classID)
-	if err != nil {
-		log.Printf("academic courses query failed for class ID %d: %v", classID, err)
-		s.writeAcademicQueryError(w, err, "Gagal mengambil daftar mata kuliah")
-		return
-	}
-
-	s.writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success",
-		"data":   courses,
-	})
+	return "storage"
 }

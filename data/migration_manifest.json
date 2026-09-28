@@ -1,0 +1,34 @@
+{
+  "classes": [
+    {
+      "class_code": "D4-TI-2024-A",
+      "slug": "d4-ti-2024-a",
+      "study_program": "D4 Teknik Informatika",
+      "cohort_year": 2024,
+      "group_label": "A",
+      "source_file": "data/jadwal/D4-TI-SMT3-A.json",
+      "legacy_class_id": "D4-TI-SMT3-A",
+      "academic_year": "2026/2027",
+      "term": "GANJIL",
+      "starts_on": "2026-09-01",
+      "ends_on": "2027-01-31",
+      "timezone": "Asia/Jakarta",
+      "portal_access_mode": "LINK"
+    },
+    {
+      "class_code": "D4-TI-2024-B",
+      "slug": "d4-ti-2024-b",
+      "study_program": "D4 Teknik Informatika",
+      "cohort_year": 2024,
+      "group_label": "B",
+      "source_file": "data/jadwal/D4-TI-SMT3-B.json",
+      "legacy_class_id": "D4-TI-SMT3-B",
+      "academic_year": "2026/2027",
+      "term": "GANJIL",
+      "starts_on": "2026-09-01",
+      "ends_on": "2027-01-31",
+      "timezone": "Asia/Jakarta",
+      "portal_access_mode": "LINK"
+    }
+  ]
+}
