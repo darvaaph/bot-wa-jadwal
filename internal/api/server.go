@@ -258,3 +258,40 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 	return nil
 }
+
+// queueNotification mendaftarkan pesan notifikasi siaran ke tabel notification_messages
+func (s *Server) queueNotification(classID int64, eventType, entityType string, entityID int64, payload map[string]any, triggeredByUserID ...int64) {
+	if s.v1DB == nil {
+		return
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		payloadBytes = []byte("{}")
+	}
+	idempotencyKey := fmt.Sprintf("%s:%s:%d:%d", eventType, entityType, entityID, time.Now().UnixNano())
+
+	var userID any
+	if len(triggeredByUserID) > 0 && triggeredByUserID[0] > 0 {
+		userID = triggeredByUserID[0]
+	}
+
+	// Cari kanal WhatsApp default yang aktif untuk kelas ini jika ada
+	var channelID sql.NullInt64
+	_ = s.v1DB.QueryRow(`
+		SELECT id FROM whatsapp_channels
+		WHERE class_id = ? AND status = 'ACTIVE'
+		ORDER BY id DESC LIMIT 1;
+	`, classID).Scan(&channelID)
+
+	_, _ = s.v1DB.Exec(`
+		INSERT INTO notification_messages (
+			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, triggered_by_user_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?);
+	`, classID, func() any {
+		if channelID.Valid {
+			return channelID.Int64
+		}
+		return nil
+	}(), eventType, entityType, entityID, idempotencyKey, string(payloadBytes), userID)
+}

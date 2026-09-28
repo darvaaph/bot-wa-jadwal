@@ -173,6 +173,21 @@ func seedDemoUsers(db *sql.DB) error {
 		`, pjUserID, classID, semesterID, offeringID)
 	}
 
+	// 4. Insert or update System Admin demo user (+6281111111111)
+	var adminUserID int64
+	err = db.QueryRow(`
+		INSERT INTO users (identity_key, display_name, password_hash, status)
+		VALUES ('+6281111111111', 'System Administrator (Demo)', ?, 'ACTIVE')
+		ON CONFLICT(identity_key) DO UPDATE SET password_hash = excluded.password_hash, status = 'ACTIVE'
+		RETURNING id;
+	`, string(pwdHash)).Scan(&adminUserID)
+	if err == nil {
+		_, _ = db.Exec(`
+			INSERT OR IGNORE INTO role_assignments (user_id, role, scope_type, status)
+			VALUES (?, 'SYSTEM_ADMIN', 'GLOBAL', 'ACTIVE');
+		`, adminUserID)
+	}
+
 	return nil
 }
 

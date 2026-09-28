@@ -359,6 +359,27 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Antrekan notifikasi siaran jadwal pengganti ke grup WhatsApp
+	var offName, reason, startsAt, roomCode string
+	var classID int64
+	_ = s.v1DB.QueryRow(`
+		SELECT co.display_name, COALESCE(te.reason, ''), te.starts_at,
+		       COALESCE(r.code, '-'), sem.class_id
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN rooms r ON te.room_id = r.id
+		WHERE te.id = ?;
+	`, eventID).Scan(&offName, &reason, &startsAt, &roomCode, &classID)
+
+	s.queueNotification(classID, "SCHEDULE_REPLACEMENT", "TEACHING_EVENT", eventID, map[string]any{
+		"course":    offName,
+		"starts_at": startsAt,
+		"room":      roomCode,
+		"reason":    reason,
+	}, u.UserID)
+
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"id":               eventID,
 		"lifecycle_status": "PUBLISHED",
@@ -410,6 +431,23 @@ func (s *Server) handleRevokeV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Jadwal tidak ditemukan atau tidak dalam status terbit")
 		return
 	}
+
+	// Antrekan notifikasi siaran pembatalan jadwal ke grup WhatsApp
+	var revokeOffName string
+	var revokeClassID int64
+	_ = s.v1DB.QueryRow(`
+		SELECT co.display_name, sem.class_id
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE te.id = ?;
+	`, eventID).Scan(&revokeOffName, &revokeClassID)
+
+	s.queueNotification(revokeClassID, "SCHEDULE_REVOKED", "TEACHING_EVENT", eventID, map[string]any{
+		"course": revokeOffName,
+		"reason": req.Reason,
+	}, u.UserID)
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"id":               eventID,

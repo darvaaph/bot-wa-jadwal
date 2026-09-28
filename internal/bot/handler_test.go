@@ -61,3 +61,29 @@ func TestHandleIncomingMessage_RateLimiter(t *testing.T) {
 		t.Errorf("Expected command to be allowed after cooldown reset")
 	}
 }
+
+func TestHandleIncomingMessage_WithV1Cutover(t *testing.T) {
+	senderJID := types.NewJID("62855554444", types.DefaultUserServer)
+	chatJID := types.NewJID("120363001234567890@g.us", types.GroupServer)
+
+	msg := &events.Message{
+		Info: types.MessageInfo{
+			ID:      types.MessageID("MSG-TEST-V1"),
+			Sender:  senderJID,
+			Chat:    chatJID,
+			IsGroup: true,
+		},
+		Message: &waE2E.Message{
+			Conversation: proto.String("!jadwal"),
+		},
+	}
+
+	// Memastikan HandleIncomingMessage berjalan aman dengan v1DB nil / tanpa error recovery
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("HandleIncomingMessage panic: %v", r)
+		}
+	}()
+
+	HandleIncomingMessage(nil, msg, nil, nil, nil, nil, nil, nil, nil)
+}

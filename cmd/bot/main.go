@@ -127,6 +127,7 @@ func main() {
 
 	// 9. Setup Klien WhatsApp (Hanya jika bukan mode -web-only)
 	var botClient *bot.BotClient
+	var notifWorker *bot.NotificationWorker
 	if !*webOnly {
 		var err error
 		botClient, err = bot.NewBotClient(cfg.SessionDBPath)
@@ -158,6 +159,7 @@ func main() {
 					taskManager,
 					overrideManager,
 					linkManager,
+					v1DB,
 				)
 			}
 		})
@@ -170,6 +172,12 @@ func main() {
 
 		// 12. Jalankan background scheduler pengingat pagi otomatis (06:00 WIB)
 		reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
+
+		// 12b. Jalankan background worker siaran notifikasi WhatsApp (bot_v1.db)
+		if v1DB != nil {
+			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
+			notifWorker.Start()
+		}
 	} else {
 		fmt.Println("🌐 [Mode Web-Only] Berjalan tanpa WhatsApp. Server Linux Azure AMAN 100%.")
 	}
@@ -185,6 +193,12 @@ func main() {
 	<-stopSig
 
 	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
+
+	// Hentikan background worker notifikasi WhatsApp
+	if notifWorker != nil {
+		fmt.Println("⏳ Menghentikan background worker notifikasi WhatsApp...")
+		notifWorker.Stop()
+	}
 
 	// Matikan HTTP REST API Server (toleransi timeout 5 detik)
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)

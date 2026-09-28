@@ -238,6 +238,33 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 		VALUES (?, ?, ?, 'CREATE_TASK', 'TASK', ?);
 	`, u.ActiveClassID, u.UserID, u.ActiveAssignmentID, taskID)
 
+	// Jika langsung terbit dan disetujui, antrekan notifikasi WhatsApp
+	if publicationStatus == "PUBLISHED" && reviewState == "APPROVED" {
+		var offName string
+		var classID int64
+		_ = s.v1DB.QueryRow(`
+			SELECT co.display_name, sem.class_id
+			FROM course_offerings co
+			JOIN semesters sem ON co.semester_id = sem.id
+			WHERE co.id = ?;
+		`, req.OfferingID).Scan(&offName, &classID)
+
+		sub := ""
+		if req.SubmissionURL != nil && *req.SubmissionURL != "" {
+			sub = *req.SubmissionURL
+		} else if req.SubmissionText != nil && *req.SubmissionText != "" {
+			sub = *req.SubmissionText
+		}
+
+		s.queueNotification(classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
+			"course":         offName,
+			"title":          req.Title,
+			"deadline":       deadlineTime.Format("02 Jan 2006 15:04 WIB"),
+			"instructions":   req.Instructions,
+			"submission_url": sub,
+		}, u.UserID)
+	}
+
 	s.writeV1Success(w, http.StatusCreated, map[string]any{
 		"id":                 taskID,
 		"publication_status": publicationStatus,
@@ -642,6 +669,34 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = tx.Commit()
+
+	if decision == "APPROVED" {
+		var offName, title, instr, subURL, subText string
+		var deadlineAt time.Time
+		var classID int64
+		_ = s.v1DB.QueryRow(`
+			SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
+			       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
+			       sem.class_id
+			FROM tasks t
+			JOIN course_offerings co ON t.course_offering_id = co.id
+			JOIN semesters sem ON co.semester_id = sem.id
+			WHERE t.id = ?;
+		`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID)
+
+		sub := subURL
+		if sub == "" {
+			sub = subText
+		}
+
+		s.queueNotification(classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
+			"course":         offName,
+			"title":          title,
+			"deadline":       deadlineAt.Format("02 Jan 2006 15:04 WIB"),
+			"instructions":   instr,
+			"submission_url": sub,
+		}, u.UserID)
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"task_id":            taskID,

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -975,5 +976,71 @@ func TestLegacyShim_HeadersAndTelemetry(t *testing.T) {
 
 	if w.Header().Get("Deprecation") != "true" {
 		t.Errorf("GET /api/classes expected Deprecation: true header")
+	}
+}
+
+func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// 1. KM membuat tugas dengan save_as = published
+	body := `{
+		"offering_id": 1,
+		"title": "Tugas Notifikasi Otomatis",
+		"instructions": "Pastikan tugas ini masuk antrean notifikasi WhatsApp",
+		"deadline_at": "2026-10-01T23:59:00Z",
+		"submission_url": "https://classroom.google.com/test",
+		"save_as": "published"
+	}`
+	req := httptest.NewRequest("POST", "/api/v1/tasks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create published task expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verifikasi ada baris PENDING di notification_messages
+	var notifCount int
+	var eventType, status string
+	err := db.QueryRow(`
+		SELECT COUNT(*), event_type, status
+		FROM notification_messages
+		WHERE event_type = 'TASK_PUBLISHED' AND status = 'PENDING';
+	`).Scan(&notifCount, &eventType, &status)
+	if err != nil || notifCount != 1 {
+		t.Errorf("Expected 1 PENDING TASK_PUBLISHED notification, got count=%d, err=%v", notifCount, err)
+	}
+
+	// 2. Terbitkan teaching event draft
+	_, _ = db.Exec(`
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status)
+		VALUES (50, 'REPLACEMENT', '2026-10-05T08:00:00Z', '2026-10-05T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role)
+		VALUES (50, 1, 'OWNER');
+	`)
+
+	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Publish teaching event expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verifikasi ada notifikasi SCHEDULE_REPLACEMENT
+	var schedNotifCount int
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM notification_messages
+		WHERE event_type = 'SCHEDULE_REPLACEMENT' AND entity_id = 50 AND status = 'PENDING';
+	`).Scan(&schedNotifCount)
+	if err != nil || schedNotifCount != 1 {
+		t.Errorf("Expected 1 PENDING SCHEDULE_REPLACEMENT notification, got count=%d, err=%v", schedNotifCount, err)
 	}
 }
