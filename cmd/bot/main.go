@@ -200,9 +200,11 @@ func main() {
 	}
 
 	// Tutup database sesi bot (sesi_bot.db)
-	fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
-	if err := botClient.Close(); err != nil {
-		fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+	if botClient != nil {
+		fmt.Println("⏳ Menutup koneksi database sesi (sesi_bot.db)...")
+		if err := botClient.Close(); err != nil {
+			fmt.Printf("⚠️ Gagal menutup sesi_bot.db: %v\n", err)
+		}
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")

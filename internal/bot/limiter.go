@@ -24,7 +24,6 @@ func NewRateLimiter(cooldown time.Duration) *RateLimiter {
 		records:         make(map[string]time.Time),
 		cooldown:        cooldown,
 		cleanupInterval: 5 * time.Minute,
-		lastCleanup:     time.Now(),
 	}
 }
 
@@ -44,7 +43,9 @@ func (rl *RateLimiter) AllowAt(key string, now time.Time) bool {
 	defer rl.mu.Unlock()
 
 	// Bersihkan record usang secara berkala
-	if now.Sub(rl.lastCleanup) >= rl.cleanupInterval {
+	if rl.lastCleanup.IsZero() || now.Before(rl.lastCleanup) {
+		rl.lastCleanup = now
+	} else if now.Sub(rl.lastCleanup) >= rl.cleanupInterval {
 		rl.cleanupLocked(now)
 	}
 
