@@ -1,0 +1,29 @@
+<!-- partials/km/view-monitor.html — KM Monitoring + Log Aktivitas (butuh endpoint) -->
+<section x-show="view === 'monitoring'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Monitoring</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Kesehatan publikasi dan pengiriman pesan kelas</p>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Status bot</p>
+      <p class="text-[20px] font-bold mt-1" :class="botOnline ? 'text-emerald-600' : 'text-[#FF6C48]'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Tugas aktif</p>
+      <p class="text-[32px] font-bold leading-tight" x-text="tasks.length">0</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Antrean pesan</p>
+      <p class="text-[20px] font-bold mt-1 text-slate-400">—</p>
+      <p class="text-[11px] text-slate-400">Butuh endpoint antrean</p>
+    </div>
+  </div>
+</section>
+
+<section x-show="view === 'log'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Log Aktivitas</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Riwayat perubahan kelas dalam urutan waktu</p>
+  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+    <p class="text-[15px] font-semibold">Belum ada riwayat</p>
+    <p class="text-[13px] text-slate-500">Riwayat tampil di sini setelah endpoint audit tersedia.</p>
+  </div>
+</section>
