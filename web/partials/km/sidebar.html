@@ -1,0 +1,71 @@
+<!-- partials/km/sidebar.html — Sidebar KM desktop -->
+<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
+  <div class="flex items-center gap-2 px-2">
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+  </div>
+  <nav aria-label="Navigasi KM" class="mt-8 flex flex-col gap-0.5 text-[14px]">
+    <p class="px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">KM</p>
+    <button type="button" @click="go('dashboard')"
+      :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span>Dashboard</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
+    <button type="button" @click="go('tugas')"
+      :class="view === 'tugas' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5 shrink-0" /><span>Tugas</span>
+    </button>
+    <button type="button" @click="go('jadwal')"
+      :class="view === 'jadwal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span>Jadwal</span>
+    </button>
+    <button type="button" @click="go('dosen')"
+      :class="view === 'dosen' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/book.svg" alt="" class="w-5 h-5 shrink-0" /><span>Dosen berhalangan</span>
+    </button>
+    <button type="button" @click="go('materi')"
+      :class="view === 'materi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Materi</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">KELOLA KELAS</p>
+    <button type="button" @click="go('anggota')"
+      :class="view === 'anggota' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/ext-settings-edit.svg" alt="" class="w-5 h-5 shrink-0" /><span>Anggota &amp; Tim</span>
+    </button>
+    <button type="button" @click="go('pengaturan')"
+      :class="view === 'pengaturan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/settings.svg" alt="" class="w-5 h-5 shrink-0" /><span>Pengaturan Kelas</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">LAINNYA</p>
+    <button type="button" @click="go('monitoring')"
+      :class="view === 'monitoring' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span>Monitoring</span>
+    </button>
+    <button type="button" @click="go('log')"
+      :class="view === 'log' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/ext-check.svg" alt="" class="w-5 h-5 shrink-0" /><span>Log Aktivitas</span>
+    </button>
+    <button type="button" @click="go('notifikasi')"
+      :class="view === 'notifikasi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/bell.svg" alt="" class="w-5 h-5 shrink-0" /><span>Notifikasi</span>
+    </button>
+    <button type="button" @click="go('akun')"
+      :class="view === 'akun' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/event.svg" alt="" class="w-5 h-5 shrink-0" /><span>Akun</span>
+    </button>
+  </nav>
+  <div class="mt-auto pt-4 text-[13px]">
+    <p class="font-semibold text-[#1F1F1F]">KM · <span x-text="selectedClass || '—'">—</span></p>
+    <p class="text-[12px] text-slate-500">Pengelola seluruh kelas</p>
+  </div>
+</aside>

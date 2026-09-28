@@ -1,0 +1,46 @@
+<!-- partials/sa/view-undang.html — Superadmin: Undang KM & Undangan Siap (100% Persis Figma: 620:43523, 620:43912) -->
+
+<!-- 1. FORM UNDANG KM (Figma: Superadmin / D / Undang KM — id: 620:43523) -->
+<section x-show="view === 'undang'" x-cloak>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Undang Ketua Murid</h1>
+    <div class="mt-2 space-y-0.5 text-[14px] text-[#667085]">
+      <p><span class="font-semibold text-[#1D1B3A]" x-text="kelasAktifObj ? kelasAktifObj.nama : 'D4 TI 2024 A'">D4 TI 2024 A</span> · <span x-text="kelasAktifObj ? kelasAktifObj.prodi : 'Teknik Informatika'">Teknik Informatika</span></p>
+      <p>Kelas ditetapkan oleh Superadmin dan tidak dapat diubah.</p>
+    </div>
+
+    <div x-show="undangError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError">-</div>
+
+    <div class="mt-6 max-w-2xl">
+      <label class="block text-[14px] font-bold text-[#1D1B3A] mb-2">Nomor WhatsApp calon KM *</label>
+      <input type="text" x-model="undangNomor" placeholder="0812 3456 7890" class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+
+      <div class="flex items-center gap-4 mt-6">
+        <button type="button" @click="buatUndangKM()" class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">Buat tautan undangan</button>
+        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px]">Batal</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. UNDANGAN KM SIAP (Figma: Superadmin / D / Undangan KM Siap — id: 620:43912) -->
+<section x-show="view === 'undang-siap'" x-cloak>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Undangan KM siap dibagikan</h1>
+    <div class="mt-2 space-y-0.5 text-[14px] text-[#667085]">
+      <p><span class="font-semibold text-[#1D1B3A]" x-text="kelasAktifObj ? kelasAktifObj.nama : 'D4 TI 2024 A'">D4 TI 2024 A</span> · <span x-text="undangNomor">0812 3456 7890</span></p>
+      <p>Tautan berlaku 7 hari dan hanya dapat digunakan satu kali.</p>
+    </div>
+
+    <div class="mt-6 max-w-2xl">
+      <label class="block text-[14px] font-bold text-[#1D1B3A] mb-2">Tautan undangan</label>
+      <div class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] bg-white text-[14px] font-mono text-[#1F1F1F] flex items-center select-all" x-text="undangLink">app.kampus.ac.id/invite/km-abc123xyz</div>
+
+      <div class="flex flex-wrap items-center gap-4 mt-6">
+        <button type="button" @click="copyText(undangLink, 'Tautan undangan tersalin.')" class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">Salin tautan</button>
+        <a :href="'https://wa.me/' + (undangNomor || '').replace(/\D/g, '') + '?text=' + encodeURIComponent('Halo! Ini tautan undangan Ketua Murid (KM) untuk kelas ' + (kelasAktifObj ? kelasAktifObj.nama : '') + ': ' + undangLink)" target="_blank" rel="noopener noreferrer" class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px] flex items-center justify-center">Kirim ke WhatsApp</a>
+        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px]">Selesai</button>
+      </div>
+    </div>
+  </div>
+</section>

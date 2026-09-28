@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Asterisk — Area KM</title>
+  <title>Asterisk — Area Superadmin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,34 +12,29 @@
   <link rel="stylesheet" href="/css/style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
   <script src="/js/api.js"></script>
-  <script src="/js/app-km.js"></script>
+  <script src="/js/app-sa.js"></script>
 </head>
 <!--
-  AREA KM (REVISI Figma, tanpa role switcher).
-  Isi per layar: web/partials/km/*.html dimuat oleh initKM() di js/app-km.js.
+  AREA SUPERADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
+  Isi per layar: web/partials/sa/*.html dimuat oleh initSA() di js/app-sa.js.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="drawer = false">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="saApp()" x-init="initSA()" @keydown.escape.window="drawer = false">
 
-  <div id="km-sidebar"></div>
+  <div id="sa-sidebar"></div>
 
   <div class="md:pl-[248px] flex flex-col min-h-screen min-w-0">
-    <div id="km-topbar"></div>
+    <div id="sa-topbar"></div>
     <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
-      <div id="km-dashboard"></div>
-      <div id="km-tugas"></div>
-      <div id="km-jadwal"></div>
-      <div id="km-dosen"></div>
-      <div id="km-materi"></div>
-      <div id="km-anggota"></div>
-      <div id="km-antrean"></div>
-      <div id="km-monitor"></div>
-      <div id="km-notif"></div>
-      <div id="km-pengaturan"></div>
+      <div id="sa-dashboard"></div>
+      <div id="sa-kelas"></div>
+      <div id="sa-undang"></div>
+      <div id="sa-dukungan"></div>
+      <div id="sa-soon"></div>
     </main>
   </div>
 
-  <div id="km-drawer"></div>
-  <div id="km-toast"></div>
+  <div id="sa-drawer"></div>
+  <div id="sa-toast"></div>
 
 </body>
 </html>
