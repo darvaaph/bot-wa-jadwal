@@ -608,14 +608,30 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT slug, code, study_program, cohort_year, group_label, status
-		FROM classes`
+		SELECT 
+			c.slug, c.code, c.study_program, c.cohort_year, c.group_label, c.status,
+			COALESCE(u.display_name, ''),
+			COALESCE(u.identity_key, ''),
+			COALESCE((
+				SELECT ri.invited_identity_key 
+				FROM role_invitations ri 
+				WHERE ri.class_id = c.id AND ri.role = 'KM' AND ri.status = 'PENDING' AND ri.expires_at > CURRENT_TIMESTAMP
+				ORDER BY ri.created_at DESC LIMIT 1
+			), '')
+		FROM classes c
+		LEFT JOIN (
+			SELECT class_id, user_id 
+			FROM role_assignments 
+			WHERE role = 'KM' AND status = 'ACTIVE' 
+			GROUP BY class_id
+		) ra ON ra.class_id = c.id
+		LEFT JOIN users u ON u.id = ra.user_id AND u.status = 'ACTIVE'`
 	args := []any{}
 	if scopedClassID.Valid {
-		query += ` WHERE id = ?`
+		query += ` WHERE c.id = ?`
 		args = append(args, scopedClassID.Int64)
 	}
-	query += ` ORDER BY code`
+	query += ` ORDER BY c.code`
 
 	rows, err := c.db.QueryContext(r.Context(), query, args...)
 	if err != nil {
@@ -626,19 +642,29 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 
 	classes := make([]map[string]any, 0)
 	for rows.Next() {
-		var slug, code, prog, grp, st string
+		var slug, code, prog, grp, st, kmName, kmPhone, pendingPhone string
 		var cohort int
-		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st); err != nil {
+		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st, &kmName, &kmPhone, &pendingPhone); err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca daftar kelas")
 			return
 		}
+		statusKM := "none"
+		if kmName != "" {
+			statusKM = "active"
+		} else if pendingPhone != "" {
+			statusKM = "pending"
+		}
 		classes = append(classes, map[string]any{
-			"slug":    slug,
-			"code":    code,
-			"program": prog,
-			"cohort":  cohort,
-			"group":   grp,
-			"status":  st,
+			"slug":          slug,
+			"code":          code,
+			"program":       prog,
+			"cohort":        cohort,
+			"group":         grp,
+			"status":        st,
+			"km_name":       kmName,
+			"km_phone":      kmPhone,
+			"status_km":     statusKM,
+			"pending_phone": pendingPhone,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -648,6 +674,134 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
 		"classes": classes,
+	})
+}
+
+// CreateClassRequest payload pembuatan kelas baru oleh System Admin
+type CreateClassRequest struct {
+	Name         string `json:"name"`
+	Code         string `json:"code"`
+	Slug         string `json:"slug"`
+	StudyProgram string `json:"study_program"`
+	CohortYear   int    `json:"cohort_year"`
+	GroupLabel   string `json:"group_label"`
+}
+
+// CreateClass menangani POST /api/v1/classes
+func (c *AuthController) CreateClass(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang membuat kelas baru")
+		return
+	}
+
+	var req CreateClassRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	code := strings.TrimSpace(req.Code)
+	if code == "" && name != "" {
+		code = strings.ToUpper(strings.ReplaceAll(name, " ", "-"))
+	}
+	if code == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Nama atau kode kelas wajib diisi")
+		return
+	}
+
+	slug := strings.ToLower(strings.TrimSpace(req.Slug))
+	if slug == "" {
+		slug = strings.ToLower(code)
+	}
+
+	prog := strings.TrimSpace(req.StudyProgram)
+	if prog == "" {
+		prog = "Teknik Informatika"
+	}
+
+	cohort := req.CohortYear
+	if cohort == 0 {
+		cohort = time.Now().Year()
+	}
+
+	group := strings.ToUpper(strings.TrimSpace(req.GroupLabel))
+	if group == "" {
+		parts := strings.Split(code, "-")
+		if len(parts) > 1 && len(parts[len(parts)-1]) == 1 {
+			group = parts[len(parts)-1]
+		} else {
+			group = "A"
+		}
+	}
+
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi pembuatan kelas")
+		return
+	}
+	defer tx.Rollback()
+
+	var classID int64
+	err = tx.QueryRow(`
+		INSERT INTO classes (code, slug, study_program, cohort_year, group_label, status)
+		VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+		RETURNING id;
+	`, code, slug, prog, cohort, group).Scan(&classID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Kelas dengan kode atau kombinasi prodi/angkatan/grup sudah ada")
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode, portal_code_version, replacement_reminder_minutes, version)
+		VALUES (?, 'Asia/Jakarta', 'LINK', 1, 60, 1)
+		ON CONFLICT(class_id) DO NOTHING;
+	`, classID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pengaturan default kelas")
+		return
+	}
+
+	uid := u.UserID
+	var raid *int64
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	afterJSON := fmt.Sprintf(`{"code":%q,"slug":%q,"study_program":%q,"cohort_year":%d,"group_label":%q,"status":"ACTIVE"}`, code, slug, prog, cohort, group)
+	correlationID := fmt.Sprintf("create-class-%d-%d", classID, time.Now().UnixNano())
+	_ = audit.Write(r.Context(), tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		ClassID:       &classID,
+		Action:        "CREATE_CLASS",
+		EntityType:    "CLASS",
+		EntityID:      &classID,
+		AfterJSON:     &afterJSON,
+		CorrelationID: correlationID,
+	})
+
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pembuatan kelas")
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusCreated, map[string]any{
+		"id":        classID,
+		"code":      code,
+		"slug":      slug,
+		"program":   prog,
+		"cohort":    cohort,
+		"group":     group,
+		"status":    "ACTIVE",
+		"status_km": "none",
 	})
 }
 

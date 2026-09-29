@@ -78,6 +78,15 @@ func (s *Server) handlePatchV1ClassStatus(w http.ResponseWriter, r *http.Request
 	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+// handleCreateV1Class mendelegasikan pembuatan kelas baru ke AuthController.
+func (s *Server) handleCreateV1Class(w http.ResponseWriter, r *http.Request) {
+	if s.authController != nil {
+		s.authController.CreateClass(w, r)
+		return
+	}
+	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleCreateInvitation mendelegasikan pembuatan token undangan pengurus ke AuthController.
 func (s *Server) handleCreateInvitation(w http.ResponseWriter, r *http.Request) {
 	if s.authController != nil {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -23,15 +24,15 @@ import (
 
 // Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
-	httpServer     *http.Server
-	botClient      *bot.BotClient
-	classManager   *schedule.ClassManager
-	taskManager    *task.TaskManager
-	v1DB           *sql.DB
-	portalService  *portal.Service
-	legacyHandler  *legacy.Handler
-	secManager     *middleware.SecurityManager
-	authManager    *middleware.AuthManager
+	httpServer         *http.Server
+	botClient          *bot.BotClient
+	classManager       *schedule.ClassManager
+	taskManager        *task.TaskManager
+	v1DB               *sql.DB
+	portalService      *portal.Service
+	legacyHandler      *legacy.Handler
+	secManager         *middleware.SecurityManager
+	authManager        *middleware.AuthManager
 	rlManager          *middleware.RateLimitManager
 	taskController     *v1.TaskController
 	scheduleController *v1.ScheduleController
@@ -40,7 +41,7 @@ type Server struct {
 	academicController *v1.AcademicController
 	adminController    *v1.AdminController
 	storageDir         string
-	secureCookies bool
+	secureCookies      bool
 	// BE-013/BE-014: konfigurasi security eksplisit.
 	env               string
 	authHashKey       []byte
@@ -123,9 +124,13 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 
 // Start menjalankan HTTP Server di background goroutine
 func (s *Server) Start() error {
+	ln, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return fmt.Errorf("gagal mendengarkan pada %s: %w", s.httpServer.Addr, err)
+	}
 	fmt.Printf("🌐 [Web API] Server REST API aktif di http://localhost%s\n", s.httpServer.Addr)
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("⚠️ [Web API] Server berhenti dengan pesan: %v\n", err)
 		}
 	}()

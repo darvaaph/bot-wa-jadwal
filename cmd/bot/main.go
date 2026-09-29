@@ -189,7 +189,10 @@ func main() {
 		TrustedProxyCIDRs: cfg.TrustedProxyCIDRs,
 		PublicBaseURL:     cfg.PublicBaseURL,
 	})
-	_ = apiServer.Start()
+	if err := apiServer.Start(); err != nil {
+		fmt.Printf("❌ Gagal memulai server Web API: %v\n", err)
+		return
+	}
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
