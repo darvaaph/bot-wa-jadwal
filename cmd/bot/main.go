@@ -175,6 +175,7 @@ func main() {
 
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
+	apiServer.SetSecureCookies(cfg.SecureCookies)
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)

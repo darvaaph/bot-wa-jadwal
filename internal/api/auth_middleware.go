@@ -176,14 +176,22 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		if role.Valid {
 			if raValidFrom.Valid {
 				vf, err := parseTime(raValidFrom.String)
-				if err == nil && now.Before(vf) {
+				if err != nil {
+					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Masa berlaku penugasan peran tidak valid")
+					return
+				}
+				if now.Before(vf) {
 					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Penugasan peran Anda belum aktif")
 					return
 				}
 			}
 			if raValidUntil.Valid {
 				vu, err := parseTime(raValidUntil.String)
-				if err == nil && now.After(vu) {
+				if err != nil {
+					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Masa berlaku penugasan peran tidak valid")
+					return
+				}
+				if now.After(vu) {
 					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Penugasan peran Anda telah kedaluwarsa")
 					return
 				}

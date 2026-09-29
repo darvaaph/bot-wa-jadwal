@@ -2,12 +2,15 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"bot-jadwal/internal/bot"
@@ -79,7 +82,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
 	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
-	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1Classes)
+	mux.HandleFunc("GET /api/v1/classes", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetV1Classes)))
 	mux.HandleFunc("PATCH /api/v1/classes/{slug}", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handlePatchV1ClassStatus)))
 	mux.HandleFunc("POST /api/v1/invitations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateInvitation)))
 	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)
@@ -93,40 +96,40 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("GET /api/v1/portal/{slug}/materials", s.handlePortalMaterials)
 
 	// 3. Semester & Offering (§3)
-	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters", s.RequireAuth(s.handleGetClassSemesters))
+	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetClassSemesters)))
 	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateClassSemester)))
 	mux.HandleFunc("POST /api/v1/classes/{slug}/semesters/{id}/activate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleActivateSemester)))
-	mux.HandleFunc("GET /api/v1/semesters/{id}/offerings", s.RequireAuth(s.handleGetSemesterOfferings))
+	mux.HandleFunc("GET /api/v1/semesters/{id}/offerings", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetSemesterOfferings)))
 	mux.HandleFunc("POST /api/v1/semesters/{id}/import-validate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportValidate)))
 	mux.HandleFunc("POST /api/v1/semesters/{id}/import-apply", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportApply)))
 
 	// 4. Jadwal: Pola & Kejadian (§4)
-	mux.HandleFunc("GET /api/v1/schedule/patterns", s.RequireAuth(s.handleGetV1Patterns))
+	mux.HandleFunc("GET /api/v1/schedule/patterns", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1Patterns)))
 	mux.HandleFunc("POST /api/v1/schedule/patterns", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Pattern)))
 	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Pattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
-	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.handleGetV1TeachingEvents))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.handlePreviewV1TeachingEvent))
+	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEvents)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1TeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePublishV1TeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRevokeV1TeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participation", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleParticipationV1TeachingEvent)))
 
 	// 5. Tugas & Review (§5)
-	mux.HandleFunc("GET /api/v1/tasks", s.RequireAuth(s.handleGetV1Tasks))
-	mux.HandleFunc("POST /api/v1/tasks", s.RequireAuth(s.handleCreateV1Task))
-	mux.HandleFunc("GET /api/v1/tasks/{id}", s.RequireAuth(s.handleGetV1TaskDetail))
-	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.handlePatchV1Task))
+	mux.HandleFunc("GET /api/v1/tasks", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1Tasks)))
+	mux.HandleFunc("POST /api/v1/tasks", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Task)))
+	mux.HandleFunc("GET /api/v1/tasks/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TaskDetail)))
+	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleReviewV1Task)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.handleCompleteV1Task))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.handleArchiveV1Task))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.handleRestoreV1Task))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCompleteV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleArchiveV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleRestoreV1Task)))
 
 	// 6. Materi (§6)
-	mux.HandleFunc("GET /api/v1/materials", s.handleGetV1Materials)
-	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.handleCreateV1Material))
+	mux.HandleFunc("GET /api/v1/materials", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1Materials)))
+	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Material)))
 
 	// 7. Fitur Lanjutan v1.1+ (Ruangan, Notifikasi, Audit, Backup/Restore, Admin)
-	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.handleGetRoomCandidates))
+	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetRoomCandidates)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
 	mux.HandleFunc("GET /api/v1/notifications", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotifications)))
 	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRetryNotification)))
@@ -164,6 +167,11 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	}
 
 	return s
+}
+
+// SetSecureCookies mengaktifkan atribut Secure pada seluruh cookie autentikasi.
+func (s *Server) SetSecureCookies(enabled bool) {
+	s.secureCookies = enabled
 }
 
 // handleHealth mengembalikan sinyal hidup (health check) server dengan shim deprecation header
@@ -293,9 +301,12 @@ func (s *Server) queueNotification(classID int64, eventType, entityType string, 
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		payloadBytes = []byte("{}")
+		fmt.Printf("[Notifikasi] payload %s/%s/%d tidak valid: %v\n", eventType, entityType, entityID, err)
+		return
 	}
-	idempotencyKey := fmt.Sprintf("%s:%s:%d:%d", eventType, entityType, entityID, time.Now().UnixNano())
+	keySource := fmt.Sprintf("%s:%s:%d:%s", eventType, entityType, entityID, payloadBytes)
+	keyHash := sha256.Sum256([]byte(keySource))
+	idempotencyKey := hex.EncodeToString(keyHash[:])
 
 	var userID any
 	if len(triggeredByUserID) > 0 && triggeredByUserID[0] > 0 {
@@ -309,15 +320,20 @@ func (s *Server) queueNotification(classID int64, eventType, entityType string, 
 		WHERE class_id = ? AND status = 'ACTIVE'
 		ORDER BY id DESC LIMIT 1;
 	`, classID).Scan(&channelID); err != nil || !channelID.Valid {
+		fmt.Printf("[Notifikasi] kanal aktif kelas %d tidak tersedia untuk %s/%s/%d\n", classID, eventType, entityType, entityID)
 		return
 	}
 
-	_, _ = s.v1DB.Exec(`
+	if _, err := s.v1DB.Exec(`
 		INSERT INTO notification_messages (
 			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
 			idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id
 		) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP, ?);
-	`, classID, channelID.Int64, eventType, entityType, entityID, idempotencyKey, string(payloadBytes), userID)
+	`, classID, channelID.Int64, eventType, entityType, entityID, idempotencyKey, string(payloadBytes), userID); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "unique") {
+			fmt.Printf("[Notifikasi] gagal menyimpan outbox %s/%s/%d: %v\n", eventType, entityType, entityID, err)
+		}
+	}
 }
 
 // SetStorageDir menentukan direktori penyimpanan berkas runtime/backup (berguna untuk pengujian terisolasi)

@@ -168,15 +168,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(assignments) == 0 {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Pengguna tidak memiliki penugasan peran aktif")
+		return
+	}
+
 	// Tentukan active_role_assignment_id awal
 	var activeAssignmentID sql.NullInt64
 	needContextChoice := len(assignments) > 1
-	activeRole := "GUEST"
-
-	if len(assignments) > 0 {
-		activeAssignmentID = sql.NullInt64{Int64: assignments[0].ID, Valid: true}
-		activeRole = assignments[0].Role
-	}
+	activeRole := assignments[0].Role
+	activeAssignmentID = sql.NullInt64{Int64: assignments[0].ID, Valid: true}
 
 	// Tentukan batas waktu absolut (Admin: 8 jam, PJ/KM: 24 jam)
 	absTTL := 24 * time.Hour
@@ -215,6 +216,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
+		Secure:   s.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -248,6 +250,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   s.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -403,6 +406,7 @@ func (s *Server) handleSwitchContext(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
+		Secure:   s.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -502,20 +506,35 @@ func (s *Server) handlePatchV1ClassStatus(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	_, err = s.v1DB.Exec(`UPDATE classes SET status = ? WHERE id = ?;`, newStatus, classID)
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi status kelas")
+		return
+	}
+	defer tx.Rollback()
+	_, err = tx.Exec(`UPDATE classes SET status = ? WHERE id = ?;`, newStatus, classID)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status kelas")
 		return
 	}
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json)
-		VALUES (?, ?, ?, 'UPDATE_CLASS_STATUS', 'CLASS', ?, ?, ?);
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'UPDATE_CLASS_STATUS', 'CLASS', ?, ?, ?, ?);
 	`, classID, u.UserID, u.ActiveAssignmentID, classID,
 		fmt.Sprintf(`{"status":%q}`, oldStatus),
 		fmt.Sprintf(`{"status":%q}`, newStatus),
+		fmt.Sprintf("class-status-%d-%d", classID, time.Now().UnixNano()),
 	)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit status kelas")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit status kelas")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"slug":   slug,
@@ -654,7 +673,7 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 		semesterID       sql.NullInt64
 		courseOfferingID sql.NullInt64
 		status           string
-		expiresAt        time.Time
+		expiresAt        dbTimestamp
 	)
 
 	err := s.v1DB.QueryRow(`
@@ -671,7 +690,7 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if time.Now().After(expiresAt) {
+	if !expiresAt.Valid || time.Now().After(expiresAt.Time) {
 		_, _ = s.v1DB.Exec(`UPDATE role_invitations SET status = 'EXPIRED' WHERE id = ?;`, invID)
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Undangan telah kedaluwarsa")
 		return
@@ -728,7 +747,25 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 3. Tandai undangan ACCEPTED (token sekali pakai)
-	_, _ = tx.Exec(`UPDATE role_invitations SET status = 'ACCEPTED' WHERE id = ?;`, invID)
+	res, err := tx.Exec(`UPDATE role_invitations SET status = 'ACCEPTED' WHERE id = ? AND status = 'PENDING';`, invID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status undangan")
+		return
+	}
+	affected, _ := res.RowsAffected()
+	if affected != 1 {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Undangan telah digunakan")
+		return
+	}
+	correlationID := fmt.Sprintf("accept-invitation-%d-%d", invID, time.Now().UnixNano())
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, ?, 'ASSIGN_ROLE', 'ROLE_ASSIGNMENT', ?, ?, ?);
+	`, classID, semesterID, userID, assignmentID, assignmentID,
+		fmt.Sprintf(`{"role":%q,"scope_type":%q,"invitation_id":%d}`, role, scopeType, invID), correlationID); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penugasan peran")
+		return
+	}
 
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyelesaikan proses penerimaan undangan")
