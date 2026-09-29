@@ -623,7 +623,12 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 	}
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah saat penyimpanan berlangsung")
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah saat penyimpanan berlangsung", map[string]any{
+			"current_version": curVersion,
+			"current_data": map[string]any{
+				"publication_status": curPubStatus,
+			},
+		})
 		return
 	}
 
@@ -747,6 +752,9 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	if req.TaskVersion != currentVersion {
 		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas telah berubah. Muat ulang untuk melihat revisi terbaru.", map[string]any{
 			"current_version": currentVersion,
+			"current_data": map[string]any{
+				"publication_status": currentPubStatus,
+			},
 		})
 		return
 	}
@@ -765,19 +773,28 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Update task status
+	// BE-008: kebijakan concurrency review — first-writer-wins per versi
+	// via compare-and-swap (predicate version) + version bump. Keputusan
+	// kedua pada versi yang sama mendapat 409; riwayat multi-keputusan
+	// hanya dimungkinkan lintas versi.
+	newVersion := currentVersion + 1
 	res, err := tx.Exec(`
 		UPDATE tasks
-		SET publication_status = ?, review_state = ?, reviewed_version = ?, updated_at = CURRENT_TIMESTAMP
+		SET publication_status = ?, review_state = ?, reviewed_version = ?, version = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND version = ?;
-	`, newPubStatus, decision, currentVersion, taskID, currentVersion)
+	`, newPubStatus, decision, newVersion, newVersion, taskID, currentVersion)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status tugas")
 		return
 	}
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah selama review")
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah selama review", map[string]any{
+			"current_version": currentVersion,
+			"current_data": map[string]any{
+				"publication_status": currentPubStatus,
+			},
+		})
 		return
 	}
 
@@ -785,7 +802,7 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`
 		INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 		VALUES (?, ?, ?, ?, ?, ?);
-	`, taskID, u.UserID, u.ActiveAssignmentID, currentVersion, decision, req.Note)
+	`, taskID, u.UserID, u.ActiveAssignmentID, newVersion, decision, req.Note)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan catatan review")
 		return
@@ -852,6 +869,7 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 		"task_id":            taskID,
 		"publication_status": newPubStatus,
 		"review_state":       decision,
+		"version":            newVersion,
 	})
 }
 
@@ -886,13 +904,14 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 
 	var curVersion int
 	var offID, classID int64
+	var curPub, curRev string
 	err := s.v1DB.QueryRow(`
-		SELECT t.version, t.course_offering_id, sem.class_id
+		SELECT t.version, t.course_offering_id, sem.class_id, t.publication_status, t.review_state
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE t.id = ?;
-	`, taskID).Scan(&curVersion, &offID, &classID)
+	`, taskID).Scan(&curVersion, &offID, &classID, &curPub, &curRev)
 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
@@ -911,7 +930,13 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 	}
 
 	if req.Version != curVersion {
-		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah", map[string]any{"current_version": curVersion})
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah", map[string]any{
+			"current_version": curVersion,
+			"current_data": map[string]any{
+				"publication_status": curPub,
+				"review_state":       curRev,
+			},
+		})
 		return
 	}
 

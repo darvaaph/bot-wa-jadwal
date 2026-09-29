@@ -164,7 +164,11 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Hanya boleh retry jika gagal atau dibatalkan
+	// BE-010 state machine: hanya FAILED dan CANCELLED yang dapat diretry.
+	// CANCELLED di sini bersifat reversibel (penjadwalan ulang oleh pengurus);
+	// SUPERSEDED tidak pernah diretry (isi usang), SENT/PROCESSING/PENDING ditolak.
+	// Retry hanya menjadwalkan ulang baris yang sama; notification_attempts
+	// hanya dibuat worker saat delivery nyata dimulai.
 	if curStatus != "FAILED" && curStatus != "CANCELLED" {
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, fmt.Sprintf("Hanya notifikasi dengan status FAILED atau CANCELLED yang dapat dicoba ulang (status saat ini: %s)", curStatus))
 		return
@@ -191,13 +195,6 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 	affected, err := res.RowsAffected()
 	if err != nil || affected == 0 {
 		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Status notifikasi telah berubah")
-		return
-	}
-
-	// Rekam attempt manual
-	var nextAttemptNum int
-	if err := tx.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menentukan nomor percobaan notifikasi")
 		return
 	}
 
@@ -232,9 +229,12 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	var scheduledAt string
+	_ = s.v1DB.QueryRow(`SELECT COALESCE(scheduled_at,'') FROM notification_messages WHERE id=?`, notifID).Scan(&scheduledAt)
 	s.writeV1Success(w, http.StatusOK, map[string]any{
-		"id":             notifID,
-		"status":         "PENDING",
-		"attempt_number": nextAttemptNum,
+		"id":              notifID,
+		"status":          "PENDING",
+		"scheduled_at":    scheduledAt,
+		"retry_scheduled": true,
 	})
 }

@@ -1236,8 +1236,8 @@ func TestV1Backups_CreateAndVerifyRestore(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &backupResp)
 	backupID := backupResp.Data.ID
 
-	// 2. Verifikasi restore (Admin)
-	restoreBody, _ := json.Marshal(map[string]any{"backup_id": backupID})
+	// 2. Verifikasi restore (Admin, verify-only ADR-0008)
+	restoreBody, _ := json.Marshal(map[string]any{"backup_id": backupID, "reason": "verifikasi berkala"})
 	req = httptest.NewRequest("POST", "/api/v1/restores", bytes.NewReader(restoreBody))
 	req.Header.Set("Authorization", "Bearer "+adminToken)
 	w = httptest.NewRecorder()

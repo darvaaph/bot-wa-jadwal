@@ -185,13 +185,16 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	var patternID int64
+	// BE-007: effective_from diisi tanggal hari ini agar pola langsung
+	// tercakup query engine (effective_from <= tanggal).
+	createEffectiveFrom := time.Now().Format("2006-01-02")
 	err = tx.QueryRow(`
 		INSERT INTO schedule_patterns (
-			course_offering_id, room_id, day_of_week, start_time, end_time, status, version
+			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status, version
 		)
-		VALUES (?, ?, ?, ?, ?, 'ACTIVE', 1)
+		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', 1)
 		RETURNING id;
-	`, req.OfferingID, req.RoomID, req.DayOfWeek, req.StartTime, endTime).Scan(&patternID)
+	`, req.OfferingID, req.RoomID, req.DayOfWeek, req.StartTime, endTime, createEffectiveFrom).Scan(&patternID)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan pola jadwal: %v", err))
@@ -224,10 +227,12 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeV1Success(w, http.StatusCreated, map[string]any{
-		"id":         patternID,
-		"start_time": req.StartTime,
-		"end_time":   endTime,
-		"version":    1,
+		"id":              patternID,
+		"start_time":      req.StartTime,
+		"end_time":        endTime,
+		"version":         1,
+		"effective_from":  createEffectiveFrom,
+		"effective_until": nil,
 	})
 }
 
@@ -934,6 +939,13 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	`, patternID).Scan(&curOfferingID, &curRoomID, &curDayOfWeek, &curStartTime, &curEndTime, &curClassID, &curVersion)
 
 	if err == sql.ErrNoRows {
+		// BE-007: pola yang sudah ditutup versi tetap memberi 409 + current_version
+		// agar frontend dapat mengikuti versi pengganti, bukan 404.
+		var closedVersion int
+		if cerr := s.v1DB.QueryRow(`SELECT version FROM schedule_patterns WHERE id = ?`, patternID).Scan(&closedVersion); cerr == nil {
+			s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Pola jadwal sudah diperbarui ke versi baru", map[string]any{"current_version": closedVersion})
+			return
+		}
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Pola jadwal tidak ditemukan atau sudah tidak aktif")
 		return
 	} else if err != nil {
@@ -1051,8 +1063,13 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Tutup pola lama dengan effective_until hari ini
-	todayStr := time.Now().Format("2006-01-02")
+	// BE-007: semantik effective range terdokumentasi — pola lama berlaku
+	// sampai hari ini (inklusif), pola baru mulai besok. Query engine
+	// inklusif di kedua ujung, sehingga tidak ada tanggal ganda aktif dan
+	// CHECK (effective_from <= effective_until) tetap terpenuhi.
+	today := time.Now()
+	todayStr := today.Format("2006-01-02")
+	tomorrowStr := today.AddDate(0, 0, 1).Format("2006-01-02")
 	tx, err := s.v1DB.Begin()
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
@@ -1074,13 +1091,13 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert pola baru
+	// Insert pola baru berlaku mulai besok (lihat semantik di atas).
 	var newPatternID int64
 	err = tx.QueryRow(`
 		INSERT INTO schedule_patterns (
 			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version
 		) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id;
-	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, todayStr, curVersion+1).Scan(&newPatternID)
+	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, tomorrowStr, curVersion+1).Scan(&newPatternID)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pola jadwal baru")
@@ -1117,12 +1134,14 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
-		"id":             newPatternID,
-		"day_of_week":    newDayOfWeek,
-		"start_time":     newStartTime,
-		"end_time":       newEndTime,
-		"effective_from": todayStr,
-		"version":        curVersion + 1,
+		"id":                  newPatternID,
+		"replaces_pattern_id": patternID,
+		"day_of_week":         newDayOfWeek,
+		"start_time":          newStartTime,
+		"end_time":            newEndTime,
+		"effective_from":      tomorrowStr,
+		"effective_until":     nil,
+		"version":             curVersion + 1,
 	})
 }
 
