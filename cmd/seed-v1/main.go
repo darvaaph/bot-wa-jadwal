@@ -172,9 +172,9 @@ func seedDemoUsers(db *sql.DB) error {
 	_ = db.QueryRow(`SELECT id FROM course_offerings WHERE semester_id = ? LIMIT 1;`, semesterID).Scan(&offeringID)
 
 	_, _ = db.Exec(`
-		INSERT OR IGNORE INTO role_assignments (user_id, role, scope_type, class_id, semester_id, status)
-		VALUES (?, 'KM', 'CLASS', ?, ?, 'ACTIVE');
-	`, kmUserID, classID, semesterID)
+		INSERT OR IGNORE INTO role_assignments (user_id, role, scope_type, class_id, status)
+		VALUES (?, 'KM', 'CLASS', ?, 'ACTIVE');
+	`, kmUserID, classID)
 
 	if offeringID > 0 {
 		_, _ = db.Exec(`
