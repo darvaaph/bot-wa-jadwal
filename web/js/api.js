@@ -18,41 +18,75 @@ function mutationHeaders(extra) {
 
 const BotApi = {
   async getClasses() {
-    const res = await fetch('/api/academic/classes', { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (json.data && json.data.length > 0) return json.data;
+    try {
+      const res = await fetch('/api/classes', { credentials: 'same-origin' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) return json.data;
+      }
+    } catch (e) {}
+    try {
+      const st = await this.getStatus();
+      if (st && st.classes) {
+        return {
+          default_class: st.default_class,
+          total_classes: st.total_classes,
+          classes: st.classes
+        };
+      }
+    } catch (e) {}
     return null;
   },
 
   async getTasks(classId) {
-    const res = await fetch('/api/v1/tasks?class_id=' + classId, { credentials: 'same-origin' });
-    if (res.status === 401) {
-      const err = new Error('Sesi berakhir atau belum masuk.');
-      err.code = 'UNAUTHORIZED';
-      throw err;
-    }
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json.data || json.data.length === 0) return null;
-    return json.data.map(item => ({
-      id: item.id,
-      course_offering_id: item.course_offering_id,
-      course_code: item.course_code || 'TUGAS',
-      course_name: item.course_name || 'Mata Kuliah',
-      title: item.title,
-      instructions: item.instructions,
-      deadline_at: item.deadline_at,
-      submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
-      status: item.publication_status || 'DRAFT',
-      review_status: item.review_state || 'NOT_REVIEWED',
-      is_completed: !!item.completed_at,
-      creator_name: 'PJ Mata Kuliah'
-    }));
+    try {
+      const res = await fetch('/api/v1/tasks?class_id=' + encodeURIComponent(classId || ''), { credentials: 'same-origin' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.length > 0) {
+          return json.data.map(item => ({
+            id: item.id,
+            course_offering_id: item.course_offering_id,
+            course_code: item.course_code || 'TUGAS',
+            course_name: item.course_name || 'Mata Kuliah',
+            matkul: item.course_name || item.course_code || 'Mata Kuliah',
+            title: item.title,
+            deskripsi: item.instructions || item.title,
+            instructions: item.instructions,
+            deadline: item.deadline_at,
+            deadline_at: item.deadline_at,
+            submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
+            status: item.publication_status || 'DRAFT',
+            review_status: item.review_state || 'NOT_REVIEWED',
+            is_done: !!item.completed_at,
+            is_completed: !!item.completed_at,
+            creator_name: 'PJ Mata Kuliah'
+          }));
+        }
+      }
+    } catch (e) {}
+
+    // Fallback ke endpoint legacy /api/tasks?class=...
+    try {
+      const legRes = await fetch('/api/tasks?class=' + encodeURIComponent(classId || ''), { credentials: 'same-origin' });
+      if (legRes.ok) {
+        const legJson = await legRes.json();
+        return (legJson.data || []).map(item => ({
+          id: item.id,
+          matkul: item.matkul,
+          deskripsi: item.deskripsi,
+          deadline: item.deadline,
+          is_done: !!item.is_done
+        }));
+      }
+    } catch (e) {}
+    return [];
   },
 
   async createTask(payload) {
-    const res = await fetch('/api/v1/tasks', {
+    const isLegacy = payload && (payload.matkul || payload.deskripsi || payload.deadline) && !payload.course_offering_id;
+    const url = isLegacy ? '/api/tasks' : '/api/v1/tasks';
+    const res = await fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
       headers: mutationHeaders(),
@@ -531,11 +565,35 @@ const BotApi = {
   },
 
   async getSchedule(slug, dateStr) {
-    const res = await fetch('/api/portal/' + encodeURIComponent(slug) + '/schedule?date=' + encodeURIComponent(dateStr), { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json.data || !json.data.jadwal) return null;
-    return json.data;
+    try {
+      const res = await fetch('/api/schedule?class=' + encodeURIComponent(slug || '') + '&day=' + encodeURIComponent(dateStr || 'all'), { credentials: 'same-origin' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) return json.data;
+      }
+    } catch (e) {}
+
+    // Fallback ke endpoint portal v1
+    try {
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule?date=' + encodeURIComponent(dateStr || ''), { credentials: 'same-origin' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.jadwal) return json.data.jadwal;
+      }
+    } catch (e) {}
+    return [];
+  },
+
+  async deleteTask(taskId) {
+    try {
+      const res = await fetch('/api/tasks/' + taskId, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: mutationHeaders()
+      });
+      if (res.ok) return true;
+    } catch (e) {}
+    return this.deleteTaskV1(taskId);
   },
 
   async getChanges(slug, limit) {
@@ -607,3 +665,12 @@ const BotApi = {
     }
   }
 };
+
+// Ekspor global untuk komponen Alpine.js (app-km.js, app.js, app-sa.js)
+if (typeof window !== 'undefined') {
+  window.BotApi = BotApi;
+  window.API = BotApi;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = BotApi;
+}
