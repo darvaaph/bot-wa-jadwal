@@ -194,23 +194,24 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 
 	// Rekam attempt manual
 	var nextAttemptNum int
-	_ = tx.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum)
-
-	_, _ = tx.Exec(`
-		INSERT INTO notification_attempts (notification_message_id, attempt_number, started_at, result, error_message)
-		VALUES (?, ?, CURRENT_TIMESTAMP, 'MANUAL_RETRY_SCHEDULED', 'Dijadwalkan ulang oleh pengurus');
-	`, notifID, nextAttemptNum)
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menentukan nomor percobaan notifikasi")
+		return
+	}
 
 	// Catat audit_logs
 	correlationID := fmt.Sprintf("retry-notif-%d", time.Now().UnixNano())
-	_, _ = tx.Exec(`
+	if _, err := tx.Exec(`
 		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
 		VALUES ('USER', ?, ?, ?, 'RETRY_NOTIFICATION', 'NOTIFICATION_MESSAGE', ?, ?, ?, ?);
 	`, curClassID, u.UserID, u.ActiveAssignmentID, notifID,
 		fmt.Sprintf(`{"status":%q}`, curStatus),
 		`{"status":"PENDING"}`,
 		correlationID,
-	)
+	); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit retry notifikasi")
+		return
+	}
 
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memproses transaksi")
