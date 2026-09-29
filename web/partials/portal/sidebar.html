@@ -1,0 +1,35 @@
+<!-- partials/portal/sidebar.html — Sidebar portal (hanya-baca) -->
+<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
+  <div class="flex items-center gap-2 px-2">
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+  </div>
+  <nav aria-label="Navigasi portal" class="mt-8 flex flex-col gap-0.5 text-[14px]">
+    <p class="px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">PORTAL MAHASISWA</p>
+    <button type="button" @click="go('dashboard')"
+      :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span>Dashboard</span>
+    </button>
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
+    <button type="button" @click="go('tugas')"
+      :class="['tugas','detail-tugas'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5 shrink-0" /><span>Tugas</span>
+    </button>
+    <button type="button" @click="go('jadwal')"
+      :class="view === 'jadwal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span>Jadwal</span>
+    </button>
+    <button type="button" @click="go('materi')"
+      :class="['materi','detail-materi'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Materi</span>
+    </button>
+  </nav>
+  <div class="mt-auto pt-4 text-[13px]">
+    <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>
+    <p class="text-[12px] text-slate-500">Hanya lihat · tanpa akun</p>
+    <button type="button" @click="kunciPortal()" class="mt-2 text-[12px] text-red-600 hover:underline min-h-[44px]">Kunci portal</button>
+  </div>
+</aside>

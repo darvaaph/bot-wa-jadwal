@@ -1,0 +1,55 @@
+<!-- partials/portal/view-dashboard.html — Portal Dashboard -->
+<section x-show="view === 'dashboard'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Tugas</p>
+      <p class="text-[32px] font-bold leading-tight" x-text="tasks.length">0</p>
+      <p class="text-[12px] text-[#3965FB]" x-text="nearCount + ' mendekati deadline'">-</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Jadwal hari ini</p>
+      <p class="text-[32px] font-bold leading-tight" x-text="todayList.length">0</p>
+      <p class="text-[12px] text-[#3965FB]">sesi kuliah</p>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Materi tersimpan</p>
+      <p class="text-[32px] font-bold leading-tight">—</p>
+      <p class="text-[12px] text-slate-400">Butuh endpoint materi</p>
+    </div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
+    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[18px] font-semibold">Tugas mendekati deadline</h2>
+        <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semua</button>
+      </div>
+      <div x-show="urgent3.length === 0" class="py-8 text-center text-[13px] text-slate-400">✅ Tidak ada tugas mendesak.</div>
+      <div class="divide-y divide-[#EEEEEE]">
+        <template x-for="t in urgent3" :key="t.id">
+          <button type="button" @click="bukaDetailTugas(t)" class="w-full py-4 flex items-start justify-between gap-3 text-left">
+            <div class="min-w-0">
+              <p class="text-[15px] font-medium line-clamp-1" x-text="t.deskripsi">-</p>
+              <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul">-</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484]' : 'bg-[#E1FFB7]')" x-text="t.countdown">-</span>
+          </button>
+        </template>
+      </div>
+    </div>
+    <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <h2 class="text-[18px] font-semibold">Jadwal hari ini</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
+      <div x-show="todayList.length === 0" class="py-6 text-center text-[13px] text-slate-400">🎉 Tidak ada jadwal hari ini.</div>
+      <div class="mt-2 divide-y divide-[#EEEEEE]">
+        <template x-for="s in todayList" :key="s.id">
+          <div class="py-3 flex gap-3">
+            <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-12" x-text="s.timeStart">-</span>
+            <div class="min-w-0"><p class="text-[14px] font-medium line-clamp-1" x-text="s.matkul">-</p><p class="text-[12px] text-slate-500" x-text="s.ruang">-</p></div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,26 @@
+<!-- partials/pj/view-notif.html — PJ Notifikasi (butuh endpoint) -->
+<section x-show="view === 'notifikasi'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Notifikasi</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Pemberitahuan untuk PJ.</p>
+  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada notifikasi — butuh endpoint backend.</div>
+</section>
+
+<!-- partials/pj/view-pengaturan.html — PJ Pengaturan pengingat (lokal) -->
+<section x-show="view === 'pengaturan'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Pengaturan</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Preferensi pengingat di perangkat ini.</p>
+  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-5 max-w-xl">
+    <h2 class="text-[18px] font-semibold">Waktu pengingat</h2>
+    <div class="grid grid-cols-2 gap-4 mt-3">
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Ringkasan pagi</label>
+        <input type="text" x-model="pengaturan.pagi" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Pengingat sore</label>
+        <input type="text" x-model="pengaturan.sore" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+      </div>
+    </div>
+    <button type="button" @click="simpanPengaturan()" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px]">Simpan pengaturan</button>
+  </div>
+</section>

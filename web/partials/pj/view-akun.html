@@ -1,0 +1,24 @@
+<!-- partials/pj/view-akun.html — PJ Akun + pindah peran ke KM (role switcher) -->
+<section x-show="view === 'akun'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Akun</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Profil dan peran pengelola.</p>
+  <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white max-w-xl">
+    <div class="flex items-center gap-3">
+      <span class="w-12 h-12 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold flex items-center justify-center">PJ</span>
+      <div>
+        <p class="font-semibold">PJ Mata Kuliah</p>
+        <p class="text-[12px] text-slate-500"><span x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</span> · Kelas <span class="font-mono" x-text="selectedClass">-</span></p>
+      </div>
+    </div>
+    <div class="mt-4 p-4 rounded-xl bg-[#E9EAFF]/50 border border-[#9AB7FD]">
+      <p class="text-[13px] font-semibold">Pindah peran</p>
+      <p class="text-[12px] text-slate-500 mt-0.5">Akun ini juga terdaftar sebagai Ketua Murid di kelas yang sama.</p>
+      <a href="/" class="mt-2 inline-flex h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold items-center min-h-[44px]">Pindah ke Area KM →</a>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <button type="button" @click="soon('Ubah kata sandi')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Ubah kata sandi</button>
+      <button type="button" @click="soon('Keluar')" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
+    </div>
+    <p class="text-[11px] text-slate-400 mt-3">Login dan sesi butuh endpoint autentikasi backend.</p>
+  </div>
+</section>
