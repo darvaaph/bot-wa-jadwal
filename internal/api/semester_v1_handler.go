@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // handleGetClassSemesters menangani GET /api/v1/classes/{slug}/semesters
@@ -201,12 +203,25 @@ func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) 
 	}
 
 	correlationID := fmt.Sprintf("activate-semester-%d-%d", semID, time.Now().UnixNano())
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, correlation_id)
-		VALUES ('USER', ?, ?, ?, ?, 'ACTIVATE_SEMESTER', 'SEMESTER', ?, ?);
-	`, classID, semID, u.UserID, u.ActiveAssignmentID, semID, correlationID); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit aktivasi semester")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			SemesterID:    &semID,
+			Action:        "ACTIVATE_SEMESTER",
+			EntityType:    "SEMESTER",
+			EntityID:      &semID,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit aktivasi semester")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit aktivasi semester")

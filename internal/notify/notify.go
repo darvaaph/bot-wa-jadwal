@@ -35,20 +35,31 @@ type Payload struct {
 }
 
 // Enqueue inserts a message idempotently. Returns (id, created).
+// channelID <= 0 menyimpan pesan durable tanpa channel (PENDING, NULL, NULL)
+// menunggu ReconcilePendingChannels; tidak lagi membuang intent.
 func (s *Service) Enqueue(ctx context.Context, classID, channelID int64, eventType, entityType string, entityID int64, key, text, link string, scheduledAt time.Time, triggeredBy *int64) (int64, bool, error) {
 	eventType = strings.TrimSpace(eventType)
 	entityType = strings.TrimSpace(entityType)
 	key = strings.TrimSpace(key)
-	if classID <= 0 || channelID <= 0 || eventType == "" || entityType == "" || entityID <= 0 || key == "" || strings.TrimSpace(text) == "" {
+	if classID <= 0 || eventType == "" || entityType == "" || entityID <= 0 || key == "" || strings.TrimSpace(text) == "" {
 		return 0, false, ErrInvalidInput
 	}
 	payload, _ := json.Marshal(Payload{Text: text, Link: link})
+	var chArg any
+	var schedArg any
+	if channelID > 0 {
+		chArg = channelID
+		if scheduledAt.IsZero() {
+			scheduledAt = time.Now().UTC()
+		}
+		schedArg = scheduledAt.UTC().Format(time.RFC3339Nano)
+	}
 	var id int64
 	err := s.db.QueryRowContext(ctx, `INSERT INTO notification_messages
 		(class_id, whatsapp_channel_id, event_type, entity_type, entity_id, idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)
 		ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
-		classID, channelID, eventType, entityType, entityID, key, string(payload), scheduledAt.UTC().Format(time.RFC3339Nano), triggeredBy,
+		classID, chArg, eventType, entityType, entityID, key, string(payload), schedArg, triggeredBy,
 	).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Conflict: fetch existing id.
@@ -84,6 +95,10 @@ func (s *Service) EnsureChannel(ctx context.Context, classID int64, jid, display
 	err := s.db.QueryRowContext(ctx, `INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
 		VALUES (?, ?, 'GROUP', ?, 'ACTIVE') ON CONFLICT(jid) DO UPDATE SET class_id=excluded.class_id, status='ACTIVE', updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING id`,
 		classID, jid, displayName).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	_, _ = s.ReconcilePendingChannels(ctx, &classID)
 	return id, err
 }
 
@@ -327,24 +342,31 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 }
 
 // EnqueueEventPublished creates a change message after schedule publish (idempotent).
+// Durable: tetap tersimpan PENDING tanpa channel ketika kelas belum punya kanal aktif.
 func (s *Service) EnqueueEventPublished(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
-	chID, _, err := s.ChannelForClass(ctx, classID)
-	if err != nil {
-		return 0, ErrNoChannel
+	chID, _, _ := s.ChannelForClass(ctx, classID)
+	var chArg int64
+	if chID > 0 {
+		chArg = chID
+	} else {
+		chArg = 0
 	}
-	id, _, err := s.Enqueue(ctx, classID, chID, "SCHEDULE_CHANGE", "TEACHING_EVENT", eventID, eventPublishKey(eventID), text, "", time.Now().UTC(), triggeredBy)
+	id, _, err := s.Enqueue(ctx, classID, chArg, "SCHEDULE_CHANGE", "TEACHING_EVENT", eventID, eventPublishKey(eventID), text, "", time.Now().UTC(), triggeredBy)
 	return id, err
 }
 
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
 // Both writes happen in one transaction so a crash cannot leave duplicates.
+// Durable: tetap tersimpan tanpa channel ketika kelas belum punya kanal aktif.
 func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
-	chID, _, err := s.ChannelForClass(ctx, classID)
-	if err != nil {
-		return 0, ErrNoChannel
+	chID, _, _ := s.ChannelForClass(ctx, classID)
+	var chArg any
+	var schedArg any
+	if chID > 0 {
+		chArg = chID
+		schedArg = time.Now().UTC().Format(time.RFC3339Nano)
 	}
 	payload, _ := json.Marshal(Payload{Text: text})
-	now := time.Now().UTC().Format(time.RFC3339Nano)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -355,7 +377,7 @@ func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int6
 		(class_id, whatsapp_channel_id, event_type, entity_type, entity_id, idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id)
 		VALUES (?, ?, 'SCHEDULE_CORRECTION', 'TEACHING_EVENT', ?, ?, ?, 'PENDING', ?, ?)
 		ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
-		classID, chID, eventID, eventRevokeKey(eventID), string(payload), now, triggeredBy,
+		classID, chArg, eventID, eventRevokeKey(eventID), string(payload), schedArg, triggeredBy,
 	).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		if err := tx.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, eventRevokeKey(eventID)).Scan(&id); err != nil {
@@ -394,14 +416,20 @@ func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64
 }
 
 // ProcessDue claims and sends due messages. Returns (sent, failed).
+// Hanya mengklaim baris PENDING/FAILED yang memiliki channel aktif,
+// scheduled_at terisi, dan sudah jatuh tempo. Pesan tanpa channel
+// (menunggu konfigurasi) tidak pernah diklaim.
 func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now time.Time) (int, int, error) {
 	// Reap rows stuck in PROCESSING by a crashed worker before claiming.
 	_, _ = s.ReapStaleProcessing(ctx, now)
+	_, _ = s.ReconcilePendingChannels(ctx, nil)
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id, whatsapp_channel_id, payload_json FROM notification_messages
-		WHERE status IN ('PENDING','FAILED') AND scheduled_at <= ? ORDER BY scheduled_at ASC, id ASC LIMIT ?`,
+	rows, err := s.db.QueryContext(ctx, `SELECT m.id, m.whatsapp_channel_id, m.payload_json FROM notification_messages m
+		JOIN whatsapp_channels ch ON ch.id = m.whatsapp_channel_id AND ch.status = 'ACTIVE'
+		WHERE m.status IN ('PENDING','FAILED') AND m.scheduled_at IS NOT NULL AND m.scheduled_at <= ?
+		ORDER BY m.scheduled_at ASC, m.id ASC LIMIT ?`,
 		now.UTC().Format(time.RFC3339Nano), limit)
 	if err != nil {
 		return 0, 0, err
@@ -555,11 +583,14 @@ func (s *Service) List(ctx context.Context, classID int64, status string, limit 
 	out := []MessageItem{}
 	for rows.Next() {
 		var m MessageItem
-		var sent, lastErr sql.NullString
+		var sched, sent, lastErr sql.NullString
 		var payload string
 		if err := rows.Scan(&m.ID, &m.ClassID, &m.EventType, &m.EntityType, &m.EntityID, &m.IdempotencyKey,
-			&m.Status, &m.ScheduledAt, &sent, &payload, &m.Attempts, &lastErr); err != nil {
+			&m.Status, &sched, &sent, &payload, &m.Attempts, &lastErr); err != nil {
 			return nil, err
+		}
+		if sched.Valid {
+			m.ScheduledAt = sched.String
 		}
 		if sent.Valid {
 			m.SentAt = &sent.String

@@ -115,9 +115,11 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 		SELECT nm.id, nm.class_id, nm.event_type, nm.payload_json,
 		       COALESCE(wc.jid, '') AS channel_jid
 		FROM notification_messages nm
-		LEFT JOIN whatsapp_channels wc ON nm.whatsapp_channel_id = wc.id
+		JOIN whatsapp_channels wc ON nm.whatsapp_channel_id = wc.id AND wc.status = 'ACTIVE'
 		WHERE nm.status = 'PENDING'
-		  AND (nm.scheduled_at IS NULL OR nm.scheduled_at <= CURRENT_TIMESTAMP)
+		  AND nm.whatsapp_channel_id IS NOT NULL
+		  AND nm.scheduled_at IS NOT NULL
+		  AND nm.scheduled_at <= CURRENT_TIMESTAMP
 		ORDER BY nm.created_at ASC
 		LIMIT 10;
 	`
@@ -177,16 +179,11 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 		}
 
 		if channelJID == "" {
-			// Tidak ada kanal terdaftar untuk kelas ini
+			// BE-005: tanpa kanal aktif pesan tetap PENDING menunggu rekonsiliasi.
+			// Kembalikan ke PENDING tanpa attempt agar tidak dianggap gagal kirim.
 			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'FAILED' WHERE id = ?;
+				UPDATE notification_messages SET status = 'PENDING' WHERE id = ?;
 			`, item.ID)
-			_, _ = w.db.ExecContext(ctx, `
-				INSERT INTO notification_attempts (
-					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', 'Tidak ada grup WhatsApp terdaftar untuk kelas ini');
-			`, item.ID, attemptNum)
-			processedCount++
 			continue
 		}
 

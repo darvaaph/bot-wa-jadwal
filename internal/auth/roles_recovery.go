@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
@@ -70,25 +71,31 @@ func (s *Service) UpdateRoleAssignmentStatus(ctx context.Context, actor Principa
 		}
 	}
 	corr, _ := s.newToken()
-	var classVal, semVal any
+	var classPtr, semPtr *int64
 	if target.ClassID != nil {
-		classVal = *target.ClassID
+		v := *target.ClassID
+		classPtr = &v
 	}
 	if target.SemesterID != nil {
-		semVal = *target.SemesterID
+		v := *target.SemesterID
+		semPtr = &v
 	}
 	reasonVal := strings.TrimSpace(reason)
-	var reasonAny any
-	if reasonVal != "" {
-		reasonAny = reasonVal
-	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 'USER', 'ASSIGN_ROLE', 'ROLE_ASSIGNMENT', ?, ?, ?, ?, ?, ?)`,
-		classVal, semVal, actor.UserID, actor.RoleAssignmentID, assignmentID,
-		`{"status":"`+newStatus+`"}`, reasonAny, corr, formatTime(now), formatTime(now),
-	); err != nil {
+	afterStatus := `{"status":"` + newStatus + `"}`
+	actorUID := actor.UserID
+	actorRAID := actor.RoleAssignmentID
+	eidAssign := assignmentID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &actorUID, RoleAssignmentID: &actorRAID},
+		ClassID:       classPtr,
+		SemesterID:    semPtr,
+		Action:        "ASSIGN_ROLE",
+		EntityType:    "ROLE_ASSIGNMENT",
+		EntityID:      &eidAssign,
+		AfterJSON:     &afterStatus,
+		Reason:        reasonVal,
+		CorrelationID: corr,
+	}); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -193,14 +200,18 @@ func (s *Service) RequestRecovery(ctx context.Context, identityKey, method, reas
 		return "", err
 	}
 	corr, _ := s.newToken()
-	var reasonAny any
-	if strings.TrimSpace(reason) != "" {
-		reasonAny = strings.TrimSpace(reason)
-	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_user_id, actor_type, action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at
-	) VALUES (?, 'USER', 'REQUEST_RECOVERY', 'USER', ?, ?, ?, ?, ?, ?)`,
-		userID, userID, `{"method":"`+method+`"}`, reasonAny, corr, formatTime(now), formatTime(now)); err != nil {
+	reasonTrimmed := strings.TrimSpace(reason)
+	afterMethod := `{"method":"` + method + `"}`
+	eidUser := userID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &userID},
+		Action:        "REQUEST_RECOVERY",
+		EntityType:    "USER",
+		EntityID:      &eidUser,
+		AfterJSON:     &afterMethod,
+		Reason:        reasonTrimmed,
+		CorrelationID: corr,
+	}); err != nil {
 		return "", err
 	}
 	if err := tx.Commit(); err != nil {
@@ -257,10 +268,14 @@ func (s *Service) ConfirmRecovery(ctx context.Context, token, newPassword string
 		return err
 	}
 	corr, _ := s.newToken()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_user_id, actor_type, action, entity_type, entity_id, correlation_id, created_at, updated_at
-	) VALUES (?, 'USER', 'CONFIRM_RECOVERY', 'USER', ?, ?, ?, ?)`,
-		userID, userID, corr, formatTime(now), formatTime(now)); err != nil {
+	eidConfirm := userID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &userID},
+		Action:        "CONFIRM_RECOVERY",
+		EntityType:    "USER",
+		EntityID:      &eidConfirm,
+		CorrelationID: corr,
+	}); err != nil {
 		return err
 	}
 	return tx.Commit()

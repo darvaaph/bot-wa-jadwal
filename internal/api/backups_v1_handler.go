@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // BackupRequest merepresentasikan payload pembuatan backup on-demand
@@ -115,15 +117,27 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	backupID, _ := res.LastInsertId()
 
 	// Catat audit_logs
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'CREATE_BACKUP', 'BACKUP_RECORD', ?, ?, ?);
-	`, classID, u.UserID, u.ActiveAssignmentID, backupID,
-		fmt.Sprintf(`{"artifact_ref":%q,"checksum":%q}`, backupFilePath, checksum),
-		fmt.Sprintf("create-backup-%d-%d", backupID, time.Now().UnixNano()),
-	); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit backup")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"artifact_ref":%q,"checksum":%q}`, backupFilePath, checksum)
+		correlationID := fmt.Sprintf("create-backup-%d-%d", backupID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "CREATE_BACKUP",
+			EntityType:    "BACKUP_RECORD",
+			EntityID:      &backupID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit backup")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit backup")
@@ -223,15 +237,26 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Catat audit_logs
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, 'VERIFY_RESTORE_BACKUP', 'BACKUP_RECORD', ?, ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, req.BackupID,
-		fmt.Sprintf(`{"artifact_ref":%q,"status":"VERIFIED"}`, artifactRef),
-		fmt.Sprintf("verify-backup-%d-%d", req.BackupID, time.Now().UnixNano()),
-	); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit verifikasi backup")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"artifact_ref":%q,"status":"VERIFIED"}`, artifactRef)
+		correlationID := fmt.Sprintf("verify-backup-%d-%d", req.BackupID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			Action:        "VERIFY_RESTORE_BACKUP",
+			EntityType:    "BACKUP_RECORD",
+			EntityID:      &req.BackupID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit verifikasi backup")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit verifikasi backup")

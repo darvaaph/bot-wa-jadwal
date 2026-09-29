@@ -1,6 +1,7 @@
 package rooms
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
@@ -32,22 +33,26 @@ func insertRoomAudit(ctx context.Context, tx *sql.Tx, actor Actor, action string
 	if corr == "" {
 		corr = time.Now().UTC().Format(time.RFC3339Nano)
 	}
-	var actorUser, actorAssignment any
-	actorType := "USER"
+	var actorEntry audit.Actor
 	if actor.UserID > 0 {
-		actorUser = actor.UserID
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
 	} else {
-		actorType = "SYSTEM"
+		actorEntry = audit.Actor{Type: "SYSTEM"}
 	}
-	if actor.RoleAssignmentID > 0 {
-		actorAssignment = actor.RoleAssignmentID
-	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 'ROOM', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		actorUser, actorAssignment, actorType, action, roomID, after, corr)
-	return err
+	eid := roomID
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		Action:        action,
+		EntityType:    "ROOM",
+		EntityID:      &eid,
+		AfterJSON:     after,
+		CorrelationID: corr,
+	})
 }
 
 type Room struct {

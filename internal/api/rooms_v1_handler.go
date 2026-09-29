@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // RoomCandidateItem merepresentasikan ruangan yang tersedia untuk digunakan
@@ -44,6 +46,16 @@ func (s *Server) handleGetRoomCandidates(w http.ResponseWriter, r *http.Request)
 	excludeEventIDStr := strings.TrimSpace(r.URL.Query().Get("exclude_event_id"))
 	excludeEventID, _ := strconv.ParseInt(excludeEventIDStr, 10, 64)
 
+	// BE-006: definisi overlap sama [start,end): te.starts_at < endsAt AND te.ends_at > startsAt.
+	// Kandidat mengecualikan ruangan yang dipakai event PUBLISHED maupun pola
+	// reguler efektif pada tanggal candidate.
+	dateStr := startsAt.Format("2006-01-02")
+	dow := int(startsAt.Weekday())
+	if dow == 0 {
+		dow = 7
+	}
+	startHM := startsAt.Format("15:04")
+	endHM := endsAt.Format("15:04")
 	// Cari ruangan yang TIDAK sedang digunakan oleh event PUBLISHED pada rentang waktu tersebut
 	query := `
 		SELECT r.id, r.code, r.name, r.capacity, r.room_type
@@ -57,10 +69,17 @@ func (s *Server) handleGetRoomCandidates(w http.ResponseWriter, r *http.Request)
 		        AND te.id != ?
 		        AND te.starts_at < ? AND te.ends_at > ?
 		  )
+		  AND r.id NOT IN (
+		      SELECT sp.room_id FROM schedule_patterns sp
+		      WHERE sp.room_id IS NOT NULL AND sp.status='ACTIVE' AND sp.day_of_week=?
+		        AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+		        AND sp.start_time < ? AND sp.end_time > ?
+		  )
 		ORDER BY r.code;
 	`
 
-	rows, err := s.v1DB.Query(query, excludeEventID, endsAt.Format(time.RFC3339), startsAt.Format(time.RFC3339))
+	rows, err := s.v1DB.Query(query, excludeEventID, endsAt.Format(time.RFC3339), startsAt.Format(time.RFC3339),
+		dow, dateStr, dateStr, endHM, startHM)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mencari kandidat ruangan: %v", err))
 		return
@@ -171,15 +190,27 @@ func (s *Server) handleCreateRoomConfirmation(w http.ResponseWriter, r *http.Req
 	}
 
 	// Catat audit_logs
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'CREATE_ROOM_CONFIRMATION', 'ROOM_CONFIRMATION', ?, ?, ?);
-	`, eventClassID, u.UserID, u.ActiveAssignmentID, confID,
-		fmt.Sprintf(`{"event_id":%d,"room_id":%d,"status":%q}`, eventID, req.RoomID, status),
-		fmt.Sprintf("room-confirmation-%d-%d", confID, time.Now().UnixNano()),
-	); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit konfirmasi ruangan")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"event_id":%d,"room_id":%d,"status":%q}`, eventID, req.RoomID, status)
+		correlationID := fmt.Sprintf("room-confirmation-%d-%d", confID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &eventClassID,
+			Action:        "CREATE_ROOM_CONFIRMATION",
+			EntityType:    "ROOM_CONFIRMATION",
+			EntityID:      &confID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit konfirmasi ruangan")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit konfirmasi ruangan")

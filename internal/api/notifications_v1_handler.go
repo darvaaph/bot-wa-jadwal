@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp
@@ -201,16 +203,28 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 
 	// Catat audit_logs
 	correlationID := fmt.Sprintf("retry-notif-%d", time.Now().UnixNano())
-	if _, err := tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'RETRY_NOTIFICATION', 'NOTIFICATION_MESSAGE', ?, ?, ?, ?);
-	`, curClassID, u.UserID, u.ActiveAssignmentID, notifID,
-		fmt.Sprintf(`{"status":%q}`, curStatus),
-		`{"status":"PENDING"}`,
-		correlationID,
-	); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit retry notifikasi")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"status":%q}`, curStatus)
+		afterJSON := `{"status":"PENDING"}`
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &curClassID,
+			Action:        "RETRY_NOTIFICATION",
+			EntityType:    "NOTIFICATION_MESSAGE",
+			EntityID:      &notifID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit retry notifikasi")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

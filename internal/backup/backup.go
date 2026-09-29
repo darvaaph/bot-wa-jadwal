@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -122,11 +123,21 @@ func (s *Service) Create(ctx context.Context, classID int64, semesterID *int64, 
 		return nil, err
 	}
 	corr := check[:16]
-	afterJSON, _ := json.Marshal(map[string]string{"artifact": path})
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_type, action,
-		entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at)
-		VALUES (?, ?, ?, 'USER', 'BACKUP', 'BACKUP', ?, ?, ?, ?, ?, ?)`,
-		classID, semesterID, userID, id, string(afterJSON), strings.TrimSpace(reason), corr, now, now); err != nil {
+	afterBytes, _ := json.Marshal(map[string]string{"artifact": path})
+	afterStr := string(afterBytes)
+	uid := userID
+	eid := id
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid},
+		ClassID:       &classID,
+		SemesterID:    semesterID,
+		Action:        "BACKUP",
+		EntityType:    "BACKUP",
+		EntityID:      &eid,
+		AfterJSON:     &afterStr,
+		Reason:        strings.TrimSpace(reason),
+		CorrelationID: corr,
+	}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -226,10 +237,19 @@ func (s *Service) Restore(ctx context.Context, backupID, userID int64, reason st
 	if _, err := tx.ExecContext(ctx, `UPDATE backup_records SET status='RESTORING', verified_at=NULL, updated_at=? WHERE id=?`, now, backupID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_type, action,
-		entity_type, entity_id, reason, correlation_id, created_at, updated_at)
-		VALUES (?, ?, ?, 'USER', 'RESTORE', 'BACKUP', ?, ?, ?, ?, ?)`,
-		rec.ClassID, rec.SemesterID, userID, backupID, strings.TrimSpace(reason), rec.Checksum[:16], now, now); err != nil {
+	uidRestore := userID
+	eidRestore := backupID
+	classRestore := rec.ClassID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uidRestore},
+		ClassID:       &classRestore,
+		SemesterID:    rec.SemesterID,
+		Action:        "RESTORE",
+		EntityType:    "BACKUP",
+		EntityID:      &eidRestore,
+		Reason:        strings.TrimSpace(reason),
+		CorrelationID: rec.Checksum[:16],
+	}); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE backup_records SET status='VERIFIED', verified_at=?, updated_at=? WHERE id=?`, now, now, backupID); err != nil {

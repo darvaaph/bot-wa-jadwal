@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 6
+const LatestSchemaVersion = 7
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL

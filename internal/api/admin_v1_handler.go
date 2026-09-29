@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/audit"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -159,12 +160,29 @@ func (s *Server) handleAdminSuspendUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Catat audit_logs
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason, correlation_id)
-		VALUES ('USER', ?, ?, 'SUSPEND_USER', 'USER', ?, ?, '{"status":"SUSPENDED"}', ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), reason, fmt.Sprintf("suspend-user-%d-%d", targetUserID, time.Now().UnixNano())); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penangguhan")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"status":%q}`, curStatus)
+		afterJSON := `{"status":"SUSPENDED"}`
+		correlationID := fmt.Sprintf("suspend-user-%d-%d", targetUserID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			Action:        "SUSPEND_USER",
+			EntityType:    "USER",
+			EntityID:      &targetUserID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			Reason:        reason,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penangguhan")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit penangguhan")
@@ -253,12 +271,33 @@ func (s *Server) handleAdminRecoverUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Catat audit_logs
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason, correlation_id)
-		VALUES ('USER', ?, ?, 'RECOVER_USER', 'USER', ?, ?, '{"status":"ACTIVE"}', ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), req.Reason, fmt.Sprintf("recover-user-%d-%d", targetUserID, time.Now().UnixNano())); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pemulihan")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"status":%q}`, curStatus)
+		afterJSON := `{"status":"ACTIVE"}`
+		recoverReason := ""
+		if req.Reason != nil {
+			recoverReason = *req.Reason
+		}
+		correlationID := fmt.Sprintf("recover-user-%d-%d", targetUserID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			Action:        "RECOVER_USER",
+			EntityType:    "USER",
+			EntityID:      &targetUserID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			Reason:        recoverReason,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pemulihan")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pemulihan")

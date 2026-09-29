@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
@@ -1055,23 +1056,36 @@ func insertEventAuditTx(ctx context.Context, tx *sql.Tx, actor EventActor, class
 	if corr == "" {
 		corr = eventNow()
 	}
-	var actorUser, actorAssignment any
-	actorType := "USER"
+	var actorEntry audit.Actor
 	if actor.UserID > 0 {
-		actorUser = actor.UserID
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
 	} else {
-		actorType = "SYSTEM"
+		actorEntry = audit.Actor{Type: "SYSTEM"}
 	}
-	if actor.RoleAssignmentID > 0 {
-		actorAssignment = actor.RoleAssignmentID
+	classPtr := classID
+	semPtr := semesterID
+	reasonStr := ""
+	if reason != nil {
+		reasonStr = *reason
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, before_json, after_json, reason, correlation_id,
-		created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, 'TEACHING_EVENT', ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, semesterID, actorUser, actorAssignment, actorType, action, eventID, before, after, reason, corr)
-	return err
+	eid := eventID
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		ClassID:       &classPtr,
+		SemesterID:    &semPtr,
+		Action:        action,
+		EntityType:    "TEACHING_EVENT",
+		EntityID:      &eid,
+		BeforeJSON:    before,
+		AfterJSON:     after,
+		Reason:        reasonStr,
+		CorrelationID: corr,
+	})
 }
 
 func deref(s *string, fallback string) string {

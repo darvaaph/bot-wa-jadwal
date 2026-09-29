@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -343,12 +344,22 @@ func (s *Service) RotateCode(ctx context.Context, req RotationRequest) (Rotation
 	if err != nil {
 		return RotationResult{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_type, actor_user_id, actor_role_assignment_id, class_id,
-		action, entity_type, entity_id, before_json, after_json, correlation_id
-	) VALUES ('USER', ?, ?, ?, 'ROTATE_PORTAL_CODE', 'CLASS_SETTINGS', ?, ?, ?, ?)`,
-		req.ActorUserID, req.ActorRoleAssignment, req.ClassID, req.ClassID,
-		string(beforeJSON), string(afterJSON), correlationID); err != nil {
+	beforeStr := string(beforeJSON)
+	afterStr := string(afterJSON)
+	actorUID := req.ActorUserID
+	actorRAID := req.ActorRoleAssignment
+	classPtr := req.ClassID
+	eidPortal := req.ClassID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &actorUID, RoleAssignmentID: &actorRAID},
+		ClassID:       &classPtr,
+		Action:        "ROTATE_PORTAL_CODE",
+		EntityType:    "CLASS_SETTINGS",
+		EntityID:      &eidPortal,
+		BeforeJSON:    &beforeStr,
+		AfterJSON:     &afterStr,
+		CorrelationID: correlationID,
+	}); err != nil {
 		return RotationResult{}, err
 	}
 

@@ -1465,8 +1465,8 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 			id, origin_schedule_pattern_id, origin_occurrence_date, event_kind,
 			starts_at, ends_at, room_id, reason, lifecycle_status
 		)
-		VALUES (50, 1, '2026-10-05', 'REPLACEMENT',
-		        '2026-10-05T08:00:00Z', '2026-10-05T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
+		VALUES (50, 1, '2024-10-07', 'REPLACEMENT',
+		        '2024-10-07T08:00:00Z', '2024-10-07T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
 		INSERT INTO teaching_event_offerings (
 			teaching_event_id, course_offering_id, participation_role, participation_status
 		)

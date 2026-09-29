@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // CourseImportItem merepresentasikan mata kuliah dalam batch impor kurikulum
@@ -656,16 +658,29 @@ func (s *Server) handleSemesterImportApply(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 6. Catat audit_logs
-	if _, err := tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, ?, 'APPLY_CURRICULUM_IMPORT', 'IMPORT_BATCH', ?, ?, ?);
-	`, classID, semID, u.UserID, u.ActiveAssignmentID, batchID,
-		fmt.Sprintf(`{"batch_id":%d,"courses":%d,"lecturers":%d,"offerings":%d,"patterns":%d}`,
-			batchID, len(payload.Courses), len(payload.Lecturers), len(payload.Offerings), patternsImported),
-		fmt.Sprintf("apply-import-%d-%d", batchID, time.Now().UnixNano()),
-	); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit impor")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"batch_id":%d,"courses":%d,"lecturers":%d,"offerings":%d,"patterns":%d}`,
+			batchID, len(payload.Courses), len(payload.Lecturers), len(payload.Offerings), patternsImported)
+		correlationID := fmt.Sprintf("apply-import-%d-%d", batchID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			SemesterID:    &semID,
+			Action:        "APPLY_CURRICULUM_IMPORT",
+			EntityType:    "IMPORT_BATCH",
+			EntityID:      &batchID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit impor")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

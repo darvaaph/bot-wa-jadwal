@@ -144,13 +144,26 @@ func TestNotificationWorker_RejectsMessageWithoutChannel(t *testing.T) {
 
 	_, err = db.Exec(`
 		INSERT INTO notification_messages (
-			id, class_id, event_type, entity_type, entity_id,
+			id, class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
 			idempotency_key, payload_json, status, scheduled_at
-		) VALUES (2, 2, 'TASK_PUBLISHED', 'TASK', 1,
-		          'test-notif-no-chan', '{}', 'PENDING', CURRENT_TIMESTAMP);
+		) VALUES (2, 2, NULL, 'TASK_PUBLISHED', 'TASK', 1,
+		          'test-notif-no-chan', '{}', 'PENDING', NULL);
 	`)
-	if err == nil {
-		t.Fatal("notification_messages tanpa whatsapp_channel_id harus ditolak")
+	if err != nil {
+		t.Fatalf("BE-005: pesan tanpa channel harus tersimpan durable, err=%v", err)
+	}
+	var status string
+	var chID any
+	_ = db.QueryRow(`SELECT status FROM notification_messages WHERE id = 2`).Scan(&status)
+	if status != "PENDING" {
+		t.Fatalf("pesan tanpa channel harus PENDING, got %s", status)
+	}
+	_ = chID
+	// Worker tidak boleh mengklaim pesan tanpa channel.
+	mock := &mockWhatsAppSender{connected: true}
+	worker := NewNotificationWorker(db, mock)
+	if n, _ := worker.ProcessPending(context.Background()); n != 0 {
+		t.Fatalf("worker tidak boleh memproses pesan tanpa channel, got %d", n)
 	}
 }
 

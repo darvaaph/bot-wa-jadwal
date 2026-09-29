@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
 )
 
 // CreateTaskV1Request adalah payload pembuatan tugas pengelola
@@ -266,13 +268,24 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 
 	// Audit log
 	corrID := fmt.Sprintf("create-task-%d-%d", taskID, time.Now().UnixNano())
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'CREATE_TASK', 'TASK', ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, classID, taskID, corrID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "CREATE_TASK",
+			EntityType:    "TASK",
+			EntityID:      &taskID,
+			CorrelationID: corrID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -631,17 +644,28 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 
 	// Tulis audit_logs
 	corrID := fmt.Sprintf("patch-task-%d-%d", taskID, time.Now().UnixNano())
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'UPDATE_TASK', 'TASK', ?, ?, ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, curClassID, taskID,
-		fmt.Sprintf(`{"version":%d,"title":%q}`, curVersion, curTitle),
-		fmt.Sprintf(`{"version":%d,"title":%q,"review_state":%q}`, newVersion, newTitle, newRevState),
-		corrID,
-	)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"version":%d,"title":%q}`, curVersion, curTitle)
+		afterJSON := fmt.Sprintf(`{"version":%d,"title":%q,"review_state":%q}`, newVersion, newTitle, newRevState)
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &curClassID,
+			Action:        "UPDATE_TASK",
+			EntityType:    "TASK",
+			EntityID:      &taskID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			CorrelationID: corrID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -769,13 +793,26 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 
 	// Simpan audit log
 	correlationID := fmt.Sprintf("review-task-%d-%d", taskID, time.Now().UnixNano())
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'REVIEW_TASK', 'TASK', ?, ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, classID, taskID, fmt.Sprintf(`{"decision":%q}`, decision), correlationID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"decision":%q}`, decision)
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "REVIEW_TASK",
+			EntityType:    "TASK",
+			EntityID:      &taskID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -910,13 +947,24 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 	}
 
 	corrID := fmt.Sprintf("%s-task-%d-%d", action, taskID, time.Now().UnixNano())
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, correlation_id)
-		VALUES ('USER', ?, ?, ?, ?, 'TASK', ?, ?);
-	`, u.UserID, u.ActiveAssignmentID, classID, auditAction, taskID, corrID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan audit log: %v", err))
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        auditAction,
+			EntityType:    "TASK",
+			EntityID:      &taskID,
+			CorrelationID: corrID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan audit log: %v", err))
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

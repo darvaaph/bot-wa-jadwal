@@ -1,6 +1,7 @@
 package semester
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -53,13 +54,38 @@ func auditIdentity(actor Actor) (any, any, string, string) {
 }
 
 func insertSemesterAudit(ctx context.Context, tx *sql.Tx, actor Actor, classID int64, semesterID *int64, action, entityType string, entityID int64, after, reason *string) error {
-	actorUser, actorAssignment, actorType, corr := auditIdentity(actor)
-	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, reason, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, semesterID, actorUser, actorAssignment, actorType, action, entityType, entityID, after, reason, corr)
-	return err
+	corr := strings.TrimSpace(actor.CorrelationID)
+	if corr == "" {
+		corr = nowStr()
+	}
+	var actorEntry audit.Actor
+	if actor.UserID > 0 {
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
+	} else {
+		actorEntry = audit.Actor{Type: "SYSTEM"}
+	}
+	classPtr := classID
+	reasonStr := ""
+	if reason != nil {
+		reasonStr = *reason
+	}
+	eid := entityID
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		ClassID:       &classPtr,
+		SemesterID:    semesterID,
+		Action:        action,
+		EntityType:    entityType,
+		EntityID:      &eid,
+		AfterJSON:     after,
+		Reason:        reasonStr,
+		CorrelationID: corr,
+	})
 }
 
 func nowStr() string { return time.Now().UTC().Format(time.RFC3339Nano) }
@@ -677,12 +703,38 @@ func (s *Service) ImportJSON(ctx context.Context, actor Actor, classID int64, se
 		"warning_rows": len(errs), "error_rows": 0, "applied_rows": applied, "semester_id": targetSem,
 	})
 	_, _ = s.db.ExecContext(ctx, `UPDATE import_batches SET status='APPLIED', semester_id=?, summary_json=? WHERE id=?`, targetSem, string(sumData), batchID)
-	actorUser, actorAssignment, actorType, corr := auditIdentity(actor)
-	_, _ = s.db.ExecContext(ctx, `INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, 'IMPORT', 'SEMESTER', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, targetSem, actorUser, actorAssignment, actorType, targetSem,
-		fmt.Sprintf(`{"applied_rows":%d,"batch_id":%d}`, applied, batchID), corr)
+	// No single domain tx covers this audit: applyImport already committed in its
+	// own tx and the batch UPDATE above is auto-committed, so this is a post-commit
+	// system event written via db directly for atomicity with nothing pending.
+	var importActor audit.Actor
+	if actor.UserID > 0 {
+		uid := actor.UserID
+		importActor = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			importActor.RoleAssignmentID = &raid
+		}
+	} else {
+		importActor = audit.Actor{Type: "SYSTEM"}
+	}
+	importClass := classID
+	importSem := targetSem
+	importEID := targetSem
+	importCorr := strings.TrimSpace(actor.CorrelationID)
+	if importCorr == "" {
+		importCorr = nowStr()
+	}
+	importAfter := fmt.Sprintf(`{"applied_rows":%d,"batch_id":%d}`, applied, batchID)
+	_ = audit.Write(ctx, s.db, audit.Entry{
+		Actor:         importActor,
+		ClassID:       &importClass,
+		SemesterID:    &importSem,
+		Action:        "IMPORT",
+		EntityType:    "SEMESTER",
+		EntityID:      &importEID,
+		AfterJSON:     &importAfter,
+		CorrelationID: importCorr,
+	})
 	return targetSem, errs, nil
 }
 

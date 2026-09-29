@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -10,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/schedule"
 )
 
 // handleGetV1Patterns menangani GET /api/v1/schedule/patterns
@@ -151,40 +155,26 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang mengubah kelas penugasannya")
 		return
 	}
-	if req.RoomID != nil {
-		var conflicts int
-		if err := s.v1DB.QueryRow(`
-			SELECT COUNT(*) FROM schedule_patterns
-			WHERE room_id = ? AND day_of_week = ? AND status = 'ACTIVE' AND effective_until IS NULL
-			  AND start_time < ? AND end_time > ?;
-		`, *req.RoomID, req.DayOfWeek, endTime, req.StartTime).Scan(&conflicts); err != nil {
-			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik ruangan")
-			return
-		} else if conflicts > 0 {
-			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Ruangan bentrok dengan pola jadwal aktif")
-			return
-		}
-	}
 	for _, lecturerID := range req.LecturerIDs {
 		var assigned int
 		if err := s.v1DB.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ?;`, req.OfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
 			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "lecturer_ids harus terdaftar pada offering")
 			return
 		}
-		var conflicts int
-		if err := s.v1DB.QueryRow(`
-			SELECT COUNT(*) FROM schedule_patterns sp
-			JOIN offering_lecturers ol ON ol.course_offering_id = sp.course_offering_id
-			WHERE ol.lecturer_id = ? AND sp.course_offering_id <> ? AND sp.day_of_week = ?
-			  AND sp.status = 'ACTIVE' AND sp.effective_until IS NULL
-			  AND sp.start_time < ? AND sp.end_time > ?;
-		`, lecturerID, req.OfferingID, req.DayOfWeek, endTime, req.StartTime).Scan(&conflicts); err != nil {
-			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik dosen")
-			return
-		} else if conflicts > 0 {
-			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Dosen bentrok dengan pola jadwal aktif")
-			return
-		}
+	}
+	// BE-006: satu conflict engine untuk semua operasi jadwal.
+	if conflicts, err := schedule.CheckConflicts(r.Context(), s.v1DB, schedule.Candidate{
+		OwnerClassID:    classID,
+		OwnerOfferingID: req.OfferingID,
+		RoomID:          req.RoomID,
+		LecturerIDs:     req.LecturerIDs,
+		PatternDay:      req.DayOfWeek,
+		PatternStart:    req.StartTime,
+		PatternEnd:      endTime,
+		PatternDate:     time.Now().Format("2006-01-02"),
+	}); err == nil && schedule.HasBlocking(conflicts) {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, conflictMessage(conflicts))
+		return
 	}
 
 	tx, err := s.v1DB.Begin()
@@ -209,12 +199,24 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	correlationID := fmt.Sprintf("create-pattern-%d-%d", patternID, time.Now().UnixNano())
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'CREATE_PATTERN', 'SCHEDULE_PATTERN', ?, ?);
-	`, classID, u.UserID, u.ActiveAssignmentID, patternID, correlationID); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "CREATE_PATTERN",
+			EntityType:    "SCHEDULE_PATTERN",
+			EntityID:      &patternID,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pola jadwal")
@@ -355,12 +357,26 @@ func (s *Server) handleCreateV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	correlationID := fmt.Sprintf("create-event-%d-%d", eventID, time.Now().UnixNano())
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'CREATE_TEACHING_EVENT', 'TEACHING_EVENT', ?, ?, ?);
-	`, ownerClassID, u.UserID, u.ActiveAssignmentID, eventID, fmt.Sprintf(`{"kind":%q,"offering_id":%d}`, kind, req.OwnerOfferingID), correlationID); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit teaching event")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		afterJSON := fmt.Sprintf(`{"kind":%q,"offering_id":%d}`, kind, req.OwnerOfferingID)
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &ownerClassID,
+			Action:        "CREATE_TEACHING_EVENT",
+			EntityType:    "TEACHING_EVENT",
+			EntityID:      &eventID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit teaching event")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -488,21 +504,22 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 	correlationID := fmt.Sprintf("publish-event-%d-%s", eventID, hex.EncodeToString(keyHash[:]))
 
 	var (
-		curVersion int
-		curStatus  string
-		offeringID int64
-		classID    int64
-		roomID     sql.NullInt64
-		startsAt   dbTimestamp
-		endsAt     dbTimestamp
-		offName    string
-		reason     sql.NullString
-		roomCode   sql.NullString
+		curVersion  int
+		curStatus   string
+		offeringID  int64
+		classID     int64
+		roomID      sql.NullInt64
+		startsAt    dbTimestamp
+		endsAt      dbTimestamp
+		offName     string
+		reason      sql.NullString
+		roomCode    sql.NullString
+		originPatID sql.NullInt64
 	)
 
 	err = s.v1DB.QueryRow(`
 		SELECT te.version, te.lifecycle_status, te.room_id, te.starts_at, te.ends_at, te.reason,
-		       co.id, sem.class_id, co.display_name, r.code
+		       co.id, sem.class_id, co.display_name, r.code, te.origin_schedule_pattern_id
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -510,7 +527,7 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
 	`, eventID).Scan(&curVersion, &curStatus, &roomID, &startsAt, &endsAt, &reason,
-		&offeringID, &classID, &offName, &roomCode)
+		&offeringID, &classID, &offName, &roomCode, &originPatID)
 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian jadwal tidak ditemukan")
@@ -571,24 +588,46 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Conflict check
-	if roomID.Valid {
-		var conflictCount int
-		err := s.v1DB.QueryRow(`
-			SELECT COUNT(*)
-			FROM teaching_events te
-			WHERE te.id != ? AND te.room_id = ?
-			  AND te.lifecycle_status = 'PUBLISHED'
-			  AND te.starts_at < ? AND te.ends_at > ?;
-		`, eventID, roomID.Int64, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339)).Scan(&conflictCount)
-		if err != nil {
-			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik ruangan")
-			return
+	// BE-006: publish memakai engine yang sama dengan preview.
+	{
+		var candRoom *int64
+		if roomID.Valid {
+			v := roomID.Int64
+			candRoom = &v
 		}
-
-		if conflictCount > 0 && (req.ConflictOverrideReason == nil || strings.TrimSpace(*req.ConflictOverrideReason) == "") {
-			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Ruangan sudah digunakan oleh jadwal lain pada jam tersebut (blocking conflict)")
-			return
+		lectIDs := lecturersForOfferingCtx(r.Context(), s.v1DB, offeringID)
+		partIDs := participantOfferingIDs(r.Context(), s.v1DB, eventID, offeringID)
+		var excludePat *int64
+		if originPatID.Valid {
+			v := originPatID.Int64
+			excludePat = &v
+		}
+		conflicts, err := schedule.CheckConflicts(r.Context(), s.v1DB, schedule.Candidate{
+			OwnerClassID:     classID,
+			OwnerOfferingID:  offeringID,
+			ParticipantIDs:   partIDs,
+			RoomID:           candRoom,
+			LecturerIDs:      lectIDs,
+			StartsAt:         startsAt.Time,
+			EndsAt:           endsAt.Time,
+			ExcludeEventID:   &eventID,
+			ExcludePatternID: excludePat,
+		})
+		if err == nil {
+			for _, c := range conflicts {
+				if c.Code == schedule.CodeOutsideOwnerSem || c.Code == schedule.CodeOutsidePartSem {
+					s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, conflictMessage(conflicts))
+					return
+				}
+			}
+			if schedule.HasBlocking(conflicts) {
+				s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, conflictMessage(conflicts))
+				return
+			}
+			if schedule.NeedsOverride(conflicts) && (req.ConflictOverrideReason == nil || strings.TrimSpace(*req.ConflictOverrideReason) == "") {
+				s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Konflik nonblocking memerlukan conflict_override_reason")
+				return
+			}
 		}
 	}
 
@@ -624,18 +663,41 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		return "null"
 	}(), curVersion+1)
 
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (
-			actor_type, actor_user_id, actor_role_assignment_id, class_id, semester_id,
-			action, entity_type, entity_id, after_json, reason, correlation_id
-		) VALUES (
-			'USER', ?, ?, ?, (SELECT semester_id FROM course_offerings WHERE id = ?),
-			'PUBLISH_TEACHING_EVENT', 'TEACHING_EVENT', ?, ?, ?, ?
-		);
-	`, u.UserID, u.ActiveAssignmentID, classID, offeringID, eventID, afterJSON, req.ConflictOverrideReason, correlationID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mencatat audit log: %v", err))
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		var semIDPtr *int64
+		if sid := func() *int64 {
+			var sid int64
+			if err := tx.QueryRow(`SELECT semester_id FROM course_offerings WHERE id = ?`, offeringID).Scan(&sid); err == nil {
+				return &sid
+			}
+			return nil
+		}(); sid != nil {
+			semIDPtr = sid
+		}
+		publishReason := ""
+		if req.ConflictOverrideReason != nil {
+			publishReason = *req.ConflictOverrideReason
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			SemesterID:    semIDPtr,
+			Action:        "PUBLISH_TEACHING_EVENT",
+			EntityType:    "TEACHING_EVENT",
+			EntityID:      &eventID,
+			AfterJSON:     &afterJSON,
+			Reason:        publishReason,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mencatat audit log: %v", err))
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -771,18 +833,38 @@ func (s *Server) handleRevokeV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 	beforeJSON := fmt.Sprintf(`{"lifecycle_status":"%s"}`, curStatus)
 	afterJSON := fmt.Sprintf(`{"lifecycle_status":"REVOKED","revocation_reason":%q,"version":%d}`, req.Reason, curVersion+1)
 
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (
-			actor_type, actor_user_id, actor_role_assignment_id, class_id, semester_id,
-			action, entity_type, entity_id, before_json, after_json, reason, correlation_id
-		) VALUES (
-			'USER', ?, ?, ?, (SELECT semester_id FROM course_offerings WHERE id = ?),
-			'REVOKE_TEACHING_EVENT', 'TEACHING_EVENT', ?, ?, ?, ?, ?
-		);
-	`, u.UserID, u.ActiveAssignmentID, classID, offeringID, eventID, beforeJSON, afterJSON, req.Reason, r.Header.Get("X-Correlation-ID"))
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit log")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		var semIDPtr *int64
+		if sid := func() *int64 {
+			var sid int64
+			if err := tx.QueryRow(`SELECT semester_id FROM course_offerings WHERE id = ?`, offeringID).Scan(&sid); err == nil {
+				return &sid
+			}
+			return nil
+		}(); sid != nil {
+			semIDPtr = sid
+		}
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			SemesterID:    semIDPtr,
+			Action:        "REVOKE_TEACHING_EVENT",
+			EntityType:    "TEACHING_EVENT",
+			EntityID:      &eventID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			Reason:        req.Reason,
+			CorrelationID: r.Header.Get("X-Correlation-ID"),
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit log")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -928,40 +1010,45 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	if req.RoomID != nil {
 		newRoomID = sql.NullInt64{Int64: *req.RoomID, Valid: true}
 	}
-	if newRoomID.Valid {
-		var conflicts int
-		if err := s.v1DB.QueryRow(`
-			SELECT COUNT(*) FROM schedule_patterns
-			WHERE id <> ? AND room_id = ? AND day_of_week = ? AND status = 'ACTIVE' AND effective_until IS NULL
-			  AND start_time < ? AND end_time > ?;
-		`, patternID, newRoomID.Int64, newDayOfWeek, newEndTime, newStartTime).Scan(&conflicts); err != nil {
-			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik ruangan")
-			return
-		} else if conflicts > 0 {
-			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Ruangan bentrok dengan pola jadwal aktif")
-			return
-		}
-	}
 	for _, lecturerID := range req.LecturerIDs {
 		var assigned int
 		if err := s.v1DB.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ?;`, newOfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
 			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "lecturer_ids harus terdaftar pada offering")
 			return
 		}
-		var conflicts int
-		if err := s.v1DB.QueryRow(`
-			SELECT COUNT(*) FROM schedule_patterns sp
-			JOIN offering_lecturers ol ON ol.course_offering_id = sp.course_offering_id
-			WHERE sp.id <> ? AND ol.lecturer_id = ? AND sp.day_of_week = ?
-			  AND sp.status = 'ACTIVE' AND sp.effective_until IS NULL
-			  AND sp.start_time < ? AND sp.end_time > ?;
-		`, patternID, lecturerID, newDayOfWeek, newEndTime, newStartTime).Scan(&conflicts); err != nil {
-			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik dosen")
-			return
-		} else if conflicts > 0 {
-			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Dosen bentrok dengan pola jadwal aktif")
-			return
+	}
+	// BE-006: patch memakai engine yang sama dengan exclude diri sendiri.
+	var patchRoom *int64
+	if newRoomID.Valid {
+		v := newRoomID.Int64
+		patchRoom = &v
+	}
+	lectIDs := req.LecturerIDs
+	if lectIDs == nil {
+		rows, _ := s.v1DB.Query(`SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, newOfferingID)
+		if rows != nil {
+			for rows.Next() {
+				var lid int64
+				if err := rows.Scan(&lid); err == nil {
+					lectIDs = append(lectIDs, lid)
+				}
+			}
+			rows.Close()
 		}
+	}
+	if conflicts, err := schedule.CheckConflicts(r.Context(), s.v1DB, schedule.Candidate{
+		OwnerClassID:     curClassID,
+		OwnerOfferingID:  newOfferingID,
+		RoomID:           patchRoom,
+		LecturerIDs:      lectIDs,
+		PatternDay:       newDayOfWeek,
+		PatternStart:     newStartTime,
+		PatternEnd:       newEndTime,
+		PatternDate:      time.Now().Format("2006-01-02"),
+		ExcludePatternID: &patternID,
+	}); err == nil && schedule.HasBlocking(conflicts) {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, conflictMessage(conflicts))
+		return
 	}
 
 	// Tutup pola lama dengan effective_until hari ini
@@ -1001,16 +1088,28 @@ func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	}
 
 	correlationID := fmt.Sprintf("update-pattern-%d-%d", patternID, time.Now().UnixNano())
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'UPDATE_PATTERN', 'SCHEDULE_PATTERN', ?, ?, ?, ?);
-	`, curClassID, u.UserID, u.ActiveAssignmentID, newPatternID,
-		fmt.Sprintf(`{"old_id":%d,"day":%d,"start":%q}`, patternID, curDayOfWeek, curStartTime),
-		fmt.Sprintf(`{"new_id":%d,"day":%d,"start":%q}`, newPatternID, newDayOfWeek, newStartTime),
-		correlationID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"old_id":%d,"day":%d,"start":%q}`, patternID, curDayOfWeek, curStartTime)
+		afterJSON := fmt.Sprintf(`{"new_id":%d,"day":%d,"start":%q}`, newPatternID, newDayOfWeek, newStartTime)
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &curClassID,
+			Action:        "UPDATE_PATTERN",
+			EntityType:    "SCHEDULE_PATTERN",
+			EntityID:      &newPatternID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pola jadwal")
@@ -1043,23 +1142,27 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 	}
 
 	var (
-		kind            string
-		startsAt        dbTimestamp
-		endsAt          dbTimestamp
-		roomID          sql.NullInt64
-		roomCode        sql.NullString
-		offName         string
-		originPatternID sql.NullInt64
+		kind              string
+		startsAt          dbTimestamp
+		endsAt            dbTimestamp
+		roomID            sql.NullInt64
+		roomCode          sql.NullString
+		offName           string
+		originPatternID   sql.NullInt64
+		previewOfferingID int64
+		previewClassID    int64
 	)
 
 	err = s.v1DB.QueryRow(`
-		SELECT te.event_kind, te.starts_at, te.ends_at, te.room_id, r.code, co.display_name, te.origin_schedule_pattern_id
+		SELECT te.event_kind, te.starts_at, te.ends_at, te.room_id, r.code, co.display_name, te.origin_schedule_pattern_id,
+		       co.id, sem.class_id
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
-	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName, &originPatternID)
+	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName, &originPatternID, &previewOfferingID, &previewClassID)
 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian tidak ditemukan")
@@ -1096,44 +1199,36 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	conflicts := []map[string]any{}
-	if roomID.Valid {
-		var conflictCount int
-		_ = s.v1DB.QueryRow(`
-			SELECT COUNT(*)
-			FROM teaching_events te
-			WHERE te.id != ? AND te.room_id = ?
-			  AND te.lifecycle_status = 'PUBLISHED'
-			  AND te.starts_at < ? AND te.ends_at > ?;
-		`, eventID, roomID.Int64, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339)).Scan(&conflictCount)
-
-		if conflictCount > 0 {
-			conflicts = append(conflicts, map[string]any{
-				"type":     "ROOM_OCCUPIED",
-				"message":  fmt.Sprintf("Ruangan %s sudah digunakan oleh jadwal lain pada jam tersebut", roomCode.String),
-				"blocking": true,
-			})
+	// BE-006: preview memakai engine yang sama dengan publish.
+	var conflicts []map[string]any
+	{
+		var candRoom *int64
+		if roomID.Valid {
+			v := roomID.Int64
+			candRoom = &v
 		}
-	}
-
-	// Cek potensi konflik pattern (same time slot - for students)
-	var patternConflictCount int
-	_ = s.v1DB.QueryRow(`
-		SELECT COUNT(*)
-		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
-		WHERE te.id != ? AND te.lifecycle_status = 'PUBLISHED'
-		  AND te.starts_at < ? AND te.ends_at > ?
-		  AND teo.course_offering_id IN (
-			SELECT course_offering_id FROM teaching_event_offerings WHERE teaching_event_id = ?
-		  );
-	`, eventID, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339), eventID).Scan(&patternConflictCount)
-	if patternConflictCount > 0 {
-		conflicts = append(conflicts, map[string]any{
-			"type":     "PATTERN_CONFLICT",
-			"message":  "Terdapat konflik jadwal dengan kelas lain untuk mahasiswa yang sama",
-			"blocking": false,
-		})
+		lectIDs := lecturersForOfferingCtx(r.Context(), s.v1DB, previewOfferingID)
+		partIDs := participantOfferingIDs(r.Context(), s.v1DB, eventID, previewOfferingID)
+		var excludePat *int64
+		if originPatternID.Valid {
+			v := originPatternID.Int64
+			excludePat = &v
+		}
+		if engineConflicts, err := schedule.CheckConflicts(r.Context(), s.v1DB, schedule.Candidate{
+			OwnerClassID:     previewClassID,
+			OwnerOfferingID:  previewOfferingID,
+			ParticipantIDs:   partIDs,
+			RoomID:           candRoom,
+			LecturerIDs:      lectIDs,
+			StartsAt:         startsAt.Time,
+			EndsAt:           endsAt.Time,
+			ExcludeEventID:   &eventID,
+			ExcludePatternID: excludePat,
+		}); err == nil {
+			conflicts = conflictMaps(engineConflicts)
+		} else {
+			conflicts = []map[string]any{}
+		}
 	}
 
 	roomNote := ""
@@ -1223,4 +1318,68 @@ func (s *Server) handleParticipationV1TeachingEvent(w http.ResponseWriter, r *ht
 		"event_id":             eventID,
 		"participation_status": newStatus,
 	})
+}
+
+// conflictMessage merangkum konflik pertama untuk validation error yang ringkas.
+func conflictMessage(conflicts []schedule.Conflict) string {
+	for _, c := range conflicts {
+		if c.Blocking {
+			return fmt.Sprintf("%s: %s", c.Code, c.Message)
+		}
+	}
+	if len(conflicts) > 0 {
+		return fmt.Sprintf("%s: %s", conflicts[0].Code, conflicts[0].Message)
+	}
+	return "Jadwal bentrok dengan sesi lain"
+}
+
+// conflictMaps mengubah hasil engine menjadi response preview/publish.
+func conflictMaps(conflicts []schedule.Conflict) []map[string]any {
+	out := []map[string]any{}
+	for _, c := range conflicts {
+		out = append(out, map[string]any{
+			"code":        c.Code,
+			"type":        c.Code,
+			"message":     c.Message,
+			"blocking":    c.Blocking,
+			"entity_type": c.EntityType,
+			"entity_id":   c.EntityID,
+			"starts_at":   c.StartsAt,
+			"ends_at":     c.EndsAt,
+		})
+	}
+	return out
+}
+
+func lecturersForOfferingCtx(ctx context.Context, db *sql.DB, offeringID int64) []int64 {
+	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, offeringID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err == nil {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func participantOfferingIDs(ctx context.Context, db *sql.DB, eventID, ownerOfferingID int64) []int64 {
+	rows, err := db.QueryContext(ctx, `SELECT course_offering_id FROM teaching_event_offerings
+		WHERE teaching_event_id=? AND participation_role='PARTICIPANT' AND course_offering_id != ?`, eventID, ownerOfferingID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err == nil {
+			out = append(out, id)
+		}
+	}
+	return out
 }

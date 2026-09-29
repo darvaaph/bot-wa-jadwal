@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -577,17 +578,29 @@ func (s *Server) handlePatchV1ClassStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	// Catat audit_logs
-	_, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, 'UPDATE_CLASS_STATUS', 'CLASS', ?, ?, ?, ?);
-	`, classID, u.UserID, u.ActiveAssignmentID, classID,
-		fmt.Sprintf(`{"status":%q}`, oldStatus),
-		fmt.Sprintf(`{"status":%q}`, newStatus),
-		fmt.Sprintf("class-status-%d-%d", classID, time.Now().UnixNano()),
-	)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit status kelas")
-		return
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"status":%q}`, oldStatus)
+		afterJSON := fmt.Sprintf(`{"status":%q}`, newStatus)
+		correlationID := fmt.Sprintf("class-status-%d-%d", classID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "UPDATE_CLASS_STATUS",
+			EntityType:    "CLASS",
+			EntityID:      &classID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit status kelas")
+			return
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit status kelas")
@@ -816,13 +829,31 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	correlationID := fmt.Sprintf("accept-invitation-%d-%d", invID, time.Now().UnixNano())
-	if _, err = tx.Exec(`
-		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
-		VALUES ('USER', ?, ?, ?, ?, 'ASSIGN_ROLE', 'ROLE_ASSIGNMENT', ?, ?, ?);
-	`, classID, semesterID, userID, assignmentID, assignmentID,
-		fmt.Sprintf(`{"role":%q,"scope_type":%q,"invitation_id":%d}`, role, scopeType, invID), correlationID); err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penugasan peran")
-		return
+	{
+		var classIDPtr *int64
+		if classID.Valid {
+			v := classID.Int64
+			classIDPtr = &v
+		}
+		var semesterIDPtr *int64
+		if semesterID.Valid {
+			v := semesterID.Int64
+			semesterIDPtr = &v
+		}
+		afterJSON := fmt.Sprintf(`{"role":%q,"scope_type":%q,"invitation_id":%d}`, role, scopeType, invID)
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &userID, RoleAssignmentID: &assignmentID},
+			ClassID:       classIDPtr,
+			SemesterID:    semesterIDPtr,
+			Action:        "ASSIGN_ROLE",
+			EntityType:    "ROLE_ASSIGNMENT",
+			EntityID:      &assignmentID,
+			AfterJSON:     &afterJSON,
+			CorrelationID: correlationID,
+		}); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penugasan peran")
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
