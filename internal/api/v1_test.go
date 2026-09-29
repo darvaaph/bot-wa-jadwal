@@ -205,6 +205,24 @@ func TestV1Auth_LoginSuccess(t *testing.T) {
 	}
 }
 
+func TestV1Auth_LoginHonorsSecureCookieConfig(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	s.SetSecureCookies(true)
+
+	body := `{"identity_key":"+6281234567890","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("login expected 200, got %d", w.Code)
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 || !cookies[0].Secure {
+		t.Fatalf("cookie auth harus memiliki atribut Secure saat konfigurasi aktif")
+	}
+}
+
 func TestV1Auth_LoginInvalidPassword_Generic401(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
@@ -279,6 +297,22 @@ func TestV1Auth_RequireAuth_Rejection(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Token palsu expected 401, got %d", w.Code)
+	}
+}
+
+func TestV1ManagementCollections_RequireAuthentication(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+
+	for _, path := range []string{"/api/v1/classes", "/api/v1/materials"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("GET %s tanpa autentikasi: expected 401, got %d; body=%s", path, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
@@ -577,7 +611,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 
 	// 1. Complete
-	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", nil)
+	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", strings.NewReader(`{"version":1}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w := httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -586,7 +620,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 
 	// 2. Archive
-	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", nil)
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":2}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -595,7 +629,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 
 	// 3. Restore
-	req = httptest.NewRequest("POST", "/api/v1/tasks/1/restore", nil)
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/restore", strings.NewReader(`{"version":3}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -740,10 +774,12 @@ func TestV1Audit_ListWithScoping(t *testing.T) {
 	adminToken := helperLogin(t, s, "+6281111111111", "password123")
 
 	// Sisipkan rekam audit uji
-	_, _ = db.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, action, entity_type, entity_id)
-		VALUES (1, 1, 'TEST_ACTION', 'CLASS', 1);
-	`)
+	if _, err := db.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, action, entity_type, entity_id, correlation_id)
+		VALUES ('USER', 1, 1, 'TEST_ACTION', 'CLASS', 1, 'test-audit-scope');
+	`); err != nil {
+		t.Fatalf("Gagal menyiapkan audit log: %v", err)
+	}
 
 	// 1. KM membaca audit kelas miliknya
 	req := httptest.NewRequest("GET", "/api/v1/audit", nil)
@@ -1029,8 +1065,9 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 		VALUES (50, 1, 'OWNER', 'ACCEPTED');
 	`)
 
-	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", nil)
+	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", strings.NewReader(`{"version":1}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Idempotency-Key", "publish-event-50")
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
@@ -1047,6 +1084,75 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 	`).Scan(&schedNotifCount)
 	if err != nil || schedNotifCount != 1 {
 		t.Errorf("Expected 1 PENDING SCHEDULE_REPLACEMENT notification, got count=%d, err=%v", schedNotifCount, err)
+	}
+}
+
+func TestV1TeachingEventPublish_RequiresVersionAndIdempotencyKey(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	tests := []struct {
+		name string
+		body string
+		key  string
+	}{
+		{name: "version kosong", body: `{}`, key: "publish-1"},
+		{name: "idempotency key kosong", body: `{"version":1}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/1/publish", strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Idempotency-Key", tc.key)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d; body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestV1PatternPatch_RequiresVersion(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/schedule/patterns/1", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("patch pattern tanpa version: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1TeachingEventPublish_IdempotencyKeyReplay(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, lifecycle_status, version)
+		VALUES (60, 'EXTRA', '2024-10-01T08:00:00Z', '2024-10-01T10:00:00Z', 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (60, 1, 'OWNER', 'ACCEPTED');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	publish := func(key string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/60/publish", strings.NewReader(`{"version":1}`))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Idempotency-Key", key)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+	if w := publish("same-key"); w.Code != http.StatusOK {
+		t.Fatalf("publish awal expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	if w := publish("same-key"); w.Code != http.StatusOK {
+		t.Fatalf("replay key sama expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	if w := publish("different-key"); w.Code != http.StatusConflict {
+		t.Fatalf("replay key berbeda expected 409, got %d; body=%s", w.Code, w.Body.String())
 	}
 }
 
@@ -1130,6 +1236,21 @@ func TestV1Portal_CodeMode_AccessControl(t *testing.T) {
 	}
 }
 
+func TestV1Portal_RejectsInvalidFilters(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	for _, path := range []string{
+		"/api/v1/portal/d4-ti-2024-a/tasks?group=sembarang",
+		"/api/v1/portal/d4-ti-2024-a/changes?since=bukan-timestamp",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("filter invalid %s: expected 422, got %d; body=%s", path, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestV1Tasks_ScopeEnforcement_BOLA(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
@@ -1176,12 +1297,117 @@ func TestV1Tasks_ScopeEnforcement_BOLA(t *testing.T) {
 	}
 
 	// PJ kelas A mencoba menyelesaikan tugas kelas B -> 403
-	req = httptest.NewRequest("POST", "/api/v1/tasks/99/complete", nil)
+	req = httptest.NewRequest("POST", "/api/v1/tasks/99/complete", strings.NewReader(`{"version":1}`))
 	req.Header.Set("Authorization", "Bearer "+pjToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Errorf("PJ expected 403 when completing task from another offering, got %d", w.Code)
+	}
+}
+
+func TestV1TaskLifecycle_RequiresVersion(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/complete", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("lifecycle tanpa version: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1TaskReview_RequiresNoteForNegativeDecision(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/reviews", strings.NewReader(`{"decision":"CHANGES_REQUESTED","task_version":1}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("review negatif tanpa note: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1ClassStatus_WritesCanonicalAudit(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/classes/d4-ti-2024-a", strings.NewReader(`{"status":"INACTIVE"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patch status expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var actorType, correlationID string
+	if err := db.QueryRow(`SELECT actor_type, correlation_id FROM audit_logs WHERE action = 'UPDATE_CLASS_STATUS' ORDER BY id DESC LIMIT 1;`).Scan(&actorType, &correlationID); err != nil {
+		t.Fatalf("audit canonical tidak tersimpan: %v", err)
+	}
+	if actorType != "USER" || strings.TrimSpace(correlationID) == "" {
+		t.Fatalf("audit canonical tidak lengkap: actor_type=%q correlation_id=%q", actorType, correlationID)
+	}
+}
+
+func TestV1SemesterAndMaterial_RejectCrossClassKM(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode) VALUES (2, 'Asia/Jakarta', 'LINK');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	semesterReq := httptest.NewRequest(http.MethodGet, "/api/v1/classes/d4-ti-2024-b/semesters", nil)
+	semesterReq.Header.Set("Authorization", "Bearer "+token)
+	semesterW := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(semesterW, semesterReq)
+	if semesterW.Code != http.StatusForbidden {
+		t.Fatalf("semester lintas kelas expected 403, got %d", semesterW.Code)
+	}
+
+	materialBody := `{"class_slug":"d4-ti-2024-b","offering_id":2,"title":"Lintas kelas","material_type":"DOCUMENT"}`
+	materialReq := httptest.NewRequest(http.MethodPost, "/api/v1/materials", strings.NewReader(materialBody))
+	materialReq.Header.Set("Authorization", "Bearer "+token)
+	materialW := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(materialW, materialReq)
+	if materialW.Code != http.StatusForbidden {
+		t.Fatalf("material lintas kelas expected 403, got %d; body=%s", materialW.Code, materialW.Body.String())
+	}
+}
+
+func TestV1Tasks_CreateRejectsOfferingOutsideActiveClass(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	body := `{"offering_id":2,"title":"Lintas kelas","save_as":"draft"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM membuat task lintas kelas: expected 403, got %d; body=%s", w.Code, w.Body.String())
 	}
 }
 
