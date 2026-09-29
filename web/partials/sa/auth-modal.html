@@ -1,0 +1,44 @@
+<!-- partials/sa/auth-modal.html — Modal Autentikasi Superadmin -->
+<div x-show="authModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl border border-[#EEEEEE] p-6 md:p-8 shadow-2xl max-w-md w-full" @click.away="">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-[#E9EAFF] flex items-center justify-center text-[#3965FB]">
+        <span class="material-symbols-outlined text-[24px]">admin_panel_settings</span>
+      </div>
+      <div>
+        <h2 class="text-[20px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Masuk Superadmin</h2>
+        <p class="text-[12px] text-[#667085]">Akses panel administrasi sistem kampus</p>
+      </div>
+    </div>
+
+    <!-- Error Box -->
+    <div x-show="authError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="authError"></div>
+
+    <form @submit.prevent="login()" class="mt-5 space-y-4">
+      <div>
+        <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Nomor WhatsApp / Identitas</label>
+        <input type="text" x-model="authForm.identityKey" placeholder="+6281111111111" required
+          class="w-full h-11 px-4 rounded-xl border border-[#EEEEEE] font-mono text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+      </div>
+
+      <div>
+        <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Kata Sandi</label>
+        <input type="password" x-model="authForm.password" placeholder="••••••••" required
+          class="w-full h-11 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+      </div>
+
+      <div class="pt-2 flex flex-col gap-2.5">
+        <button type="submit" :disabled="authLoading"
+          class="w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px] flex items-center justify-center gap-2">
+          <span x-show="!authLoading">Masuk ke Panel Kontrol</span>
+          <span x-show="authLoading">Memverifikasi...</span>
+        </button>
+
+        <button type="button" @click="quickDemoLogin()" :disabled="authLoading"
+          class="w-full h-11 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+          Masuk Cepat Demo Admin (+6281111111111)
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

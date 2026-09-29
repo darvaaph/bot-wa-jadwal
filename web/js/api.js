@@ -9,11 +9,32 @@ function readCookie(name) {
   return '';
 }
 
-function mutationHeaders(extra) {
+function getAuthToken() {
+  if (typeof localStorage === 'undefined') return '';
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+}
+
+function setAuthToken(token) {
+  if (typeof localStorage === 'undefined') return;
+  if (token) {
+    localStorage.setItem('access_token', token);
+  } else {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token');
+  }
+}
+
+function authHeaders(extra) {
   const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
   const csrf = readCookie('bot_jadwal_csrf');
   if (csrf) headers['X-CSRF-Token'] = csrf;
   return headers;
+}
+
+function mutationHeaders(extra) {
+  return authHeaders(extra);
 }
 
 const BotApi = {
@@ -500,31 +521,107 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async getSystemStatus() {
-    const res = await fetch('/api/v1/admin/system-status', { credentials: 'same-origin' });
+  async getAdminStatus() {
+    const res = await fetch('/api/v1/admin/status', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
     if (!res.ok) return null;
-    return (await res.json()).data;
+    const json = await res.json();
+    return json.data || null;
+  },
+
+  async getSystemStatus() {
+    return this.getAdminStatus();
+  },
+
+  async getV1Classes() {
+    const res = await fetch('/api/v1/classes', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  },
+
+  async updateClassStatus(slug, status) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(slug), {
+      method: 'PATCH',
+      headers: authHeaders(),
+      credentials: 'same-origin',
+      body: JSON.stringify({ status: status })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Gagal memperbarui status kelas.');
+      throw err;
+    }
+    return json.data;
+  },
+
+  async createInvitation(payload) {
+    const res = await fetch('/api/v1/invitations', {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'same-origin',
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (json && json.error && json.error.message) || (json && json.message) || 'Gagal membuat undangan.';
+      const err = new Error(msg);
+      err.code = (json && json.error && json.error.code) || 'INVITATION_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async rotatePortalCode(slug, code) {
+    const body = code ? { code: code } : {};
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(slug) + '/portal-code/rotate', {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Gagal merotasi kode portal.');
+      throw err;
+    }
+    return json.data;
+  },
+
+  async getMe() {
+    const res = await fetch('/api/v1/auth/me', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
   },
 
   async createBackup(payload) {
-    const res = await fetch('/api/v1/admin/backups', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    const res = await fetch('/api/v1/backups', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload || {})
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal membuat backup.');
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal membuat backup.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
   },
 
   async restoreBackup(backupId, reason) {
-    const res = await fetch('/api/v1/admin/backups/' + backupId + '/restore', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ reason: reason })
+    const res = await fetch('/api/v1/restores', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ backup_id: backupId, reason: reason })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal menjalankan restore.');
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal memverifikasi restore.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return true;
@@ -630,10 +727,13 @@ const BotApi = {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      const err = new Error((json && json.error) || 'Identitas atau kata sandi tidak valid.');
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Identitas atau kata sandi tidak valid.');
       err.code = res.status === 401 ? 'INVALID_CREDENTIALS' : 'LOGIN_FAILED';
       err.payload = json && json.data ? json.data : null;
       throw err;
+    }
+    if (json && json.data && json.data.token) {
+      setAuthToken(json.data.token);
     }
     return json.data;
   },
@@ -645,12 +745,16 @@ const BotApi = {
       headers: mutationHeaders(),
       body: JSON.stringify({ role_assignment_id: roleAssignmentId })
     });
+    const json = await res.json().catch(() => null);
     if (!res.ok) {
       const err = new Error('Konteks akses tidak tersedia.');
       err.code = 'SWITCH_FAILED';
       throw err;
     }
-    return await res.json();
+    if (json && json.data && json.data.token) {
+      setAuthToken(json.data.token);
+    }
+    return json.data;
   },
 
   async logout() {
@@ -663,7 +767,11 @@ const BotApi = {
     } catch (e) {
       // Session cleanup is best-effort; local state is cleared regardless.
     }
-  }
+    setAuthToken(null);
+  },
+
+  getAuthToken: getAuthToken,
+  setAuthToken: setAuthToken
 };
 
 // Ekspor global untuk komponen Alpine.js (app-km.js, app.js, app-sa.js)

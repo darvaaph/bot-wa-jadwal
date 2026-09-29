@@ -1,21 +1,64 @@
-<!-- partials/sa/view-soon.html — Superadmin: Status Bot WA + Antrean + Master + Pengguna + Backup -->
+<!-- partials/sa/view-soon.html — Superadmin: Status Bot WhatsApp & Modul Lanjutan -->
+
+<!-- STATUS BOT WHATSAPP -->
 <section x-show="view === 'status-bot'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Status Bot WhatsApp</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Koneksi dan sesi bot lintas kelas.</p>
-  <div class="mt-5 p-6 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col md:flex-row md:items-center gap-4">
-    <span class="w-4 h-4 rounded-full shrink-0" :class="botOnline ? 'bg-emerald-500 animate-pulse' : 'bg-[#FF6C48]'"></span>
-    <div class="flex-1">
-      <p class="text-[18px] font-bold" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
-      <p class="text-[12px] text-slate-500">whatsmeow session · penyambungan ulang mengikuti prosedur server</p>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Status Bot WhatsApp</h1>
+        <p class="text-[14px] text-[#667085] mt-1">Koneksi dan telemetri runtime bot WhatsApp kampus.</p>
+      </div>
+      <button type="button" @click="checkBot()" class="h-11 px-6 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px] shrink-0 self-start sm:self-auto">
+        Periksa status
+      </button>
     </div>
-    <button type="button" @click="checkBot()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px] self-start">Cek ulang</button>
+
+    <!-- Status Koneksi Utama -->
+    <div class="mt-6 p-6 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col md:flex-row md:items-center gap-4">
+      <span class="w-4 h-4 rounded-full shrink-0" :class="getBotStatusColor()"></span>
+      <div class="flex-1">
+        <p class="text-[18px] font-bold text-[#1D1B3A]" x-text="getBotStatusLabel()">-</p>
+        <p class="text-[13px] text-[#667085] mt-0.5">Sesi Multi-Device whatsmeow · Penyiaran otomatis jadwal dan notifikasi tugas.</p>
+      </div>
+    </div>
+
+    <!-- Telemetri Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mt-6">
+      <div class="p-5 rounded-2xl bg-white border border-[#EEEEEE]">
+        <p class="text-[12px] text-[#667085] font-medium">Pola Jadwal Aktif</p>
+        <p class="text-[24px] font-bold text-[#1D1B3A] mt-1" x-text="botStatusDetails && botStatusDetails.events_summary ? botStatusDetails.events_summary.total_patterns : 0">0</p>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-[#EEEEEE]">
+        <p class="text-[12px] text-[#667085] font-medium">Kejadian Perkuliahan</p>
+        <p class="text-[24px] font-bold text-[#1D1B3A] mt-1" x-text="botStatusDetails && botStatusDetails.events_summary ? botStatusDetails.events_summary.total_events : 0">0</p>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-[#EEEEEE]">
+        <p class="text-[12px] text-[#667085] font-medium">Tugas Terbit</p>
+        <p class="text-[24px] font-bold text-[#1D1B3A] mt-1" x-text="botStatusDetails && botStatusDetails.tasks_summary ? botStatusDetails.tasks_summary.published : 0">0</p>
+      </div>
+      <div class="p-5 rounded-2xl bg-white border border-[#EEEEEE]">
+        <p class="text-[12px] text-[#667085] font-medium">Pengguna Terdaftar</p>
+        <p class="text-[24px] font-bold text-[#1D1B3A] mt-1" x-text="botStatusDetails && botStatusDetails.users_summary ? botStatusDetails.users_summary.total : 0">0</p>
+      </div>
+    </div>
+
+    <!-- Info Server Waktu -->
+    <div class="mt-6 text-[12px] text-[#667085]" x-show="botStatusDetails && botStatusDetails.timestamp">
+      Telemetri server terakhir: <span class="font-mono text-[#1D1B3A]" x-text="botStatusDetails ? botStatusDetails.timestamp : '-'">-</span>
+    </div>
   </div>
 </section>
 
+<!-- MODUL LAINNYA (DIJADWALKAN PADA FASE BERIKUTNYA) -->
 <section x-show="['antrean','master-ruangan','master-matkul','pengguna','backup'].includes(view)" x-cloak>
-  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
-    <span class="material-symbols-outlined text-[36px] text-slate-300">construction</span>
-    <p class="text-[15px] font-semibold mt-2" x-text="saTitle(view)">-</p>
-    <p class="text-[13px] text-slate-500 mt-1">Fitur belum tersedia — butuh endpoint backend.</p>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm text-center">
+    <div class="w-12 h-12 mx-auto rounded-2xl bg-[#E9EAFF] flex items-center justify-center text-[#3965FB]">
+      <span class="material-symbols-outlined text-[28px]">construction</span>
+    </div>
+    <h2 class="text-[20px] font-bold text-[#1D1B3A] mt-4" x-text="saTitle(view)">-</h2>
+    <p class="text-[14px] text-[#667085] mt-1 max-w-md mx-auto">Modul ini dijadwalkan pada tahap integrasi lanjutan setelah fitur utama kelas dan bot selesai.</p>
+    <button type="button" @click="go('dashboard')" class="mt-6 h-11 px-6 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium">
+      Kembali ke Dashboard
+    </button>
   </div>
 </section>

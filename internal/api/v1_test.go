@@ -1093,6 +1093,47 @@ func TestV1Classes_PatchStatus(t *testing.T) {
 	}
 }
 
+func TestV1Classes_CreateClass(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// 1. Non-admin harus ditolak 403
+	body, _ := json.Marshal(map[string]any{
+		"name":          "D4 TI 2025 C",
+		"study_program": "D4 Teknik Informatika",
+		"cohort_year":   2025,
+		"group_label":   "C",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/classes", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM buat kelas expected 403, got %d", w.Code)
+	}
+
+	// 2. Admin berhasil membuat kelas
+	req = httptest.NewRequest("POST", "/api/v1/classes", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Admin buat kelas expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 3. Verifikasi kelas tersimpan di database
+	var count int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM classes WHERE slug = 'd4-ti-2025-c';`).Scan(&count)
+	if count != 1 {
+		t.Fatalf("Kelas baru tidak ditemukan di database")
+	}
+}
+
 func TestV1Rooms_CandidatesAndConfirmation(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
