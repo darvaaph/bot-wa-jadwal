@@ -144,7 +144,7 @@ func (b *BotClient) Close() error {
 
 // Status mengembalikan deskripsi status koneksi bot saat ini (untuk telemetri API)
 func (b *BotClient) Status() string {
-	if b.Client == nil {
+	if b == nil || b.Client == nil {
 		return "uninitialized"
 	}
 	if b.Client.IsConnected() {

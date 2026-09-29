@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/api/legacy"
+	"bot-jadwal/internal/api/middleware"
+	v1 "bot-jadwal/internal/api/v1"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
@@ -20,13 +23,23 @@ import (
 
 // Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
-	httpServer    *http.Server
-	botClient     *bot.BotClient
-	classManager  *schedule.ClassManager
-	taskManager   *task.TaskManager
-	v1DB          *sql.DB
-	portalService *portal.Service
-	storageDir    string
+	httpServer     *http.Server
+	botClient      *bot.BotClient
+	classManager   *schedule.ClassManager
+	taskManager    *task.TaskManager
+	v1DB           *sql.DB
+	portalService  *portal.Service
+	legacyHandler  *legacy.Handler
+	secManager     *middleware.SecurityManager
+	authManager    *middleware.AuthManager
+	rlManager          *middleware.RateLimitManager
+	taskController     *v1.TaskController
+	scheduleController *v1.ScheduleController
+	portalController   *v1.PortalController
+	authController     *v1.AuthController
+	academicController *v1.AcademicController
+	adminController    *v1.AdminController
+	storageDir         string
 	secureCookies bool
 	// BE-013/BE-014: konfigurasi security eksplisit.
 	env               string
@@ -67,13 +80,29 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 		classManager: classManager,
 		taskManager:  taskManager,
 	}
+	s.secManager = middleware.NewSecurityManager(middleware.SecurityOptions{})
+	s.rlManager = middleware.NewRateLimitManager(nil)
 	if len(v1DB) > 0 && v1DB[0] != nil {
 		s.v1DB = v1DB[0]
 		s.portalService = portal.NewService(v1DB[0])
+		s.authManager = middleware.NewAuthManager(v1DB[0])
 		// Limiter default (kunci efemeral hingga SetSecurityOptions memberi
 		// key eksplisit). Tabel security_attempts tersedia via migrasi 008.
 		s.buildLimiter()
+	} else {
+		s.authManager = middleware.NewAuthManager(nil)
 	}
+	s.legacyHandler = legacy.NewHandler(classManager, taskManager, s.v1DB)
+	s.taskController = v1.NewTaskController(s.v1DB)
+	s.scheduleController = v1.NewScheduleController(s.v1DB)
+	s.portalController = v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager)
+	s.authController = v1.NewAuthController(s.v1DB, s.secManager, s.rlManager, s.portalService)
+	s.academicController = v1.NewAcademicController(s.v1DB)
+	var botProvider v1.BotStatusProvider
+	if s.botClient != nil {
+		botProvider = s.botClient
+	}
+	s.adminController = v1.NewAdminController(s.v1DB, botProvider, s.secManager, s.rlManager, s.getStorageDir)
 
 	// Registrasi seluruh rute (legacy shim, API v1, static web assets)
 	s.registerRoutes(mux)
