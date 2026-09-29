@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -319,7 +321,7 @@ func (r *Repository) EnsureRoom(ctx context.Context, code, name string) (int64, 
 
 // EnsureClass memastikan kelas terdaftar pada tabel classes dan mengembalikannya.
 func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, error) {
-	code := strings.TrimSpace(rawCode)
+	code := strings.ToUpper(strings.TrimSpace(rawCode))
 	if code == "" {
 		return nil, fmt.Errorf("kode kelas tidak boleh kosong")
 	}
@@ -358,11 +360,36 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 
 	slugVal := strings.ToLower(code)
 	program := "Teknik Informatika"
-	cohort := 2024
+	cohort := time.Now().Year()
 	label := code
-	parts := strings.Split(code, "-")
-	if len(parts) >= 2 {
-		label = parts[len(parts)-1]
+	legacyPattern := regexp.MustCompile(`^(?:(D3|D4)-TI-)?(?:SMT)?([1357])-?([A-D])$`)
+	compactCode := strings.ReplaceAll(code, " ", "")
+	if match := legacyPattern.FindStringSubmatch(compactCode); match != nil {
+		level := match[1]
+		if level == "" {
+			level = "D4"
+		}
+		semester, _ := strconv.Atoi(match[2])
+		academicStartYear := time.Now().Year()
+		if time.Now().Month() < time.September {
+			academicStartYear--
+		}
+		cohort = academicStartYear - ((semester - 1) / 2)
+		label = match[3]
+		program = level + " Teknik Informatika"
+	} else {
+		parts := strings.Split(code, "-")
+		if len(parts) >= 2 {
+			label = parts[len(parts)-1]
+		}
+		if len(parts) >= 4 {
+			if parsedCohort, err := strconv.Atoi(parts[len(parts)-2]); err == nil {
+				cohort = parsedCohort
+			}
+			if parts[0] == "D3" || parts[0] == "D4" {
+				program = parts[0] + " Teknik Informatika"
+			}
+		}
 	}
 
 	query := `

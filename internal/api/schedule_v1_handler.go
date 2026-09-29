@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -331,6 +332,11 @@ func (s *Server) handleGetV1TeachingEvents(w http.ResponseWriter, r *http.Reques
 	s.writeV1Success(w, http.StatusOK, events)
 }
 
+type PublishEventRequest struct {
+	Version                int     `json:"version"`
+	ConflictOverrideReason *string `json:"conflict_override_reason,omitempty"`
+}
+
 // handlePublishV1TeachingEvent menangani POST /api/v1/teaching-events/{id}/publish
 func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
 	u, ok := GetAuthContext(r)
@@ -340,44 +346,180 @@ func (s *Server) handlePublishV1TeachingEvent(w http.ResponseWriter, r *http.Req
 	}
 
 	eventIDStr := r.PathValue("id")
-	eventID, _ := strconv.ParseInt(eventIDStr, 10, 64)
-
-	res, err := s.v1DB.Exec(`
-		UPDATE teaching_events
-		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND lifecycle_status = 'DRAFT';
-	`, u.UserID, eventID)
-
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menerbitkan jadwal")
+	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "ID kejadian jadwal tidak valid")
 		return
 	}
 
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
-		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Kejadian tidak ditemukan atau sudah terbit")
-		return
+	var req PublishEventRequest
+	if r.Body != nil && r.Body != http.NoBody {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+			s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Payload JSON tidak valid")
+			return
+		}
 	}
 
-	// Antrekan notifikasi siaran jadwal pengganti ke grup WhatsApp
-	var offName, reason, startsAt, roomCode string
-	var classID int64
-	_ = s.v1DB.QueryRow(`
-		SELECT co.display_name, COALESCE(te.reason, ''), te.starts_at,
-		       COALESCE(r.code, '-'), sem.class_id
+	var (
+		curVersion int
+		curStatus  string
+		offeringID int64
+		classID    int64
+		roomID     sql.NullInt64
+		startsAt   dbTimestamp
+		endsAt     dbTimestamp
+		offName    string
+		reason     sql.NullString
+		roomCode   sql.NullString
+	)
+
+	err = s.v1DB.QueryRow(`
+		SELECT te.version, te.lifecycle_status, te.room_id, te.starts_at, te.ends_at, te.reason,
+		       co.id, sem.class_id, co.display_name, r.code
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
-	`, eventID).Scan(&offName, &reason, &startsAt, &roomCode, &classID)
+	`, eventID).Scan(&curVersion, &curStatus, &roomID, &startsAt, &endsAt, &reason,
+		&offeringID, &classID, &offName, &roomCode)
 
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal membaca kejadian jadwal: %v", err))
+		return
+	}
+
+	// Cek scope
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != offeringID {
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya dapat mempublikasikan untuk kelas Anda")
+			return
+		}
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID {
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya dapat mempublikasikan untuk kelas Anda")
+			return
+		}
+	} else {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Peran Anda tidak diizinkan")
+		return
+	}
+
+	// Idempotency check: if already published, return success
+	if curStatus == "PUBLISHED" {
+		s.writeV1Success(w, http.StatusOK, map[string]any{
+			"id":               eventID,
+			"lifecycle_status": "PUBLISHED",
+		})
+		return
+	}
+
+	if curStatus != "DRAFT" {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Hanya DRAFT yang dapat dipublikasikan")
+		return
+	}
+
+	if req.Version != 0 && req.Version != curVersion {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi data tidak cocok", map[string]any{
+			"current_version": curVersion,
+			"current_data": map[string]any{
+				"lifecycle_status": curStatus,
+			},
+		})
+		return
+	}
+
+	// Conflict check
+	if roomID.Valid {
+		var conflictCount int
+		_ = s.v1DB.QueryRow(`
+			SELECT COUNT(*)
+			FROM teaching_events te
+			WHERE te.id != ? AND te.room_id = ?
+			  AND te.lifecycle_status = 'PUBLISHED'
+			  AND te.starts_at < ? AND te.ends_at > ?;
+		`, eventID, roomID.Int64, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339)).Scan(&conflictCount)
+
+		if conflictCount > 0 && req.ConflictOverrideReason == nil {
+			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Ruangan sudah digunakan oleh jadwal lain pada jam tersebut (blocking conflict)")
+			return
+		}
+	}
+
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
+		UPDATE teaching_events
+		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, version = version + 1
+		WHERE id = ? AND version = ?;
+	`, u.UserID, eventID, curVersion)
+
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menerbitkan jadwal: %v", err))
+		return
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Konflik versi saat menyimpan")
+		return
+	}
+
+	// Audit log
+	afterJSON := fmt.Sprintf(`{"lifecycle_status":"PUBLISHED","room_id":%v,"version":%d}`, func() any {
+		if roomID.Valid {
+			return roomID.Int64
+		}
+		return "null"
+	}(), curVersion+1)
+
+	correlationID := r.Header.Get("X-Correlation-ID")
+	if correlationID == "" {
+		correlationID = fmt.Sprintf("pub-event-%d-%d", eventID, time.Now().UnixNano())
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (
+			actor_type, actor_user_id, actor_role_assignment_id, class_id, semester_id,
+			action, entity_type, entity_id, after_json, correlation_id
+		) VALUES (
+			'USER', ?, ?, ?, (SELECT semester_id FROM course_offerings WHERE id = ?),
+			'PUBLISH_TEACHING_EVENT', 'TEACHING_EVENT', ?, ?, ?
+		);
+	`, u.UserID, u.ActiveAssignmentID, classID, offeringID, eventID, afterJSON, correlationID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mencatat audit log: %v", err))
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit transaksi")
+		return
+	}
+
+	// Queue notification
+	rc := "-"
+	if roomCode.Valid {
+		rc = roomCode.String
+	}
+	rs := ""
+	if reason.Valid {
+		rs = reason.String
+	}
 	s.queueNotification(classID, "SCHEDULE_REPLACEMENT", "TEACHING_EVENT", eventID, map[string]any{
 		"course":    offName,
-		"starts_at": startsAt,
-		"room":      roomCode,
-		"reason":    reason,
+		"starts_at": startsAt.Time.Format(time.RFC3339),
+		"room":      rc,
+		"reason":    rs,
 	}, u.UserID)
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
@@ -406,7 +548,11 @@ func (s *Server) handleRevokeV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 	}
 
 	eventIDStr := r.PathValue("id")
-	eventID, _ := strconv.ParseInt(eventIDStr, 10, 64)
+	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "ID kejadian jadwal tidak valid")
+		return
+	}
 
 	var req RevokeEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Reason) == "" {
@@ -414,12 +560,65 @@ func (s *Server) handleRevokeV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	res, err := s.v1DB.Exec(`
+	var (
+		curVersion int
+		curStatus  string
+		classID    int64
+		offName    string
+		offeringID int64
+	)
+	err = s.v1DB.QueryRow(`
+		SELECT te.version, te.lifecycle_status, sem.class_id, co.display_name, co.id
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE te.id = ?;
+	`, eventID).Scan(&curVersion, &curStatus, &classID, &offName, &offeringID)
+
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca kejadian jadwal")
+		return
+	}
+
+	if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID {
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya dapat mencabut jadwal untuk kelas Anda")
+			return
+		}
+	}
+
+	if req.Version != curVersion {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi data tidak cocok", map[string]any{
+			"current_version": curVersion,
+			"current_data": map[string]any{
+				"lifecycle_status": curStatus,
+			},
+		})
+		return
+	}
+
+	if curStatus != "PUBLISHED" {
+		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Hanya jadwal yang sudah diterbitkan yang dapat dicabut")
+		return
+	}
+
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
 		UPDATE teaching_events
 		SET lifecycle_status = 'REVOKED', revoked_by_user_id = ?, revoked_at = CURRENT_TIMESTAMP,
-		    revocation_reason = ?
-		WHERE id = ? AND lifecycle_status = 'PUBLISHED';
-	`, u.UserID, req.Reason, eventID)
+		    revocation_reason = ?, version = version + 1
+		WHERE id = ? AND version = ?;
+	`, u.UserID, req.Reason, eventID, curVersion)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencabut jadwal")
@@ -428,24 +627,34 @@ func (s *Server) handleRevokeV1TeachingEvent(w http.ResponseWriter, r *http.Requ
 
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
-		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Jadwal tidak ditemukan atau tidak dalam status terbit")
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Konflik versi saat menyimpan")
 		return
 	}
 
-	// Antrekan notifikasi siaran pembatalan jadwal ke grup WhatsApp
-	var revokeOffName string
-	var revokeClassID int64
-	_ = s.v1DB.QueryRow(`
-		SELECT co.display_name, sem.class_id
-		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
-		JOIN course_offerings co ON teo.course_offering_id = co.id
-		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE te.id = ?;
-	`, eventID).Scan(&revokeOffName, &revokeClassID)
+	beforeJSON := fmt.Sprintf(`{"lifecycle_status":"%s"}`, curStatus)
+	afterJSON := fmt.Sprintf(`{"lifecycle_status":"REVOKED","revocation_reason":%q,"version":%d}`, req.Reason, curVersion+1)
 
-	s.queueNotification(revokeClassID, "SCHEDULE_REVOKED", "TEACHING_EVENT", eventID, map[string]any{
-		"course": revokeOffName,
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (
+			actor_type, actor_user_id, actor_role_assignment_id, class_id, semester_id,
+			action, entity_type, entity_id, before_json, after_json, reason, correlation_id
+		) VALUES (
+			'USER', ?, ?, ?, (SELECT semester_id FROM course_offerings WHERE id = ?),
+			'REVOKE_TEACHING_EVENT', 'TEACHING_EVENT', ?, ?, ?, ?, ?
+		);
+	`, u.UserID, u.ActiveAssignmentID, classID, offeringID, eventID, beforeJSON, afterJSON, req.Reason, r.Header.Get("X-Correlation-ID"))
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit log")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit transaksi")
+		return
+	}
+
+	s.queueNotification(classID, "SCHEDULE_REVOKED", "TEACHING_EVENT", eventID, map[string]any{
+		"course": offName,
 		"reason": req.Reason,
 	}, u.UserID)
 
@@ -604,22 +813,23 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 	}
 
 	var (
-		kind     string
-		startsAt time.Time
-		endsAt   time.Time
-		roomID   sql.NullInt64
-		roomCode sql.NullString
-		offName  string
+		kind            string
+		startsAt        dbTimestamp
+		endsAt          dbTimestamp
+		roomID          sql.NullInt64
+		roomCode        sql.NullString
+		offName         string
+		originPatternID sql.NullInt64
 	)
 
 	err = s.v1DB.QueryRow(`
-		SELECT te.event_kind, te.starts_at, te.ends_at, te.room_id, r.code, co.display_name
+		SELECT te.event_kind, te.starts_at, te.ends_at, te.room_id, r.code, co.display_name, te.origin_schedule_pattern_id
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
-	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName)
+	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName, &originPatternID)
 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian tidak ditemukan")
@@ -629,8 +839,34 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Cek potensi konflik ruangan jika ruangan dipilih
-	var conflicts []map[string]any
+	var oldData map[string]any
+	if originPatternID.Valid {
+		var (
+			pOffName   string
+			pRoomCode  sql.NullString
+			pDayOfWeek int
+			pStartTime string
+			pEndTime   string
+		)
+		err = s.v1DB.QueryRow(`
+			SELECT co.display_name, r.code, sp.day_of_week, sp.start_time, sp.end_time
+			FROM schedule_patterns sp
+			JOIN course_offerings co ON sp.course_offering_id = co.id
+			LEFT JOIN rooms r ON sp.room_id = r.id
+			WHERE sp.id = ?;
+		`, originPatternID.Int64).Scan(&pOffName, &pRoomCode, &pDayOfWeek, &pStartTime, &pEndTime)
+		if err == nil {
+			oldData = map[string]any{
+				"offering":    pOffName,
+				"room":        pRoomCode.String,
+				"day_of_week": pDayOfWeek,
+				"start_time":  pStartTime,
+				"end_time":    pEndTime,
+			}
+		}
+	}
+
+	conflicts := []map[string]any{}
 	if roomID.Valid {
 		var conflictCount int
 		_ = s.v1DB.QueryRow(`
@@ -639,7 +875,7 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 			WHERE te.id != ? AND te.room_id = ?
 			  AND te.lifecycle_status = 'PUBLISHED'
 			  AND te.starts_at < ? AND te.ends_at > ?;
-		`, eventID, roomID.Int64, endsAt, startsAt).Scan(&conflictCount)
+		`, eventID, roomID.Int64, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339)).Scan(&conflictCount)
 
 		if conflictCount > 0 {
 			conflicts = append(conflicts, map[string]any{
@@ -650,15 +886,42 @@ func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	// Cek potensi konflik pattern (same time slot - for students)
+	var patternConflictCount int
+	_ = s.v1DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
+		WHERE te.id != ? AND te.lifecycle_status = 'PUBLISHED'
+		  AND te.starts_at < ? AND te.ends_at > ?
+		  AND teo.course_offering_id IN (
+			SELECT course_offering_id FROM teaching_event_offerings WHERE teaching_event_id = ?
+		  );
+	`, eventID, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339), eventID).Scan(&patternConflictCount)
+	if patternConflictCount > 0 {
+		conflicts = append(conflicts, map[string]any{
+			"type":     "PATTERN_CONFLICT",
+			"message":  "Terdapat konflik jadwal dengan kelas lain untuk mahasiswa yang sama",
+			"blocking": false,
+		})
+	}
+
+	roomNote := ""
+	if roomID.Valid {
+		roomNote = "perlu konfirmasi TU"
+	}
+
 	s.writeV1Success(w, http.StatusOK, map[string]any{
-		"event_id":  eventID,
+		"old": oldData,
+		"new": map[string]any{
+			"offering":  offName,
+			"starts_at": startsAt.Time.Format(time.RFC3339),
+			"ends_at":   endsAt.Time.Format(time.RFC3339),
+			"room":      roomCode.String,
+		},
 		"kind":      kind,
-		"offering":  offName,
-		"starts_at": startsAt.Format(time.RFC3339),
-		"ends_at":   endsAt.Format(time.RFC3339),
-		"room":      roomCode.String,
 		"conflicts": conflicts,
-		"room_note": "Perlu konfirmasi bagian tata usaha jika ruangan memerlukan izin khusus",
+		"room_note": roomNote,
 	})
 }
 

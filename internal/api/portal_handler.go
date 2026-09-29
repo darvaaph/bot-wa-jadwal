@@ -1,12 +1,66 @@
 package api
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+// portalAccessAllowed memeriksa mode portal dan memvalidasi token jika mode CODE.
+func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, classID int64) bool {
+	var mode string
+	var version int
+	err := s.v1DB.QueryRow(`
+		SELECT portal_access_mode, portal_code_version
+		FROM class_settings
+		WHERE class_id = ?;
+	`, classID).Scan(&mode, &version)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return true
+		}
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat pengaturan kelas")
+		return false
+	}
+
+	if mode == "LINK" {
+		return true
+	}
+
+	token := r.Header.Get("X-Portal-Token")
+	if token == "" {
+		token = r.URL.Query().Get("portal_token")
+	}
+
+	if token == "" {
+		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kelas ini memerlukan kode akses portal")
+		return false
+	}
+
+	hasher := sha256.New()
+	hasher.Write([]byte(token))
+	tokenHash := hex.EncodeToString(hasher.Sum(nil))
+
+	var sessionID int64
+	err = s.v1DB.QueryRow(`
+		SELECT id
+		FROM portal_sessions
+		WHERE token_hash = ? AND class_id = ? AND access_code_version = ?
+		  AND revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+	`, tokenHash, classID, version).Scan(&sessionID)
+
+	if err != nil {
+		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Sesi portal tidak valid atau telah kedaluwarsa")
+		return false
+	}
+
+	return true
+}
 
 // handlePortalSummary menangani GET /api/v1/portal/{slug}/summary
 func (s *Server) handlePortalSummary(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +84,10 @@ func (s *Server) handlePortalSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	if !s.portalAccessAllowed(w, r, classID) {
 		return
 	}
 
@@ -102,14 +160,14 @@ func (s *Server) handlePortalSummary(w http.ResponseWriter, r *http.Request) {
 		for taskRows.Next() {
 			var tID int64
 			var offering, title string
-			var deadlineAt time.Time
+			var deadlineAt dbTimestamp
 			var subURL sql.NullString
 			if err := taskRows.Scan(&tID, &offering, &title, &deadlineAt, &subURL); err == nil {
 				nearestTasks = append(nearestTasks, map[string]any{
 					"id":             tID,
 					"offering":       offering,
 					"title":          title,
-					"deadline_at":    deadlineAt.Format(time.RFC3339),
+					"deadline_at":    deadlineAt.RFC3339(),
 					"submission_url": subURL.String,
 				})
 			}
@@ -149,6 +207,10 @@ func (s *Server) handlePortalSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	if !s.portalAccessAllowed(w, r, classID) {
 		return
 	}
 
@@ -331,13 +393,32 @@ func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
 
 	slug := r.PathValue("slug")
 	var classID int64
-	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	var timezone string
+	err := s.v1DB.QueryRow(`
+		SELECT c.id, cs.timezone
+		FROM classes c
+		JOIN class_settings cs ON c.id = cs.class_id
+		WHERE c.slug = ?;
+	`, slug).Scan(&classID, &timezone)
+
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
 	}
 
-	rows, err := s.v1DB.Query(`
+	if !s.portalAccessAllowed(w, r, classID) {
+		return
+	}
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		loc = time.FixedZone("WIB", 7*3600)
+	}
+
+	query := `
 		SELECT t.id, co.display_name, t.title, t.instructions, t.deadline_at,
 		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version
 		FROM tasks t
@@ -346,8 +427,55 @@ func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
 		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
-		ORDER BY t.deadline_at ASC;
-	`, classID)
+	`
+	args := []any{classID}
+
+	group := r.URL.Query().Get("group")
+	now := time.Now().In(loc)
+	if group == "hari_ini" {
+		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).UTC().Format("2006-01-02T15:04:05Z")
+		end := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc).UTC().Format("2006-01-02T15:04:05Z")
+		query += " AND t.deadline_at BETWEEN ? AND ?"
+		args = append(args, start, end)
+	} else if group == "minggu_ini" {
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		startWeek := now.AddDate(0, 0, -weekday+1)
+		endWeek := startWeek.AddDate(0, 0, 6)
+		start := time.Date(startWeek.Year(), startWeek.Month(), startWeek.Day(), 0, 0, 0, 0, loc).UTC().Format("2006-01-02T15:04:05Z")
+		end := time.Date(endWeek.Year(), endWeek.Month(), endWeek.Day(), 23, 59, 59, 999999999, loc).UTC().Format("2006-01-02T15:04:05Z")
+		query += " AND t.deadline_at BETWEEN ? AND ?"
+		args = append(args, start, end)
+	} else if group == "mendatang" {
+		query += " AND t.deadline_at > ?"
+		args = append(args, now.UTC().Format("2006-01-02T15:04:05Z"))
+	} else if group == "terlewat" {
+		query += " AND t.deadline_at < ? AND t.completed_at IS NULL"
+		args = append(args, now.UTC().Format("2006-01-02T15:04:05Z"))
+	}
+
+	offering := r.URL.Query().Get("offering")
+	if offering != "" {
+		if offID, err := strconv.ParseInt(offering, 10, 64); err == nil {
+			query += " AND co.id = ?"
+			args = append(args, offID)
+		} else {
+			query += " AND co.display_name = ?"
+			args = append(args, offering)
+		}
+	}
+
+	q := r.URL.Query().Get("q")
+	if q != "" {
+		query += " AND (t.title LIKE '%' || ? || '%' OR t.instructions LIKE '%' || ? || '%')"
+		args = append(args, q, q)
+	}
+
+	query += " ORDER BY t.deadline_at ASC;"
+
+	rows, err := s.v1DB.Query(query, args...)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas portal")
@@ -359,7 +487,7 @@ func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id int64
 		var offering, title, instructions, subText, subURL string
-		var deadlineAt time.Time
+		var deadlineAt dbTimestamp
 		var version int
 
 		if err := rows.Scan(&id, &offering, &title, &instructions, &deadlineAt, &subText, &subURL, &version); err == nil {
@@ -368,7 +496,7 @@ func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
 				"offering":        offering,
 				"title":           title,
 				"instructions":    instructions,
-				"deadline_at":     deadlineAt.Format(time.RFC3339),
+				"deadline_at":     deadlineAt.RFC3339(),
 				"submission_text": subText,
 				"submission_url":  subURL,
 				"version":         version,
@@ -395,6 +523,13 @@ func (s *Server) handlePortalTaskDetail(w http.ResponseWriter, r *http.Request) 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	if !s.portalAccessAllowed(w, r, classID) {
+		return
 	}
 
 	var (
@@ -403,12 +538,12 @@ func (s *Server) handlePortalTaskDetail(w http.ResponseWriter, r *http.Request) 
 		offeringName string
 		title        string
 		instructions string
-		deadlineAt   time.Time
+		deadlineAt   dbTimestamp
 		taskType     sql.NullString
 		subText      sql.NullString
 		subURL       sql.NullString
 		version      int
-		completedAt  sql.NullTime
+		completedAt  dbTimestamp
 	)
 
 	err = s.v1DB.QueryRow(`
@@ -463,7 +598,7 @@ func (s *Server) handlePortalTaskDetail(w http.ResponseWriter, r *http.Request) 
 			"offering":        offeringName,
 			"title":           title,
 			"instructions":    instructions,
-			"deadline_at":     deadlineAt.Format(time.RFC3339),
+			"deadline_at":     deadlineAt.RFC3339(),
 			"task_type":       taskType.String,
 			"submission_text": subText.String,
 			"submission_url":  subURL.String,
@@ -487,9 +622,16 @@ func (s *Server) handlePortalChanges(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
 	}
 
-	rows, err := s.v1DB.Query(`
+	if !s.portalAccessAllowed(w, r, classID) {
+		return
+	}
+
+	query := `
 		SELECT te.id, te.event_kind, co.display_name, te.starts_at, te.ends_at,
 		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.published_at
 		FROM teaching_events te
@@ -498,9 +640,20 @@ func (s *Server) handlePortalChanges(w http.ResponseWriter, r *http.Request) {
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE sem.class_id = ? AND te.lifecycle_status = 'PUBLISHED'
-		ORDER BY te.published_at DESC
-		LIMIT 50;
-	`, classID)
+	`
+	args := []any{classID}
+
+	since := r.URL.Query().Get("since")
+	if since != "" {
+		if _, err := time.Parse(time.RFC3339, since); err == nil {
+			query += " AND te.published_at >= ?"
+			args = append(args, since)
+		}
+	}
+
+	query += " ORDER BY te.published_at DESC LIMIT 50;"
+
+	rows, err := s.v1DB.Query(query, args...)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat riwayat perubahan")
@@ -512,19 +665,19 @@ func (s *Server) handlePortalChanges(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id int64
 		var kind, offering, roomCode, reason string
-		var startsAt, endsAt time.Time
-		var publishedAt sql.NullTime
+		var startsAt, endsAt dbTimestamp
+		var publishedAt dbTimestamp
 
 		if err := rows.Scan(&id, &kind, &offering, &startsAt, &endsAt, &roomCode, &reason, &publishedAt); err == nil {
 			changes = append(changes, map[string]any{
 				"id":           id,
 				"event_kind":   kind,
 				"offering":     offering,
-				"starts_at":    startsAt.Format(time.RFC3339),
-				"ends_at":      endsAt.Format(time.RFC3339),
+				"starts_at":    startsAt.RFC3339(),
+				"ends_at":      endsAt.RFC3339(),
 				"room":         roomCode,
 				"reason":       reason,
-				"published_at": publishedAt.Time.Format(time.RFC3339),
+				"published_at": publishedAt.RFC3339(),
 			})
 		}
 	}
@@ -545,14 +698,41 @@ func (s *Server) handlePortalMaterials(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
 	}
 
-	rows, err := s.v1DB.Query(`
+	if !s.portalAccessAllowed(w, r, classID) {
+		return
+	}
+
+	query := `
 		SELECT m.id, m.title, m.material_type, COALESCE(m.url, ''), COALESCE(m.description, '')
 		FROM materials m
-		WHERE m.class_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
-		ORDER BY m.created_at DESC;
-	`, classID)
+	`
+	args := []any{}
+
+	offering := r.URL.Query().Get("offering")
+	if offering != "" {
+		if offID, err := strconv.ParseInt(offering, 10, 64); err == nil {
+			query += " WHERE m.class_id = ? AND m.course_offering_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
+			args = append(args, classID, offID)
+		} else {
+			query += `
+				JOIN course_offerings co ON m.course_offering_id = co.id
+				WHERE m.class_id = ? AND co.display_name = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
+			`
+			args = append(args, classID, offering)
+		}
+	} else {
+		query += " WHERE m.class_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
+		args = append(args, classID)
+	}
+
+	query += " ORDER BY m.created_at DESC;"
+
+	rows, err := s.v1DB.Query(query, args...)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat materi kelas")

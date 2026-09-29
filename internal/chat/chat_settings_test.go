@@ -260,11 +260,13 @@ func TestChatSettings_BackwardCompatibilityMigration(t *testing.T) {
 	g3 := "120363003@g.us"
 	g4 := "120363004@g.us"
 
-	// Alias lama harus dimigrasikan ke ID kelas kanonikal.
-	_ = csm.SetClass(g1, "3A")
-	_ = csm.SetClass(g2, "3B")
-	_ = csm.SetClass(g3, "D4-TI-1A")
-	_ = csm.SetClass(g4, "D3-TI-1A")
+	// Simulasikan cache dari format lama sebelum data dipersistenkan ke model target.
+	csm.mu.Lock()
+	csm.cache[g1] = "3A"
+	csm.cache[g2] = "3B"
+	csm.cache[g3] = "D4-TI-1A"
+	csm.cache[g4] = "D3-TI-1A"
+	csm.mu.Unlock()
 
 	cfg1 := classMgr.GetClassOrDefault(csm.GetClass(g1))
 	if cfg1 == nil || !strings.Contains(cfg1.Kampus, "3A") {

@@ -80,7 +80,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var failedAttempts int
 	_ = s.v1DB.QueryRow(`
 		SELECT COUNT(*) FROM login_attempts
-		WHERE identity_hash = ? AND attempted_at >= datetime('now', '-15 minutes') AND outcome = 'FAILED';
+		WHERE identity_hash = ? AND attempted_at >= datetime('now', '-15 minutes') AND outcome = 'FAILURE';
 	`, identityHash).Scan(&failedAttempts)
 
 	if failedAttempts >= 5 {
@@ -110,7 +110,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err == sql.ErrNoRows {
 		// Pesan generik agar tidak mengungkap keberadaan akun
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (identity_hash, source_hash, outcome) VALUES (?, ?, 'FAILED');`, identityHash, sourceHash)
+		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (identity_hash, source_hash, outcome) VALUES (?, ?, 'FAILURE');`, identityHash, sourceHash)
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kredensial tidak valid")
 		return
 	} else if err != nil {
@@ -120,14 +120,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Verifikasi Password dengan bcrypt
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILED');`, userID, identityHash, sourceHash)
+		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILURE');`, userID, identityHash, sourceHash)
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kredensial tidak valid")
 		return
 	}
 
 	// 4. Verifikasi status pengguna
 	if status != "ACTIVE" {
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILED');`, userID, identityHash, sourceHash)
+		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILURE');`, userID, identityHash, sourceHash)
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akun Anda saat ini dinonaktifkan")
 		return
 	}
@@ -199,7 +199,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			created_at, last_seen_at, absolute_expires_at
 		)
 		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?);
-	`, userID, activeAssignmentID, tokenHash, sessionVersion, expiresAt)
+	`, userID, activeAssignmentID, tokenHash, sessionVersion, expiresAt.UTC().Format(time.RFC3339))
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan sesi login")
 		return
@@ -390,7 +390,7 @@ func (s *Server) handleSwitchContext(w http.ResponseWriter, r *http.Request) {
 			created_at, last_seen_at, absolute_expires_at
 		)
 		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?);
-	`, u.UserID, req.RoleAssignmentID, tokenHash, u.SessionVersion, expiresAt)
+	`, u.UserID, req.RoleAssignmentID, tokenHash, u.SessionVersion, expiresAt.UTC().Format(time.RFC3339))
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan sesi baru")
 		return

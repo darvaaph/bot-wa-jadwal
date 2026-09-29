@@ -9,21 +9,15 @@ import (
 	"syscall"
 	"time"
 
-	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api"
-	"bot-jadwal/internal/auth"
-	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
 	"bot-jadwal/internal/notify"
-	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/reminder"
-	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
-	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
 
 	"go.mau.fi/whatsmeow/types/events"
@@ -96,7 +90,6 @@ func main() {
 	}
 
 	var taskManager *task.TaskManager
-	var taskRepo *task.Repository
 	if appDB != nil {
 		taskManager, err = task.NewTaskManager(appDB)
 		if err != nil {
@@ -104,7 +97,6 @@ func main() {
 		} else {
 			fmt.Println("Berhasil menginisialisasi modul tugas")
 		}
-		taskRepo = task.NewRepository(appDB)
 	}
 
 	var overrideManager *schedule.OverrideManager

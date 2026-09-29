@@ -184,7 +184,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 			_, _ = w.db.ExecContext(ctx, `
 				INSERT INTO notification_attempts (
 					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'NO_CHANNEL', 'Tidak ada grup WhatsApp terdaftar untuk kelas ini');
+				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', 'Tidak ada grup WhatsApp terdaftar untuk kelas ini');
 			`, item.ID, attemptNum)
 			processedCount++
 			continue
@@ -198,7 +198,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 			_, _ = w.db.ExecContext(ctx, `
 				INSERT INTO notification_attempts (
 					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'INVALID_JID', ?);
+				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', ?);
 			`, item.ID, attemptNum, fmt.Sprintf("Format JID tidak valid: %v", err))
 			processedCount++
 			continue
@@ -229,7 +229,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 			_, _ = w.db.ExecContext(ctx, `
 				INSERT INTO notification_attempts (
 					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SEND_ERROR', ?);
+				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', ?);
 			`, item.ID, attemptNum, err.Error())
 		} else {
 			providerID := string(resp.ID)
@@ -241,7 +241,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 			_, _ = w.db.ExecContext(ctx, `
 				INSERT INTO notification_attempts (
 					notification_message_id, attempt_number, started_at, finished_at, result, provider_message_id
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'DELIVERED', ?);
+				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SUCCESS', ?);
 			`, item.ID, attemptNum, providerID)
 		}
 

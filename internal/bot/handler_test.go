@@ -1,13 +1,8 @@
 package bot
 
 import (
-	"strings"
 	"testing"
 	"time"
-
-	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/schedule"
-	"bot-jadwal/internal/task"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"

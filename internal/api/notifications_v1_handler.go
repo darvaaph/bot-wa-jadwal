@@ -84,9 +84,9 @@ func (s *Server) handleGetNotifications(w http.ResponseWriter, r *http.Request) 
 			entityID    sql.NullInt64
 			status      string
 			payloadJSON string
-			scheduledAt sql.NullTime
-			sentAt      sql.NullTime
-			createdAt   time.Time
+			scheduledAt dbTimestamp
+			sentAt      dbTimestamp
+			createdAt   dbTimestamp
 			attempts    int
 		)
 
@@ -120,7 +120,7 @@ func (s *Server) handleGetNotifications(w http.ResponseWriter, r *http.Request) 
 				PayloadJSON:  payloadJSON,
 				ScheduledAt:  schedStr,
 				SentAt:       sentStr,
-				CreatedAt:    createdAt.Format(time.RFC3339),
+				CreatedAt:    createdAt.Time.Format(time.RFC3339),
 				AttemptCount: attempts,
 			})
 		}
@@ -169,33 +169,53 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Update status notifikasi menjadi PENDING
-	_, err = s.v1DB.Exec(`
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
 		UPDATE notification_messages
 		SET status = 'PENDING', scheduled_at = CURRENT_TIMESTAMP
-		WHERE id = ?;
+		WHERE id = ? AND status IN ('FAILED', 'CANCELLED');
 	`, notifID)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status notifikasi")
 		return
 	}
 
+	affected, err := res.RowsAffected()
+	if err != nil || affected == 0 {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Status notifikasi telah berubah")
+		return
+	}
+
 	// Rekam attempt manual
 	var nextAttemptNum int
-	_ = s.v1DB.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum)
+	_ = tx.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum)
 
-	_, _ = s.v1DB.Exec(`
+	_, _ = tx.Exec(`
 		INSERT INTO notification_attempts (notification_message_id, attempt_number, started_at, result, error_message)
 		VALUES (?, ?, CURRENT_TIMESTAMP, 'MANUAL_RETRY_SCHEDULED', 'Dijadwalkan ulang oleh pengurus');
 	`, notifID, nextAttemptNum)
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json)
-		VALUES (?, ?, ?, 'RETRY_NOTIFICATION', 'NOTIFICATION_MESSAGE', ?, ?, ?);
+	correlationID := fmt.Sprintf("retry-notif-%d", time.Now().UnixNano())
+	_, _ = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'RETRY_NOTIFICATION', 'NOTIFICATION_MESSAGE', ?, ?, ?, ?);
 	`, curClassID, u.UserID, u.ActiveAssignmentID, notifID,
 		fmt.Sprintf(`{"status":%q}`, curStatus),
 		`{"status":"PENDING"}`,
+		correlationID,
 	)
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memproses transaksi")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"id":             notifID,

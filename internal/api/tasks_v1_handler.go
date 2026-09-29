@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -93,10 +94,10 @@ func (s *Server) handleGetV1Tasks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id, offID int64
 		var offName, title, instr, pubStatus, revState string
-		var deadlineAt time.Time
+		var deadlineAt dbTimestamp
 		var taskType, subText, subURL sql.NullString
 		var version int
-		var completedAt, archivedAt sql.NullTime
+		var completedAt, archivedAt dbTimestamp
 
 		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt); err == nil {
 			tasks = append(tasks, map[string]any{
@@ -105,7 +106,7 @@ func (s *Server) handleGetV1Tasks(w http.ResponseWriter, r *http.Request) {
 				"offering":           offName,
 				"title":              title,
 				"instructions":       instr,
-				"deadline_at":        deadlineAt.Format(time.RFC3339),
+				"deadline_at":        deadlineAt.RFC3339(),
 				"task_type":          taskType.String,
 				"submission_text":    subText.String,
 				"submission_url":     subURL.String,
@@ -114,13 +115,13 @@ func (s *Server) handleGetV1Tasks(w http.ResponseWriter, r *http.Request) {
 				"version":            version,
 				"completed_at": func() any {
 					if completedAt.Valid {
-						return completedAt.Time.Format(time.RFC3339)
+						return completedAt.RFC3339()
 					}
 					return nil
 				}(),
 				"archived_at": func() any {
 					if archivedAt.Valid {
-						return archivedAt.Time.Format(time.RFC3339)
+						return archivedAt.RFC3339()
 					}
 					return nil
 				}(),
@@ -193,8 +194,16 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 		deadlineTime = time.Now().Add(24 * time.Hour)
 	}
 
+	// Mulai transaksi
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
 	var taskID int64
-	err := s.v1DB.QueryRow(`
+	err = tx.QueryRow(`
 		INSERT INTO tasks (
 			course_offering_id, title, instructions, deadline_at, task_type,
 			submission_text, submission_url, publication_status, review_state,
@@ -202,7 +211,7 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
 		RETURNING id;
-	`, req.OfferingID, req.Title, req.Instructions, deadlineTime, req.TaskType,
+	`, req.OfferingID, req.Title, req.Instructions, deadlineTime.UTC().Format(time.RFC3339), req.TaskType,
 		req.SubmissionText, req.SubmissionURL, publicationStatus, reviewState,
 		func() any {
 			if reviewState == "APPROVED" {
@@ -213,7 +222,7 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 		u.UserID,
 		func() any {
 			if publicationStatus == "PUBLISHED" {
-				return time.Now()
+				return time.Now().UTC().Format(time.RFC3339)
 			}
 			return nil
 		}(),
@@ -226,17 +235,45 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 
 	// Jika KM langsung menerbitkan, catat review APPROVED ke task_reviews
 	if reviewState == "APPROVED" {
-		_, _ = s.v1DB.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 			VALUES (?, ?, ?, 1, 'APPROVED', 'Disetujui otomatis saat dibuat oleh KM');
 		`, taskID, u.UserID, u.ActiveAssignmentID)
+		if err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat review otomatis")
+			return
+		}
+	}
+
+	// Ambil class_id
+	var offName string
+	var classID int64
+	err = tx.QueryRow(`
+		SELECT co.display_name, sem.class_id
+		FROM course_offerings co
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE co.id = ?;
+	`, req.OfferingID).Scan(&offName, &classID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengambil data kelas")
+		return
 	}
 
 	// Audit log
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id)
-		VALUES (?, ?, ?, 'CREATE_TASK', 'TASK', ?);
-	`, u.ActiveClassID, u.UserID, u.ActiveAssignmentID, taskID)
+	corrID := fmt.Sprintf("create-task-%d-%d", taskID, time.Now().UnixNano())
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'CREATE_TASK', 'TASK', ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, classID, taskID, corrID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
+		return
+	}
 
 	// Jika langsung terbit dan disetujui, antrekan notifikasi WhatsApp
 	if publicationStatus == "PUBLISHED" && reviewState == "APPROVED" {
@@ -275,7 +312,7 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 
 // handleGetV1TaskDetail menangani GET /api/v1/tasks/{id}
 func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
-	_, ok := GetAuthContext(r)
+	u, ok := GetAuthContext(r)
 	if !ok {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
 		return
@@ -290,27 +327,30 @@ func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
 		offName     string
 		title       string
 		instr       string
-		deadlineAt  time.Time
+		deadlineAt  dbTimestamp
 		taskType    sql.NullString
 		subText     sql.NullString
 		subURL      sql.NullString
 		pubStatus   string
 		revState    string
 		version     int
-		completedAt sql.NullTime
-		archivedAt  sql.NullTime
+		completedAt dbTimestamp
+		archivedAt  dbTimestamp
+		classID     int64
 	)
 
 	err := s.v1DB.QueryRow(`
 		SELECT t.id, t.course_offering_id, co.display_name, t.title, t.instructions,
 		       t.deadline_at, t.task_type, t.submission_text, t.submission_url,
-		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at
+		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at,
+		       sem.class_id
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE t.id = ? AND t.deleted_at IS NULL;
 	`, taskID).Scan(
 		&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText,
-		&subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt,
+		&subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &classID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -318,6 +358,14 @@ func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas")
+		return
+	}
+
+	if u.ActiveRole == "PJ" && (!u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != offID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses ditolak: hanya untuk PJ mata kuliah ini")
+		return
+	} else if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses ditolak: hanya untuk KM kelas ini")
 		return
 	}
 
@@ -336,7 +384,7 @@ func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
 			var rID int64
 			var reviewer, decision, note string
 			var taskVer int
-			var createdAt time.Time
+			var createdAt dbTimestamp
 			if err := revRows.Scan(&rID, &reviewer, &taskVer, &decision, &note, &createdAt); err == nil {
 				reviews = append(reviews, map[string]any{
 					"id":           rID,
@@ -344,7 +392,7 @@ func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
 					"task_version": taskVer,
 					"decision":     decision,
 					"note":         note,
-					"created_at":   createdAt.Format(time.RFC3339),
+					"created_at":   createdAt.RFC3339(),
 				})
 			}
 		}
@@ -357,7 +405,7 @@ func (s *Server) handleGetV1TaskDetail(w http.ResponseWriter, r *http.Request) {
 			"offering":           offName,
 			"title":              title,
 			"instructions":       instr,
-			"deadline_at":        deadlineAt.Format(time.RFC3339),
+			"deadline_at":        deadlineAt.RFC3339(),
 			"task_type":          taskType.String,
 			"submission_text":    subText.String,
 			"submission_url":     subURL.String,
@@ -409,7 +457,7 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 		curOfferingID int64
 		curTitle      string
 		curInstr      string
-		curDeadline   time.Time
+		curDeadline   dbTimestamp
 		curTaskType   sql.NullString
 		curSubText    sql.NullString
 		curSubURL     sql.NullString
@@ -463,7 +511,7 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 				"current_data": map[string]any{
 					"title":              curTitle,
 					"instructions":       curInstr,
-					"deadline_at":        curDeadline.Format(time.RFC3339),
+					"deadline_at":        curDeadline.RFC3339(),
 					"task_type":          curTaskType.String,
 					"submission_text":    curSubText.String,
 					"submission_url":     curSubURL.String,
@@ -485,7 +533,7 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 		newInstr = strings.TrimSpace(*req.Instructions)
 	}
 
-	newDeadline := curDeadline
+	newDeadline := curDeadline.Time
 	if req.DeadlineAt != nil && strings.TrimSpace(*req.DeadlineAt) != "" {
 		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(*req.DeadlineAt))
 		if err != nil {
@@ -524,23 +572,32 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Aturan review: PJ edit -> NOT_REVIEWED, KM edit -> APPROVED
-	newRevState := curRevState
-	if u.ActiveRole == "PJ" {
-		newRevState = "NOT_REVIEWED"
-	} else if u.ActiveRole == "KM" || u.ActiveRole == "SYSTEM_ADMIN" {
+	newVersion := curVersion + 1
+	newRevState := "NOT_REVIEWED"
+	var newReviewedVersion any
+	if newPubStatus == "PUBLISHED" && (u.ActiveRole == "KM" || u.ActiveRole == "SYSTEM_ADMIN") {
 		newRevState = "APPROVED"
+		newReviewedVersion = newVersion
 	}
 
-	newVersion := curVersion + 1
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
 
-	res, err := s.v1DB.Exec(`
+	res, err := tx.Exec(`
 		UPDATE tasks
 		SET title = ?, instructions = ?, deadline_at = ?, task_type = ?,
 		    submission_text = ?, submission_url = ?, publication_status = ?,
-		    review_state = ?, version = ?, updated_at = CURRENT_TIMESTAMP
+		    review_state = ?, reviewed_version = ?,
+		    published_at = CASE WHEN ? = 'PUBLISHED' THEN COALESCE(published_at, CURRENT_TIMESTAMP) ELSE published_at END,
+		    version = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND version = ?;
 	`, newTitle, newInstr, newDeadline.Format(time.RFC3339), newTaskType,
-		newSubText, newSubURL, newPubStatus, newRevState, newVersion, taskID, curVersion)
+		newSubText, newSubURL, newPubStatus, newRevState, newReviewedVersion,
+		newPubStatus, newVersion, taskID, curVersion)
 
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui data tugas")
@@ -554,20 +611,38 @@ func (s *Server) handlePatchV1Task(w http.ResponseWriter, r *http.Request) {
 
 	// Jika KM yang mengupdate, rekam approval baru di task_reviews
 	if (u.ActiveRole == "KM" || u.ActiveRole == "SYSTEM_ADMIN") && newPubStatus == "PUBLISHED" {
-		_, _ = s.v1DB.Exec(`
-			INSERT INTO task_reviews (task_id, task_version, reviewer_user_id, decision, note, created_at)
-			VALUES (?, ?, ?, 'APPROVED', 'Pembaruan tugas disetujui langsung oleh KM', CURRENT_TIMESTAMP);
-		`, taskID, newVersion, u.UserID)
+		_, err = tx.Exec(`
+			INSERT INTO task_reviews (
+				task_id, task_version, reviewer_user_id, reviewer_role_assignment_id,
+				decision, note, created_at
+			)
+			VALUES (?, ?, ?, ?, 'APPROVED', 'Pembaruan tugas disetujui langsung oleh KM', CURRENT_TIMESTAMP);
+		`, taskID, newVersion, u.UserID, u.ActiveAssignmentID)
+		if err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat review otomatis")
+			return
+		}
 	}
 
 	// Tulis audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, role_assignment_id, action, entity_type, entity_id, before_state, after_state)
-		VALUES (?, ?, ?, 'UPDATE_TASK', 'TASK', ?, ?, ?);
-	`, curClassID, u.UserID, u.ActiveAssignmentID, taskID,
+	corrID := fmt.Sprintf("patch-task-%d-%d", taskID, time.Now().UnixNano())
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, before_json, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'UPDATE_TASK', 'TASK', ?, ?, ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, curClassID, taskID,
 		fmt.Sprintf(`{"version":%d,"title":%q}`, curVersion, curTitle),
 		fmt.Sprintf(`{"version":%d,"title":%q,"review_state":%q}`, newVersion, newTitle, newRevState),
+		corrID,
 	)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"id":                 taskID,
@@ -617,12 +692,22 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 
 	var currentVersion int
 	var currentPubStatus string
+	var classID int64
 	err := s.v1DB.QueryRow(`
-		SELECT version, publication_status FROM tasks WHERE id = ? AND deleted_at IS NULL;
-	`, taskID).Scan(&currentVersion, &currentPubStatus)
+		SELECT t.version, t.publication_status, sem.class_id
+		FROM tasks t
+		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE t.id = ? AND t.deleted_at IS NULL;
+	`, taskID).Scan(&currentVersion, &currentPubStatus, &classID)
 
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
+		return
+	}
+
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya diizinkan mereview tugas di kelasnya")
 		return
 	}
 
@@ -668,11 +753,25 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = tx.Commit()
+	// Simpan audit log
+	correlationID := fmt.Sprintf("review-task-%d-%d", taskID, time.Now().UnixNano())
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'REVIEW_TASK', 'TASK', ?, ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, classID, taskID, fmt.Sprintf(`{"decision":%q}`, decision), correlationID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit log")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
+		return
+	}
 
 	if decision == "APPROVED" {
 		var offName, title, instr, subURL, subText string
-		var deadlineAt time.Time
+		var deadlineAt dbTimestamp
 		var classID int64
 		_ = s.v1DB.QueryRow(`
 			SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
@@ -692,7 +791,7 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 		s.queueNotification(classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
 			"course":         offName,
 			"title":          title,
-			"deadline":       deadlineAt.Format("02 Jan 2006 15:04 WIB"),
+			"deadline":       deadlineAt.Time.Format("02 Jan 2006 15:04 WIB"),
 			"instructions":   instr,
 			"submission_url": sub,
 		}, u.UserID)
@@ -705,37 +804,13 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleCompleteV1Task menangani POST /api/v1/tasks/{id}/complete
-func (s *Server) handleCompleteV1Task(w http.ResponseWriter, r *http.Request) {
-	s.updateTaskFlag(w, r, "completed_at", true)
+// TaskStateRequest adalah payload untuk mengubah status tugas
+type TaskStateRequest struct {
+	Version int `json:"version"`
 }
 
-// handleArchiveV1Task menangani POST /api/v1/tasks/{id}/archive
-func (s *Server) handleArchiveV1Task(w http.ResponseWriter, r *http.Request) {
-	s.updateTaskFlag(w, r, "archived_at", true)
-}
-
-// handleRestoreV1Task menangani POST /api/v1/tasks/{id}/restore
-func (s *Server) handleRestoreV1Task(w http.ResponseWriter, r *http.Request) {
-	taskIDStr := r.PathValue("id")
-	taskID, _ := strconv.ParseInt(taskIDStr, 10, 64)
-
-	_, err := s.v1DB.Exec(`
-		UPDATE tasks
-		SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?;
-	`, taskID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulihkan tugas")
-		return
-	}
-
-	s.writeV1Success(w, http.StatusOK, map[string]bool{"restored": true})
-}
-
-// updateTaskFlag helper untuk complete atau archive
-func (s *Server) updateTaskFlag(w http.ResponseWriter, r *http.Request, column string, setNow bool) {
-	_, ok := GetAuthContext(r)
+func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, action string) {
+	u, ok := GetAuthContext(r)
 	if !ok {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
 		return
@@ -744,23 +819,109 @@ func (s *Server) updateTaskFlag(w http.ResponseWriter, r *http.Request, column s
 	taskIDStr := r.PathValue("id")
 	taskID, _ := strconv.ParseInt(taskIDStr, 10, 64)
 
-	var query string
-	if setNow {
-		query = fmt.Sprintf("UPDATE tasks SET %s = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", column)
-	} else {
-		query = fmt.Sprintf("UPDATE tasks SET %s = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", column)
+	var req TaskStateRequest
+	if r.Body != nil && r.Body != http.NoBody {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+			s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Payload JSON tidak valid")
+			return
+		}
 	}
 
-	res, err := s.v1DB.Exec(query, taskID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status tugas")
+	var curVersion int
+	var offID, classID int64
+	err := s.v1DB.QueryRow(`
+		SELECT t.version, t.course_offering_id, sem.class_id
+		FROM tasks t
+		JOIN course_offerings co ON t.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE t.id = ?;
+	`, taskID).Scan(&curVersion, &offID, &classID)
+
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
+		return
+	} else if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal memverifikasi tugas: %v", err))
 		return
 	}
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
+
+	if u.ActiveRole == "PJ" && (!u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != offID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses ditolak")
+		return
+	} else if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses ditolak")
+		return
+	}
+
+	if req.Version != 0 && req.Version != curVersion {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah", map[string]any{"current_version": curVersion})
+		return
+	}
+
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	var updateQuery string
+	var auditAction string
+	if action == "complete" {
+		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		auditAction = "COMPLETE_TASK"
+	} else if action == "archive" {
+		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		auditAction = "ARCHIVE_TASK"
+	} else if action == "restore" {
+		updateQuery = "UPDATE tasks SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, deleted_by_user_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		auditAction = "RESTORE_TASK"
+	}
+
+	res, err := tx.Exec(updateQuery, taskID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal memperbarui status tugas: %v", err))
+		return
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
 		return
 	}
 
-	s.writeV1Success(w, http.StatusOK, map[string]bool{"updated": true})
+	corrID := fmt.Sprintf("%s-task-%d-%d", action, taskID, time.Now().UnixNano())
+	_, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, class_id, action, entity_type, entity_id, correlation_id)
+		VALUES ('USER', ?, ?, ?, ?, 'TASK', ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, classID, auditAction, taskID, corrID)
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan audit log: %v", err))
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal melakukan commit transaksi: %v", err))
+		return
+	}
+
+	if action == "restore" {
+		s.writeV1Success(w, http.StatusOK, map[string]any{"restored": true})
+	} else {
+		s.writeV1Success(w, http.StatusOK, map[string]any{"updated": true})
+	}
+}
+
+// handleCompleteV1Task menangani POST /api/v1/tasks/{id}/complete
+func (s *Server) handleCompleteV1Task(w http.ResponseWriter, r *http.Request) {
+	s.handleTaskStateChange(w, r, "complete")
+}
+
+// handleArchiveV1Task menangani POST /api/v1/tasks/{id}/archive
+func (s *Server) handleArchiveV1Task(w http.ResponseWriter, r *http.Request) {
+	s.handleTaskStateChange(w, r, "archive")
+}
+
+// handleRestoreV1Task menangani POST /api/v1/tasks/{id}/restore
+func (s *Server) handleRestoreV1Task(w http.ResponseWriter, r *http.Request) {
+	s.handleTaskStateChange(w, r, "restore")
 }

@@ -65,8 +65,10 @@ func TestNotificationWorker_ProcessPending_Delivered(t *testing.T) {
 	payload := `{"course":"Struktur Data","title":"Tugas Binary Tree","deadline":"2026-10-10 23:59 WIB"}`
 	_, err = db.Exec(`
 		INSERT INTO notification_messages (
-			id, class_id, whatsapp_channel_id, event_type, idempotency_key, payload_json, status, created_at
-		) VALUES (1, 1, 1, 'TASK_PUBLISHED', 'test-task-published-1', ?, 'PENDING', CURRENT_TIMESTAMP);
+			id, class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at, created_at
+		) VALUES (1, 1, 1, 'TASK_PUBLISHED', 'TASK', 1,
+		          'test-task-published-1', ?, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 	`, payload)
 	if err != nil {
 		t.Fatalf("Gagal insert notifikasi: %v", err)
@@ -103,8 +105,8 @@ func TestNotificationWorker_ProcessPending_Delivered(t *testing.T) {
 		WHERE notification_message_id = 1;
 	`).Scan(&attemptResult, &providerMsgID)
 
-	if attemptResult != "DELIVERED" {
-		t.Errorf("Expected attempt result DELIVERED, got %s", attemptResult)
+	if attemptResult != "SUCCESS" {
+		t.Errorf("Expected attempt result SUCCESS, got %s", attemptResult)
 	}
 	if providerMsgID != "MOCK-WA-MSG-12345" {
 		t.Errorf("Expected providerMsgID MOCK-WA-MSG-12345, got %s", providerMsgID)
@@ -120,7 +122,7 @@ func TestNotificationWorker_ProcessPending_Delivered(t *testing.T) {
 	}
 }
 
-func TestNotificationWorker_ProcessPending_NoChannel(t *testing.T) {
+func TestNotificationWorker_RejectsMessageWithoutChannel(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "worker_test2.db")
 	db, err := database.InitDB(dbPath)
 	if err != nil {
@@ -132,34 +134,23 @@ func TestNotificationWorker_ProcessPending_NoChannel(t *testing.T) {
 		t.Fatalf("MigrateV1 gagal: %v", err)
 	}
 
-	_, _ = db.Exec(`
-		INSERT INTO classes (id, code, slug, status) VALUES (2, 'TI-B', 'ti-b', 'ACTIVE');
-		INSERT INTO notification_messages (
-			id, class_id, event_type, idempotency_key, payload_json, status, created_at
-		) VALUES (2, 2, 'TASK_PUBLISHED', 'test-notif-no-chan', '{}', 'PENDING', CURRENT_TIMESTAMP);
+	_, err = db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'TI-B', 'ti-b', 'TI', 2024, 'B', 'ACTIVE');
 	`)
-
-	mock := &mockWhatsAppSender{connected: true}
-	worker := NewNotificationWorker(db, mock)
-
-	count, err := worker.ProcessPending(context.Background())
 	if err != nil {
-		t.Fatalf("ProcessPending error: %v", err)
-	}
-	if count != 1 {
-		t.Errorf("Expected 1 processed message, got %d", count)
+		t.Fatalf("Gagal insert kelas: %v", err)
 	}
 
-	var status string
-	_ = db.QueryRow(`SELECT status FROM notification_messages WHERE id = 2;`).Scan(&status)
-	if status != "FAILED" {
-		t.Errorf("Expected status FAILED when channel missing, got %s", status)
-	}
-
-	var attemptResult string
-	_ = db.QueryRow(`SELECT result FROM notification_attempts WHERE notification_message_id = 2;`).Scan(&attemptResult)
-	if attemptResult != "NO_CHANNEL" {
-		t.Errorf("Expected attempt result NO_CHANNEL, got %s", attemptResult)
+	_, err = db.Exec(`
+		INSERT INTO notification_messages (
+			id, class_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at
+		) VALUES (2, 2, 'TASK_PUBLISHED', 'TASK', 1,
+		          'test-notif-no-chan', '{}', 'PENDING', CURRENT_TIMESTAMP);
+	`)
+	if err == nil {
+		t.Fatal("notification_messages tanpa whatsapp_channel_id harus ditolak")
 	}
 }
 
@@ -176,11 +167,15 @@ func TestNotificationWorker_ProcessPending_ClientOffline(t *testing.T) {
 	}
 
 	_, _ = db.Exec(`
-		INSERT INTO classes (id, code, slug, status) VALUES (3, 'TI-C', 'ti-c', 'ACTIVE');
-		INSERT INTO whatsapp_channels (id, class_id, jid, status) VALUES (3, 3, '120363001234567890@g.us', 'ACTIVE');
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (3, 'TI-C', 'ti-c', 'TI', 2024, 'C', 'ACTIVE');
+		INSERT INTO whatsapp_channels (id, class_id, jid, channel_type, display_name, status)
+		VALUES (3, 3, '120363001234567890@g.us', 'GROUP', 'Grup Kelas TI-C', 'ACTIVE');
 		INSERT INTO notification_messages (
-			id, class_id, whatsapp_channel_id, event_type, idempotency_key, payload_json, status, created_at
-		) VALUES (3, 3, 3, 'TASK_PUBLISHED', 'test-notif-offline', '{}', 'PENDING', CURRENT_TIMESTAMP);
+			id, class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at, created_at
+		) VALUES (3, 3, 3, 'TASK_PUBLISHED', 'TASK', 1,
+		          'test-notif-offline', '{}', 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 	`)
 
 	// Sender offline

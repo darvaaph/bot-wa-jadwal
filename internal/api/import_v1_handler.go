@@ -382,7 +382,7 @@ func (s *Server) handleSemesterImportValidate(w http.ResponseWriter, r *http.Req
 
 	res, err := tx.Exec(`
 		INSERT INTO import_batches (
-			class_id, semester_id, source_type, checksum, status, created_by_user_id, summary_json, created_at
+			class_id, semester_id, source_type, source_checksum, status, created_by_user_id, summary_json, created_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
 	`, classID, semID, sourceType, checksum, batchStatus, u.UserID, string(summaryJSONBytes))
 	if err != nil {

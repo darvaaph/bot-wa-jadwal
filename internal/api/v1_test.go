@@ -2,7 +2,9 @@ package api
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,8 +47,8 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 
 	// 2. Masukkan Semester
 	_, err = db.Exec(`
-		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at)
-		VALUES (1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP);
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert semester: %v", err)
@@ -58,26 +60,14 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
 		VALUES (1, 1, 1, 'Struktur Data (Teori)', 'TEORI');
 		INSERT INTO rooms (id, code, name) VALUES (1, 'R-301', 'Ruang Kelas 301');
+		INSERT INTO whatsapp_channels (id, class_id, jid, channel_type, display_name, status)
+		VALUES (1, 1, '120363000000000001@g.us', 'GROUP', 'Kelas D4-TI-2024-A', 'ACTIVE');
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert courses/offerings: %v", err)
 	}
 
-	// 4. Masukkan Pola Jadwal & Teaching Event
-	todayStr := time.Now().Format("2006-01-02")
-	_, err = db.Exec(`
-		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, effective_from)
-		VALUES (1, 1, 1, 1, '08:00', '09:40', ?);
-		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status, version)
-		VALUES (1, 'EXTRA', CURRENT_TIMESTAMP, datetime(CURRENT_TIMESTAMP, '+2 hours'), 1, 'Kuliah Tambahan', 'PUBLISHED', 1);
-		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
-		VALUES (1, 1, 'OWNER', 'ACCEPTED');
-	`, todayStr)
-	if err != nil {
-		t.Fatalf("Gagal insert schedule items: %v", err)
-	}
-
-	// 5. Masukkan Pengguna (KM, PJ, dan SYSTEM_ADMIN) dengan password bcrypt: "password123"
+	// 4. Masukkan Pengguna (KM, PJ, dan SYSTEM_ADMIN) dengan password bcrypt: "password123"
 	pwdHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	_, err = db.Exec(`
 		INSERT INTO users (id, identity_key, display_name, password_hash, status)
@@ -89,10 +79,24 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 		t.Fatalf("Gagal insert users: %v", err)
 	}
 
+	// 5. Masukkan Pola Jadwal & Teaching Event
+	todayStr := time.Now().Format("2006-01-02")
+	_, err = db.Exec(`
+		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, effective_from)
+		VALUES (1, 1, 1, 1, '08:00', '09:40', ?);
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status, published_by_user_id, published_at, version)
+		VALUES (1, 'EXTRA', CURRENT_TIMESTAMP, datetime(CURRENT_TIMESTAMP, '+2 hours'), 1, 'Kuliah Tambahan', 'PUBLISHED', 1, CURRENT_TIMESTAMP, 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (1, 1, 'OWNER', 'ACCEPTED');
+	`, todayStr)
+	if err != nil {
+		t.Fatalf("Gagal insert schedule items: %v", err)
+	}
+
 	// 6. Masukkan Penugasan Peran (KM, PJ, dan SYSTEM_ADMIN)
 	_, err = db.Exec(`
 		INSERT INTO role_assignments (id, user_id, role, scope_type, class_id, semester_id, course_offering_id, status)
-		VALUES (1, 1, 'KM', 'CLASS', 1, 1, NULL, 'ACTIVE'),
+		VALUES (1, 1, 'KM', 'CLASS', 1, NULL, NULL, 'ACTIVE'),
 		       (2, 2, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
 		       (3, 1, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
 		       (4, 3, 'SYSTEM_ADMIN', 'GLOBAL', NULL, NULL, NULL, 'ACTIVE');
@@ -105,9 +109,9 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 	futureDeadline := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
 	_, err = db.Exec(`
 		INSERT INTO tasks (id, course_offering_id, created_by_user_id, title, instructions,
-		                  deadline_at, task_type, publication_status, review_state, version)
+		                  deadline_at, task_type, publication_status, review_state, reviewed_version, submission_url, published_at, version)
 		VALUES (1, 1, 2, 'Tugas Algoritma 1', 'Kerjakan latihan soal bab 1',
-		        ?, 'INDIVIDUAL', 'PUBLISHED', 'APPROVED', 1);
+		        ?, 'INDIVIDUAL', 'PUBLISHED', 'APPROVED', 1, 'https://classroom.google.com', CURRENT_TIMESTAMP, 1);
 	`, futureDeadline)
 	if err != nil {
 		t.Fatalf("Gagal insert initial task: %v", err)
@@ -115,8 +119,8 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 
 	// 8. Masukkan Materi Uji Awal
 	_, err = db.Exec(`
-		INSERT INTO materials (id, class_id, course_offering_id, title, material_type, url, description)
-		VALUES (1, 1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://example.com/slide1.pdf', 'Pengenalan');
+		INSERT INTO materials (id, class_id, course_offering_id, title, material_type, url, description, created_by_user_id)
+		VALUES (1, 1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://example.com/slide1.pdf', 'Pengenalan', 1);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert initial material: %v", err)
@@ -690,8 +694,12 @@ func TestV1Notifications_ListAndRetry(t *testing.T) {
 
 	// Masukkan pesan notifikasi berstatus FAILED
 	_, err := db.Exec(`
-		INSERT INTO notification_messages (id, class_id, event_type, idempotency_key, status)
-		VALUES (10, 1, 'TASK_PUBLISHED', 'test-failed-notif', 'FAILED');
+		INSERT INTO notification_messages (
+			id, class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at
+		)
+		VALUES (10, 1, 1, 'TASK_PUBLISHED', 'TASK', 1,
+		        'test-failed-notif', '{}', 'FAILED', CURRENT_TIMESTAMP);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert notifikasi uji: %v", err)
@@ -1009,10 +1017,16 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 
 	// 2. Terbitkan teaching event draft
 	_, _ = db.Exec(`
-		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status)
-		VALUES (50, 'REPLACEMENT', '2026-10-05T08:00:00Z', '2026-10-05T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
-		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role)
-		VALUES (50, 1, 'OWNER');
+		INSERT INTO teaching_events (
+			id, origin_schedule_pattern_id, origin_occurrence_date, event_kind,
+			starts_at, ends_at, room_id, reason, lifecycle_status
+		)
+		VALUES (50, 1, '2026-10-05', 'REPLACEMENT',
+		        '2026-10-05T08:00:00Z', '2026-10-05T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
+		INSERT INTO teaching_event_offerings (
+			teaching_event_id, course_offering_id, participation_role, participation_status
+		)
+		VALUES (50, 1, 'OWNER', 'ACCEPTED');
 	`)
 
 	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", nil)
@@ -1033,5 +1047,160 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 	`).Scan(&schedNotifCount)
 	if err != nil || schedNotifCount != 1 {
 		t.Errorf("Expected 1 PENDING SCHEDULE_REPLACEMENT notification, got count=%d, err=%v", schedNotifCount, err)
+	}
+}
+
+// 6. Security & Negative Authorization Tests (BOLA, Portal CODE, Role Validity)
+
+func TestV1Auth_SuspendedRoleAssignment_Rejected(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Suspend KM role assignment
+	_, err := db.Exec(`UPDATE role_assignments SET status = 'SUSPENDED' WHERE id = 1;`)
+	if err != nil {
+		t.Fatalf("Gagal update role assignment: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for suspended role assignment, got %d", w.Code)
+	}
+}
+
+func TestV1Portal_CodeMode_AccessControl(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	// 1. Ubah portal_access_mode ke CODE
+	codeHash := sha256.Sum256([]byte("rahasia123"))
+	codeHashHex := hex.EncodeToString(codeHash[:])
+	_, err := db.Exec(`
+		UPDATE class_settings
+		SET portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = 1
+		WHERE class_id = 1;
+	`, codeHashHex)
+	if err != nil {
+		t.Fatalf("Gagal set CODE mode: %v", err)
+	}
+
+	// 2. Akses tanpa token -> harus ditolak 401
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 for portal CODE mode without token, got %d", w.Code)
+	}
+
+	// 3. Masukkan sesi portal aktif
+	rawToken := "valid-portal-token-xyz"
+	tokenHash := sha256.Sum256([]byte(rawToken))
+	tokenHashHex := hex.EncodeToString(tokenHash[:])
+	futureExpiry := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	_, err = db.Exec(`
+		INSERT INTO portal_sessions (class_id, token_hash, access_code_version, expires_at)
+		VALUES (1, ?, 1, ?);
+	`, tokenHashHex, futureExpiry)
+	if err != nil {
+		t.Fatalf("Gagal insert portal session: %v", err)
+	}
+
+	// 4. Akses dengan X-Portal-Token valid -> 200 OK
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", rawToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 with valid portal token, got %d", w.Code)
+	}
+
+	// 5. Akses dengan token salah -> 401
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", "wrong-token")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 with wrong portal token, got %d", w.Code)
+	}
+}
+
+func TestV1Tasks_ScopeEnforcement_BOLA(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	// Buat kelas kedua dan tugas milik kelas kedua
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'TI-B', 'd4-ti-2024-b', 'Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode) VALUES (2, 'Asia/Jakarta', 'LINK');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+		INSERT INTO tasks (id, course_offering_id, created_by_user_id, title, instructions, deadline_at, submission_url, published_at, publication_status, version)
+		VALUES (99, 2, 1, 'Tugas Kelas B', 'Petunjuk', '2026-11-01T10:00:00Z', 'https://classroom.google.com', CURRENT_TIMESTAMP, 'PUBLISHED', 1);
+	`)
+	if err != nil {
+		t.Fatalf("Gagal setup class 2 tasks: %v", err)
+	}
+
+	// PJ kelas A (offering 1) mencoba mengakses tugas 99 (offering 2) -> 403
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+
+	req := httptest.NewRequest("GET", "/api/v1/tasks/99", nil)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("PJ expected 403 when accessing task from another offering, got %d", w.Code)
+	}
+
+	// KM kelas A mencoba mereview tugas kelas B -> 403
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	reviewBody, _ := json.Marshal(map[string]any{
+		"decision":     "APPROVED",
+		"task_version": 1,
+	})
+	req = httptest.NewRequest("POST", "/api/v1/tasks/99/reviews", bytes.NewReader(reviewBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("KM expected 403 when reviewing task from another class, got %d", w.Code)
+	}
+
+	// PJ kelas A mencoba menyelesaikan tugas kelas B -> 403
+	req = httptest.NewRequest("POST", "/api/v1/tasks/99/complete", nil)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("PJ expected 403 when completing task from another offering, got %d", w.Code)
+	}
+}
+
+func TestV1TeachingEvents_ScopeAndConflict(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Revoke dengan versi salah -> 409
+	revokeBody, _ := json.Marshal(map[string]any{
+		"reason":  "Dosen berhalangan",
+		"version": 99, // Mismatched version
+	})
+	req := httptest.NewRequest("POST", "/api/v1/teaching-events/1/revoke", bytes.NewReader(revokeBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("Expected 409 Conflict for mismatched version on revoke, got %d", w.Code)
 	}
 }

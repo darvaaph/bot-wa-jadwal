@@ -17,6 +17,8 @@ type Config struct {
 	ReminderPath  string
 	DataJadwalDir string
 	DefaultJadwal string
+	AuthHashKey   string
+	SecureCookies bool
 }
 
 // LoadConfig mengembalikan konfigurasi default atau berdasarkan environment variable
@@ -45,6 +47,8 @@ func LoadConfig() *Config {
 		ReminderPath:  filepath.Join(storageDir, "reminder_groups.json"),
 		DataJadwalDir: "data/jadwal",
 		DefaultJadwal: filepath.Join("data", "jadwal.json"),
+		AuthHashKey:   os.Getenv("BOT_JADWAL_AUTH_HASH_KEY"),
+		SecureCookies: secureCookies,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -81,9 +82,9 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			userID                 int64
 			activeRoleAssignmentID sql.NullInt64
 			sessionVersion         int
-			lastSeenAt             time.Time
-			absoluteExpiresAt      time.Time
-			revokedAt              sql.NullTime
+			lastSeenAtStr          string
+			absoluteExpiresAtStr   string
+			revokedAtStr           sql.NullString
 			identityKey            string
 			displayName            string
 			userStatus             string
@@ -94,6 +95,8 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			classSlug              sql.NullString
 			semesterID             sql.NullInt64
 			courseOfferingID       sql.NullInt64
+			raValidFrom            sql.NullString
+			raValidUntil           sql.NullString
 		)
 
 		query := `
@@ -101,19 +104,21 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 				s.id, s.user_id, s.active_role_assignment_id, s.session_version,
 				s.last_seen_at, s.absolute_expires_at, s.revoked_at,
 				u.identity_key, u.display_name, u.status, u.session_version,
-				ra.role, ra.scope_type, ra.class_id, c.slug, ra.semester_id, ra.course_offering_id
+				ra.role, ra.scope_type, ra.class_id, c.slug, ra.semester_id, ra.course_offering_id,
+				ra.valid_from, ra.valid_until
 			FROM user_sessions s
 			JOIN users u ON s.user_id = u.id
-			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id
+			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id AND ra.status = 'ACTIVE'
 			LEFT JOIN classes c ON ra.class_id = c.id
 			WHERE s.token_hash = ?;
 		`
 
 		err := s.v1DB.QueryRow(query, tokenHash).Scan(
 			&sessionID, &userID, &activeRoleAssignmentID, &sessionVersion,
-			&lastSeenAt, &absoluteExpiresAt, &revokedAt,
+			&lastSeenAtStr, &absoluteExpiresAtStr, &revokedAtStr,
 			&identityKey, &displayName, &userStatus, &userSessionVersion,
 			&role, &scopeType, &classID, &classSlug, &semesterID, &courseOfferingID,
+			&raValidFrom, &raValidUntil,
 		)
 
 		if err == sql.ErrNoRows {
@@ -124,9 +129,33 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		lastSeenAt, err := parseTime(lastSeenAtStr)
+		if err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Format last_seen_at tidak valid")
+			return
+		}
+		absoluteExpiresAt, err := parseTime(absoluteExpiresAtStr)
+		if err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Format absolute_expires_at tidak valid")
+			return
+		}
+		var revokedAt sql.NullTime
+		if revokedAtStr.Valid {
+			t, err := parseTime(revokedAtStr.String)
+			if err == nil {
+				revokedAt = sql.NullTime{Time: t, Valid: true}
+			}
+		}
+
 		// 1. Cek pencabutan sesi
 		if revokedAt.Valid {
 			s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Sesi telah dicabut. Silakan login kembali.")
+			return
+		}
+
+		// Cek validitas penugasan peran jika sesi memiliki role assignment aktif
+		if activeRoleAssignmentID.Valid && !role.Valid {
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Peran Anda telah dinonaktifkan, ditangguhkan, atau dicabut")
 			return
 		}
 
@@ -143,6 +172,23 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		now := time.Now()
+
+		if role.Valid {
+			if raValidFrom.Valid {
+				vf, err := parseTime(raValidFrom.String)
+				if err == nil && now.Before(vf) {
+					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Penugasan peran Anda belum aktif")
+					return
+				}
+			}
+			if raValidUntil.Valid {
+				vu, err := parseTime(raValidUntil.String)
+				if err == nil && now.After(vu) {
+					s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Penugasan peran Anda telah kedaluwarsa")
+					return
+				}
+			}
+		}
 
 		// 4. Cek batas kedaluwarsa absolut
 		if now.After(absoluteExpiresAt) {
@@ -214,4 +260,34 @@ func (s *Server) RequireRole(roles ...string) func(http.HandlerFunc) http.Handle
 			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses ditolak: peran Anda tidak memiliki wewenang untuk aksi ini")
 		}
 	}
+}
+
+func parseTime(raw string) (time.Time, error) {
+	if raw == "" {
+		return time.Time{}, fmt.Errorf("timestamp kosong")
+	}
+	if idx := strings.Index(raw, " m="); idx != -1 {
+		raw = raw[:idx]
+	}
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05.999999999 -0700 -0700",
+		"2006-01-02 15:04:05.999999999 -0700 +07",
+		"2006-01-02 15:04:05.999999999 -0700",
+		"2006-01-02 15:04:05.999999 -0700 +07",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05 -0700",
+		"2006-01-02T15:04:05.000Z",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, layout := range formats {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("format timestamp %q tidak didukung", raw)
 }
