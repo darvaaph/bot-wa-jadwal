@@ -64,7 +64,7 @@ func main() {
 
 	reminderManager := reminder.LoadReminderManager(cfg.ReminderPath)
 
-	appDB, err := database.InitDB(cfg.AppDBPath)
+	appDB, err := database.OpenPool(cfg.AppDBPath)
 	if err != nil {
 		fmt.Printf("❌ Gagal menginisialisasi database utama: %v\n", err)
 		return
