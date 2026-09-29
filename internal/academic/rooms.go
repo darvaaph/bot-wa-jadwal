@@ -1,81 +1,59 @@
-package rooms
+package academic
 
 import (
-	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
 
-var (
-	ErrNotFound     = errors.New("ruangan tidak ditemukan")
-	ErrInvalidInput = errors.New("input tidak valid")
-	ErrConflict     = errors.New("kode ruangan sudah digunakan")
-)
+// RoomCandidate merepresentasikan ketersediaan ruangan beserta daftar potensi bentrok.
+type RoomCandidate struct {
+	Room      Room     `json:"room"`
+	Conflicts []string `json:"conflicts"`
+}
 
-type Service struct {
+// UpdateRoomInput merepresentasikan input pembaharuan data ruangan.
+type UpdateRoomInput struct {
+	Name            *string
+	Building        *string
+	RoomType        *string
+	Capacity        *int
+	ClearCapacity   bool
+	Status          *string
+	ExpectedVersion int // reserved; rooms has no version column, ignored
+}
+
+// RoomService menyediakan layanan manajemen master ruangan dan pengecekan ketersediaan.
+type RoomService struct {
 	db *sql.DB
 }
 
-func NewService(db *sql.DB) *Service { return &Service{db: db} }
-
-// Actor carries audit identity for room operations.
-type Actor struct {
-	UserID           int64
-	RoleAssignmentID int64
-	CorrelationID    string
-}
-
-func insertRoomAudit(ctx context.Context, tx *sql.Tx, actor Actor, action string, roomID int64, after *string) error {
-	corr := strings.TrimSpace(actor.CorrelationID)
-	if corr == "" {
-		corr = time.Now().UTC().Format(time.RFC3339Nano)
-	}
-	var actorEntry audit.Actor
-	if actor.UserID > 0 {
-		uid := actor.UserID
-		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
-		if actor.RoleAssignmentID > 0 {
-			raid := actor.RoleAssignmentID
-			actorEntry.RoleAssignmentID = &raid
-		}
-	} else {
-		actorEntry = audit.Actor{Type: "SYSTEM"}
-	}
-	eid := roomID
-	return audit.Write(ctx, tx, audit.Entry{
-		Actor:         actorEntry,
-		Action:        action,
-		EntityType:    "ROOM",
-		EntityID:      &eid,
-		AfterJSON:     after,
-		CorrelationID: corr,
-	})
-}
-
-type Room struct {
-	ID              int64   `json:"id"`
-	Code            string  `json:"code"`
-	Name            string  `json:"name"`
-	Building        *string `json:"building,omitempty"`
-	RoomType        *string `json:"room_type,omitempty"`
-	Capacity        *int    `json:"capacity,omitempty"`
-	Status          string  `json:"status"`
-	SourceUpdatedAt *string `json:"source_updated_at,omitempty"`
+// NewRoomService membuat instance baru RoomService.
+func NewRoomService(db *sql.DB) *RoomService {
+	return &RoomService{db: db}
 }
 
 func scanRoom(row interface{ Scan(...any) error }) (*Room, error) {
 	var r Room
 	var building, roomType, source sql.NullString
 	var capacity sql.NullInt64
-	if err := row.Scan(&r.ID, &r.Code, &r.Name, &building, &roomType, &capacity, &r.Status, &source); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+	var createdAt, updatedAt sql.NullTime
+
+	// Mencoba scan dengan kolom timestamp jika ada, atau fallback
+	err := row.Scan(&r.ID, &r.Code, &r.Name, &building, &roomType, &capacity, &r.Status, &source, &createdAt, &updatedAt)
+	if err != nil {
+		// Fallback ke 8 kolom standar
+		if err2 := row.Scan(&r.ID, &r.Code, &r.Name, &building, &roomType, &capacity, &r.Status, &source); err2 != nil {
+			if errors.Is(err2, sql.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrNotFound
+			}
+			return nil, err2
 		}
-		return nil, err
 	}
+
 	if building.Valid {
 		r.Building = &building.String
 	}
@@ -89,10 +67,17 @@ func scanRoom(row interface{ Scan(...any) error }) (*Room, error) {
 	if source.Valid {
 		r.SourceUpdatedAt = &source.String
 	}
+	if createdAt.Valid {
+		r.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		r.UpdatedAt = updatedAt.Time
+	}
 	return &r, nil
 }
 
-func (s *Service) Create(ctx context.Context, actor Actor, code, name, building, roomType string, capacity *int) (*Room, error) {
+// Create membuat ruangan baru ke dalam master data.
+func (s *RoomService) Create(ctx context.Context, actor Actor, code, name, building, roomType string, capacity *int) (*Room, error) {
 	code = strings.TrimSpace(code)
 	name = strings.TrimSpace(name)
 	if code == "" || name == "" {
@@ -107,15 +92,18 @@ func (s *Service) Create(ctx context.Context, actor Actor, code, name, building,
 		return nil, err
 	}
 	defer tx.Rollback()
+
 	var id int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO rooms (code, name, building, room_type, capacity, status, source_updated_at)
-		VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?) RETURNING id`,
-		code, name, nullStr(building), nullStr(roomType), nullInt(capacity), now).Scan(&id)
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO rooms (code, name, building, room_type, capacity, status, source_updated_at)
+		VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?) RETURNING id
+	`, code, name, nullStr(building), nullStr(roomType), nullInt(capacity), now).Scan(&id)
 	if err != nil {
 		return nil, ErrConflict
 	}
-	after := `{"code":"` + code + `","name":"` + strings.ReplaceAll(name, `"`, ``) + `"}`
-	if err := insertRoomAudit(ctx, tx, actor, "CREATE", id, &after); err != nil {
+
+	after := fmt.Sprintf(`{"code":%q,"name":%q}`, code, name)
+	if err := WriteAuditLog(ctx, tx, actor, nil, nil, "CREATE", "ROOM", &id, nil, &after, ""); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -124,13 +112,26 @@ func (s *Service) Create(ctx context.Context, actor Actor, code, name, building,
 	return s.Get(ctx, id)
 }
 
-func (s *Service) Get(ctx context.Context, id int64) (*Room, error) {
-	return scanRoom(s.db.QueryRowContext(ctx, `SELECT id, code, name, building, room_type, capacity, status, source_updated_at FROM rooms WHERE id = ?`, id))
+// Get mengambil ruangan berdasarkan ID unik.
+func (s *RoomService) Get(ctx context.Context, id int64) (*Room, error) {
+	return scanRoom(s.db.QueryRowContext(ctx, `
+		SELECT id, code, name, building, room_type, capacity, status, source_updated_at
+		FROM rooms WHERE id = ?
+	`, id))
 }
 
-func (s *Service) List(ctx context.Context, status string) ([]Room, error) {
+// GetByCode mengambil ruangan berdasarkan kode unik (misal: "GK1-201").
+func (s *RoomService) GetByCode(ctx context.Context, code string) (*Room, error) {
+	return scanRoom(s.db.QueryRowContext(ctx, `
+		SELECT id, code, name, building, room_type, capacity, status, source_updated_at
+		FROM rooms WHERE code = ?
+	`, strings.TrimSpace(code)))
+}
+
+// List mengambil seluruh ruangan dengan filter status opsional.
+func (s *RoomService) List(ctx context.Context, status string) ([]Room, error) {
 	query := `SELECT id, code, name, building, room_type, capacity, status, source_updated_at FROM rooms`
-	args := []any{}
+	var args []any
 	if status != "" {
 		query += ` WHERE status = ?`
 		args = append(args, strings.ToUpper(status))
@@ -141,6 +142,7 @@ func (s *Service) List(ctx context.Context, status string) ([]Room, error) {
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := []Room{}
 	for rows.Next() {
 		r, err := scanRoom(rows)
@@ -152,17 +154,8 @@ func (s *Service) List(ctx context.Context, status string) ([]Room, error) {
 	return out, rows.Err()
 }
 
-type UpdateInput struct {
-	Name            *string
-	Building        *string
-	RoomType        *string
-	Capacity        *int
-	ClearCapacity   bool
-	Status          *string
-	ExpectedVersion int // reserved; rooms has no version column, ignored
-}
-
-func (s *Service) Update(ctx context.Context, actor Actor, id int64, in UpdateInput) (*Room, error) {
+// Update memperbarui data ruangan yang sudah ada.
+func (s *RoomService) Update(ctx context.Context, actor Actor, id int64, in UpdateRoomInput) (*Room, error) {
 	current, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -212,12 +205,16 @@ func (s *Service) Update(ctx context.Context, actor Actor, id int64, in UpdateIn
 		return nil, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `UPDATE rooms SET name=?, building=?, room_type=?, capacity=?, status=?, source_updated_at=?, updated_at=?
-		WHERE id=?`, name, building, roomType, nullInt(capacity), status, now, now, id); err != nil {
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE rooms SET name=?, building=?, room_type=?, capacity=?, status=?, source_updated_at=?, updated_at=?
+		WHERE id=?
+	`, name, building, roomType, nullInt(capacity), status, now, now, id); err != nil {
 		return nil, err
 	}
-	after := `{"name":"` + strings.ReplaceAll(name, `"`, ``) + `","status":"` + status + `"}`
-	if err := insertRoomAudit(ctx, tx, actor, "UPDATE", id, &after); err != nil {
+
+	after := fmt.Sprintf(`{"name":%q,"status":%q}`, name, status)
+	if err := WriteAuditLog(ctx, tx, actor, nil, nil, "UPDATE", "ROOM", &id, nil, &after, ""); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -226,13 +223,8 @@ func (s *Service) Update(ctx context.Context, actor Actor, id int64, in UpdateIn
 	return s.Get(ctx, id)
 }
 
-type Candidate struct {
-	Room      Room     `json:"room"`
-	Conflicts []string `json:"conflicts"`
-}
-
-// Availability searches ACTIVE rooms excluding known overlaps (patterns + published events).
-func (s *Service) Availability(ctx context.Context, date, start, end string) ([]Candidate, string, error) {
+// Availability mencari ruangan ACTIVE yang tidak bentrok pada tanggal dan jam tertentu.
+func (s *RoomService) Availability(ctx context.Context, date, start, end string) ([]RoomCandidate, string, error) {
 	if _, err := time.Parse("2006-01-02", date); err != nil {
 		return nil, "", ErrInvalidInput
 	}
@@ -240,15 +232,18 @@ func (s *Service) Availability(ctx context.Context, date, start, end string) ([]
 		return nil, "", ErrInvalidInput
 	}
 	wd := weekdayNumber(date)
-	rooms, err := s.List(ctx, "ACTIVE")
+	roomsList, err := s.List(ctx, "ACTIVE")
 	if err != nil {
 		return nil, "", err
 	}
+
 	// Overlapping patterns on that weekday/time.
-	patRows, err := s.db.QueryContext(ctx, `SELECT DISTINCT sp.room_id FROM schedule_patterns sp
+	patRows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT sp.room_id FROM schedule_patterns sp
 		WHERE sp.status='ACTIVE' AND sp.room_id IS NOT NULL AND sp.day_of_week = ?
 		AND sp.start_time < ? AND ? < sp.end_time
-		AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)`, wd, end, start, date, date)
+		AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+	`, wd, end, start, date, date)
 	if err != nil {
 		return nil, "", err
 	}
@@ -260,13 +255,15 @@ func (s *Service) Availability(ctx context.Context, date, start, end string) ([]
 		}
 	}
 	patRows.Close()
+
 	// Overlapping published events that day.
 	dayStart := date + "T00:00:00Z"
 	dayEnd := date + "T23:59:59Z"
-	evRows, err := s.db.QueryContext(ctx, `SELECT DISTINCT room_id FROM teaching_events
+	evRows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT room_id FROM teaching_events
 		WHERE lifecycle_status='PUBLISHED' AND room_id IS NOT NULL
-		AND starts_at <= ? AND ends_at >= ? AND starts_at < ? AND ? < ends_at`,
-		dayEnd, dayStart, dateTime(date, end), dateTime(date, start))
+		AND starts_at <= ? AND ends_at >= ? AND starts_at < ? AND ? < ends_at
+	`, dayEnd, dayStart, dateTime(date, end), dateTime(date, start))
 	if err != nil {
 		return nil, "", err
 	}
@@ -278,9 +275,10 @@ func (s *Service) Availability(ctx context.Context, date, start, end string) ([]
 		}
 	}
 	evRows.Close()
-	out := []Candidate{}
-	for _, r := range rooms {
-		conflicts := []string{}
+
+	out := []RoomCandidate{}
+	for _, r := range roomsList {
+		var conflicts []string
 		if reason, ok := busyPattern[r.ID]; ok {
 			conflicts = append(conflicts, reason)
 		}
@@ -288,7 +286,7 @@ func (s *Service) Availability(ctx context.Context, date, start, end string) ([]
 			conflicts = append(conflicts, reason)
 		}
 		if len(conflicts) == 0 {
-			out = append(out, Candidate{Room: r, Conflicts: []string{}})
+			out = append(out, RoomCandidate{Room: r, Conflicts: []string{}})
 		}
 	}
 	note := "Hasil berdasarkan data internal; wajib konfirmasi manual ke TU sebelum publikasi."
