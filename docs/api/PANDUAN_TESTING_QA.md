@@ -11,7 +11,7 @@ Koleksi Postman telah dilengkapi dengan kartu instruksi pengujian (*QA Cards*), 
 ### Menjalankan Server Backend
 ```bash
 # 1. Pastikan database bersih dan terisi akun demo
-go run ./cmd/seed-v1
+go run ./cmd/seed
 
 # 2. Jalankan server dalam mode API testing
 go run ./cmd/bot -web-only

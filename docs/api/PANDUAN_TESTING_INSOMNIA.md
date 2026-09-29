@@ -61,7 +61,7 @@ Sebelum memulai pengujian, inisialisasi database dan jalankan server backend lok
 
 ```bash
 # 1. Inisialisasi data kelas pilot dan akun pengurus demo
-go run ./cmd/seed-v1
+go run ./cmd/seed
 
 # 2. Jalankan server HTTP lokal
 go run ./cmd/bot -web-only

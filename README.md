@@ -167,27 +167,37 @@ Seluruh pengembang wajib mematuhi batasan teknis berikut:
 ```text
 bot-jadwal/
 ├── cmd/
-│   └── bot/
-│       └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
+│   ├── bot/
+│   │   └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
+│   └── seed/
+│       └── main.go          # CLI data seeder resmi (impor kurikulum & akun pengurus demo)
 ├── web/                     # Antarmuka Web Admin Dashboard (Single Binary Embedded)
 │   ├── embed.go             # Go embed.FS pengemas aset web ke dalam biner tunggal
 │   ├── index.html           # Halaman utama SPA Dashboard
 │   ├── css/style.css        # Styling custom pendukung
 │   └── js/                  # api.js (REST client & mock) & app.js (state reaktif Alpine.js)
 ├── internal/
-│   ├── config/              # Konfigurasi aplikasi & manajemen path storage
-│   ├── database/            # Inisialisasi SQLite connection pool WAL mode
-│   ├── util/                # Helper waktu WIB, parser tanggal alami, & path resolver
-│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
-│   ├── task/                # TaskManager SQLite & kalkulasi deadline
-│   ├── link/                # LinkManager SQLite tautan perkuliahan
-│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
-│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── academic/            # Domain akademik: semester lifecycle, PJ offering, rooms, & kurikulum
+│   ├── api/                 # Lapisan HTTP REST API server
+│   │   ├── common/          # Standard response helpers, context accessor, & DB time parsers
+│   │   ├── legacy/          # Endpoint kompatibilitas v0 (/api/classes, /api/schedule, dll)
+│   │   ├── middleware/      # Security headers, auth Bearer RBAC, & rate limiter
+│   │   └── v1/              # Sub-controller domain v1 (auth, portal, task, schedule, academic, admin)
+│   ├── auth/                # Service autentikasi, JWT/Bearer token, & RBAC wewenang
 │   ├── bot/                 # whatsmeow client & message dispatcher
-│   └── api/                 # HTTP REST API server untuk Web Admin Dashboard
+│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
+│   ├── config/              # Konfigurasi aplikasi & manajemen path storage
+│   ├── database/            # Inisialisasi SQLite connection pool WAL mode & migrasi skema
+│   ├── link/                # LinkManager SQLite tautan perkuliahan
+│   ├── outbox/              # Broadcast outbox queue & pengiriman pesan terjadwal
+│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
+│   ├── system/              # Telemetri sistem, health check, & audit logging
+│   ├── task/                # TaskManager SQLite & kalkulasi deadline
+│   └── util/                # Helper waktu WIB, parser tanggal alami, & path resolver
 ├── data/
 │   ├── jadwal/              # Berkas master JSON kurikulum per kelas (19 kelas)
-│   └── jadwal.json          # Berkas kurikulum default
+│   └── migration_manifest.json # Manifest mapping kelas pilot & migrasi data kurikulum
 ├── storage/                 # Direktori runtime terisolasi (di-ignore oleh git)
 │   ├── bot_v1.db            # Database SQLite utama v3.0 (tasks, users, audit, rate limit)
 │   ├── tugas.db             # Database SQLite tugas/link legacy compatibility
@@ -196,13 +206,11 @@ bot-jadwal/
 ├── docs/                    # Dokumentasi lengkap sistem & tim
 │   ├── TEAM_ONBOARDING.md   # Panduan kickoff meeting tim pengembang
 │   ├── PRD.md               # Ruang lingkup dan prioritas produk
-│   ├── DASHBOARD_PRD.md     # Arsip spesifikasi dashboard lama (superseded)
 │   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
 │   ├── product/             # Dokumen produk kanonis, data model, dan ERD
 │   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
 │   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
-│   ├── PRD.md               # Spesifikasi awal produk bot
-│   └── TODO.md              # Roadmap & catatan pengembangan
+│   └── api/                 # Spesifikasi API v1, QA card, dan panduan testing
 ├── .agent/                  # Custom Agent Skills untuk bimbingan tim & AI
 │   └── skills/
 │       ├── vibe-coding-guide/  # Panduan guardrails arsitektur & edukasi konsep
