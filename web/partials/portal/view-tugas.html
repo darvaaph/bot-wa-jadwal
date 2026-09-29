@@ -1,0 +1,48 @@
+<!-- partials/portal/view-tugas.html — Portal Tugas + Detail -->
+<section x-show="view === 'tugas'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Tugas</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Pantau tugas dari seluruh mata kuliah.</p>
+  <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1">
+    <template x-for="c in ['Semua','Aktif','Terjadwal','Selesai']" :key="c">
+      <button type="button" @click="tugasChip = c" x-text="c"
+        :class="tugasChip === c ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'bg-slate-50 text-slate-500'"
+        class="px-4 py-2 rounded-xl text-[13px] whitespace-nowrap min-h-[44px]">-</button>
+    </template>
+    <select x-model="tugasMatkul" class="px-3 h-11 rounded-xl bg-slate-50 text-[13px] text-slate-600 min-h-[44px] max-w-[180px]">
+      <option value="Semua">Per mata kuliah</option>
+      <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
+    </select>
+  </div>
+  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-[18px] font-semibold">Daftar tugas</h2>
+      <span class="text-[12px] text-slate-400">Urutkan: deadline terdekat</span>
+    </div>
+    <div x-show="tugasList.length === 0" class="py-10 text-center text-[13px] text-slate-400">Belum ada tugas yang cocok.</div>
+    <div class="divide-y divide-[#EEEEEE]">
+      <template x-for="t in tugasList" :key="t.id">
+        <button type="button" @click="bukaDetailTugas(t)" class="w-full py-4 flex items-center gap-3 text-left">
+          <span class="w-9 h-9 rounded-xl bg-[#E9EAFF] flex items-center justify-center shrink-0"><img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5" /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-[15px] font-medium line-clamp-1" x-text="t.deskripsi">-</span>
+            <span class="block text-[12px] text-slate-500" x-text="t.matkul + ' • ' + t.deadline">-</span>
+          </span>
+          <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484]' : 'bg-[#E1FFB7]')" x-text="t.countdown">-</span>
+        </button>
+      </template>
+    </div>
+  </div>
+</section>
+
+<section x-show="view === 'detail-tugas'" x-cloak>
+  <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">← Kembali ke daftar</button>
+  <div class="p-5 md:p-6 rounded-2xl border border-[#EEEEEE] bg-white mt-2">
+    <p class="text-[12px] font-bold text-[#3965FB] uppercase tracking-wider" x-text="detailTugas.matkul">-</p>
+    <h1 class="text-[22px] font-bold mt-1 leading-snug" x-text="detailTugas.deskripsi">-</h1>
+    <div class="mt-4 space-y-2 text-[13px]">
+      <p><span class="text-slate-500">Tenggat:</span> <span class="font-mono font-semibold" x-text="detailTugas.deadline">-</span></p>
+      <p><span class="text-slate-500">Status:</span> <span class="font-semibold" x-text="detailTugas.countdown">-</span></p>
+      <p><span class="text-slate-500">Tempat pengumpulan:</span> <span>Butuh endpoint detail tugas.</span></p>
+    </div>
+  </div>
+</section>

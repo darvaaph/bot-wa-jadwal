@@ -1,0 +1,25 @@
+<!-- partials/portal/view-jadwal.html — Portal Jadwal (efektif, baca saja) -->
+<section x-show="view === 'jadwal'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Jadwal</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Jadwal efektif kelas minggu ini.</p>
+  <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1">
+    <template x-for="d in ['Senin','Selasa','Rabu','Kamis','Jumat']" :key="d">
+      <button type="button" @click="hari = d" x-text="d"
+        :class="hari === d ? 'bg-[#3965FB] text-white font-semibold' : 'bg-slate-50 text-slate-600'"
+        class="px-4 py-2.5 rounded-xl text-[13px] font-medium whitespace-nowrap min-h-[44px]">-</button>
+    </template>
+  </div>
+  <div class="mt-4 space-y-3">
+    <template x-for="s in jadwalHari" :key="s.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[13px] font-bold text-[#3965FB]" x-text="s.timeStart + ' - ' + s.timeEnd">-</span>
+          <span class="text-[11px] text-slate-400" x-text="s.hari">-</span>
+        </div>
+        <p class="text-[16px] font-bold mt-1" x-text="s.matkul">-</p>
+        <p class="text-[12px] text-slate-500 mt-0.5" x-text="s.dosen + ' • ' + s.ruang">-</p>
+      </div>
+    </template>
+    <div x-show="jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>
+  </div>
+</section>

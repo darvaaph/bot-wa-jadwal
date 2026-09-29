@@ -1,0 +1,27 @@
+<!-- partials/pj/drawer.html — Drawer mobile PJ -->
+<div x-show="drawer" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-40 md:hidden" @click="drawer = false" aria-hidden="true"></div>
+<aside x-show="drawer" x-cloak
+       x-transition:enter="transition ease-out duration-300 transform"
+       x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-200 transform"
+       x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full"
+       class="fixed left-0 top-0 h-full w-72 max-w-[85vw] bg-white z-50 md:hidden flex flex-col px-4 py-5 overflow-y-auto shadow-2xl"
+       role="dialog" aria-modal="true" aria-label="Menu PJ">
+  <div class="flex items-center justify-between px-2">
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-7 w-auto" />
+    <button type="button" @click="drawer = false" aria-label="Tutup menu" class="p-2 min-w-[44px] min-h-[44px] rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button>
+  </div>
+  <nav aria-label="Navigasi mobile PJ" class="mt-6 flex flex-col gap-0.5 text-[14px]">
+    <template x-for="item in pjNav" :key="item.id">
+      <button type="button" @click="go(item.id)"
+        :class="view === item.id ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+        <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
+      </button>
+    </template>
+  </nav>
+  <div class="mt-auto pt-4 text-[13px] px-2">
+    <p class="font-semibold">PJ · <span x-text="selectedClass || '—'">—</span></p>
+    <p class="text-[12px] text-slate-500" x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</p>
+  </div>
+</aside>
