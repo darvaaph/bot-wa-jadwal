@@ -118,11 +118,36 @@ func (s *Server) handleCreateV1Material(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang menambahkan materi untuk kelas penugasannya")
+		return
+	}
 
 	// Batasan peran: PJ hanya boleh menambah materi untuk offering penugasannya
 	if u.ActiveRole == "PJ" {
-		if req.OfferingID == nil || (u.ActiveCourseOfferingID.Valid && *req.OfferingID != u.ActiveCourseOfferingID.Int64) {
+		if req.OfferingID == nil || !u.ActiveCourseOfferingID.Valid || *req.OfferingID != u.ActiveCourseOfferingID.Int64 {
 			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "PJ hanya berwenang menambahkan materi untuk offering penugasannya")
+			return
+		}
+	}
+	if req.OfferingID != nil {
+		var offeringClassID int64
+		if err := s.v1DB.QueryRow(`
+			SELECT sem.class_id FROM course_offerings co
+			JOIN semesters sem ON sem.id = co.semester_id WHERE co.id = ?;
+		`, *req.OfferingID).Scan(&offeringClassID); err != nil || offeringClassID != classID {
+			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "offering_id tidak berada pada class_slug yang dipilih")
+			return
+		}
+	}
+	if req.TaskID != nil {
+		var taskClassID, taskOfferingID int64
+		if err := s.v1DB.QueryRow(`
+			SELECT sem.class_id, t.course_offering_id FROM tasks t
+			JOIN course_offerings co ON co.id = t.course_offering_id
+			JOIN semesters sem ON sem.id = co.semester_id WHERE t.id = ?;
+		`, *req.TaskID).Scan(&taskClassID, &taskOfferingID); err != nil || taskClassID != classID || (req.OfferingID != nil && taskOfferingID != *req.OfferingID) {
+			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "task_id tidak konsisten dengan kelas atau offering")
 			return
 		}
 	}

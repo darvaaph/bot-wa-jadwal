@@ -431,6 +431,10 @@ func (s *Server) handlePortalTasks(w http.ResponseWriter, r *http.Request) {
 	args := []any{classID}
 
 	group := r.URL.Query().Get("group")
+	if group != "" && group != "hari_ini" && group != "minggu_ini" && group != "mendatang" && group != "terlewat" {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "group harus hari_ini, minggu_ini, mendatang, atau terlewat")
+		return
+	}
 	now := time.Now().In(loc)
 	if group == "hari_ini" {
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).UTC().Format("2006-01-02T15:04:05Z")
@@ -645,10 +649,12 @@ func (s *Server) handlePortalChanges(w http.ResponseWriter, r *http.Request) {
 
 	since := r.URL.Query().Get("since")
 	if since != "" {
-		if _, err := time.Parse(time.RFC3339, since); err == nil {
-			query += " AND te.published_at >= ?"
-			args = append(args, since)
+		if _, err := time.Parse(time.RFC3339, since); err != nil {
+			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "since harus berformat RFC3339")
+			return
 		}
+		query += " AND te.published_at >= ?"
+		args = append(args, since)
 	}
 
 	query += " ORDER BY te.published_at DESC LIMIT 50;"

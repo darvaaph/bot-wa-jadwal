@@ -113,7 +113,7 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 			beforeJSON sql.NullString
 			afterJSON  sql.NullString
 			reason     sql.NullString
-			createdAt  time.Time
+			createdAt  dbTimestamp
 		)
 
 		if err := rows.Scan(&id, &classID, &classSlug, &actorID, &actorName, &actorRole,
@@ -122,7 +122,7 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 			item := AuditLogResponseItem{
 				ID:        id,
 				Action:    action,
-				CreatedAt: createdAt.Format(time.RFC3339),
+				CreatedAt: createdAt.Time.Format(time.RFC3339),
 			}
 			if classID.Valid {
 				item.ClassID = &classID.Int64

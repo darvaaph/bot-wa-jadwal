@@ -17,10 +17,15 @@ func (s *Server) handleGetClassSemesters(w http.ResponseWriter, r *http.Request)
 	}
 
 	slug := r.PathValue("slug")
+	u, _ := GetAuthContext(r)
 	var classID int64
 	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses kelas ditolak")
 		return
 	}
 
@@ -40,7 +45,7 @@ func (s *Server) handleGetClassSemesters(w http.ResponseWriter, r *http.Request)
 	for rows.Next() {
 		var id int64
 		var year, term, startsOn, endsOn, status string
-		var publishedAt, activatedAt sql.NullTime
+		var publishedAt, activatedAt dbTimestamp
 		var version int
 
 		if err := rows.Scan(&id, &year, &term, &startsOn, &endsOn, &status, &publishedAt, &activatedAt, &version); err == nil {
@@ -51,19 +56,9 @@ func (s *Server) handleGetClassSemesters(w http.ResponseWriter, r *http.Request)
 				"starts_on":     startsOn,
 				"ends_on":       endsOn,
 				"status":        status,
-				"published_at": func() any {
-					if publishedAt.Valid {
-						return publishedAt.Time.Format(time.RFC3339)
-					}
-					return nil
-				}(),
-				"activated_at": func() any {
-					if activatedAt.Valid {
-						return activatedAt.Time.Format(time.RFC3339)
-					}
-					return nil
-				}(),
-				"version": version,
+				"published_at":  publishedAt.RFC3339(),
+				"activated_at":  activatedAt.RFC3339(),
+				"version":       version,
 			})
 		}
 	}
@@ -97,6 +92,10 @@ func (s *Server) handleCreateClassSemester(w http.ResponseWriter, r *http.Reques
 	err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
 	if err == sql.ErrNoRows {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang membuat semester untuk kelas penugasannya")
 		return
 	}
 
@@ -143,6 +142,13 @@ func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya KM atau System Admin yang berwenang mengaktifkan semester")
 		return
 	}
+	var confirm struct {
+		Confirm bool `json:"confirm"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&confirm); err != nil || !confirm.Confirm {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "confirm:true wajib disertakan")
+		return
+	}
 
 	semIDStr := r.PathValue("id")
 	semID, _ := strconv.ParseInt(semIDStr, 10, 64)
@@ -154,6 +160,10 @@ func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang mengaktifkan semester kelas penugasannya")
+		return
+	}
 
 	tx, err := s.v1DB.Begin()
 	if err != nil {
@@ -163,11 +173,14 @@ func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) 
 	defer tx.Rollback()
 
 	// 1. Arsipkan semester aktif lama
-	_, _ = tx.Exec(`
+	if _, err = tx.Exec(`
 		UPDATE semesters
 		SET status = 'ARCHIVED', archived_at = CURRENT_TIMESTAMP
 		WHERE class_id = ? AND status = 'ACTIVE';
-	`, classID)
+	`, classID); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengarsipkan semester aktif")
+		return
+	}
 
 	// 2. Aktifkan semester baru
 	res, err := tx.Exec(`
@@ -187,7 +200,18 @@ func (s *Server) handleActivateSemester(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = tx.Commit()
+	correlationID := fmt.Sprintf("activate-semester-%d-%d", semID, time.Now().UnixNano())
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, correlation_id)
+		VALUES ('USER', ?, ?, ?, ?, 'ACTIVATE_SEMESTER', 'SEMESTER', ?, ?);
+	`, classID, semID, u.UserID, u.ActiveAssignmentID, semID, correlationID); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit aktivasi semester")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit aktivasi semester")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"semester_id": semID,
@@ -204,6 +228,16 @@ func (s *Server) handleGetSemesterOfferings(w http.ResponseWriter, r *http.Reque
 
 	semIDStr := r.PathValue("id")
 	semID, _ := strconv.ParseInt(semIDStr, 10, 64)
+	u, _ := GetAuthContext(r)
+	var classID int64
+	if err := s.v1DB.QueryRow(`SELECT class_id FROM semesters WHERE id = ?;`, semID).Scan(&classID); err != nil {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Semester tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses semester ditolak")
+		return
+	}
 
 	rows, err := s.v1DB.Query(`
 		SELECT co.id, c.code, co.display_name, co.activity_type

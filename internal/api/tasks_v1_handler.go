@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -146,9 +145,29 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Validasi hak akses offering
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid && u.ActiveCourseOfferingID.Int64 != req.OfferingID {
+	var offName string
+	var classID int64
+	err := s.v1DB.QueryRow(`
+		SELECT co.display_name, sem.class_id
+		FROM course_offerings co
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE co.id = ? AND co.status = 'ACTIVE';
+	`, req.OfferingID).Scan(&offName, &classID)
+	if err == sql.ErrNoRows {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Course offering tidak ditemukan atau tidak aktif")
+		return
+	}
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi course offering")
+		return
+	}
+
+	if u.ActiveRole == "PJ" && (!u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != req.OfferingID) {
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "PJ hanya berwenang membuat tugas untuk mata kuliah penugasannya")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang membuat tugas untuk kelas penugasannya")
 		return
 	}
 
@@ -243,20 +262,6 @@ func (s *Server) handleCreateV1Task(w http.ResponseWriter, r *http.Request) {
 			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat review otomatis")
 			return
 		}
-	}
-
-	// Ambil class_id
-	var offName string
-	var classID int64
-	err = tx.QueryRow(`
-		SELECT co.display_name, sem.class_id
-		FROM course_offerings co
-		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE co.id = ?;
-	`, req.OfferingID).Scan(&offName, &classID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengambil data kelas")
-		return
 	}
 
 	// Audit log
@@ -689,6 +694,10 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Keputusan review harus APPROVED, CHANGES_REQUESTED, atau REVOKED")
 		return
 	}
+	if (decision == "CHANGES_REQUESTED" || decision == "REVOKED") && (req.Note == nil || strings.TrimSpace(*req.Note) == "") {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "note wajib diisi untuk CHANGES_REQUESTED atau REVOKED")
+		return
+	}
 
 	var currentVersion int
 	var currentPubStatus string
@@ -733,13 +742,18 @@ func (s *Server) handleReviewV1Task(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	// Update task status
-	_, err = tx.Exec(`
+	res, err := tx.Exec(`
 		UPDATE tasks
 		SET publication_status = ?, review_state = ?, reviewed_version = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?;
-	`, newPubStatus, decision, currentVersion, taskID)
+		WHERE id = ? AND version = ?;
+	`, newPubStatus, decision, currentVersion, taskID, currentVersion)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status tugas")
+		return
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah selama review")
 		return
 	}
 
@@ -820,11 +834,17 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 	taskID, _ := strconv.ParseInt(taskIDStr, 10, 64)
 
 	var req TaskStateRequest
-	if r.Body != nil && r.Body != http.NoBody {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
-			s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Payload JSON tidak valid")
-			return
-		}
+	if r.Body == nil || r.Body == http.NoBody {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "version wajib diisi")
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	if req.Version <= 0 {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "version wajib lebih dari nol")
+		return
 	}
 
 	var curVersion int
@@ -853,7 +873,7 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	if req.Version != 0 && req.Version != curVersion {
+	if req.Version != curVersion {
 		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah", map[string]any{"current_version": curVersion})
 		return
 	}
@@ -868,24 +888,24 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 	var updateQuery string
 	var auditAction string
 	if action == "complete" {
-		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "COMPLETE_TASK"
 	} else if action == "archive" {
-		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "ARCHIVE_TASK"
 	} else if action == "restore" {
-		updateQuery = "UPDATE tasks SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, deleted_by_user_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?;"
+		updateQuery = "UPDATE tasks SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, deleted_by_user_id = NULL, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "RESTORE_TASK"
 	}
 
-	res, err := tx.Exec(updateQuery, taskID)
+	res, err := tx.Exec(updateQuery, taskID, curVersion)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal memperbarui status tugas: %v", err))
 		return
 	}
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
-		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Tugas tidak ditemukan")
+		s.writeV1Error(w, http.StatusConflict, CodeVersionConflict, "Versi tugas berubah", map[string]any{"current_version": curVersion})
 		return
 	}
 
@@ -905,9 +925,9 @@ func (s *Server) handleTaskStateChange(w http.ResponseWriter, r *http.Request, a
 	}
 
 	if action == "restore" {
-		s.writeV1Success(w, http.StatusOK, map[string]any{"restored": true})
+		s.writeV1Success(w, http.StatusOK, map[string]any{"restored": true, "version": curVersion + 1})
 	} else {
-		s.writeV1Success(w, http.StatusOK, map[string]any{"updated": true})
+		s.writeV1Success(w, http.StatusOK, map[string]any{"updated": true, "version": curVersion + 1})
 	}
 }
 
