@@ -1,5 +1,5 @@
 # 📋 Quality Assurance Final Report: QA-001 sampai QA-014
-## Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v2.0
+## Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v3.0
 
 - **Tanggal Pelaksanaan**: 29 September 2026
 - **Status Akhir**: **GO FOR RELEASE / PILOT READY** (Semua Gate P0/P1 Lulus)
@@ -143,3 +143,5 @@
 Berdasarkan seluruh hasil pengujian di atas, tidak ditemukan adanya defect dengan tingkat keparahan **S0 (Blocker)**, **S1 (Critical)**, maupun **S2 (Major)**. 
 
 Status resmi pengujian: **`GO FOR RELEASE`** untuk tahap deployment pilot kelas perkuliahan.
+- **Dossier Bukti Rilis:** [`docs/qa/EVIDENCE_MANIFEST.md`](EVIDENCE_MANIFEST.md)
+- **Keputusan Gerbang Produksi:** [`docs/ops/PRODUCTION_GATE_SIGN_OFF.md`](../ops/PRODUCTION_GATE_SIGN_OFF.md)
