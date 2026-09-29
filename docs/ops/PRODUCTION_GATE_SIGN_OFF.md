@@ -46,10 +46,10 @@ Dokumen ini adalah **catatan resmi gerbang produksi (Production Gate Sign-Off)**
 *Status Gate C:* **PASS (LULUS)**
 
 ### 4. Gate D: Keamanan Informasi & Privasi Data (Security & Privacy)
-- [x] **Persistent Rate Limiting (ADR-0009):** 8 kebijakan pembatas laju terdaftar di SQLite (`security_attempts`) lulus uji ketahanan brute force di `internal/api/be012_test.go`.
+- [x] **Persistent Rate Limiting (ADR-0009):** 8 kebijakan pembatas laju terdaftar di SQLite (`security_attempts`) lulus uji ketahanan brute force di `internal/api/ratelimit_endpoints_test.go` (BE-012).
 - [x] **Fail-Closed Startup:** Validasi startup produksi di `internal/config/config.go` menolak konfigurasi tidak aman.
 - [x] **Proteksi Cookie & Anti-CSRF (ADR-0010):** Cookie sesi `bv1` bertanda `Secure; HttpOnly; SameSite=Lax` dan mutasi divalidasi via header `X-Requested-With`.
-- [x] **HTTP Security Headers (BE-014):** HSTS (`max-age=31536000`), CSP ketat tanpa wildcard, `X-Frame-Options: DENY`, dan `Cache-Control: no-store` terverifikasi di `internal/api/be014_test.go`.
+- [x] **HTTP Security Headers (BE-014):** HSTS (`max-age=31536000`), CSP ketat tanpa wildcard, `X-Frame-Options: DENY`, dan `Cache-Control: no-store` terverifikasi di `internal/api/security_headers_cors_test.go` (BE-014).
 - [x] **Isolasi Multi-Tenant:** Hak akses KM dan PJ dibatasi ketat per kelas perkuliahan tanpa celah *cross-class leak*.
 *Status Gate D:* **PASS (LULUS)**
 

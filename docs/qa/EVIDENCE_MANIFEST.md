@@ -67,7 +67,7 @@ Dokumen ini adalah **paket bukti teknis (Evidence Manifest)** resmi yang mengika
 
 ### 5. Bukti Audit Keamanan & Hardening (BE-012 s.d. BE-014)
 * **Lokasi Dokumen:** [`docs/CONFIG_AND_SECURITY.md`](file:///f:/Project/bot-wa-jadwal/docs/CONFIG_AND_SECURITY.md)
-* **Unit Test Keamanan:** `internal/api/be012_test.go` dan `internal/api/be014_test.go` lulus tanpa kegagalan.
+* **Unit Test Keamanan:** `internal/api/ratelimit_endpoints_test.go` (BE-012) dan `internal/api/security_headers_cors_test.go` (BE-014) lulus tanpa kegagalan.
 * **Fitur Terverifikasi:**
   - Rate Limiting Persistent SQLite (`security_attempts`) sesuai ADR-0009.
   - Fail-Closed Startup Validation pada konfigurasi produksi `internal/config/config.go`.
