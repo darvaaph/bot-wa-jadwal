@@ -32,6 +32,12 @@ func main() {
 	fmt.Println("🚀 [Boot] Memulai Bot WhatsApp Jadwal Kuliah & Web API Server...")
 
 	cfg := config.LoadConfig()
+	// BE-013: validasi security sebelum server menerima traffic.
+	// Production gagal bila hash key, secure cookie, origin, atau proxy invalid.
+	if err := cfg.Validate(); err != nil {
+		fmt.Printf("❌ Konfigurasi security tidak valid: %v\n", err)
+		return
+	}
 	if *sessionPath != "" {
 		cfg.SessionDBPath = *sessionPath
 	}
@@ -176,6 +182,13 @@ func main() {
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
 	apiServer.SetSecureCookies(cfg.SecureCookies)
+	apiServer.SetSecurityOptions(api.SecurityOptions{
+		Env:               cfg.Env,
+		AuthHashKey:       cfg.AuthHashKey,
+		AllowedOrigins:    cfg.AllowedOrigins,
+		TrustedProxyCIDRs: cfg.TrustedProxyCIDRs,
+		PublicBaseURL:     cfg.PublicBaseURL,
+	})
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)

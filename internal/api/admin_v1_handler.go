@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/ratelimit"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -125,6 +126,13 @@ func (s *Server) handleAdminSuspendUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// BE-012: batasi abuse mutasi admin tanpa mengubah authorization.
+	limitSubject := fmt.Sprintf("admin:%d", u.UserID)
+	limitSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyAdminMutation, limitSubject) {
+		return
+	}
+
 	var req SuspendUserRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	reason := strings.TrimSpace(req.Reason)
@@ -188,6 +196,7 @@ func (s *Server) handleAdminSuspendUser(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit penangguhan")
 		return
 	}
+	s.recordSensitiveLimit(ratelimit.PolicyAdminMutation, limitSubject, limitSource, "SUCCESS")
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"user_id": targetUserID,
@@ -219,6 +228,13 @@ func (s *Server) handleAdminRecoverUser(w http.ResponseWriter, r *http.Request) 
 	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
 	if err != nil || targetUserID <= 0 {
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "ID pengguna tidak valid")
+		return
+	}
+
+	// BE-012: batasi abuse mutasi admin tanpa mengubah authorization.
+	recoverSubject := fmt.Sprintf("admin:%d", u.UserID)
+	recoverSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyAdminMutation, recoverSubject) {
 		return
 	}
 
@@ -303,6 +319,7 @@ func (s *Server) handleAdminRecoverUser(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pemulihan")
 		return
 	}
+	s.recordSensitiveLimit(ratelimit.PolicyAdminMutation, recoverSubject, recoverSource, "SUCCESS")
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"user_id": targetUserID,

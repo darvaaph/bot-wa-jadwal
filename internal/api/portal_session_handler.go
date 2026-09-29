@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"bot-jadwal/internal/portal"
+	"bot-jadwal/internal/ratelimit"
 )
 
 type createPortalSessionRequest struct {
@@ -21,15 +22,8 @@ type rotatePortalCodeRequest struct {
 	Code string `json:"code"`
 }
 
-func portalRequestSource(r *http.Request) string {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
-	if err == nil && host != "" {
-		return host
-	}
-	return strings.TrimSpace(r.RemoteAddr)
-}
-
 func (s *Server) handleCreatePortalSession(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	if s.v1DB == nil || s.portalService == nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
@@ -54,11 +48,16 @@ func (s *Server) handleCreatePortalSession(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	session, err := s.portalService.VerifyCode(r.Context(), classID, req.Code, portalRequestSource(r))
+	// BE-012: source ternormalisasi + proxy-aware dari konfigurasi server.
+	session, err := s.portalService.VerifyCode(r.Context(), classID, req.Code, s.clientSource(r))
 	if err != nil {
 		switch {
 		case errors.Is(err, portal.ErrRateLimited):
-			s.writeV1Error(w, http.StatusTooManyRequests, CodeTooManyRequests, "Terlalu banyak percobaan kode portal. Coba lagi nanti")
+			s.limitExceeded(w, 15*time.Minute)
+			return
+		case errors.Is(err, portal.ErrUnavailable):
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return
 		case errors.Is(err, portal.ErrInvalidInput):
 			s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "code wajib diisi")
 		case errors.Is(err, portal.ErrInvalidCode), errors.Is(err, portal.ErrNotFound):
@@ -69,6 +68,8 @@ func (s *Server) handleCreatePortalSession(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Token mentah hanya dikembalikan sekali; larang caching.
+	noStore(w)
 	s.writeV1Success(w, http.StatusCreated, map[string]any{
 		"portal_token": session.Token,
 		"expires_at":   session.ExpiresAt.UTC().Format(time.RFC3339),
@@ -109,6 +110,13 @@ func (s *Server) handleRotatePortalCode(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// BE-012: batasi rotasi berulang per aktor dan kelas.
+	rotateSubject := fmt.Sprintf("rotate:%d:class:%d", u.UserID, classID)
+	rotateSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyPortalRotate, rotateSubject) {
+		return
+	}
+
 	result, err := s.portalService.RotateCode(r.Context(), portal.RotationRequest{
 		ClassID:             classID,
 		Code:                req.Code,
@@ -128,6 +136,8 @@ func (s *Server) handleRotatePortalCode(w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
+
+	s.recordSensitiveLimit(ratelimit.PolicyPortalRotate, rotateSubject, rotateSource, "SUCCESS")
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"portal_code":         result.Code,

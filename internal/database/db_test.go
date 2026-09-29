@@ -89,6 +89,7 @@ func TestSchemaVerification(t *testing.T) {
 		"role_invitations",
 		"role_assignments",
 		"login_attempts",
+		"security_attempts",
 		"user_sessions",
 		"portal_sessions",
 		"recovery_tokens",

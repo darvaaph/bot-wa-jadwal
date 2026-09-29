@@ -14,6 +14,7 @@ Dokumen ini ditujukan khusus untuk pengelola server / tim yang bertugas melakuka
 6. [Panduan Testing Aman (Mencegah Bentrok Sesi)](#6-panduan-testing-aman-mencegah-bentrok-sesi)
 7. [Konfigurasi Zona Waktu (WIB)](#7-konfigurasi-zona-waktu-wib)
 8. [Struktur File di Server](#8-struktur-file-di-server)
+9. [Konfigurasi Environment & Security Hardening Produksi](#9--konfigurasi-environment--security-hardening-produksi)
 
 ---
 
@@ -176,7 +177,32 @@ Di direktori home server (`/home/<USER_SSH>/`):
 │   ├── jadwal/            # 19 file master jadwal JSON per kelas
 │   └── jadwal.json        # Konfigurasi kurikulum default
 └── storage/               # Direktori runtime state (terisolasi)
-    ├── reminder_groups.json # Daftar JID grup terdaftar pengingat pagi
-    ├── sesi_bot.db        # Database SQLite sesi login WhatsMeow
-    └── tugas.db           # Database SQLite tugas, setting kelas, link & override
+
+---
+
+## 9. 🔐 Konfigurasi Environment & Security Hardening Produksi
+
+Aplikasi membaca konfigurasi lingkungan melalui environment variables. Pada server produksi (`systemd` di `/etc/systemd/system/bot-jadwal.service`), sediakan konfigurasi berikut di bagian `[Service]`:
+
+```ini
+[Service]
+Environment="BOT_JADWAL_ENV=production"
+Environment="BOT_JADWAL_AUTH_HASH_KEY=<GENERATE_MIN_32_BYTES_HEX>"
+Environment="BOT_JADWAL_SECURE_COOKIES=true"
+Environment="BOT_JADWAL_ALLOWED_ORIGINS=https://app.anda.com,https://api.anda.com"
+Environment="BOT_JADWAL_TRUSTED_PROXY_CIDRS=127.0.0.1/32,10.0.0.0/8"
+Environment="BOT_JADWAL_PUBLIC_BASE_URL=https://app.anda.com"
+Environment="STORAGE_DIR=storage"
+Environment="PORT=8080"
 ```
+
+### Rincian Variabel:
+- `BOT_JADWAL_ENV`: Wajib diset ke `production` pada server cloud. Startup server akan menolak berjalan jika konfigurasi keamanan belum memenuhi standar produksi.
+- `BOT_JADWAL_AUTH_HASH_KEY`: Kunci rahasia HMAC minimal 32 byte untuk sidik jari identity, source limiter, dan subject hashing. **JANGAN PERNAH menyertakan nilai riil kunci ini ke repositori Git**. Buat kunci baru di terminal server:
+  ```bash
+  openssl rand -hex 32
+  ```
+- `BOT_JADWAL_SECURE_COOKIES`: Wajib bernilai `true` pada produksi sehingga cookie sesi browser dikirim dengan flag `Secure`.
+- `BOT_JADWAL_ALLOWED_ORIGINS`: Daftar origin CORS terpercaya (skema, host, dan port exact match) terpisah tanda koma.
+- `BOT_JADWAL_TRUSTED_PROXY_CIDRS`: Daftar CIDR IP reverse proxy tepercaya (misal Nginx, Caddy, atau Cloudflare). Hanya IP dalam daftar ini yang diperbolehkan memasok header `X-Forwarded-For` atau `Forwarded`.
+- `BOT_JADWAL_PUBLIC_BASE_URL`: URL kanonis aplikasi publik (wajib skema HTTPS pada produksi).

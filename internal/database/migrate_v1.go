@@ -146,6 +146,17 @@ var v1Schema = []string{
 	);`,
 	`CREATE INDEX IF NOT EXISTS idx_login_identity ON login_attempts(identity_hash, source_hash, attempted_at);`,
 	`CREATE INDEX IF NOT EXISTS idx_login_user ON login_attempts(user_id, attempted_at);`,
+	`CREATE TABLE IF NOT EXISTS security_attempts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		policy_key TEXT NOT NULL,
+		subject_hash TEXT NOT NULL,
+		source_hash TEXT NOT NULL,
+		outcome TEXT NOT NULL CHECK (outcome IN ('SUCCESS','FAILURE','BLOCKED')),
+		attempted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		blocked_until DATETIME
+	);`,
+	`CREATE INDEX IF NOT EXISTS idx_security_policy_subject ON security_attempts(policy_key, subject_hash, source_hash, attempted_at);`,
+	`CREATE INDEX IF NOT EXISTS idx_security_retention ON security_attempts(attempted_at);`,
 	`CREATE TABLE IF NOT EXISTS user_sessions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL REFERENCES users(id),

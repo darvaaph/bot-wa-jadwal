@@ -2,12 +2,13 @@ package api
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net"
+	"hash"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,10 +16,13 @@ import (
 
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/portal"
+	"bot-jadwal/internal/ratelimit"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/web"
 )
+
+func hmacNew(key []byte) hash.Hash { return hmac.New(sha256.New, key) }
 
 // Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
@@ -30,6 +34,200 @@ type Server struct {
 	portalService *portal.Service
 	storageDir    string
 	secureCookies bool
+	// BE-013/BE-014: konfigurasi security eksplisit.
+	env               string
+	authHashKey       []byte
+	allowedOrigins    []string
+	trustedProxyCIDRs []string
+	publicBaseURL     string
+	// BE-012: rate limiter terpusat dan persisten (nil = belum di-wire).
+	limiter *ratelimit.Service
+}
+
+// SetRateLimiter memasang limiter terpusat pada server.
+func (s *Server) SetRateLimiter(limiter *ratelimit.Service) {
+	s.limiter = limiter
+	if s.portalService != nil && limiter != nil {
+		s.portalService.SetRateLimiter(portalLimiterAdapter{svc: limiter})
+	}
+}
+
+// buildLimiter membangun limiter terpusat di atas database v1.
+// Tanpa AuthHashKey valid, service memakai kunci efemeral (fingerprint tidak
+// stabil lintas restart; production wajib key valid via Config.Validate).
+func (s *Server) buildLimiter() {
+	if s.v1DB == nil {
+		return
+	}
+	if limiter, err := ratelimit.NewService(s.v1DB, s.authHashKey, nil); err == nil {
+		s.SetRateLimiter(limiter)
+	}
+}
+
+// portalLimiterAdapter menjembatani ratelimit.Service ke antarmuka
+// CodeLimiter milik portal dengan policy kode portal.
+type portalLimiterAdapter struct {
+	svc *ratelimit.Service
+}
+
+func (a portalLimiterAdapter) Check(ctx context.Context, subject, source string) (bool, time.Duration, error) {
+	res, err := a.svc.Check(ctx, ratelimit.PolicyPortalCode, subject, source)
+	if err != nil {
+		return false, 0, err
+	}
+	return res.Allowed, res.RetryAfter, nil
+}
+
+func (a portalLimiterAdapter) Record(ctx context.Context, subject, source, outcome string) error {
+	return a.svc.Record(ctx, ratelimit.PolicyPortalCode, subject, source, outcome)
+}
+
+// clientSource menurunkan source identity request: IP peer ternormalisasi
+// (tanpa port) atau client hop dari header proxy tepercaya (BE-012).
+func (s *Server) clientSource(r *http.Request) string {
+	return ratelimit.ClientSourceHTTP(r.RemoteAddr, r.Header.Get, s.trustedProxyCIDRs)
+}
+
+// limitExceeded menulis response 429 generik dengan Retry-After tanpa
+// mengungkap counter internal.
+func (s *Server) limitExceeded(w http.ResponseWriter, retryAfter time.Duration) {
+	secs := int(retryAfter.Seconds())
+	if secs < 1 {
+		secs = 1
+	}
+	w.Header().Set("Retry-After", fmt.Sprintf("%d", secs))
+	s.writeV1Error(w, http.StatusTooManyRequests, CodeTooManyRequests, "Terlalu banyak percobaan. Coba lagi nanti.")
+}
+
+// checkSensitiveLimit menegakkan policy registry rate limit terpusat (BE-012)
+// untuk endpoint sensitif. False = response sudah ditulis (429/503).
+// Nil limiter (mode tanpa DB) dilewati.
+func (s *Server) checkSensitiveLimit(w http.ResponseWriter, r *http.Request, policy ratelimit.PolicyKey, subject string) bool {
+	if s.limiter == nil {
+		return true
+	}
+	res, err := s.limiter.Check(r.Context(), policy, subject, s.clientSource(r))
+	if err != nil {
+		s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+		return false
+	}
+	if !res.Allowed {
+		s.limitExceeded(w, res.RetryAfter)
+		return false
+	}
+	return true
+}
+
+// recordSensitiveLimit mencatat outcome limiter. Dipanggil setelah operasi
+// domain commit; error operasional dicatat tanpa subject/source mentah.
+func (s *Server) recordSensitiveLimit(policy ratelimit.PolicyKey, subject, source, outcome string) {
+	if s.limiter == nil {
+		return
+	}
+	if err := s.limiter.Record(context.Background(), policy, subject, source, outcome); err != nil {
+		fmt.Printf("[RateLimit] gagal mencatat %s: %v\n", string(policy), err)
+	}
+}
+
+// SecurityOptions menyalurkan konfigurasi security BE-013 ke Server.
+type SecurityOptions struct {
+	Env               string
+	AuthHashKey       string
+	AllowedOrigins    []string
+	TrustedProxyCIDRs []string
+	PublicBaseURL     string
+}
+
+// SetSecurityOptions menerapkan konfigurasi security dari Config.
+// Dipanggil sebelum Start; nilai origin dinormalisasi ke exact-match.
+func (s *Server) SetSecurityOptions(opt SecurityOptions) {
+	s.env = strings.ToLower(strings.TrimSpace(opt.Env))
+	if s.env == "" {
+		s.env = "development"
+	}
+	s.authHashKey = []byte(opt.AuthHashKey)
+	s.publicBaseURL = strings.TrimSpace(opt.PublicBaseURL)
+	s.allowedOrigins = nil
+	seen := map[string]bool{}
+	for _, o := range opt.AllowedOrigins {
+		n := normalizeOriginValue(o)
+		if n != "" && !seen[n] {
+			seen[n] = true
+			s.allowedOrigins = append(s.allowedOrigins, n)
+		}
+	}
+	s.trustedProxyCIDRs = nil
+	for _, c := range opt.TrustedProxyCIDRs {
+		if trimmed := strings.TrimSpace(c); trimmed != "" {
+			s.trustedProxyCIDRs = append(s.trustedProxyCIDRs, trimmed)
+		}
+	}
+	// Catatan: hash penyimpanan token/kode portal tetap SHA-256 plain demi
+	// kompatibilitas baris lama (token berentropi tinggi); HMAC keyed hanya
+	// untuk fingerprint rate limiter (BE-012).
+	s.buildLimiter()
+}
+
+func normalizeOriginValue(origin string) string {
+	u, err := url.Parse(strings.TrimSpace(origin))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	host := strings.ToLower(u.Hostname())
+	if port := u.Port(); port != "" {
+		return strings.ToLower(u.Scheme) + "://" + host + ":" + port
+	}
+	return strings.ToLower(u.Scheme) + "://" + host
+}
+
+// isProduction melaporkan environment production eksplisit.
+func (s *Server) isProduction() bool { return s.env == "production" }
+
+// fingerprint menghitung HMAC-SHA256 namespaced bila AuthHashKey tersedia,
+// atau fallback SHA-256 plain (development/test tanpa key). Key tidak pernah
+// dipakai untuk enkripsi password atau sebagai token.
+func (s *Server) fingerprint(namespace, value string) string {
+	if len(s.authHashKey) >= 32 {
+		mac := hmacNew(s.authHashKey)
+		_, _ = mac.Write([]byte(namespace))
+		_, _ = mac.Write([]byte{0})
+		_, _ = mac.Write([]byte(value))
+		return hex.EncodeToString(mac.Sum(nil))
+	}
+	sum := sha256.Sum256([]byte(namespace + "\x00" + value))
+	return hex.EncodeToString(sum[:])
+}
+
+// setAuthCookie menyatukan atribut cookie login, switch context, dan logout:
+// HttpOnly, Path /, SameSite Lax, Secure mengikuti environment, tanpa Domain.
+func (s *Server) setAuthCookie(w http.ResponseWriter, token string, expires time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "bv1",
+		Value:    token,
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   s.secureCookies,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// clearAuthCookie menghapus cookie dengan atribut yang cocok dengan setter.
+func (s *Server) clearAuthCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "bv1",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   s.secureCookies,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// noStore menandai response pembawa token agar tidak di-cache.
+func noStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
 }
 
 // HealthResponse adalah payload untuk endpoint /api/health
@@ -64,6 +262,9 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	if len(v1DB) > 0 && v1DB[0] != nil {
 		s.v1DB = v1DB[0]
 		s.portalService = portal.NewService(v1DB[0])
+		// Limiter default (kunci efemeral hingga SetSecurityOptions memberi
+		// key eksplisit). Tabel security_attempts tersedia via migrasi 008.
+		s.buildLimiter()
 	}
 
 	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
@@ -226,39 +427,176 @@ func (s *Server) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
-// corsMiddleware memungkinkan Web Dashboard (UI/UX) diakses lintas port saat masa pengembangan
+// isAllowedCORSMethod memeriksa apakah HTTP method diizinkan untuk CORS preflight.
+func isAllowedCORSMethod(m string) bool {
+	switch strings.ToUpper(strings.TrimSpace(m)) {
+	case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodHead:
+		return true
+	default:
+		return false
+	}
+}
+
+// isAllowedCORSHeader memeriksa apakah HTTP header diizinkan untuk CORS preflight.
+func isAllowedCORSHeader(h string) bool {
+	switch strings.ToLower(strings.TrimSpace(h)) {
+	case "content-type", "authorization", "idempotency-key", "x-portal-token", "x-requested-with", "accept", "origin":
+		return true
+	default:
+		return false
+	}
+}
+
+// isOriginAllowed memeriksa apakah origin diizinkan berdasarkan exact-match allowlist.
+// Production HANYA mengizinkan origin yang terdaftar eksplisit di AllowedOrigins atau PublicBaseURL.
+// Development & Test mengizinkan origin localhost eksplisit.
+func (s *Server) isOriginAllowed(origin string) bool {
+	norm := normalizeOriginValue(origin)
+	if norm == "" {
+		return false
+	}
+	for _, allowed := range s.allowedOrigins {
+		if norm == allowed {
+			return true
+		}
+	}
+	if s.publicBaseURL != "" && norm == normalizeOriginValue(s.publicBaseURL) {
+		return true
+	}
+	if s.isProduction() {
+		return false
+	}
+	if u, err := url.Parse(norm); err == nil {
+		h := strings.ToLower(u.Hostname())
+		if h == "localhost" || h == "127.0.0.1" || h == "::1" {
+			return true
+		}
+	}
+	return false
+}
+
+// addVaryOrigin menggabungkan 'Origin' ke header Vary tanpa menimpa nilai yang ada.
+func addVaryOrigin(w http.ResponseWriter) {
+	existing := w.Header().Values("Vary")
+	for _, v := range existing {
+		for _, part := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(part), "origin") {
+				return
+			}
+		}
+	}
+	if len(existing) == 0 {
+		w.Header().Set("Vary", "Origin")
+	} else {
+		w.Header().Add("Vary", "Origin")
+	}
+}
+
+// isRequestHTTPS memeriksa apakah request berjalan di atas HTTPS (langsung atau via trusted proxy).
+func (s *Server) isRequestHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	peer := ratelimit.PeerIP(r.RemoteAddr)
+	if ratelimit.PeerTrusted(peer, s.trustedProxyCIDRs) {
+		if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			return true
+		}
+	}
+	return false
+}
+
+// corsMiddleware menegakkan CORS exact-origin, CSRF check, dan HTTP security headers (BE-014).
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin != "" {
-			allow := false
-			if originURL, err := url.Parse(origin); err == nil {
-				originHost := originURL.Hostname()
-				reqHost := r.Host
-				if h, _, err := net.SplitHostPort(r.Host); err == nil {
-					reqHost = h
-				}
-				if originHost == reqHost {
-					allow = true
-				}
-			}
-			if allow {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
-			w.Header().Set("Vary", "Origin")
-		}
-
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Portal-Token")
-
+		// 1. Security Headers dasar & Content Security Policy (BE-014)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "same-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';")
 
+		if s.isProduction() && s.isRequestHTTPS(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		origin := r.Header.Get("Origin")
+
+		// 2. CORS Preflight (OPTIONS dengan Access-Control-Request-Method)
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			if origin == "" || !s.isOriginAllowed(origin) {
+				addVaryOrigin(w)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			reqMethod := r.Header.Get("Access-Control-Request-Method")
+			if !isAllowedCORSMethod(reqMethod) {
+				addVaryOrigin(w)
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			reqHeaders := r.Header.Get("Access-Control-Request-Headers")
+			if reqHeaders != "" {
+				for _, h := range strings.Split(reqHeaders, ",") {
+					if !isAllowedCORSHeader(h) {
+						addVaryOrigin(w)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+				}
+			}
+			addVaryOrigin(w)
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Portal-Token")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		// 3. Response CORS untuk request non-preflight dengan header Origin
+		if origin != "" {
+			addVaryOrigin(w)
+			if s.isOriginAllowed(origin) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+		}
+
+		// 4. OPTIONS non-preflight sederhana
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
+		}
+
+		// 5. CSRF Protection untuk cookie-authenticated mutations (POST/PUT/PATCH/DELETE)
+		// Bearer-only client (bot WA / API token) dilewati tanpa CSRF check.
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			cookie, err := r.Cookie("bv1")
+			hasCookie := err == nil && strings.TrimSpace(cookie.Value) != ""
+			hasBearer := strings.HasPrefix(strings.ToLower(r.Header.Get("Authorization")), "bearer ")
+			if hasCookie && !hasBearer {
+				if origin != "" {
+					if !s.isOriginAllowed(origin) {
+						s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Origin tidak diizinkan untuk mutasi kredensial cookie")
+						return
+					}
+				} else {
+					referer := r.Header.Get("Referer")
+					if referer != "" {
+						refURL, err := url.Parse(referer)
+						if err != nil || !s.isOriginAllowed(refURL.Scheme+"://"+refURL.Host) {
+							s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Referer tidak diizinkan untuk mutasi kredensial cookie")
+							return
+						}
+					} else if s.isProduction() {
+						s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Origin atau Referer wajib untuk mutasi kredensial cookie")
+						return
+					}
+				}
+			}
 		}
 
 		next.ServeHTTP(w, r)

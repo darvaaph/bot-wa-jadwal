@@ -54,6 +54,14 @@ func VerifyPassword(hash, password string) bool {
 }
 
 func keyedHash(key []byte, namespace, value string) string {
+	return KeyedHash(key, namespace, value)
+}
+
+// KeyedHash menghitung HMAC-SHA256 namespaced untuk fingerprint identity
+// dan source rate limiter. Diekspor agar server API memakai helper kanonis
+// yang sama (BE-012/BE-013); jangan dipakai untuk enkripsi password atau
+// sebagai session token.
+func KeyedHash(key []byte, namespace, value string) string {
 	mac := hmac.New(sha256.New, key)
 	_, _ = mac.Write([]byte(namespace))
 	_, _ = mac.Write([]byte{0})

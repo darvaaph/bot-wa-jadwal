@@ -15,6 +15,7 @@ import (
 
 	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/database"
+	"bot-jadwal/internal/ratelimit"
 )
 
 // BackupRequest merepresentasikan payload pembuatan backup on-demand
@@ -66,6 +67,13 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang membuat backup kelas penugasannya")
+		return
+	}
+
+	// BE-012: batasi frekuensi operasi mahal dan berisiko.
+	backupSubject := fmt.Sprintf("backup:%d", u.UserID)
+	backupSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyBackupRestore, backupSubject) {
 		return
 	}
 
@@ -144,6 +152,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit backup")
 		return
 	}
+	s.recordSensitiveLimit(ratelimit.PolicyBackupRestore, backupSubject, backupSource, "SUCCESS")
 
 	s.writeV1Success(w, http.StatusCreated, BackupResponseItem{
 		ID:          backupID,
@@ -172,6 +181,13 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	if u.ActiveRole != "SYSTEM_ADMIN" {
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya System Admin yang berwenang melakukan verifikasi dan pemulihan database")
+		return
+	}
+
+	// BE-012: batasi frekuensi operasi mahal dan berisiko.
+	restoreSubject := fmt.Sprintf("backup:%d", u.UserID)
+	restoreSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyBackupRestore, restoreSubject) {
 		return
 	}
 
@@ -307,6 +323,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit verifikasi backup")
 		return
 	}
+	s.recordSensitiveLimit(ratelimit.PolicyBackupRestore, restoreSubject, restoreSource, "SUCCESS")
 
 	// BE-011 (ADR-0008): verify-only — tidak mengganti database aktif.
 	// artifact_ref dan path internal tidak dikembalikan ke client.

@@ -7,14 +7,15 @@ import (
 
 // Standar kode error API v1 sesuai docs/api/API_V1.md §0
 const (
-	CodeUnauthenticated = "UNAUTHENTICATED"   // 401
-	CodeForbidden       = "FORBIDDEN"         // 403
-	CodeNotFound        = "NOT_FOUND"         // 404
-	CodeValidation      = "VALIDATION"        // 422
-	CodeVersionConflict = "VERSION_CONFLICT"  // 409
-	CodeGoneArchived    = "GONE_ARCHIVED"     // 410
-	CodeNotImplemented  = "NOT_IMPLEMENTED"   // 501
-	CodeTooManyRequests = "TOO_MANY_REQUESTS" // 429
+	CodeUnauthenticated = "UNAUTHENTICATED"     // 401
+	CodeForbidden       = "FORBIDDEN"           // 403
+	CodeNotFound        = "NOT_FOUND"           // 404
+	CodeValidation      = "VALIDATION"          // 422
+	CodeVersionConflict = "VERSION_CONFLICT"    // 409
+	CodeGoneArchived    = "GONE_ARCHIVED"       // 410
+	CodeNotImplemented  = "NOT_IMPLEMENTED"     // 501
+	CodeTooManyRequests = "TOO_MANY_REQUESTS"   // 429
+	CodeServiceDown     = "SERVICE_UNAVAILABLE" // 503
 )
 
 // V1Response adalah envelope standar untuk seluruh respons sukses API v1

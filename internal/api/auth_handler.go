@@ -14,6 +14,7 @@ import (
 
 	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
+	"bot-jadwal/internal/ratelimit"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,6 +39,93 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
+// Kebijakan rate limit login (registry terpusat BE-012, angka sesuai ADR-0009).
+const (
+	loginMaxFailures = 5
+	loginWindow      = 15 * time.Minute
+	loginBlockPeriod = 15 * time.Minute
+)
+
+// loginBlocked memeriksa apakah pasangan identitas+sumber sedang diblokir.
+// Riwayat dibaca sebagai baris mentah dan jendela dihitung di Go agar
+// konsisten terhadap seluruh format timestamp yang pernah tersimpan.
+func (s *Server) loginBlocked(identityHash, sourceHash string) (bool, time.Duration, error) {
+	now := time.Now().UTC()
+	rows, err := s.v1DB.Query(`
+		SELECT outcome, attempted_at FROM login_attempts
+		WHERE identity_hash = ? AND source_hash = ?
+		ORDER BY id DESC LIMIT 32;
+	`, identityHash, sourceHash)
+	if err != nil {
+		return false, 0, err
+	}
+	defer rows.Close()
+	failures := 0
+	var lastFailure time.Time
+	for rows.Next() {
+		var outcome, attempted string
+		if err := rows.Scan(&outcome, &attempted); err != nil {
+			return false, 0, err
+		}
+		ts, err := parseAttemptTime(attempted)
+		if err != nil {
+			continue
+		}
+		if outcome == "SUCCESS" {
+			break
+		}
+		if outcome != "FAILURE" {
+			continue
+		}
+		if now.Sub(ts) > loginWindow+loginBlockPeriod {
+			break
+		}
+		if lastFailure.IsZero() {
+			lastFailure = ts
+		}
+		if now.Sub(ts) <= loginWindow {
+			failures++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, 0, err
+	}
+	if failures < loginMaxFailures {
+		return false, 0, nil
+	}
+	until := lastFailure.Add(loginBlockPeriod)
+	if now.Before(until) {
+		return true, until.Sub(now), nil
+	}
+	return false, 0, nil
+}
+
+// recordLoginAttempt mencatat percobaan login. Error wajib ditangani caller
+// (gagal tertutup), tidak pernah diabaikan diam-diam.
+func (s *Server) recordLoginAttempt(userID *int64, identityHash, sourceHash, outcome string) error {
+	var uid any
+	if userID != nil {
+		uid = *userID
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	_, err := s.v1DB.Exec(`INSERT INTO login_attempts (
+		user_id, identity_hash, source_hash, outcome, attempted_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?)`, uid, identityHash, sourceHash, outcome, now, now, now)
+	return err
+}
+
+// parseAttemptTime membaca timestamp SQLite dalam format RFC3339Nano,
+// RFC3339, atau "2006-01-02 15:04:05" (CURRENT_TIMESTAMP).
+func parseAttemptTime(raw string) (time.Time, error) {
+	trimmed := strings.TrimSpace(raw)
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05"} {
+		if ts, err := time.Parse(layout, trimmed); err == nil {
+			return ts.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("format waktu percobaan tidak dikenal")
+}
+
 // RoleAssignmentItem merepresentasikan penugasan peran pengurus
 type RoleAssignmentItem struct {
 	ID           int64  `json:"id"`
@@ -59,6 +147,7 @@ type LoginResponse struct {
 
 // handleLogin menangani POST /api/v1/auth/login
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	if s.v1DB == nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
@@ -70,28 +159,31 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cleanIdentity := strings.TrimSpace(req.IdentityKey)
+	cleanIdentity := strings.ToLower(strings.TrimSpace(req.IdentityKey))
 	if cleanIdentity == "" || req.Password == "" {
 		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Nomor WhatsApp (identity_key) dan kata sandi wajib diisi")
 		return
 	}
 
-	identityHash := computeHash(cleanIdentity)
-	sourceHash := computeHash(r.RemoteAddr)
+	// BE-012/BE-013: fingerprint HMAC keyed + source ternormalisasi
+	// (tanpa port) dan proxy-aware. Nilai mentah tidak disimpan.
+	source := s.clientSource(r)
+	identityHash := s.fingerprint("identity", cleanIdentity)
+	sourceHash := s.fingerprint("source", source)
 
-	// 1. Periksa batas percobaan gagal (Rate Limit: 5 gagal dalam 15 menit -> blokir 15 menit)
-	var failedAttempts int
-	_ = s.v1DB.QueryRow(`
-		SELECT COUNT(*) FROM login_attempts
-		WHERE identity_hash = ? AND attempted_at >= datetime('now', '-15 minutes') AND outcome = 'FAILURE';
-	`, identityHash).Scan(&failedAttempts)
-
-	if failedAttempts >= 5 {
-		_, _ = s.v1DB.Exec(`
-			INSERT INTO login_attempts (identity_hash, source_hash, outcome)
-			VALUES (?, ?, 'BLOCKED');
-		`, identityHash, sourceHash)
-		s.writeV1Error(w, http.StatusTooManyRequests, CodeTooManyRequests, "Terlalu banyak percobaan gagal. Akun diblokir sementara selama 15 menit demi keamanan.")
+	// 1. Periksa batas percobaan gagal (5 gagal per 15 menit per
+	// identitas+sumber -> blokir 15 menit). Gagal tertutup bila storage error.
+	blocked, retryAfter, err := s.loginBlocked(identityHash, sourceHash)
+	if err != nil {
+		s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+		return
+	}
+	if blocked {
+		if err := s.recordLoginAttempt(nil, identityHash, sourceHash, "BLOCKED"); err != nil {
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+			return
+		}
+		s.limitExceeded(w, retryAfter)
 		return
 	}
 
@@ -105,7 +197,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		sessionVersion int
 	)
 
-	err := s.v1DB.QueryRow(`
+	err = s.v1DB.QueryRow(`
 		SELECT id, identity_key, display_name, password_hash, status, session_version
 		FROM users
 		WHERE identity_key = ?;
@@ -113,7 +205,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err == sql.ErrNoRows {
 		// Pesan generik agar tidak mengungkap keberadaan akun
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (identity_hash, source_hash, outcome) VALUES (?, ?, 'FAILURE');`, identityHash, sourceHash)
+		if err := s.recordLoginAttempt(nil, identityHash, sourceHash, "FAILURE"); err != nil {
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+			return
+		}
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kredensial tidak valid")
 		return
 	} else if err != nil {
@@ -123,20 +218,29 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Verifikasi Password dengan bcrypt
 	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)); err != nil {
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILURE');`, userID, identityHash, sourceHash)
+		if err := s.recordLoginAttempt(&userID, identityHash, sourceHash, "FAILURE"); err != nil {
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+			return
+		}
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kredensial tidak valid")
 		return
 	}
 
 	// 4. Verifikasi status pengguna
 	if status != "ACTIVE" {
-		_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'FAILURE');`, userID, identityHash, sourceHash)
+		if err := s.recordLoginAttempt(&userID, identityHash, sourceHash, "FAILURE"); err != nil {
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+			return
+		}
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akun Anda saat ini dinonaktifkan")
 		return
 	}
 
 	// 5. Catat login sukses
-	_, _ = s.v1DB.Exec(`INSERT INTO login_attempts (user_id, identity_hash, source_hash, outcome) VALUES (?, ?, ?, 'SUCCESS');`, userID, identityHash, sourceHash)
+	if err := s.recordLoginAttempt(&userID, identityHash, sourceHash, "SUCCESS"); err != nil {
+		s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan autentikasi tidak tersedia. Coba lagi nanti.")
+		return
+	}
 
 	// 6. Ambil seluruh penugasan peran aktif pengguna
 	rows, err := s.v1DB.Query(`
@@ -213,15 +317,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	_, _ = s.v1DB.Exec(`UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?;`, userID)
 
 	// Set cookie bv1 (opsional sebagai fallback Alpine.js)
-	http.SetCookie(w, &http.Cookie{
-		Name:     "bv1",
-		Value:    token,
-		Path:     "/",
-		Expires:  expiresAt,
-		HttpOnly: true,
-		Secure:   s.secureCookies,
-		SameSite: http.SameSiteLaxMode,
-	})
+	noStore(w)
+	s.setAuthCookie(w, token, expiresAt)
 
 	s.writeV1Success(w, http.StatusOK, LoginResponse{
 		Token:             token,
@@ -246,16 +343,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		WHERE id = ?;
 	`, u.SessionID)
 
-	// Hapus cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "bv1",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   s.secureCookies,
-		SameSite: http.SameSiteLaxMode,
-	})
+	// Hapus cookie dengan atribut yang cocok dengan setter
+	s.clearAuthCookie(w)
 
 	s.writeV1Success(w, http.StatusOK, map[string]bool{"revoked": true})
 }
@@ -342,6 +431,7 @@ type SwitchContextRequest struct {
 
 // handleSwitchContext menangani POST /api/v1/auth/switch-context
 func (s *Server) handleSwitchContext(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	u, ok := GetAuthContext(r)
 	if !ok {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
@@ -403,15 +493,8 @@ func (s *Server) handleSwitchContext(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set cookie baru
-	http.SetCookie(w, &http.Cookie{
-		Name:     "bv1",
-		Value:    newToken,
-		Path:     "/",
-		Expires:  expiresAt,
-		HttpOnly: true,
-		Secure:   s.secureCookies,
-		SameSite: http.SameSiteLaxMode,
-	})
+	noStore(w)
+	s.setAuthCookie(w, newToken, expiresAt)
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"token":      newToken,
@@ -624,6 +707,7 @@ type InvitationRequest struct {
 
 // handleCreateInvitation menangani POST /api/v1/invitations
 func (s *Server) handleCreateInvitation(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	u, ok := GetAuthContext(r)
 	if !ok {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
@@ -701,6 +785,7 @@ func (s *Server) handleCreateInvitation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	noStore(w)
 	s.writeV1Success(w, http.StatusCreated, map[string]any{
 		"invitation_id": invID,
 		"token":         token,
@@ -717,6 +802,7 @@ type AcceptInvitationRequest struct {
 
 // handleAcceptInvitation menangani POST /api/v1/invitations/accept
 func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	if s.v1DB == nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
@@ -731,6 +817,25 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 	if len(req.Password) < 6 {
 		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Kata sandi minimal 6 karakter")
 		return
+	}
+
+	// BE-012: policy registry terpusat; subject = fingerprint undangan.
+	// Token mentah tidak pernah disimpan; pesan gagal tetap generik.
+	inviteSubject := "invite:" + strings.TrimSpace(req.Token)
+	inviteSource := s.clientSource(r)
+	if !s.checkSensitiveLimit(w, r, ratelimit.PolicyInviteAccept, inviteSubject) {
+		return
+	}
+	// recordInviteFailure mencatat kegagalan; false = response 503 sudah ditulis.
+	recordInviteFailure := func() bool {
+		if s.limiter == nil {
+			return true
+		}
+		if err := s.limiter.Record(r.Context(), ratelimit.PolicyInviteAccept, inviteSubject, inviteSource, "FAILURE"); err != nil {
+			s.writeV1Error(w, http.StatusServiceUnavailable, CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return false
+		}
+		return true
 	}
 
 	tokenHash := computeHash(req.Token)
@@ -754,6 +859,9 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 	`, tokenHash).Scan(&invID, &identityKey, &role, &scopeType, &classID, &semesterID, &courseOfferingID, &status, &expiresAt)
 
 	if err == sql.ErrNoRows || status != "PENDING" {
+		if !recordInviteFailure() {
+			return
+		}
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Undangan tidak valid atau telah digunakan")
 		return
 	} else if err != nil {
@@ -763,6 +871,9 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 
 	if !expiresAt.Valid || time.Now().After(expiresAt.Time) {
 		_, _ = s.v1DB.Exec(`UPDATE role_invitations SET status = 'EXPIRED' WHERE id = ?;`, invID)
+		if !recordInviteFailure() {
+			return
+		}
 		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "Undangan telah kedaluwarsa")
 		return
 	}
@@ -860,6 +971,7 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyelesaikan proses penerimaan undangan")
 		return
 	}
+	s.recordSensitiveLimit(ratelimit.PolicyInviteAccept, inviteSubject, inviteSource, "SUCCESS")
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"user_id":       userID,

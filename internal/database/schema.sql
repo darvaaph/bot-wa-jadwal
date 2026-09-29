@@ -253,6 +253,22 @@ CREATE INDEX idx_login_attempts_identity_source_time
     ON login_attempts(identity_hash, source_hash, attempted_at);
 CREATE INDEX idx_login_attempts_user_time ON login_attempts(user_id, attempted_at);
 
+CREATE TABLE security_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_key TEXT NOT NULL,
+    subject_hash TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE', 'BLOCKED')),
+    attempted_at TEXT NOT NULL,
+    blocked_until TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_security_attempts_policy_subject
+    ON security_attempts(policy_key, subject_hash, source_hash, attempted_at);
+CREATE INDEX idx_security_attempts_retention
+    ON security_attempts(attempted_at);
+
 CREATE TABLE user_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

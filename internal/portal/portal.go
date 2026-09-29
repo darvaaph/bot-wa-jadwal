@@ -24,7 +24,16 @@ var (
 	ErrRateLimited  = errors.New("terlalu banyak percobaan, coba lagi nanti")
 	ErrInvalidInput = errors.New("input tidak valid")
 	ErrConflict     = errors.New("pengaturan portal berubah, muat ulang")
+	ErrUnavailable  = errors.New("layanan pembatas tidak tersedia")
 )
+
+// CodeLimiter adalah rate limiter kode portal. Implementasi produksi memakai
+// tabel persisten bersama (multi-instance, tahan restart); tanpa limiter yang
+// dipasang, service memakai pembatas in-memory legacy khusus proses.
+type CodeLimiter interface {
+	Check(ctx context.Context, subject, source string) (allowed bool, retryAfter time.Duration, err error)
+	Record(ctx context.Context, subject, source, outcome string) error
+}
 
 const (
 	sessionTTL    = 30 * 24 * time.Hour
@@ -39,7 +48,14 @@ type Service struct {
 	// failures tracks recent failures per class+source for rate limiting.
 	failures map[string][]time.Time
 	blocks   map[string]time.Time
+	// limiter, bila dipasang via SetRateLimiter, menjadi satu-satunya sumber
+	// kebenaran rate limit (persisten, multi-instance). Map di atas hanya
+	// fallback legacy ketika limiter belum di-wire (mis. unit test lama).
+	limiter CodeLimiter
 }
+
+// SetRateLimiter memasang limiter persisten terpusat (BE-012).
+func (s *Service) SetRateLimiter(limiter CodeLimiter) { s.limiter = limiter }
 
 type Session struct {
 	Token     string
@@ -158,7 +174,16 @@ func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source st
 		return Session{}, ErrInvalidInput
 	}
 	now := time.Now().UTC()
-	if err := s.checkRateLimit(classID, source, now); err != nil {
+	subject := "class:" + itoa(classID)
+	if s.limiter != nil {
+		allowed, _, err := s.limiter.Check(ctx, subject, source)
+		if err != nil {
+			return Session{}, ErrUnavailable
+		}
+		if !allowed {
+			return Session{}, ErrRateLimited
+		}
+	} else if err := s.checkRateLimit(classID, source, now); err != nil {
 		return Session{}, err
 	}
 	var mode, codeHash sql.NullString
@@ -177,10 +202,24 @@ func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source st
 	actualHash := hashCode(code)
 	expectedHash := strings.TrimSpace(codeHash.String)
 	if subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) != 1 {
-		s.recordFailure(classID, source, now)
+		if s.limiter != nil {
+			// Gagal tertutup: kegagalan pencatatan limiter tidak boleh
+			// disamarkan menjadi kode salah.
+			if err := s.limiter.Record(ctx, subject, source, "FAILURE"); err != nil {
+				return Session{}, ErrUnavailable
+			}
+		} else {
+			s.recordFailure(classID, source, now)
+		}
 		return Session{}, ErrInvalidCode
 	}
-	s.clearFailures(classID, source)
+	if s.limiter != nil {
+		if err := s.limiter.Record(ctx, subject, source, "SUCCESS"); err != nil {
+			return Session{}, ErrUnavailable
+		}
+	} else {
+		s.clearFailures(classID, source)
+	}
 
 	token, err := newToken()
 	if err != nil {

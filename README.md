@@ -242,3 +242,15 @@ bot-jadwal/
 * `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal pagi (**06:00 WIB**).
 * `!daftarkelas` ➔ Menampilkan 19 pilihan kelas yang tersedia.
 * `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut *(Contoh: `!setkelas D4-TI-1A`)*.
+
+---
+
+## 🔐 Konfigurasi Keamanan & Environment Variables (v2.0)
+
+Aplikasi mengadopsi kontrol keamanan terpusat untuk deployment produksi:
+- `BOT_JADWAL_ENV`: Mode lingkungan (`development`, `test`, atau `production`).
+- `BOT_JADWAL_AUTH_HASH_KEY`: Kunci HMAC minimal 32 byte untuk hashing subjek dan pembatas laju (rate limiting).
+- `BOT_JADWAL_SECURE_COOKIES`: Memastikan cookie autentikasi `bv1` bertanda `Secure` (wajib `true` pada produksi).
+- `BOT_JADWAL_ALLOWED_ORIGINS`: Daftar origin CORS terpercaya (exact scheme, host, dan port).
+- `BOT_JADWAL_TRUSTED_PROXY_CIDRS`: Daftar CIDR reverse proxy yang dipercaya untuk header `X-Forwarded-For`.
+- `BOT_JADWAL_PUBLIC_BASE_URL`: URL kanonis aplikasi HTTPS.
