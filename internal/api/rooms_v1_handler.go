@@ -114,9 +114,27 @@ func (s *Server) handleCreateRoomConfirmation(w http.ResponseWriter, r *http.Req
 	}
 
 	var roomExists int
-	_ = s.v1DB.QueryRow(`SELECT COUNT(*) FROM rooms WHERE id = ?;`, req.RoomID).Scan(&roomExists)
+	if err := s.v1DB.QueryRow(`SELECT COUNT(*) FROM rooms WHERE id = ?;`, req.RoomID).Scan(&roomExists); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi ruangan")
+		return
+	}
 	if roomExists == 0 {
 		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Ruangan tidak ditemukan")
+		return
+	}
+	var eventClassID int64
+	if err := s.v1DB.QueryRow(`
+		SELECT sem.class_id FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		JOIN semesters sem ON sem.id = co.semester_id
+		WHERE te.id = ?;
+	`, eventID).Scan(&eventClassID); err != nil {
+		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != eventClassID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Akses kejadian jadwal ditolak")
 		return
 	}
 
@@ -125,7 +143,13 @@ func (s *Server) handleCreateRoomConfirmation(w http.ResponseWriter, r *http.Req
 		confirmedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 
-	res, err := s.v1DB.Exec(`
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi konfirmasi ruangan")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`
 		INSERT INTO room_confirmations (
 			teaching_event_id, room_id, confirmation_status, external_contact, note, recorded_by_user_id, recorded_at, confirmed_at
 		) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?);
@@ -140,16 +164,27 @@ func (s *Server) handleCreateRoomConfirmation(w http.ResponseWriter, r *http.Req
 
 	// Update room_id pada teaching_event jika dikonfirmasi
 	if status == "CONFIRMED" {
-		_, _ = s.v1DB.Exec(`UPDATE teaching_events SET room_id = ? WHERE id = ?;`, req.RoomID, eventID)
+		if _, err = tx.Exec(`UPDATE teaching_events SET room_id = ?, version = version + 1 WHERE id = ?;`, req.RoomID, eventID); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui ruangan kejadian")
+			return
+		}
 	}
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json)
-		VALUES (?, ?, ?, 'CREATE_ROOM_CONFIRMATION', 'ROOM_CONFIRMATION', ?, ?);
-	`, u.ActiveClassID, u.UserID, u.ActiveAssignmentID, confID,
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'CREATE_ROOM_CONFIRMATION', 'ROOM_CONFIRMATION', ?, ?, ?);
+	`, eventClassID, u.UserID, u.ActiveAssignmentID, confID,
 		fmt.Sprintf(`{"event_id":%d,"room_id":%d,"status":%q}`, eventID, req.RoomID, status),
-	)
+		fmt.Sprintf("room-confirmation-%d-%d", confID, time.Now().UnixNano()),
+	); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit konfirmasi ruangan")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit konfirmasi ruangan")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusCreated, map[string]any{
 		"id":                  confID,

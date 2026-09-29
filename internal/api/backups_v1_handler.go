@@ -45,7 +45,26 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req BackupRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	var classID int64
+	if req.ClassSlug != nil && strings.TrimSpace(*req.ClassSlug) != "" {
+		if err := s.v1DB.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, strings.TrimSpace(*req.ClassSlug)).Scan(&classID); err != nil {
+			s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Kelas tidak ditemukan")
+			return
+		}
+	} else if u.ActiveClassID.Valid {
+		classID = u.ActiveClassID.Int64
+	} else {
+		s.writeV1Error(w, http.StatusUnprocessableEntity, CodeValidation, "class_slug wajib untuk System Admin")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "KM hanya berwenang membuat backup kelas penugasannya")
+		return
+	}
 
 	backupDir := filepath.Join(s.getStorageDir(), "backups")
 	_ = os.MkdirAll(backupDir, 0755)
@@ -76,12 +95,13 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	checksum := hex.EncodeToString(hasher.Sum(nil))
 
-	var classID sql.NullInt64
-	if u.ActiveClassID.Valid {
-		classID = u.ActiveClassID
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi backup")
+		return
 	}
-
-	res, err := s.v1DB.Exec(`
+	defer tx.Rollback()
+	res, err := tx.Exec(`
 		INSERT INTO backup_records (
 			class_id, artifact_ref, checksum, status, created_by_user_id, reason, created_at
 		) VALUES (?, ?, ?, 'READY', ?, ?, CURRENT_TIMESTAMP);
@@ -95,15 +115,24 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 	backupID, _ := res.LastInsertId()
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json)
-		VALUES (?, ?, ?, 'CREATE_BACKUP', 'BACKUP_RECORD', ?, ?);
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, 'CREATE_BACKUP', 'BACKUP_RECORD', ?, ?, ?);
 	`, classID, u.UserID, u.ActiveAssignmentID, backupID,
 		fmt.Sprintf(`{"artifact_ref":%q,"checksum":%q}`, backupFilePath, checksum),
-	)
+		fmt.Sprintf("create-backup-%d-%d", backupID, time.Now().UnixNano()),
+	); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit backup")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit backup")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusCreated, BackupResponseItem{
 		ID:          backupID,
+		ClassID:     &classID,
 		ArtifactRef: backupFilePath,
 		Checksum:    checksum,
 		Status:      "READY",
@@ -177,20 +206,37 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi verifikasi backup")
+		return
+	}
+	defer tx.Rollback()
 	// Update status cadangan menjadi VERIFIED
-	_, _ = s.v1DB.Exec(`
+	if _, err = tx.Exec(`
 		UPDATE backup_records
 		SET status = 'VERIFIED', verified_at = CURRENT_TIMESTAMP
 		WHERE id = ?;
-	`, req.BackupID)
+	`, req.BackupID); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status backup")
+		return
+	}
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json)
-		VALUES (?, ?, 'VERIFY_RESTORE_BACKUP', 'BACKUP_RECORD', ?, ?);
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, 'VERIFY_RESTORE_BACKUP', 'BACKUP_RECORD', ?, ?, ?);
 	`, u.UserID, u.ActiveAssignmentID, req.BackupID,
 		fmt.Sprintf(`{"artifact_ref":%q,"status":"VERIFIED"}`, artifactRef),
-	)
+		fmt.Sprintf("verify-backup-%d-%d", req.BackupID, time.Now().UnixNano()),
+	); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit verifikasi backup")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit verifikasi backup")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"backup_id":    req.BackupID,

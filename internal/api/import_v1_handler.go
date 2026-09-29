@@ -638,26 +638,35 @@ func (s *Server) handleSemesterImportApply(w http.ResponseWriter, r *http.Reques
 
 		_, err := tx.Exec(`
 			INSERT INTO schedule_patterns (
-				course_offering_id, room_id, day_of_week, start_time, end_time, status
-			) VALUES (?, ?, ?, ?, ?, 'ACTIVE');
-		`, offID, roomID, pat.DayOfWeek, cleanStart, endTime)
+				course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status
+			) VALUES (?, ?, ?, ?, ?, (SELECT starts_on FROM semesters WHERE id = ?), 'ACTIVE');
+		`, offID, roomID, pat.DayOfWeek, cleanStart, endTime, semID)
 
-		if err == nil {
-			patternsImported++
+		if err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mengimpor pola jadwal: %v", err))
+			return
 		}
+		patternsImported++
 	}
 
 	// 5. Perbarui Status Batch Impor menjadi APPLIED
-	_, _ = tx.Exec(`UPDATE import_batches SET status = 'APPLIED' WHERE id = ?;`, batchID)
+	if _, err := tx.Exec(`UPDATE import_batches SET status = 'APPLIED' WHERE id = ?;`, batchID); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status batch impor")
+		return
+	}
 
 	// 6. Catat audit_logs
-	_, _ = tx.Exec(`
-		INSERT INTO audit_logs (class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json)
-		VALUES (?, ?, ?, ?, 'APPLY_CURRICULUM_IMPORT', 'IMPORT_BATCH', ?, ?);
+	if _, err := tx.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, semester_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, after_json, correlation_id)
+		VALUES ('USER', ?, ?, ?, ?, 'APPLY_CURRICULUM_IMPORT', 'IMPORT_BATCH', ?, ?, ?);
 	`, classID, semID, u.UserID, u.ActiveAssignmentID, batchID,
 		fmt.Sprintf(`{"batch_id":%d,"courses":%d,"lecturers":%d,"offerings":%d,"patterns":%d}`,
 			batchID, len(payload.Courses), len(payload.Lecturers), len(payload.Offerings), patternsImported),
-	)
+		fmt.Sprintf("apply-import-%d-%d", batchID, time.Now().UnixNano()),
+	); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit impor")
+		return
+	}
 
 	if err := tx.Commit(); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal meresmikan penerapan transaksi impor kurikulum")

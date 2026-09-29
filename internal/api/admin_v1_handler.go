@@ -141,8 +141,14 @@ func (s *Server) handleAdminSuspendUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi penangguhan")
+		return
+	}
+	defer tx.Rollback()
 	// Update status user menjadi SUSPENDED dan naikkan session_version agar seluruh token sesi lama langsung invalid
-	_, err = s.v1DB.Exec(`
+	_, err = tx.Exec(`
 		UPDATE users
 		SET status = 'SUSPENDED', session_version = session_version + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?;
@@ -153,10 +159,17 @@ func (s *Server) handleAdminSuspendUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason)
-		VALUES (?, ?, 'SUSPEND_USER', 'USER', ?, ?, '{"status":"SUSPENDED"}', ?);
-	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), reason)
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason, correlation_id)
+		VALUES ('USER', ?, ?, 'SUSPEND_USER', 'USER', ?, ?, '{"status":"SUSPENDED"}', ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), reason, fmt.Sprintf("suspend-user-%d-%d", targetUserID, time.Now().UnixNano())); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit penangguhan")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit penangguhan")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"user_id": targetUserID,
@@ -227,17 +240,30 @@ func (s *Server) handleAdminRecoverUser(w http.ResponseWriter, r *http.Request) 
 		args = append(args, targetUserID)
 	}
 
-	_, err = s.v1DB.Exec(updateQuery, args...)
+	tx, err := s.v1DB.Begin()
+	if err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi pemulihan")
+		return
+	}
+	defer tx.Rollback()
+	_, err = tx.Exec(updateQuery, args...)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulihkan akun pengguna")
 		return
 	}
 
 	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason)
-		VALUES (?, ?, 'RECOVER_USER', 'USER', ?, ?, '{"status":"ACTIVE"}', ?);
-	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), req.Reason)
+	if _, err = tx.Exec(`
+		INSERT INTO audit_logs (actor_type, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json, reason, correlation_id)
+		VALUES ('USER', ?, ?, 'RECOVER_USER', 'USER', ?, ?, '{"status":"ACTIVE"}', ?, ?);
+	`, u.UserID, u.ActiveAssignmentID, targetUserID, fmt.Sprintf(`{"status":%q}`, curStatus), req.Reason, fmt.Sprintf("recover-user-%d-%d", targetUserID, time.Now().UnixNano())); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pemulihan")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pemulihan")
+		return
+	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{
 		"user_id": targetUserID,
