@@ -147,11 +147,55 @@ Authorization: Bearer <access_token>
 }
 ```
 
+### 2.5 Daftar Kelas Sesuai Cakupan
+
+`GET /api/v1/classes`
+
+- Bearer KM mengembalikan hanya kelas pada konteks aktifnya.
+- Bearer System Admin mengembalikan seluruh kelas.
+- `X-Portal-Token` mengembalikan hanya kelas yang terikat pada sesi portal tersebut.
+- Bearer PJ ditolak dengan `403`; permintaan tanpa Bearer maupun portal token ditolak dengan `401`.
+
+### 2.6 Rotasi Kode Portal Kelas
+
+`POST /api/v1/classes/:slug/portal-code/rotate`
+
+- **Auth:** KM pada kelas tersebut atau System Admin.
+- **Request Body:** `{}` agar server membuat kode 8 digit, atau `{"code":"kode-baru"}` untuk menentukan kode sepanjang 6–128 karakter.
+- **Response:** `portal_code`, `portal_code_version`, `portal_access_mode`, dan `reveal_once:true`.
+- Tampilkan atau salin `portal_code` saat respons diterima. Nilai mentah tidak dapat diminta kembali dari backend.
+- Rotasi langsung mencabut seluruh sesi portal versi sebelumnya.
+
+### 2.7 Cutover Endpoint Tugas Legacy
+
+`GET /api/tasks` masih tersedia sementara untuk pembacaan kompatibilitas dan mengambil data dari model v1. Responsnya memiliki header `Deprecation: true` serta `Link` menuju `/api/v1/tasks`.
+
+`POST /api/tasks` dan `DELETE /api/tasks/:id` telah dihentikan dan selalu mengembalikan `410 Gone`. Seluruh perubahan tugas wajib menggunakan endpoint `/api/v1/tasks` dengan sesi pengelola yang valid.
+
 ---
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)
 
-Endpoint pada modul ini bersifat **publik dan read-only**, dapat diakses langsung oleh mahasiswa tanpa token login. `:slug` adalah slug kelas (contoh: `d4-ti-2024-a` atau `d4-ti-2024-b`).
+Endpoint pada modul ini bersifat **read-only**. Kelas mode `LINK` dapat diakses langsung tanpa token login. Kelas mode `CODE` memerlukan sesi portal terbatas. `:slug` adalah slug kelas (contoh: `d4-ti-2024-a` atau `d4-ti-2024-b`).
+
+### 3.0 Membuka Portal Mode CODE
+
+Tukar kode kelas menjadi token sesi:
+
+```http
+POST /api/v1/portal/:slug/session
+Content-Type: application/json
+
+{"code":"123456"}
+```
+
+Respons `201 Created` mengembalikan `portal_token` dan `expires_at`. Simpan token hanya di browser yang membutuhkannya, lalu kirim pada seluruh pembacaan portal melalui `X-Portal-Token`. Token tidak memberikan hak akses ke endpoint pengelola.
+
+```http
+X-Portal-Token: <portal_token>
+```
+
+Kode salah menggunakan respons `401` generik. Setelah lima kegagalan dalam 15 menit, percobaan berikutnya mendapat `429` selama 15 menit.
 
 ### 3.1 Ringkasan Dashboard Kelas (Summary)
 `GET /api/v1/portal/:slug/summary?date=YYYY-MM-DD`
@@ -400,10 +444,10 @@ Khusus untuk peran **PJ (Penanggung Jawab Matkul)** dan **KM (Ketua Mahasiswa)**
 | `GET /api/v1/rooms/candidates?starts_at=&ends_at=&capacity=` | KM / PJ | Mencari ruangan kosong yang tidak bentrok pada jam tersebut. |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | KM | Konfirmasi persetujuan penggunaan ruangan dari Tata Usaha/Pengelola Lab. |
 | `GET /api/v1/notifications?status=PENDING\|SENT\|FAILED` | Admin / KM | Melihat antrean status pengiriman pesan broadcast WhatsApp. |
-| `POST /api/v1/notifications/:id/retry` | Admin / KM | Memicu ulang pengiriman pesan WhatsApp yang gagal (`FAILED`). |
+| `POST /api/v1/notifications/:id/retry` | Admin / KM | Menjadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING` (`{retry_scheduled:true}`, tanpa `attempt_number`). |
 | `GET /api/v1/audit?entity_type=&action=&limit=` | Admin / KM | Melihat log jejak audit perubahan data penting. |
 | `POST /api/v1/backups` | Admin | Membuat backup basis data SQLite target v1 secara instan. |
-| `POST /api/v1/restores` | Admin | Memulihkan basis data dari berkas backup tersimpan. |
+| `POST /api/v1/restores` | Admin | Verifikasi Backup (verify-only, ADR-0008): checksum, format, schema, scope → `VERIFIED` + `restore_performed:false`. Database aktif tidak diganti. |
 | `GET /api/v1/admin/status` | Admin | Telemetri kesehatan bot, koneksi WhatsApp, dan metrik sistem. |
 | `POST /api/v1/admin/users/:id/suspend` | Admin | Menonaktifkan akun pengguna bermasalah. |
 | `POST /api/v1/admin/users/:id/recover` | Admin | Mengaktifkan kembali akun pengguna. |
@@ -490,6 +534,6 @@ export async function saveTask(taskData) {
 ## 9. File Koleksi Postman & Insomnia
 
 Koleksi lengkap siap pakai tersedia di direktori repositori:
-- **Postman:** [`docs/api/bot-jadwal-v1.postman_collection.json`](file:///f:/Project/bot-jadwal/docs/api/bot-jadwal-v1.postman_collection.json)
-- **Insomnia:** [`docs/api/bot-jadwal-v1.insomnia_collection.json`](file:///f:/Project/bot-jadwal/docs/api/bot-jadwal-v1.insomnia_collection.json)
-- **Panduan Pengujian Postman:** [`docs/api/PANDUAN_TESTING_POSTMAN.md`](file:///f:/Project/bot-jadwal/docs/api/PANDUAN_TESTING_POSTMAN.md)
+- **Postman:** [`docs/api/collections/bot-jadwal-v1.postman_collection.json`](file:///f:/Project/bot-wa-jadwal/docs/api/collections/bot-jadwal-v1.postman_collection.json)
+- **Insomnia:** [`docs/api/collections/bot-jadwal-v1.insomnia_collection.json`](file:///f:/Project/bot-wa-jadwal/docs/api/collections/bot-jadwal-v1.insomnia_collection.json)
+- **Panduan Pengujian Postman:** [`docs/api/PANDUAN_TESTING_POSTMAN.md`](file:///f:/Project/bot-wa-jadwal/docs/api/PANDUAN_TESTING_POSTMAN.md)

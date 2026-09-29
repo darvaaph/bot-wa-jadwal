@@ -9,21 +9,15 @@ import (
 	"syscall"
 	"time"
 
-	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api"
-	"bot-jadwal/internal/auth"
-	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
 	"bot-jadwal/internal/notify"
-	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/reminder"
-	"bot-jadwal/internal/rooms"
 	"bot-jadwal/internal/schedule"
-	"bot-jadwal/internal/semester"
 	"bot-jadwal/internal/task"
 
 	"go.mau.fi/whatsmeow/types/events"
@@ -38,6 +32,12 @@ func main() {
 	fmt.Println("🚀 [Boot] Memulai Bot WhatsApp Jadwal Kuliah & Web API Server...")
 
 	cfg := config.LoadConfig()
+	// BE-013: validasi security sebelum server menerima traffic.
+	// Production gagal bila hash key, secure cookie, origin, atau proxy invalid.
+	if err := cfg.Validate(); err != nil {
+		fmt.Printf("❌ Konfigurasi security tidak valid: %v\n", err)
+		return
+	}
 	if *sessionPath != "" {
 		cfg.SessionDBPath = *sessionPath
 	}
@@ -96,7 +96,6 @@ func main() {
 	}
 
 	var taskManager *task.TaskManager
-	var taskRepo *task.Repository
 	if appDB != nil {
 		taskManager, err = task.NewTaskManager(appDB)
 		if err != nil {
@@ -104,7 +103,6 @@ func main() {
 		} else {
 			fmt.Println("Berhasil menginisialisasi modul tugas")
 		}
-		taskRepo = task.NewRepository(appDB)
 	}
 
 	var overrideManager *schedule.OverrideManager
@@ -183,6 +181,14 @@ func main() {
 
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
+	apiServer.SetSecureCookies(cfg.SecureCookies)
+	apiServer.SetSecurityOptions(api.SecurityOptions{
+		Env:               cfg.Env,
+		AuthHashKey:       cfg.AuthHashKey,
+		AllowedOrigins:    cfg.AllowedOrigins,
+		TrustedProxyCIDRs: cfg.TrustedProxyCIDRs,
+		PublicBaseURL:     cfg.PublicBaseURL,
+	})
 	_ = apiServer.Start()
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)

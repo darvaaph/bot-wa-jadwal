@@ -1,205 +1,28 @@
 package api
 
 import (
-	"database/sql"
-	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
-	"time"
+
+	v1 "bot-jadwal/internal/api/v1"
 )
 
-// NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp
-type NotificationResponseItem struct {
-	ID           int64   `json:"id"`
-	ClassID      int64   `json:"class_id"`
-	EventType    string  `json:"event_type"`
-	EntityType   *string `json:"entity_type,omitempty"`
-	EntityID     *int64  `json:"entity_id,omitempty"`
-	Status       string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
-	PayloadJSON  string  `json:"payload_json"`
-	ScheduledAt  *string `json:"scheduled_at,omitempty"`
-	SentAt       *string `json:"sent_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	AttemptCount int     `json:"attempt_count"`
-}
+// Alias types untuk backward-compatibility
+type NotificationResponseItem = v1.NotificationResponseItem
 
 // handleGetNotifications menangani GET /api/v1/notifications
 func (s *Server) handleGetNotifications(w http.ResponseWriter, r *http.Request) {
-	u, ok := GetAuthContext(r)
-	if !ok {
-		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
+	if s.adminController != nil {
+		s.adminController.GetNotifications(w, r)
 		return
 	}
-
-	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
-	limitStr := r.URL.Query().Get("limit")
-	limit := 50
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-		limit = l
-	}
-
-	offsetStr := r.URL.Query().Get("offset")
-	offset := 0
-	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-		offset = o
-	}
-
-	query := `
-		SELECT nm.id, nm.class_id, nm.event_type, nm.entity_type, nm.entity_id,
-		       nm.status, nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
-		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts
-		FROM notification_messages nm
-		WHERE (1=1)
-	`
-	var args []any
-
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveClassID.Valid {
-		query += " AND nm.class_id = ?"
-		args = append(args, u.ActiveClassID.Int64)
-	}
-
-	if statusFilter != "" {
-		query += " AND nm.status = ?"
-		args = append(args, statusFilter)
-	}
-
-	query += " ORDER BY nm.created_at DESC LIMIT ? OFFSET ?;"
-	args = append(args, limit, offset)
-
-	rows, err := s.v1DB.Query(query, args...)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal memuat antrean notifikasi: %v", err))
-		return
-	}
-	defer rows.Close()
-
-	notifications := []NotificationResponseItem{}
-	for rows.Next() {
-		var (
-			id          int64
-			classID     int64
-			eventType   string
-			entityType  sql.NullString
-			entityID    sql.NullInt64
-			status      string
-			payloadJSON string
-			scheduledAt sql.NullTime
-			sentAt      sql.NullTime
-			createdAt   time.Time
-			attempts    int
-		)
-
-		if err := rows.Scan(&id, &classID, &eventType, &entityType, &entityID, &status, &payloadJSON, &scheduledAt, &sentAt, &createdAt, &attempts); err == nil {
-			var schedStr *string
-			if scheduledAt.Valid {
-				formatted := scheduledAt.Time.Format(time.RFC3339)
-				schedStr = &formatted
-			}
-			var sentStr *string
-			if sentAt.Valid {
-				formatted := sentAt.Time.Format(time.RFC3339)
-				sentStr = &formatted
-			}
-			var eType *string
-			if entityType.Valid {
-				eType = &entityType.String
-			}
-			var eID *int64
-			if entityID.Valid {
-				eID = &entityID.Int64
-			}
-
-			notifications = append(notifications, NotificationResponseItem{
-				ID:           id,
-				ClassID:      classID,
-				EventType:    eventType,
-				EntityType:   eType,
-				EntityID:     eID,
-				Status:       status,
-				PayloadJSON:  payloadJSON,
-				ScheduledAt:  schedStr,
-				SentAt:       sentStr,
-				CreatedAt:    createdAt.Format(time.RFC3339),
-				AttemptCount: attempts,
-			})
-		}
-	}
-
-	s.writeV1Success(w, http.StatusOK, notifications)
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
 // handleRetryNotification menangani POST /api/v1/notifications/{id}/retry
 func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request) {
-	u, ok := GetAuthContext(r)
-	if !ok {
-		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi diperlukan")
+	if s.adminController != nil {
+		s.adminController.RetryNotification(w, r)
 		return
 	}
-
-	notifIDStr := r.PathValue("id")
-	notifID, err := strconv.ParseInt(notifIDStr, 10, 64)
-	if err != nil || notifID <= 0 {
-		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, "ID notifikasi tidak valid")
-		return
-	}
-
-	var curStatus string
-	var curClassID int64
-	err = s.v1DB.QueryRow(`SELECT status, class_id FROM notification_messages WHERE id = ?;`, notifID).Scan(&curStatus, &curClassID)
-	if err == sql.ErrNoRows {
-		s.writeV1Error(w, http.StatusNotFound, CodeNotFound, "Pesan notifikasi tidak ditemukan")
-		return
-	} else if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi notifikasi")
-		return
-	}
-
-	if u.ActiveRole != "SYSTEM_ADMIN" {
-		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != curClassID {
-			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Hanya pengurus kelas terkait yang berwenang mencoba ulang pengiriman notifikasi")
-			return
-		}
-	}
-
-	// Hanya boleh retry jika gagal atau dibatalkan
-	if curStatus != "FAILED" && curStatus != "CANCELLED" {
-		s.writeV1Error(w, http.StatusBadRequest, CodeValidation, fmt.Sprintf("Hanya notifikasi dengan status FAILED atau CANCELLED yang dapat dicoba ulang (status saat ini: %s)", curStatus))
-		return
-	}
-
-	// Update status notifikasi menjadi PENDING
-	_, err = s.v1DB.Exec(`
-		UPDATE notification_messages
-		SET status = 'PENDING', scheduled_at = CURRENT_TIMESTAMP
-		WHERE id = ?;
-	`, notifID)
-	if err != nil {
-		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status notifikasi")
-		return
-	}
-
-	// Rekam attempt manual
-	var nextAttemptNum int
-	_ = s.v1DB.QueryRow(`SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM notification_attempts WHERE notification_message_id = ?;`, notifID).Scan(&nextAttemptNum)
-
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO notification_attempts (notification_message_id, attempt_number, started_at, result, error_message)
-		VALUES (?, ?, CURRENT_TIMESTAMP, 'MANUAL_RETRY_SCHEDULED', 'Dijadwalkan ulang oleh pengurus');
-	`, notifID, nextAttemptNum)
-
-	// Catat audit_logs
-	_, _ = s.v1DB.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, actor_role_assignment_id, action, entity_type, entity_id, before_json, after_json)
-		VALUES (?, ?, ?, 'RETRY_NOTIFICATION', 'NOTIFICATION_MESSAGE', ?, ?, ?);
-	`, curClassID, u.UserID, u.ActiveAssignmentID, notifID,
-		fmt.Sprintf(`{"status":%q}`, curStatus),
-		`{"status":"PENDING"}`,
-	)
-
-	s.writeV1Success(w, http.StatusOK, map[string]any{
-		"id":             notifID,
-		"status":         "PENDING",
-		"attempt_number": nextAttemptNum,
-	})
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }

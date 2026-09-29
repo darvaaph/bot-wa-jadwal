@@ -757,11 +757,19 @@ Parser waktu bot dapat mengenali berbagai variasi penulisan bahasa Indonesia:
 * Koneksi internet aktif untuk menghubungkan klien WhatsApp.
 
 ### Menjalankan Bot:
-Buka terminal di direktori proyek `f:\Project\bot-jadwal` lalu jalankan:
-```bash
-go run .
-```
-Jika baru pertama kali dijalankan atau sesi autentikasi kedaluwarsa, terminal akan menampilkan **QR Code**. Pindai QR Code tersebut melalui menu **Linked Devices (Perangkat Tertaut)** di aplikasi WhatsApp ponsel Anda.
+Buka terminal di direktori proyek `f:\Project\bot-wa-jadwal` lalu jalankan salah satu mode berikut:
+
+1. **Mode Full (Bot WhatsApp + Web Dashboard):**
+   ```bash
+   go run ./cmd/bot
+   ```
+   Jika baru pertama kali dijalankan atau sesi autentikasi kedaluwarsa, terminal akan menampilkan **QR Code**. Pindai QR Code tersebut melalui menu **Linked Devices (Perangkat Tertaut)** di aplikasi WhatsApp ponsel Anda.
+
+2. **Mode Dashboard Web Saja (Tanpa WhatsApp):**
+   ```bash
+   go run ./cmd/bot -web-only
+   ```
+   Dashboard aktif di `http://localhost:8080` untuk pengujian antarmuka dan REST API lokal tanpa menghubungkan WhatsApp.
 
 ### Menjalankan Pengujian Otomatis (Unit Test):
 Bot dilengkapi rangkaian pengujian unit otomatis (*unit test suite*) yang menguji seluruh logika inti tanpa memerlukan koneksi WhatsApp nyata:
@@ -769,7 +777,7 @@ Bot dilengkapi rangkaian pengujian unit otomatis (*unit test suite*) yang menguj
 go test -v ./...
 ```
 
-Rangkaian 10 Test Suite Komprehensif:
+Rangkaian Test Suite Komprehensif:
 1. `TestOverrideManager`: Pengujian pergeseran jam, kelas kosong, kuliah pengganti, hari libur, dan deteksi bentrok jadwal.
 2. `TestSchedule`: Pengujian parser jadwal harian, mingguan, pencarian dosen/ruangan, dan fuzzy search.
 3. `TestTaskManager`: Pengujian pembuatan tugas, filter mata kuliah, perpanjangan deadline, dan riwayat tugas SQLite.
@@ -780,11 +788,12 @@ Rangkaian 10 Test Suite Komprehensif:
 8. `TestReminderIntegration`: Pengujian broadcast jadwal pagi multi-kelas, resolusi kelas aktif per grup, pengingat tugas mendesak, dan tautan daring.
 9. `TestDatabaseInit`: Pengujian pembuatan skema tabel SQLite, integritas WAL mode, dan penutupan koneksi bersih.
 10. `TestUtils`: Pengujian parser prefix pesan, quoted reply message builder, pembersih perintah, normalisasi waktu, dan string helper.
+11. `internal/api` & `internal/ratelimit`: Pengujian REST API v1, authentication, RBAC, dan persistent rate limiting (BE-012..BE-014).
 
 ### Mengompilasi Biner Mandiri (*Production Binary Build*):
 Untuk menjalankan bot tanpa perlu dependensi Go di server produksi:
 ```bash
-go build -v -o bot-jadwal.exe .
+go build -v -o bot-jadwal.exe ./cmd/bot
 ```
 
 ---
@@ -795,7 +804,7 @@ go build -v -o bot-jadwal.exe .
 Saat bot dihentikan di terminal (`Ctrl + C` atau sinyal OS `SIGTERM`), bot mengeksekusi prosedur penutupan teratur:
 1. Menghentikan watchdog supervisor di latar belakang.
 2. Memutuskan sambungan WhatsApp secara teratur (`client.Disconnect()`).
-3. Menutup seluruh koneksi SQLite (`tugas.db`, `sesi_bot.db`) sehingga operasi commit/checkpoint tersimpan bersih dan aman dari risiko *database is locked* atau *WAL-file leak* di Windows.
+3. Menutup seluruh koneksi database SQLite (`bot_v1.db`, `tugas.db`, `sesi_bot.db`) sehingga operasi commit/checkpoint tersimpan bersih dan aman dari risiko *database is locked* atau *WAL-file leak*.
 
 ### B. Ketahanan Sambungan Internet (*Auto-Reconnect Resilience*)
 Koneksi jaringan internet kampus atau server seringkali mengalami gangguan sesaat (seperti socket timeout, WiFi kampus drop, atau EOF). Bot dilengkapi:
@@ -807,20 +816,19 @@ Semua operasi pembacaan jadwal dan pengaturan obrolan kelas menggunakan mekanism
 
 ---
 
-## 15. 🎨 Cetak Biru Web Admin Dashboard (*Future Roadmap*)
+## 15. 🎨 Web Admin Dashboard & REST API v1 (v3.0 Terintegrasi)
 
-Untuk melengkapi kemudahan Komti dan pengurus kelas dalam mengelola tugas, jadwal pengganti, dan pengaturan grup, saat ini telah disusun **Product Requirements Document (PRD)** resmi untuk antarmuka web grafis:
+Pada Bot Jadwal v3.0, Web Admin Dashboard telah disematkan langsung ke dalam biner mandiri (*Single Binary Embedded via embed.FS*) dan melayani REST API v1 secara penuh:
 
-* **Dokumen Spesifikasi Produk:** [PRD.md](PRD.md) dan [Functional Requirements](product/FUNCTIONAL_REQUIREMENTS.md)
-* **Konsep Arsitektur:** Server Web tertanam murni (*Pure Go Embedded Server*) menggunakan `net/http` dan `embed.FS`, tanpa memerlukan dependensi Node.js atau server terpisah saat berjalan di produksi.
-* **Fitur Utama yang Direncanakan:**
+* **Dokumen Spesifikasi:** [PRD.md](PRD.md), [API v1 Spec](api/API_V1.md), dan [Functional Requirements](product/FUNCTIONAL_REQUIREMENTS.md)
+* **Arsitektur:** Server Web Go murni (`net/http`) tanpa dependensi Node.js di server produksi.
+* **Fitur Dashboard Aktif:**
   1. **Overview & System Health:** Status bot online, waktu aktif (*uptime*), total tugas, dan daftar perubahan jadwal aktif.
-  2. **Interactive Task Board:** Kanban / Table view manajemen tugas dengan modal tambah, edit tenggat, dan arsip riwayat.
-  3. **Schedule & Override Manager:** Kalender visual jadwal kuliah dengan modal cepat untuk `Pindah Jam`, `Kelas Kosong`, dan `Set Hari Libur`.
-  4. **Multi-Class & Group Mapping:** Antarmuka visual untuk melihat grup WhatsApp mana saja yang terhubung ke kelas 3A, 3B, atau kelas lainnya.
-  5. **Morning Reminder Control:** Pengaturan jam broadcast pagi per grup dan simulasi kirim pesan (*instant test broadcast*).
-
-Dokumen PRD tersebut dirancang secara rinci dengan wireframe layar, token desain modern, struktur REST API, dan panduan desain untuk rekan desainer UI/UX sebelum tahap implementasi kode dilakukan.
+  2. **Interactive Task Board:** Kanban dan Table view manajemen tugas dengan validasi deadline, audit trail, dan optimistic locking (HTTP 409).
+  3. **Schedule & Override Manager:** Tampilan visual jadwal kuliah dengan aksi pergeseran jam kuliah, kelas kosong, dan hari libur.
+  4. **Multi-Class & Group Mapping:** Antarmuka visual pemetaan grup WhatsApp ke 19 kelas perkuliahan.
+  5. **Morning Reminder Control:** Pengaturan broadcast pengingat pagi otomatis pukul 06:00 WIB.
+  6. **Security & RBAC:** Login terotentikasi cookie `bv1` (Secure), role Admin/KM/PJ, dan perlindungan rate limiting terpusat.
 
 ---
-*Dokumentasi ini disusun dan diperbarui untuk Bot WhatsApp Jadwal Kuliah & Manajemen Tugas Mahasiswa.*
+*Dokumentasi ini disusun dan diperbarui untuk Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v3.0.*

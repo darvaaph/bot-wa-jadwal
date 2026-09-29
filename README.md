@@ -1,4 +1,4 @@
-# 🤖 Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v2.0
+# 🤖 Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v3.0
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![Frontend](https://img.shields.io/badge/Frontend-Tailwind_CDN_%2B_Alpine.js-38B2AC?style=flat&logo=tailwindcss)](https://tailwindcss.com)
@@ -18,7 +18,7 @@ Seluruh acuan kerja, arsitektur, dan panduan operasional tim telah didokumentasi
 
 | Dokumen | Deskripsi & Target Pembaca |
 | :--- | :--- |
-| 🚀 [**docs/TEAM_ONBOARDING.md**](docs/TEAM_ONBOARDING.md) | **Panduan Onboarding & Kickoff Meeting Tim** *(Wajib untuk seluruh tim baru: visi v2.0, roadmap sprint, dan panduan PM).* |
+| 🚀 [**docs/TEAM_ONBOARDING.md**](docs/TEAM_ONBOARDING.md) | **Panduan Onboarding & Kickoff Meeting Tim** *(Wajib untuk seluruh tim baru: visi v3.0, roadmap sprint, dan panduan PM).* |
 | 📋 [**docs/PRD.md**](docs/PRD.md) | **Ruang Lingkup Produk** *(Tujuan, epic, prioritas rilis, dan ukuran keberhasilan).* |
 | 🧭 [**docs/product/PRODUCT_DEFINITION.md**](docs/product/PRODUCT_DEFINITION.md) | **Arah dan Keputusan Produk** *(Sumber keputusan alur, akses, peran, dan aturan utama).* |
 | ✅ [**docs/product/FUNCTIONAL_REQUIREMENTS.md**](docs/product/FUNCTIONAL_REQUIREMENTS.md) | **Kebutuhan Fungsional Kanonis** *(Satu-satunya sumber ID FR dan acceptance criteria).* |
@@ -27,8 +27,10 @@ Seluruh acuan kerja, arsitektur, dan panduan operasional tim telah didokumentasi
 | 🤝 [**docs/CONTRIBUTING.md**](docs/CONTRIBUTING.md) | **Panduan Standar Kontribusi & Git Flow** *(Aturan branching, Conventional Commits, dan ceklis Pull Request).* |
 | 🧱 [**docs/product/DATA_MODEL.md**](docs/product/DATA_MODEL.md) | **Model Data Target** *(Entitas, constraint, migrasi, dan kepemilikan data).* |
 | 🕸️ [**docs/product/ERD.md**](docs/product/ERD.md) | **ERD Mermaid** *(Visualisasi model data per domain).* |
-| ☁️ [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | **Panduan Server Azure & DevOps** *(Operasional server Linux Azure VM, service systemd, dan rilis produksi).* |
-| 📖 [**docs/PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) | **Panduan Lengkap Perintah Bot** *(Cheat sheet perintah WhatsApp, format tanggal alami, dan otorisasi admin grup).* |
+| ☁️ [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | **Panduan Server Azure & DevOps Runbook** *(Operasional server Linux Azure VM, service systemd, SOP deploy 6-langkah, dan emergency rollback).* |
+| 🔐 [**docs/CONFIG_AND_SECURITY.md**](docs/CONFIG_AND_SECURITY.md) | **Panduan Konfigurasi & Keamanan Produksi** *(Referensi env var, rate limit ADR-0009, CORS, CSRF, HSTS, CSP, dan rotasi secret).* |
+| 📖 [**docs/PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) | **Panduan Lengkap Perintah Bot & Dashboard** *(Cheat sheet perintah WhatsApp, format tanggal alami, dan otorisasi admin grup).* |
+| 📦 [**docs/RELEASE_NOTES_v3.0.0.md**](docs/RELEASE_NOTES_v3.0.0.md) | **Catatan Rilis Resmi v3.0.0** *(Daftar fitur baru, perbaikan keamanan, perubahan schema, dan panduan upgrade).* |
 | 🤖 [**.agent/skills/vibe-coding-guide/**](.agent/skills/vibe-coding-guide/SKILL.md) | **Guardrails Vibe Coding AI** *(Aturan anti-bloat: dilarang npm, Go single binary, dan protokol tutor edukasi).* |
 | 🌿 [**.agent/skills/git-team-flow/**](.agent/skills/git-team-flow/SKILL.md) | **Panduan Kolaborasi Git Tim** *(Penamaan branch per tiket, etika commit, dan larangan auto-commit liar oleh AI).* |
 
@@ -98,7 +100,7 @@ Untuk menjaga keamanan server produksi di Azure, **gunakan perintah eksekusi yan
 ### 1. Opsi 1: `go run ./cmd/bot -web-only` *(Khusus Frontend & UI/UX)*
 - Menjalankan **Web Dashboard & REST API lokal** di `http://localhost:8080`.
 - **Fitur WhatsApp dimatikan total** (tidak ada scan QR code).
-- Server Azure produksi aman 100% dan laptop tidak memerlukan koneksi WhatsApp.
+- Server Azure produksi terlindungi dan laptop tidak memerlukan koneksi WhatsApp.
 
 ### 2. Opsi 2: `go run ./cmd/bot -session storage/sesi_dev.db` *(Khusus Backend & QA)*
 - Menjalankan bot WhatsApp dengan **file sesi dev terpisah** (`storage/sesi_dev.db`).
@@ -165,41 +167,50 @@ Seluruh pengembang wajib mematuhi batasan teknis berikut:
 ```text
 bot-jadwal/
 ├── cmd/
-│   └── bot/
-│       └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
+│   ├── bot/
+│   │   └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
+│   └── seed/
+│       └── main.go          # CLI data seeder resmi (impor kurikulum & akun pengurus demo)
 ├── web/                     # Antarmuka Web Admin Dashboard (Single Binary Embedded)
 │   ├── embed.go             # Go embed.FS pengemas aset web ke dalam biner tunggal
 │   ├── index.html           # Halaman utama SPA Dashboard
 │   ├── css/style.css        # Styling custom pendukung
 │   └── js/                  # api.js (REST client & mock) & app.js (state reaktif Alpine.js)
 ├── internal/
-│   ├── config/              # Konfigurasi aplikasi & manajemen path storage
-│   ├── database/            # Inisialisasi SQLite connection pool WAL mode
-│   ├── util/                # Helper waktu WIB, parser tanggal alami, & path resolver
-│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
-│   ├── task/                # TaskManager SQLite & kalkulasi deadline
-│   ├── link/                # LinkManager SQLite tautan perkuliahan
-│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
-│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── academic/            # Domain akademik: semester lifecycle, PJ offering, rooms, & kurikulum
+│   ├── api/                 # Lapisan HTTP REST API server
+│   │   ├── common/          # Standard response helpers, context accessor, & DB time parsers
+│   │   ├── legacy/          # Endpoint kompatibilitas v0 (/api/classes, /api/schedule, dll)
+│   │   ├── middleware/      # Security headers, auth Bearer RBAC, & rate limiter
+│   │   └── v1/              # Sub-controller domain v1 (auth, portal, task, schedule, academic, admin)
+│   ├── auth/                # Service autentikasi, JWT/Bearer token, & RBAC wewenang
 │   ├── bot/                 # whatsmeow client & message dispatcher
-│   └── api/                 # HTTP REST API server untuk Web Admin Dashboard
+│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
+│   ├── config/              # Konfigurasi aplikasi & manajemen path storage
+│   ├── database/            # Inisialisasi SQLite connection pool WAL mode & migrasi skema
+│   ├── link/                # LinkManager SQLite tautan perkuliahan
+│   ├── outbox/              # Broadcast outbox queue & pengiriman pesan terjadwal
+│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
+│   ├── system/              # Telemetri sistem, health check, & audit logging
+│   ├── task/                # TaskManager SQLite & kalkulasi deadline
+│   └── util/                # Helper waktu WIB, parser tanggal alami, & path resolver
 ├── data/
 │   ├── jadwal/              # Berkas master JSON kurikulum per kelas (19 kelas)
-│   └── jadwal.json          # Berkas kurikulum default
+│   └── migration_manifest.json # Manifest mapping kelas pilot & migrasi data kurikulum
 ├── storage/                 # Direktori runtime terisolasi (di-ignore oleh git)
-│   ├── tugas.db             # Database SQLite utama aplikasi (tugas, link, setting kelas)
+│   ├── bot_v1.db            # Database SQLite utama v3.0 (tasks, users, audit, rate limit)
+│   ├── tugas.db             # Database SQLite tugas/link legacy compatibility
 │   ├── sesi_bot.db          # Database sesi login WhatsMeow produksi (Azure VM)
 │   └── reminder_groups.json # Data preferensi broadcast pengingat
 ├── docs/                    # Dokumentasi lengkap sistem & tim
 │   ├── TEAM_ONBOARDING.md   # Panduan kickoff meeting tim pengembang
 │   ├── PRD.md               # Ruang lingkup dan prioritas produk
-│   ├── DASHBOARD_PRD.md     # Arsip spesifikasi dashboard lama (superseded)
 │   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
 │   ├── product/             # Dokumen produk kanonis, data model, dan ERD
 │   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
 │   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
-│   ├── PRD.md               # Spesifikasi awal produk bot
-│   └── TODO.md              # Roadmap & catatan pengembangan
+│   └── api/                 # Spesifikasi API v1, QA card, dan panduan testing
 ├── .agent/                  # Custom Agent Skills untuk bimbingan tim & AI
 │   └── skills/
 │       ├── vibe-coding-guide/  # Panduan guardrails arsitektur & edukasi konsep
@@ -242,3 +253,15 @@ bot-jadwal/
 * `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal pagi (**06:00 WIB**).
 * `!daftarkelas` ➔ Menampilkan 19 pilihan kelas yang tersedia.
 * `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut *(Contoh: `!setkelas D4-TI-1A`)*.
+
+---
+
+## 🔐 Konfigurasi Keamanan & Environment Variables (v3.0)
+
+Aplikasi mengadopsi kontrol keamanan terpusat untuk deployment produksi:
+- `BOT_JADWAL_ENV`: Mode lingkungan (`development`, `test`, atau `production`).
+- `BOT_JADWAL_AUTH_HASH_KEY`: Kunci HMAC minimal 32 byte untuk hashing subjek dan pembatas laju (rate limiting).
+- `BOT_JADWAL_SECURE_COOKIES`: Memastikan cookie autentikasi `bv1` bertanda `Secure` (wajib `true` pada produksi).
+- `BOT_JADWAL_ALLOWED_ORIGINS`: Daftar origin CORS terpercaya (exact scheme, host, dan port).
+- `BOT_JADWAL_TRUSTED_PROXY_CIDRS`: Daftar CIDR reverse proxy yang dipercaya untuk header `X-Forwarded-For`.
+- `BOT_JADWAL_PUBLIC_BASE_URL`: URL kanonis aplikasi HTTPS.

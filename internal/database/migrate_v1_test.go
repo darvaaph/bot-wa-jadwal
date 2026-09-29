@@ -80,7 +80,11 @@ func seedKelasAktif(t *testing.T, db *sql.DB, code, slug string) (classID, semID
 		t.Fatalf("Gagal membuat Kelas: %v", err)
 	}
 	classID, _ = res.LastInsertId()
-	res, err = db.Exec(`INSERT INTO semesters (class_id, academic_year, term, starts_on, ends_on, status) VALUES (?,?, 'Ganjil', '2026-09-01', '2027-01-31', 'ACTIVE');`, classID, "2026/2027")
+	res, err = db.Exec(`
+		INSERT INTO semesters (
+			class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at
+		) VALUES (?,?, 'Ganjil', '2026-09-01', '2027-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+	`, classID, "2026/2027")
 	if err != nil {
 		t.Fatalf("Gagal membuat Semester aktif: %v", err)
 	}
@@ -97,7 +101,10 @@ func seedOffering(t *testing.T, db *sql.DB, semID int64, courseCode, courseName,
 	if err := db.QueryRow(`SELECT id FROM courses WHERE code = ?;`, courseCode).Scan(&courseID); err != nil {
 		t.Fatalf("Gagal membaca master mata kuliah: %v", err)
 	}
-	res, err := db.Exec(`INSERT INTO course_offerings (semester_id, course_id, activity_type) VALUES (?,?,?);`, semID, courseID, activity)
+	res, err := db.Exec(`
+		INSERT INTO course_offerings (semester_id, course_id, activity_type, display_name)
+		VALUES (?,?,?,?);
+	`, semID, courseID, activity, courseName+" ("+activity+")")
 	if err != nil {
 		t.Fatalf("Gagal membuat offering: %v", err)
 	}
@@ -161,10 +168,28 @@ func TestMigrateV1_MenolakOwnerGanda(t *testing.T) {
 func TestMigrateV1_MenolakKunciIdempotensiGanda(t *testing.T) {
 	db := openMigratedV1DB(t)
 	classID, _ := seedKelasAktif(t, db, "D4-TI-2024-A", "d4-ti-2024-a")
-	if _, err := db.Exec(`INSERT INTO notification_messages (class_id, event_type, idempotency_key, payload_json, status) VALUES (?, 'SCHEDULE_PUBLISHED', 'kunci-1', '{}', 'PENDING');`, classID); err != nil {
+	channelResult, err := db.Exec(`
+		INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status)
+		VALUES (?, '120363000000000001@g.us', 'GROUP', 'Kelas Uji', 'ACTIVE');
+	`, classID)
+	if err != nil {
+		t.Fatalf("Gagal membuat kanal notifikasi: %v", err)
+	}
+	channelID, _ := channelResult.LastInsertId()
+	if _, err := db.Exec(`
+		INSERT INTO notification_messages (
+			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at
+		) VALUES (?, ?, 'SCHEDULE_PUBLISHED', 'TEACHING_EVENT', 1, 'kunci-1', '{}', 'PENDING', CURRENT_TIMESTAMP);
+	`, classID, channelID); err != nil {
 		t.Fatalf("Gagal membuat notifikasi: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO notification_messages (class_id, event_type, idempotency_key, payload_json, status) VALUES (?, 'SCHEDULE_PUBLISHED', 'kunci-1', '{}', 'PENDING');`, classID); err == nil {
+	if _, err := db.Exec(`
+		INSERT INTO notification_messages (
+			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at
+		) VALUES (?, ?, 'SCHEDULE_PUBLISHED', 'TEACHING_EVENT', 1, 'kunci-1', '{}', 'PENDING', CURRENT_TIMESTAMP);
+	`, classID, channelID); err == nil {
 		t.Errorf("Kunci idempotensi ganda harus ditolak")
 	}
 }

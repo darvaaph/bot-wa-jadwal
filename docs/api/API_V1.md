@@ -9,7 +9,7 @@
 - Base: `/api/v1`. JSON saja, UTF-8. Waktu tulis = UTC RFC3339 (`deadline_at`, `starts_at`); tampil = zona `class_settings.timezone` (default `Asia/Jakarta`).
 - Envelope sukses: `{ "status":"success", "data":{...} }` atau `"data":[...]` + opsional `"meta":{page,per_page,total}`.
 - Envelope gagal: `{ "status":"error", "error":{ "code":"STRING", "message":"id...", "details":{...} } }`.
-  Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | NOT_IMPLEMENTED 501`.
+  Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | TOO_MANY_REQUESTS 429 | NOT_IMPLEMENTED 501`.
 - Optimistic locking: semua PATCH/POST-publish kirim `version`; mismatch → `409 + {current_version, current_data}`; input user tidak boleh hilang (FE wajib tampilkan diff).
 - Scope diambil dari sesi server, bukan dari payload. `class_id/semester_id/offering_id` di URL diverifikasi lawan `active_role_assignment_id`.
 - Audit: publish/revoke/delete/restore/assign-role selalu tulis `audit_logs` (tak ada endpoint tulis audit langsung).
@@ -22,7 +22,8 @@
 | `POST /api/v1/auth/logout` | Bearer | `{}` | `{revoked:true}` | Cabut token aktif |
 | `GET /api/v1/auth/me` | Bearer | — | `{user, active_assignment, classes}` | Setiap halaman pengelola wajib panggil untuk tampilkan konteks aktif |
 | `POST /api/v1/auth/switch-context` | Bearer | `{role_assignment_id}` | `{token_baru, expires_at}` | Rotasi token, ganti konteks tanpa login ulang |
-| `GET /api/v1/classes` | Bearer (KM/Admin) / portal-token untuk portal | — | `{classes:[{slug,code,program,cohort,group,status}]}` | Pengganti `GET /api/classes` lama |
+| `GET /api/v1/classes` | Bearer KM/Admin atau portal-token | — | `{classes:[{slug,code,program,cohort,group,status}]}` | KM: kelas konteks aktif; Admin: seluruh kelas; portal-token: hanya kelas token; PJ ditolak |
+| `POST /api/v1/classes/:slug/portal-code/rotate` | KM kelas terkait/Admin | `{code?}` | `{portal_code,portal_code_version,portal_access_mode:"CODE",reveal_once:true}` | Tanpa `code`, server membuat kode 8 digit; kode hanya ditampilkan sekali; versi naik dan sesi lama dicabut atomik |
 | `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; kirim ulang → revoke lama |
 | `POST /api/v1/invitations/accept` | token undangan | `{token, password?, display_name?}` | `{user_id, assignment_id}` | Token sekali pakai |
 
@@ -31,6 +32,8 @@ Header: `Authorization: Bearer <token>`. Cookie `bv1` httpOnly opsional sebagai 
 ## 2. Portal baca (mahasiswa, `FR-ACCESS-001`)
 
 Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_token=` berisi sesi portal.
+
+`POST /api/v1/portal/:slug/session` menukar `{code}` dengan `{portal_token, expires_at}`. Token mentah hanya dikirim pada respons ini; server menyimpan hash token. Kode salah dan slug yang tidak dikenal sama-sama menghasilkan pesan `401` generik. Lima kegagalan dalam 15 menit membatasi sumber dan kelas tersebut selama 15 menit.
 
 | Method & Path | Respon `data` |
 |---|---|
@@ -58,7 +61,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 |---|---|---|
 | `GET /api/v1/schedule/patterns?offering_id=&day=` | — | Filter offering sesuai scope PJ |
 | `POST /api/v1/schedule/patterns` | `{offering_id, day_of_week:1-7, start_time, duration_min, room_id?, lecturer_ids[]}` | Server hitung `end_time`; cek konflik |
-| `PATCH /api/v1/schedule/patterns/:id` | `{..., version}` | Permanen via versi baru (`effective_until` lama ditutup) |
+| `PATCH /api/v1/schedule/patterns/:id` | `{..., version}` | Permanen via versi baru (pola lama `effective_until`=hari ini inklusif, pola baru `effective_from`=besok; response `{id, replaces_pattern_id, version, effective_from, effective_until:null}`; BE-007) |
 | `POST /api/v1/teaching-events` | `{owner_offering_id, event_kind, starts_at, ends_at, origin_pattern_id?, origin_date?, participant_offering_ids[], room_id?, reason?}` | Buat `DRAFT`; `REPLACEMENT/SESSION_CANCELLED` wajib `origin_*`; tanggal dalam semester owner |
 | `GET /api/v1/teaching-events?scope=mine&status=draft\|published\|revoked&from=&to=` | — | Tab Draf/Terbit/Dicabut |
 | `POST /api/v1/teaching-events/:id/preview` | `{}` | `{old, new, kind, conflicts:[{type, message, blocking}], room_note:"perlu konfirmasi TU"}`; blocking → tolak publish |
@@ -74,7 +77,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/tasks` | `{offering_id, title, instructions?, deadline_at, task_type?, submission_text?, submission_url?, save_as:draft\|published}` | Draf boleh tak lengkap; publish wajib `title+instructions+deadline_at+salah satu submission_*`. Publish PJ → `PUBLISHED/NOT_REVIEWED`; publish KM → + review `APPROVED` |
 | `GET /api/v1/tasks/:id` | — | `{task, reviews[], versions_info, notifications[]}` |
 | `PATCH /api/v1/tasks/:id` | `{..., version}` | Naikkan `version`; PJ → `NOT_REVIEWED`; KM → + `APPROVED` baru; deadline/tempat berubah → flag butuh notif update |
-| `POST /api/v1/tasks/:id/reviews` | `{decision:APPROVED\|CHANGES_REQUESTED\|REVOKED, note?, task_version}` | KM saja; `CHANGES_REQUESTED→DRAFT`, `REVOKED→REVOKED` + tarik dari portal; `task_version` harus = versi aktif; satu transaksi |
+| `POST /api/v1/tasks/:id/reviews` | `{decision:APPROVED\|CHANGES_REQUESTED\|REVOKED, note?, task_version}` | KM saja; `CHANGES_REQUESTED→DRAFT`, `REVOKED→REVOKED` + tarik dari portal; `task_version` harus = versi aktif; review menaikkan `version` (first-writer-wins, 409 bila stale; BE-008) |
 | `POST /api/v1/tasks/:id/complete` `.../archive` `.../restore` | `{version}` | `completed_at/archived_at` terpisah dari `publication_status`; soft-delete + restore beraudit |
 
 ## 6. Materi (`FR-TASK-007`, baca dulu)
@@ -89,10 +92,10 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `GET /api/v1/rooms/candidates` | `?starts_at=&ends_at=` | Auth; Cari ruangan yang tidak bentrok dengan jadwal lain |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
 | `GET /api/v1/notifications` | `?status=PENDING\|SENT\|FAILED&limit=` | KM / Admin; Antrean siaran pesan WhatsApp |
-| `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pengiriman pesan gagal |
+| `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING`. Response `{id, status:"PENDING", scheduled_at, retry_scheduled:true}` tanpa `attempt_number`; attempt hanya dibuat worker saat delivery (BE-010) |
 | `GET /api/v1/audit` | `?entity_type=&action=&limit=` | KM / Admin; Rekam jejak audit trail perubahan sistem |
 | `POST /api/v1/backups` | `{class_slug?, reason?}` | KM / Admin; Snapshot basis data aman via `VACUUM INTO` |
-| `POST /api/v1/restores` | `{backup_id, reason?}` | Admin; Verifikasi berkas fisik dan kecocokan checksum |
+| `POST /api/v1/restores` | `{backup_id, reason!}` | Admin; Verify-only (ADR-0008): verifikasi path dalam storage backup, checksum (`422 CHECKSUM_MISMATCH`), format SQLite, schema, scope; tandai `VERIFIED`; response `{backup_id, status:"VERIFIED", checksum, restore_performed:false}` tanpa path internal. Database aktif tidak diganti |
 | `GET /api/v1/admin/status` | — | Admin; Telemetri runtime, koneksi bot, dan status migrasi |
 | `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
 | `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
@@ -104,7 +107,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `GET /api/health`, `/api/status`, `/api/classes` | Tetap + header `Deprecation: true`; `/api/status` tambah `v1:"/api/v1/portal/:slug/summary"` |
 | `GET /api/schedule?class=&day=` | Terjemahkan `class→slug`, `day→date`; baca dari patterns+events DB baru (kelas pilot), fallback JSON lama di luar pilot |
 | `GET /api/tasks?class=` | Petakan `class→offering` pilot; field lama `matkul/deskripsi/deadline` diisi dari `display_name/title/deadline_at` |
-| `POST /api/tasks`, `DELETE /api/tasks/{id}` | Tulis ke model baru sebagai `PUBLISHED` + audit `LEGACY_SHIM`; DELETE = soft-delete beraudit |
+| `POST /api/tasks`, `DELETE /api/tasks/{id}` | `410 Gone` + tautan pengganti `/api/v1/tasks`; write legacy dihentikan agar tidak ada dua sumber data (ADR-0007) |
 
 ## 9. Contoh
 

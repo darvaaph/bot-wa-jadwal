@@ -1,6 +1,7 @@
 package task
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -379,26 +380,36 @@ func insertTaskAudit(ctx context.Context, tx *sql.Tx, actor ActorInfo, action st
 	if corr == "" {
 		corr = nowUTC()
 	}
-	var actorUser any
-	var actorAssignment any
-	actorType := "USER"
+	var actorEntry audit.Actor
 	if actor.UserID > 0 {
-		actorUser = actor.UserID
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
 	} else {
-		actorType = "SYSTEM"
+		actorEntry = audit.Actor{Type: "SYSTEM"}
 	}
-	if actor.RoleAssignmentID > 0 {
-		actorAssignment = actor.RoleAssignmentID
+	classID := scope.ClassID
+	semesterID := scope.SemesterID
+	reasonStr := ""
+	if reason != nil {
+		reasonStr = *reason
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id,
-		actor_type, action, entity_type, entity_id, before_json, after_json, reason, correlation_id,
-		created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, 'TASK', ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		scope.ClassID, scope.SemesterID, actorUser, actorAssignment,
-		actorType, action, taskID, before, after, reason, corr,
-	)
-	return err
+	eid := taskID
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		ClassID:       &classID,
+		SemesterID:    &semesterID,
+		Action:        action,
+		EntityType:    "TASK",
+		EntityID:      &eid,
+		BeforeJSON:    before,
+		AfterJSON:     after,
+		Reason:        reasonStr,
+		CorrelationID: corr,
+	})
 }
 
 func taskScopeInTx(ctx context.Context, tx *sql.Tx, taskID int64) (AcademicScope, error) {

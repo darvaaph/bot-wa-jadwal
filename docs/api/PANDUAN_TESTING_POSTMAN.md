@@ -8,7 +8,7 @@ Dokumen ini adalah panduan teknis resmi untuk menguji seluruh endpoint REST API 
 
 Berkas koleksi siap diimpor berada di dua lokasi:
 * `bot-jadwal-v1.postman_collection.json` (root repositori)
-* `docs/api/bot-jadwal-v1.postman_collection.json`
+* `docs/api/collections/bot-jadwal-v1.postman_collection.json`
 
 ### Variabel Bawaan Koleksi (Collection Variables)
 Saat koleksi diimpor ke Postman, variabel berikut sudah terkonfigurasi otomatis:
@@ -35,7 +35,7 @@ Saat koleksi diimpor ke Postman, variabel berikut sudah terkonfigurasi otomatis:
 ### Langkah 1: Pastikan Database Target v1 Terisi
 Jika berkas `storage/bot_v1.db` belum ada atau ingin di-reset ulang ke kondisi awal, jalankan perintah seed di terminal:
 ```bash
-go run ./cmd/seed-v1
+go run ./cmd/seed
 ```
 Perintah ini otomatis mengimpor kurikulum 2 kelas pilot (`d4-ti-2024-a` dan `d4-ti-2024-b`) serta menyiapkan 3 akun demo pengurus resmi.
 

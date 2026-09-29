@@ -24,9 +24,9 @@ func TestAcademicRepositoryAndSeeder(t *testing.T) {
 
 	ctx := context.Background()
 
-	jadwalPath := filepath.Join("..", "..", "jadwal.json")
+	jadwalPath := filepath.Join("..", "..", "data", "jadwal.json")
 	if _, err := os.Stat(jadwalPath); os.IsNotExist(err) {
-		jadwalPath = "jadwal.json"
+		jadwalPath = filepath.Join("data", "jadwal.json")
 	}
 
 	err = SeedFromJSON(ctx, db, jadwalPath)

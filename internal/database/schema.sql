@@ -27,7 +27,8 @@ CREATE TABLE classes (
     status TEXT NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'ARCHIVED')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE (study_program, cohort_year, group_label)
 );
 
 CREATE TABLE class_settings (
@@ -251,6 +252,22 @@ CREATE TABLE login_attempts (
 CREATE INDEX idx_login_attempts_identity_source_time
     ON login_attempts(identity_hash, source_hash, attempted_at);
 CREATE INDEX idx_login_attempts_user_time ON login_attempts(user_id, attempted_at);
+
+CREATE TABLE security_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_key TEXT NOT NULL,
+    subject_hash TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE', 'BLOCKED')),
+    attempted_at TEXT NOT NULL,
+    blocked_until TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_security_attempts_policy_subject
+    ON security_attempts(policy_key, subject_hash, source_hash, attempted_at);
+CREATE INDEX idx_security_attempts_retention
+    ON security_attempts(attempted_at);
 
 CREATE TABLE user_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -582,7 +599,7 @@ CREATE INDEX idx_chat_class_contexts_class_id ON chat_class_contexts(class_id);
 CREATE TABLE notification_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     class_id INTEGER NOT NULL,
-    whatsapp_channel_id INTEGER NOT NULL,
+    whatsapp_channel_id INTEGER,
     event_type TEXT NOT NULL,
     entity_type TEXT NOT NULL,
     entity_id INTEGER NOT NULL CHECK (entity_id > 0),
@@ -590,7 +607,7 @@ CREATE TABLE notification_messages (
     payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
     status TEXT NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'CANCELLED', 'SUPERSEDED')),
-    scheduled_at TEXT NOT NULL,
+    scheduled_at TEXT,
     sent_at TEXT,
     supersedes_message_id INTEGER,
     triggered_by_user_id INTEGER,

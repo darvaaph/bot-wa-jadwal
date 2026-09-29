@@ -1,18 +1,10 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-
-	"bot-jadwal/internal/academic"
-	"bot-jadwal/internal/database"
 )
 
 func TestAPIServer_Health(t *testing.T) {

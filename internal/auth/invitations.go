@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
@@ -171,30 +172,43 @@ func (s *Service) CreateInvitation(ctx context.Context, inviter Principal, in In
 		return nil, "", err
 	}
 	corr, _ := s.newToken()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 'USER', 'INVITE', 'ROLE_INVITATION', ?, ?, ?, ?, ?)`,
-		in.ClassID, in.SemesterID, inviter.UserID, inviter.RoleAssignmentID,
-		id, `{"role":"`+role+`","identity":"`+identity+`"}`, corr, formatTime(now), formatTime(now),
-	); err != nil {
+	inviterUID := inviter.UserID
+	inviterRAID := inviter.RoleAssignmentID
+	afterInvite := `{"role":"` + role + `","identity":"` + identity + `"}`
+	eidInvite := id
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &inviterUID, RoleAssignmentID: &inviterRAID},
+		ClassID:       in.ClassID,
+		SemesterID:    in.SemesterID,
+		Action:        "INVITE",
+		EntityType:    "ROLE_INVITATION",
+		EntityID:      &eidInvite,
+		AfterJSON:     &afterInvite,
+		CorrelationID: corr,
+	}); err != nil {
 		return nil, "", err
 	}
 	for _, ri := range revoked {
-		var rc, rs any
+		var rcPtr, rsPtr *int64
 		if ri.classID.Valid {
-			rc = ri.classID.Int64
+			v := ri.classID.Int64
+			rcPtr = &v
 		}
 		if ri.semesterID.Valid {
-			rs = ri.semesterID.Int64
+			v := ri.semesterID.Int64
+			rsPtr = &v
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-			class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-			action, entity_type, entity_id, reason, correlation_id, created_at, updated_at
-		) VALUES (?, ?, ?, ?, 'USER', 'REVOKE', 'ROLE_INVITATION', ?, ?, ?, ?, ?)`,
-			rc, rs, inviter.UserID, inviter.RoleAssignmentID,
-			ri.id, "superseded by resend", corr, formatTime(now), formatTime(now),
-		); err != nil {
+		eidRevoke := ri.id
+		if err := audit.Write(ctx, tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &inviterUID, RoleAssignmentID: &inviterRAID},
+			ClassID:       rcPtr,
+			SemesterID:    rsPtr,
+			Action:        "REVOKE",
+			EntityType:    "ROLE_INVITATION",
+			EntityID:      &eidRevoke,
+			Reason:        "superseded by resend",
+			CorrelationID: corr,
+		}); err != nil {
 			return nil, "", err
 		}
 	}
@@ -326,20 +340,27 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, pass
 		return nil, nil, err
 	}
 	corr, _ := s.newToken()
-	var classVal, semVal any
+	var classPtr, semPtr *int64
 	if classID.Valid {
-		classVal = classID.Int64
+		v := classID.Int64
+		classPtr = &v
 	}
 	if semesterID.Valid {
-		semVal = semesterID.Int64
+		v := semesterID.Int64
+		semPtr = &v
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 'USER', 'ACCEPT_INVITE', 'ROLE_ASSIGNMENT', ?, ?, ?, ?, ?)`,
-		classVal, semVal, userID, assignmentID, assignmentID,
-		`{"role":"`+role+`"}`, corr, formatTime(now), formatTime(now),
-	); err != nil {
+	afterAccept := `{"role":"` + role + `"}`
+	eidAccept := assignmentID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &userID, RoleAssignmentID: &assignmentID},
+		ClassID:       classPtr,
+		SemesterID:    semPtr,
+		Action:        "ACCEPT_INVITE",
+		EntityType:    "ROLE_ASSIGNMENT",
+		EntityID:      &eidAccept,
+		AfterJSON:     &afterAccept,
+		CorrelationID: corr,
+	}); err != nil {
 		return nil, nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -395,19 +416,29 @@ func (s *Service) RevokeInvitation(ctx context.Context, actor Principal, invitat
 		return ErrInvalidInput
 	}
 	corr, _ := s.newToken()
-	var rc, rs any
+	var rcPtr, rsPtr *int64
 	if classID.Valid {
-		rc = classID.Int64
+		v := classID.Int64
+		rcPtr = &v
 	}
 	if semesterID.Valid {
-		rs = semesterID.Int64
+		v := semesterID.Int64
+		rsPtr = &v
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 'USER', 'REVOKE', 'ROLE_INVITATION', ?, ?, ?, ?)`,
-		rc, rs, actor.UserID, actor.RoleAssignmentID, invitationID, corr, formatTime(now), formatTime(now),
-	); err != nil {
+	actorUID := actor.UserID
+	actorRAID := actor.RoleAssignmentID
+	eidRevoke := invitationID
+	// Note: original had no reason for this REVOKE; kept empty so canonical
+	// validation fails loudly (do not invent a reason).
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &actorUID, RoleAssignmentID: &actorRAID},
+		ClassID:       rcPtr,
+		SemesterID:    rsPtr,
+		Action:        "REVOKE",
+		EntityType:    "ROLE_INVITATION",
+		EntityID:      &eidRevoke,
+		CorrelationID: corr,
+	}); err != nil {
 		return err
 	}
 	return tx.Commit()

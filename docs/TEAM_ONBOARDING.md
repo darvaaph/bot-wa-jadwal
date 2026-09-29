@@ -1,4 +1,4 @@
-# Panduan Onboarding & Handoff Tim Pengembang (v2.0)
+# Panduan Onboarding & Handoff Tim Pengembang (v3.0)
 # Proyek: Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard
 
 Dokumen ini adalah **panduan handoff resmi** yang disusun untuk Project Manager (PM) sebagai bahan presentasi dan orientasi (*kickoff meeting*) bagi seluruh anggota tim pengembang baru (**UI/UX Designer**, **Frontend Developer**, **Backend Developer**, dan **QA / Software Tester**).
@@ -8,7 +8,7 @@ Dokumen ini adalah **panduan handoff resmi** yang disusun untuk Project Manager 
 ## Daftar Isi
 1. [Visi & Latar Belakang Proyek](#1-visi--latar-belakang-proyek)
 2. [Kondisi Sistem Saat Ini (Current State)](#2-kondisi-sistem-saat-ini-current-state)
-3. [Target Produk Versi 2.0 (Target State)](#3-target-produk-versi-20-target-state)
+3. [Target Produk Versi 3.0 (Target State)](#3-target-produk-versi-30-target-state)
 4. [Struktur Tim & Pembagian Peran (Buddy System)](#4-struktur-tim--pembagian-peran-buddy-system)
 5. [Lingkungan Pengembangan Lokal (Local Dev Setup)](#5-lingkungan-pengembangan-lokal-local-dev-setup)
 6. [Alur Kerja Rekayasa (Git Flow & Standar Vibe Coding)](#6-alur-kerja-rekayasa-git-flow--standar-vibe-coding)
@@ -22,13 +22,13 @@ Dokumen ini adalah **panduan handoff resmi** yang disusun untuk Project Manager 
 ### Mengapa Proyek Ini Ada?
 Aplikasi ini bermula sebagai bot WhatsApp mandiri untuk membantu koordinasi jadwal perkuliahan, catatan tugas, dan tautan kuliah di kelas. Saat ini bot telah melayani kebutuhan kelas secara aktif setiap hari.
 
-### Mengapa Kita Naik ke Versi 2.0?
-Interaksi berbasis teks WhatsApp memiliki keterbatasan:
-1. **Pencatatan Tugas Rawan Typo:** Format perintah panjang seperti `!tugas tambah ...` rentan salah ketik karakter pemisah.
-2. **Visibilitas Status Bot Terbatas:** Jika bot membutuhkan pemindaian ulang QR Code, administrator harus membuka terminal server Linux (SSH).
-3. **Kebutuhan Antarmuka Visual:** Ketua Tingkat (Komti) dan pengurus kelas membutuhkan cara cepat (< 30 detik) mencatat tugas dosen dan menggeser jam kuliah langsung dari browser ponsel pintar (*smartphone*) saat berada di kampus.
+### Mengapa Kita Naik ke Versi 3.0?
+Interaksi berbasis teks WhatsApp dan dashboard awal memerlukan lompatan arsitektur:
+1. **Pencatatan Tugas & Jadwal Terintegrasi:** Menghilangkan salah ketik dengan antarmuka web modern dan validasi ketat.
+2. **Visibilitas Status & Manajemen Sesi:** Mengelola status bot WhatsApp, scan QR, dan telemetri koneksi langsung dari dashboard.
+3. **Arsitektur Decoupled & Multi-Kelas Terisolasi:** Menyediakan REST API v1 terstruktur, otorisasi berbasis peran (RBAC: Admin, KM, PJ), model data relasional v3.0.2 di SQLite WAL, dan persistent rate limiting.
 
-**Tujuan v2.0:** Membangun **Web Admin Dashboard responsif** yang disematkan langsung ke dalam biner bot, didukung REST API terstruktur, serta dikelola secara tim dengan standar industri perangkat lunak.
+**Tujuan v3.0:** Menghadirkan ekosistem asisten akademik terpadu yang memadukan **Bot WhatsApp Multi-Device** dan **Web Admin Dashboard responsif** dalam satu biner Go mandiri tanpa dependensi Node.js.
 
 ---
 
@@ -132,7 +132,7 @@ Untuk menjaga keamanan server produksi di Azure, tim wajib mematuhi panduan ekse
 
 | Kebutuhan Pengujian | Perintah Eksekusi | Keterangan Keamanan |
 | :--- | :--- | :--- |
-| **Frontend & UI/UX** | `go run ./cmd/bot -web-only` | **Sangat Direkomendasikan.** Dashboard aktif di `http://localhost:8080` tanpa menyambung ke WhatsApp. Server Azure aman 100%. |
+| **Frontend & UI/UX** | `go run ./cmd/bot -web-only` | **Sangat Direkomendasikan.** Dashboard aktif di `http://localhost:8080` tanpa menyambung ke WhatsApp. Server Azure aman terlindungi. |
 | **Backend & QA (Testing WA)**| `go run ./cmd/bot -session storage/sesi_dev.db` | Menggunakan file sesi terpisah. Scan QR dengan nomor cadangan. Server Azure tidak terganggu. |
 | **Server Produksi Azure** | `go run ./cmd/bot` *(atau service systemd)* | Menjalankan bot WhatsApp utama kelas dan server web secara live. |
 
@@ -162,7 +162,7 @@ Jika anggota tim menggunakan alat bantu AI (Cursor, Copilot, ChatGPT, Claude):
 Proyek diselesaikan dalam 3 siklus Sprint (masing-masing 2 minggu) dengan alokasi waktu fleksibel 3–5 jam per minggu:
 
 ```text
-[ Minggu 1 - 2 ] ───────────▶ [ Minggu 3 - 4 ] ───────────▶ [ Minggu 5 - 6 ] ───────────▶ RILIS v2.0
+[ Minggu 1 - 2 ] ───────────▶ [ Minggu 3 - 4 ] ───────────▶ [ Minggu 5 - 6 ] ───────────▶ RILIS v3.0
     SPRINT 1                      SPRINT 2                      SPRINT 3
 (Fondasi & Desain)            (Integrasi & API)            (Hardening & Deploy)
 ```
@@ -192,7 +192,7 @@ Proyek diselesaikan dalam 3 siklus Sprint (masing-masing 2 minggu) dengan alokas
 Gunakan poin-poin berikut saat memimpin pertemuan perdana (*Kickoff Meeting*) bersama tim:
 
 1. **Menit 00–03 (Pembuka & Visi):**  
-   *"Halo teman-teman, selamat datang di tim pengembang bot-jadwal v2.0. Proyek ini kita buat untuk mempermudah kelas kita sendiri. Kita akan upgrade bot chat teks menjadi Web Admin Dashboard yang modern dan bisa dibuka dari HP."*
+   *"Halo teman-teman, selamat datang di tim pengembang bot-jadwal v3.0. Proyek ini kita buat untuk mempermudah kelas kita sendiri. Kita akan upgrade bot chat teks menjadi Web Admin Dashboard yang modern dan bisa dibuka dari HP."*
 2. **Menit 03–07 (Demo Sistem yang Ada & Arsitektur):**  
    *Tunjukkan bot yang sedang berjalan di WhatsApp dan perlihatkan folder `web/index.html` via browser.*  
    *"Secara mesin, backend Go dan SQLite kita sudah stabil dan berjalan di server Azure. Tugas kita bersama adalah melengkapi antarmuka web dan API-nya."*

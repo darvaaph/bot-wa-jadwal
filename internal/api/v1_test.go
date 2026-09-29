@@ -2,7 +2,9 @@ package api
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,8 +47,8 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 
 	// 2. Masukkan Semester
 	_, err = db.Exec(`
-		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at)
-		VALUES (1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP);
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert semester: %v", err)
@@ -58,26 +60,14 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
 		VALUES (1, 1, 1, 'Struktur Data (Teori)', 'TEORI');
 		INSERT INTO rooms (id, code, name) VALUES (1, 'R-301', 'Ruang Kelas 301');
+		INSERT INTO whatsapp_channels (id, class_id, jid, channel_type, display_name, status)
+		VALUES (1, 1, '120363000000000001@g.us', 'GROUP', 'Kelas D4-TI-2024-A', 'ACTIVE');
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert courses/offerings: %v", err)
 	}
 
-	// 4. Masukkan Pola Jadwal & Teaching Event
-	todayStr := time.Now().Format("2006-01-02")
-	_, err = db.Exec(`
-		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, effective_from)
-		VALUES (1, 1, 1, 1, '08:00', '09:40', ?);
-		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status, version)
-		VALUES (1, 'EXTRA', CURRENT_TIMESTAMP, datetime(CURRENT_TIMESTAMP, '+2 hours'), 1, 'Kuliah Tambahan', 'PUBLISHED', 1);
-		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
-		VALUES (1, 1, 'OWNER', 'ACCEPTED');
-	`, todayStr)
-	if err != nil {
-		t.Fatalf("Gagal insert schedule items: %v", err)
-	}
-
-	// 5. Masukkan Pengguna (KM, PJ, dan SYSTEM_ADMIN) dengan password bcrypt: "password123"
+	// 4. Masukkan Pengguna (KM, PJ, dan SYSTEM_ADMIN) dengan password bcrypt: "password123"
 	pwdHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	_, err = db.Exec(`
 		INSERT INTO users (id, identity_key, display_name, password_hash, status)
@@ -89,10 +79,24 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 		t.Fatalf("Gagal insert users: %v", err)
 	}
 
+	// 5. Masukkan Pola Jadwal & Teaching Event
+	todayStr := time.Now().Format("2006-01-02")
+	_, err = db.Exec(`
+		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, effective_from)
+		VALUES (1, 1, 1, 1, '08:00', '09:40', ?);
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status, published_by_user_id, published_at, version)
+		VALUES (1, 'EXTRA', CURRENT_TIMESTAMP, datetime(CURRENT_TIMESTAMP, '+2 hours'), 1, 'Kuliah Tambahan', 'PUBLISHED', 1, CURRENT_TIMESTAMP, 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (1, 1, 'OWNER', 'ACCEPTED');
+	`, todayStr)
+	if err != nil {
+		t.Fatalf("Gagal insert schedule items: %v", err)
+	}
+
 	// 6. Masukkan Penugasan Peran (KM, PJ, dan SYSTEM_ADMIN)
 	_, err = db.Exec(`
 		INSERT INTO role_assignments (id, user_id, role, scope_type, class_id, semester_id, course_offering_id, status)
-		VALUES (1, 1, 'KM', 'CLASS', 1, 1, NULL, 'ACTIVE'),
+		VALUES (1, 1, 'KM', 'CLASS', 1, NULL, NULL, 'ACTIVE'),
 		       (2, 2, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
 		       (3, 1, 'PJ', 'COURSE_OFFERING', 1, 1, 1, 'ACTIVE'),
 		       (4, 3, 'SYSTEM_ADMIN', 'GLOBAL', NULL, NULL, NULL, 'ACTIVE');
@@ -105,9 +109,9 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 	futureDeadline := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
 	_, err = db.Exec(`
 		INSERT INTO tasks (id, course_offering_id, created_by_user_id, title, instructions,
-		                  deadline_at, task_type, publication_status, review_state, version)
+		                  deadline_at, task_type, publication_status, review_state, reviewed_version, submission_url, published_at, version)
 		VALUES (1, 1, 2, 'Tugas Algoritma 1', 'Kerjakan latihan soal bab 1',
-		        ?, 'INDIVIDUAL', 'PUBLISHED', 'APPROVED', 1);
+		        ?, 'INDIVIDUAL', 'PUBLISHED', 'APPROVED', 1, 'https://classroom.google.com', CURRENT_TIMESTAMP, 1);
 	`, futureDeadline)
 	if err != nil {
 		t.Fatalf("Gagal insert initial task: %v", err)
@@ -115,8 +119,8 @@ func setupV1TestEnv(t *testing.T) (*sql.DB, *Server) {
 
 	// 8. Masukkan Materi Uji Awal
 	_, err = db.Exec(`
-		INSERT INTO materials (id, class_id, course_offering_id, title, material_type, url, description)
-		VALUES (1, 1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://example.com/slide1.pdf', 'Pengenalan');
+		INSERT INTO materials (id, class_id, course_offering_id, title, material_type, url, description, created_by_user_id)
+		VALUES (1, 1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://example.com/slide1.pdf', 'Pengenalan', 1);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert initial material: %v", err)
@@ -201,6 +205,24 @@ func TestV1Auth_LoginSuccess(t *testing.T) {
 	}
 }
 
+func TestV1Auth_LoginHonorsSecureCookieConfig(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	s.SetSecureCookies(true)
+
+	body := `{"identity_key":"+6281234567890","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("login expected 200, got %d", w.Code)
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 || !cookies[0].Secure {
+		t.Fatalf("cookie auth harus memiliki atribut Secure saat konfigurasi aktif")
+	}
+}
+
 func TestV1Auth_LoginInvalidPassword_Generic401(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
@@ -275,6 +297,103 @@ func TestV1Auth_RequireAuth_Rejection(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Token palsu expected 401, got %d", w.Code)
+	}
+}
+
+func TestV1ManagementCollections_RequireAuthentication(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+
+	for _, path := range []string{"/api/v1/classes", "/api/v1/materials"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("GET %s tanpa autentikasi: expected 401, got %d; body=%s", path, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestV1Classes_AccessIsScopedForKMAdminPJAndPortal(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode)
+		VALUES (2, 'Asia/Jakarta', 'LINK');
+	`); err != nil {
+		t.Fatalf("Gagal membuat kelas kedua: %v", err)
+	}
+
+	requestClasses := func(token, portalToken string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/classes", nil)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if portalToken != "" {
+			req.Header.Set("X-Portal-Token", portalToken)
+		}
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+	classSlugs := func(w *httptest.ResponseRecorder) []string {
+		var resp struct {
+			Data struct {
+				Classes []struct {
+					Slug string `json:"slug"`
+				} `json:"classes"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Respons classes tidak valid: %v", err)
+		}
+		result := make([]string, 0, len(resp.Data.Classes))
+		for _, class := range resp.Data.Classes {
+			result = append(result, class.Slug)
+		}
+		return result
+	}
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	w := requestClasses(kmToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 1 || slugs[0] != "d4-ti-2024-a" {
+		t.Fatalf("KM hanya boleh melihat kelas aktifnya, got %v", slugs)
+	}
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	w = requestClasses(adminToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("Admin classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 2 {
+		t.Fatalf("Admin harus melihat seluruh kelas, got %v", slugs)
+	}
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	w = requestClasses(pjToken, "")
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ classes expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+
+	configurePortalCode(t, db, "123456")
+	portalToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	w = requestClasses("", portalToken)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Portal token classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 1 || slugs[0] != "d4-ti-2024-a" {
+		t.Fatalf("Portal token hanya boleh melihat kelas terikat, got %v", slugs)
+	}
+
+	w = requestClasses("", "portal-token-invalid")
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Portal token invalid expected 401, got %d", w.Code)
 	}
 }
 
@@ -416,6 +535,333 @@ func TestV1Portal_Endpoints(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Portal nonexistent class expected 404, got %d", w.Code)
+	}
+}
+
+func TestLegacyTasks_GetReadsCanonicalV1Model(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`INSERT INTO tasks (
+		course_offering_id, created_by_user_id, title, instructions, deadline_at,
+		publication_status, review_state, version
+	) VALUES (1, 2, 'Draf Tidak Boleh Bocor', 'Instruksi', ?, 'DRAFT', 'NOT_REVIEWED', 1)`,
+		time.Now().Add(24*time.Hour).UTC().Format(time.RFC3339)); err != nil {
+		t.Fatalf("Gagal membuat tugas draf: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/tasks?class=D4-TI-2024-A", nil)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Legacy GET expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("Deprecation") != "true" || !strings.Contains(w.Header().Get("Link"), "/api/v1/tasks") {
+		t.Fatal("Legacy GET harus memiliki header deprecation dan successor-version")
+	}
+
+	var resp struct {
+		Data []TaskResponseItem `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons legacy GET tidak valid: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("Legacy GET harus membaca hanya tugas PUBLISHED dari v1, got %d", len(resp.Data))
+	}
+	item := resp.Data[0]
+	if item.ID != 1 || item.ClassID != "D4-TI-2024-A" || item.Matkul != "Struktur Data (Teori)" || item.Deskripsi != "Tugas Algoritma 1" {
+		t.Fatalf("Pemetaan legacy dari v1 tidak sesuai: %+v", item)
+	}
+}
+
+func configurePortalCode(t *testing.T, db *sql.DB, code string) {
+	t.Helper()
+	hash := sha256.Sum256([]byte(strings.TrimSpace(code)))
+	if _, err := db.Exec(`UPDATE class_settings
+		SET portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = 2
+		WHERE class_id = 1`, hex.EncodeToString(hash[:])); err != nil {
+		t.Fatalf("Gagal mengatur kode portal: %v", err)
+	}
+}
+
+func createPortalSession(t *testing.T, s *Server, slug, code string) (string, string) {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"code": code})
+	req := httptest.NewRequest("POST", "/api/v1/portal/"+slug+"/session", bytes.NewReader(body))
+	req.RemoteAddr = "198.51.100.10:4567"
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create portal session expected 201, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Data struct {
+			Token     string `json:"portal_token"`
+			ExpiresAt string `json:"expires_at"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons sesi portal tidak valid: %v", err)
+	}
+	if resp.Data.Token == "" || resp.Data.ExpiresAt == "" {
+		t.Fatalf("Respons sesi portal tidak lengkap: %s", w.Body.String())
+	}
+	return resp.Data.Token, resp.Data.ExpiresAt
+}
+
+func TestV1PortalSession_ExchangeStoresOnlyTokenHash(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+
+	token, expiresAt := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	if _, err := time.Parse(time.RFC3339, expiresAt); err != nil {
+		t.Fatalf("expires_at harus RFC3339: %q", expiresAt)
+	}
+
+	var storedHash string
+	var version int
+	if err := db.QueryRow(`SELECT token_hash, access_code_version FROM portal_sessions`).Scan(&storedHash, &version); err != nil {
+		t.Fatalf("Sesi portal tidak tersimpan: %v", err)
+	}
+	expectedHash := sha256.Sum256([]byte(token))
+	if storedHash == token || storedHash != hex.EncodeToString(expectedHash[:]) {
+		t.Fatalf("Database harus menyimpan hash token, bukan token mentah")
+	}
+	if version != 2 {
+		t.Fatalf("access_code_version expected 2, got %d", version)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Token portal valid expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1PortalSession_RejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
+	t.Run("invalid code and unknown class use generic response", func(t *testing.T) {
+		db, s := setupV1TestEnv(t)
+		configurePortalCode(t, db, "123456")
+
+		for _, tc := range []struct {
+			slug string
+			code string
+		}{
+			{slug: "d4-ti-2024-a", code: "000000"},
+			{slug: "kelas-tidak-ada", code: "123456"},
+		} {
+			body, _ := json.Marshal(map[string]string{"code": tc.code})
+			req := httptest.NewRequest("POST", "/api/v1/portal/"+tc.slug+"/session", bytes.NewReader(body))
+			req.RemoteAddr = "198.51.100.11:4567"
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "Kode portal tidak valid") {
+				t.Fatalf("Respons kode invalid harus generik, got %d: %s", w.Code, w.Body.String())
+			}
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		update string
+	}{
+		{name: "expired", update: `UPDATE portal_sessions SET created_at = '1999-01-01T00:00:00Z', expires_at = '2000-01-01T00:00:00Z'`},
+		{name: "revoked", update: `UPDATE portal_sessions SET revoked_at = CURRENT_TIMESTAMP`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, s := setupV1TestEnv(t)
+			configurePortalCode(t, db, "123456")
+			token, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+			if _, err := db.Exec(tc.update); err != nil {
+				t.Fatalf("Gagal mengubah sesi portal: %v", err)
+			}
+
+			req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+			req.Header.Set("X-Portal-Token", token)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("Token %s expected 401, got %d", tc.name, w.Code)
+			}
+		})
+	}
+}
+
+func TestV1PortalSession_RateLimitsFailedCodes(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+
+	for attempt := 1; attempt <= 6; attempt++ {
+		body := bytes.NewBufferString(`{"code":"000000"}`)
+		req := httptest.NewRequest("POST", "/api/v1/portal/d4-ti-2024-a/session", body)
+		req.RemoteAddr = "203.0.113.7:9999"
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+
+		expected := http.StatusUnauthorized
+		if attempt == 6 {
+			expected = http.StatusTooManyRequests
+		}
+		if w.Code != expected {
+			t.Fatalf("Percobaan %d expected %d, got %d. Body: %s", attempt, expected, w.Code, w.Body.String())
+		}
+	}
+}
+
+func rotatePortalCode(t *testing.T, s *Server, token, slug, payload string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/v1/classes/"+slug+"/portal-code/rotate", strings.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	return w
+}
+
+func TestV1PortalCodeRotate_RevokesOldSessionsAndAuditsWithoutCode(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+	oldToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Rotate portal code expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Code       string `json:"portal_code"`
+			Version    int    `json:"portal_code_version"`
+			RevealOnce bool   `json:"reveal_once"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons rotasi tidak valid: %v", err)
+	}
+	if resp.Data.Code != "654321" || resp.Data.Version != 3 || !resp.Data.RevealOnce {
+		t.Fatalf("Respons rotasi tidak sesuai: %s", w.Body.String())
+	}
+
+	var mode, storedCodeHash string
+	var version int
+	if err := db.QueryRow(`SELECT portal_access_mode, portal_code_hash, portal_code_version
+		FROM class_settings WHERE class_id = 1`).Scan(&mode, &storedCodeHash, &version); err != nil {
+		t.Fatalf("Gagal membaca pengaturan portal: %v", err)
+	}
+	newCodeHash := sha256.Sum256([]byte("654321"))
+	if mode != "CODE" || version != 3 || storedCodeHash != hex.EncodeToString(newCodeHash[:]) || storedCodeHash == "654321" {
+		t.Fatalf("Pengaturan portal setelah rotasi tidak benar")
+	}
+
+	var revokedAt sql.NullString
+	if err := db.QueryRow(`SELECT revoked_at FROM portal_sessions WHERE token_hash = ?`, func() string {
+		h := sha256.Sum256([]byte(oldToken))
+		return hex.EncodeToString(h[:])
+	}()).Scan(&revokedAt); err != nil {
+		t.Fatalf("Gagal membaca sesi lama: %v", err)
+	}
+	if !revokedAt.Valid {
+		t.Fatal("Sesi portal versi lama harus dicabut secara eksplisit")
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", oldToken)
+	portalResponse := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(portalResponse, req)
+	if portalResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("Token lama expected 401, got %d", portalResponse.Code)
+	}
+	createPortalSession(t, s, "d4-ti-2024-a", "654321")
+
+	var actorUserID, actorAssignmentID int64
+	var beforeJSON, afterJSON, correlationID string
+	if err := db.QueryRow(`SELECT actor_user_id, actor_role_assignment_id, before_json, after_json, correlation_id
+		FROM audit_logs WHERE action = 'ROTATE_PORTAL_CODE' ORDER BY id DESC LIMIT 1`).
+		Scan(&actorUserID, &actorAssignmentID, &beforeJSON, &afterJSON, &correlationID); err != nil {
+		t.Fatalf("Audit rotasi tidak ditemukan: %v", err)
+	}
+	if actorUserID != 1 || actorAssignmentID != 1 || strings.TrimSpace(correlationID) == "" {
+		t.Fatalf("Aktor audit rotasi tidak lengkap")
+	}
+	if strings.Contains(beforeJSON+afterJSON, "654321") || strings.Contains(beforeJSON+afterJSON, storedCodeHash) {
+		t.Fatal("Kode portal atau hash-nya tidak boleh masuk audit")
+	}
+}
+
+func TestV1PortalCodeRotate_EnforcesScopeAndAllowsAdminGeneratedCode(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode)
+		VALUES (2, 'Asia/Jakarta', 'LINK');
+	`); err != nil {
+		t.Fatalf("Gagal membuat kelas kedua: %v", err)
+	}
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-b", `{"code":"654321"}`)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM lintas kelas expected 403, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	w = rotatePortalCode(t, s, pjToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ rotate portal code expected 403, got %d", w.Code)
+	}
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	w = rotatePortalCode(t, s, adminToken, "d4-ti-2024-b", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Admin rotate portal code expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Code string `json:"portal_code"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil || len(resp.Data.Code) != 8 {
+		t.Fatalf("Kode portal otomatis harus 8 digit: %s", w.Body.String())
+	}
+}
+
+func TestV1PortalCodeRotate_RollsBackWhenAuditFails(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+	oldToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	if _, err := db.Exec(`CREATE TRIGGER fail_portal_rotation_audit
+		BEFORE INSERT ON audit_logs
+		WHEN NEW.action = 'ROTATE_PORTAL_CODE'
+		BEGIN SELECT RAISE(ABORT, 'forced audit failure'); END;`); err != nil {
+		t.Fatalf("Gagal membuat trigger uji: %v", err)
+	}
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("Audit gagal expected 500, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	var version int
+	var codeHash string
+	if err := db.QueryRow(`SELECT portal_code_version, portal_code_hash FROM class_settings WHERE class_id = 1`).Scan(&version, &codeHash); err != nil {
+		t.Fatalf("Gagal membaca pengaturan portal: %v", err)
+	}
+	originalHash := sha256.Sum256([]byte("123456"))
+	if version != 2 || codeHash != hex.EncodeToString(originalHash[:]) {
+		t.Fatal("Perubahan kode harus rollback ketika audit gagal")
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", oldToken)
+	portalResponse := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(portalResponse, req)
+	if portalResponse.Code != http.StatusOK {
+		t.Fatalf("Sesi lama harus tetap valid setelah rollback, got %d", portalResponse.Code)
 	}
 }
 
@@ -573,7 +1019,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 
 	// 1. Complete
-	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", nil)
+	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", strings.NewReader(`{"version":1}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w := httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -582,7 +1028,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 
 	// 2. Archive
-	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", nil)
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":2}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -591,7 +1037,7 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 
 	// 3. Restore
-	req = httptest.NewRequest("POST", "/api/v1/tasks/1/restore", nil)
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/restore", strings.NewReader(`{"version":3}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
@@ -690,8 +1136,12 @@ func TestV1Notifications_ListAndRetry(t *testing.T) {
 
 	// Masukkan pesan notifikasi berstatus FAILED
 	_, err := db.Exec(`
-		INSERT INTO notification_messages (id, class_id, event_type, idempotency_key, status)
-		VALUES (10, 1, 'TASK_PUBLISHED', 'test-failed-notif', 'FAILED');
+		INSERT INTO notification_messages (
+			id, class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
+			idempotency_key, payload_json, status, scheduled_at
+		)
+		VALUES (10, 1, 1, 'TASK_PUBLISHED', 'TASK', 1,
+		        'test-failed-notif', '{}', 'FAILED', CURRENT_TIMESTAMP);
 	`)
 	if err != nil {
 		t.Fatalf("Gagal insert notifikasi uji: %v", err)
@@ -732,10 +1182,12 @@ func TestV1Audit_ListWithScoping(t *testing.T) {
 	adminToken := helperLogin(t, s, "+6281111111111", "password123")
 
 	// Sisipkan rekam audit uji
-	_, _ = db.Exec(`
-		INSERT INTO audit_logs (class_id, actor_user_id, action, entity_type, entity_id)
-		VALUES (1, 1, 'TEST_ACTION', 'CLASS', 1);
-	`)
+	if _, err := db.Exec(`
+		INSERT INTO audit_logs (actor_type, class_id, actor_user_id, action, entity_type, entity_id, correlation_id)
+		VALUES ('USER', 1, 1, 'TEST_ACTION', 'CLASS', 1, 'test-audit-scope');
+	`); err != nil {
+		t.Fatalf("Gagal menyiapkan audit log: %v", err)
+	}
 
 	// 1. KM membaca audit kelas miliknya
 	req := httptest.NewRequest("GET", "/api/v1/audit", nil)
@@ -784,8 +1236,8 @@ func TestV1Backups_CreateAndVerifyRestore(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &backupResp)
 	backupID := backupResp.Data.ID
 
-	// 2. Verifikasi restore (Admin)
-	restoreBody, _ := json.Marshal(map[string]any{"backup_id": backupID})
+	// 2. Verifikasi restore (Admin, verify-only ADR-0008)
+	restoreBody, _ := json.Marshal(map[string]any{"backup_id": backupID, "reason": "verifikasi berkala"})
 	req = httptest.NewRequest("POST", "/api/v1/restores", bytes.NewReader(restoreBody))
 	req.Header.Set("Authorization", "Bearer "+adminToken)
 	w = httptest.NewRecorder()
@@ -1009,14 +1461,21 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 
 	// 2. Terbitkan teaching event draft
 	_, _ = db.Exec(`
-		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, reason, lifecycle_status)
-		VALUES (50, 'REPLACEMENT', '2026-10-05T08:00:00Z', '2026-10-05T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
-		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role)
-		VALUES (50, 1, 'OWNER');
+		INSERT INTO teaching_events (
+			id, origin_schedule_pattern_id, origin_occurrence_date, event_kind,
+			starts_at, ends_at, room_id, reason, lifecycle_status
+		)
+		VALUES (50, 1, '2024-10-07', 'REPLACEMENT',
+		        '2024-10-07T08:00:00Z', '2024-10-07T10:00:00Z', 1, 'Kuliah pengganti', 'DRAFT');
+		INSERT INTO teaching_event_offerings (
+			teaching_event_id, course_offering_id, participation_role, participation_status
+		)
+		VALUES (50, 1, 'OWNER', 'ACCEPTED');
 	`)
 
-	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", nil)
+	req = httptest.NewRequest("POST", "/api/v1/teaching-events/50/publish", strings.NewReader(`{"version":1}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Idempotency-Key", "publish-event-50")
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
@@ -1033,5 +1492,349 @@ func TestV1Notifications_AutoQueueOnPublish(t *testing.T) {
 	`).Scan(&schedNotifCount)
 	if err != nil || schedNotifCount != 1 {
 		t.Errorf("Expected 1 PENDING SCHEDULE_REPLACEMENT notification, got count=%d, err=%v", schedNotifCount, err)
+	}
+}
+
+func TestV1TeachingEventPublish_RequiresVersionAndIdempotencyKey(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	tests := []struct {
+		name string
+		body string
+		key  string
+	}{
+		{name: "version kosong", body: `{}`, key: "publish-1"},
+		{name: "idempotency key kosong", body: `{"version":1}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/1/publish", strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			req.Header.Set("Idempotency-Key", tc.key)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("expected 422, got %d; body=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestV1PatternPatch_RequiresVersion(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/schedule/patterns/1", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("patch pattern tanpa version: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1TeachingEventPublish_IdempotencyKeyReplay(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, lifecycle_status, version)
+		VALUES (60, 'EXTRA', '2024-10-01T08:00:00Z', '2024-10-01T10:00:00Z', 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (60, 1, 'OWNER', 'ACCEPTED');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	publish := func(key string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/60/publish", strings.NewReader(`{"version":1}`))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Idempotency-Key", key)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+	if w := publish("same-key"); w.Code != http.StatusOK {
+		t.Fatalf("publish awal expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	if w := publish("same-key"); w.Code != http.StatusOK {
+		t.Fatalf("replay key sama expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	if w := publish("different-key"); w.Code != http.StatusConflict {
+		t.Fatalf("replay key berbeda expected 409, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+// 6. Security & Negative Authorization Tests (BOLA, Portal CODE, Role Validity)
+
+func TestV1Auth_SuspendedRoleAssignment_Rejected(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Suspend KM role assignment
+	_, err := db.Exec(`UPDATE role_assignments SET status = 'SUSPENDED' WHERE id = 1;`)
+	if err != nil {
+		t.Fatalf("Gagal update role assignment: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for suspended role assignment, got %d", w.Code)
+	}
+}
+
+func TestV1Portal_CodeMode_AccessControl(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	// 1. Ubah portal_access_mode ke CODE
+	codeHash := sha256.Sum256([]byte("rahasia123"))
+	codeHashHex := hex.EncodeToString(codeHash[:])
+	_, err := db.Exec(`
+		UPDATE class_settings
+		SET portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = 1
+		WHERE class_id = 1;
+	`, codeHashHex)
+	if err != nil {
+		t.Fatalf("Gagal set CODE mode: %v", err)
+	}
+
+	// 2. Akses tanpa token -> harus ditolak 401
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 for portal CODE mode without token, got %d", w.Code)
+	}
+
+	// 3. Masukkan sesi portal aktif
+	rawToken := "valid-portal-token-xyz"
+	tokenHash := sha256.Sum256([]byte(rawToken))
+	tokenHashHex := hex.EncodeToString(tokenHash[:])
+	futureExpiry := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	_, err = db.Exec(`
+		INSERT INTO portal_sessions (class_id, token_hash, access_code_version, expires_at)
+		VALUES (1, ?, 1, ?);
+	`, tokenHashHex, futureExpiry)
+	if err != nil {
+		t.Fatalf("Gagal insert portal session: %v", err)
+	}
+
+	// 4. Akses dengan X-Portal-Token valid -> 200 OK
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", rawToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 with valid portal token, got %d", w.Code)
+	}
+
+	// 5. Akses dengan token salah -> 401
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", "wrong-token")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 with wrong portal token, got %d", w.Code)
+	}
+}
+
+func TestV1Portal_RejectsInvalidFilters(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	for _, path := range []string{
+		"/api/v1/portal/d4-ti-2024-a/tasks?group=sembarang",
+		"/api/v1/portal/d4-ti-2024-a/changes?since=bukan-timestamp",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("filter invalid %s: expected 422, got %d; body=%s", path, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestV1Tasks_ScopeEnforcement_BOLA(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	// Buat kelas kedua dan tugas milik kelas kedua
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'TI-B', 'd4-ti-2024-b', 'Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode) VALUES (2, 'Asia/Jakarta', 'LINK');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+		INSERT INTO tasks (id, course_offering_id, created_by_user_id, title, instructions, deadline_at, submission_url, published_at, publication_status, version)
+		VALUES (99, 2, 1, 'Tugas Kelas B', 'Petunjuk', '2026-11-01T10:00:00Z', 'https://classroom.google.com', CURRENT_TIMESTAMP, 'PUBLISHED', 1);
+	`)
+	if err != nil {
+		t.Fatalf("Gagal setup class 2 tasks: %v", err)
+	}
+
+	// PJ kelas A (offering 1) mencoba mengakses tugas 99 (offering 2) -> 403
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+
+	req := httptest.NewRequest("GET", "/api/v1/tasks/99", nil)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("PJ expected 403 when accessing task from another offering, got %d", w.Code)
+	}
+
+	// KM kelas A mencoba mereview tugas kelas B -> 403
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	reviewBody, _ := json.Marshal(map[string]any{
+		"decision":     "APPROVED",
+		"task_version": 1,
+	})
+	req = httptest.NewRequest("POST", "/api/v1/tasks/99/reviews", bytes.NewReader(reviewBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("KM expected 403 when reviewing task from another class, got %d", w.Code)
+	}
+
+	// PJ kelas A mencoba menyelesaikan tugas kelas B -> 403
+	req = httptest.NewRequest("POST", "/api/v1/tasks/99/complete", strings.NewReader(`{"version":1}`))
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("PJ expected 403 when completing task from another offering, got %d", w.Code)
+	}
+}
+
+func TestV1TaskLifecycle_RequiresVersion(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/complete", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("lifecycle tanpa version: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1TaskReview_RequiresNoteForNegativeDecision(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/reviews", strings.NewReader(`{"decision":"CHANGES_REQUESTED","task_version":1}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("review negatif tanpa note: expected 422, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1ClassStatus_WritesCanonicalAudit(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/classes/d4-ti-2024-a", strings.NewReader(`{"status":"INACTIVE"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patch status expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var actorType, correlationID string
+	if err := db.QueryRow(`SELECT actor_type, correlation_id FROM audit_logs WHERE action = 'UPDATE_CLASS_STATUS' ORDER BY id DESC LIMIT 1;`).Scan(&actorType, &correlationID); err != nil {
+		t.Fatalf("audit canonical tidak tersimpan: %v", err)
+	}
+	if actorType != "USER" || strings.TrimSpace(correlationID) == "" {
+		t.Fatalf("audit canonical tidak lengkap: actor_type=%q correlation_id=%q", actorType, correlationID)
+	}
+}
+
+func TestV1SemesterAndMaterial_RejectCrossClassKM(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode) VALUES (2, 'Asia/Jakarta', 'LINK');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	semesterReq := httptest.NewRequest(http.MethodGet, "/api/v1/classes/d4-ti-2024-b/semesters", nil)
+	semesterReq.Header.Set("Authorization", "Bearer "+token)
+	semesterW := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(semesterW, semesterReq)
+	if semesterW.Code != http.StatusForbidden {
+		t.Fatalf("semester lintas kelas expected 403, got %d", semesterW.Code)
+	}
+
+	materialBody := `{"class_slug":"d4-ti-2024-b","offering_id":2,"title":"Lintas kelas","material_type":"DOCUMENT"}`
+	materialReq := httptest.NewRequest(http.MethodPost, "/api/v1/materials", strings.NewReader(materialBody))
+	materialReq.Header.Set("Authorization", "Bearer "+token)
+	materialW := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(materialW, materialReq)
+	if materialW.Code != http.StatusForbidden {
+		t.Fatalf("material lintas kelas expected 403, got %d; body=%s", materialW.Code, materialW.Body.String())
+	}
+}
+
+func TestV1Tasks_CreateRejectsOfferingOutsideActiveClass(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 1, 'Struktur Data Kelas B', 'TEORI');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	body := `{"offering_id":2,"title":"Lintas kelas","save_as":"draft"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM membuat task lintas kelas: expected 403, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1TeachingEvents_ScopeAndConflict(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Revoke dengan versi salah -> 409
+	revokeBody, _ := json.Marshal(map[string]any{
+		"reason":  "Dosen berhalangan",
+		"version": 99, // Mismatched version
+	})
+	req := httptest.NewRequest("POST", "/api/v1/teaching-events/1/revoke", bytes.NewReader(revokeBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("Expected 409 Conflict for mismatched version on revoke, got %d", w.Code)
 	}
 }

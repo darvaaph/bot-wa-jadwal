@@ -28,11 +28,14 @@ func setupTestV1DB(t *testing.T) *V1BotService {
 		VALUES 
 			(1, 'D4-TI-2024-A', 'd4-ti-2024-a', 'Teknik Informatika', 2024, 'A', 'ACTIVE'),
 			(2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'Teknik Informatika', 2024, 'B', 'ACTIVE');
+
+		INSERT INTO users (id, identity_key, display_name, password_hash, status)
+		VALUES (1, 'system:test', 'Pengguna Uji', 'disabled', 'ACTIVE');
 		
-		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status)
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
 		VALUES 
-			(1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-02-28', 'ACTIVE'),
-			(2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-02-28', 'ACTIVE');
+			(1, 1, '2024/2025', 'GANJIL', '2024-09-01', '2025-02-28', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+			(2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-02-28', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 		INSERT INTO rooms (id, code, name, building, room_type, capacity, status)
 		VALUES (1, 'LAB-1', 'Laboratorium Komputer 1', 'Gedung TI Lt. 2', 'LAB', 30, 'ACTIVE');
@@ -54,8 +57,10 @@ func setupTestV1DB(t *testing.T) *V1BotService {
 		VALUES (1, 1, 'PRIMARY');
 
 		-- Jadwal pola reguler: Senin (1) jam 08:00 - 10:00
-		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, status)
-		VALUES (1, 1, 1, 1, '08:00', '10:00', 'ACTIVE');
+		INSERT INTO schedule_patterns (
+			id, course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status
+		)
+		VALUES (1, 1, 1, 1, '08:00', '10:00', '2024-09-01', 'ACTIVE');
 	`)
 	if err != nil {
 		t.Fatalf("Seed test data gagal: %v", err)
@@ -153,8 +158,11 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 	var evID int64
 	err = svc.db.QueryRowContext(ctx, `
 		INSERT INTO teaching_events (
-			event_kind, starts_at, ends_at, room_id, reason, lifecycle_status
-		) VALUES ('REPLACEMENT', ?, ?, 1, 'Kuliah pengganti pertemuan 1', 'PUBLISHED')
+			origin_schedule_pattern_id, origin_occurrence_date, event_kind,
+			starts_at, ends_at, room_id, reason, lifecycle_status,
+			published_by_user_id, published_at
+		) VALUES (1, '2025-01-06', 'REPLACEMENT', ?, ?, 1,
+		          'Kuliah pengganti pertemuan 1', 'PUBLISHED', 1, CURRENT_TIMESTAMP)
 		RETURNING id;
 	`, tStart, tEnd).Scan(&evID)
 	if err != nil {
@@ -162,8 +170,10 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 	}
 
 	_, _ = svc.db.ExecContext(ctx, `
-		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role)
-		VALUES (?, 2, 'OWNER');
+		INSERT INTO teaching_event_offerings (
+			teaching_event_id, course_offering_id, participation_role, participation_status
+		)
+		VALUES (?, 2, 'OWNER', 'ACCEPTED');
 	`, evID)
 
 	resp, err = svc.GetSchedule(ctx, 1, tuesdayDate)
@@ -236,8 +246,11 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	err := svc.db.QueryRowContext(ctx, `
 		INSERT INTO tasks (
 			course_offering_id, title, instructions, deadline_at,
-			publication_status, review_state, version
-		) VALUES (1, 'Tugas Algoritma 1', 'Buat flowchart kalkulator', ?, 'PUBLISHED', 'APPROVED', 1)
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Algoritma 1', 'Buat flowchart kalkulator', ?,
+		          'Kumpulkan melalui PJ', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1)
 		RETURNING id;
 	`, dl).Scan(&taskID)
 	if err != nil {
@@ -270,8 +283,12 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 
 	// 5. Sisipkan materi / tautan penting
 	_, _ = svc.db.ExecContext(ctx, `
-		INSERT INTO materials (class_id, course_offering_id, title, material_type, url, description, status)
-		VALUES (1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://drive.google.com/test', 'Materi pengantar algoritma', 'ACTIVE');
+		INSERT INTO materials (
+			class_id, course_offering_id, title, material_type, url,
+			description, status, created_by_user_id
+		)
+		VALUES (1, 1, 'Slide Pertemuan 1', 'DOCUMENT', 'https://drive.google.com/test',
+		        'Materi pengantar algoritma', 'ACTIVE', 1);
 	`)
 
 	respLinks, err := svc.GetLinks(ctx, 1)

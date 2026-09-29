@@ -1,13 +1,18 @@
 package portal
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +23,17 @@ var (
 	ErrInvalidCode  = errors.New("kode kelas tidak valid")
 	ErrRateLimited  = errors.New("terlalu banyak percobaan, coba lagi nanti")
 	ErrInvalidInput = errors.New("input tidak valid")
+	ErrConflict     = errors.New("pengaturan portal berubah, muat ulang")
+	ErrUnavailable  = errors.New("layanan pembatas tidak tersedia")
 )
+
+// CodeLimiter adalah rate limiter kode portal. Implementasi produksi memakai
+// tabel persisten bersama (multi-instance, tahan restart); tanpa limiter yang
+// dipasang, service memakai pembatas in-memory legacy khusus proses.
+type CodeLimiter interface {
+	Check(ctx context.Context, subject, source string) (allowed bool, retryAfter time.Duration, err error)
+	Record(ctx context.Context, subject, source, outcome string) error
+}
 
 const (
 	sessionTTL    = 30 * 24 * time.Hour
@@ -33,6 +48,30 @@ type Service struct {
 	// failures tracks recent failures per class+source for rate limiting.
 	failures map[string][]time.Time
 	blocks   map[string]time.Time
+	// limiter, bila dipasang via SetRateLimiter, menjadi satu-satunya sumber
+	// kebenaran rate limit (persisten, multi-instance). Map di atas hanya
+	// fallback legacy ketika limiter belum di-wire (mis. unit test lama).
+	limiter CodeLimiter
+}
+
+// SetRateLimiter memasang limiter persisten terpusat (BE-012).
+func (s *Service) SetRateLimiter(limiter CodeLimiter) { s.limiter = limiter }
+
+type Session struct {
+	Token     string
+	ExpiresAt time.Time
+}
+
+type RotationRequest struct {
+	ClassID             int64
+	Code                string
+	ActorUserID         int64
+	ActorRoleAssignment int64
+}
+
+type RotationResult struct {
+	Code    string
+	Version int
 }
 
 func NewService(db *sql.DB) *Service {
@@ -55,6 +94,14 @@ func newToken() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+}
+
+func newAccessCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(100_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%08d", n.Int64()), nil
 }
 
 func limiterKey(classID int64, source string) string {
@@ -122,13 +169,22 @@ func (s *Service) clearFailures(classID int64, source string) {
 
 // VerifyCode checks the class code and creates a portal session on success.
 // Returns raw session token for cookie/header use.
-func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source string) (string, error) {
+func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source string) (Session, error) {
 	if strings.TrimSpace(code) == "" {
-		return "", ErrInvalidInput
+		return Session{}, ErrInvalidInput
 	}
 	now := time.Now().UTC()
-	if err := s.checkRateLimit(classID, source, now); err != nil {
-		return "", err
+	subject := "class:" + itoa(classID)
+	if s.limiter != nil {
+		allowed, _, err := s.limiter.Check(ctx, subject, source)
+		if err != nil {
+			return Session{}, ErrUnavailable
+		}
+		if !allowed {
+			return Session{}, ErrRateLimited
+		}
+	} else if err := s.checkRateLimit(classID, source, now); err != nil {
+		return Session{}, err
 	}
 	var mode, codeHash sql.NullString
 	var version int
@@ -136,30 +192,46 @@ func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source st
 		FROM class_settings WHERE class_id = ?`, classID).Scan(&mode, &codeHash, &version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", ErrNotFound
+			return Session{}, ErrNotFound
 		}
-		return "", err
+		return Session{}, err
 	}
 	if strings.ToUpper(strings.TrimSpace(mode.String)) != "CODE" || !codeHash.Valid {
-		return "", ErrNotFound
+		return Session{}, ErrNotFound
 	}
-	if hashCode(code) != strings.TrimSpace(codeHash.String) {
-		s.recordFailure(classID, source, now)
-		return "", ErrInvalidCode
+	actualHash := hashCode(code)
+	expectedHash := strings.TrimSpace(codeHash.String)
+	if subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) != 1 {
+		if s.limiter != nil {
+			// Gagal tertutup: kegagalan pencatatan limiter tidak boleh
+			// disamarkan menjadi kode salah.
+			if err := s.limiter.Record(ctx, subject, source, "FAILURE"); err != nil {
+				return Session{}, ErrUnavailable
+			}
+		} else {
+			s.recordFailure(classID, source, now)
+		}
+		return Session{}, ErrInvalidCode
 	}
-	s.clearFailures(classID, source)
+	if s.limiter != nil {
+		if err := s.limiter.Record(ctx, subject, source, "SUCCESS"); err != nil {
+			return Session{}, ErrUnavailable
+		}
+	} else {
+		s.clearFailures(classID, source)
+	}
 
 	token, err := newToken()
 	if err != nil {
-		return "", err
+		return Session{}, err
 	}
 	expires := now.Add(sessionTTL)
 	_, err = s.db.ExecContext(ctx, `INSERT INTO portal_sessions (class_id, token_hash, access_code_version, expires_at)
 		VALUES (?, ?, ?, ?)`, classID, hashToken(token), version, expires.Format(time.RFC3339Nano))
 	if err != nil {
-		return "", err
+		return Session{}, err
 	}
-	return token, nil
+	return Session{Token: token, ExpiresAt: expires}, nil
 }
 
 // ValidateSession checks a portal token for a class (version-aware).
@@ -198,6 +270,142 @@ func (s *Service) ValidateSession(ctx context.Context, classID int64, token stri
 		return ErrInvalidCode
 	}
 	return nil
+}
+
+func (s *Service) ResolveSession(ctx context.Context, token string) (int64, error) {
+	if strings.TrimSpace(token) == "" {
+		return 0, ErrInvalidCode
+	}
+	var classID int64
+	var version, currentVersion int
+	var expires, mode string
+	var revoked sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT ps.class_id, ps.access_code_version, ps.expires_at,
+		ps.revoked_at, cs.portal_code_version, cs.portal_access_mode
+		FROM portal_sessions ps
+		JOIN class_settings cs ON cs.class_id = ps.class_id
+		WHERE ps.token_hash = ?`, hashToken(token)).
+		Scan(&classID, &version, &expires, &revoked, &currentVersion, &mode)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrInvalidCode
+	}
+	if err != nil {
+		return 0, err
+	}
+	if revoked.Valid || version != currentVersion || strings.ToUpper(strings.TrimSpace(mode)) != "CODE" {
+		return 0, ErrInvalidCode
+	}
+	exp, err := time.Parse(time.RFC3339Nano, expires)
+	if err != nil {
+		exp, err = time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return 0, ErrInvalidCode
+		}
+	}
+	if !time.Now().UTC().Before(exp) {
+		return 0, ErrInvalidCode
+	}
+	return classID, nil
+}
+
+func (s *Service) RotateCode(ctx context.Context, req RotationRequest) (RotationResult, error) {
+	if req.ClassID <= 0 || req.ActorUserID <= 0 || req.ActorRoleAssignment <= 0 {
+		return RotationResult{}, ErrInvalidInput
+	}
+
+	code := strings.TrimSpace(req.Code)
+	if code == "" {
+		var err error
+		code, err = newAccessCode()
+		if err != nil {
+			return RotationResult{}, err
+		}
+	}
+	if len(code) < 6 || len(code) > 128 {
+		return RotationResult{}, ErrInvalidInput
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return RotationResult{}, err
+	}
+	defer tx.Rollback()
+
+	var previousMode string
+	var previousVersion int
+	err = tx.QueryRowContext(ctx, `SELECT portal_access_mode, portal_code_version
+		FROM class_settings WHERE class_id = ?`, req.ClassID).Scan(&previousMode, &previousVersion)
+	if errors.Is(err, sql.ErrNoRows) {
+		return RotationResult{}, ErrNotFound
+	}
+	if err != nil {
+		return RotationResult{}, err
+	}
+
+	newVersion := previousVersion + 1
+	result, err := tx.ExecContext(ctx, `UPDATE class_settings SET
+		portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = ?,
+		version = version + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE class_id = ? AND portal_code_version = ?`,
+		hashCode(code), newVersion, req.ClassID, previousVersion)
+	if err != nil {
+		return RotationResult{}, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return RotationResult{}, err
+	}
+	if rowsAffected != 1 {
+		return RotationResult{}, ErrConflict
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE portal_sessions
+		SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE class_id = ? AND access_code_version < ? AND revoked_at IS NULL`, req.ClassID, newVersion); err != nil {
+		return RotationResult{}, err
+	}
+
+	beforeJSON, err := json.Marshal(map[string]any{
+		"portal_access_mode":  previousMode,
+		"portal_code_version": previousVersion,
+	})
+	if err != nil {
+		return RotationResult{}, err
+	}
+	afterJSON, err := json.Marshal(map[string]any{
+		"portal_access_mode":  "CODE",
+		"portal_code_version": newVersion,
+	})
+	if err != nil {
+		return RotationResult{}, err
+	}
+	correlationID, err := newToken()
+	if err != nil {
+		return RotationResult{}, err
+	}
+	beforeStr := string(beforeJSON)
+	afterStr := string(afterJSON)
+	actorUID := req.ActorUserID
+	actorRAID := req.ActorRoleAssignment
+	classPtr := req.ClassID
+	eidPortal := req.ClassID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &actorUID, RoleAssignmentID: &actorRAID},
+		ClassID:       &classPtr,
+		Action:        "ROTATE_PORTAL_CODE",
+		EntityType:    "CLASS_SETTINGS",
+		EntityID:      &eidPortal,
+		BeforeJSON:    &beforeStr,
+		AfterJSON:     &afterStr,
+		CorrelationID: correlationID,
+	}); err != nil {
+		return RotationResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return RotationResult{}, err
+	}
+	return RotationResult{Code: code, Version: newVersion}, nil
 }
 
 // SetClassCode sets a new portal code (CODE mode) and bumps version, revoking old sessions logically.

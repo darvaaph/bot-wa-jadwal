@@ -1,6 +1,7 @@
 package task
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"database/sql"
 	"errors"
@@ -278,32 +279,38 @@ func (r *Repository) UpdateMaterial(ctx context.Context, id int64, in UpdateMate
 	if corr == "" {
 		corr = now
 	}
-	var actorUser any
-	var actorAssignment any
-	actorType := "USER"
+	var actorEntry audit.Actor
 	if actor.UserID > 0 {
-		actorUser = actor.UserID
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
 	} else {
-		actorType = "SYSTEM"
+		actorEntry = audit.Actor{Type: "SYSTEM"}
 	}
-	if actor.RoleAssignmentID > 0 {
-		actorAssignment = actor.RoleAssignmentID
-	}
-	var semID any
-	if actor.SemesterID != nil {
-		semID = *actor.SemesterID
-	}
-	var classID any = current.ClassID
+	var classPtr *int64
 	if actor.ClassID != nil {
-		classID = *actor.ClassID
+		classPtr = actor.ClassID
+	} else {
+		v := current.ClassID
+		classPtr = &v
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, before_json, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, 'UPDATE', 'MATERIAL', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, semID, actorUser, actorAssignment, actorType, id,
-		`{"title":"`+strings.ReplaceAll(current.Title, `"`, ``)+`"}`, `{"title":"`+strings.ReplaceAll(after.Title, `"`, ``)+`"}`, corr,
-	); err != nil {
+	beforeStr := `{"title":"` + strings.ReplaceAll(current.Title, `"`, ``) + `"}`
+	afterStr := `{"title":"` + strings.ReplaceAll(after.Title, `"`, ``) + `"}`
+	eid := id
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		ClassID:       classPtr,
+		SemesterID:    actor.SemesterID,
+		Action:        "UPDATE",
+		EntityType:    "MATERIAL",
+		EntityID:      &eid,
+		BeforeJSON:    &beforeStr,
+		AfterJSON:     &afterStr,
+		CorrelationID: corr,
+	}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -352,37 +359,41 @@ func insertMaterialAudit(ctx context.Context, tx *sql.Tx, actor ActorInfo, actio
 	if corr == "" {
 		corr = time.Now().UTC().Format(time.RFC3339Nano)
 	}
-	var actorUser any
-	var actorAssignment any
-	actorType := "USER"
+	var actorEntry audit.Actor
 	if actor.UserID > 0 {
-		actorUser = actor.UserID
+		uid := actor.UserID
+		actorEntry = audit.Actor{Type: "USER", UserID: &uid}
+		if actor.RoleAssignmentID > 0 {
+			raid := actor.RoleAssignmentID
+			actorEntry.RoleAssignmentID = &raid
+		}
 	} else {
-		actorType = "SYSTEM"
+		actorEntry = audit.Actor{Type: "SYSTEM"}
 	}
-	if actor.RoleAssignmentID > 0 {
-		actorAssignment = actor.RoleAssignmentID
-	}
-	var semID any
-	if actor.SemesterID != nil {
-		semID = *actor.SemesterID
-	}
-	var classID any = m.ClassID
+	var classPtr *int64
 	if actor.ClassID != nil {
-		classID = *actor.ClassID
+		classPtr = actor.ClassID
+	} else {
+		v := m.ClassID
+		classPtr = &v
 	}
 	before := `{}`
 	if beforeTitle != nil {
 		before = `{"title":"` + strings.ReplaceAll(*beforeTitle, `"`, ``) + `"}`
 	}
 	after := `{"title":"` + strings.ReplaceAll(m.Title, `"`, ``) + `"}`
-	_, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		class_id, semester_id, actor_user_id, actor_role_assignment_id, actor_type,
-		action, entity_type, entity_id, before_json, after_json, correlation_id, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, 'MATERIAL', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-		classID, semID, actorUser, actorAssignment, actorType, action, m.ID, before, after, corr,
-	)
-	return err
+	eid := m.ID
+	return audit.Write(ctx, tx, audit.Entry{
+		Actor:         actorEntry,
+		ClassID:       classPtr,
+		SemesterID:    actor.SemesterID,
+		Action:        action,
+		EntityType:    "MATERIAL",
+		EntityID:      &eid,
+		BeforeJSON:    &before,
+		AfterJSON:     &after,
+		CorrelationID: corr,
+	})
 }
 
 // MaterialScope carries the ownership of a material for pre-write authorization.

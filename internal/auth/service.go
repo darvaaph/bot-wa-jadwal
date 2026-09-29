@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bot-jadwal/internal/audit"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -118,16 +119,19 @@ func (s *Service) ProvisionInitialSystemAdmin(ctx context.Context, in ProvisionI
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
-		actor_user_id, actor_role_assignment_id, actor_context_json, actor_type,
-		action, entity_type, entity_id, after_json, reason, correlation_id,
-		created_at, updated_at
-	) VALUES (?, ?, ?, 'USER', 'PROVISION_SYSTEM_ADMIN', 'USER', ?, ?, ?, ?, ?, ?)`,
-		userID, assignmentID,
-		`{"role":"SYSTEM_ADMIN","scope_type":"GLOBAL","provisioning":true}`,
-		userID, `{"status":"ACTIVE","session_version":1}`,
-		"initial installation provisioning", correlationID, formatTime(now), formatTime(now),
-	); err != nil {
+	actorCtx := `{"role":"SYSTEM_ADMIN","scope_type":"GLOBAL","provisioning":true}`
+	afterJSON := `{"status":"ACTIVE","session_version":1}`
+	eid := userID
+	if err := audit.Write(ctx, tx, audit.Entry{
+		Actor:            audit.Actor{Type: "USER", UserID: &userID, RoleAssignmentID: &assignmentID},
+		Action:           "PROVISION_SYSTEM_ADMIN",
+		EntityType:       "USER",
+		EntityID:         &eid,
+		AfterJSON:        &afterJSON,
+		Reason:           "initial installation provisioning",
+		CorrelationID:    correlationID,
+		ActorContextJSON: &actorCtx,
+	}); err != nil {
 		return nil, nil, fmt.Errorf("mencatat audit provisioning: %w", err)
 	}
 

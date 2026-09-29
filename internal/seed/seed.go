@@ -323,6 +323,17 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 		return nil, fmt.Errorf("gagal menyimpan data kelas: %w", err)
 	}
 
+	var seedActorID int64
+	err = tx.QueryRow(`
+		INSERT INTO users (identity_key, display_name, password_hash, status)
+		VALUES ('system:seed', 'Seed Import', 'disabled', 'ACTIVE')
+		ON CONFLICT(identity_key) DO UPDATE SET display_name = excluded.display_name
+		RETURNING id;
+	`).Scan(&seedActorID)
+	if err != nil {
+		return nil, fmt.Errorf("gagal menyiapkan pelaku seed: %w", err)
+	}
+
 	// 2. Tulis atau perbarui Pengaturan Kelas (class_settings)
 	timezone := strings.TrimSpace(cm.Timezone)
 	if timezone == "" {
@@ -345,7 +356,11 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 
 	// 3. Tulis atau perbarui Semester Aktif
 	// Pastikan hanya satu semester aktif untuk kelas ini
-	_, _ = tx.Exec(`UPDATE semesters SET status = 'ARCHIVED' WHERE class_id = ? AND status = 'ACTIVE';`, classID)
+	_, _ = tx.Exec(`
+		UPDATE semesters
+		SET status = 'ARCHIVED', archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP)
+		WHERE class_id = ? AND status = 'ACTIVE';
+	`, classID)
 
 	var semesterID int64
 	err = tx.QueryRow(`
@@ -354,7 +369,10 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 		ON CONFLICT(class_id, academic_year, term) DO UPDATE SET
 			starts_on = excluded.starts_on,
 			ends_on = excluded.ends_on,
-			status = 'ACTIVE'
+			status = 'ACTIVE',
+			published_at = COALESCE(semesters.published_at, CURRENT_TIMESTAMP),
+			activated_at = CURRENT_TIMESTAMP,
+			archived_at = NULL
 		RETURNING id;
 	`, classID, cm.AcademicYear, cm.Term, cm.StartsOn, cm.EndsOn).Scan(&semesterID)
 	if err != nil {
@@ -581,7 +599,7 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 	// 7. Migrasi Data Warisan (Legacy Tasks & Links) jika legacy DB tersedia
 	if legacyDBPath != "" {
 		if _, statErr := os.Stat(legacyDBPath); statErr == nil {
-			migrateLegacyData(tx, cm, classID, semesterID, legacyDBPath, classReport)
+			migrateLegacyData(tx, cm, classID, semesterID, seedActorID, legacyDBPath, classReport)
 		}
 	}
 
@@ -619,22 +637,26 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 
 	var batchID int64
 	err = tx.QueryRow(`
-		INSERT INTO import_batches (class_id, semester_id, source_type, checksum, status, summary_json)
-		VALUES (?, ?, 'CURRICULUM_SEED', ?, 'APPLIED', ?)
+		INSERT INTO import_batches (
+			class_id, semester_id, source_type, source_checksum, status,
+			created_by_user_id, summary_json
+		)
+		VALUES (?, ?, 'CURRICULUM_SEED', ?, 'APPLIED', ?, ?)
 		RETURNING id;
-	`, classID, semesterID, sourceHash, string(summaryJSON)).Scan(&batchID)
+	`, classID, semesterID, sourceHash, seedActorID, string(summaryJSON)).Scan(&batchID)
 	if err == nil {
 		for _, f := range classReport.FailedRows {
 			_, _ = tx.Exec(`
-				INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
+				INSERT INTO import_errors (batch_id, source_location, field_name, error_code, message, severity)
 				VALUES (?, ?, ?, ?, ?, ?);
-			`, batchID, f.RowNumber, f.Field, f.ErrorCode, f.Message, f.Severity)
+			`, batchID, fmt.Sprintf("row:%d", f.RowNumber), f.Field, f.ErrorCode, f.Message, f.Severity)
 		}
 		for _, q := range classReport.ResolutionQueue {
 			_, _ = tx.Exec(`
-				INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
-				VALUES (?, 0, ?, 'RESOLUTION_QUEUE', ?, 'WARNING');
-			`, batchID, q.SourceType, fmt.Sprintf("[%s] %s: %s", q.SourceID, q.Subject, q.Reason))
+				INSERT INTO import_errors (batch_id, source_location, field_name, error_code, message, severity)
+				VALUES (?, ?, ?, 'RESOLUTION_QUEUE', ?, 'WARNING');
+			`, batchID, fmt.Sprintf("legacy:%s:%s", q.SourceType, q.SourceID), q.SourceType,
+				fmt.Sprintf("[%s] %s: %s", q.SourceID, q.Subject, q.Reason))
 		}
 	}
 
@@ -659,6 +681,7 @@ func migrateLegacyData(
 	cm ClassMapping,
 	classID int64,
 	semesterID int64,
+	seedActorID int64,
 	legacyDBPath string,
 	classReport *ClassSeedReport,
 ) {
@@ -740,7 +763,8 @@ func migrateLegacyData(
 				continue
 			}
 
-			// Tepat 1 offering cocok: Impor sebagai PUBLISHED + NOT_REVIEWED
+			// Tepat 1 offering cocok. Data lama tidak menyimpan tempat pengumpulan,
+			// sehingga tugas masuk sebagai DRAFT untuk dilengkapi sebelum diterbitkan.
 			targetOffering := matched[0]
 			var taskDeadline time.Time
 			if deadlineAt.Valid {
@@ -769,10 +793,11 @@ func migrateLegacyData(
 				_, _ = tx.Exec(`
 					INSERT INTO tasks (
 						course_offering_id, title, instructions, deadline_at,
-						publication_status, review_state, version, created_at, completed_at
+						publication_status, review_state, created_by_user_id,
+						version, created_at, completed_at
 					)
-					VALUES (?, ?, ?, ?, 'PUBLISHED', 'NOT_REVIEWED', 1, ?, ?);
-				`, targetOffering.ID, title, deskripsi, taskDeadline, createdAt, completedAt)
+					VALUES (?, ?, ?, ?, 'DRAFT', 'NOT_REVIEWED', ?, 1, ?, ?);
+				`, targetOffering.ID, title, deskripsi, taskDeadline, seedActorID, createdAt, completedAt)
 			}
 		}
 	}
@@ -806,10 +831,10 @@ func migrateLegacyData(
 				_, _ = tx.Exec(`
 					INSERT INTO materials (
 						class_id, title, material_type, url, description,
-						visibility, status, version, created_at
+						visibility, status, created_by_user_id, version, created_at
 					)
-					VALUES (?, ?, ?, ?, ?, 'CLASS_ACCESS', 'ACTIVE', 1, ?);
-				`, classID, title, matType, urlStr, desc, createdAt)
+					VALUES (?, ?, ?, ?, ?, 'CLASS_ACCESS', 'ACTIVE', ?, 1, ?);
+				`, classID, title, matType, urlStr, desc, seedActorID, createdAt)
 			}
 		}
 	}

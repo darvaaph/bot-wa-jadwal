@@ -9,7 +9,7 @@
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 23 September 2026 |
 | Acuan keputusan | [Product Definition](PRODUCT_DEFINITION.md) |
-| Sumber riset | [Wawancara 11 pengguna](../user-interviews/README.md) |
+| Sumber riset | [Wawancara 11 pengguna](../archive/user-interviews/README.md) |
 | Turunan sistem | [Functional Requirements](FUNCTIONAL_REQUIREMENTS.md) |
 | Matriks | [Traceability Matrix](TRACEABILITY.md) |
 
