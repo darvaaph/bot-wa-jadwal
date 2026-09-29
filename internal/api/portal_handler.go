@@ -6,10 +6,19 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"bot-jadwal/internal/portal"
 )
+
+func extractPortalToken(r *http.Request) string {
+	token := strings.TrimSpace(r.Header.Get("X-Portal-Token"))
+	if token == "" {
+		token = strings.TrimSpace(r.URL.Query().Get("portal_token"))
+	}
+	return token
+}
 
 // portalAccessAllowed memeriksa mode portal dan memvalidasi token jika mode CODE.
 func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, classID int64) bool {
@@ -29,10 +38,7 @@ func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, cla
 		return true
 	}
 
-	token := r.Header.Get("X-Portal-Token")
-	if token == "" {
-		token = r.URL.Query().Get("portal_token")
-	}
+	token := extractPortalToken(r)
 
 	if token == "" {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Kelas ini memerlukan kode akses portal")

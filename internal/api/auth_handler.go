@@ -6,11 +6,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/portal"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -417,6 +419,14 @@ func (s *Server) handleSwitchContext(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleGetV1ClassesAccess(w http.ResponseWriter, r *http.Request) {
+	if extractPortalToken(r) != "" {
+		s.handleGetV1Classes(w, r)
+		return
+	}
+	s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetV1Classes))(w, r)
+}
+
 // handleGetV1Classes menangani GET /api/v1/classes
 func (s *Server) handleGetV1Classes(w http.ResponseWriter, r *http.Request) {
 	if s.v1DB == nil {
@@ -424,31 +434,79 @@ func (s *Server) handleGetV1Classes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.v1DB.Query(`
+	var scopedClassID sql.NullInt64
+	if u, ok := GetAuthContext(r); ok {
+		switch u.ActiveRole {
+		case "SYSTEM_ADMIN":
+		case "KM":
+			if !u.ActiveClassID.Valid {
+				s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Konteks kelas KM tidak valid")
+				return
+			}
+			scopedClassID = u.ActiveClassID
+		default:
+			s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Peran aktif tidak dapat melihat daftar kelas")
+			return
+		}
+	} else {
+		portalToken := extractPortalToken(r)
+		if portalToken == "" {
+			s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Autentikasi atau token portal diperlukan")
+			return
+		}
+		if s.portalService == nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Layanan portal belum siap")
+			return
+		}
+		classID, err := s.portalService.ResolveSession(r.Context(), portalToken)
+		if err != nil {
+			if errors.Is(err, portal.ErrInvalidCode) {
+				s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Sesi portal tidak valid atau telah kedaluwarsa")
+			} else {
+				s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi sesi portal")
+			}
+			return
+		}
+		scopedClassID = sql.NullInt64{Int64: classID, Valid: true}
+	}
+
+	query := `
 		SELECT slug, code, study_program, cohort_year, group_label, status
-		FROM classes
-		ORDER BY code;
-	`)
+		FROM classes`
+	args := []any{}
+	if scopedClassID.Valid {
+		query += ` WHERE id = ?`
+		args = append(args, scopedClassID.Int64)
+	}
+	query += ` ORDER BY code`
+
+	rows, err := s.v1DB.QueryContext(r.Context(), query, args...)
 	if err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengambil daftar kelas")
 		return
 	}
 	defer rows.Close()
 
-	var classes []map[string]any
+	classes := make([]map[string]any, 0)
 	for rows.Next() {
 		var slug, code, prog, grp, st string
 		var cohort int
-		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st); err == nil {
-			classes = append(classes, map[string]any{
-				"slug":    slug,
-				"code":    code,
-				"program": prog,
-				"cohort":  cohort,
-				"group":   grp,
-				"status":  st,
-			})
+		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st); err != nil {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca daftar kelas")
+			return
 		}
+		classes = append(classes, map[string]any{
+			"slug":    slug,
+			"code":    code,
+			"program": prog,
+			"cohort":  cohort,
+			"group":   grp,
+			"status":  st,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca daftar kelas")
+		return
 	}
 
 	s.writeV1Success(w, http.StatusOK, map[string]any{

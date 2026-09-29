@@ -147,7 +147,16 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 2.5 Rotasi Kode Portal Kelas
+### 2.5 Daftar Kelas Sesuai Cakupan
+
+`GET /api/v1/classes`
+
+- Bearer KM mengembalikan hanya kelas pada konteks aktifnya.
+- Bearer System Admin mengembalikan seluruh kelas.
+- `X-Portal-Token` mengembalikan hanya kelas yang terikat pada sesi portal tersebut.
+- Bearer PJ ditolak dengan `403`; permintaan tanpa Bearer maupun portal token ditolak dengan `401`.
+
+### 2.6 Rotasi Kode Portal Kelas
 
 `POST /api/v1/classes/:slug/portal-code/rotate`
 
@@ -157,7 +166,7 @@ Authorization: Bearer <access_token>
 - Tampilkan atau salin `portal_code` saat respons diterima. Nilai mentah tidak dapat diminta kembali dari backend.
 - Rotasi langsung mencabut seluruh sesi portal versi sebelumnya.
 
-### 2.6 Cutover Endpoint Tugas Legacy
+### 2.7 Cutover Endpoint Tugas Legacy
 
 `GET /api/tasks` masih tersedia sementara untuk pembacaan kompatibilitas dan mengambil data dari model v1. Responsnya memiliki header `Deprecation: true` serta `Link` menuju `/api/v1/tasks`.
 

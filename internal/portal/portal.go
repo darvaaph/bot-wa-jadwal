@@ -232,6 +232,42 @@ func (s *Service) ValidateSession(ctx context.Context, classID int64, token stri
 	return nil
 }
 
+func (s *Service) ResolveSession(ctx context.Context, token string) (int64, error) {
+	if strings.TrimSpace(token) == "" {
+		return 0, ErrInvalidCode
+	}
+	var classID int64
+	var version, currentVersion int
+	var expires, mode string
+	var revoked sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT ps.class_id, ps.access_code_version, ps.expires_at,
+		ps.revoked_at, cs.portal_code_version, cs.portal_access_mode
+		FROM portal_sessions ps
+		JOIN class_settings cs ON cs.class_id = ps.class_id
+		WHERE ps.token_hash = ?`, hashToken(token)).
+		Scan(&classID, &version, &expires, &revoked, &currentVersion, &mode)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrInvalidCode
+	}
+	if err != nil {
+		return 0, err
+	}
+	if revoked.Valid || version != currentVersion || strings.ToUpper(strings.TrimSpace(mode)) != "CODE" {
+		return 0, ErrInvalidCode
+	}
+	exp, err := time.Parse(time.RFC3339Nano, expires)
+	if err != nil {
+		exp, err = time.Parse(time.RFC3339, expires)
+		if err != nil {
+			return 0, ErrInvalidCode
+		}
+	}
+	if !time.Now().UTC().Before(exp) {
+		return 0, ErrInvalidCode
+	}
+	return classID, nil
+}
+
 func (s *Service) RotateCode(ctx context.Context, req RotationRequest) (RotationResult, error) {
 	if req.ClassID <= 0 || req.ActorUserID <= 0 || req.ActorRoleAssignment <= 0 {
 		return RotationResult{}, ErrInvalidInput

@@ -316,6 +316,87 @@ func TestV1ManagementCollections_RequireAuthentication(t *testing.T) {
 	}
 }
 
+func TestV1Classes_AccessIsScopedForKMAdminPJAndPortal(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode)
+		VALUES (2, 'Asia/Jakarta', 'LINK');
+	`); err != nil {
+		t.Fatalf("Gagal membuat kelas kedua: %v", err)
+	}
+
+	requestClasses := func(token, portalToken string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/classes", nil)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if portalToken != "" {
+			req.Header.Set("X-Portal-Token", portalToken)
+		}
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+	classSlugs := func(w *httptest.ResponseRecorder) []string {
+		var resp struct {
+			Data struct {
+				Classes []struct {
+					Slug string `json:"slug"`
+				} `json:"classes"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("Respons classes tidak valid: %v", err)
+		}
+		result := make([]string, 0, len(resp.Data.Classes))
+		for _, class := range resp.Data.Classes {
+			result = append(result, class.Slug)
+		}
+		return result
+	}
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	w := requestClasses(kmToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 1 || slugs[0] != "d4-ti-2024-a" {
+		t.Fatalf("KM hanya boleh melihat kelas aktifnya, got %v", slugs)
+	}
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	w = requestClasses(adminToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("Admin classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 2 {
+		t.Fatalf("Admin harus melihat seluruh kelas, got %v", slugs)
+	}
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	w = requestClasses(pjToken, "")
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ classes expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+
+	configurePortalCode(t, db, "123456")
+	portalToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	w = requestClasses("", portalToken)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Portal token classes expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if slugs := classSlugs(w); len(slugs) != 1 || slugs[0] != "d4-ti-2024-a" {
+		t.Fatalf("Portal token hanya boleh melihat kelas terikat, got %v", slugs)
+	}
+
+	w = requestClasses("", "portal-token-invalid")
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Portal token invalid expected 401, got %d", w.Code)
+	}
+}
+
 func TestV1Auth_GetMe_Success(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
