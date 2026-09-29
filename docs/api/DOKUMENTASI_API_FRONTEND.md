@@ -151,7 +151,26 @@ Authorization: Bearer <access_token>
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)
 
-Endpoint pada modul ini bersifat **publik dan read-only**, dapat diakses langsung oleh mahasiswa tanpa token login. `:slug` adalah slug kelas (contoh: `d4-ti-2024-a` atau `d4-ti-2024-b`).
+Endpoint pada modul ini bersifat **read-only**. Kelas mode `LINK` dapat diakses langsung tanpa token login. Kelas mode `CODE` memerlukan sesi portal terbatas. `:slug` adalah slug kelas (contoh: `d4-ti-2024-a` atau `d4-ti-2024-b`).
+
+### 3.0 Membuka Portal Mode CODE
+
+Tukar kode kelas menjadi token sesi:
+
+```http
+POST /api/v1/portal/:slug/session
+Content-Type: application/json
+
+{"code":"123456"}
+```
+
+Respons `201 Created` mengembalikan `portal_token` dan `expires_at`. Simpan token hanya di browser yang membutuhkannya, lalu kirim pada seluruh pembacaan portal melalui `X-Portal-Token`. Token tidak memberikan hak akses ke endpoint pengelola.
+
+```http
+X-Portal-Token: <portal_token>
+```
+
+Kode salah menggunakan respons `401` generik. Setelah lima kegagalan dalam 15 menit, percobaan berikutnya mendapat `429` selama 15 menit.
 
 ### 3.1 Ringkasan Dashboard Kelas (Summary)
 `GET /api/v1/portal/:slug/summary?date=YYYY-MM-DD`

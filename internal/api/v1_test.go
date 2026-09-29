@@ -457,6 +457,144 @@ func TestV1Portal_Endpoints(t *testing.T) {
 	}
 }
 
+func configurePortalCode(t *testing.T, db *sql.DB, code string) {
+	t.Helper()
+	hash := sha256.Sum256([]byte(strings.TrimSpace(code)))
+	if _, err := db.Exec(`UPDATE class_settings
+		SET portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = 2
+		WHERE class_id = 1`, hex.EncodeToString(hash[:])); err != nil {
+		t.Fatalf("Gagal mengatur kode portal: %v", err)
+	}
+}
+
+func createPortalSession(t *testing.T, s *Server, slug, code string) (string, string) {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"code": code})
+	req := httptest.NewRequest("POST", "/api/v1/portal/"+slug+"/session", bytes.NewReader(body))
+	req.RemoteAddr = "198.51.100.10:4567"
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create portal session expected 201, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Data struct {
+			Token     string `json:"portal_token"`
+			ExpiresAt string `json:"expires_at"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons sesi portal tidak valid: %v", err)
+	}
+	if resp.Data.Token == "" || resp.Data.ExpiresAt == "" {
+		t.Fatalf("Respons sesi portal tidak lengkap: %s", w.Body.String())
+	}
+	return resp.Data.Token, resp.Data.ExpiresAt
+}
+
+func TestV1PortalSession_ExchangeStoresOnlyTokenHash(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+
+	token, expiresAt := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	if _, err := time.Parse(time.RFC3339, expiresAt); err != nil {
+		t.Fatalf("expires_at harus RFC3339: %q", expiresAt)
+	}
+
+	var storedHash string
+	var version int
+	if err := db.QueryRow(`SELECT token_hash, access_code_version FROM portal_sessions`).Scan(&storedHash, &version); err != nil {
+		t.Fatalf("Sesi portal tidak tersimpan: %v", err)
+	}
+	expectedHash := sha256.Sum256([]byte(token))
+	if storedHash == token || storedHash != hex.EncodeToString(expectedHash[:]) {
+		t.Fatalf("Database harus menyimpan hash token, bukan token mentah")
+	}
+	if version != 2 {
+		t.Fatalf("access_code_version expected 2, got %d", version)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Token portal valid expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1PortalSession_RejectsInvalidExpiredAndRevokedTokens(t *testing.T) {
+	t.Run("invalid code and unknown class use generic response", func(t *testing.T) {
+		db, s := setupV1TestEnv(t)
+		configurePortalCode(t, db, "123456")
+
+		for _, tc := range []struct {
+			slug string
+			code string
+		}{
+			{slug: "d4-ti-2024-a", code: "000000"},
+			{slug: "kelas-tidak-ada", code: "123456"},
+		} {
+			body, _ := json.Marshal(map[string]string{"code": tc.code})
+			req := httptest.NewRequest("POST", "/api/v1/portal/"+tc.slug+"/session", bytes.NewReader(body))
+			req.RemoteAddr = "198.51.100.11:4567"
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "Kode portal tidak valid") {
+				t.Fatalf("Respons kode invalid harus generik, got %d: %s", w.Code, w.Body.String())
+			}
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		update string
+	}{
+		{name: "expired", update: `UPDATE portal_sessions SET created_at = '1999-01-01T00:00:00Z', expires_at = '2000-01-01T00:00:00Z'`},
+		{name: "revoked", update: `UPDATE portal_sessions SET revoked_at = CURRENT_TIMESTAMP`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, s := setupV1TestEnv(t)
+			configurePortalCode(t, db, "123456")
+			token, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+			if _, err := db.Exec(tc.update); err != nil {
+				t.Fatalf("Gagal mengubah sesi portal: %v", err)
+			}
+
+			req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+			req.Header.Set("X-Portal-Token", token)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("Token %s expected 401, got %d", tc.name, w.Code)
+			}
+		})
+	}
+}
+
+func TestV1PortalSession_RateLimitsFailedCodes(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+
+	for attempt := 1; attempt <= 6; attempt++ {
+		body := bytes.NewBufferString(`{"code":"000000"}`)
+		req := httptest.NewRequest("POST", "/api/v1/portal/d4-ti-2024-a/session", body)
+		req.RemoteAddr = "203.0.113.7:9999"
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+
+		expected := http.StatusUnauthorized
+		if attempt == 6 {
+			expected = http.StatusTooManyRequests
+		}
+		if w.Code != expected {
+			t.Fatalf("Percobaan %d expected %d, got %d. Body: %s", attempt, expected, w.Code, w.Body.String())
+		}
+	}
+}
+
 // 3. Tasks Management & Optimistic Locking Tests
 
 func TestV1Tasks_CreateDraftAndPublish(t *testing.T) {

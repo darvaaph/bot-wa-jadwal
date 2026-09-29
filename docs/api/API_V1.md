@@ -9,7 +9,7 @@
 - Base: `/api/v1`. JSON saja, UTF-8. Waktu tulis = UTC RFC3339 (`deadline_at`, `starts_at`); tampil = zona `class_settings.timezone` (default `Asia/Jakarta`).
 - Envelope sukses: `{ "status":"success", "data":{...} }` atau `"data":[...]` + opsional `"meta":{page,per_page,total}`.
 - Envelope gagal: `{ "status":"error", "error":{ "code":"STRING", "message":"id...", "details":{...} } }`.
-  Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | NOT_IMPLEMENTED 501`.
+  Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | TOO_MANY_REQUESTS 429 | NOT_IMPLEMENTED 501`.
 - Optimistic locking: semua PATCH/POST-publish kirim `version`; mismatch → `409 + {current_version, current_data}`; input user tidak boleh hilang (FE wajib tampilkan diff).
 - Scope diambil dari sesi server, bukan dari payload. `class_id/semester_id/offering_id` di URL diverifikasi lawan `active_role_assignment_id`.
 - Audit: publish/revoke/delete/restore/assign-role selalu tulis `audit_logs` (tak ada endpoint tulis audit langsung).
@@ -31,6 +31,8 @@ Header: `Authorization: Bearer <token>`. Cookie `bv1` httpOnly opsional sebagai 
 ## 2. Portal baca (mahasiswa, `FR-ACCESS-001`)
 
 Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_token=` berisi sesi portal.
+
+`POST /api/v1/portal/:slug/session` menukar `{code}` dengan `{portal_token, expires_at}`. Token mentah hanya dikirim pada respons ini; server menyimpan hash token. Kode salah dan slug yang tidak dikenal sama-sama menghasilkan pesan `401` generik. Lima kegagalan dalam 15 menit membatasi sumber dan kelas tersebut selama 15 menit.
 
 | Method & Path | Respon `data` |
 |---|---|

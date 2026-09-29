@@ -1,9 +1,7 @@
 package api
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,17 +11,13 @@ import (
 // portalAccessAllowed memeriksa mode portal dan memvalidasi token jika mode CODE.
 func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, classID int64) bool {
 	var mode string
-	var version int
 	err := s.v1DB.QueryRow(`
-		SELECT portal_access_mode, portal_code_version
+		SELECT portal_access_mode
 		FROM class_settings
 		WHERE class_id = ?;
-	`, classID).Scan(&mode, &version)
+	`, classID).Scan(&mode)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return true
-		}
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat pengaturan kelas")
 		return false
 	}
@@ -42,19 +36,7 @@ func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, cla
 		return false
 	}
 
-	hasher := sha256.New()
-	hasher.Write([]byte(token))
-	tokenHash := hex.EncodeToString(hasher.Sum(nil))
-
-	var sessionID int64
-	err = s.v1DB.QueryRow(`
-		SELECT id
-		FROM portal_sessions
-		WHERE token_hash = ? AND class_id = ? AND access_code_version = ?
-		  AND revoked_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-	`, tokenHash, classID, version).Scan(&sessionID)
-
-	if err != nil {
+	if s.portalService == nil || s.portalService.ValidateSession(r.Context(), classID, token) != nil {
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Sesi portal tidak valid atau telah kedaluwarsa")
 		return false
 	}

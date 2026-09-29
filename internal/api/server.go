@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/bot"
+	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/web"
@@ -26,6 +27,7 @@ type Server struct {
 	classManager  *schedule.ClassManager
 	taskManager   *task.TaskManager
 	v1DB          *sql.DB
+	portalService *portal.Service
 	storageDir    string
 	secureCookies bool
 }
@@ -61,6 +63,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	}
 	if len(v1DB) > 0 && v1DB[0] != nil {
 		s.v1DB = v1DB[0]
+		s.portalService = portal.NewService(v1DB[0])
 	}
 
 	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
@@ -88,6 +91,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)
 
 	// 2. Portal Mahasiswa (§2)
+	mux.HandleFunc("POST /api/v1/portal/{slug}/session", s.handleCreatePortalSession)
 	mux.HandleFunc("GET /api/v1/portal/{slug}/summary", s.handlePortalSummary)
 	mux.HandleFunc("GET /api/v1/portal/{slug}/schedule", s.handlePortalSchedule)
 	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks", s.handlePortalTasks)

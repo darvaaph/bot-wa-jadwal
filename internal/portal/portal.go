@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -33,6 +34,11 @@ type Service struct {
 	// failures tracks recent failures per class+source for rate limiting.
 	failures map[string][]time.Time
 	blocks   map[string]time.Time
+}
+
+type Session struct {
+	Token     string
+	ExpiresAt time.Time
 }
 
 func NewService(db *sql.DB) *Service {
@@ -122,13 +128,13 @@ func (s *Service) clearFailures(classID int64, source string) {
 
 // VerifyCode checks the class code and creates a portal session on success.
 // Returns raw session token for cookie/header use.
-func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source string) (string, error) {
+func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source string) (Session, error) {
 	if strings.TrimSpace(code) == "" {
-		return "", ErrInvalidInput
+		return Session{}, ErrInvalidInput
 	}
 	now := time.Now().UTC()
 	if err := s.checkRateLimit(classID, source, now); err != nil {
-		return "", err
+		return Session{}, err
 	}
 	var mode, codeHash sql.NullString
 	var version int
@@ -136,30 +142,32 @@ func (s *Service) VerifyCode(ctx context.Context, classID int64, code, source st
 		FROM class_settings WHERE class_id = ?`, classID).Scan(&mode, &codeHash, &version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", ErrNotFound
+			return Session{}, ErrNotFound
 		}
-		return "", err
+		return Session{}, err
 	}
 	if strings.ToUpper(strings.TrimSpace(mode.String)) != "CODE" || !codeHash.Valid {
-		return "", ErrNotFound
+		return Session{}, ErrNotFound
 	}
-	if hashCode(code) != strings.TrimSpace(codeHash.String) {
+	actualHash := hashCode(code)
+	expectedHash := strings.TrimSpace(codeHash.String)
+	if subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedHash)) != 1 {
 		s.recordFailure(classID, source, now)
-		return "", ErrInvalidCode
+		return Session{}, ErrInvalidCode
 	}
 	s.clearFailures(classID, source)
 
 	token, err := newToken()
 	if err != nil {
-		return "", err
+		return Session{}, err
 	}
 	expires := now.Add(sessionTTL)
 	_, err = s.db.ExecContext(ctx, `INSERT INTO portal_sessions (class_id, token_hash, access_code_version, expires_at)
 		VALUES (?, ?, ?, ?)`, classID, hashToken(token), version, expires.Format(time.RFC3339Nano))
 	if err != nil {
-		return "", err
+		return Session{}, err
 	}
-	return token, nil
+	return Session{Token: token, ExpiresAt: expires}, nil
 }
 
 // ValidateSession checks a portal token for a class (version-aware).
