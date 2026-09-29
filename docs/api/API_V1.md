@@ -107,7 +107,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `GET /api/health`, `/api/status`, `/api/classes` | Tetap + header `Deprecation: true`; `/api/status` tambah `v1:"/api/v1/portal/:slug/summary"` |
 | `GET /api/schedule?class=&day=` | Terjemahkan `class→slug`, `day→date`; baca dari patterns+events DB baru (kelas pilot), fallback JSON lama di luar pilot |
 | `GET /api/tasks?class=` | Petakan `class→offering` pilot; field lama `matkul/deskripsi/deadline` diisi dari `display_name/title/deadline_at` |
-| `POST /api/tasks`, `DELETE /api/tasks/{id}` | Tulis ke model baru sebagai `PUBLISHED` + audit `LEGACY_SHIM`; DELETE = soft-delete beraudit |
+| `POST /api/tasks`, `DELETE /api/tasks/{id}` | `410 Gone` + tautan pengganti `/api/v1/tasks`; write legacy dihentikan agar tidak ada dua sumber data (ADR-0007) |
 
 ## 9. Contoh
 

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,7 +141,7 @@ func TestTaskHandler_GetTasks_Empty(t *testing.T) {
 	}
 }
 
-func TestTaskHandler_CreateTask_Success(t *testing.T) {
+func TestTaskHandler_CreateTask_GoneWithoutWritingLegacyDatabase(t *testing.T) {
 	s := newTestServer(t)
 
 	body := []byte(`{
@@ -151,35 +152,19 @@ func TestTaskHandler_CreateTask_Success(t *testing.T) {
 
 	rr := performRequest(t, s, "POST", "/api/tasks", body)
 
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("Expected status 201, got %d. Body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d. Body: %s", rr.Code, rr.Body.String())
 	}
-
-	var resp struct {
-		Status string           `json:"status"`
-		Data   TaskResponseItem `json:"data"`
-	}
-	decodeResponse(t, rr, &resp)
-
-	if resp.Status != "success" {
-		t.Errorf("Expected status 'success', got '%s'", resp.Status)
-	}
-	if resp.Data.ID <= 0 {
-		t.Errorf("Expected positive task id, got %d", resp.Data.ID)
-	}
-	if resp.Data.Matkul != "JARINGAN KOMPUTER" {
-		t.Errorf("Expected matkul 'JARINGAN KOMPUTER', got '%s'", resp.Data.Matkul)
-	}
-	if resp.Data.IsDone {
-		t.Errorf("Expected is_done false for new task")
+	if rr.Header().Get("Deprecation") != "true" || !strings.Contains(rr.Header().Get("Link"), "/api/v1/tasks") {
+		t.Fatal("Legacy write harus mengarahkan klien ke API v1")
 	}
 
 	items, err := s.taskManager.GetAllActiveTasks(time.Now())
 	if err != nil {
 		t.Fatalf("Gagal membaca tugas: %v", err)
 	}
-	if len(items) != 1 {
-		t.Errorf("Expected 1 task in database, got %d", len(items))
+	if len(items) != 0 {
+		t.Errorf("Legacy POST tidak boleh menulis database lama, got %d task", len(items))
 	}
 }
 
@@ -189,8 +174,8 @@ func TestTaskHandler_CreateTask_MissingMatkul(t *testing.T) {
 	body := []byte(`{"matkul": "", "deskripsi": "Subnetting VLSM"}`)
 	rr := performRequest(t, s, "POST", "/api/tasks", body)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("Expected status 400, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 
 	var resp struct {
@@ -213,8 +198,8 @@ func TestTaskHandler_CreateTask_MissingDeskripsi(t *testing.T) {
 	body := []byte(`{"matkul": "SISTEM BASIS DATA", "deskripsi": "  "}`)
 	rr := performRequest(t, s, "POST", "/api/tasks", body)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("Expected status 400, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 
 	var resp struct {
@@ -237,12 +222,12 @@ func TestTaskHandler_CreateTask_InvalidJSON(t *testing.T) {
 	body := []byte(`{"matkul": "SISTEM BASIS DATA", deskripsi: invalid}`)
 	rr := performRequest(t, s, "POST", "/api/tasks", body)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("Expected status 400, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 }
 
-func TestTaskHandler_DeleteTask_Success(t *testing.T) {
+func TestTaskHandler_DeleteTask_GoneWithoutPhysicalDelete(t *testing.T) {
 	s := newTestServer(t)
 
 	id, _, err := s.taskManager.AddWebTask("SISTEM BASIS DATA", "Latihan ERD", "Jumat 11 sep 23:59", "web-dashboard", time.Now())
@@ -252,29 +237,16 @@ func TestTaskHandler_DeleteTask_Success(t *testing.T) {
 
 	rr := performRequest(t, s, "DELETE", "/api/tasks/"+strconv.FormatInt(id, 10), nil)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("Expected status 200, got %d", rr.Code)
-	}
-
-	var resp struct {
-		Status  string `json:"status"`
-		Message string `json:"message"`
-	}
-	decodeResponse(t, rr, &resp)
-
-	if resp.Status != "success" {
-		t.Errorf("Expected status 'success', got '%s'", resp.Status)
-	}
-	if resp.Message == "" {
-		t.Errorf("Expected non-empty success message")
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 
 	items, err := s.taskManager.GetAllActiveTasks(time.Now())
 	if err != nil {
 		t.Fatalf("Gagal membaca tugas: %v", err)
 	}
-	if len(items) != 0 {
-		t.Errorf("Expected no active tasks after delete, got %d", len(items))
+	if len(items) != 1 {
+		t.Errorf("Legacy DELETE tidak boleh menghapus fisik data lama, got %d task", len(items))
 	}
 }
 
@@ -283,8 +255,8 @@ func TestTaskHandler_DeleteTask_NotFound(t *testing.T) {
 
 	rr := performRequest(t, s, "DELETE", "/api/tasks/9999", nil)
 
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("Expected status 404, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 
 	var resp struct {
@@ -303,8 +275,8 @@ func TestTaskHandler_DeleteTask_InvalidID(t *testing.T) {
 
 	rr := performRequest(t, s, "DELETE", "/api/tasks/abc", nil)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("Expected status 400, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 }
 
@@ -313,8 +285,8 @@ func TestTaskHandler_DeleteTask_NegativeID(t *testing.T) {
 
 	rr := performRequest(t, s, "DELETE", "/api/tasks/-1", nil)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("Expected status 400, got %d", rr.Code)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d", rr.Code)
 	}
 }
 
@@ -327,7 +299,7 @@ func TestTaskHandler_UninitializedTaskManager(t *testing.T) {
 	}
 }
 
-func TestTaskHandler_CreateTask_WithClassID(t *testing.T) {
+func TestTaskHandler_CreateTask_WithClassIDIsGone(t *testing.T) {
 	s := newTestServer(t)
 
 	body := []byte(`{
@@ -338,21 +310,8 @@ func TestTaskHandler_CreateTask_WithClassID(t *testing.T) {
 	}`)
 
 	rr := performRequest(t, s, "POST", "/api/tasks", body)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("Expected status 201, got %d: %s", rr.Code, rr.Body.String())
-	}
-
-	var resp struct {
-		Status string           `json:"status"`
-		Data   TaskResponseItem `json:"data"`
-	}
-	decodeResponse(t, rr, &resp)
-
-	if resp.Data.ClassID != "D4-TI-3A" {
-		t.Errorf("Expected ClassID 'D4-TI-3A', got '%s'", resp.Data.ClassID)
-	}
-	if resp.Data.Matkul != "SISTEM OPERASI" {
-		t.Errorf("Expected Matkul 'SISTEM OPERASI', got '%s'", resp.Data.Matkul)
+	if rr.Code != http.StatusGone {
+		t.Fatalf("Expected status 410, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 

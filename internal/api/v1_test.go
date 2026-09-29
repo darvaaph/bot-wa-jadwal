@@ -457,6 +457,41 @@ func TestV1Portal_Endpoints(t *testing.T) {
 	}
 }
 
+func TestLegacyTasks_GetReadsCanonicalV1Model(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`INSERT INTO tasks (
+		course_offering_id, created_by_user_id, title, instructions, deadline_at,
+		publication_status, review_state, version
+	) VALUES (1, 2, 'Draf Tidak Boleh Bocor', 'Instruksi', ?, 'DRAFT', 'NOT_REVIEWED', 1)`,
+		time.Now().Add(24*time.Hour).UTC().Format(time.RFC3339)); err != nil {
+		t.Fatalf("Gagal membuat tugas draf: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/tasks?class=D4-TI-2024-A", nil)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Legacy GET expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("Deprecation") != "true" || !strings.Contains(w.Header().Get("Link"), "/api/v1/tasks") {
+		t.Fatal("Legacy GET harus memiliki header deprecation dan successor-version")
+	}
+
+	var resp struct {
+		Data []TaskResponseItem `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons legacy GET tidak valid: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("Legacy GET harus membaca hanya tugas PUBLISHED dari v1, got %d", len(resp.Data))
+	}
+	item := resp.Data[0]
+	if item.ID != 1 || item.ClassID != "D4-TI-2024-A" || item.Matkul != "Struktur Data (Teori)" || item.Deskripsi != "Tugas Algoritma 1" {
+		t.Fatalf("Pemetaan legacy dari v1 tidak sesuai: %+v", item)
+	}
+}
+
 func configurePortalCode(t *testing.T, db *sql.DB, code string) {
 	t.Helper()
 	hash := sha256.Sum256([]byte(strings.TrimSpace(code)))

@@ -157,6 +157,12 @@ Authorization: Bearer <access_token>
 - Tampilkan atau salin `portal_code` saat respons diterima. Nilai mentah tidak dapat diminta kembali dari backend.
 - Rotasi langsung mencabut seluruh sesi portal versi sebelumnya.
 
+### 2.6 Cutover Endpoint Tugas Legacy
+
+`GET /api/tasks` masih tersedia sementara untuk pembacaan kompatibilitas dan mengambil data dari model v1. Responsnya memiliki header `Deprecation: true` serta `Link` menuju `/api/v1/tasks`.
+
+`POST /api/tasks` dan `DELETE /api/tasks/:id` telah dihentikan dan selalu mengembalikan `410 Gone`. Seluruh perubahan tugas wajib menggunakan endpoint `/api/v1/tasks` dengan sesi pengelola yang valid.
+
 ---
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)
