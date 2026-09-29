@@ -2,10 +2,13 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+
+	"bot-jadwal/internal/portal"
 )
 
 // portalAccessAllowed memeriksa mode portal dan memvalidasi token jika mode CODE.
@@ -36,7 +39,15 @@ func (s *Server) portalAccessAllowed(w http.ResponseWriter, r *http.Request, cla
 		return false
 	}
 
-	if s.portalService == nil || s.portalService.ValidateSession(r.Context(), classID, token) != nil {
+	if s.portalService == nil {
+		s.writeV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Layanan portal belum siap")
+		return false
+	}
+	if err := s.portalService.ValidateSession(r.Context(), classID, token); err != nil {
+		if !errors.Is(err, portal.ErrInvalidCode) {
+			s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi sesi portal")
+			return false
+		}
 		s.writeV1Error(w, http.StatusUnauthorized, CodeUnauthenticated, "Sesi portal tidak valid atau telah kedaluwarsa")
 		return false
 	}

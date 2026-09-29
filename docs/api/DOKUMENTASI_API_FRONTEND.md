@@ -147,6 +147,16 @@ Authorization: Bearer <access_token>
 }
 ```
 
+### 2.5 Rotasi Kode Portal Kelas
+
+`POST /api/v1/classes/:slug/portal-code/rotate`
+
+- **Auth:** KM pada kelas tersebut atau System Admin.
+- **Request Body:** `{}` agar server membuat kode 8 digit, atau `{"code":"kode-baru"}` untuk menentukan kode sepanjang 6–128 karakter.
+- **Response:** `portal_code`, `portal_code_version`, `portal_access_mode`, dan `reveal_once:true`.
+- Tampilkan atau salin `portal_code` saat respons diterima. Nilai mentah tidak dapat diminta kembali dari backend.
+- Rotasi langsung mencabut seluruh sesi portal versi sebelumnya.
+
 ---
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)

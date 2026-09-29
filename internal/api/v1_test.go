@@ -595,6 +595,160 @@ func TestV1PortalSession_RateLimitsFailedCodes(t *testing.T) {
 	}
 }
 
+func rotatePortalCode(t *testing.T, s *Server, token, slug, payload string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/v1/classes/"+slug+"/portal-code/rotate", strings.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	return w
+}
+
+func TestV1PortalCodeRotate_RevokesOldSessionsAndAuditsWithoutCode(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+	oldToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Rotate portal code expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Code       string `json:"portal_code"`
+			Version    int    `json:"portal_code_version"`
+			RevealOnce bool   `json:"reveal_once"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Respons rotasi tidak valid: %v", err)
+	}
+	if resp.Data.Code != "654321" || resp.Data.Version != 3 || !resp.Data.RevealOnce {
+		t.Fatalf("Respons rotasi tidak sesuai: %s", w.Body.String())
+	}
+
+	var mode, storedCodeHash string
+	var version int
+	if err := db.QueryRow(`SELECT portal_access_mode, portal_code_hash, portal_code_version
+		FROM class_settings WHERE class_id = 1`).Scan(&mode, &storedCodeHash, &version); err != nil {
+		t.Fatalf("Gagal membaca pengaturan portal: %v", err)
+	}
+	newCodeHash := sha256.Sum256([]byte("654321"))
+	if mode != "CODE" || version != 3 || storedCodeHash != hex.EncodeToString(newCodeHash[:]) || storedCodeHash == "654321" {
+		t.Fatalf("Pengaturan portal setelah rotasi tidak benar")
+	}
+
+	var revokedAt sql.NullString
+	if err := db.QueryRow(`SELECT revoked_at FROM portal_sessions WHERE token_hash = ?`, func() string {
+		h := sha256.Sum256([]byte(oldToken))
+		return hex.EncodeToString(h[:])
+	}()).Scan(&revokedAt); err != nil {
+		t.Fatalf("Gagal membaca sesi lama: %v", err)
+	}
+	if !revokedAt.Valid {
+		t.Fatal("Sesi portal versi lama harus dicabut secara eksplisit")
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", oldToken)
+	portalResponse := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(portalResponse, req)
+	if portalResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("Token lama expected 401, got %d", portalResponse.Code)
+	}
+	createPortalSession(t, s, "d4-ti-2024-a", "654321")
+
+	var actorUserID, actorAssignmentID int64
+	var beforeJSON, afterJSON, correlationID string
+	if err := db.QueryRow(`SELECT actor_user_id, actor_role_assignment_id, before_json, after_json, correlation_id
+		FROM audit_logs WHERE action = 'ROTATE_PORTAL_CODE' ORDER BY id DESC LIMIT 1`).
+		Scan(&actorUserID, &actorAssignmentID, &beforeJSON, &afterJSON, &correlationID); err != nil {
+		t.Fatalf("Audit rotasi tidak ditemukan: %v", err)
+	}
+	if actorUserID != 1 || actorAssignmentID != 1 || strings.TrimSpace(correlationID) == "" {
+		t.Fatalf("Aktor audit rotasi tidak lengkap")
+	}
+	if strings.Contains(beforeJSON+afterJSON, "654321") || strings.Contains(beforeJSON+afterJSON, storedCodeHash) {
+		t.Fatal("Kode portal atau hash-nya tidak boleh masuk audit")
+	}
+}
+
+func TestV1PortalCodeRotate_EnforcesScopeAndAllowsAdminGeneratedCode(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode)
+		VALUES (2, 'Asia/Jakarta', 'LINK');
+	`); err != nil {
+		t.Fatalf("Gagal membuat kelas kedua: %v", err)
+	}
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-b", `{"code":"654321"}`)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM lintas kelas expected 403, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	w = rotatePortalCode(t, s, pjToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ rotate portal code expected 403, got %d", w.Code)
+	}
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	w = rotatePortalCode(t, s, adminToken, "d4-ti-2024-b", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Admin rotate portal code expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Code string `json:"portal_code"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil || len(resp.Data.Code) != 8 {
+		t.Fatalf("Kode portal otomatis harus 8 digit: %s", w.Body.String())
+	}
+}
+
+func TestV1PortalCodeRotate_RollsBackWhenAuditFails(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	configurePortalCode(t, db, "123456")
+	oldToken, _ := createPortalSession(t, s, "d4-ti-2024-a", "123456")
+	if _, err := db.Exec(`CREATE TRIGGER fail_portal_rotation_audit
+		BEFORE INSERT ON audit_logs
+		WHEN NEW.action = 'ROTATE_PORTAL_CODE'
+		BEGIN SELECT RAISE(ABORT, 'forced audit failure'); END;`); err != nil {
+		t.Fatalf("Gagal membuat trigger uji: %v", err)
+	}
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	w := rotatePortalCode(t, s, kmToken, "d4-ti-2024-a", `{"code":"654321"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("Audit gagal expected 500, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	var version int
+	var codeHash string
+	if err := db.QueryRow(`SELECT portal_code_version, portal_code_hash FROM class_settings WHERE class_id = 1`).Scan(&version, &codeHash); err != nil {
+		t.Fatalf("Gagal membaca pengaturan portal: %v", err)
+	}
+	originalHash := sha256.Sum256([]byte("123456"))
+	if version != 2 || codeHash != hex.EncodeToString(originalHash[:]) {
+		t.Fatal("Perubahan kode harus rollback ketika audit gagal")
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/summary", nil)
+	req.Header.Set("X-Portal-Token", oldToken)
+	portalResponse := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(portalResponse, req)
+	if portalResponse.Code != http.StatusOK {
+		t.Fatalf("Sesi lama harus tetap valid setelah rollback, got %d", portalResponse.Code)
+	}
+}
+
 // 3. Tasks Management & Optimistic Locking Tests
 
 func TestV1Tasks_CreateDraftAndPublish(t *testing.T) {

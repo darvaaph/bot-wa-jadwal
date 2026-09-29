@@ -8,7 +8,10 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +22,7 @@ var (
 	ErrInvalidCode  = errors.New("kode kelas tidak valid")
 	ErrRateLimited  = errors.New("terlalu banyak percobaan, coba lagi nanti")
 	ErrInvalidInput = errors.New("input tidak valid")
+	ErrConflict     = errors.New("pengaturan portal berubah, muat ulang")
 )
 
 const (
@@ -41,6 +45,18 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+type RotationRequest struct {
+	ClassID             int64
+	Code                string
+	ActorUserID         int64
+	ActorRoleAssignment int64
+}
+
+type RotationResult struct {
+	Code    string
+	Version int
+}
+
 func NewService(db *sql.DB) *Service {
 	return &Service{db: db, failures: map[string][]time.Time{}, blocks: map[string]time.Time{}}
 }
@@ -61,6 +77,14 @@ func newToken() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+}
+
+func newAccessCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(100_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%08d", n.Int64()), nil
 }
 
 func limiterKey(classID int64, source string) string {
@@ -206,6 +230,96 @@ func (s *Service) ValidateSession(ctx context.Context, classID int64, token stri
 		return ErrInvalidCode
 	}
 	return nil
+}
+
+func (s *Service) RotateCode(ctx context.Context, req RotationRequest) (RotationResult, error) {
+	if req.ClassID <= 0 || req.ActorUserID <= 0 || req.ActorRoleAssignment <= 0 {
+		return RotationResult{}, ErrInvalidInput
+	}
+
+	code := strings.TrimSpace(req.Code)
+	if code == "" {
+		var err error
+		code, err = newAccessCode()
+		if err != nil {
+			return RotationResult{}, err
+		}
+	}
+	if len(code) < 6 || len(code) > 128 {
+		return RotationResult{}, ErrInvalidInput
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return RotationResult{}, err
+	}
+	defer tx.Rollback()
+
+	var previousMode string
+	var previousVersion int
+	err = tx.QueryRowContext(ctx, `SELECT portal_access_mode, portal_code_version
+		FROM class_settings WHERE class_id = ?`, req.ClassID).Scan(&previousMode, &previousVersion)
+	if errors.Is(err, sql.ErrNoRows) {
+		return RotationResult{}, ErrNotFound
+	}
+	if err != nil {
+		return RotationResult{}, err
+	}
+
+	newVersion := previousVersion + 1
+	result, err := tx.ExecContext(ctx, `UPDATE class_settings SET
+		portal_access_mode = 'CODE', portal_code_hash = ?, portal_code_version = ?,
+		version = version + 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE class_id = ? AND portal_code_version = ?`,
+		hashCode(code), newVersion, req.ClassID, previousVersion)
+	if err != nil {
+		return RotationResult{}, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return RotationResult{}, err
+	}
+	if rowsAffected != 1 {
+		return RotationResult{}, ErrConflict
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE portal_sessions
+		SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE class_id = ? AND access_code_version < ? AND revoked_at IS NULL`, req.ClassID, newVersion); err != nil {
+		return RotationResult{}, err
+	}
+
+	beforeJSON, err := json.Marshal(map[string]any{
+		"portal_access_mode":  previousMode,
+		"portal_code_version": previousVersion,
+	})
+	if err != nil {
+		return RotationResult{}, err
+	}
+	afterJSON, err := json.Marshal(map[string]any{
+		"portal_access_mode":  "CODE",
+		"portal_code_version": newVersion,
+	})
+	if err != nil {
+		return RotationResult{}, err
+	}
+	correlationID, err := newToken()
+	if err != nil {
+		return RotationResult{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_logs (
+		actor_type, actor_user_id, actor_role_assignment_id, class_id,
+		action, entity_type, entity_id, before_json, after_json, correlation_id
+	) VALUES ('USER', ?, ?, ?, 'ROTATE_PORTAL_CODE', 'CLASS_SETTINGS', ?, ?, ?, ?)`,
+		req.ActorUserID, req.ActorRoleAssignment, req.ClassID, req.ClassID,
+		string(beforeJSON), string(afterJSON), correlationID); err != nil {
+		return RotationResult{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return RotationResult{}, err
+	}
+	return RotationResult{Code: code, Version: newVersion}, nil
 }
 
 // SetClassCode sets a new portal code (CODE mode) and bumps version, revoking old sessions logically.
