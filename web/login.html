@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Asterisk — Masuk Pengurus</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app-login.js"></script>
+</head>
+<!--
+  MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
+  Verifikasi butuh endpoint backend — form tervalidasi lokal lalu jujur toast.
+-->
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="loginApp()" x-init="initLogin()">
+  <div class="min-h-screen grid grid-cols-1 md:grid-cols-2">
+    <div class="hidden md:flex flex-col justify-between bg-[#F6F7FF] px-12 py-10">
+      <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto self-start" />
+      <div>
+        <h1 class="text-[40px] leading-tight font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Satu tempat untuk kelas yang lebih teratur.</h1>
+        <p class="text-[15px] text-slate-500 mt-3 max-w-md">Tugas, jadwal, materi, dan pengumuman WhatsApp tersusun dalam alur yang mudah diikuti.</p>
+        <div class="mt-8 space-y-5 text-[14px]">
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">01</span><span>Pantau tenggat tugas tanpa terlewat</span></div>
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">02</span><span>Publikasikan informasi ke WhatsApp</span></div>
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">03</span><span>Kelola materi dan event kelas</span></div>
+        </div>
+      </div>
+      <p class="text-[12px] text-slate-400">Asterisk · asisten kelas terhubung WhatsApp</p>
+    </div>
+
+    <div class="flex flex-col px-6 sm:px-12 py-8 md:justify-center">
+      <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto self-start md:hidden" />
+
+      <template x-if="mode === 'masuk'">
+        <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
+          <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Masuk Pengurus</h1>
+          <p class="text-[13px] text-slate-500 mt-1">Sebagai <strong x-text="roleLabel">-</strong> · Nomor WhatsApp + kata sandi.</p>
+          <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
+          <div class="mt-5">
+            <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp <span class="text-[#FF6C48]">*</span></label>
+            <input type="text" x-model="nomor" inputmode="tel" placeholder="0812 3456 7890"
+                   class="w-full h-12 px-3 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
+                   :class="fieldError === 'nomor' ? 'border-red-400' : 'border-[#EEEEEE]'" />
+          </div>
+          <div class="mt-4">
+            <label class="block text-[14px] font-bold mb-1">Kata sandi <span class="text-[#FF6C48]">*</span></label>
+            <div class="relative">
+              <input :type="lihat ? 'text' : 'password'" x-model="sandi" placeholder="••••••••••"
+                     class="w-full h-12 px-3 pr-11 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
+                     :class="fieldError === 'sandi' ? 'border-red-400' : 'border-[#EEEEEE]'" />
+              <button type="button" @click="lihat = !lihat" aria-label="Tampilkan kata sandi" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 min-w-[44px] min-h-[44px] text-[#3965FB]">
+                <span class="material-symbols-outlined" x-text="lihat ? 'visibility_off' : 'visibility'">-</span>
+              </button>
+            </div>
+          </div>
+          <button type="button" @click="masuk()" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[15px] font-medium min-h-[44px]">Masuk</button>
+          <button type="button" @click="mode = 'lupa'" class="mt-3 w-full h-12 rounded-xl border border-[#3965FB] text-[#3965FB] text-[15px] font-medium min-h-[44px]">Lupa kata sandi?</button>
+          <p class="text-[13px] text-slate-500 mt-5">Akun pengurus dibuat melalui undangan WhatsApp dari Superadmin atau KM.</p>
+          <p class="text-[13px] text-slate-500 mt-2">Mahasiswa tidak perlu login. Buka tautan portal kelas dari grup WhatsApp.</p>
+          <a :href="areaUrl" class="mt-4 inline-block text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Lanjut tanpa masuk (pratinjau area) →</a>
+        </div>
+      </template>
+
+      <template x-if="mode === 'lupa'">
+        <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
+          <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Lupa kata sandi?</h1>
+          <p class="text-[13px] text-slate-500 mt-1">Tautan pemulihan dikirim via WhatsApp ke nomor terdaftar.</p>
+          <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
+          <div class="mt-5" x-show="!terkirim">
+            <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp terdaftar <span class="text-[#FF6C48]">*</span></label>
+            <input type="text" x-model="nomor" inputmode="tel" placeholder="0812 3456 7890"
+                   class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            <button type="button" @click="kirimPulih()" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium min-h-[44px]">Kirim tautan pemulihan</button>
+            <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-3 w-full h-12 rounded-xl border border-[#EEEEEE] text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
+          </div>
+          <div x-show="terkirim" class="mt-5 p-5 rounded-2xl border border-emerald-200 bg-emerald-50 text-center">
+            <span class="material-symbols-outlined text-[32px] text-emerald-600">mark_chat_read</span>
+            <p class="font-bold mt-2">Tautan pemulihan terkirim</p>
+            <p class="text-[13px] text-slate-500 mt-1">Cek WhatsApp di nomor tersebut. (Simulasi lokal — pengiriman butuh backend.)</p>
+            <button type="button" @click="mode = 'masuk'; terkirim = false; formError = ''" class="mt-3 text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Kembali masuk</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-[#1D1B3A] text-white px-4 py-3 rounded-xl shadow-xl text-[13px] max-w-[calc(100vw-2rem)]">
+    <span x-text="toast.message">-</span>
+  </div>
+</body>
+</html>
