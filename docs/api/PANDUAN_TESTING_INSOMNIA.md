@@ -8,7 +8,7 @@ Dokumen teknis ini memandu pengujian endpoint REST API Bot Jadwal v3.0 menggunak
 
 Koleksi pengujian tersedia pada:
 * `bot-jadwal-v1.insomnia_collection.json` (root repositori)
-* `docs/api/bot-jadwal-v1.insomnia_collection.json`
+* `docs/api/collections/bot-jadwal-v1.insomnia_collection.json`
 
 Insomnia juga mendukung impor langsung berkas Postman `bot-jadwal-v1.postman_collection.json`. Namun, berkas native `.insomnia_collection.json` telah dikonfigurasi dengan *template tag* Nunjucks untuk integrasi token otomatis.
 

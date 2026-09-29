@@ -8,7 +8,7 @@ Dokumen ini adalah panduan teknis resmi untuk menguji seluruh endpoint REST API 
 
 Berkas koleksi siap diimpor berada di dua lokasi:
 * `bot-jadwal-v1.postman_collection.json` (root repositori)
-* `docs/api/bot-jadwal-v1.postman_collection.json`
+* `docs/api/collections/bot-jadwal-v1.postman_collection.json`
 
 ### Variabel Bawaan Koleksi (Collection Variables)
 Saat koleksi diimpor ke Postman, variabel berikut sudah terkonfigurasi otomatis:

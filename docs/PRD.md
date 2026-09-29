@@ -13,7 +13,7 @@
 | Acuan kebutuhan | [User Requirements](product/USER_REQUIREMENTS.md) |
 | Kebutuhan fungsional kanonis | [Functional Requirements](product/FUNCTIONAL_REQUIREMENTS.md) |
 | Ketertelusuran | [Traceability Matrix](product/TRACEABILITY.md) |
-| Sumber riset | [Wawancara 11 pengguna](user-interviews/README.md) |
+| Sumber riset | [Wawancara 11 pengguna](archive/user-interviews/README.md) |
 
 PRD ini menetapkan hasil produk, batas ruang lingkup, prioritas, dan kriteria keberhasilan. Product Definition menjadi sumber arah produk, User Requirements menjadi sumber kebutuhan pengguna, dan Functional Requirements menjadi satu-satunya sumber ID `FR-*`. PRD tidak mendefinisikan ulang ID kebutuhan fungsional.
 

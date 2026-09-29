@@ -534,6 +534,6 @@ export async function saveTask(taskData) {
 ## 9. File Koleksi Postman & Insomnia
 
 Koleksi lengkap siap pakai tersedia di direktori repositori:
-- **Postman:** [`docs/api/bot-jadwal-v1.postman_collection.json`](file:///f:/Project/bot-jadwal/docs/api/bot-jadwal-v1.postman_collection.json)
-- **Insomnia:** [`docs/api/bot-jadwal-v1.insomnia_collection.json`](file:///f:/Project/bot-jadwal/docs/api/bot-jadwal-v1.insomnia_collection.json)
-- **Panduan Pengujian Postman:** [`docs/api/PANDUAN_TESTING_POSTMAN.md`](file:///f:/Project/bot-jadwal/docs/api/PANDUAN_TESTING_POSTMAN.md)
+- **Postman:** [`docs/api/collections/bot-jadwal-v1.postman_collection.json`](file:///f:/Project/bot-wa-jadwal/docs/api/collections/bot-jadwal-v1.postman_collection.json)
+- **Insomnia:** [`docs/api/collections/bot-jadwal-v1.insomnia_collection.json`](file:///f:/Project/bot-wa-jadwal/docs/api/collections/bot-jadwal-v1.insomnia_collection.json)
+- **Panduan Pengujian Postman:** [`docs/api/PANDUAN_TESTING_POSTMAN.md`](file:///f:/Project/bot-wa-jadwal/docs/api/PANDUAN_TESTING_POSTMAN.md)
