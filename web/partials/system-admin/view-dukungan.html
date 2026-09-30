@@ -44,14 +44,15 @@
       </div>
       <p class="text-[11px] text-slate-500 font-mono self-center whitespace-nowrap" x-show="!auditLoading" x-text="'Menampilkan ' + (auditList || []).length + ' hasil · limit ' + auditLimit">-</p>
     </div>
-    <div class="mt-4 md:hidden">
+    <div class="flex flex-col">
+    <div class="mt-4 md:hidden order-1">
       <button type="button" @click="auditFilterOpen = !auditFilterOpen" :aria-expanded="auditFilterOpen" aria-controls="sa-audit-filter"
         class="w-full h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold flex items-center justify-between min-h-[44px]">
         <span>Filter <span x-show="auditFilterCount() > 0" x-text="'· ' + auditFilterCount() + ' aktif'"></span></span>
         <span aria-hidden="true" x-text="auditFilterOpen ? '▾' : '▸'"></span>
       </button>
     </div>
-    <div x-show="auditFilterCount() > 0" class="mt-3 flex flex-wrap gap-2" aria-live="polite">
+    <div x-show="auditFilterCount() > 0" class="mt-3 flex flex-wrap gap-2 order-2" aria-live="polite">
       <template x-for="c in auditChips()" :key="c.key">
         <span class="inline-flex items-center gap-1 h-11 pl-4 pr-1 rounded-full border border-[#EEEEEE] bg-slate-50 text-[12px] min-h-[44px]">
           <span class="text-slate-500" x-text="c.label + ':'"></span>
@@ -61,14 +62,14 @@
       </template>
       <button type="button" @click="resetAuditFilter(); loadAudit()" class="h-11 px-4 rounded-full text-[12px] font-semibold text-[#3965FB] underline min-h-[44px]">Reset semua</button>
     </div>
-    <div class="mt-3 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden" aria-label="Filter cepat" style="scrollbar-width:none">
+    <div class="mt-3 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden order-4 md:order-3" aria-label="Filter cepat" style="scrollbar-width:none">
       <span class="text-[12px] text-slate-400 font-medium shrink-0">Cepat:</span>
       <button type="button" @click="setAuditPreset('semua')" class="shrink-0 h-11 px-4 rounded-full border border-[#EEEEEE] text-[12px] font-medium hover:bg-slate-50 min-h-[44px]">Semua</button>
       <button type="button" @click="setAuditPreset('kritis')" class="shrink-0 h-11 px-4 rounded-full border border-red-200 text-red-700 text-[12px] font-medium hover:bg-red-50 min-h-[44px]">Kritis</button>
       <button type="button" @click="setAuditPreset('dukungan')" class="shrink-0 h-11 px-4 rounded-full border border-amber-300 text-amber-800 text-[12px] font-medium hover:bg-amber-50 min-h-[44px]">Dukungan</button>
       <button type="button" @click="setAuditPreset('hari-ini')" class="shrink-0 h-11 px-4 rounded-full border border-[#EEEEEE] text-[12px] font-medium hover:bg-slate-50 min-h-[44px]">Hari ini</button>
     </div>
-    <div id="sa-audit-filter" :class="auditFilterOpen ? 'block' : 'hidden md:block'" class="mt-3">
+    <div id="sa-audit-filter" :class="auditFilterOpen ? 'block' : 'hidden md:block'" class="mt-3 order-3 md:order-4">
       <div class="grid grid-cols-2 lg:flex gap-2">
         <input id="sa-audit-kelas" type="text" x-model="auditKelas" placeholder="Slug kelas (opsional)" aria-label="Filter slug kelas" class="col-span-2 lg:col-span-1 lg:flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] min-w-0 w-full" />
         <select id="sa-audit-aksi" x-model="auditAction" aria-label="Filter aksi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white min-w-0 w-full lg:w-48">
@@ -112,6 +113,7 @@
           <button type="button" @click="resetAuditFilter(); loadAudit()" class="h-10 px-4 rounded-xl text-[13px] font-medium text-slate-500 underline min-h-[40px]">Reset semua filter</button>
         </div>
       </div>
+    </div>
     </div>
     <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400" role="status">Memuat Riwayat Perubahan<span x-show="auditFilterCount() > 0"> untuk filter aktif</span>...</div>
     <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
