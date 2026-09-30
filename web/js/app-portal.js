@@ -9,6 +9,8 @@ function portalApp() {
     pinError: '',
     view: 'dashboard',
     drawer: false,
+    sidebarCollapsed: false,
+    pageState: null,
     q: '',
     unreadCount: 0,
     hari: 'Senin',
@@ -145,10 +147,14 @@ function portalApp() {
     },
 
     async initPortal() {
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      window.addEventListener('offline', () => { this.showPageError('offline'); });
+      window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       await this.loadClasses();
       await this.loadPartials([
         ['portal-gate', '/partials/portal/gate.html'],
         ['portal-sidebar', '/partials/portal/sidebar.html'],
+        ['portal-state', '/partials/common/state-error.html'],
         ['portal-topbar', '/partials/portal/topbar.html'],
         ['portal-dashboard', '/partials/portal/view-dashboard.html'],
         ['portal-tugas', '/partials/portal/view-tugas.html'],
@@ -312,6 +318,20 @@ function portalApp() {
       this.pin = '';
       this.pinError = '';
       this.view = 'dashboard';
+    },
+
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+    },
+
+    knownViews: ['dashboard', 'tugas', 'detail-tugas', 'jadwal', 'materi', 'detail-materi', 'perubahan', 'arsip', 'notifikasi'],
+
+    showPageError(status) {
+      this.pageState = { status: status };
+      this.drawer = false;
+      this.view = '__error';
+      window.scrollTo({ top: 0 });
     },
 
     pilihKelas(kelas) {
@@ -489,6 +509,8 @@ function portalApp() {
     },
 
     go(v) {
+      this.pageState = null;
+      if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
       if (v === 'jadwal') this.loadJadwalEfektif();
@@ -681,6 +703,8 @@ function portalApp() {
         };
         this.detailMateri = (d && d.materials) || [];
       } catch (e) {
+        if (e && e.code === 'NOT_FOUND') { this.showPageError('404'); return; }
+        if (e && e.code === 'LOAD_FAILED') { this.showPageError('500'); return; }
         this.detailTugas = { hilang: true };
         this.detailMateri = [];
       }

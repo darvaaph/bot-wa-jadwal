@@ -19,6 +19,10 @@
 
 ### BE-01 — Daftar + siklus Penugasan Peran
 
+> Status: **Selesai** — `GET /api/v1/admin/assignments`, `POST .../assignments/{id}/suspend|revoke`
+> (`internal/api/v1/admin_assignments.go`, route di `internal/api/routes.go`),
+> tes di `internal/api/admin_assignments_test.go`. Frontend belum diwiring (tab masih placeholder).
+
 - **Problem:** `GET /api/v1/admin/users` hanya kembalikan `id/identity_key/display_name/status/roles`
   (`internal/api/v1/admin_controller.go:67-74`). Tab Penugasan tak bisa tampilkan
   scope kelas/mata kuliah, status, dan masa berlaku.
@@ -29,6 +33,10 @@
 - **Frontend kini:** `web/partials/system-admin/view-pengguna.html` tab Penugasan = empty-state jujur.
 
 ### BE-02 — Daftar + cabut Undangan
+
+> Status: **Selesai** — `GET /api/v1/admin/invitations` (+ filter derivasi `status=EXPIRED`),
+> `POST .../invitations/{id}/revoke` (file dan tes yang sama dengan BE-01).
+> Frontend belum diwiring (tab masih placeholder).
 
 - **Problem:** hanya ada buat (`POST /api/v1/invitations`) dan terima; tak ada daftar,
   status, maupun cabut. Kirim ulang sudah membatalkan token lama
@@ -97,11 +105,22 @@
 
 ### BE-10 — Daftar cadangan
 
+> Status: **Selesai** — `GET /api/v1/backups` (filter class_slug/status; KM kelasnya;
+> tanpa artifact_ref) + wiring daftar di UI. Tes di `internal/api/admin_backups_test.go`.
+
 - **Problem:** tak ada `GET` backups; UI suruh pengguna mencatat ID manual.
 - **Kebutuhan:** daftar cadangan per kelas (ID, status, checksum, waktu, alasan).
 - **Acuan:** FR-OPS-002.
 
 ### BE-11 — Cakupan + restore aktual
+
+> Status: **Selesai sebagian (batas ADR-0008)** — cakupan semester (`semester_id`
+> tervalidasi + tersimpan + diverifikasi), cek relasi `foreign_key_check`, respons
+> verify menggema cakupan, audit create/verify memuat alasan + semester tanpa path,
+> KM luar cakupan 404, wiring UI (select semester + daftar + verifikasi per baris).
+> **Tidak dikerjakan**: paket per semester, titik pemulihan, restore pengganti DB —
+> restore aktual tetap tiket operasi/API terpisah per ADR-0008 (ganti file DB live
+> butuh prosedur downtime, bukan operasi HTTP).
 
 - **Problem:** `POST /api/v1/backups` hanya snapshot per kelas (tanpa semester/paket);
   `POST /api/v1/restores` verify-only tanpa ubah DB (ADR-0008).

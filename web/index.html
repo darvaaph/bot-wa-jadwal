@@ -25,9 +25,10 @@
 
   <div x-show="unlocked" x-cloak>
     <div id="portal-sidebar"></div>
-    <div class="md:pl-[248px] flex flex-col min-h-screen min-w-0">
+    <div class="flex flex-col min-h-screen min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'">
       <div id="portal-topbar"></div>
       <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
+        <div id="portal-state"></div>
         <div id="portal-dashboard"></div>
         <div id="portal-tugas"></div>
         <div id="portal-jadwal"></div>

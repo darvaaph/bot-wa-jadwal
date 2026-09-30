@@ -1,99 +1,103 @@
 <!-- partials/system-admin/sidebar.html - Sidebar System Admin Desktop -->
-<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-6 z-40 overflow-y-auto">
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-6 z-40 overflow-y-auto transition-[width,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi System Admin">
   <!-- Brand Logo -->
-  <div class="flex items-center px-3">
-    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+  <div class="flex items-center px-3" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+    <button type="button" @click="toggleSidebar()" :aria-expanded="!sidebarCollapsed ? 'true' : 'false'" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="rounded-xl p-1 hover:bg-slate-50 transition-colors cursor-pointer">
+      <span class="block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[32px]' : 'w-[140px]'">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto max-w-none object-left" />
+      </span>
+    </button>
   </div>
 
   <!-- Navigation -->
   <nav aria-label="Navigasi System Admin" class="mt-8 flex flex-col gap-1 text-[14px]">
     <!-- Section SYSTEM ADMIN -->
-    <p class="px-3 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">SYSTEM ADMIN</p>
-    <button type="button" @click="go('dashboard')"
+    <p class="sidebar-section px-3 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">SYSTEM ADMIN</p>
+    <button type="button" @click="go('dashboard')" :title="sidebarCollapsed ? 'Ringkasan Sistem' : ''"
       :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'dashboard' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Ringkasan Sistem</span>
+      <span class="sidebar-label">Ringkasan Sistem</span>
     </button>
 
     <!-- Section ADMINISTRASI -->
-    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">ADMINISTRASI</p>
-    <button type="button" @click="go('kelas')"
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">ADMINISTRASI</p>
+    <button type="button" @click="go('kelas')" :title="sidebarCollapsed ? 'Daftar Kelas' : ''"
       :class="isKelasView() ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/classes.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="isKelasView() ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Daftar Kelas</span>
+      <span class="sidebar-label">Daftar Kelas</span>
     </button>
-    <button type="button" @click="go('pengguna')"
+    <button type="button" @click="go('pengguna')" :title="sidebarCollapsed ? 'Pengguna dan Penugasan' : ''"
       :class="view === 'pengguna' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/people.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'pengguna' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Pengguna dan Penugasan</span>
+      <span class="sidebar-label">Pengguna dan Penugasan</span>
     </button>
-    <button type="button" @click="go('dukungan')"
+    <button type="button" @click="go('dukungan')" :title="sidebarCollapsed ? 'Mode Dukungan' : ''"
       :class="view === 'dukungan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/settings.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'dukungan' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Mode Dukungan</span>
+      <span class="sidebar-label">Mode Dukungan</span>
     </button>
 
     <!-- Section OPERASIONAL -->
-    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">OPERASIONAL</p>
-    <button type="button" @click="go('antrean')"
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">OPERASIONAL</p>
+    <button type="button" @click="go('antrean')" :title="sidebarCollapsed ? 'Antrean Notifikasi' : ''"
       :class="view === 'antrean' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/message-queue.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'antrean' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Antrean Notifikasi</span>
+      <span class="sidebar-label">Antrean Notifikasi</span>
     </button>
-    <button type="button" @click="go('audit')"
+    <button type="button" @click="go('audit')" :title="sidebarCollapsed ? 'Audit Global' : ''"
       :class="['audit','pembaruan'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="['audit','pembaruan'].includes(view) ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Audit Global</span>
+      <span class="sidebar-label">Audit Global</span>
     </button>
-    <button type="button" @click="go('status-bot')"
+    <button type="button" @click="go('status-bot')" :title="sidebarCollapsed ? 'Status Sistem dan WhatsApp' : ''"
       :class="view === 'status-bot' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/bot.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'status-bot' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Status Sistem dan WhatsApp</span>
+      <span class="sidebar-label">Status Sistem dan WhatsApp</span>
     </button>
 
     <!-- Section DATA & SISTEM -->
-    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">DATA &amp; SISTEM</p>
-    <button type="button" @click="go('master-ruangan')"
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">DATA &amp; SISTEM</p>
+    <button type="button" @click="go('master-ruangan')" :title="sidebarCollapsed ? 'Master Ruangan' : ''"
       :class="view === 'master-ruangan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/room.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'master-ruangan' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Master Ruangan</span>
+      <span class="sidebar-label">Master Ruangan</span>
     </button>
-    <button type="button" @click="go('master-matkul')"
+    <button type="button" @click="go('master-matkul')" :title="sidebarCollapsed ? 'Master Mata Kuliah' : ''"
       :class="view === 'master-matkul' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/book.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'master-matkul' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Master Mata Kuliah</span>
+      <span class="sidebar-label">Master Mata Kuliah</span>
     </button>
-    <button type="button" @click="go('backup')"
+    <button type="button" @click="go('backup')" :title="sidebarCollapsed ? 'Backup dan Pemulihan' : ''"
       :class="view === 'backup' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/backup.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'backup' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Backup dan Pemulihan</span>
+      <span class="sidebar-label">Backup dan Pemulihan</span>
     </button>
   </nav>
 
   <!-- Role Identity Footer -->
   <div class="mt-auto pt-6 text-[13px] px-3 border-t border-[#EEEEEE]">
-    <div class="flex items-center justify-between gap-2">
-      <div class="truncate">
+    <div class="sidebar-footer flex items-center justify-between gap-2">
+      <div class="sidebar-footer-text truncate" x-show="!sidebarCollapsed">
         <p class="font-semibold text-[#1F1F1F] truncate" x-text="currentUser ? currentUser.display_name : 'System Admin'">System Admin</p>
         <p class="text-[12px] text-[#667085] mt-0.5 font-mono truncate" x-text="currentUser ? currentUser.identity_key : 'Pengelola sistem'">Pengelola sistem</p>
       </div>

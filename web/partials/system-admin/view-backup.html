@@ -11,10 +11,18 @@
         <div class="mt-4 space-y-4">
           <div>
             <label for="sa-backup-kelas" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Kelas <span class="text-[#FF6C48]">*</span></label>
-            <select id="sa-backup-kelas" x-model="backupForm.kelas" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+            <select id="sa-backup-kelas" x-model="backupForm.kelas" @change="onBackupKelasChange()" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
               <option value="">-- Pilih kelas --</option>
               <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama + ' · ' + labelStatusKelas(k.status)">-</option></template>
             </select>
+          </div>
+          <div>
+            <label for="sa-backup-semester" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Cakupan semester (opsional)</label>
+            <select id="sa-backup-semester" x-model="backupForm.semester" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+              <option value="">Seluruh kelas</option>
+              <template x-for="s in backupSemesterList" :key="s.id"><option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + ' · ' + (s.status || '')">-</option></template>
+            </select>
+            <p class="text-[11px] text-slate-400 mt-1">Semester dicatat sebagai cakupan dan diverifikasi saat verifikasi. Berkas snapshot tetap per kelas.</p>
           </div>
           <div>
             <label for="sa-backup-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan <span class="text-[#FF6C48]">*</span></label>
@@ -33,7 +41,7 @@
             <div class="flex gap-2"><dt class="w-20 shrink-0">Checksum</dt><dd class="font-mono break-all" x-text="backupHasil.checksum || ''">-</dd></div>
             <div x-show="backupHasil.created_at" class="flex gap-2"><dt class="w-20 shrink-0">Dibuat</dt><dd class="font-mono" x-text="backupHasil.created_at ? fmtWaktuID(backupHasil.created_at) : ''">-</dd></div>
           </dl>
-          <p class="mt-2">Catat ID ini — daftar cadangan belum tersedia di API.</p>
+          <p class="mt-2">ID otomatis masuk daftar di bawah setelah dibuat.</p>
         </div>
       </div>
 
@@ -68,6 +76,37 @@
           </dl>
           <p class="mt-2" x-show="restoreHasil.message" x-text="restoreHasil.message"></p>
         </div>
+      </div>
+    </div>
+
+    <!-- Daftar cadangan -->
+    <div class="mt-8">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-[18px] font-bold text-[#1F1F1F]">Daftar cadangan</h2>
+        <button type="button" @click="loadBackupList()" class="h-10 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+      </div>
+      <div x-show="backupListLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat daftar cadangan...</div>
+      <div x-show="backupListError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="backupListError">-</span>
+        <button type="button" @click="loadBackupList()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      </div>
+      <div x-show="!backupListLoading && !backupListError && backupList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">Belum ada cadangan. Buat cadangan pertama di atas.</div>
+      <div x-show="!backupListLoading && backupList.length > 0" class="mt-3 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+        <template x-for="b in backupList" :key="b.id">
+          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold text-[#1F1F1F]">Cadangan <span class="font-mono" x-text="'#' + b.id">-</span> <span class="font-normal text-slate-500" x-text="'· ' + (b.class_slug || ('kelas #' + b.class_id))">-</span></p>
+              <p class="text-[12px] text-slate-500 mt-0.5"><span x-show="b.semester_id" x-text="'Semester #' + b.semester_id + ' · '"></span><span x-text="b.reason || 'Tanpa alasan'">-</span><span x-show="b.created_by" x-text="' · oleh ' + b.created_by"></span></p>
+              <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(b.created_at)">-</p>
+            </div>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(b.status).toUpperCase() === 'VERIFIED' ? 'bg-[#E1FFB7] text-green-800' : (String(b.status).toUpperCase() === 'READY' ? 'bg-[#E9EAFF] text-[#3965FB]' : 'bg-slate-100 text-slate-500')">
+              <span class="material-symbols-outlined text-[14px]" x-text="String(b.status).toUpperCase() === 'VERIFIED' ? 'verified' : 'inventory_2'">-</span>
+              <span x-text="labelStatusBackup(b.status)">-</span>
+            </span>
+            <button type="button" @click="pilihCadanganUntukVerifikasi(b)" class="h-10 px-4 rounded-lg border border-[#EEEEEE] hover:bg-slate-50 text-[12px] font-medium min-h-[44px]">Verifikasi</button>
+          </div>
+        </template>
       </div>
     </div>
   </div>

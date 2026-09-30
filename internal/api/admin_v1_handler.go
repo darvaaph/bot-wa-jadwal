@@ -46,3 +46,57 @@ func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleGetAdminAssignments menangani GET /api/v1/admin/assignments
+func (s *Server) handleGetAdminAssignments(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetAssignments(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleAdminSuspendAssignment menangani POST /api/v1/admin/assignments/{id}/suspend
+func (s *Server) handleAdminSuspendAssignment(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.SuspendAssignment(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleAdminRevokeAssignment menangani POST /api/v1/admin/assignments/{id}/revoke
+func (s *Server) handleAdminRevokeAssignment(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.RevokeAssignment(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleGetAdminInvitations menangani GET /api/v1/admin/invitations
+func (s *Server) handleGetAdminInvitations(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetInvitations(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleGetBackups menangani GET /api/v1/backups
+func (s *Server) handleGetBackups(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetBackups(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleAdminRevokeInvitation menangani POST /api/v1/admin/invitations/{id}/revoke
+func (s *Server) handleAdminRevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.RevokeInvitation(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}

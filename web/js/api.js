@@ -783,6 +783,28 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async getBackups(classSlug, status) {
+    let url = '/api/v1/backups';
+    const qs = new URLSearchParams();
+    if (classSlug) qs.set('class_slug', classSlug);
+    if (status) qs.set('status', status);
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Daftar cadangan gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
   async restoreBackup(backupId, reason) {
     const res = await fetch('/api/v1/restores', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ backup_id: backupId, reason: reason })
@@ -1156,6 +1178,91 @@ const BotApi = {
       throw err;
     }
     return true;
+  },
+
+  async getAdminAssignments(status, role, classSlug) {
+    let url = '/api/v1/admin/assignments';
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (role) qs.set('role', role);
+    if (classSlug) qs.set('class_slug', classSlug);
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Daftar penugasan gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async changeAssignmentStatus(id, aksi, reason, force) {
+    const endpoint = aksi === 'cabut' ? 'revoke' : 'suspend';
+    const res = await fetch('/api/v1/admin/assignments/' + encodeURIComponent(id) + '/' + endpoint, {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '', force: !!force })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah penugasan.');
+      err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async suspendAssignment(id, reason, force) {
+    return this.changeAssignmentStatus(id, 'tangguhkan', reason, force);
+  },
+
+  async revokeAssignment(id, reason, force) {
+    return this.changeAssignmentStatus(id, 'cabut', reason, force);
+  },
+
+  async getAdminInvitations(status, role, classSlug) {
+    let url = '/api/v1/admin/invitations';
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (role) qs.set('role', role);
+    if (classSlug) qs.set('class_slug', classSlug);
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Daftar undangan gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async revokeInvitation(id, reason) {
+    const res = await fetch('/api/v1/admin/invitations/' + encodeURIComponent(id) + '/revoke', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mencabut undangan.');
+      err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
   },
 
   getAuthToken: getAuthToken,

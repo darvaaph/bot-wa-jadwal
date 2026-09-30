@@ -7,6 +7,8 @@ function kmApp() {
   return {
     view: 'dashboard',
     drawer: false,
+    sidebarCollapsed: false,
+    pageState: null,
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -41,6 +43,20 @@ function kmApp() {
     get roleSub() { return 'Pengelola seluruh kelas'; },
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
+
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+    },
+
+    knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'anggota', 'pengaturan', 'monitoring', 'log', 'notifikasi', 'akun'],
+
+    showPageError(status) {
+      this.pageState = { status: status };
+      this.drawer = false;
+      this.view = '__error';
+      window.scrollTo({ top: 0 });
+    },
 
     todayName: 'Senin',
     todayFull: '',
@@ -643,6 +659,9 @@ function kmApp() {
     },
 
     async initKM() {
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      window.addEventListener('offline', () => { this.showPageError('offline'); });
+      window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
       if (!token) {
         window.location.replace('/login.html?role=km');
@@ -676,6 +695,7 @@ function kmApp() {
 
       await this.loadPartials([
         ['km-sidebar', '/partials/common/sidebar.html'],
+        ['km-state', '/partials/common/state-error.html'],
         ['km-topbar', '/partials/common/topbar.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
@@ -740,10 +760,12 @@ function kmApp() {
     },
 
     go(v) {
+      this.pageState = null;
       if (v === 'tugas-tambah') {
         this.mulaiTambahTugas();
         return;
       }
+      if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
       if (v === 'tugas') this.tugasSub = 'list';

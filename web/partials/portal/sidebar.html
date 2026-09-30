@@ -1,45 +1,53 @@
 <!-- partials/portal/sidebar.html — Sidebar portal (hanya-baca) -->
-<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
-  <div class="flex items-center gap-2 px-2">
-    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto transition-[width,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi portal">
+  <div class="flex items-center px-2" :class="sidebarCollapsed ? 'justify-center' : ''">
+    <button type="button" @click="toggleSidebar()" :aria-expanded="!sidebarCollapsed ? 'true' : 'false'" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="rounded-xl p-1 hover:bg-slate-50 transition-colors cursor-pointer">
+      <span class="block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[32px]' : 'w-[140px]'">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto max-w-none object-left" />
+      </span>
+    </button>
   </div>
   <nav aria-label="Navigasi portal" class="mt-8 flex flex-col gap-0.5 text-[14px]">
-    <p class="px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">PORTAL MAHASISWA</p>
-    <button type="button" @click="go('dashboard')"
+    <p class="sidebar-section px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">PORTAL MAHASISWA</p>
+    <button type="button" @click="go('dashboard')" :title="sidebarCollapsed ? 'Dashboard' : ''"
       :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span>Dashboard</span>
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Dashboard</span>
     </button>
-    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
-    <button type="button" @click="go('tugas')"
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
+    <button type="button" @click="go('tugas')" :title="sidebarCollapsed ? 'Tugas' : ''"
       :class="['tugas','detail-tugas'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5 shrink-0" /><span>Tugas</span>
+      <img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Tugas</span>
     </button>
-    <button type="button" @click="go('jadwal')"
+    <button type="button" @click="go('jadwal')" :title="sidebarCollapsed ? 'Jadwal' : ''"
       :class="view === 'jadwal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span>Jadwal</span>
+      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Jadwal</span>
     </button>
-    <button type="button" @click="go('materi')"
+    <button type="button" @click="go('materi')" :title="sidebarCollapsed ? 'Materi' : ''"
       :class="['materi','detail-materi'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Materi</span>
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Materi</span>
     </button>
-    <button type="button" @click="go('perubahan')"
+    <button type="button" @click="go('perubahan')" :title="sidebarCollapsed ? 'Perubahan' : ''"
       :class="view === 'perubahan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span>Perubahan</span>
+      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Perubahan</span>
     </button>
-    <button type="button" @click="go('arsip')"
+    <button type="button" @click="go('arsip')" :title="sidebarCollapsed ? 'Arsip' : ''"
       :class="view === 'arsip' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Arsip</span>
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Arsip</span>
     </button>
   </nav>
   <div class="mt-auto pt-4 text-[13px]">
-    <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>
-    <p class="text-[12px] text-slate-500">Hanya lihat · tanpa akun</p>
-    <button type="button" @click="kunciPortal()" class="mt-2 text-[12px] text-red-600 hover:underline min-h-[44px]">Kunci portal</button>
+    <div class="sidebar-footer-text" x-show="!sidebarCollapsed">
+      <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>
+      <p class="text-[12px] text-slate-500">Hanya lihat · tanpa akun</p>
+    </div>
+    <button type="button" @click="kunciPortal()" :title="sidebarCollapsed ? 'Kunci portal' : ''" class="mt-2 flex items-center gap-2 text-[12px] text-red-600 hover:underline min-h-[44px]" :class="sidebarCollapsed ? 'justify-center w-full' : ''">
+      <span class="material-symbols-outlined text-[18px]">lock</span><span class="sidebar-label">Kunci portal</span>
+    </button>
   </div>
 </aside>

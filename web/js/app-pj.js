@@ -7,6 +7,8 @@ function pjApp() {
   return {
     view: 'dashboard',
     drawer: false,
+    sidebarCollapsed: false,
+    pageState: null,
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -41,6 +43,20 @@ function pjApp() {
     get roleSub() { return this.pjMatkul || 'Mata kuliah belum dipilih'; },
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
+
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+    },
+
+    knownViews: ['dashboard', 'tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit', 'jadwal', 'pindah', 'perubahan', 'materi', 'status', 'notifikasi', 'pengaturan', 'akun'],
+
+    showPageError(status) {
+      this.pageState = { status: status };
+      this.drawer = false;
+      this.view = '__error';
+      window.scrollTo({ top: 0 });
+    },
 
     todayName: 'Senin',
     todayFull: '',
@@ -603,6 +619,9 @@ function pjApp() {
     },
 
     async initPJ() {
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      window.addEventListener('offline', () => { this.showPageError('offline'); });
+      window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
       if (!token) {
         window.location.replace('/login.html?role=pj');
@@ -641,6 +660,7 @@ function pjApp() {
 
       await this.loadPartials([
         ['pj-sidebar', '/partials/common/sidebar.html'],
+        ['pj-state', '/partials/common/state-error.html'],
         ['pj-topbar', '/partials/common/topbar.html'],
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
@@ -702,6 +722,8 @@ function pjApp() {
     },
 
     go(v) {
+      this.pageState = null;
+      if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
       window.scrollTo({ top: 0 });
@@ -1006,7 +1028,7 @@ function pjApp() {
       try {
         const d = await API.getTaskDetail(id);
         const info = (d && (d.task || d)) || null;
-        if (!info) { this.showToast('Tugas tidak ditemukan.'); this.view = 'tugas'; return; }
+        if (!info) { this.showPageError('404'); return; }
         const u = this.deadlineBadge(info.deadline_at, info.completed_at || info.is_completed);
         this.tugasDetail = {
           id: info.id, matkul: info.offering || info.matkul || '', title: info.title || '',

@@ -1,25 +1,29 @@
 <!-- partials/common/sidebar.html — Sidebar desktop generik (KM/PJ). Menu dari navSections di js/app-*.js -->
-<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
-  <div class="flex items-center gap-2 px-2">
-    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto transition-[width,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
+  <div class="flex items-center px-2" :class="sidebarCollapsed ? 'justify-center' : ''">
+    <button type="button" @click="toggleSidebar()" :aria-expanded="!sidebarCollapsed ? 'true' : 'false'" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="rounded-xl p-1 hover:bg-slate-50 transition-colors cursor-pointer">
+      <span class="block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[32px]' : 'w-[140px]'">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto max-w-none object-left" />
+      </span>
+    </button>
   </div>
   <nav aria-label="Navigasi utama" class="mt-8 flex flex-col gap-0.5 text-[14px]">
     <template x-for="(section, si) in navSections" :key="section.title">
       <div class="contents">
-        <p :class="si === 0 ? 'px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400' : 'px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400'" x-text="section.title">-</p>
+        <p class="sidebar-section" :class="si === 0 ? 'px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400' : 'px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400'" x-text="section.title">-</p>
         <template x-for="item in section.items" :key="item.id">
-          <button type="button" @click="go(item.id)"
+          <button type="button" @click="go(item.id)" :title="sidebarCollapsed ? item.label : ''"
             :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-            <img :src="item.img" alt="" class="w-5 h-5 shrink-0" /><span x-text="item.label">-</span>
+            <img :src="item.img" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label" x-text="item.label">-</span>
           </button>
         </template>
       </div>
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] border-t border-[#EEEEEE]">
-    <div class="flex items-center justify-between gap-2">
-      <div class="truncate">
+    <div class="sidebar-footer flex items-center justify-between gap-2">
+      <div class="sidebar-footer-text truncate" x-show="!sidebarCollapsed">
         <p class="font-semibold text-[#1F1F1F] truncate"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
         <p class="text-[12px] text-slate-500 truncate" x-text="roleSub">-</p>
       </div>

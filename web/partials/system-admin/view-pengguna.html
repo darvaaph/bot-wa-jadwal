@@ -17,8 +17,8 @@
     <!-- Tabs -->
     <div class="mt-6 flex gap-2 border-b border-[#EEEEEE]" role="tablist" aria-label="Tab pengguna">
       <button type="button" role="tab" id="sa-tab-akun" aria-controls="sa-panel-akun" :aria-selected="penggunaTab === 'akun'" @click="penggunaTab = 'akun'; loadPengguna()" @keydown.arrow-right.prevent="$refs.saTabPenugasan && $refs.saTabPenugasan.focus()" :class="penggunaTab === 'akun' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-slate-500'" class="h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Akun</button>
-      <button type="button" role="tab" id="sa-tab-penugasan" x-ref="saTabPenugasan" aria-controls="sa-panel-penugasan" :aria-selected="penggunaTab === 'penugasan'" @click="penggunaTab = 'penugasan'" @keydown.arrow-right.prevent="$refs.saTabUndangan && $refs.saTabUndangan.focus()" @keydown.arrow-left.prevent="$el.previousElementSibling && $el.previousElementSibling.focus()" :class="penggunaTab === 'penugasan' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-slate-500'" class="h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Penugasan</button>
-      <button type="button" role="tab" id="sa-tab-undangan" x-ref="saTabUndangan" aria-controls="sa-panel-undangan" :aria-selected="penggunaTab === 'undangan'" @click="penggunaTab = 'undangan'" @keydown.arrow-left.prevent="$refs.saTabPenugasan && $refs.saTabPenugasan.focus()" :class="penggunaTab === 'undangan' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-slate-500'" class="h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Undangan</button>
+      <button type="button" role="tab" id="sa-tab-penugasan" x-ref="saTabPenugasan" aria-controls="sa-panel-penugasan" :aria-selected="penggunaTab === 'penugasan'" @click="penggunaTab = 'penugasan'; loadPenugasan()" @keydown.arrow-right.prevent="$refs.saTabUndangan && $refs.saTabUndangan.focus()" @keydown.arrow-left.prevent="$el.previousElementSibling && $el.previousElementSibling.focus()" :class="penggunaTab === 'penugasan' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-slate-500'" class="h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Penugasan</button>
+      <button type="button" role="tab" id="sa-tab-undangan" x-ref="saTabUndangan" aria-controls="sa-panel-undangan" :aria-selected="penggunaTab === 'undangan'" @click="penggunaTab = 'undangan'; loadUndangan()" @keydown.arrow-left.prevent="$refs.saTabPenugasan && $refs.saTabPenugasan.focus()" :class="penggunaTab === 'undangan' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-slate-500'" class="h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Undangan</button>
     </div>
 
     <!-- Tab Akun -->
@@ -72,27 +72,152 @@
 
     <!-- Tab Penugasan -->
     <div x-show="penggunaTab === 'penugasan'" id="sa-panel-penugasan" role="tabpanel" aria-labelledby="sa-tab-penugasan">
-      <div class="mt-6 p-6 rounded-2xl border border-dashed border-[#EEEEEE] bg-slate-50/60 text-center">
-        <p class="text-[15px] font-semibold text-[#1F1F1F]">Daftar Penugasan Peran belum tersedia di API</p>
-        <p class="text-[13px] text-slate-500 mt-1 max-w-xl mx-auto">Tab ini akan menampilkan peran + scope kelas/mata kuliah + status ACTIVE/SUSPENDED/REVOKED + masa berlaku, dengan aksi tangguhkan/cabut penugasan. API daftar penugasan dicatat sebagai tiket backend — UI tidak mengarang data dari <span class="font-mono">roles[]</span>.</p>
-        <p class="text-[12px] text-slate-400 mt-2">Sementara: kelola KM per kelas lewat Daftar Kelas → Detail → Undang KM.</p>
-        <button type="button" @click="go('kelas')" class="mt-3 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Buka Daftar Kelas</button>
+      <div class="mt-4 flex flex-col sm:flex-row gap-2">
+        <select x-model="penugasanStatus" @change="loadPenugasan()" aria-label="Filter status penugasan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua status</option>
+          <option value="ACTIVE">Aktif</option>
+          <option value="SUSPENDED">Ditangguhkan</option>
+          <option value="REVOKED">Dicabut</option>
+        </select>
+        <select x-model="penugasanRole" @change="loadPenugasan()" aria-label="Filter peran" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua peran</option>
+          <option value="SYSTEM_ADMIN">System Admin</option>
+          <option value="KM">Ketua Murid</option>
+          <option value="PJ">PJ Mata Kuliah</option>
+        </select>
+        <select x-model="penugasanKelas" @change="loadPenugasan()" aria-label="Filter kelas penugasan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+          <option value="">Semua kelas</option>
+          <template x-for="k in kelasList" :key="k.slug">
+            <option :value="k.slug" x-text="k.nama">-</option>
+          </template>
+        </select>
+      </div>
+      <div x-show="penugasanLoading" class="p-12 text-center text-slate-500">
+        <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+        <p class="mt-3 text-[14px]">Memuat penugasan...</p>
+      </div>
+      <div x-show="penugasanError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="penugasanError">-</span>
+        <button type="button" @click="loadPenugasan()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      </div>
+      <div x-show="!penugasanLoading && !penugasanError && penugasanList.length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+        <p class="text-[15px] font-semibold text-[#1F1F1F]">Tidak ada penugasan</p>
+        <p class="text-[13px] mt-0.5">Tidak ada penugasan dengan filter yang dipilih.</p>
+        <button type="button" @click="resetPenugasanFilter(); loadPenugasan()" class="mt-3 h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+      </div>
+      <div x-show="!penugasanLoading && penugasanList.length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+        <template x-for="a in penugasanList" :key="a.id">
+          <div class="py-4">
+            <div class="flex flex-col md:flex-row md:items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-[14px] font-semibold text-[#1F1F1F] truncate"><span x-text="a.display_name || a.identity_key">-</span> <span class="font-mono font-normal text-slate-500" x-text="'· ' + a.role">-</span></p>
+                <p class="text-[12px] text-slate-500 truncate" x-text="scopePenugasan(a)">-</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Berlaku <span class="font-mono" x-text="fmtWaktuID(a.valid_from)">-</span><span x-show="a.valid_until" x-text="' → ' + fmtWaktuID(a.valid_until)"></span></p>
+              </div>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+                :class="String(a.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : (String(a.status).toUpperCase() === 'SUSPENDED' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-500')">
+                <span class="material-symbols-outlined text-[14px]" x-text="String(a.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
+                <span x-text="labelStatusPenugasan(a.status)">-</span>
+              </span>
+              <div class="flex gap-2" x-show="String(a.status).toUpperCase() === 'ACTIVE'">
+                <button type="button" @click="mulaiAksiPenugasan(a, 'tangguhkan')" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
+                <button type="button" @click="mulaiAksiPenugasan(a, 'cabut')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Cabut</button>
+              </div>
+            </div>
+            <div x-show="penugasanAksi && penugasanAksi.id === a.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+              <p class="text-[13px] font-semibold" x-text="(penugasanAksi.aksi === 'cabut' ? 'Cabut ' : 'Tangguhkan ') + penugasanAksi.nama">-</p>
+              <p class="text-[12px] text-red-700 mt-1">Sesi yang memakai penugasan ini dicabut seketika. Tercatat di Audit Global.</p>
+              <div x-show="penugasanGuard" class="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
+                <p class="font-semibold">Kelas akan kehilangan seluruh KM aktif.</p>
+                <p class="mt-0.5">Undang pengganti dulu, atau centang insiden keamanan untuk memaksa.</p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <button type="button" @click="undangPenggantiKM()" class="h-10 px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold min-h-[44px]">Undang pengganti</button>
+                </div>
+                <label class="flex items-start gap-2 mt-2 select-none">
+                  <input type="checkbox" x-model="penugasanForce" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
+                  Insiden keamanan — cabut paksa KM terakhir.
+                </label>
+              </div>
+              <label :for="'sa-penugasan-alasan-' + a.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan tindakan <span class="text-red-600">*</span></label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input :id="'sa-penugasan-alasan-' + a.id" type="text" x-model="penugasanAlasan" placeholder="Contoh: Rotasi PJ semester baru" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+                <button type="button" @click="jalankanAksiPenugasan()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                <button type="button" @click="penugasanAksi = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
     <!-- Tab Undangan -->
     <div x-show="penggunaTab === 'undangan'" id="sa-panel-undangan" role="tabpanel" aria-labelledby="sa-tab-undangan">
-      <div class="mt-6 p-6 rounded-2xl border border-[#EEEEEE] bg-white">
-        <h2 class="text-[16px] font-bold text-[#1F1F1F]">Undangan Ketua Murid (KM)</h2>
-        <p class="text-[13px] text-slate-500 mt-1">Undangan berlaku 7 hari, sekali pakai. Kirim ulang membatalkan token lama. Penerima tidak dapat mengubah peran/scope.</p>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button type="button" @click="go('kelas')" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Buat undangan dari Daftar Kelas</button>
-          <button type="button" @click="bukaAuditKelas('')" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Lihat Riwayat Undangan di Audit</button>
-        </div>
+      <div class="mt-4 flex flex-col sm:flex-row gap-2">
+        <select x-model="undanganStatus" @change="loadUndangan()" aria-label="Filter status undangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua status</option>
+          <option value="PENDING">Menunggu</option>
+          <option value="ACCEPTED">Diterima</option>
+          <option value="EXPIRED">Kedaluwarsa</option>
+          <option value="REVOKED">Dicabut</option>
+        </select>
+        <select x-model="undanganRole" @change="loadUndangan()" aria-label="Filter peran undangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua peran</option>
+          <option value="KM">Ketua Murid</option>
+          <option value="PJ">PJ Mata Kuliah</option>
+        </select>
+        <select x-model="undanganKelas" @change="loadUndangan()" aria-label="Filter kelas undangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+          <option value="">Semua kelas</option>
+          <template x-for="k in kelasList" :key="k.slug">
+            <option :value="k.slug" x-text="k.nama">-</option>
+          </template>
+        </select>
+        <button type="button" @click="go('kelas')" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] sm:ml-auto">Buat undangan KM</button>
       </div>
-      <div class="mt-4 p-6 rounded-2xl border border-dashed border-[#EEEEEE] bg-slate-50/60 text-center">
-        <p class="text-[15px] font-semibold text-[#1F1F1F]">Daftar undangan belum tersedia di API</p>
-        <p class="text-[13px] text-slate-500 mt-1 max-w-xl mx-auto">Tab ini akan menampilkan status PENDING/ACCEPTED/EXPIRED/REVOKED + kedaluwarsa + aksi kirim ulang/cabut. Daftar dicatat sebagai tiket backend.</p>
+      <p class="text-[11px] text-slate-400 mt-2">Undangan berlaku 7 hari, sekali pakai. Kirim ulang = buat baru (token lama otomatis batal). Penerima tak dapat ubah peran/scope.</p>
+      <div x-show="undanganLoading" class="p-12 text-center text-slate-500">
+        <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+        <p class="mt-3 text-[14px]">Memuat undangan...</p>
+      </div>
+      <div x-show="undanganError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="undanganError">-</span>
+        <button type="button" @click="loadUndangan()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      </div>
+      <div x-show="!undanganLoading && !undanganError && undanganList.length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+        <p class="text-[15px] font-semibold text-[#1F1F1F]">Tidak ada undangan</p>
+        <p class="text-[13px] mt-0.5">Tidak ada undangan dengan filter yang dipilih.</p>
+        <button type="button" @click="resetUndanganFilter(); loadUndangan()" class="mt-3 h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+      </div>
+      <div x-show="!undanganLoading && undanganList.length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+        <template x-for="u in undanganList" :key="u.id">
+          <div class="py-4">
+            <div class="flex flex-col md:flex-row md:items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-[14px] font-semibold text-[#1F1F1F] font-mono truncate" x-text="u.invited_identity_key">-</p>
+                <p class="text-[12px] text-slate-500 truncate"><span x-text="u.role">-</span><span x-show="u.class_slug" x-text="' · ' + u.class_slug"></span><span x-show="u.invited_by" x-text="' · oleh ' + u.invited_by"></span></p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Kedaluwarsa <span class="font-mono" x-text="fmtWaktuID(u.expires_at)">-</span></p>
+              </div>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+                :class="String(u.status).toUpperCase() === 'PENDING' && !u.is_expired ? 'bg-amber-50 text-amber-900' : (String(u.status).toUpperCase() === 'ACCEPTED' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500')">
+                <span class="material-symbols-outlined text-[14px]" x-text="String(u.status).toUpperCase() === 'ACCEPTED' ? 'check_circle' : (String(u.status).toUpperCase() === 'PENDING' && !u.is_expired ? 'pending' : 'block')">-</span>
+                <span x-text="labelStatusUndangan(u.status, u.is_expired)">-</span>
+              </span>
+              <div class="flex gap-2" x-show="String(u.status).toUpperCase() === 'PENDING'">
+                <button type="button" @click="kirimUlangUndangan(u)" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Kirim ulang</button>
+                <button type="button" @click="mulaiAksiUndangan(u)" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Cabut</button>
+              </div>
+            </div>
+            <div x-show="undanganAksi && undanganAksi.id === u.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+              <p class="text-[13px] font-semibold" x-text="'Cabut undangan ' + undanganAksi.nama">-</p>
+              <p class="text-[12px] text-red-700 mt-1">Token undangan batal dan tak bisa dipakai aktivasi. Tercatat di Audit Global.</p>
+              <label :for="'sa-undangan-alasan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan pencabutan <span class="text-red-600">*</span></label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input :id="'sa-undangan-alasan-' + u.id" type="text" x-model="undanganAlasan" placeholder="Contoh: Salah nomor kandidat" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+                <button type="button" @click="jalankanAksiUndangan()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                <button type="button" @click="undanganAksi = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>

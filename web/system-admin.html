@@ -28,11 +28,11 @@
   View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna, dukungan,
   antrean, audit, status-bot, master-ruangan, master-matkul, backup.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false; kelasStatusConfirm = null; penggunaAksi = null; ruangEdit = null; ruangStatusConfirm = null; matkulEdit = null; matkulStatusConfirm = null; notifDetailId = null">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false; kelasStatusConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; ruangEdit = null; ruangStatusConfirm = null; matkulEdit = null; matkulStatusConfirm = null; notifDetailId = null">
 
   <div id="sa-sidebar"></div>
 
-  <div class="md:pl-[248px] flex flex-col min-h-screen min-w-0">
+  <div class="flex flex-col min-h-screen min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'">
     <div id="sa-topbar"></div>
     <div x-show="dukunganAktif" x-cloak class="bg-amber-100 border-b border-amber-300 px-4 md:px-8 py-3" role="status">
       <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-2 text-[13px] text-amber-900">
@@ -44,6 +44,7 @@
       </div>
     </div>
     <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
+      <div id="sa-state"></div>
       <div id="sa-dashboard"></div>
       <div id="sa-kelas"></div>
       <div id="sa-undang"></div>

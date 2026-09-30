@@ -29,3 +29,7 @@
 | Materi | Link, file | `materials`: selalu punya `class_id`, opsional `course_offering_id/task_id` |
 | Notifikasi | Broadcast, reminder | `notification_messages` + `notification_attempts`, idempoten via `idempotency_key`, status terpisah dari data akademik |
 | Kanal WhatsApp | Grup WA, scope_jid | `whatsapp_channels`: alamat JID sebagai kanal, bukan pemilik data akademik |
+| Sidebar | Menu kiri, navbar | Navigasi desktop tetap di kiri (248px), berisi logo + menu + identitas peran |
+| Sidebar Ciut | Sidebar mini, icon bar | Mode icon-only 76px: label/judul seksi/teks identitas disembunyikan, ikon tetap + tooltip |
+| Logo Asterisk (pemicu) | Logo, asterisk | Tombol logo di atas sidebar untuk menciutkan/melebarkan navigasi |
+| State Galat Halaman | Error page, empty state | Tampilan penuh saat halaman gagal: `500` (server), `offline` (luring), `404` (tak ditemukan) via `pageState` |
