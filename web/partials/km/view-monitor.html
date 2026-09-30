@@ -22,8 +22,22 @@
 <section x-show="view === 'log'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Log Aktivitas</h1>
   <p class="text-[14px] text-slate-500 mt-1">Riwayat perubahan kelas dalam urutan waktu</p>
-  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+  <div x-show="auditLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
+  <div x-show="auditError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="auditError">-</span>
+    <button type="button" @click="loadAuditLog()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
+  <div x-show="!auditLoading && !auditError && auditList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <p class="text-[15px] font-semibold">Belum ada riwayat</p>
-    <p class="text-[13px] text-slate-500">Riwayat tampil di sini setelah endpoint audit tersedia.</p>
+    <p class="text-[13px] text-slate-500">Aktivitas kelas yang tercatat akan muncul di sini.</p>
+  </div>
+  <div x-show="!auditLoading && auditList.length > 0" class="mt-5 space-y-2">
+    <template x-for="a in auditList" :key="a.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <p class="text-[14px] font-semibold text-[#1D1B3A]" x-text="labelAksiAudit(a.action)">-</p>
+        <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="a.actor_name || 'Sistem'">-</span><span x-show="a.actor_role" x-text="' · ' + a.actor_role">-</span><span x-show="a.entity_type" x-text="' · ' + a.entity_type + (a.entity_id ? ' #' + a.entity_id : '')">-</span></p>
+        <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
+      </div>
+    </template>
   </div>
 </section>

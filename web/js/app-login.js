@@ -10,9 +10,9 @@ function loginApp() {
     nomor: '',
     sandi: '',
     lihat: false,
-    terkirim: false,
     formError: '',
     fieldError: '',
+    ruangKerja: [],
     toast: { show: false, message: '', timer: null },
 
     selectedDemoRole: '',
@@ -85,16 +85,18 @@ function loginApp() {
         const data = await API.login(clean, this.sandi);
         this.showToast('Berhasil masuk. Mengarahkan...');
 
+        const daftar = (data && data.assignments) || [];
+        if (daftar.length > 1) {
+          this.ruangKerja = daftar;
+          this.mode = 'pilih';
+          this.loading = false;
+          window.scrollTo({ top: 0 });
+          return;
+        }
+
         let targetUrl = this.areaUrl;
-        if (data && data.assignments && data.assignments.length > 0) {
-          const role = (data.assignments[0].role || '').toUpperCase();
-          if (role === 'SYSTEM_ADMIN') {
-            targetUrl = '/system-admin.html';
-          } else if (role === 'KM') {
-            targetUrl = '/km.html';
-          } else if (role === 'PJ') {
-            targetUrl = '/pj.html';
-          }
+        if (daftar.length > 0) {
+          targetUrl = this.urlPeran(daftar[0].role);
         }
 
         setTimeout(() => {
@@ -108,13 +110,42 @@ function loginApp() {
       }
     },
 
-    kirimPulih() {
+    urlPeran(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'SYSTEM_ADMIN') return '/system-admin.html';
+      if (r === 'KM') return '/km.html';
+      if (r === 'PJ') return '/pj.html';
+      return this.areaUrl;
+    },
+
+    labelPeran(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'SYSTEM_ADMIN') return 'System Admin';
+      if (r === 'KM') return 'Ketua Murid (KM)';
+      if (r === 'PJ') return 'PJ Mata Kuliah';
+      return role || 'Pengurus';
+    },
+
+    deskripsiPenugasan(a) {
+      const bagian = [];
+      if (a.class_slug) bagian.push('Kelas ' + a.class_slug);
+      if (a.offering_name) bagian.push(a.offering_name);
+      else if (String(a.role || '').toUpperCase() === 'KM') bagian.push('Semua mata kuliah');
+      return bagian.join(' · ') || 'Ruang kerja pengurus';
+    },
+
+    async pilihRuangKerja(a) {
+      if (!a || !a.id) return;
+      this.loading = true;
       this.formError = '';
-      if (!this.nomorValid()) {
-        this.formError = 'Nomor WhatsApp tidak valid (minimal 9 digit).';
-        return;
+      try {
+        await API.switchContext(a.id);
+        window.location.href = this.urlPeran(a.role);
+      } catch (err) {
+        this.formError = err.message || 'Gagal berpindah ruang kerja.';
+      } finally {
+        this.loading = false;
       }
-      this.terkirim = true;
     },
 
     showToast(msg) {

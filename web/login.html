@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script src="/js/api.js?v=20261001"></script>
-  <script src="/js/app-login.js?v=20261001"></script>
+  <script src="/js/api.js?v=20261007"></script>
+  <script src="/js/app-login.js?v=20261007"></script>
 </head>
 <!--
   MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
@@ -124,23 +124,36 @@
         </div>
       </template>
 
+      <template x-if="mode === 'pilih'">
+        <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
+          <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Pilih Ruang Kerja</h1>
+          <p class="text-[13px] text-slate-500 mt-1">Akun Anda terdaftar pada beberapa peran. Pilih ruang kerja yang ingin Anda kelola:</p>
+          <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
+          <div class="mt-5 space-y-3">
+            <template x-for="a in ruangKerja" :key="a.id">
+              <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+                <p class="text-[15px] font-bold" x-text="labelPeran(a.role)">-</p>
+                <p class="text-[13px] text-slate-500 mt-0.5" x-text="deskripsiPenugasan(a)">-</p>
+                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading" class="mt-3 w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px]">Buka Ruang Kerja</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
       <template x-if="mode === 'lupa'">
         <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
           <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Lupa kata sandi?</h1>
-          <p class="text-[13px] text-slate-500 mt-1">Tautan pemulihan dikirim via WhatsApp ke nomor terdaftar.</p>
+          <p class="text-[13px] text-slate-500 mt-1">Pemulihan mandiri via WhatsApp belum tersedia. Minta tautan undangan baru kepada Administrator atau KM kelas Anda untuk mengatur ulang akses.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
-          <div class="mt-5" x-show="!terkirim">
-            <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp terdaftar <span class="text-[#FF6C48]">*</span></label>
-            <input type="text" x-model="nomor" inputmode="tel" placeholder="0812 3456 7890"
-                   class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-            <button type="button" @click="kirimPulih()" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium min-h-[44px]">Kirim tautan pemulihan</button>
-            <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-3 w-full h-12 rounded-xl border border-[#EEEEEE] text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
-          </div>
-          <div x-show="terkirim" class="mt-5 p-5 rounded-2xl border border-emerald-200 bg-emerald-50 text-center">
-            <span class="material-symbols-outlined text-[32px] text-emerald-600">mark_chat_read</span>
-            <p class="font-bold mt-2">Tautan pemulihan terkirim</p>
-            <p class="text-[13px] text-slate-500 mt-1">Cek WhatsApp di nomor tersebut. (Simulasi lokal — pengiriman butuh backend.)</p>
-            <button type="button" @click="mode = 'masuk'; terkirim = false; formError = ''" class="mt-3 text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Kembali masuk</button>
+          <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50 text-[13px] text-slate-600">
+            <p class="font-semibold text-[#1D1B3A]">Cara mendapatkan akses kembali:</p>
+            <ol class="list-decimal ml-5 mt-2 space-y-1">
+              <li>Hubungi Administrator (untuk KM) atau KM kelas (untuk PJ).</li>
+              <li>Buka tautan undangan baru yang dikirim via WhatsApp.</li>
+              <li>Buat kata sandi baru di halaman aktivasi.</li>
+            </ol>
+            <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-4 w-full h-11 rounded-xl border border-[#EEEEEE] bg-white text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
           </div>
         </div>
       </template>

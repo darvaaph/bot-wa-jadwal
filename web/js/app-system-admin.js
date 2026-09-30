@@ -47,6 +47,24 @@ function systemAdminApp() {
 
     dukunganAlasan: '',
 
+    notifFilter: '',
+    notifList: [],
+    notifLoading: false,
+    notifError: '',
+
+    backupForm: { kelas: '', alasan: '' },
+    backupError: '',
+    backupHasil: null,
+    backupLoading: false,
+    restoreForm: { id: '', alasan: '', paham: false },
+    restoreError: '',
+    restoreLoading: false,
+
+    auditList: [],
+    auditLoading: false,
+    auditError: '',
+    auditKelas: '',
+
     toast: { show: false, message: '', timer: null },
 
     get kmAktifCount() {
@@ -107,6 +125,8 @@ function systemAdminApp() {
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
+        ['sa-antrean', '/partials/system-admin/view-antrean.html'],
+        ['sa-backup', '/partials/system-admin/view-backup.html'],
         ['sa-soon', '/partials/system-admin/view-soon.html'],
         ['sa-drawer', '/partials/system-admin/drawer.html'],
         ['sa-toast', '/partials/system-admin/toast.html'],
@@ -121,14 +141,14 @@ function systemAdminApp() {
     },
 
     async loadPartials(slots) {
+      // Alpine v3 auto-init node baru via MutationObserver; jangan initTree manual (render ganda).
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261008', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
             el.innerHTML = await res.text();
-            if (window.Alpine && window.Alpine.initTree) window.Alpine.initTree(el);
           }
         } catch (err) {
           console.error(`Gagal memuat partial ${url}:`, err);
@@ -189,9 +209,109 @@ function systemAdminApp() {
       }, 500);
     },
 
+    statusNotifLabel(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'PENDING') return 'Menunggu';
+      if (s === 'PROCESSING') return 'Diproses';
+      if (s === 'SENT') return 'Terkirim';
+      if (s === 'FAILED') return 'Gagal';
+      return st || '-';
+    },
+
+    fmtWaktuID(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso || '-');
+        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
+      } catch (e) { return String(iso || '-'); }
+    },
+
+    async loadAntrean() {
+      this.notifLoading = true; this.notifError = '';
+      try {
+        const params = { limit: 50 };
+        if (this.notifFilter) params.status = this.notifFilter;
+        this.notifList = await API.getNotifications(this.notifFilter || '', 50).catch(() => null) || [];
+      } catch (e) {
+        this.notifList = [];
+        this.notifError = 'Antrean pesan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.notifLoading = false;
+      }
+    },
+
+    async ulangiPesan(id) {
+      try {
+        await API.retryNotification(id);
+        this.showToast('Pengiriman ulang dijadwalkan.');
+        await this.loadAntrean();
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menjadwalkan ulang.');
+      }
+    },
+
+    async loadAudit() {
+      this.auditLoading = true; this.auditError = '';
+      try {
+        const params = { limit: 50 };
+        if (this.auditKelas) params.class_slug = this.auditKelas;
+        this.auditList = await API.getAudit(params).catch(() => null) || [];
+      } catch (e) {
+        this.auditList = [];
+        this.auditError = 'Riwayat belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.auditLoading = false;
+      }
+    },
+
+    async buatBackup() {
+      const f = this.backupForm;
+      if (!f.kelas) { this.backupError = 'Pilih kelas untuk dicadangkan.'; return; }
+      this.backupError = ''; this.backupHasil = null;
+      this.backupLoading = true;
+      try {
+        const payload = { class_slug: f.kelas };
+        if ((f.alasan || '').trim()) payload.reason = f.alasan.trim();
+        this.backupHasil = await API.createBackup(payload);
+        this.showToast('Cadangan berhasil dibuat.');
+      } catch (err) {
+        this.backupError = err.message || 'Gagal membuat cadangan.';
+      } finally {
+        this.backupLoading = false;
+      }
+    },
+
+    async pulihkanBackup() {
+      const f = this.restoreForm;
+      if (!f.id) { this.restoreError = 'Isi ID cadangan yang akan dipulihkan.'; return; }
+      if (!((f.alasan || '').trim())) { this.restoreError = 'Isi alasan pemulihan.'; return; }
+      if (!f.paham) { this.restoreError = 'Centang pernyataan pemahaman dampak terlebih dahulu.'; return; }
+      this.restoreError = '';
+      this.restoreLoading = true;
+      try {
+        await API.restoreBackup(f.id, f.alasan.trim());
+        this.showToast('Pemulihan diverifikasi server.');
+        this.restoreForm = { id: '', alasan: '', paham: false };
+      } catch (err) {
+        this.restoreError = err.message || 'Gagal memulihkan cadangan.';
+      } finally {
+        this.restoreLoading = false;
+      }
+    },
+
+    alasanModul(id) {
+      if (id === 'master-ruangan') return 'Daftar dan pengelolaan ruangan kampus belum tersedia di API. Hubungi pengembang backend untuk endpoint master ruangan.';
+      if (id === 'master-matkul') return 'Daftar dan pengelolaan mata kuliah kampus belum tersedia di API. Hubungi pengembang backend untuk endpoint master mata kuliah.';
+      if (id === 'pengguna') return 'Daftar pengguna belum tersedia di API (aksi tangguhkan/pulihkan sudah ada, tetapi tidak ada endpoint daftar). Hubungi pengembang backend.';
+      return 'Modul ini belum tersedia.';
+    },
+
     go(v) {
       this.view = v;
       this.drawer = false;
+      if (v === 'antrean') this.loadAntrean();
+      if (v === 'backup') { this.backupHasil = null; }
+      if (v === 'pembaruan') this.loadAudit();
       window.scrollTo({ top: 0 });
     },
 

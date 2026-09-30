@@ -30,7 +30,24 @@
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Pembaruan
     terbaru</h1>
   <p class="text-[14px] text-slate-500 mt-1">Perubahan sistem dan publikasi terakhir.</p>
-  <div
-    class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">
-    Butuh endpoint audit — riwayat tampil setelah backend siap.</div>
+  <div class="mt-4 flex flex-col sm:flex-row gap-3">
+    <input type="text" x-model="auditKelas" placeholder="Filter slug kelas (opsional)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] max-w-xs" />
+    <button type="button" @click="loadAudit()" class="h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[14px] font-semibold min-h-[44px] w-fit">Terapkan filter</button>
+  </div>
+  <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
+  <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="auditError">-</span>
+    <button type="button" @click="loadAudit()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
+  <div x-show="!auditLoading && !auditError && auditList.length === 0"
+    class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada riwayat tercatat.</div>
+  <div x-show="!auditLoading && auditList.length > 0" class="mt-4 space-y-2">
+    <template x-for="a in auditList" :key="a.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <p class="text-[14px] font-semibold text-[#1D1B3A]" x-text="a.action || '-'">-</p>
+        <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="(a.actor_name || 'Sistem') + (a.actor_role ? ' · ' + a.actor_role : '')">-</span><span x-show="a.class_slug" x-text="' · ' + a.class_slug">-</span></p>
+        <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
+      </div>
+    </template>
+  </div>
 </section>

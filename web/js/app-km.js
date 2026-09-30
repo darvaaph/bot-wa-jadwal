@@ -684,7 +684,7 @@ function kmApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261006', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261007', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -725,6 +725,7 @@ function kmApp() {
       this.drawer = false;
       if (v === 'tugas') this.tugasSub = 'list';
       if (v === 'anggota') this.anggotaSub = 'list';
+      if (v === 'log') this.loadAuditLog();
       window.scrollTo({ top: 0 });
     },
 
@@ -1202,6 +1203,40 @@ function kmApp() {
         } else {
           this.showToast(e.message || 'Gagal menyimpan keputusan.');
         }
+      }
+    },
+
+    auditList: [], auditLoading: false, auditError: '',
+
+    fmtWaktuID(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso || '-');
+        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
+      } catch (e) { return String(iso || '-'); }
+    },
+
+    labelAksiAudit(action) {
+      const a = String(action || '').toUpperCase();
+      const map = {
+        CREATE_TASK: 'Tugas dibuat', REVIEW_TASK: 'Tugas diperiksa',
+        COMPLETE_TASK: 'Tugas selesai', ARCHIVE_TASK: 'Tugas diarsipkan', RESTORE_TASK: 'Tugas dipulihkan',
+        CREATE_PATTERN: 'Jadwal ditambahkan', CREATE_TEACHING_EVENT: 'Perubahan dibuat',
+        PUBLISH_EVENT: 'Perubahan diterbitkan', REVOKE_EVENT: 'Publikasi dicabut',
+        CREATE_BACKUP: 'Cadangan dibuat', ASSIGN_ROLE: 'Peran ditetapkan'
+      };
+      return map[a] || action || '-';
+    },
+
+    async loadAuditLog() {
+      this.auditLoading = true; this.auditError = '';
+      try {
+        this.auditList = await API.getAudit({ limit: 50 }).catch(() => null) || [];
+      } catch (e) {
+        this.auditList = [];
+        this.auditError = 'Riwayat belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.auditLoading = false;
       }
     },
 
