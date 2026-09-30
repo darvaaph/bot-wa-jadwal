@@ -95,7 +95,7 @@ function portalApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261002', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
