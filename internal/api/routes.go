@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"path"
+	"strings"
 
 	"bot-jadwal/web"
 )
@@ -95,6 +97,9 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/assignments/{id}/revoke", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminRevokeAssignment)))
 	mux.HandleFunc("GET /api/v1/admin/invitations", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleGetAdminInvitations)))
 	mux.HandleFunc("POST /api/v1/admin/invitations/{id}/revoke", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminRevokeInvitation)))
+	mux.HandleFunc("POST /api/v1/admin/support/enter", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleEnterSupport)))
+	mux.HandleFunc("POST /api/v1/admin/support/exit", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleExitSupport)))
+	mux.HandleFunc("GET /api/v1/admin/support/active", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetActiveSupport)))
 	mux.HandleFunc("GET /api/v1/master/rooms", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterRooms)))
 	mux.HandleFunc("POST /api/v1/master/rooms", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterRoom)))
 	mux.HandleFunc("PATCH /api/v1/master/rooms/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterRoom)))
@@ -130,6 +135,17 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, "/system-admin.html", http.StatusMovedPermanently)
 	})
 
-	// Menyajikan aset web statis dari web.Files embedded
-	mux.Handle("/", http.FileServer(http.FS(web.Files)))
+	// Menyajikan aset web statis dari web.Files embedded.
+	// Path halaman yang tidak ada (mis. salah ketik *.html) mendapat
+	// halaman 404 kustom, bukan teks polos FileServer.
+	webFS := http.FileServer(http.FS(web.Files))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isWebPagePath(r.URL.Path) {
+			if _, err := web.Files.Open(strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")); err != nil {
+				serveWebNotFound(w, r)
+				return
+			}
+		}
+		webFS.ServeHTTP(w, r)
+	}))
 }

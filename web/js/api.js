@@ -1227,6 +1227,45 @@ const BotApi = {
     return this.changeAssignmentStatus(id, 'cabut', reason, force);
   },
 
+  async supportEnter(classSlug, reason) {
+    const res = await fetch('/api/v1/admin/support/enter', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ class_slug: classSlug, reason: reason })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal masuk Mode Dukungan.');
+      err.code = 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async supportExit(reason) {
+    const res = await fetch('/api/v1/admin/support/exit', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal keluar Mode Dukungan.');
+      err.code = 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async supportActive() {
+    const res = await fetch('/api/v1/admin/support/active', {
+      headers: authHeaders(), credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || null;
+  },
+
   async getAdminInvitations(status, role, classSlug) {
     let url = '/api/v1/admin/invitations';
     const qs = new URLSearchParams();

@@ -406,4 +406,17 @@ var v1Schema = []string{
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		verified_at DATETIME
 	);`,
+	`CREATE TABLE IF NOT EXISTS support_grants (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		class_id INTEGER NOT NULL REFERENCES classes(id),
+		reason TEXT NOT NULL CHECK (length(trim(reason)) >= 10),
+		status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','CLOSED','EXPIRED')),
+		expires_at DATETIME NOT NULL,
+		closed_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		CHECK ((status = 'ACTIVE' AND closed_at IS NULL) OR (status <> 'ACTIVE' AND closed_at IS NOT NULL))
+	);`,
+	`CREATE INDEX IF NOT EXISTS idx_support_grants_user_status ON support_grants(user_id, status);`,
 }

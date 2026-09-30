@@ -537,6 +537,10 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	classSlugFilter := strings.TrimSpace(r.URL.Query().Get("class_slug"))
 	actionFilter := strings.TrimSpace(r.URL.Query().Get("action"))
 	entityTypeFilter := strings.TrimSpace(r.URL.Query().Get("entity_type"))
+	entityIDFilter := strings.TrimSpace(r.URL.Query().Get("entity_id"))
+	actorFilter := strings.TrimSpace(r.URL.Query().Get("actor"))
+	sinceFilter := strings.TrimSpace(r.URL.Query().Get("since"))
+	untilFilter := strings.TrimSpace(r.URL.Query().Get("until"))
 
 	limit := 50
 	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
@@ -560,11 +564,20 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	`
 	var args []any
 
-	// Pembatasan cakupan: KM hanya dapat membaca audit kelas miliknya
+	// Pembatasan cakupan: KM hanya dapat membaca audit kelas miliknya.
+	// Slug asing ditolak 404 generik agar keberadaan kelas lain tak terungkap.
 	if u.ActiveRole == "KM" {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak valid")
 			return
+		}
+		if classSlugFilter != "" {
+			var ownSlug string
+			_ = c.db.QueryRow(`SELECT slug FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&ownSlug)
+			if classSlugFilter != ownSlug {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Riwayat Perubahan tidak ditemukan")
+				return
+			}
 		}
 		query += " AND al.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
@@ -581,6 +594,58 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if entityTypeFilter != "" {
 		query += " AND al.entity_type = ?"
 		args = append(args, entityTypeFilter)
+	}
+
+	if entityIDFilter != "" {
+		entityID, err := strconv.ParseInt(entityIDFilter, 10, 64)
+		if err != nil || entityID <= 0 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "entity_id tidak valid")
+			return
+		}
+		query += " AND al.entity_id = ?"
+		args = append(args, entityID)
+	}
+
+	if actorFilter != "" {
+		// Identitas dicek dulu karena identity_key teleponik ("+62...")
+		// lolos ParseInt dan akan salah dibaca sebagai ID numerik.
+		var actorID int64
+		if err := c.db.QueryRow(`SELECT id FROM users WHERE identity_key = ?;`, actorFilter).Scan(&actorID); err == nil {
+			query += " AND al.actor_user_id = ?"
+			args = append(args, actorID)
+		} else if n, err := strconv.ParseInt(actorFilter, 10, 64); err == nil && n > 0 {
+			query += " AND al.actor_user_id = ?"
+			args = append(args, n)
+		} else {
+			query += " AND 1 = 0"
+		}
+	}
+
+	// Rentang waktu presisi detik (UTC): bandingkan 19 char pertama setelah
+	// normalisasi pemisah, agar baris DATETIME lama (spasi) dan RFC3339 (T)
+	// dapat dibandingkan dengan benar.
+	if sinceFilter != "" {
+		since, err := common.ParseTime(sinceFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format since tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		query += " AND replace(substr(al.created_at, 1, 19), ' ', 'T') >= ?"
+		args = append(args, since.UTC().Format("2006-01-02T15:04:05"))
+	}
+
+	if untilFilter != "" {
+		until, err := common.ParseTime(untilFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format until tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		// Tanggal saja berarti akhir hari agar rentang harian tidak menyesatkan.
+		if s := strings.TrimSpace(untilFilter); len(s) == 10 && s[4] == '-' && s[7] == '-' {
+			until = time.Date(until.Year(), until.Month(), until.Day(), 23, 59, 59, 0, time.UTC)
+		}
+		query += " AND replace(substr(al.created_at, 1, 19), ' ', 'T') <= ?"
+		args = append(args, until.UTC().Format("2006-01-02T15:04:05"))
 	}
 
 	query += " ORDER BY al.created_at DESC LIMIT ? OFFSET ?;"

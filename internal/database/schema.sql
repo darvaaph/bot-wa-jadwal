@@ -744,6 +744,26 @@ CREATE INDEX idx_backup_records_class_status ON backup_records(class_id, status)
 CREATE INDEX idx_backup_records_semester_status ON backup_records(semester_id, status);
 CREATE INDEX idx_backup_records_created_by ON backup_records(created_by_user_id);
 
+-- Hibah dukungan break-glass System Admin (BE-004): konteks sementara per kelas
+-- dengan alasan tercatat dan kedaluwarsa. Satu hibah aktif per pengguna.
+CREATE TABLE support_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    reason TEXT NOT NULL CHECK (length(trim(reason)) >= 10),
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'CLOSED', 'EXPIRED')),
+    expires_at TEXT NOT NULL,
+    closed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CHECK ((status = 'ACTIVE' AND closed_at IS NULL) OR (status <> 'ACTIVE' AND closed_at IS NOT NULL))
+);
+
+CREATE INDEX idx_support_grants_user_status ON support_grants(user_id, status);
+
 CREATE TRIGGER trg_audit_logs_prevent_update
 BEFORE UPDATE ON audit_logs
 BEGIN

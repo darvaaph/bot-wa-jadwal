@@ -4,12 +4,13 @@
     <h1 class="text-[24px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Mode Dukungan</h1>
     <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan break-glass. Setiap perubahan dicatat sebagai akses dukungan beserta alasan.</p>
     <div x-show="dukunganAktif" class="mt-4 p-4 rounded-xl bg-white border border-amber-300 text-[13px]">
-      <p class="font-bold text-[#1F1F1F]">Aktif: <span x-text="dukunganAktif ? dukunganAktif.nama : ''"></span></p>
-      <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? dukunganAktif.alasan : ''"></span></p>
+      <p class="font-bold text-[#1F1F1F]">Aktif: <span x-text="namaDukungan()"></span></p>
+      <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || '') : ''"></span></p>
+      <p class="text-amber-900 mt-0.5" x-show="dukunganAktif && dukunganAktif.expires_at">Berlaku s.d. <span class="font-mono" x-text="fmtWaktuID(dukunganAktif.expires_at)"></span> (60 menit, tercatat di Audit Global).</p>
       <div class="flex flex-wrap gap-2 mt-3">
-        <button type="button" @click="bukaDetail(dukunganAktif.slug)" class="h-10 px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
-        <button type="button" @click="bukaAuditKelas(dukunganAktif.slug)" class="h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat audit kelas</button>
-        <button type="button" @click="keluarDukungan()" class="h-10 px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold min-h-[44px]">Keluar mode dukungan</button>
+        <button type="button" @click="bukaDetail(dukunganAktif.class_slug)" class="h-10 px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
+        <button type="button" @click="bukaAuditKelas(dukunganAktif.class_slug)" class="h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat audit kelas</button>
+        <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="h-10 px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold min-h-[44px] disabled:opacity-60">Keluar mode dukungan</button>
       </div>
     </div>
     <div x-show="!dukunganAktif" class="mt-4">
@@ -27,10 +28,10 @@
       <input id="sa-dukungan-alasan" type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM kelas D4 TI 2025 B"
         class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
     </div>
-    <button x-show="!dukunganAktif" type="button" @click="masukDukungan()"
-      class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px]">Masuk mode
+    <button x-show="!dukunganAktif" type="button" @click="masukDukungan()" :disabled="dukunganLoading"
+      class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px] disabled:opacity-60">Masuk mode
       dukungan</button>
-    <p class="text-[11px] text-amber-800 mt-3">Fase 1: flag frontend + alasan wajib + banner global. Konteks dukungan sejati di backend menyusul sebagai tiket terpisah.</p>
+    <p class="text-[11px] text-amber-800 mt-3">Hibah server 60 menit per kelas + alasan wajib + banner global. Masuk/keluar tercatat di Audit Global sebagai SUPPORT_ENTER/EXIT.</p>
   </div>
 </section>
 
@@ -38,11 +39,24 @@
   <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
     <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Audit Global</h1>
     <p class="text-[14px] text-slate-500 mt-1">Riwayat Perubahan lintas kelas: tindakan keamanan dan dukungan.</p>
-    <div class="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       <input type="text" x-model="auditKelas" placeholder="Slug kelas (opsional)" aria-label="Filter slug kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
       <input type="text" x-model="auditAction" placeholder="Aksi (mis. SUSPEND_USER)" aria-label="Filter aksi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
       <input type="text" x-model="auditEntity" placeholder="Tipe entitas (mis. USER)" aria-label="Filter tipe entitas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
-      <button type="button" @click="loadAudit()" class="h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[14px] font-semibold min-h-[44px] w-fit">Terapkan filter</button>
+      <input type="text" x-model="auditEntityId" placeholder="ID entitas (opsional)" inputmode="numeric" aria-label="Filter ID entitas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+      <input type="text" x-model="auditActor" placeholder="Pelaku: identitas/ID (opsional)" aria-label="Filter pelaku" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+      <div>
+        <label for="sa-audit-since" class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
+        <input id="sa-audit-since" type="datetime-local" x-model="auditSince" aria-label="Filter sejak waktu" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div>
+        <label for="sa-audit-until" class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
+        <input id="sa-audit-until" type="datetime-local" x-model="auditUntil" aria-label="Filter sampai waktu" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div class="flex items-end gap-2">
+        <button type="button" @click="loadAudit()" class="h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[14px] font-semibold min-h-[44px] w-fit">Terapkan filter</button>
+        <button type="button" @click="resetAuditFilter(); loadAudit()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px] w-fit">Reset</button>
+      </div>
     </div>
     <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat Riwayat Perubahan...</div>
     <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">

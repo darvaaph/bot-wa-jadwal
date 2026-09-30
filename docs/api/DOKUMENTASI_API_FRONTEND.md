@@ -445,8 +445,12 @@ Khusus untuk peran **PJ (Penanggung Jawab Matkul)** dan **KM (Ketua Mahasiswa)**
 | `POST /api/v1/teaching-events/:id/room-confirmations` | KM | Konfirmasi persetujuan penggunaan ruangan dari Tata Usaha/Pengelola Lab. |
 | `GET /api/v1/notifications?status=PENDING\|SENT\|FAILED` | Admin / KM | Melihat antrean status pengiriman pesan broadcast WhatsApp. |
 | `POST /api/v1/notifications/:id/retry` | Admin / KM | Menjadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING` (`{retry_scheduled:true}`, tanpa `attempt_number`). |
-| `GET /api/v1/audit?entity_type=&action=&limit=` | Admin / KM | Melihat log jejak audit perubahan data penting. |
-| `POST /api/v1/backups` | Admin | Membuat backup basis data SQLite target v1 secara instan. |
+| `GET /api/v1/audit?entity_type=&action=&entity_id=&actor=&since=&until=&limit=` | Admin / KM | Melihat log jejak audit perubahan data penting (`since/until` RFC3339/YYYY-MM-DD; `actor` ID atau identitas). |
+| `POST /api/v1/backups` | Admin | Membuat backup basis data SQLite target v1 secara instan (`semester_id` opsional). |
+| `GET /api/v1/backups?class_slug=&status=` | Admin / KM | Daftar cadangan tanpa path internal. |
+| `POST /api/v1/admin/support/enter` | Admin | Masuk Mode Dukungan 60 menit (`class_slug`, alasan min 10). |
+| `POST /api/v1/admin/support/exit` | Admin | Keluar Mode Dukungan. |
+| `GET /api/v1/admin/support/active` | Admin | Hibah dukungan aktif atau `null`. |
 | `POST /api/v1/restores` | Admin | Verifikasi Backup (verify-only, ADR-0008): checksum, format, schema, scope → `VERIFIED` + `restore_performed:false`. Database aktif tidak diganti. |
 | `GET /api/v1/admin/status` | Admin | Telemetri kesehatan bot, koneksi WhatsApp, dan metrik sistem. |
 | `POST /api/v1/admin/users/:id/suspend` | Admin | Menonaktifkan akun pengguna bermasalah. |

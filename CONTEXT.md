@@ -33,3 +33,4 @@
 | Sidebar Ciut | Sidebar mini, icon bar | Mode icon-only 76px: label/judul seksi/teks identitas disembunyikan, ikon tetap + tooltip |
 | Logo Asterisk (pemicu) | Logo, asterisk | Tombol logo di atas sidebar untuk menciutkan/melebarkan navigasi |
 | State Galat Halaman | Error page, empty state | Tampilan penuh saat halaman gagal: `500` (server), `offline` (luring), `404` (tak ditemukan) via `pageState` |
+| Halaman 404 Server | Not found, 404 | `web/404.html` mandiri untuk path halaman yang tidak ada di server |

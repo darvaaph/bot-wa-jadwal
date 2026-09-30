@@ -56,6 +56,14 @@
 
 ### BE-04 — Konteks dukungan sejati (break-glass)
 
+> Status: **Selesai sebagian** — tabel `support_grants` (migrasi 010) + hibah 60 mnt
+> (`POST enter` alasan min 10, `POST exit`, `GET active`; supersede + kedaluwarsa
+> beraudit `SUPPORT_EXIT`) + wiring banner server. Tes di
+> `internal/api/admin_support_test.go`.
+> **Batas jujur**: atribusi `grant_id` per mutasi akademik belum ada — mutasi SA
+> tetap lewat hak global dan terkorelasi via timeline `SUPPORT_ENTER/EXIT`.
+> Lanjutan: plumbing konteks dukungan ke audit tiap handler akademik.
+
 - **Problem:** `masukDukungan()` hanya flag frontend + alasan wajib + banner global.
   Tak ada konteks dukungan di server.
 - **Kebutuhan:** endpoint masuk dukungan (kelas + alasan min. 10 karakter → konteks
@@ -132,6 +140,11 @@
 ## Audit
 
 ### BE-12 — Filter waktu + pelaku
+
+> Status: **Selesai** — `since/until` (RFC3339/YYYY-MM-DD, presisi detik UTC;
+> tanggal saja = akhir hari untuk `until`), `actor` (ID atau identity_key),
+> `entity_id`, slug asing untuk KM 404 + wiring filter + reset di Audit Global.
+> Lanjutan di luar tiket: cakupan PJ atas audit matkulnya (route kini KM/SA saja).
 
 - **Problem:** `GET /api/v1/audit` hanya `class_slug/action/entity_type`.
 - **Kebutuhan:** rentang waktu + pelaku (+ `entity_id` bila memungkinkan).

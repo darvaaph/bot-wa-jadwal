@@ -93,10 +93,19 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
 | `GET /api/v1/notifications` | `?status=PENDING\|SENT\|FAILED&limit=` | KM / Admin; Antrean siaran pesan WhatsApp |
 | `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING`. Response `{id, status:"PENDING", scheduled_at, retry_scheduled:true}` tanpa `attempt_number`; attempt hanya dibuat worker saat delivery (BE-010) |
-| `GET /api/v1/audit` | `?entity_type=&action=&limit=` | KM / Admin; Rekam jejak audit trail perubahan sistem |
-| `POST /api/v1/backups` | `{class_slug?, reason?}` | KM / Admin; Snapshot basis data aman via `VACUUM INTO` |
-| `POST /api/v1/restores` | `{backup_id, reason!}` | Admin; Verify-only (ADR-0008): verifikasi path dalam storage backup, checksum (`422 CHECKSUM_MISMATCH`), format SQLite, schema, scope; tandai `VERIFIED`; response `{backup_id, status:"VERIFIED", checksum, restore_performed:false}` tanpa path internal. Database aktif tidak diganti |
+| `GET /api/v1/audit` | `?entity_type=&action=&entity_id=&actor=&since=&until=&class_slug=&limit=` | KM (kelasnya) / Admin; Rekam jejak audit trail perubahan sistem. `since/until` RFC3339 atau YYYY-MM-DD (presisi detik, UTC); `actor` = ID numerik atau identity_key; `entity_id` numerik |
+| `POST /api/v1/backups` | `{class_slug?, semester_id?, reason?}` | KM (kelasnya) / Admin; Snapshot basis data aman via `VACUUM INTO`. `semester_id` opsional, wajib milik kelas; nama berkas unik |
+| `GET /api/v1/backups` | `?class_slug=&status=&limit=` | KM (kelasnya) / Admin; Daftar cadangan tanpa path internal (`artifact_ref` tak dikembalikan) |
+| `POST /api/v1/restores` | `{backup_id, reason!}` | Admin; Verify-only (ADR-0008): verifikasi path dalam storage backup, checksum (`422 CHECKSUM_MISMATCH`), format SQLite, schema, scope kelas + semester + relasi (`foreign_key_check`); tandai `VERIFIED`; response `{backup_id, class_id, semester_id?, status:"VERIFIED", checksum, restore_performed:false}` tanpa path internal. Database aktif tidak diganti |
 | `GET /api/v1/admin/status` | — | Admin; Telemetri runtime, koneksi bot, dan status migrasi |
+| `GET /api/v1/admin/assignments` | `?status=&role=&class_slug=&limit=` | Admin; Daftar Penugasan Peran + scope |
+| `POST /api/v1/admin/assignments/:id/suspend` | `{reason!, force?}` | Admin (+KM untuk PJ kelasnya); cabut sesi penugasan; guard KM-terakhir (`409` kecuali `force`) |
+| `POST /api/v1/admin/assignments/:id/revoke` | `{reason!, force?}` | Sama dengan suspend; status akhir `REVOKED` |
+| `GET /api/v1/admin/invitations` | `?status=&role=&class_slug=` | Admin (+KM kelasnya); Daftar Undangan tanpa token (`EXPIRED` derivasi) |
+| `POST /api/v1/admin/invitations/:id/revoke` | `{reason!}` | Admin (+KM untuk PJ kelasnya); hanya `PENDING` |
+| `POST /api/v1/admin/support/enter` | `{class_slug!, reason! min 10}` | Admin; Hibah dukungan 60 menit, tutup hibah lama; audit `SUPPORT_ENTER` |
+| `POST /api/v1/admin/support/exit` | `{reason?}` | Admin; Tutup hibah aktif; audit `SUPPORT_EXIT` |
+| `GET /api/v1/admin/support/active` | — | Admin; Hibah aktif atau `null`; kedaluwarsa ditandai `EXPIRED` |
 | `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
 | `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
 

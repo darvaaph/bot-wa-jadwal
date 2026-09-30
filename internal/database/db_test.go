@@ -107,6 +107,7 @@ func TestSchemaVerification(t *testing.T) {
 		"import_batches",
 		"import_errors",
 		"backup_records",
+		"support_grants",
 		"chat_class_contexts",
 		"seen_chats",
 	}

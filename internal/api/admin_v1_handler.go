@@ -100,3 +100,30 @@ func (s *Server) handleAdminRevokeInvitation(w http.ResponseWriter, r *http.Requ
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleEnterSupport menangani POST /api/v1/admin/support/enter
+func (s *Server) handleEnterSupport(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.EnterSupport(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleExitSupport menangani POST /api/v1/admin/support/exit
+func (s *Server) handleExitSupport(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.ExitSupport(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleGetActiveSupport menangani GET /api/v1/admin/support/active
+func (s *Server) handleGetActiveSupport(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetActiveSupport(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}

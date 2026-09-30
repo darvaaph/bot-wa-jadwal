@@ -58,6 +58,7 @@ function systemAdminApp() {
 
     dukunganAlasan: '',
     dukunganAktif: null,
+    dukunganLoading: false,
 
     penggunaTab: 'akun',
     penggunaList: [],
@@ -137,6 +138,10 @@ function systemAdminApp() {
     auditKelas: '',
     auditAction: '',
     auditEntity: '',
+    auditEntityId: '',
+    auditActor: '',
+    auditSince: '',
+    auditUntil: '',
 
     toast: { show: false, message: '', timer: null },
 
@@ -267,10 +272,10 @@ function systemAdminApp() {
         ['sa-auth', '/partials/system-admin/auth-modal.html']
       ]);
 
-      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount()]);
+      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
 
       setInterval(() => {
-        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); }
+        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
       }, 30000);
     },
 
@@ -318,7 +323,7 @@ function systemAdminApp() {
         if (res && res.token) {
           this.authModal = false;
           await this.checkAuth();
-          await Promise.all([this.checkBot(), this.loadKelas()]);
+          await Promise.all([this.checkBot(), this.loadKelas(), this.muatDukunganAktif()]);
           this.showToast('Berhasil masuk sebagai System Admin.');
         }
       } catch (err) {
@@ -384,6 +389,10 @@ function systemAdminApp() {
       this.auditKelas = '';
       this.auditAction = '';
       this.auditEntity = String(entityType || '');
+      this.auditEntityId = '';
+      this.auditActor = '';
+      this.auditSince = '';
+      this.auditUntil = '';
       this.go('audit');
     },
 
@@ -825,6 +834,24 @@ function systemAdminApp() {
       }
     },
 
+    auditDateTimeParam(v) {
+      const s = (v || '').trim();
+      if (!s) return '';
+      // datetime-local tanpa detik -> lengkapi agar ParseTime server terima.
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s + ':00';
+      return s;
+    },
+
+    resetAuditFilter() {
+      this.auditKelas = '';
+      this.auditAction = '';
+      this.auditEntity = '';
+      this.auditEntityId = '';
+      this.auditActor = '';
+      this.auditSince = '';
+      this.auditUntil = '';
+    },
+
     async loadAudit() {
       this.auditLoading = true; this.auditError = '';
       try {
@@ -832,6 +859,12 @@ function systemAdminApp() {
         if ((this.auditKelas || '').trim()) params.class_slug = this.auditKelas.trim();
         if ((this.auditAction || '').trim()) params.action = this.auditAction.trim();
         if ((this.auditEntity || '').trim()) params.entity_type = this.auditEntity.trim();
+        if ((this.auditEntityId || '').trim()) params.entity_id = this.auditEntityId.trim();
+        if ((this.auditActor || '').trim()) params.actor = this.auditActor.trim();
+        const since = this.auditDateTimeParam(this.auditSince);
+        const until = this.auditDateTimeParam(this.auditUntil);
+        if (since) params.since = since;
+        if (until) params.until = until;
         this.auditList = await API.getAudit(params).catch(() => null) || [];
       } catch (e) {
         this.auditList = [];
@@ -1068,6 +1101,10 @@ function systemAdminApp() {
       this.auditKelas = slug || '';
       this.auditAction = '';
       this.auditEntity = '';
+      this.auditEntityId = '';
+      this.auditActor = '';
+      this.auditSince = '';
+      this.auditUntil = '';
       this.go('audit');
     },
 
@@ -1196,24 +1233,56 @@ function systemAdminApp() {
       }
     },
 
-    masukDukungan() {
+    async masukDukungan() {
       const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
       if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
       const alasan = (this.dukunganAlasan || '').trim();
       if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
-      this.dukunganAktif = { slug: target.slug, nama: target.nama, alasan };
-      this.showToast(`Mode Dukungan aktif untuk ${target.nama}.`);
-      window.scrollTo({ top: 0 });
+      this.dukunganLoading = true;
+      try {
+        this.dukunganAktif = await API.supportEnter(target.slug, alasan);
+        this.dukunganAlasan = '';
+        this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
+        window.scrollTo({ top: 0 });
+      } catch (err) {
+        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
+      } finally {
+        this.dukunganLoading = false;
+      }
     },
 
-    keluarDukungan() {
-      this.dukunganAktif = null;
-      this.dukunganAlasan = '';
-      this.showToast('Mode Dukungan dimatikan.');
+    async keluarDukungan() {
+      this.dukunganLoading = true;
+      try {
+        await API.supportExit('');
+        this.dukunganAktif = null;
+        this.dukunganAlasan = '';
+        this.showToast('Mode Dukungan dimatikan.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal keluar Mode Dukungan.');
+      } finally {
+        this.dukunganLoading = false;
+      }
+    },
+
+    async muatDukunganAktif() {
+      try {
+        this.dukunganAktif = await API.supportActive();
+      } catch (e) {
+        this.dukunganAktif = null;
+      }
     },
 
     isDukunganUntuk(slug) {
-      return !!(this.dukunganAktif && this.dukunganAktif.slug === slug);
+      return !!(this.dukunganAktif && (this.dukunganAktif.class_slug === slug || this.dukunganAktif.slug === slug));
+    },
+
+    namaDukungan() {
+      const d = this.dukunganAktif;
+      if (!d) return '';
+      const slug = d.class_slug || d.slug || '';
+      const k = (this.kelasList || []).find(x => x.slug === slug);
+      return k ? k.nama : (d.class_code || slug);
     },
 
     copyText(text, okMsg) {
