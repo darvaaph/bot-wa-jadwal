@@ -10,19 +10,35 @@ function kmApp() {
     q: '',
     weekOffset: 0,
 
-    kmNav: [
-      { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
-      { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
-      { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-      { id: 'dosen', label: 'Dosen berhalangan', img: '/assets/icons/book.svg' },
-      { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
-      { id: 'anggota', label: 'Anggota & Tim', img: '/assets/icons/ext-settings-edit.svg' },
-      { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
-      { id: 'monitoring', label: 'Monitoring', img: '/assets/icons/activity.svg' },
-      { id: 'log', label: 'Log Aktivitas', img: '/assets/icons/ext-check.svg' },
-      { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
-      { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' }
+    roleLabel: 'KM',
+
+    navSections: [
+      { title: 'KM', items: [
+        { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
+      ] },
+      { title: 'AKADEMIK', items: [
+        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
+        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
+        { id: 'dosen', label: 'Dosen berhalangan', img: '/assets/icons/book.svg' },
+        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
+      ] },
+      { title: 'KELOLA KELAS', items: [
+        { id: 'anggota', label: 'Anggota & Tim', img: '/assets/icons/ext-settings-edit.svg' },
+        { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
+      ] },
+      { title: 'LAINNYA', items: [
+        { id: 'monitoring', label: 'Monitoring', img: '/assets/icons/activity.svg' },
+        { id: 'log', label: 'Log Aktivitas', img: '/assets/icons/ext-check.svg' },
+        { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
+        { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' },
+      ] },
     ],
+
+    get nav() { return this.navSections.flatMap(s => s.items); },
+    get kmNav() { return this.nav; },
+    get roleSub() { return 'Pengelola seluruh kelas'; },
+
+    isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 
     todayName: 'Senin',
     todayFull: '',
@@ -154,8 +170,8 @@ function kmApp() {
       }
 
       await this.loadPartials([
-        ['km-sidebar', '/partials/km/sidebar.html'],
-        ['km-topbar', '/partials/km/topbar.html'],
+        ['km-sidebar', '/partials/common/sidebar.html'],
+        ['km-topbar', '/partials/common/topbar.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
         ['km-jadwal', '/partials/km/view-jadwal.html'],
@@ -166,8 +182,8 @@ function kmApp() {
         ['km-monitor', '/partials/km/view-monitor.html'],
         ['km-notif', '/partials/km/view-notif.html'],
         ['km-pengaturan', '/partials/km/view-pengaturan.html'],
-        ['km-drawer', '/partials/km/drawer.html'],
-        ['km-toast', '/partials/km/toast.html']
+        ['km-drawer', '/partials/common/drawer.html'],
+        ['km-toast', '/partials/common/toast.html']
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
@@ -183,7 +199,7 @@ function kmApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261002', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

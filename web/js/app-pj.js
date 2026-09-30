@@ -14,17 +14,31 @@ function pjApp() {
     offeringList: [],
     offeringLoading: false,
 
-    pjNav: [
-      { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
-      { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
-      { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-      { id: 'dosen', label: 'Dosen berhalangan', img: '/assets/icons/book.svg' },
-      { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
-      { id: 'status', label: 'Status pemeriksaan', img: '/assets/icons/ext-check.svg' },
-      { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
-      { id: 'pengaturan', label: 'Pengaturan', img: '/assets/icons/settings.svg' },
-      { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' }
+    roleLabel: 'PJ',
+
+    navSections: [
+      { title: 'PJ', items: [
+        { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
+      ] },
+      { title: 'AKADEMIK', items: [
+        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg', active: ['tugas', 'tambah', 'preview', 'konfirmasi', 'terbit'] },
+        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg', active: ['jadwal', 'pindah', 'perubahan'] },
+        { id: 'dosen', label: 'Dosen berhalangan', img: '/assets/icons/book.svg' },
+        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
+      ] },
+      { title: 'LAINNYA', items: [
+        { id: 'status', label: 'Status pemeriksaan', img: '/assets/icons/ext-check.svg' },
+        { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
+        { id: 'pengaturan', label: 'Pengaturan', img: '/assets/icons/settings.svg' },
+        { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' },
+      ] },
     ],
+
+    get nav() { return this.navSections.flatMap(s => s.items); },
+    get pjNav() { return this.nav; },
+    get roleSub() { return this.pjMatkul || 'Mata kuliah belum dipilih'; },
+
+    isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 
     todayName: 'Senin',
     todayFull: '',
@@ -140,8 +154,8 @@ function pjApp() {
       }
 
       await this.loadPartials([
-        ['pj-sidebar', '/partials/pj/sidebar.html'],
-        ['pj-topbar', '/partials/pj/topbar.html'],
+        ['pj-sidebar', '/partials/common/sidebar.html'],
+        ['pj-topbar', '/partials/common/topbar.html'],
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
         ['pj-jadwal', '/partials/pj/view-jadwal.html'],
@@ -149,8 +163,8 @@ function pjApp() {
         ['pj-status', '/partials/pj/view-status.html'],
         ['pj-notif', '/partials/pj/view-notif.html'],
         ['pj-akun', '/partials/pj/view-akun.html'],
-        ['pj-drawer', '/partials/pj/drawer.html'],
-        ['pj-toast', '/partials/pj/toast.html']
+        ['pj-drawer', '/partials/common/drawer.html'],
+        ['pj-toast', '/partials/common/toast.html']
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
@@ -166,7 +180,7 @@ function pjApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261002', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

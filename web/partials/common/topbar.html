@@ -1,4 +1,4 @@
-<!-- partials/pj/topbar.html — Topbar PJ -->
+<!-- partials/common/topbar.html — Topbar generik (KM/PJ). Badge role dari roleLabel di js/app-*.js -->
 <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#EEEEEE]">
   <div class="flex items-center gap-3 px-4 md:px-8 h-16 max-w-[1280px] mx-auto w-full">
     <button type="button" @click="drawer = true" aria-label="Buka menu" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100">
@@ -12,7 +12,7 @@
     <div class="ml-auto flex items-center gap-1.5 shrink-0">
       <button type="button" @click="soon('Ganti tema')" aria-label="Ganti tema" class="w-11 h-11 hidden sm:flex items-center justify-center rounded-full bg-[#E9EAFF] text-[#3965FB] hover:bg-[#dbe4ff]"><span class="material-symbols-outlined">light_mode</span></button>
       <button type="button" @click="go('notifikasi')" aria-label="Notifikasi" class="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-slate-100 text-[#1F1F1F]"><img src="/assets/icons/bell.svg" alt="" class="w-5 h-5" /><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#FF6C48]"></span></button>
-      <button type="button" @click="go('akun')" aria-label="Akun" class="w-9 h-9 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold text-[13px] flex items-center justify-center">PJ</button>
+      <button type="button" @click="go('akun')" aria-label="Akun" class="w-9 h-9 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold text-[13px] flex items-center justify-center" x-text="roleLabel">-</button>
       <button type="button" @click="logout()" title="Keluar / Logout" class="h-9 px-3 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200 text-slate-600 hover:text-red-600 text-[12px] font-semibold flex items-center gap-1.5 transition ml-1 cursor-pointer">
         <span class="material-symbols-outlined text-[16px]">logout</span>
         <span class="hidden sm:inline">Keluar</span>

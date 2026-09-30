@@ -1,0 +1,32 @@
+<!-- partials/common/sidebar.html — Sidebar desktop generik (KM/PJ). Menu dari navSections di js/app-*.js -->
+<aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-5 z-40 overflow-y-auto">
+  <div class="flex items-center gap-2 px-2">
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
+  </div>
+  <nav aria-label="Navigasi utama" class="mt-8 flex flex-col gap-0.5 text-[14px]">
+    <template x-for="(section, si) in navSections" :key="section.title">
+      <div class="contents">
+        <p :class="si === 0 ? 'px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400' : 'px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400'" x-text="section.title">-</p>
+        <template x-for="item in section.items" :key="item.id">
+          <button type="button" @click="go(item.id)"
+            :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+            <img :src="item.img" alt="" class="w-5 h-5 shrink-0" /><span x-text="item.label">-</span>
+          </button>
+        </template>
+      </div>
+    </template>
+  </nav>
+  <div class="mt-auto pt-4 text-[13px] border-t border-[#EEEEEE]">
+    <div class="flex items-center justify-between gap-2">
+      <div class="truncate">
+        <p class="font-semibold text-[#1F1F1F] truncate"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
+        <p class="text-[12px] text-slate-500 truncate" x-text="roleSub">-</p>
+      </div>
+      <button type="button" @click="logout()" title="Keluar / Logout" :aria-label="'Keluar dari akun ' + roleLabel"
+              class="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0 cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+      </button>
+    </div>
+  </div>
+</aside>
