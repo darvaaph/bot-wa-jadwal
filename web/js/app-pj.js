@@ -10,6 +10,9 @@ function pjApp() {
     q: '',
     weekOffset: 0,
     pjMatkul: localStorage.getItem('pj_matkul') || '',
+    offeringId: localStorage.getItem('pj_offering_id') || '',
+    offeringList: [],
+    offeringLoading: false,
 
     pjNav: [
       { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
@@ -125,6 +128,11 @@ function pjApp() {
         }
         this.currentUser = me.user;
         this.activeRole = role || null;
+        const assignedOffering = me.active_assignment && me.active_assignment.offering_id;
+        if (assignedOffering && !this.offeringId) {
+          this.offeringId = String(assignedOffering);
+          localStorage.setItem('pj_offering_id', this.offeringId);
+        }
       } catch (e) {
         localStorage.removeItem('access_token');
         window.location.replace('/login.html?role=pj');
@@ -148,6 +156,7 @@ function pjApp() {
       setInterval(() => this.updateClock(), 1000);
       await this.checkBot();
       await this.loadClasses();
+      await this.loadOfferings();
       await this.loadSchedule();
       await this.loadTasks();
       this.patternsList = await API.getPatterns().catch(() => []);
@@ -203,6 +212,57 @@ function pjApp() {
       this.showToast(this.pjMatkul ? `Cakupan: ${this.pjMatkul}` : 'Cakupan dikosongkan.');
     },
 
+    async loadOfferings() {
+      this.offeringLoading = true;
+      try {
+        if (!this.selectedClass) return;
+        const semesters = await API.getSemesters(this.selectedClass).catch(() => []);
+        const list = Array.isArray(semesters) ? semesters : [];
+        const active = list.find(s => s.status === 'ACTIVE') || list[0];
+        if (!active) { this.offeringList = []; return; }
+        const offerings = await API.getSemesterOfferings(active.id).catch(() => []);
+        this.offeringList = Array.isArray(offerings) ? offerings : [];
+        const ids = this.offeringList.map(o => String(o.id));
+        if (this.offeringId && !ids.includes(String(this.offeringId))) {
+          this.offeringId = '';
+          localStorage.removeItem('pj_offering_id');
+        }
+        if (!this.offeringId && this.offeringList.length === 1) {
+          this.offeringId = String(this.offeringList[0].id);
+          localStorage.setItem('pj_offering_id', this.offeringId);
+        }
+        this.syncMatkulFromOffering();
+      } catch (e) {
+        this.offeringList = [];
+      } finally {
+        this.offeringLoading = false;
+      }
+    },
+
+    simpanOffering() {
+      if (this.offeringId) {
+        localStorage.setItem('pj_offering_id', String(this.offeringId));
+      } else {
+        localStorage.removeItem('pj_offering_id');
+      }
+      this.syncMatkulFromOffering();
+      this.loadTasks();
+    },
+
+    syncMatkulFromOffering() {
+      const found = (this.offeringList || []).find(o => String(o.id) === String(this.offeringId));
+      const name = found ? (found.display_name || found.course_code || '') : '';
+      if (name) {
+        this.pjMatkul = name;
+        localStorage.setItem('pj_matkul', name);
+      }
+    },
+
+    offeringName() {
+      const found = (this.offeringList || []).find(o => String(o.id) === String(this.offeringId));
+      return found ? (found.display_name || '') : (this.pjMatkul || '');
+    },
+
     async checkBot() {
       try {
         const st = await API.getStatus();
@@ -237,13 +297,41 @@ function pjApp() {
 
     async loadTasks() {
       try {
-        const raw = await API.getTasks(this.selectedClass);
-        this.tasks = (raw || []).map(t => {
-          const u = this.urgencyOf(t.deadline);
+        const raw = await API.getTasks(this.offeringId || '');
+        const list = (raw || []).map(t => {
+          const u = this.urgencyOf(t.deadline_at || t.deadline);
           return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi,
-                   deadline: t.deadline, urgency: u.level, countdown: u.badge };
+                   deadline: t.deadline, title: t.title, version: t.version,
+                   urgency: u.level, countdown: u.badge };
         });
+        if (this.pjMatkul) {
+          this.tasks = list.filter(t => !t.matkul || t.matkul === this.pjMatkul);
+          if (this.tasks.length === 0) this.tasks = list;
+        } else {
+          this.tasks = list;
+        }
       } catch (e) { this.tasks = []; }
+    },
+
+    parseDeadlineID(tanggal, jam) {
+      const t = String(tanggal || '').trim();
+      const j = String(jam || '').trim().replace('.', ':');
+      let datePart = '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+        datePart = t;
+      } else {
+        const dm = t.match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
+        if (!dm) return '';
+        const months = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08', sep: '09', okt: '10', nov: '11', des: '12' };
+        const month = months[dm[2].toLowerCase().slice(0, 3)] || '';
+        if (!month) return '';
+        const year = dm[3] || new Date().getFullYear();
+        datePart = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
+      }
+      const hm = j.match(/(\d{1,2})[:.](\d{2})/);
+      if (!hm) return '';
+      const hh = String(hm[1]).padStart(2, '0');
+      return `${datePart}T${hh}:${hm[2]}:00+07:00`;
     },
 
     urgencyOf(label) {
@@ -275,7 +363,7 @@ function pjApp() {
     },
 
     mulaiTambah() {
-      if (!this.pjMatkul) { this.showToast('Pilih mata kuliah yang ditugaskan dulu di Dashboard.'); return; }
+      if (!this.offeringId) { this.showToast('Pilih mata kuliah (offering) yang ditugaskan dulu di Dashboard.'); return; }
       this.tugasForm = { judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' };
       this.tugasError = '';
       this.terbitOk = false;
@@ -285,15 +373,26 @@ function pjApp() {
 
     async terbitTugas() {
       const f = this.tugasForm;
+      if (!this.offeringId) { this.tugasError = 'Pilih mata kuliah (offering) di Dashboard dulu.'; return; }
       if (!f.judul || f.judul.trim().length < 5) { this.tugasError = 'Judul tugas minimal 5 karakter.'; return; }
       if (!f.tanggal || !f.jam) { this.tugasError = 'Tanggal dan jam deadline wajib diisi.'; return; }
       if (!f.deskripsi || f.deskripsi.trim().length < 5) { this.tugasError = 'Deskripsi tugas minimal 5 karakter.'; return; }
+      const deadlineAt = this.parseDeadlineID(f.tanggal, f.jam);
+      if (!deadlineAt) { this.tugasError = 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.'; return; }
       this.tugasError = '';
-      await API.createTask({
-        matkul: this.pjMatkul,
-        deskripsi: `${f.judul} — ${f.deskripsi.trim()}`,
-        deadline: `${f.tanggal} ${f.jam}`
-      });
+      try {
+        await API.createTask({
+          offering_id: Number(this.offeringId),
+          title: f.judul.trim(),
+          instructions: f.deskripsi.trim(),
+          deadline_at: deadlineAt,
+          submission_text: (f.kumpul || '').trim() || undefined,
+          save_as: 'published'
+        });
+      } catch (err) {
+        this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
+        return;
+      }
       await this.loadTasks();
       this.terbitOk = true;
       this.showToast('Tugas diterbitkan.');
@@ -301,17 +400,49 @@ function pjApp() {
     },
 
     async simpanDrafTugas() {
-      this.showToast('Draf tersimpan lokal — status draf butuh endpoint backend.');
-      this.view = 'tugas';
+      const f = this.tugasForm || {};
+      if (!this.offeringId) { this.showToast('Pilih mata kuliah (offering) di Dashboard dulu.'); return; }
+      if (!f.judul || f.judul.trim().length < 5) { this.showToast('Judul tugas minimal 5 karakter.'); return; }
+      try {
+        const payload = {
+          offering_id: Number(this.offeringId),
+          title: f.judul.trim(),
+          instructions: (f.deskripsi || '').trim(),
+          save_as: 'draft'
+        };
+        const deadlineAt = (f.tanggal && f.jam) ? this.parseDeadlineID(f.tanggal, f.jam) : '';
+        if (deadlineAt) payload.deadline_at = deadlineAt;
+        if ((f.kumpul || '').trim()) payload.submission_text = f.kumpul.trim();
+        await API.createTask(payload);
+        await this.loadTasks();
+        this.showToast('Draf tersimpan di server.');
+        this.view = 'tugas';
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyimpan draf di server.');
+      }
     },
 
     async hapusTugas(id) {
-      await API.deleteTask(id);
-      await this.loadTasks();
-      this.showToast('Tugas diarsipkan.');
+      try {
+        const detail = await API.getTaskDetail(id).catch(() => null);
+        const version = detail && (detail.version || (detail.task && detail.task.version));
+        await API.deleteTask(id, version);
+        await this.loadTasks();
+        this.showToast('Tugas diarsipkan.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengarsipkan tugas.');
+      }
     },
 
-    lihatTugas() { this.showToast('Detail + riwayat versi butuh endpoint backend.'); },
+    async lihatTugas(t) {
+      try {
+        const detail = await API.getTaskDetail(t.id);
+        const info = detail && (detail.task || detail);
+        this.showToast(info && info.title ? `Tugas: ${info.title}` : 'Detail tugas dimuat.');
+      } catch (e) {
+        this.showToast('Gagal memuat detail tugas dari server.');
+      }
+    },
 
     previewDosen() {
       if (!this.dosen.tanggal || !this.dosen.alasan) {

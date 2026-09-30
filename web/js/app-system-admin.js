@@ -22,7 +22,7 @@ function systemAdminApp() {
 
     currentUser: null,
     authModal: false,
-    authForm: { identityKey: '+6281111111111', password: 'password123' },
+    authForm: { identityKey: '', password: '' },
     authLoading: false,
     authError: '',
 
@@ -173,12 +173,6 @@ function systemAdminApp() {
       }
     },
 
-    async quickDemoLogin() {
-      this.authForm.identityKey = '+6281111111111';
-      this.authForm.password = 'password123';
-      await this.login();
-    },
-
     async logout() {
       try {
         await API.logout();
@@ -260,17 +254,21 @@ function systemAdminApp() {
     },
 
     bukaUndang(k) {
-      this.kelasAktifObj = typeof k === 'object' ? k : { nama: k, slug: k.toLowerCase(), prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'none' };
-      this.kelasAktif = this.kelasAktifObj.nama;
-      this.undangNomor = this.kelasAktifObj.kmPhone || '';
+      const obj = typeof k === 'object' ? k : (this.kelasList || []).find(x => x.slug === k || x.nama === k);
+      if (!obj) { this.showToast('Kelas tidak ditemukan di daftar.'); return; }
+      this.kelasAktifObj = obj;
+      this.kelasAktif = obj.slug;
+      this.undangNomor = obj.kmPhone || '';
       this.undangError = '';
       this.view = 'undang';
       window.scrollTo({ top: 0 });
     },
 
     bukaDetail(k) {
-      this.kelasAktifObj = typeof k === 'object' ? k : { nama: k, slug: k.toLowerCase(), prodi: 'Teknik Informatika', angkatan: '2024', statusKM: 'active', kmName: 'Raisa Putri', kmPhone: '0812 3456 7890' };
-      this.kelasAktif = this.kelasAktifObj.nama;
+      const obj = typeof k === 'object' ? k : (this.kelasList || []).find(x => x.slug === k || x.nama === k);
+      if (!obj || !obj.slug) { this.showToast('Kelas tidak ditemukan di daftar.'); return; }
+      this.kelasAktifObj = obj;
+      this.kelasAktif = obj.slug;
       this.view = 'detail';
       window.scrollTo({ top: 0 });
     },
@@ -361,9 +359,10 @@ function systemAdminApp() {
     },
 
     masukDukungan() {
-      if (!this.kelasAktif) { this.showToast('Pilih kelas tujuan dulu.'); return; }
-      if (!this.dukunganAlasan.trim()) { this.showToast('Alasan dukungan wajib diisi.'); return; }
-      this.showToast('Fitur dukungan darurat sedang dipersiapkan.');
+      const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
+      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      if (!(this.dukunganAlasan || '').trim()) { this.showToast('Alasan dukungan wajib diisi.'); return; }
+      this.showToast(`Dukungan untuk ${target.nama} dicatat. Mode masuk via API belum tersedia.`);
     },
 
     copyText(text, okMsg) {

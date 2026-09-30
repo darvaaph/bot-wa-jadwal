@@ -367,6 +367,16 @@ const BotApi = {
     return true;
   },
 
+  async getSemesterOfferings(semesterId) {
+    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/offerings', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
   async importSemester(semesterId, payload) {
     const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/import-validate', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)

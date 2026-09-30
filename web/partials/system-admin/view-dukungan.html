@@ -9,8 +9,8 @@
       <select x-model="kelasAktif"
         class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
         <option value="">-- Pilih kelas --</option>
-        <template x-for="k in kelasList" :key="k">
-          <option :value="k" x-text="k">-</option>
+        <template x-for="k in kelasList" :key="k.slug">
+          <option :value="k.slug" x-text="k.nama + ' · ' + k.prodi + ' ' + k.angkatan">-</option>
         </template>
       </select>
     </div>
@@ -22,7 +22,7 @@
     <button type="button" @click="masukDukungan()"
       class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px]">Masuk mode
       dukungan</button>
-    <p class="text-[11px] text-amber-800 mt-3">Mode dukungan penuh butuh endpoint autentikasi backend.</p>
+    <p class="text-[11px] text-amber-800 mt-3">Mode dukungan via API belum tersedia. Pilihan kelas dan alasan dicatat sebagai acuan tindak lanjut manual.</p>
   </div>
 </section>
 
