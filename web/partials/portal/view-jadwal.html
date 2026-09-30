@@ -1,25 +1,30 @@
-<!-- partials/portal/view-jadwal.html — Portal Jadwal (efektif, baca saja) -->
+<!-- partials/portal/view-jadwal.html — Portal Jadwal efektif (pola + perubahan terbit) -->
 <section x-show="view === 'jadwal'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Jadwal</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Jadwal efektif kelas minggu ini.</p>
-  <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1">
+  <p class="text-[14px] text-slate-500 mt-1">Jadwal efektif kelas minggu ini, termasuk kelas pengganti dan pembatalan.</p>
+  <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Filter hari">
     <template x-for="d in ['Senin','Selasa','Rabu','Kamis','Jumat']" :key="d">
-      <button type="button" @click="hari = d" x-text="d"
+      <button type="button" @click="pilihHari(d)" role="tab" :aria-selected="hari === d" x-text="d + (tanggalPekan[d] ? ' ' + tanggalPekan[d].slice(8, 10) : '')"
         :class="hari === d ? 'bg-[#3965FB] text-white font-semibold' : 'bg-slate-50 text-slate-600'"
         class="px-4 py-2.5 rounded-xl text-[13px] font-medium whitespace-nowrap min-h-[44px]">-</button>
     </template>
   </div>
+  <div x-show="jadwalLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat jadwal...</div>
+  <div x-show="jadwalError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="jadwalError">-</span>
+    <button type="button" @click="loadJadwalEfektif()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
   <div class="mt-4 space-y-3">
     <template x-for="s in jadwalHari" :key="s.id">
       <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
-        <div class="flex items-center justify-between">
-          <span class="font-mono text-[13px] font-bold text-[#3965FB]" x-text="s.timeStart + ' - ' + s.timeEnd">-</span>
-          <span class="text-[11px] text-slate-400" x-text="s.hari">-</span>
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono text-[13px] font-bold text-[#3965FB]" x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">-</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border shrink-0" :class="badgeJadwal(s.kind).cls"><span class="material-symbols-outlined text-[12px]" x-text="badgeJadwal(s.kind).icon">-</span><span x-text="badgeJadwal(s.kind).label">-</span></span>
         </div>
         <p class="text-[16px] font-bold mt-1" x-text="s.matkul">-</p>
-        <p class="text-[12px] text-slate-500 mt-0.5" x-text="s.dosen + ' • ' + s.ruang">-</p>
+        <p class="text-[12px] text-slate-500 mt-0.5" x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang || '')">-</p>
       </div>
     </template>
-    <div x-show="jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>
+    <div x-show="!jadwalLoading && !jadwalError && jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>
   </div>
 </section>

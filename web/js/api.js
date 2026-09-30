@@ -784,8 +784,67 @@ const BotApi = {
     return await res.json();
   },
 
-  async getPortalTasks(slug, group) {
-    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
+  portalHeaders() {
+    const headers = {};
+    try {
+      const savedToken = localStorage.getItem('portal_token');
+      const savedClass = localStorage.getItem('portal_class');
+      if (savedToken && savedClass) headers['X-Portal-Token'] = savedToken;
+    } catch (e) {}
+    return headers;
+  },
+
+  // Jadwal efektif portal untuk satu tanggal (pola + perubahan terbit).
+  // Mengembalikan {date, items} atau null bila kelas tak ditemukan / akses ditolak.
+  async getPortalSchedule(slug, dateStr) {
+    try {
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (dateStr ? '?date=' + encodeURIComponent(dateStr) : ''), {
+        credentials: 'same-origin',
+        headers: this.portalHeaders()
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data || null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async getPortalTaskDetail(slug, taskId) {
+    const headers = this.portalHeaders();
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks/' + encodeURIComponent(taskId), {
+      credentials: 'same-origin',
+      headers: headers
+    });
+    if (res.status === 404) {
+      const err = new Error('Tugas ini sudah tidak terbit. Minta informasi terbaru kepada PJ atau KM kelas.');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Detail tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.');
+      err.code = 'LOAD_FAILED';
+      throw err;
+    }
+    const json = await res.json();
+    return json.data || null;
+  },
+
+  async getPortalMaterials(slug) {
+    try {
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials', {
+        credentials: 'same-origin',
+        headers: this.portalHeaders()
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getPortalTasks(slug, group) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
     const g = valid.includes(group) ? group : '';
     const headers = {};
     try {
