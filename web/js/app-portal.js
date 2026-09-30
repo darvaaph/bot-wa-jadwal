@@ -116,20 +116,45 @@ function portalApp() {
       }
     },
 
-    bukaPortal() {
-      if (!/^\d{6}$/.test(this.pin.trim())) {
+    get selectedClassSlug() {
+      return (this.selectedClass || 'd4-ti-2024-a').toLowerCase().replace(/\s+/g, '-');
+    },
+
+    loadingPin: false,
+
+    async bukaPortal() {
+      const code = this.pin.trim();
+      if (!/^\d{6}$/.test(code)) {
         this.pinError = 'Kode akses harus 6 digit angka.';
         return;
       }
       this.pinError = '';
-      localStorage.setItem('portal_pin_ok', '1');
-      localStorage.setItem('portal_pin_at', String(Date.now()));
-      this.unlocked = true;
-      this.showToast('Masuk mode pratinjau — verifikasi PIN butuh endpoint backend.');
+      this.loadingPin = true;
+
+      try {
+        const slug = this.selectedClassSlug;
+        const res = await API.verifyPortalCode(slug, code);
+
+        if (res && res.portal_token) {
+          localStorage.setItem('portal_token', res.portal_token);
+        }
+        localStorage.setItem('portal_pin_ok', '1');
+        localStorage.setItem('portal_pin_at', String(Date.now()));
+        this.unlocked = true;
+        this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
+
+        await Promise.all([this.loadSchedule(), this.loadTasks()]);
+      } catch (err) {
+        this.pinError = err.message || 'Kode akses tidak valid. Periksa kembali kode dari grup kelas.';
+        this.showToast(this.pinError);
+      } finally {
+        this.loadingPin = false;
+      }
     },
 
     kunciPortal() {
       localStorage.removeItem('portal_pin_ok');
+      localStorage.removeItem('portal_token');
       this.unlocked = false;
       this.pin = '';
       this.view = 'dashboard';

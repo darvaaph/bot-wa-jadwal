@@ -691,7 +691,7 @@ func (lm *LinkManager) buildHelp(isGroup bool) string {
 	sb.WriteString("• `!link [kata kunci]`\n  ➔ Mencari tautan spesifik (Contoh: `!link alin`, `!link sbd`)\n\n")
 
 	sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan tautan kini hanya melalui Web Dashboard Pengelola:*\n")
-	sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n\n")
+	sb.WriteString("👉 http://localhost:8080/login.html (atau domain portal Anda)\n\n")
 
 	sb.WriteString("──────────\n")
 	sb.WriteString("_Tips: URL otomatis dinormalisasi menjadi HTTPS agar langsung bisa diklik di ponsel._")

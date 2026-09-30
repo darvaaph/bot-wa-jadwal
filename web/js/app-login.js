@@ -35,7 +35,9 @@ function loginApp() {
       return this.nomor.replace(/\D/g, '').length >= 9;
     },
 
-    masuk() {
+    loading: false,
+
+    async masuk() {
       this.formError = '';
       this.fieldError = '';
       if (!this.nomorValid()) {
@@ -48,7 +50,40 @@ function loginApp() {
         this.formError = 'Kata sandi minimal 8 karakter.';
         return;
       }
-      this.showToast('Verifikasi masuk butuh endpoint backend.');
+
+      this.loading = true;
+      try {
+        let clean = this.nomor.trim().replace(/[-\s]/g, '');
+        if (clean.startsWith('08')) {
+          clean = '+62' + clean.slice(1);
+        } else if (clean.startsWith('62')) {
+          clean = '+' + clean;
+        }
+
+        const data = await API.login(clean, this.sandi);
+        this.showToast('Berhasil masuk. Mengarahkan...');
+
+        let targetUrl = this.areaUrl;
+        if (data && data.assignments && data.assignments.length > 0) {
+          const role = (data.assignments[0].role || '').toUpperCase();
+          if (role === 'SYSTEM_ADMIN') {
+            targetUrl = '/superadmin.html';
+          } else if (role === 'KM') {
+            targetUrl = '/km.html';
+          } else if (role === 'PJ') {
+            targetUrl = '/pj.html';
+          }
+        }
+
+        setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 600);
+      } catch (err) {
+        this.formError = err.message || 'Gagal masuk. Periksa kembali nomor dan kata sandi Anda.';
+        this.showToast(this.formError);
+      } finally {
+        this.loading = false;
+      }
     },
 
     kirimPulih() {

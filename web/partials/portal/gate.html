@@ -12,8 +12,10 @@
       <label class="block text-[14px] font-bold mt-4 mb-1">Kode akses kelas <span class="text-[#FF6C48]">*</span></label>
       <input type="text" x-model="pin" inputmode="numeric" maxlength="6" placeholder="2 4 8 1 6 9"
              class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] font-mono tracking-[0.3em] text-center focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-      <button type="button" @click="bukaPortal()" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[15px] font-medium min-h-[44px]">Buka portal</button>
-      <p class="text-[11px] text-slate-400 mt-3 text-center">Pratinjau lokal — verifikasi kode butuh endpoint backend.</p>
+      <button type="button" @click="bukaPortal()" :disabled="loadingPin" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[15px] font-medium min-h-[44px] flex items-center justify-center gap-2">
+        <span x-show="loadingPin" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+        <span x-text="loadingPin ? 'Memverifikasi...' : 'Buka portal'">Buka portal</span>
+      </button>
     </div>
   </div>
 </div>

@@ -24,27 +24,22 @@ function dashboardApp() {
       { id: 'profil', label: 'Profil', icon: 'person', img: '' }
     ],
 
-    // Clock & date (WIB)
     currentTime: '00:00:00 WIB',
     todayName: 'Senin',
     todayFull: '',
 
-    // Backend state
     selectedClass: '',
     classList: [],
     botOnline: false,
     fullSchedule: [],
     tasks: [],
 
-    // Jadwal week nav
     weekOffset: 0,
 
-    // Dosen berhalangan form
     dosenForm: { matkul: '', tanggal: '', jam: '', mode: 'online', alasan: '', link: '' },
 
     toast: { show: false, message: '', timer: null },
 
-    // ---------- Computed ----------
     get todaySchedule() {
       return this.fullSchedule.filter(s => s.hari === this.todayName);
     },
@@ -100,7 +95,6 @@ function dashboardApp() {
       return this.fullSchedule.find(s => s.hari === dayName && parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
     },
 
-    // ---------- Init ----------
     async initDashboard() {
       await this.loadPartials();
       this.updateClock();
@@ -194,7 +188,6 @@ function dashboardApp() {
       this.weekOffset += n;
     },
 
-    // ---------- API ----------
     async checkBotHealth() {
       try {
         const st = await API.getStatus();
@@ -273,7 +266,7 @@ function dashboardApp() {
       }
     },
 
-    // ---------- Dosen berhalangan (draf lokal + salin; publish butuh endpoint BE) ----------
+    // Draf lokal; publish permanen butuh endpoint BE.
     previewDosen() {
       if (!this.dosenForm.matkul || !this.dosenForm.tanggal || !this.dosenForm.alasan) {
         this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
@@ -316,9 +309,7 @@ function dashboardApp() {
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
     },
 
-    // ---------- AREA KEMAL: tab Tugas (branch feat/ui-tugas) ----------
-    // Backend riil: GET/POST/DELETE /api/tasks. Review KM, arsip/restore,
-    // dan ubah butuh endpoint BE → draf + toast jujur, tidak difungsikan penuh.
+    // Tugas tab — review KM, arsip/restore, dan ubah butuh endpoint BE.
     tugasMode: 'list',
     tugasStep: 1,
     filterOpen: false,

@@ -110,7 +110,6 @@ function saApp() {
       if (isAuthed) {
         await Promise.all([this.checkBot(), this.loadKelas()]);
       } else {
-        // Tampilkan modal autentikasi jika belum memiliki token valid
         this.authModal = true;
       }
 
@@ -144,9 +143,7 @@ function saApp() {
           this.currentUser = me.user;
           return true;
         }
-      } catch (e) {
-        // Token tidak valid atau kedaluwarsa
-      }
+      } catch (e) {}
       return false;
     },
 

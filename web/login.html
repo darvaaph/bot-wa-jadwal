@@ -59,7 +59,10 @@
               </button>
             </div>
           </div>
-          <button type="button" @click="masuk()" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[15px] font-medium min-h-[44px]">Masuk</button>
+          <button type="button" @click="masuk()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[15px] font-medium min-h-[44px] flex items-center justify-center gap-2">
+            <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span x-text="loading ? 'Memeriksa...' : 'Masuk'">Masuk</span>
+          </button>
           <button type="button" @click="mode = 'lupa'" class="mt-3 w-full h-12 rounded-xl border border-[#3965FB] text-[#3965FB] text-[15px] font-medium min-h-[44px]">Lupa kata sandi?</button>
           <p class="text-[13px] text-slate-500 mt-5">Akun pengurus dibuat melalui undangan WhatsApp dari Superadmin atau KM.</p>
           <p class="text-[13px] text-slate-500 mt-2">Mahasiswa tidak perlu login. Buka tautan portal kelas dari grup WhatsApp.</p>

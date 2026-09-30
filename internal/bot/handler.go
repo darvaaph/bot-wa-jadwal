@@ -96,7 +96,7 @@ func PortalMessage() string {
 	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
 	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
 	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
-	sb.WriteString(DashboardBaseURL + "/app.html\n")
+	sb.WriteString(DashboardBaseURL + "/login.html\n")
 	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
 	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
 	return sb.String()

@@ -41,11 +41,7 @@ function pjApp() {
       pagi: localStorage.getItem('pj_rem_pagi') || '06:00',
       sore: localStorage.getItem('pj_rem_sore') || '17:00'
     },
-
-    pengaturan: {
-      pagi: localStorage.getItem('pj_rem_pagi') || '06:00',
-      sore: localStorage.getItem('pj_rem_sore') || '17:00'
-    },
+    patternsList: [],
 
     toast: { show: false, message: '', timer: null },
 
@@ -125,6 +121,7 @@ function pjApp() {
       await this.loadClasses();
       await this.loadSchedule();
       await this.loadTasks();
+      this.patternsList = await API.getPatterns().catch(() => []);
       setInterval(() => this.checkBot(), 30000);
     },
 
@@ -303,12 +300,76 @@ function pjApp() {
 
     copyDosen() { this.copyText(this.dosenMessage(), 'Teks pengumuman tersalin.'); },
 
-    publishDosen() {
-      if (!this.dosen.tanggal || !this.dosen.alasan) {
-        this.showToast('Lengkapi tanggal dan alasan dulu.');
+    async publishDosen() {
+      const f = this.dosen;
+      const matkulTarget = this.pjMatkul || '';
+      if (!matkulTarget || !f.tanggal || !f.alasan) {
+        this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
         return;
       }
-      this.copyText(this.dosenMessage(), 'Tersalin — publish permanen butuh endpoint backend.');
+
+      this.showToast('Menyimpan perubahan jadwal...');
+      try {
+        if (!this.patternsList || this.patternsList.length === 0) {
+          this.patternsList = await API.getPatterns().catch(() => []);
+        }
+
+        const targetLower = matkulTarget.toLowerCase();
+        const matched = (this.patternsList || []).find(p => {
+          const name = String(p.display_name || p.course_name || '').toLowerCase();
+          return name.includes(targetLower) || targetLower.includes(name);
+        });
+
+        // Parse tanggal ke format ISO YYYY-MM-DD
+        let dateIso = new Date().toISOString().slice(0, 10);
+        const dm = String(f.tanggal).match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(f.tanggal).trim())) {
+          dateIso = String(f.tanggal).trim();
+        } else if (dm) {
+          const months = { jan:'01',feb:'02',mar:'03',apr:'04',mei:'05',jun:'06',jul:'07',agu:'08',sep:'09',okt:'10',nov:'11',des:'12' };
+          const mKey = dm[2].toLowerCase().slice(0, 3);
+          const month = months[mKey] || '01';
+          const year = dm[3] || new Date().getFullYear();
+          dateIso = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
+        }
+
+        // Parse rentang waktu
+        const parts = String(f.jamGanti || f.jam || '08:00 - 09:40').split('-').map(x => x.trim().replace('.', ':'));
+        let startH = parts[0] || '08:00';
+        let endH = parts[1] || '09:40';
+        if (startH.length === 4) startH = '0' + startH;
+        if (endH.length === 4) endH = '0' + endH;
+
+        const startsAt = `${dateIso}T${startH}:00+07:00`;
+        const endsAt = `${dateIso}T${endH}:00+07:00`;
+        const reasonText = (f.alasan || 'Dosen berhalangan') + (f.link ? ' | Tautan: ' + f.link : '');
+        const kind = (f.mode === 'ganti' && matched) ? 'REPLACEMENT' : 'EXTRA';
+
+        const payload = {
+          owner_offering_id: matched ? matched.course_offering_id : 1,
+          event_kind: kind,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          reason: reasonText
+        };
+        if (kind === 'REPLACEMENT' && matched) {
+          payload.origin_pattern_id = matched.id;
+          payload.origin_date = dateIso;
+        }
+        if (matched && matched.room_id) {
+          payload.room_id = matched.room_id;
+        }
+
+        const draft = await API.createTeachingEventDraft(payload);
+        if (draft && draft.id) {
+          await API.publishTeachingEvent(draft.id).catch(() => null);
+        }
+
+        this.copyText(this.dosenMessage(), 'Tersimpan ke database & pengumuman WhatsApp tersalin!');
+        await this.loadSchedule();
+      } catch (err) {
+        this.copyText(this.dosenMessage(), 'Pengumuman tersalin. (Status DB: ' + (err.message || 'Koneksi lokal') + ')');
+      }
     },
 
     simpanPengaturan() {

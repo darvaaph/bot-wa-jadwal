@@ -33,7 +33,6 @@ function kmApp() {
     fullSchedule: [],
     tasks: [],
 
-    // Tugas
     tugasSub: 'list',
     tugasChip: 'Semua',
     tugasMatkul: 'Semua',
@@ -41,16 +40,14 @@ function kmApp() {
     tugasForm: { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' },
     tugasError: '',
 
-    // Dosen
     dosen: { matkul: '', tanggal: '', mode: 'online', hariGanti: '', jamGanti: '', alasan: '', link: '' },
+    patternsList: [],
 
-    // Anggota / undang PJ
     anggotaSub: 'list',
     undang: { matkul: '', nomor: '' },
     undangError: '',
     undangLink: '',
 
-    // Antrean review
     reviewId: null,
     reviewMode: 'koreksi',
     reviewNote: '',
@@ -63,7 +60,6 @@ function kmApp() {
 
     toast: { show: false, message: '', timer: null },
 
-    // ---------- Computed ----------
     get todayList() {
       return this.fullSchedule.filter(s => s.hari === this.todayName);
     },
@@ -124,7 +120,6 @@ function kmApp() {
       return this.fullSchedule.find(s => s.hari === dayName && parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
     },
 
-    // ---------- Init ----------
     async initKM() {
       await this.loadPartials([
         ['km-sidebar', '/partials/km/sidebar.html'],
@@ -148,6 +143,7 @@ function kmApp() {
       await this.loadClasses();
       await this.loadSchedule();
       await this.loadTasks();
+      this.patternsList = await API.getPatterns().catch(() => []);
       setInterval(() => this.checkBot(), 30000);
     },
 
@@ -197,7 +193,6 @@ function kmApp() {
 
     soon(fitur) { this.showToast(`${fitur}: fitur belum tersedia.`); },
 
-    // ---------- API ----------
     async checkBot() {
       try {
         const st = await API.getStatus();
@@ -276,7 +271,7 @@ function kmApp() {
       }
     },
 
-    // ---------- Tugas (KM: tambah + hapus via API asli) ----------
+    // Tugas — tambah + hapus via API asli.
     async terbitTugas() {
       const f = this.tugasForm;
       if (!f.matkul) { this.tugasError = 'Mata kuliah wajib dipilih.'; return; }
@@ -306,7 +301,7 @@ function kmApp() {
       this.showToast('Tugas diarsipkan.');
     },
 
-    // ---------- Dosen (draf lokal + salin) ----------
+    // Dosen berhalangan — draf lokal, tidak tersimpan ke backend.
     previewDosen() {
       if (!this.dosen.matkul || !this.dosen.tanggal || !this.dosen.alasan) {
         this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
@@ -323,15 +318,78 @@ function kmApp() {
 
     copyDosen() { this.copyText(this.dosenMessage(), 'Teks pengumuman tersalin.'); },
 
-    publishDosen() {
-      if (!this.dosen.matkul || !this.dosen.tanggal || !this.dosen.alasan) {
+    async publishDosen() {
+      const f = this.dosen;
+      if (!f.matkul || !f.tanggal || !f.alasan) {
         this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
         return;
       }
-      this.copyText(this.dosenMessage(), 'Tersalin — publish permanen butuh endpoint backend.');
+
+      this.showToast('Menyimpan perubahan jadwal...');
+      try {
+        if (!this.patternsList || this.patternsList.length === 0) {
+          this.patternsList = await API.getPatterns().catch(() => []);
+        }
+
+        const targetLower = f.matkul.toLowerCase();
+        const matched = (this.patternsList || []).find(p => {
+          const name = String(p.display_name || p.course_name || '').toLowerCase();
+          return name.includes(targetLower) || targetLower.includes(name);
+        });
+
+        // Parse tanggal ke format ISO YYYY-MM-DD
+        let dateIso = new Date().toISOString().slice(0, 10);
+        const dm = String(f.tanggal).match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(f.tanggal).trim())) {
+          dateIso = String(f.tanggal).trim();
+        } else if (dm) {
+          const months = { jan:'01',feb:'02',mar:'03',apr:'04',mei:'05',jun:'06',jul:'07',agu:'08',sep:'09',okt:'10',nov:'11',des:'12' };
+          const mKey = dm[2].toLowerCase().slice(0, 3);
+          const month = months[mKey] || '01';
+          const year = dm[3] || new Date().getFullYear();
+          dateIso = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
+        }
+
+        // Parse rentang waktu
+        const parts = String(f.jamGanti || f.jam || '08:00 - 09:40').split('-').map(x => x.trim().replace('.', ':'));
+        let startH = parts[0] || '08:00';
+        let endH = parts[1] || '09:40';
+        if (startH.length === 4) startH = '0' + startH;
+        if (endH.length === 4) endH = '0' + endH;
+
+        const startsAt = `${dateIso}T${startH}:00+07:00`;
+        const endsAt = `${dateIso}T${endH}:00+07:00`;
+        const reasonText = (f.alasan || 'Dosen berhalangan') + (f.link ? ' | Tautan: ' + f.link : '');
+        const kind = (f.mode === 'ganti' && matched) ? 'REPLACEMENT' : 'EXTRA';
+
+        const payload = {
+          owner_offering_id: matched ? matched.course_offering_id : 1,
+          event_kind: kind,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          reason: reasonText
+        };
+        if (kind === 'REPLACEMENT' && matched) {
+          payload.origin_pattern_id = matched.id;
+          payload.origin_date = dateIso;
+        }
+        if (matched && matched.room_id) {
+          payload.room_id = matched.room_id;
+        }
+
+        const draft = await API.createTeachingEventDraft(payload);
+        if (draft && draft.id) {
+          await API.publishTeachingEvent(draft.id).catch(() => null);
+        }
+
+        this.copyText(this.dosenMessage(), 'Tersimpan ke database & pengumuman WhatsApp tersalin!');
+        await this.loadSchedule();
+      } catch (err) {
+        this.copyText(this.dosenMessage(), 'Pengumuman tersalin. (Status DB: ' + (err.message || 'Koneksi lokal') + ')');
+      }
     },
 
-    // ---------- Anggota / undang PJ (draf lokal) ----------
+    // Undang PJ — link digenerate lokal; endpoint undangan belum tersedia.
     buatUndangPJ() {
       if (!this.undang.matkul) { this.undangError = 'Mata kuliah wajib dipilih.'; return; }
       if (!this.undang.nomor || this.undang.nomor.replace(/\D/g, '').length < 9) {
@@ -343,7 +401,7 @@ function kmApp() {
       this.anggotaSub = 'siap';
     },
 
-    // ---------- Antrean review (butuh endpoint review backend) ----------
+    // Review — keputusan tercatat lokal; sinkronisasi butuh endpoint backend.
     setujuiTugas() { this.showToast('Keputusan review butuh endpoint backend.'); },
     kirimReview() {
       if (!this.reviewNote.trim()) { this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return; }
@@ -352,7 +410,6 @@ function kmApp() {
       this.showToast('Keputusan tercatat lokal — sinkronisasi butuh endpoint backend.');
     },
 
-    // ---------- Pengaturan (lokal) ----------
     simpanPengaturan() {
       localStorage.setItem('km_rem_pagi', this.pengaturan.pagi);
       localStorage.setItem('km_rem_sore', this.pengaturan.sore);

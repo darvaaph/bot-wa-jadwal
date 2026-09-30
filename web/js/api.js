@@ -148,7 +148,7 @@ const BotApi = {
 
   async completeTask(taskId) {
     const res = await fetch('/api/v1/tasks/' + taskId + '/complete', {
-      method: 'PATCH',
+      method: 'POST',
       credentials: 'same-origin',
       headers: mutationHeaders()
     });
@@ -211,7 +211,7 @@ const BotApi = {
 
   async updateTask(taskId, payload) {
     const res = await fetch('/api/v1/tasks/' + taskId, {
-      method: 'PUT',
+      method: 'PATCH',
       credentials: 'same-origin',
       headers: mutationHeaders(),
       body: JSON.stringify(payload)
@@ -372,12 +372,12 @@ const BotApi = {
   },
 
   async verifyPortalCode(slug, code) {
-    const res = await fetch('/api/portal/' + encodeURIComponent(slug) + '/verify-code', {
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/session', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code })
     });
     if (res.status === 429) {
-      const err = new Error('Terlalu banyak percobaan, coba lagi nanti.');
+      const err = new Error('Terlalu banyak percobaan, coba lagi nanti (15 menit).');
       err.code = 'RATE_LIMITED'; throw err;
     }
     if (!res.ok) {
@@ -387,43 +387,60 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async getPatterns(params) {
+    const qs = new URLSearchParams(params || {}).toString();
+    const res = await fetch('/api/v1/schedule/patterns' + (qs ? '?' + qs : ''), {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
   async getTeachingEvents(classId, filters) {
     let url = '/api/v1/teaching-events?class_id=' + classId;
     if (filters && filters.lifecycle) url += '&lifecycle=' + encodeURIComponent(filters.lifecycle);
     if (filters && filters.kind) url += '&kind=' + encodeURIComponent(filters.kind);
-    const res = await fetch(url, { credentials: 'same-origin' });
+    const res = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
     if (!res.ok) return null;
     return (await res.json()).data || [];
   },
 
   async getTeachingEventDetail(eventId) {
-    const res = await fetch('/api/v1/teaching-events/' + eventId, { credentials: 'same-origin' });
+    const res = await fetch('/api/v1/teaching-events/' + eventId, { credentials: 'same-origin', headers: authHeaders() });
     if (!res.ok) return null;
     return (await res.json()).data;
   },
 
   async previewTeachingEvent(eventId) {
-    const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', { credentials: 'same-origin' });
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', { credentials: 'same-origin', headers: authHeaders() });
     if (!res.ok) return null;
     return (await res.json()).data;
   },
 
   async createTeachingEventDraft(payload) {
-    const res = await fetch('/api/v1/teaching-events/draft', {
+    const res = await fetch('/api/v1/teaching-events', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal membuat draf event.');
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal membuat draf event.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
   },
 
-  async publishTeachingEvent(eventId, conflictOverrideReason) {
+  async publishTeachingEvent(eventId, conflictOverrideReason, version) {
+    const headers = Object.assign(mutationHeaders(), {
+      'Idempotency-Key': 'pub-event-' + eventId + '-' + Date.now()
+    });
     const res = await fetch('/api/v1/teaching-events/' + eventId + '/publish', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
-      body: JSON.stringify({ conflict_override_reason: conflictOverrideReason || null })
+      method: 'POST', credentials: 'same-origin', headers: headers,
+      body: JSON.stringify({
+        version: version || 1,
+        conflict_override_reason: conflictOverrideReason || null
+      })
     });
     if (res.status === 409) {
       const err = new Error('Konflik memblokir publikasi, periksa preview.');
@@ -431,7 +448,7 @@ const BotApi = {
     }
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal mempublikasikan event.');
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal mempublikasikan event.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;

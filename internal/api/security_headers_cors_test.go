@@ -313,7 +313,7 @@ func TestBE014_NoStoreOnSensitiveResponses(t *testing.T) {
 func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 	_, s := setupV1TestEnv(t)
 
-	pages := []string{"/", "/superadmin.html", "/app.html"}
+	pages := []string{"/", "/superadmin.html", "/login.html", "/km.html", "/pj.html"}
 	for _, page := range pages {
 		req := httptest.NewRequest(http.MethodGet, page, nil)
 		w := httptest.NewRecorder()

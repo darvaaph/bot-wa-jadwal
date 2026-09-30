@@ -1483,7 +1483,7 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString("  ➔ Melihat daftar perubahan jadwal aktif\n\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan jadwal kuliah kini hanya melalui Web Dashboard Pengelola:*\n")
-		sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n")
+		sb.WriteString("👉 http://localhost:8080/login.html (atau domain portal Anda)\n")
 		sb.WriteString("──────────\n")
 		return sb.String()
 	}
