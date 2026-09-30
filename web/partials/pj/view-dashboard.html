@@ -12,11 +12,12 @@
 
   <div class="p-4 rounded-2xl border border-[#3965FB]/40 bg-[#E9EAFF]/50 mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
     <p class="text-[13px] font-semibold shrink-0">Mata kuliah yang ditugaskan</p>
-    <select x-model="pjMatkul" @change="simpanMatkul()" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-      <option value="">-- Pilih mata kuliah --</option>
-      <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
+    <select x-model="offeringId" @change="simpanOffering()" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+      <option value="">-- Pilih offering --</option>
+      <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
     </select>
   </div>
+  <p x-show="offeringLoading" class="mt-2 text-[12px] text-slate-500">Memuat daftar offering...</p>
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">

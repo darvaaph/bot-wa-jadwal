@@ -462,9 +462,9 @@ function pjApp() {
 
     async publishDosen() {
       const f = this.dosen;
-      const matkulTarget = this.pjMatkul || '';
-      if (!matkulTarget || !f.tanggal || !f.alasan) {
-        this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
+      const matkulTarget = this.offeringName() || this.pjMatkul || '';
+      if (!this.offeringId || !matkulTarget || !f.tanggal || !f.alasan) {
+        this.showToast('Pilih offering, lengkapi tanggal dan alasan dulu.');
         return;
       }
 
@@ -506,7 +506,7 @@ function pjApp() {
         const kind = (f.mode === 'ganti' && matched) ? 'REPLACEMENT' : 'EXTRA';
 
         const payload = {
-          owner_offering_id: matched ? matched.course_offering_id : 1,
+          owner_offering_id: Number(this.offeringId),
           event_kind: kind,
           starts_at: startsAt,
           ends_at: endsAt,
