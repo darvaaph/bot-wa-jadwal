@@ -174,6 +174,20 @@
         <button type="button" @click="go('kelas')" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] sm:ml-auto">Buat undangan KM</button>
       </div>
       <p class="text-[11px] text-slate-400 mt-2">Undangan berlaku 7 hari, sekali pakai. Kirim ulang = buat baru (token lama otomatis batal). Penerima tak dapat ubah peran/scope.</p>
+      <div class="mt-4 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
+        <h2 class="text-[15px] font-bold text-[#1F1F1F]">Undang System Admin</h2>
+        <p class="text-[12px] text-slate-500 mt-0.5">Tanpa kelas (scope global). Hanya System Admin yang bisa mengundang.</p>
+        <div x-show="undanganSAError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2"><span class="material-symbols-outlined shrink-0">error</span><span x-text="undanganSAError"></span></div>
+        <div class="flex flex-col sm:flex-row gap-2 mt-3">
+          <input type="text" x-model="undanganSANomor" placeholder="Nomor WhatsApp, mis. 081234567890" aria-label="Nomor WhatsApp calon System Admin" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white" />
+          <button type="button" @click="buatUndanganSA()" :disabled="undanganSALoading" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60">Buat undangan</button>
+        </div>
+        <div x-show="undanganSAResult" class="mt-3 p-4 rounded-xl bg-[#E1FFB7] border border-green-200 text-[13px] text-green-800">
+          <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">check_circle</span>Undangan siap</p>
+          <p class="mt-1">ID <span class="font-mono font-semibold" x-text="undanganSAResult.invitation_id">-</span> · Berlaku s.d. <span class="font-mono" x-text="undanganSAResult.expires_at ? fmtWaktuID(undanganSAResult.expires_at) : '-'">-</span></p>
+          <button type="button" @click="copyText(undanganSAResult.link, 'Tautan undangan SA disalin.')" x-show="undanganSAResult.link" class="mt-2 h-10 px-4 rounded-lg bg-white border border-green-300 text-[12px] font-semibold min-h-[44px]">Salin tautan</button>
+        </div>
+      </div>
       <div x-show="undanganLoading" class="p-12 text-center text-slate-500">
         <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
         <p class="mt-3 text-[14px]">Memuat undangan...</p>

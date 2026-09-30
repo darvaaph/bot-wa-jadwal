@@ -1345,6 +1345,21 @@ const BotApi = {
     return (json && json.data) || null;
   },
 
+  async testBotMessage(to, text) {
+    const res = await fetch('/api/v1/admin/bot/test-message', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ to: to, text: text })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengirim pesan uji.');
+      err.code = 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
   async getAdminInvitations(status, role, classSlug) {
     let url = '/api/v1/admin/invitations';
     const qs = new URLSearchParams();

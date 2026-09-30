@@ -912,8 +912,12 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 	}
 
 	role := strings.ToUpper(strings.TrimSpace(req.Role))
-	if role != "KM" && role != "PJ" {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Peran undangan harus KM atau PJ")
+	if role != "KM" && role != "PJ" && role != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Peran undangan harus KM, PJ, atau SYSTEM_ADMIN")
+		return
+	}
+	if role == "SYSTEM_ADMIN" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang mengundang System Admin")
 		return
 	}
 
@@ -923,25 +927,39 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var classID int64
-	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, req.ClassSlug).Scan(&classID)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
-		return
+	// Undangan System Admin berscope GLOBAL tanpa kelas (BE-003).
+	var classID sql.NullInt64
+	var scopeType string
+	switch role {
+	case "SYSTEM_ADMIN":
+		if strings.TrimSpace(req.ClassSlug) != "" {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Undangan System Admin tidak memakai kelas")
+			return
+		}
+		scopeType = "GLOBAL"
+	default:
+		var cid int64
+		err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, req.ClassSlug).Scan(&cid)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+			return
+		}
+		classID = sql.NullInt64{Int64: cid, Valid: true}
 	}
 
-	if u.ActiveRole == "KM" && u.ActiveClassID.Valid && u.ActiveClassID.Int64 != classID {
+	if u.ActiveRole == "KM" && role != "SYSTEM_ADMIN" && u.ActiveClassID.Valid && u.ActiveClassID.Int64 != classID.Int64 {
 		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang membuat undangan untuk kelasnya sendiri")
 		return
 	}
 
-	scopeType := "CLASS"
 	if role == "PJ" {
 		scopeType = "COURSE_OFFERING"
 		if req.SemesterID == nil || req.OfferingID == nil {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Undangan PJ wajib menyertakan semester_id dan offering_id")
 			return
 		}
+	} else if role != "SYSTEM_ADMIN" {
+		scopeType = "CLASS"
 	}
 
 	_, _ = c.db.Exec(`

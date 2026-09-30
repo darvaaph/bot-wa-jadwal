@@ -24,7 +24,7 @@
 | `POST /api/v1/auth/switch-context` | Bearer | `{role_assignment_id}` | `{token_baru, expires_at}` | Rotasi token, ganti konteks tanpa login ulang |
 | `GET /api/v1/classes` | Bearer KM/Admin atau portal-token | — | `{classes:[{slug,code,program,cohort,group,status}]}` | KM: kelas konteks aktif; Admin: seluruh kelas; portal-token: hanya kelas token; PJ ditolak |
 | `POST /api/v1/classes/:slug/portal-code/rotate` | KM kelas terkait/Admin | `{code?}` | `{portal_code,portal_code_version,portal_access_mode:"CODE",reveal_once:true}` | Tanpa `code`, server membuat kode 8 digit; kode hanya ditampilkan sekali; versi naik dan sesi lama dicabut atomik |
-| `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; kirim ulang → revoke lama |
+| `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role: KM\|PJ\|SYSTEM_ADMIN, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; SYSTEM_ADMIN hanya oleh SA, tanpa kelas; kirim ulang → revoke lama |
 | `POST /api/v1/invitations/accept` | token undangan | `{token, password?, display_name?}` | `{user_id, assignment_id}` | Token sekali pakai |
 
 Header: `Authorization: Bearer <token>`. Cookie `bv1` httpOnly opsional sebagai fallback Alpine.
@@ -106,6 +106,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/admin/support/enter` | `{class_slug!, reason! min 10}` | Admin; Hibah dukungan 60 menit, tutup hibah lama; audit `SUPPORT_ENTER` |
 | `POST /api/v1/admin/support/exit` | `{reason?}` | Admin; Tutup hibah aktif; audit `SUPPORT_EXIT` |
 | `GET /api/v1/admin/support/active` | — | Admin; Hibah aktif atau `null`; kedaluwarsa ditandai `EXPIRED` |
+| `POST /api/v1/admin/bot/test-message` | `{to!, text! 1-500}` | Admin; Uji kirim hanya ke kanal terdaftar + audit `BOT_TEST_MESSAGE`. Reconnect/QR tak diekspos web |
 | `GET /api/v1/classes/:slug/settings` | — | KM (kelasnya) / Admin; Baca pengaturan kelas (zona waktu, mode portal, versi kode) |
 | `PATCH /api/v1/classes/:slug/portal-mode` | `{mode!: LINK\|CODE, reason?}` | KM (kelasnya) / Admin; Ganti mode Portal Kelas + audit `UPDATE_PORTAL_MODE`. LINK selalu bisa (hapus hash); CODE wajib hash aktif (422 bila belum: putar kode dulu); idempoten (`changed:false`) |
 | `GET /api/v1/master/proposals` | `?status=&kind=&class_slug=` | KM (kelasnya) / Admin; Daftar usulan koreksi master tanpa token |

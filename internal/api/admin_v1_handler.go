@@ -128,6 +128,15 @@ func (s *Server) handleGetActiveSupport(w http.ResponseWriter, r *http.Request) 
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+// handleTestBotMessage menangani POST /api/v1/admin/bot/test-message
+func (s *Server) handleTestBotMessage(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.TestBotMessage(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleCreateProposal menangani POST /api/v1/master/proposals
 func (s *Server) handleCreateProposal(w http.ResponseWriter, r *http.Request) {
 	if s.adminController != nil {

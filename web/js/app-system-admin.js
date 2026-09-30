@@ -36,6 +36,12 @@ function systemAdminApp() {
     botOnline: false,
     botStatusDetails: null,
 
+    ujiPesanTo: '',
+    ujiPesanText: '',
+    ujiPesanLoading: false,
+    ujiPesanError: '',
+    ujiPesanHasil: null,
+
     kelasList: [],
     totalKelas: 0,
     activeKelasCount: 0,
@@ -91,6 +97,10 @@ function systemAdminApp() {
     undanganKelas: '',
     undanganAksi: null,
     undanganAlasan: '',
+    undanganSANomor: '',
+    undanganSAError: '',
+    undanganSALoading: false,
+    undanganSAResult: null,
 
     ruangList: [],
     ruangLoading: false,
@@ -181,6 +191,24 @@ function systemAdminApp() {
       if (this.botOnline || st === 'connected') return 'bg-emerald-500';
       if (st === 'waiting_qr' || st === 'reconnecting') return 'bg-amber-500';
       return 'bg-[#FF6C48]';
+    },
+
+    async kirimUjiPesan() {
+      const to = (this.ujiPesanTo || '').trim();
+      const text = (this.ujiPesanText || '').trim();
+      if (!to || !text) { this.ujiPesanError = 'Isi JID kanal tujuan dan teks pesan.'; return; }
+      if (text.length > 500) { this.ujiPesanError = 'Teks maksimal 500 karakter.'; return; }
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.ujiPesanLoading = true;
+      try {
+        this.ujiPesanHasil = await API.testBotMessage(to, text);
+        this.showToast('Pesan uji terkirim.');
+      } catch (err) {
+        this.ujiPesanError = err.message || 'Gagal mengirim pesan uji.';
+      } finally {
+        this.ujiPesanLoading = false;
+      }
     },
 
     filteredKelas() {
@@ -283,12 +311,12 @@ function systemAdminApp() {
         ['sa-toast', '/partials/system-admin/toast.html'],
         ['sa-auth', '/partials/system-admin/auth-modal.html']
       ]);
-
-      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
       // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
       await this.loadPartials([
-        ['sa-skeleton', '/partials/common/skeleton-dashboard.html'],
+        ['sa-skeleton', '/partials/common/skeleton-dashboard-sa.html'],
       ]);
+
+      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
       this.dashboardLoading = false;
 
       setInterval(() => {
@@ -609,6 +637,35 @@ function systemAdminApp() {
         await this.loadUndangan();
       } catch (err) {
         this.showToast(err.message || 'Gagal mencabut undangan.');
+      }
+    },
+
+    async buatUndanganSA() {
+      const nomor = (this.undanganSANomor || '').trim();
+      if (nomor.replace(/\D/g, '').length < 9) {
+        this.undanganSAError = 'Nomor WhatsApp calon System Admin tidak valid (minimal 9 digit).';
+        return;
+      }
+      this.undanganSAError = '';
+      this.undanganSAResult = null;
+      this.undanganSALoading = true;
+      try {
+        const res = await API.createInvitation({ role: 'SYSTEM_ADMIN', invited_identity_key: nomor });
+        const token = res && res.token ? res.token : '';
+        const link = token ? `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}` : '';
+        this.undanganSAResult = {
+          id: res && res.invitation_id,
+          expires_at: res && res.expires_at,
+          link
+        };
+        this.showToast('Undangan System Admin dibuat (berlaku 7 hari, sekali pakai).');
+        this.undanganSANomor = '';
+        await this.loadUndangan();
+        if (link) this.copyText(link, 'Tautan undangan SA disalin.');
+      } catch (err) {
+        this.undanganSAError = err.message || 'Gagal membuat undangan System Admin.';
+      } finally {
+        this.undanganSALoading = false;
       }
     },
 

@@ -46,7 +46,11 @@
 - **Acuan:** FR-ACCESS-003, IA §7.2.
 - **Frontend kini:** tab Undangan = empty-state jujur + info TTL + tombol buat dari Daftar Kelas.
 
-### BE-03 — Undangan System Admin tambahan
+### BE-03 — Undangan System Admin
+
+> Status: **Selesai** — `role=SYSTEM_ADMIN` (GLOBAL, tanpa kelas; hanya oleh SA;
+> KM 403) + terima-undangan ciptakan penugasan GLOBAL + form di tab Undangan.
+> Tes di `internal/api/admin_sa_invite_bot_test.go`. tambahan
 
 - **Problem:** `POST /api/v1/invitations` menolak role selain KM/PJ
   (`internal/api/v1/auth_controller.go:914-918`), padahal kebijakan membolehkan
@@ -178,6 +182,13 @@
 ## Bot / sistem
 
 ### BE-13 — Sambung ulang via web
+
+> Status: **Selesai sebagian** — `POST /api/v1/admin/bot/test-message` (SA;
+> hanya kanal terdaftar; 503 bila bot mati; 502 bila gagal kirim; audit
+> `BOT_TEST_MESSAGE`) + form di Status Sistem. Tes di
+> `internal/api/admin_sa_invite_bot_test.go`.
+> **Tidak dikerjakan**: tombol reconnect/QR web — `Connect()` memblokir menunggu
+> QR dan watchdog sudah auto-reconnect; QR tetap terminal-side.
 
 - **Problem:** tak ada endpoint QR/test-kirim/reconnect; UI hanya prosedur terminal-server.
 - **Kebutuhan:** penyambungan ulang + uji kirim untuk System Admin sesuai prosedur.

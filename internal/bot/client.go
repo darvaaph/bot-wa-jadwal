@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite"
 )
+
+// ErrNotConnected menandakan klien WhatsApp tidak terhubung. Sentinel agar
+// pemanggil dapat memakai errors.Is tanpa mencocokkan string bahasa.
+var ErrNotConnected = errors.New("koneksi WhatsApp tidak aktif")
 
 type BotClient struct {
 	Client         *whatsmeow.Client
@@ -159,7 +164,7 @@ func (b *BotClient) Status() string {
 // SendText implements notify.Sender over WhatsApp.
 func (b *BotClient) SendText(ctx context.Context, jid, text string) (string, error) {
 	if b == nil || b.Client == nil || !b.Client.IsConnected() {
-		return "", fmt.Errorf("koneksi WhatsApp tidak aktif")
+		return "", ErrNotConnected
 	}
 	target, err := types.ParseJID(jid)
 	if err != nil {

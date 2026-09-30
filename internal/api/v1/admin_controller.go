@@ -1,10 +1,12 @@
 package v1
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +19,7 @@ import (
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/ratelimit"
 	"golang.org/x/crypto/bcrypt"
@@ -536,8 +539,8 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menelaah log audit")
+	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" && u.ActiveRole != "PJ" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya PJ, KM, atau System Admin yang berwenang menelaah log audit")
 		return
 	}
 
@@ -571,8 +574,9 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	`
 	var args []any
 
-	// Pembatasan cakupan: KM hanya dapat membaca audit kelas miliknya.
-	// Slug asing ditolak 404 generik agar keberadaan kelas lain tak terungkap.
+	// Pembatasan cakupan: KM hanya membaca audit kelas miliknya; PJ hanya
+	// audit kelasnya untuk tindakannya sendiri atau entitas mata kuliah
+	// penugasannya (TASK, TEACHING_EVENT, SCHEDULE_PATTERN, ROOM_CONFIRMATION).
 	if u.ActiveRole == "KM" {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak valid")
@@ -588,6 +592,39 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		query += " AND al.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
+	} else if u.ActiveRole == "PJ" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas PJ tidak valid")
+			return
+		}
+		if classSlugFilter != "" {
+			var ownSlug string
+			_ = c.db.QueryRow(`SELECT slug FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&ownSlug)
+			if classSlugFilter != ownSlug {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Riwayat Perubahan tidak ditemukan")
+				return
+			}
+		}
+		query += ` AND al.class_id = ? AND (
+			al.actor_user_id = ?
+			OR (al.entity_type = 'TASK' AND EXISTS (
+				SELECT 1 FROM tasks t WHERE t.id = al.entity_id AND t.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+			OR (al.entity_type = 'TEACHING_EVENT' AND EXISTS (
+				SELECT 1 FROM teaching_event_offerings teo WHERE teo.teaching_event_id = al.entity_id AND teo.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+			OR (al.entity_type = 'SCHEDULE_PATTERN' AND EXISTS (
+				SELECT 1 FROM schedule_patterns sp WHERE sp.id = al.entity_id AND sp.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+			OR (al.entity_type = 'ROOM_CONFIRMATION' AND EXISTS (
+				SELECT 1 FROM room_confirmations rc
+				JOIN teaching_event_offerings teo ON teo.teaching_event_id = rc.teaching_event_id
+				WHERE rc.id = al.entity_id AND teo.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+		)`
+		args = append(args,
+			u.ActiveClassID.Int64, u.UserID,
+			u.UserID, u.ActiveClassID.Int64,
+			u.UserID, u.ActiveClassID.Int64,
+			u.UserID, u.ActiveClassID.Int64,
+			u.UserID, u.ActiveClassID.Int64,
+		)
 	} else if classSlugFilter != "" {
 		query += " AND cl.slug = ?"
 		args = append(args, classSlugFilter)
@@ -1332,6 +1369,114 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	common.WriteV1Success(w, http.StatusOK, notifications)
+}
+
+// botTextSender adalah kemampuan kirim teks klien WhatsApp.
+// Dipisah dari BotStatusProvider agar controller tetap dapat dibangun tanpa
+// klien hidup (asersi tipe gagal → 503). *bot.BotClient memenuhinya.
+type botTextSender interface {
+	SendText(ctx context.Context, jid string, text string) (string, error)
+}
+
+// TestBotMessageRequest adalah payload uji kirim pesan (BE-013).
+type TestBotMessageRequest struct {
+	To   string `json:"to"`
+	Text string `json:"text"`
+}
+
+// TestBotMessage menangani POST /api/v1/admin/bot/test-message (khusus System Admin).
+// Mengirim teks diagnostik HANYA ke kanal WhatsApp terdaftar (anti-spam) saat bot
+// terhubung. Penyambungan ulang/QR tidak diekspos web: Connect() memblokir
+// menunggu QR dan watchdog sudah auto-reconnect; QR tetap di terminal server.
+func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang menguji kirim pesan")
+		return
+	}
+
+	var req TestBotMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	to := strings.TrimSpace(req.To)
+	text := strings.TrimSpace(req.Text)
+	if to == "" || !strings.Contains(to, "@") || len(to) > 128 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tujuan (JID kanal) tidak valid")
+		return
+	}
+	if text == "" || len([]rune(text)) > 500 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Teks wajib 1–500 karakter")
+		return
+	}
+
+	var channelID int64
+	var channelName sql.NullString
+	if err := c.db.QueryRow(`SELECT id, display_name FROM whatsapp_channels WHERE jid = ?;`, to).Scan(&channelID, &channelName); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kanal WhatsApp tidak terdaftar")
+		return
+	}
+
+	// Klien mati → 503 sebelum kuota rate-limit tersentuh.
+	sender, ok := c.botClient.(botTextSender)
+	if !ok {
+		common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Bot WhatsApp tidak aktif")
+		return
+	}
+
+	subject := fmt.Sprintf("admin:%d", u.UserID)
+	var trustedProxies []string
+	if c.secManager != nil {
+		trustedProxies = c.secManager.TrustedProxyCIDRs()
+	}
+	source := middleware.ClientSource(r, trustedProxies)
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trustedProxies, ratelimit.PolicyAdminMutation, subject) {
+		return
+	}
+
+	messageID, err := sender.SendText(r.Context(), to, text)
+	if err != nil {
+		if errors.Is(err, bot.ErrNotConnected) {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Bot WhatsApp tidak terhubung")
+			return
+		}
+		common.WriteV1Error(w, http.StatusBadGateway, common.CodeDeliveryFailed, "Gagal mengirim pesan uji")
+		return
+	}
+	if c.rlManager != nil {
+		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyAdminMutation, subject, source, "SUCCESS")
+	}
+
+	uid := u.UserID
+	var raid *int64
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	afterJSON := fmt.Sprintf(`{"channel_jid":%q,"message_id":%q,"chars":%d}`, to, messageID, len([]rune(text)))
+	if err := audit.Write(r.Context(), c.db, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		Action:        "BOT_TEST_MESSAGE",
+		EntityType:    "WHATSAPP_CHANNEL",
+		EntityID:      &channelID,
+		AfterJSON:     &afterJSON,
+		CorrelationID: fmt.Sprintf("bot-test-%d", time.Now().UnixNano()),
+	}); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR",
+			fmt.Sprintf("Pesan terkirim (ID %s) tetapi audit gagal dicatat. Simpan ID ini untuk rekonsiliasi manual.", messageID))
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"message_id": messageID,
+		"to":         to,
+		"status":     "SENT",
+	})
 }
 
 // RetryNotification menangani POST /api/v1/notifications/{id}/retry

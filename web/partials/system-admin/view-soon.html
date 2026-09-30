@@ -62,7 +62,35 @@
     </div>
     <div class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
       <span class="material-symbols-outlined shrink-0">qr_code</span>
-      <p>Penyambungan ulang mengikuti prosedur server: jika status meminta pindai QR, kode muncul di terminal server dan tidak tersedia di web. Tidak ada tombol sambung ulang di sini karena API belum menyediakannya.</p>
+      <p>Penyambungan ulang otomatis oleh watchdog saat sesi login tapi offline. QR pairing tetap di terminal server (Connect memblokir menunggu QR sehingga tak diekspos web).</p>
+    </div>
+
+    <!-- Uji kirim pesan -->
+    <div class="mt-6 p-6 rounded-2xl border border-[#EEEEEE]">
+      <h2 class="text-[18px] font-bold text-[#1F1F1F]">Uji kirim pesan</h2>
+      <p class="text-[13px] text-[#667085] mt-1">Kirim teks diagnostik <span class="font-semibold">hanya ke kanal WhatsApp terdaftar</span>. Tercatat di Audit Global.</p>
+      <div x-show="ujiPesanError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2"><span class="material-symbols-outlined shrink-0">error</span><span x-text="ujiPesanError"></span></div>
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="sm:col-span-1">
+          <label for="sa-uji-to" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">JID kanal tujuan *</label>
+          <input id="sa-uji-to" type="text" x-model="ujiPesanTo" placeholder="12036...@g.us" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] font-mono bg-white w-full" />
+        </div>
+        <div class="sm:col-span-2">
+          <label for="sa-uji-text" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Teks (maks 500) *</label>
+          <input id="sa-uji-text" type="text" x-model="ujiPesanText" placeholder="[UJI] Bot jadwal aktif" maxlength="500" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+        </div>
+      </div>
+      <button type="button" @click="kirimUjiPesan()" :disabled="ujiPesanLoading" class="mt-3 h-11 px-6 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px]">
+        <span x-text="ujiPesanLoading ? 'Mengirim...' : 'Kirim pesan uji'">Kirim pesan uji</span>
+      </button>
+      <p x-show="!botOnline" class="mt-2 text-[12px] text-amber-800">Bot sedang offline: publikasi web dan dashboard tetap berjalan, tetapi pesan uji butuh koneksi aktif.</p>
+      <div x-show="ujiPesanHasil" class="mt-3 p-4 rounded-xl bg-[#E1FFB7] border border-green-200 text-[13px] text-green-800 flex gap-2">
+        <span class="material-symbols-outlined shrink-0">check_circle</span>
+        <div>
+          <p class="font-bold">Terkirim</p>
+          <p class="mt-1 font-mono break-all" x-text="'ID ' + (ujiPesanHasil.message_id || '') + ' · ' + (ujiPesanHasil.to || '')">-</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
