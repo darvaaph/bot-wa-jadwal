@@ -13,6 +13,7 @@
           <option value="PROCESSING">Diproses</option>
           <option value="SENT">Terkirim</option>
           <option value="FAILED">Gagal</option>
+          <option value="CANCELLED">Dibatalkan</option>
         </select>
         <select x-model="notifKelas" aria-label="Filter kelas (lokal)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
           <option value="">Semua kelas</option>
@@ -20,13 +21,21 @@
             <option :value="opt.id" x-text="opt.label">-</option>
           </template>
         </select>
+        <select x-model="notifJenis" aria-label="Filter jenis pesan (lokal)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+          <option value="">Semua jenis</option>
+          <template x-for="j in notifJenisOptions()" :key="j">
+            <option :value="j" x-text="j">-</option>
+          </template>
+        </select>
       </div>
     </div>
-    <p class="text-[11px] text-slate-400 mt-2">Filter kelas bersifat lokal (server hanya filter status). Detail penerima/isi penuh menyusul.</p>
+    <p class="text-[11px] text-slate-400 mt-2">Filter kelas dan jenis bersifat lokal (server hanya filter status). API tidak menyediakan penerima/idempotensi per pesan; isi mentah tersedia di detail.
+      <button type="button" @click="notifFilter = ''; notifKelas = ''; notifJenis = ''; loadAntrean()" class="underline font-semibold">Reset filter</button>
+    </p>
 
     <div x-show="notifLoading" class="p-12 text-center text-[#667085]">
       <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
-      <p class="mt-3 text-[14px]">Memuat antrean pesan...</p>
+      <p class="mt-3 text-[14px]">Memuat antrean notifikasi...</p>
     </div>
     <div x-show="notifError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
       <span x-text="notifError">-</span>
@@ -40,17 +49,34 @@
 
     <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
       <template x-for="n in filteredNotif()" :key="n.id">
-        <div class="py-4 flex flex-col md:flex-row md:items-center gap-2">
-          <div class="flex-1 min-w-0">
-            <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal" x-text="'· Kelas #' + n.class_id">-</span></p>
-            <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
+        <div class="py-4">
+          <div class="flex flex-col md:flex-row md:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal" x-text="'· Kelas #' + n.class_id">-</span></p>
+              <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
+              <p x-show="n.entity_type" class="text-[12px] text-slate-500 mt-0.5">Terkait: <span class="font-mono" x-text="(n.entity_type || '') + (n.entity_id ? ' #' + n.entity_id : '')"></span></p>
+            </div>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E1FFB7] text-green-800' : (notifDapatDiulang(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')">
+              <span class="material-symbols-outlined text-[14px]" x-text="String(n.status).toUpperCase() === 'SENT' ? 'check_circle' : (notifDapatDiulang(n.status) ? 'error' : 'pending')">-</span>
+              <span x-text="statusNotifLabel(n.status)">-</span>
+            </span>
+            <div class="flex gap-2">
+              <button type="button" @click="toggleNotifDetail(n.id)" class="h-11 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup detail' : 'Detail'">Detail</button>
+              <button type="button" @click="ulangiPesan(n.id)" x-show="notifDapatDiulang(n.status)" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
+            </div>
           </div>
-          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-            :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E1FFB7] text-green-800' : (String(n.status).toUpperCase() === 'FAILED' ? 'bg-[#FF6C48] text-white' : 'bg-amber-50 text-amber-900')">
-            <span class="material-symbols-outlined text-[14px]" x-text="String(n.status).toUpperCase() === 'SENT' ? 'check_circle' : (String(n.status).toUpperCase() === 'FAILED' ? 'error' : 'pending')">-</span>
-            <span x-text="statusNotifLabel(n.status)">-</span>
-          </span>
-          <button type="button" @click="ulangiPesan(n.id)" x-show="String(n.status).toUpperCase() === 'FAILED'" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
+          <div x-show="notifDetailId === n.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[12px] space-y-2">
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div><dt class="text-slate-500">Dijadwalkan</dt><dd class="font-mono" x-text="n.scheduled_at ? fmtWaktuID(n.scheduled_at) : '—'">-</dd></div>
+              <div><dt class="text-slate-500">Percobaan</dt><dd class="font-mono" x-text="n.attempt_count || n.attempts || 0">-</dd></div>
+            </dl>
+            <details>
+              <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi mentah (payload)</summary>
+              <pre class="mt-1 p-2 rounded-lg bg-white border border-[#EEEEEE] overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(n.payload_json)"></pre>
+            </details>
+            <button type="button" @click="bukaAuditEntitas(n.entity_type)" x-show="n.entity_type" class="h-10 px-4 rounded-lg border border-[#EEEEEE] bg-white text-[12px] font-medium min-h-[44px]">Lihat di Audit Global</button>
+          </div>
         </div>
       </template>
     </div>

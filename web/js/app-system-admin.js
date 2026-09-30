@@ -70,15 +70,27 @@ function systemAdminApp() {
     ruangError: '',
     ruangForm: { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' },
     ruangFormError: '',
+    ruangQ: '',
+    ruangStatusFilter: '',
+    ruangEdit: null,
+    ruangEditError: '',
+    ruangStatusConfirm: null,
 
     matkulList: [],
     matkulLoading: false,
     matkulError: '',
     matkulForm: { kode: '', nama: '' },
     matkulFormError: '',
+    matkulQ: '',
+    matkulStatusFilter: '',
+    matkulEdit: null,
+    matkulEditError: '',
+    matkulStatusConfirm: null,
 
     notifFilter: '',
     notifKelas: '',
+    notifJenis: '',
+    notifDetailId: null,
     notifList: [],
     notifLoading: false,
     notifError: '',
@@ -159,8 +171,12 @@ function systemAdminApp() {
 
     filteredNotif() {
       const fk = (this.notifKelas || '').trim();
-      if (!fk) return this.notifList || [];
-      return (this.notifList || []).filter(n => String(n.class_id || '') === fk);
+      const fj = (this.notifJenis || '').trim();
+      return (this.notifList || []).filter(n => {
+        if (fk && String(n.class_id ?? '') !== fk) return false;
+        if (fj && String(n.event_type || '') !== fj) return false;
+        return true;
+      });
     },
 
     notifKelasOptions() {
@@ -288,7 +304,42 @@ function systemAdminApp() {
       if (s === 'PROCESSING') return 'Diproses';
       if (s === 'SENT') return 'Terkirim';
       if (s === 'FAILED') return 'Gagal';
+      if (s === 'CANCELLED') return 'Dibatalkan';
       return st || '-';
+    },
+
+    notifDapatDiulang(st) {
+      const s = String(st || '').toUpperCase();
+      return s === 'FAILED' || s === 'CANCELLED';
+    },
+
+    toggleNotifDetail(id) {
+      this.notifDetailId = (this.notifDetailId === id) ? null : id;
+    },
+
+    prettyPayload(json) {
+      if (json == null || json === '') return '-';
+      if (typeof json === 'object') {
+        try { return JSON.stringify(json, null, 2); } catch (e) { return String(json); }
+      }
+      const s = String(json);
+      try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return s; }
+    },
+
+    notifJenisOptions() {
+      const seen = new Set();
+      (this.notifList || []).forEach(n => {
+        const t = String(n.event_type || '');
+        if (t && !seen.has(t)) seen.add(t);
+      });
+      return Array.from(seen).sort();
+    },
+
+    bukaAuditEntitas(entityType) {
+      this.auditKelas = '';
+      this.auditAction = '';
+      this.auditEntity = String(entityType || '');
+      this.go('audit');
     },
 
     fmtWaktuID(iso) {
@@ -346,10 +397,20 @@ function systemAdminApp() {
       return st || '-';
     },
 
+    filteredRuang() {
+      const q = (this.ruangQ || '').trim().toLowerCase();
+      if (!q) return this.ruangList || [];
+      return (this.ruangList || []).filter(r =>
+        (r.code && r.code.toLowerCase().includes(q)) ||
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        (r.building && r.building.toLowerCase().includes(q))
+      );
+    },
+
     async loadRuang() {
       this.ruangLoading = true; this.ruangError = '';
       try {
-        this.ruangList = await API.getMasterRooms('');
+        this.ruangList = await API.getMasterRooms(this.ruangStatusFilter || '');
       } catch (e) {
         this.ruangList = [];
         this.ruangError = 'Daftar ruangan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
@@ -361,13 +422,14 @@ function systemAdminApp() {
     async tambahRuang() {
       const f = this.ruangForm;
       if (!((f.kode || '').trim())) { this.ruangFormError = 'Kode ruangan wajib diisi.'; return; }
+      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) { this.ruangFormError = 'Kapasitas wajib angka bulat ≥ 0.'; return; }
       this.ruangFormError = '';
       try {
         const payload = { code: f.kode.trim() };
         if ((f.nama || '').trim()) payload.name = f.nama.trim();
         if ((f.gedung || '').trim()) payload.building = f.gedung.trim();
         if ((f.tipe || '').trim()) payload.room_type = f.tipe.trim();
-        if (f.kapasitas !== '' && f.kapasitas != null) payload.capacity = Number(f.kapasitas);
+        if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
         await API.createMasterRoom(payload);
         this.ruangForm = { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' };
         await this.loadRuang();
@@ -377,21 +439,72 @@ function systemAdminApp() {
       }
     },
 
-    async ubahStatusRuang(r) {
-      const target = String(r.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    mulaiUbahRuang(r) {
+      const cap = r.capacity;
+      this.ruangEdit = { id: r.id, kode: r.code, nama: r.name || '', gedung: r.building || '', tipe: r.room_type || '', kapasitas: (cap === null || cap === undefined || cap === '') ? '' : String(cap) };
+      this.ruangEditError = '';
+    },
+
+    batalUbahRuang() {
+      this.ruangEdit = null;
+      this.ruangEditError = '';
+    },
+
+    async simpanUbahRuang() {
+      const f = this.ruangEdit;
+      if (!f) return;
+      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) { this.ruangEditError = 'Kapasitas wajib angka bulat ≥ 0.'; return; }
+      this.ruangEditError = '';
       try {
-        await API.patchMasterRoom(r.id, { status: target });
+        const payload = {
+          name: (f.nama || '').trim(),
+          building: (f.gedung || '').trim(),
+          room_type: (f.tipe || '').trim()
+        };
+        if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
+        await API.patchMasterRoom(f.id, payload);
+        this.showToast(`Ruangan ${f.kode} diubah.`);
+        this.ruangEdit = null;
         await this.loadRuang();
-        this.showToast(target === 'ACTIVE' ? 'Ruangan diaktifkan.' : 'Ruangan dinonaktifkan.');
+      } catch (err) {
+        this.ruangEditError = err.message || 'Gagal mengubah ruangan.';
+      }
+    },
+
+    mintaKonfirmasiStatusRuang(r) {
+      this.ruangStatusConfirm = { id: r.id, kode: r.code, dari: String(r.status || '').toUpperCase(), ke: String(r.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
+    },
+
+    batalKonfirmasiStatusRuang() {
+      this.ruangStatusConfirm = null;
+    },
+
+    async jalankanUbahStatusRuang() {
+      const c = this.ruangStatusConfirm;
+      if (!c) return;
+      try {
+        await API.patchMasterRoom(c.id, { status: c.ke });
+        this.ruangStatusConfirm = null;
+        await this.loadRuang();
+        this.showToast(c.ke === 'ACTIVE' ? 'Ruangan diaktifkan.' : 'Ruangan dinonaktifkan. Jadwal lama tetap tampil; ruangan nonaktif tak dipakai untuk jadwal baru.');
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status ruangan.');
       }
     },
 
+    filteredMatkul() {
+      const q = (this.matkulQ || '').trim().toLowerCase();
+      if (!q) return this.matkulList || [];
+      return (this.matkulList || []).filter(m =>
+        (m.code && m.code.toLowerCase().includes(q)) ||
+        (m.name && m.name.toLowerCase().includes(q))
+      );
+    },
+
     async loadMatkul() {
       this.matkulLoading = true; this.matkulError = '';
       try {
-        this.matkulList = await API.getMasterCourses('');
+        this.matkulList = await API.getMasterCourses(this.matkulStatusFilter || '');
       } catch (e) {
         this.matkulList = [];
         this.matkulError = 'Daftar mata kuliah belum dapat dimuat. Periksa koneksi lalu coba lagi.';
@@ -417,12 +530,47 @@ function systemAdminApp() {
       }
     },
 
-    async ubahStatusMatkul(m) {
-      const target = String(m.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    mulaiUbahMatkul(m) {
+      this.matkulEdit = { id: m.id, kode: m.code, nama: m.name || '' };
+      this.matkulEditError = '';
+    },
+
+    batalUbahMatkul() {
+      this.matkulEdit = null;
+      this.matkulEditError = '';
+    },
+
+    async simpanUbahMatkul() {
+      const f = this.matkulEdit;
+      if (!f) return;
+      if (!((f.nama || '').trim())) { this.matkulEditError = 'Nama mata kuliah wajib diisi.'; return; }
+      this.matkulEditError = '';
       try {
-        await API.patchMasterCourse(m.id, { status: target });
+        await API.patchMasterCourse(f.id, { name: f.nama.trim() });
+        this.showToast(`Mata kuliah ${f.kode} diubah.`);
+        this.matkulEdit = null;
         await this.loadMatkul();
-        this.showToast(target === 'ACTIVE' ? 'Mata kuliah diaktifkan.' : 'Mata kuliah dinonaktifkan.');
+      } catch (err) {
+        this.matkulEditError = err.message || 'Gagal mengubah mata kuliah.';
+      }
+    },
+
+    mintaKonfirmasiStatusMatkul(m) {
+      this.matkulStatusConfirm = { id: m.id, kode: m.code, dari: String(m.status || '').toUpperCase(), ke: String(m.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
+    },
+
+    batalKonfirmasiStatusMatkul() {
+      this.matkulStatusConfirm = null;
+    },
+
+    async jalankanUbahStatusMatkul() {
+      const c = this.matkulStatusConfirm;
+      if (!c) return;
+      try {
+        await API.patchMasterCourse(c.id, { status: c.ke });
+        this.matkulStatusConfirm = null;
+        await this.loadMatkul();
+        this.showToast(c.ke === 'ACTIVE' ? 'Mata kuliah diaktifkan.' : 'Mata kuliah dinonaktifkan. Penawaran lama tetap tampil; nonaktif tak dipakai untuk penawaran baru.');
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status.');
       }
@@ -453,10 +601,10 @@ function systemAdminApp() {
     },
 
     updateFailedCount() {
-      if ((this.notifFilter || '') === 'FAILED' || !(this.notifFilter || '')) {
-        const n = (this.notifList || []).filter(x => String(x.status || '').toUpperCase() === 'FAILED').length;
-        if ((this.notifFilter || '') === 'FAILED') this.failedCount = (this.notifList || []).length;
-        else if (n > 0) this.failedCount = n;
+      // Badge lonceng mencerminkan hasil filter FAILED penuh (limit 50).
+      // Filter lain tak menyentuh badge; angka global dijaga loadFailedCount berkala.
+      if ((this.notifFilter || '') === 'FAILED') {
+        this.failedCount = (this.notifList || []).length;
         this.unreadCount = this.failedCount;
       }
     },
@@ -465,7 +613,7 @@ function systemAdminApp() {
       try {
         await API.retryNotification(id);
         this.showToast('Pengiriman ulang dijadwalkan.');
-        await this.loadAntrean();
+        await Promise.all([this.loadAntrean(), this.loadFailedCount()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal menjadwalkan ulang.');
       }

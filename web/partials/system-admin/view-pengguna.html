@@ -46,7 +46,7 @@
                 <p class="text-[11px] text-slate-400 mt-0.5" x-text="(u.roles || []).join(', ') || 'Tanpa peran aktif'">-</p>
               </div>
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-                :class="String(u.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : (String(u.status).toUpperCase() === 'SUSPENDED' ? 'bg-[#FF6C48] text-white' : 'bg-slate-100 text-slate-500')">
+                :class="String(u.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : (String(u.status).toUpperCase() === 'SUSPENDED' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-500')">
                 <span class="material-symbols-outlined text-[14px]" x-text="String(u.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
                 <span x-text="labelStatusPengguna(u.status)">-</span>
               </span>

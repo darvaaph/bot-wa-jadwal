@@ -1,17 +1,33 @@
-<!-- partials/system-admin/view-master-matkul.html - System Admin: Master Mata Kuliah Kampus -->
+<!-- partials/system-admin/view-master-matkul.html - System Admin: Master Mata Kuliah -->
 <section x-show="view === 'master-matkul'" x-cloak>
   <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
     <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',system-ui,sans-serif">Master Mata Kuliah</h1>
-    <p class="text-[14px] text-slate-500 mt-1">Daftar induk mata kuliah kampus untuk penawaran semester.</p>
+    <p class="text-[14px] text-slate-500 mt-1">Daftar induk mata kuliah kampus untuk penawaran semester. Kode tidak dapat diubah.</p>
 
     <div class="mt-6 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
       <h2 class="text-[16px] font-bold text-[#1F1F1F]">Tambah Mata Kuliah</h2>
       <div x-show="matkulFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-        <input type="text" x-model="matkulForm.kode" placeholder="Kode *" aria-label="Kode mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white font-mono" />
-        <input type="text" x-model="matkulForm.nama" placeholder="Nama mata kuliah *" aria-label="Nama mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white sm:col-span-2" />
+        <div>
+          <label for="sa-matkul-kode" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kode *</label>
+          <input id="sa-matkul-kode" type="text" x-model="matkulForm.kode" placeholder="IF-101" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white font-mono" />
+        </div>
+        <div class="sm:col-span-2">
+          <label for="sa-matkul-nama" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Nama *</label>
+          <input id="sa-matkul-nama" type="text" x-model="matkulForm.nama" placeholder="Nama mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+        </div>
       </div>
       <button type="button" @click="tambahMatkul()" class="mt-3 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px]">Tambah Mata Kuliah</button>
+    </div>
+
+    <!-- Cari + filter status -->
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <input type="text" x-model="matkulQ" placeholder="Cari kode atau nama..." aria-label="Cari mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white sm:col-span-2" />
+      <select x-model="matkulStatusFilter" @change="loadMatkul()" aria-label="Filter status mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+        <option value="">Semua status</option>
+        <option value="ACTIVE">Aktif</option>
+        <option value="INACTIVE">Nonaktif</option>
+      </select>
     </div>
 
     <div x-show="matkulLoading" class="p-12 text-center text-slate-500">
@@ -22,12 +38,14 @@
       <span x-text="matkulError">-</span>
       <button type="button" @click="loadMatkul()" class="ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!matkulLoading && !matkulError && matkulList.length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
-      <p class="text-[15px] font-semibold text-[#1F1F1F]">Belum ada mata kuliah</p>
-      <p class="text-[13px] mt-0.5">Tambahkan mata kuliah pertama di atas.</p>
+    <div x-show="!matkulLoading && !matkulError && filteredMatkul().length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+      <p class="text-[15px] font-semibold text-[#1F1F1F]">Tidak ada mata kuliah</p>
+      <p class="text-[13px] mt-0.5">Ubah pencarian/filter, atau tambahkan mata kuliah pertama di atas.</p>
     </div>
-    <div x-show="!matkulLoading && matkulList.length > 0" class="mt-6 overflow-x-auto">
-      <table class="w-full text-[13px] min-w-[480px]">
+
+    <!-- Desktop: tabel -->
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="mt-6 overflow-x-auto hidden md:block">
+      <table class="w-full text-[13px] min-w-[560px]">
         <thead>
           <tr class="text-left text-slate-500 border-b border-[#EEEEEE]">
             <th class="py-2 pr-3 font-semibold">Kode</th>
@@ -37,7 +55,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#EEEEEE]">
-          <template x-for="m in matkulList" :key="m.id">
+          <template x-for="m in filteredMatkul()" :key="m.id">
             <tr>
               <td class="py-3 pr-3 font-mono font-semibold" x-text="m.code">-</td>
               <td class="py-3 pr-3" x-text="m.name">-</td>
@@ -48,13 +66,64 @@
                   <span x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
                 </span>
               </td>
-              <td class="py-3 text-right">
-                <button type="button" @click="ubahStatusMatkul(m)" class="h-10 px-3 rounded-lg border border-[#EEEEEE] text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+              <td class="py-3 text-right whitespace-nowrap">
+                <button type="button" @click="mulaiUbahMatkul(m)" class="h-10 px-3 rounded-lg border border-[#3965FB] text-[#3965FB] text-[12px] font-semibold min-h-[44px]">Ubah</button>
+                <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="h-10 px-3 rounded-lg border border-[#EEEEEE] text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
               </td>
             </tr>
           </template>
         </tbody>
       </table>
+    </div>
+
+    <!-- Mobile: daftar berlabel -->
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="mt-6 space-y-3 md:hidden">
+      <template x-for="m in filteredMatkul()" :key="m.id">
+        <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+          <div class="flex items-start justify-between gap-2">
+            <p class="font-mono font-bold text-[15px]" x-text="m.code">-</p>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
+              :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500'"
+              x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+          </div>
+          <dl class="mt-2 text-[13px] space-y-1">
+            <div class="flex gap-2"><dt class="w-14 shrink-0 text-slate-500">Nama</dt><dd class="flex-1 font-medium" x-text="m.name">-</dd></div>
+          </dl>
+          <div class="mt-3 flex gap-2">
+            <button type="button" @click="mulaiUbahMatkul(m)" class="flex-1 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Ubah</button>
+            <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Panel ubah -->
+    <div x-show="matkulEdit" x-cloak class="mt-6 p-5 rounded-2xl border border-[#3965FB]/40 bg-[#E9EAFF]/30">
+      <h2 class="text-[15px] font-bold text-[#1F1F1F]">Ubah mata kuliah <span class="font-mono" x-text="matkulEdit ? matkulEdit.kode : ''"></span></h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Kode tidak dapat diubah.</p>
+      <div x-show="matkulEditError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulEditError"></div>
+      <div class="mt-3">
+        <label for="sa-matkul-ubah-nama" class="block text-[12px] font-semibold mb-1">Nama *</label>
+        <input id="sa-matkul-ubah-nama" type="text" x-model="matkulEdit.nama" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+      </div>
+      <div class="flex gap-2 mt-3">
+        <button type="button" @click="simpanUbahMatkul()" class="h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Simpan</button>
+        <button type="button" @click="batalUbahMatkul()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi status -->
+    <div x-show="matkulStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiStatusMatkul()"></div>
+      <div class="relative bg-white rounded-2xl border border-[#EEEEEE] max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
+        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Ubah status mata kuliah?</h3>
+        <p class="text-[13px] text-[#667085] mt-1">Mata kuliah <span class="font-mono font-semibold text-[#1F1F1F]" x-text="matkulStatusConfirm ? matkulStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="matkulStatusConfirm ? matkulStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="matkulStatusConfirm ? matkulStatusConfirm.ke : ''"></span>.</p>
+        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah pemakaian untuk penawaran baru. Penawaran lama tetap tampil.</p>
+        <div class="flex gap-2 mt-4">
+          <button type="button" @click="jalankanUbahStatusMatkul()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiStatusMatkul()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
     </div>
   </div>
 </section>

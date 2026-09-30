@@ -28,7 +28,7 @@
   View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna, dukungan,
   antrean, audit, status-bot, master-ruangan, master-matkul, backup.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false; kelasStatusConfirm = null; penggunaAksi = null">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false; kelasStatusConfirm = null; penggunaAksi = null; ruangEdit = null; ruangStatusConfirm = null; matkulEdit = null; matkulStatusConfirm = null; notifDetailId = null">
 
   <div id="sa-sidebar"></div>
 
