@@ -83,6 +83,15 @@ func (s *Server) handleGetAdminInvitations(w http.ResponseWriter, r *http.Reques
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+// handleGetNotificationAttempts menangani GET /api/v1/notifications/{id}/attempts
+func (s *Server) handleGetNotificationAttempts(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetNotificationAttempts(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleGetBackups menangani GET /api/v1/backups
 func (s *Server) handleGetBackups(w http.ResponseWriter, r *http.Request) {
 	if s.adminController != nil {

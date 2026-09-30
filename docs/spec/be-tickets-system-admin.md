@@ -21,16 +21,18 @@
 
 > Status: **Selesai** — `GET /api/v1/admin/assignments`, `POST .../assignments/{id}/suspend|revoke`
 > (`internal/api/v1/admin_assignments.go`, route di `internal/api/routes.go`),
-> tes di `internal/api/admin_assignments_test.go`. Frontend belum diwiring (tab masih placeholder).
+> tes di `internal/api/admin_assignments_test.go` + wiring tab Penugasan
+> (filter, tangguhkan/cabut + alasan, guard proaktif + force insiden).
 
 - **Problem:** `GET /api/v1/admin/users` hanya kembalikan `id/identity_key/display_name/status/roles`
   (`internal/api/v1/admin_controller.go:67-74`). Tab Penugasan tak bisa tampilkan
   scope kelas/mata kuliah, status, dan masa berlaku.
 - **Kebutuhan:** `GET` assignments (pengguna, peran, scope kelas/mata kuliah,
   status `ACTIVE/SUSPENDED/REVOKED`, `valid_from/until`) + aksi tangguhkan/cabut
-  penugasan (terpisah dari tangguhkan akun). Guard ganti KM tunggal tetap di frontend.
-- **Acuan:** FR-ACCESS-007, IA §7.2.
-- **Frontend kini:** `web/partials/system-admin/view-pengguna.html` tab Penugasan = empty-state jujur.
+  penugasan (terpisah dari tangguhkan akun). Guard KM terakhir ditegakkan server
+  (`409` kecuali `force` insiden; `admin_assignments.go:262-271` + tes) dan
+  ditampilkan proaktif di UI.
+- **Acuan:** FR-ACCESS-007, IA §7.2, ACCESS_CONTROL §11.2.
 
 ### BE-02 — Daftar + cabut Undangan
 
@@ -102,10 +104,11 @@
 
 ### BE-07 — Usulan koreksi KM
 
-> Status: **Selesai sebagian** — tabel `master_proposals` (migrasi 011) + alur penuh
+> Status: **Selesai** — tabel `master_proposals` (migrasi 011) + alur penuh
 > (KM usul, SA setujui/diterapkan/tolak + audit ganda) + panel review di kedua
-> halaman master SA. Tes di `internal/api/admin_portal_master_test.go`.
-> **Belum**: form usul di Area KM (`km.html`) — KM kini via API langsung.
+> halaman master SA + form Area KM (nav "Usulan Master": buat dengan target/kode,
+> daftar berfilter jenis/status + isi usulan + badge ikon). Tes di
+> `internal/api/admin_portal_master_test.go`.
 > Diketahui: pencarian kandidat hanya tampilkan ruangan ACTIVE (penegakan utama);
 > impor mentoleransi kode tak dikenal; konfirmasi TU adalah override manusia.
 
@@ -130,8 +133,10 @@
 
 > Status: **Selesai** — respons memuat `idempotency_key`, kanal penerima
 > (`channel_jid/name`), `attempt_count` + galat/waktu percobaan terakhir
-> (ringkasan, bukan riwayat per-attempt penuh); tampil di panel detail antrean.
-> Lanjutan: endpoint riwayat attempts per pesan bila dibutuhkan.
+> (ringkasan) + endpoint riwayat `GET /notifications/{id}/attempts` (SA global;
+> KM kelasnya, asing 404; PJ tanpa akses antrean per §8.5) + panel riwayat di
+> detail antrean.
+> Lanjutan: — (tak ada; selesai).
 
 - **Problem:** respons tak memuat penerima, `idempotency_key`, dan riwayat percobaan;
   UI hanya tampilkan payload mentah.
@@ -173,7 +178,9 @@
 > Status: **Selesai** — `since/until` (RFC3339/YYYY-MM-DD, presisi detik UTC;
 > tanggal saja = akhir hari untuk `until`), `actor` (ID atau identity_key),
 > `entity_id`, slug asing untuk KM 404 + wiring filter + reset di Audit Global.
-> Lanjutan di luar tiket: cakupan PJ atas audit matkulnya (route kini KM/SA saja).
+> Update: PJ melihat audit kelasnya untuk tindakannya sendiri + entitas mata
+> kuliah penugasannya (TASK, TEACHING_EVENT, SCHEDULE_PATTERN, ROOM_CONFIRMATION).
+> Lanjutan di luar tiket: — (tak ada; selesai).
 
 - **Problem:** `GET /api/v1/audit` hanya `class_slug/action/entity_type`.
 - **Kebutuhan:** rentang waktu + pelaku (+ `entity_id` bila memungkinkan).
@@ -189,6 +196,8 @@
 > `internal/api/admin_sa_invite_bot_test.go`.
 > **Tidak dikerjakan**: tombol reconnect/QR web — `Connect()` memblokir menunggu
 > QR dan watchdog sudah auto-reconnect; QR tetap terminal-side.
+> Restore aktual file DB = prosedur operasional `docs/ops/RESTORE_PROCEDURE.md`
+> (downtime, titik darurat, rollback) — bukan endpoint, per ADR-0008.
 
 - **Problem:** tak ada endpoint QR/test-kirim/reconnect; UI hanya prosedur terminal-server.
 - **Kebutuhan:** penyambungan ulang + uji kirim untuk System Admin sesuai prosedur.

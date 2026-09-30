@@ -30,6 +30,7 @@ function kmApp() {
       { title: 'KELOLA KELAS', items: [
         { id: 'anggota', label: 'Anggota & Tim', img: '/assets/icons/ext-settings-edit.svg' },
         { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
+        { id: 'usulan', label: 'Usulan Master', img: '/assets/icons/book.svg' },
       ] },
       { title: 'LAINNYA', items: [
         { id: 'monitoring', label: 'Monitoring', img: '/assets/icons/activity.svg' },
@@ -50,7 +51,7 @@ function kmApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'anggota', 'pengaturan', 'monitoring', 'log', 'notifikasi', 'akun'],
+    knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'anggota', 'pengaturan', 'usulan', 'monitoring', 'log', 'notifikasi', 'akun'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -707,6 +708,7 @@ function kmApp() {
         ['km-monitor', '/partials/km/view-monitor.html'],
         ['km-notif', '/partials/km/view-notif.html'],
         ['km-pengaturan', '/partials/km/view-pengaturan.html'],
+        ['km-usulan', '/partials/km/view-usulan.html'],
         ['km-drawer', '/partials/common/drawer.html'],
         ['km-bottombar', '/partials/common/bottombar.html'],
         ['km-toast', '/partials/common/toast.html']
@@ -777,6 +779,7 @@ function kmApp() {
       if (v === 'tugas') this.tugasSub = 'list';
       if (v === 'anggota') this.anggotaSub = 'list';
       if (v === 'log') this.loadAuditLog();
+      if (v === 'usulan') { this.loadUsulanTarget(); this.loadUsulanSaya(); }
       window.scrollTo({ top: 0 });
     },
 
@@ -1350,6 +1353,98 @@ function kmApp() {
       this.toast.message = msg;
       this.toast.show = true;
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
+    },
+
+    // ---- Usulan koreksi master (KM mengusulkan, System Admin memutuskan) ----
+    usulanList: [],
+    usulanLoading: false,
+    usulanError: '',
+    usulanFilterKind: '',
+    usulanFilterStatus: '',
+    usulanTargetRuang: [],
+    usulanTargetMatkul: [],
+    usulanForm: { kind: 'ROOM', targetId: '', kode: '', nama: '', gedung: '', tipe: '', kapasitas: '', catatan: '' },
+    usulanFormError: '',
+    usulanSaving: false,
+
+    async loadUsulanTarget() {
+      try {
+        const [ruang, matkul] = await Promise.all([
+          API.getMasterRooms('ACTIVE').catch(() => []),
+          API.getMasterCourses('ACTIVE').catch(() => []),
+        ]);
+        this.usulanTargetRuang = Array.isArray(ruang) ? ruang : [];
+        this.usulanTargetMatkul = Array.isArray(matkul) ? matkul : [];
+      } catch (e) {
+        this.usulanTargetRuang = [];
+        this.usulanTargetMatkul = [];
+      }
+    },
+
+    async loadUsulanSaya() {
+      this.usulanLoading = true; this.usulanError = '';
+      try {
+        this.usulanList = await API.getProposals(this.usulanFilterStatus || '', this.usulanFilterKind || '');
+      } catch (e) {
+        this.usulanList = [];
+        this.usulanError = 'Daftar usulan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.usulanLoading = false;
+      }
+    },
+
+    usulanTargetList() {
+      const arr = this.usulanForm.kind === 'ROOM' ? this.usulanTargetRuang : this.usulanTargetMatkul;
+      return (arr || []).map(x => ({ id: x.id, label: (x.code || '') + ' · ' + (x.name || '') }));
+    },
+
+    labelStatusUsulan(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'PENDING') return 'Menunggu';
+      if (s === 'APPROVED') return 'Disetujui';
+      if (s === 'REJECTED') return 'Ditolak';
+      return st || '-';
+    },
+
+    async kirimUsulan() {
+      const f = this.usulanForm;
+      const isBaru = !((f.targetId || '').toString().trim());
+      this.usulanFormError = '';
+      const payload = {};
+      if (f.kind === 'ROOM') {
+        if (isBaru) {
+          if (!((f.kode || '').trim())) { this.usulanFormError = 'Kode wajib diisi untuk ruangan baru.'; return; }
+          payload.code = f.kode.trim();
+        }
+        if ((f.nama || '').trim()) payload.name = f.nama.trim();
+        if ((f.gedung || '').trim()) payload.building = f.gedung.trim();
+        if ((f.tipe || '').trim()) payload.room_type = f.tipe.trim();
+        if ((f.kapasitas || '') !== '') {
+          if (!(/^\d+$/.test(String(f.kapasitas).trim()))) { this.usulanFormError = 'Kapasitas wajib angka bulat ≥ 0.'; return; }
+          payload.capacity = Number(String(f.kapasitas).trim());
+        }
+        if (Object.keys(payload).length === 0) { this.usulanFormError = 'Isi minimal satu field yang diusulkan.'; return; }
+      } else {
+        if (!((f.nama || '').trim())) { this.usulanFormError = 'Nama mata kuliah wajib diisi.'; return; }
+        payload.name = f.nama.trim();
+        if (isBaru) {
+          if (!((f.kode || '').trim())) { this.usulanFormError = 'Kode wajib diisi untuk mata kuliah baru.'; return; }
+          payload.code = f.kode.trim();
+        }
+      }
+      const body = { kind: f.kind, payload, note: (f.catatan || '').trim() };
+      if (!isBaru) body.target_id = Number(f.targetId);
+      this.usulanSaving = true;
+      try {
+        await API.createProposal(body);
+        this.showToast('Usulan terkirim. System Admin akan meninjau.');
+        this.usulanForm = { kind: 'ROOM', targetId: '', kode: '', nama: '', gedung: '', tipe: '', kapasitas: '', catatan: '' };
+        await this.loadUsulanSaya();
+      } catch (err) {
+        this.usulanFormError = err.message || 'Gagal mengirim usulan.';
+      } finally {
+        this.usulanSaving = false;
+      }
     }
   };
 }

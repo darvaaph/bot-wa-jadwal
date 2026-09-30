@@ -81,6 +81,24 @@
               <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi mentah (payload)</summary>
               <pre class="mt-1 p-2 rounded-lg bg-white border border-[#EEEEEE] overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(n.payload_json)"></pre>
             </details>
+            <div>
+              <p class="text-[13px] font-semibold text-[#1F1F1F] mt-1">Riwayat percobaan</p>
+              <div x-show="notifAttemptsLoading" class="py-3 text-center text-[12px] text-slate-400">Memuat riwayat...</div>
+              <div x-show="notifAttemptsError" class="mt-1 text-[12px] text-red-700"><span x-text="notifAttemptsError"></span>
+                <button type="button" @click="loadNotifAttempts(n.id)" class="ml-1 font-semibold underline">Coba lagi</button>
+              </div>
+              <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="mt-1 text-[12px] text-slate-400">Belum ada percobaan tercatat.</div>
+              <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="mt-2 space-y-1.5">
+                <template x-for="t in notifAttempts" :key="t.attempt_number">
+                  <div class="p-2.5 rounded-lg bg-white border border-[#EEEEEE]">
+                    <p class="font-mono font-semibold" x-text="'#' + t.attempt_number + ' · ' + (t.result || 'berjalan')">-</p>
+                    <p class="font-mono text-slate-500 mt-0.5" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')">-</p>
+                    <p x-show="t.error_message" class="text-red-700 mt-0.5" x-text="t.error_message">-</p>
+                    <p x-show="t.provider_message_id" class="font-mono text-slate-400 mt-0.5" x-text="'provider: ' + t.provider_message_id">-</p>
+                  </div>
+                </template>
+              </div>
+            </div>
             <button type="button" @click="bukaAuditEntitas(n.entity_type)" x-show="n.entity_type" class="h-10 px-4 rounded-lg border border-[#EEEEEE] bg-white text-[12px] font-medium min-h-[44px]">Lihat di Audit Global</button>
           </div>
         </div>

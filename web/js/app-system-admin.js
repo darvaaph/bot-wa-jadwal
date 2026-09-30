@@ -136,6 +136,9 @@ function systemAdminApp() {
     notifSince: '',
     notifUntil: '',
     notifDetailId: null,
+    notifAttempts: [],
+    notifAttemptsLoading: false,
+    notifAttemptsError: '',
     notifList: [],
     notifLoading: false,
     notifError: '',
@@ -409,7 +412,28 @@ function systemAdminApp() {
     },
 
     toggleNotifDetail(id) {
-      this.notifDetailId = (this.notifDetailId === id) ? null : id;
+      const membuka = this.notifDetailId !== id;
+      this.notifDetailId = membuka ? id : null;
+      if (membuka) this.loadNotifAttempts(id);
+    },
+
+    async loadNotifAttempts(id) {
+      this.notifAttemptsLoading = true;
+      this.notifAttemptsError = '';
+      this.notifAttempts = [];
+      try {
+        const list = await API.getNotificationAttempts(id) || [];
+        // Abaikan hasil basi bila pengguna sudah membuka detail lain.
+        if (this.notifDetailId !== id) return;
+        this.notifAttempts = list;
+      } catch (e) {
+        if (this.notifDetailId !== id) return;
+        this.notifAttemptsError = (e && e.code === 'UNAUTHORIZED')
+          ? 'Sesi berakhir. Masuk kembali lalu coba lagi.'
+          : 'Riwayat percobaan belum dapat dimuat.';
+      } finally {
+        this.notifAttemptsLoading = false;
+      }
     },
 
     prettyPayload(json) {

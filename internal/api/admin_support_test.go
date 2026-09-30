@@ -225,3 +225,61 @@ func TestV1Audit_KMForeignSlug404(t *testing.T) {
 		t.Fatalf("KM slug sendiri expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestV1Audit_PJScope(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	seedSecondClass(t, db)
+
+	_, err := db.Exec(`
+		INSERT INTO audit_logs (actor_user_id, actor_type, action, entity_type, entity_id, class_id, reason, correlation_id, created_at) VALUES
+		(2, 'USER', 'UPDATE_CLASS', 'CLASS', 1, 1, 'aksi sendiri', 'pj-1', '2024-05-01T10:00:00.000Z'),
+		(1, 'USER', 'UPDATE_TASK', 'TASK', 1, 1, 'tugas matkul PJ', 'pj-2', '2024-05-02T10:00:00.000Z'),
+		(1, 'USER', 'UPDATE_TASK', 'TASK', 999, 1, 'tugas matkul lain', 'pj-3', '2024-05-03T10:00:00.000Z'),
+		(1, 'USER', 'ACTIVATE_SEMESTER', 'SEMESTER', 1, 1, 'semester', 'pj-4', '2024-05-04T10:00:00.000Z'),
+		(1, 'USER', 'PUBLISH_EVENT', 'TEACHING_EVENT', 1, 1, 'event matkul PJ', 'pj-5', '2024-05-05T10:00:00.000Z');
+	`)
+	if err != nil {
+		t.Fatalf("gagal seed audit PJ: %v", err)
+	}
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+
+	get := func(qs string) (int, []map[string]any) {
+		t.Helper()
+		w := helperDo(t, s, "GET", "/api/v1/audit"+qs, pjToken, nil)
+		var body struct {
+			Data []map[string]any `json:"data"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &body)
+		return w.Code, body.Data
+	}
+
+	// Tindakan sendiri + entitas matkulnya (TASK 1, EVENT 1); bukan yang lain.
+	code, items := get("")
+	if code != http.StatusOK {
+		t.Fatalf("PJ expected 200, got %d", code)
+	}
+	actions := map[string]bool{}
+	for _, it := range items {
+		actions[it["action"].(string)] = true
+	}
+	for _, want := range []string{"UPDATE_CLASS", "UPDATE_TASK", "PUBLISH_EVENT"} {
+		if !actions[want] {
+			t.Errorf("PJ harus melihat %s: %v", want, actions)
+		}
+	}
+	if actions["ACTIVATE_SEMESTER"] {
+		t.Errorf("PJ tak boleh melihat audit semester: %v", actions)
+	}
+	if len(items) != 3 {
+		t.Fatalf("PJ expected 3 baris, got %d", len(items))
+	}
+
+	// Slug asing -> 404; filter aksi tetap dalam scope.
+	if code, _ := get("?class_slug=d4-ti-2024-b"); code != http.StatusNotFound {
+		t.Fatalf("PJ slug asing expected 404, got %d", code)
+	}
+	if code, items := get("?action=UPDATE_TASK"); code != http.StatusOK || len(items) != 1 {
+		t.Fatalf("PJ filter aksi expected 1, got %d (%d)", len(items), code)
+	}
+}

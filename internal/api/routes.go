@@ -85,6 +85,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetRoomCandidates)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
 	mux.HandleFunc("GET /api/v1/notifications", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotifications)))
+	mux.HandleFunc("GET /api/v1/notifications/{id}/attempts", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotificationAttempts)))
 	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRetryNotification)))
 	mux.HandleFunc("GET /api/v1/audit", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetAuditLogs)))
 	mux.HandleFunc("POST /api/v1/backups", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateBackup)))

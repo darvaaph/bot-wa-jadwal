@@ -605,26 +605,29 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		// Himpunan offering penugasan PJ aktif (termasuk jendela masa berlaku)
+		// dipakai ulang oleh seluruh filter entitas di bawah.
+		query = `WITH my_offerings AS (
+			SELECT course_offering_id FROM role_assignments
+			WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?
+			  AND (valid_from IS NULL OR julianday(valid_from) <= julianday('now'))
+			  AND (valid_until IS NULL OR julianday(valid_until) > julianday('now'))
+		)` + query
+		args = append([]any{u.UserID, u.ActiveClassID.Int64}, args...)
 		query += ` AND al.class_id = ? AND (
 			al.actor_user_id = ?
 			OR (al.entity_type = 'TASK' AND EXISTS (
-				SELECT 1 FROM tasks t WHERE t.id = al.entity_id AND t.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+				SELECT 1 FROM tasks t WHERE t.id = al.entity_id AND t.course_offering_id IN (SELECT * FROM my_offerings)))
 			OR (al.entity_type = 'TEACHING_EVENT' AND EXISTS (
-				SELECT 1 FROM teaching_event_offerings teo WHERE teo.teaching_event_id = al.entity_id AND teo.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+				SELECT 1 FROM teaching_event_offerings teo WHERE teo.teaching_event_id = al.entity_id AND teo.course_offering_id IN (SELECT * FROM my_offerings)))
 			OR (al.entity_type = 'SCHEDULE_PATTERN' AND EXISTS (
-				SELECT 1 FROM schedule_patterns sp WHERE sp.id = al.entity_id AND sp.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+				SELECT 1 FROM schedule_patterns sp WHERE sp.id = al.entity_id AND sp.course_offering_id IN (SELECT * FROM my_offerings)))
 			OR (al.entity_type = 'ROOM_CONFIRMATION' AND EXISTS (
 				SELECT 1 FROM room_confirmations rc
 				JOIN teaching_event_offerings teo ON teo.teaching_event_id = rc.teaching_event_id
-				WHERE rc.id = al.entity_id AND teo.course_offering_id IN (SELECT course_offering_id FROM role_assignments WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?)))
+				WHERE rc.id = al.entity_id AND teo.course_offering_id IN (SELECT * FROM my_offerings)))
 		)`
-		args = append(args,
-			u.ActiveClassID.Int64, u.UserID,
-			u.UserID, u.ActiveClassID.Int64,
-			u.UserID, u.ActiveClassID.Int64,
-			u.UserID, u.ActiveClassID.Int64,
-			u.UserID, u.ActiveClassID.Int64,
-		)
+		args = append(args, u.ActiveClassID.Int64, u.UserID)
 	} else if classSlugFilter != "" {
 		query += " AND cl.slug = ?"
 		args = append(args, classSlugFilter)
@@ -1477,6 +1480,91 @@ func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request)
 		"to":         to,
 		"status":     "SENT",
 	})
+}
+
+// AttemptItem merepresentasikan satu percobaan pengiriman pesan.
+type AttemptItem struct {
+	AttemptNumber   int     `json:"attempt_number"`
+	StartedAt       string  `json:"started_at"`
+	FinishedAt      *string `json:"finished_at,omitempty"`
+	Result          *string `json:"result,omitempty"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
+	ProviderMessage *string `json:"provider_message_id,omitempty"`
+}
+
+// GetNotificationAttempts menangani GET /api/v1/notifications/{id}/attempts.
+// Cakupan mengikuti daftar antrean (SA global; KM kelasnya, asing 404).
+// PJ tidak diberi akses antrean (matriks ACCESS_CONTROL §8.5).
+func (c *AdminController) GetNotificationAttempts(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	notifID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || notifID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID notifikasi tidak valid")
+		return
+	}
+
+	var classID int64
+	if err := c.db.QueryRow(`SELECT class_id FROM notification_messages WHERE id = ?;`, notifID).Scan(&classID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi notifikasi")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
+			return
+		}
+	}
+
+	rows, err := c.db.Query(`
+		SELECT attempt_number, started_at, finished_at, result, error_message, provider_message_id
+		FROM notification_attempts
+		WHERE notification_message_id = ?
+		ORDER BY attempt_number ASC;
+	`, notifID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat percobaan")
+		return
+	}
+	defer rows.Close()
+
+	items := []AttemptItem{}
+	for rows.Next() {
+		var it AttemptItem
+		var startedAt common.DBTimestamp
+		var finishedAt, result, errMsg, providerID sql.NullString
+		if err := rows.Scan(&it.AttemptNumber, &startedAt, &finishedAt, &result, &errMsg, &providerID); err != nil {
+			continue
+		}
+		it.StartedAt = startedAt.Time.Format(time.RFC3339)
+		if finishedAt.Valid && finishedAt.String != "" {
+			if t, err := common.ParseTime(finishedAt.String); err == nil {
+				formatted := t.Format(time.RFC3339)
+				it.FinishedAt = &formatted
+			} else {
+				it.FinishedAt = &finishedAt.String
+			}
+		}
+		if result.Valid && result.String != "" {
+			it.Result = &result.String
+		}
+		if errMsg.Valid && errMsg.String != "" {
+			it.ErrorMessage = &errMsg.String
+		}
+		if providerID.Valid && providerID.String != "" {
+			it.ProviderMessage = &providerID.String
+		}
+		items = append(items, it)
+	}
+
+	common.WriteV1Success(w, http.StatusOK, items)
 }
 
 // RetryNotification menangani POST /api/v1/notifications/{id}/retry

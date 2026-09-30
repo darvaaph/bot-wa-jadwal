@@ -12,6 +12,7 @@
   Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | TOO_MANY_REQUESTS 429 | NOT_IMPLEMENTED 501`.
 - Optimistic locking: semua PATCH/POST-publish kirim `version`; mismatch → `409 + {current_version, current_data}`; input user tidak boleh hilang (FE wajib tampilkan diff).
 - Scope diambil dari sesi server, bukan dari payload. `class_id/semester_id/offering_id` di URL diverifikasi lawan `active_role_assignment_id`.
+- Penolakan cakupan: peran salah → `403`; cakupan asing (kelas/entitas di luar jangkauan) → `404` generik tanpa mengungkap keberadaan data (FR-ACCESS-004).
 - Audit: publish/revoke/delete/restore/assign-role selalu tulis `audit_logs` (tak ada endpoint tulis audit langsung).
 
 ## 1. Auth & konteks (`FR-ACCESS-002 s.d 007`)

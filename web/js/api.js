@@ -650,6 +650,25 @@ const BotApi = {
     return (json && json.data) || [];
   },
 
+  async getNotificationAttempts(id) {
+    const res = await fetch('/api/v1/notifications/' + encodeURIComponent(id) + '/attempts', {
+      headers: authHeaders(), credentials: 'same-origin'
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Riwayat percobaan gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
   async retryNotification(messageId) {
     const res = await fetch('/api/v1/notifications/' + messageId + '/retry', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
@@ -756,6 +775,21 @@ const BotApi = {
     if (!res.ok) {
       const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal memutuskan usulan.');
       err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async createProposal(payload) {
+    const res = await fetch('/api/v1/master/proposals', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify(payload || {})
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengirim usulan.');
+      err.code = 'SAVE_FAILED';
       err.status = res.status;
       throw err;
     }
