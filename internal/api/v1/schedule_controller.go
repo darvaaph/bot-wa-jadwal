@@ -1331,17 +1331,31 @@ func (c *ScheduleController) ParticipationTeachingEvent(w http.ResponseWriter, r
 		return
 	}
 
-	res, err := c.db.Exec(`
-		UPDATE teaching_event_offerings
-		SET participation_status = ?
-		WHERE teaching_event_id = ?
-		  AND participation_role = 'PARTICIPANT'
-		  AND course_offering_id IN (
-		      SELECT co.id FROM course_offerings co
-		      JOIN semesters s ON co.semester_id = s.id
-		      WHERE s.class_id = ?
-		  );
-	`, newStatus, eventID, u.ActiveClassID)
+	var res sql.Result
+	if u.ActiveRole == "SYSTEM_ADMIN" {
+		res, err = c.db.Exec(`
+			UPDATE teaching_event_offerings
+			SET participation_status = ?
+			WHERE teaching_event_id = ?
+			  AND participation_role = 'PARTICIPANT';
+		`, newStatus, eventID)
+	} else {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak valid untuk partisipasi")
+			return
+		}
+		res, err = c.db.Exec(`
+			UPDATE teaching_event_offerings
+			SET participation_status = ?
+			WHERE teaching_event_id = ?
+			  AND participation_role = 'PARTICIPANT'
+			  AND course_offering_id IN (
+			      SELECT co.id FROM course_offerings co
+			      JOIN semesters s ON co.semester_id = s.id
+			      WHERE s.class_id = ?
+			  );
+		`, newStatus, eventID, u.ActiveClassID.Int64)
+	}
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status partisipasi")

@@ -141,7 +141,10 @@ function saApp() {
         if (!token) return false;
         const me = await API.getMe();
         if (me && me.user) {
+          const role = me.active_assignment && me.active_assignment.role;
+          if (role && role !== 'SYSTEM_ADMIN') return false;
           this.currentUser = me.user;
+          this.activeRole = role || null;
           return true;
         }
       } catch (e) {}

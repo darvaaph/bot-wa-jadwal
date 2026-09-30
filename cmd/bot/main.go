@@ -181,13 +181,13 @@ func main() {
 
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
-	apiServer.SetSecureCookies(cfg.SecureCookies)
 	apiServer.SetSecurityOptions(api.SecurityOptions{
 		Env:               cfg.Env,
 		AuthHashKey:       cfg.AuthHashKey,
 		AllowedOrigins:    cfg.AllowedOrigins,
 		TrustedProxyCIDRs: cfg.TrustedProxyCIDRs,
 		PublicBaseURL:     cfg.PublicBaseURL,
+		SecureCookies:     cfg.SecureCookies,
 	})
 	if err := apiServer.Start(); err != nil {
 		fmt.Printf("❌ Gagal memulai server Web API: %v\n", err)

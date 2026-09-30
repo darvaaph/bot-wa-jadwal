@@ -121,11 +121,11 @@ type NotificationResponseItem struct {
 
 // AdminController mengelola telemetri sistem, penangguhan/pemulihan akun, audit logs, backup & restore, dan notifikasi outbox
 type AdminController struct {
-	db             *sql.DB
-	botClient      BotStatusProvider
-	secManager     *middleware.SecurityManager
-	rlManager      *middleware.RateLimitManager
-	getStorageDir  func() string
+	db            *sql.DB
+	botClient     BotStatusProvider
+	secManager    *middleware.SecurityManager
+	rlManager     *middleware.RateLimitManager
+	getStorageDir func() string
 }
 
 // NewAdminController membuat instance baru AdminController
@@ -342,6 +342,11 @@ func (c *AdminController) RecoverUser(w http.ResponseWriter, r *http.Request) {
 
 	var req RecoverUserRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if req.NewPassword != nil && strings.TrimSpace(*req.NewPassword) != "" && len(strings.TrimSpace(*req.NewPassword)) < 12 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi baru minimal 12 karakter")
+		return
+	}
 
 	var curStatus string
 	err = c.db.QueryRow(`SELECT status FROM users WHERE id = ?;`, targetUserID).Scan(&curStatus)
@@ -635,11 +640,15 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	reasonStr := "Backup on-demand"
+	if req.Reason != nil && strings.TrimSpace(*req.Reason) != "" {
+		reasonStr = strings.TrimSpace(*req.Reason)
+	}
 	res, err := tx.Exec(`
 		INSERT INTO backup_records (
 			class_id, artifact_ref, checksum, status, created_by_user_id, reason, created_at
 		) VALUES (?, ?, ?, 'READY', ?, ?, CURRENT_TIMESTAMP);
-	`, classID, backupFilePath, checksum, u.UserID, req.Reason)
+	`, classID, backupFilePath, checksum, u.UserID, reasonStr)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan rekam cadangan: %v", err))

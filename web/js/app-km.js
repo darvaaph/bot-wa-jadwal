@@ -133,7 +133,17 @@ function kmApp() {
           window.location.replace('/login.html?role=km');
           return;
         }
+        const role = me.active_assignment && me.active_assignment.role;
+        if (role === 'PJ') {
+          window.location.replace('/pj.html');
+          return;
+        }
+        if (role && role !== 'KM' && role !== 'SYSTEM_ADMIN') {
+          window.location.replace('/login.html?role=km');
+          return;
+        }
         this.currentUser = me.user;
+        this.activeRole = role || null;
       } catch (e) {
         localStorage.removeItem('access_token');
         window.location.replace('/login.html?role=km');

@@ -387,10 +387,10 @@ var v1Schema = []string{
 	`CREATE TABLE IF NOT EXISTS import_errors (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		batch_id INTEGER NOT NULL REFERENCES import_batches(id),
-		row_number INTEGER,
-		field TEXT,
-		error_code TEXT,
-		message TEXT,
+		source_location TEXT NOT NULL,
+		field_name TEXT,
+		error_code TEXT NOT NULL,
+		message TEXT NOT NULL,
 		severity TEXT NOT NULL CHECK (severity IN ('ERROR','WARNING'))
 	);`,
 	`CREATE INDEX IF NOT EXISTS idx_import_errors ON import_errors(batch_id, severity);`,

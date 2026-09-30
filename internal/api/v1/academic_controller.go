@@ -203,6 +203,11 @@ func (c *AcademicController) CreateClassSemester(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if strings.TrimSpace(req.AcademicYear) == "" || strings.TrimSpace(req.Term) == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "academic_year dan term wajib diisi")
+		return
+	}
+
 	startDate, errStart := time.Parse("2006-01-02", req.StartsOn)
 	endDate, errEnd := time.Parse("2006-01-02", req.EndsOn)
 	if errStart != nil || errEnd != nil || !endDate.After(startDate) {
@@ -263,6 +268,16 @@ func (c *AcademicController) ActivateSemester(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT status FROM semesters WHERE id = ? AND class_id = ?;`, semID, classID).Scan(&curStatus); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return
+	}
+	if curStatus != "DRAFT" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya semester DRAFT yang dapat diaktifkan")
+		return
+	}
+
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi aktivasi")
@@ -284,7 +299,7 @@ func (c *AcademicController) ActivateSemester(w http.ResponseWriter, r *http.Req
 	res, err := tx.Exec(`
 		UPDATE semesters
 		SET status = 'ACTIVE', published_at = CURRENT_TIMESTAMP, activated_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND class_id = ?;
+		WHERE id = ? AND class_id = ? AND status = 'DRAFT';
 	`, semID, classID)
 
 	if err != nil {
@@ -707,11 +722,19 @@ func (c *AcademicController) SemesterImportValidate(w http.ResponseWriter, r *ht
 
 	batchID, _ := res.LastInsertId()
 
+	useNewImportErrCols := hasImportErrNewCols(tx)
 	for _, e := range errorsList {
-		_, _ = tx.Exec(`
-			INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
-			VALUES (?, ?, ?, ?, ?, ?);
-		`, batchID, e.RowNumber, e.Field, e.ErrorCode, e.Message, e.Severity)
+		if useNewImportErrCols {
+			_, _ = tx.Exec(`
+				INSERT INTO import_errors (batch_id, source_location, field_name, error_code, message, severity)
+				VALUES (?, ?, ?, ?, ?, ?);
+			`, batchID, fmt.Sprintf("row %d", e.RowNumber), e.Field, e.ErrorCode, e.Message, e.Severity)
+		} else {
+			_, _ = tx.Exec(`
+				INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
+				VALUES (?, ?, ?, ?, ?, ?);
+			`, batchID, e.RowNumber, e.Field, e.ErrorCode, e.Message, e.Severity)
+		}
 	}
 
 	_ = tx.Commit()
@@ -1148,6 +1171,19 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		matType = "OTHER"
 	}
 
+	urlStr := ""
+	if req.URL != nil {
+		urlStr = strings.TrimSpace(*req.URL)
+	}
+	descStr := ""
+	if req.Description != nil {
+		descStr = *req.Description
+	}
+	var descArg any
+	if descStr != "" {
+		descArg = descStr
+	}
+
 	var matID int64
 	err = c.db.QueryRow(`
 		INSERT INTO materials (
@@ -1156,7 +1192,7 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, 'CLASS_ACCESS', 'ACTIVE', 1, ?)
 		RETURNING id;
-	`, classID, req.OfferingID, req.TaskID, req.Title, matType, req.URL, req.Description, u.UserID).Scan(&matID)
+	`, classID, req.OfferingID, req.TaskID, req.Title, matType, urlStr, descArg, u.UserID).Scan(&matID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan materi: %v", err))
@@ -1363,4 +1399,26 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 		"room_id":             req.RoomID,
 		"confirmation_status": status,
 	})
+}
+
+// hasImportErrNewCols mendeteksi skema import_errors baru (source_location)
+// vs legacy (row_number) agar tulis tetap jalan di kedua DB.
+func hasImportErrNewCols(tx *sql.Tx) bool {
+	rows, err := tx.Query(`PRAGMA table_info(import_errors);`)
+	if err != nil {
+		return true
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil {
+			if name == "source_location" {
+				return true
+			}
+		}
+	}
+	return false
 }

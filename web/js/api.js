@@ -60,18 +60,25 @@ const BotApi = {
     return null;
   },
 
-  async getTasks(classId) {
+  async getTasks(offeringId, tab) {
+    const params = new URLSearchParams();
+    if (offeringId && /^\d+$/.test(String(offeringId))) params.set('offering_id', String(offeringId));
+    if (tab) params.set('tab', tab);
+    const qs = params.toString();
     try {
-      const res = await fetch('/api/v1/tasks?class_id=' + encodeURIComponent(classId || ''), { credentials: 'same-origin' });
+      const res = await fetch('/api/v1/tasks' + (qs ? '?' + qs : ''), {
+        headers: authHeaders(),
+        credentials: 'same-origin'
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.data && json.data.length > 0) {
           return json.data.map(item => ({
             id: item.id,
-            course_offering_id: item.course_offering_id,
-            course_code: item.course_code || 'TUGAS',
-            course_name: item.course_name || 'Mata Kuliah',
-            matkul: item.course_name || item.course_code || 'Mata Kuliah',
+            course_offering_id: item.offering_id,
+            course_code: item.offering || 'TUGAS',
+            course_name: item.offering || 'Mata Kuliah',
+            matkul: item.offering || 'Mata Kuliah',
             title: item.title,
             deskripsi: item.instructions || item.title,
             instructions: item.instructions,
@@ -80,6 +87,7 @@ const BotApi = {
             submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
             status: item.publication_status || 'DRAFT',
             review_status: item.review_state || 'NOT_REVIEWED',
+            version: item.version,
             is_done: !!item.completed_at,
             is_completed: !!item.completed_at,
             creator_name: 'PJ Mata Kuliah'
@@ -88,9 +96,10 @@ const BotApi = {
       }
     } catch (e) {}
 
-    // Fallback ke endpoint legacy /api/tasks?class=...
+    // Fallback ke endpoint legacy /api/tasks?class=... (untuk portal publik tanpa auth)
     try {
-      const legRes = await fetch('/api/tasks?class=' + encodeURIComponent(classId || ''), { credentials: 'same-origin' });
+      const classSlug = offeringId && !/^\d+$/.test(String(offeringId)) ? String(offeringId) : '';
+      const legRes = await fetch('/api/tasks?class=' + encodeURIComponent(classSlug), { credentials: 'same-origin' });
       if (legRes.ok) {
         const legJson = await legRes.json();
         return (legJson.data || []).map(item => ({
@@ -106,9 +115,8 @@ const BotApi = {
   },
 
   async createTask(payload) {
-    const isLegacy = payload && (payload.matkul || payload.deskripsi || payload.deadline) && !payload.course_offering_id;
-    const url = isLegacy ? '/api/tasks' : '/api/v1/tasks';
-    const res = await fetch(url, {
+    // Backend hanya punya POST /api/v1/tasks (legacy POST /api/tasks = 410 Gone).
+    const res = await fetch('/api/v1/tasks', {
       method: 'POST',
       credentials: 'same-origin',
       headers: mutationHeaders(),
@@ -147,11 +155,17 @@ const BotApi = {
     return true;
   },
 
-  async completeTask(taskId) {
+  async completeTask(taskId, version) {
+    let v = version;
+    if (!v) {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version));
+    }
     const res = await fetch('/api/v1/tasks/' + taskId + '/complete', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: mutationHeaders()
+      headers: mutationHeaders(),
+      body: JSON.stringify({ version: v || 0 })
     });
     if (res.status === 401) {
       const err = new Error('Sesi berakhir atau belum masuk.');
@@ -167,7 +181,10 @@ const BotApi = {
   },
 
   async getTaskDetail(taskId) {
-    const res = await fetch('/api/v1/tasks/' + taskId, { credentials: 'same-origin' });
+    const res = await fetch('/api/v1/tasks/' + taskId, {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
     if (res.status === 401) {
       const err = new Error('Sesi berakhir atau belum masuk.');
       err.code = 'UNAUTHORIZED';
@@ -179,35 +196,21 @@ const BotApi = {
   },
 
   async getTaskReviews(taskId) {
-    const res = await fetch('/api/v1/tasks/' + taskId + '/reviews', { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data || [];
+    // Tidak ada GET /api/v1/tasks/{id}/reviews — review ikut di GetTaskDetail.
+    const d = await this.getTaskDetail(taskId).catch(() => null);
+    if (!d) return [];
+    if (Array.isArray(d)) return d;
+    return d.reviews || [];
   },
 
-  async publishTask(taskId) {
-    const res = await fetch('/api/v1/tasks/' + taskId + '/publish', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: mutationHeaders()
-    });
-    if (res.status === 401) {
-      const err = new Error('Sesi berakhir atau belum masuk.');
-      err.code = 'UNAUTHORIZED';
-      throw err;
+  async publishTask(taskId, version) {
+    // Tidak ada POST /api/v1/tasks/{id}/publish — publish via PATCH save_as=published.
+    let v = version;
+    if (!v) {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version)) || 0;
     }
-    if (res.status === 409) {
-      const err = new Error('Versi data sudah berubah, muat ulang sebelum menyimpan.');
-      err.code = 'VERSION_CONFLICT';
-      throw err;
-    }
-    if (!res.ok) {
-      const err = new Error('Gagal mempublikasikan tugas.');
-      err.code = 'SAVE_FAILED';
-      throw err;
-    }
-    const json = await res.json();
-    return json.data;
+    return this.updateTask(taskId, { version: v, save_as: 'published' });
   },
 
   async updateTask(taskId, payload) {
@@ -236,11 +239,19 @@ const BotApi = {
     return json.data;
   },
 
-  async archiveTask(taskId, unarchive) {
-    const res = await fetch('/api/v1/tasks/' + taskId + (unarchive ? '/unarchive' : '/archive'), {
+  async archiveTask(taskId, unarchive, version) {
+    // Backend: POST .../archive dan POST .../restore (tidak ada /unarchive).
+    const endpoint = unarchive ? '/restore' : '/archive';
+    let v = version;
+    if (!v) {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version)) || 0;
+    }
+    const res = await fetch('/api/v1/tasks/' + taskId + endpoint, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: mutationHeaders()
+      headers: mutationHeaders(),
+      body: JSON.stringify({ version: v || 0 })
     });
     if (!res.ok) {
       const err = new Error('Gagal mengubah status arsip.');
@@ -251,26 +262,22 @@ const BotApi = {
     return json.data;
   },
 
-  async deleteTaskV1(taskId) {
-    const res = await fetch('/api/v1/tasks/' + taskId, {
-      method: 'DELETE',
-      credentials: 'same-origin',
-      headers: mutationHeaders()
-    });
-    if (!res.ok) {
-      const err = new Error('Gagal menghapus tugas.');
-      err.code = 'SAVE_FAILED';
-      throw err;
-    }
-    return true;
+  async deleteTaskV1(taskId, version) {
+    // Backend tidak punya DELETE /api/v1/tasks/{id} — hapus = arsip.
+    return this.archiveTask(taskId, false, version);
   },
 
-  async restoreTask(taskId, reason) {
+  async restoreTask(taskId, version) {
+    let v = version;
+    if (!v || typeof v !== 'number') {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version)) || 0;
+    }
     const res = await fetch('/api/v1/tasks/' + taskId + '/restore', {
       method: 'POST',
       credentials: 'same-origin',
       headers: mutationHeaders(),
-      body: JSON.stringify({ reason: reason })
+      body: JSON.stringify({ version: v || 0 })
     });
     if (!res.ok) {
       const err = new Error('Gagal memulihkan tugas.');
@@ -281,10 +288,10 @@ const BotApi = {
     return json.data;
   },
 
-  async getMaterials(classId, offeringId) {
-    let url = '/api/v1/materials?class_id=' + classId;
-    if (offeringId) url += '&course_offering_id=' + offeringId;
-    const res = await fetch(url, { credentials: 'same-origin' });
+  async getMaterials(classSlug, offeringId) {
+    let url = '/api/v1/materials?class_slug=' + encodeURIComponent(classSlug || '');
+    if (offeringId) url += '&offering_id=' + encodeURIComponent(offeringId);
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
     if (!res.ok) return null;
     const json = await res.json();
     return json.data || [];
@@ -319,14 +326,17 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async getSemesters(classId) {
-    const res = await fetch('/api/v1/classes/' + classId + '/semesters', { credentials: 'same-origin' });
+  async getSemesters(classSlug) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
     if (!res.ok) return null;
     return (await res.json()).data || [];
   },
 
-  async createSemesterDraft(classId, payload) {
-    const res = await fetch('/api/v1/classes/' + classId + '/semesters/draft', {
+  async createSemesterDraft(classSlug, payload) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -337,16 +347,17 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async previewSemester(classId, semesterId) {
-    const res = await fetch('/api/v1/classes/' + classId + '/semesters/' + semesterId + '/preview', { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    return (await res.json()).data;
+  async previewSemester(classSlug, semesterId) {
+    // Backend tidak punya endpoint preview semester — kembalikan semester dari list.
+    const list = await this.getSemesters(classSlug).catch(() => null);
+    if (Array.isArray(list)) return list.find(s => String(s.id) === String(semesterId)) || null;
+    return null;
   },
 
-  async activateSemester(classId, semesterId, version) {
-    const res = await fetch('/api/v1/classes/' + classId + '/semesters/' + semesterId + '/activate', {
+  async activateSemester(classSlug, semesterId) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters/' + encodeURIComponent(semesterId) + '/activate', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
-      body: JSON.stringify({ version: version || null })
+      body: JSON.stringify({ confirm: true })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -356,8 +367,8 @@ const BotApi = {
     return true;
   },
 
-  async importSemester(classId, payload) {
-    const res = await fetch('/api/v1/classes/' + classId + '/semesters/import', {
+  async importSemester(semesterId, payload) {
+    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/import-validate', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
     });
     const json = await res.json().catch(() => null);
@@ -399,23 +410,30 @@ const BotApi = {
     return (json && json.data) || [];
   },
 
-  async getTeachingEvents(classId, filters) {
-    let url = '/api/v1/teaching-events?class_id=' + classId;
-    if (filters && filters.lifecycle) url += '&lifecycle=' + encodeURIComponent(filters.lifecycle);
-    if (filters && filters.kind) url += '&kind=' + encodeURIComponent(filters.kind);
+  async getTeachingEvents(filters) {
+    // Backend: GET /api/v1/teaching-events?status= (DRAFT/PUBLISHED/REVOKED).
+    let url = '/api/v1/teaching-events';
+    if (filters && (filters.status || filters.lifecycle)) {
+      url += '?status=' + encodeURIComponent(filters.status || filters.lifecycle);
+    }
     const res = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
     if (!res.ok) return null;
     return (await res.json()).data || [];
   },
 
   async getTeachingEventDetail(eventId) {
-    const res = await fetch('/api/v1/teaching-events/' + eventId, { credentials: 'same-origin', headers: authHeaders() });
-    if (!res.ok) return null;
-    return (await res.json()).data;
+    // Backend tidak punya GET detail — cari dari list.
+    const list = await this.getTeachingEvents().catch(() => null);
+    if (Array.isArray(list)) return list.find(e => String(e.id) === String(eventId)) || null;
+    return null;
   },
 
   async previewTeachingEvent(eventId) {
-    const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', { credentials: 'same-origin', headers: authHeaders() });
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: authHeaders()
+    });
     if (!res.ok) return null;
     return (await res.json()).data;
   },
@@ -455,9 +473,16 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async revokeTeachingEvent(eventId, reason) {
+  async revokeTeachingEvent(eventId, reason, version) {
+    let v = version;
+    if (!v) {
+      const list = await this.getTeachingEvents().catch(() => []);
+      const found = (list || []).find(e => String(e.id) === String(eventId));
+      v = (found && found.version) || 0;
+    }
     const res = await fetch('/api/v1/teaching-events/' + eventId + '/revoke', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ reason: reason })
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason, version: v || 0 })
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -467,10 +492,14 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async getNotifications(classId, status) {
-    let url = '/api/v1/notifications?class_id=' + classId;
-    if (status) url += '&status=' + encodeURIComponent(status);
-    const res = await fetch(url, { credentials: 'same-origin' });
+  async getNotifications(status, limit) {
+    // Backend: GET /api/v1/notifications?status=&limit=&offset= (tanpa class_id).
+    let url = '/api/v1/notifications';
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (limit) qs.set('limit', String(limit));
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
     if (!res.ok) return null;
     return (await res.json()).data || [];
   },
@@ -486,57 +515,49 @@ const BotApi = {
     return true;
   },
 
-  async getRooms(status) {
-    const res = await fetch('/api/v1/rooms?status=' + encodeURIComponent(status || 'ACTIVE'), { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    return (await res.json()).data || [];
+  async getRooms() {
+    // Tidak ada GET /api/v1/rooms — gunakan kandidat dengan rentang hari ini.
+    const now = new Date();
+    const s = now.toISOString();
+    const e = new Date(now.getTime() + 3600000).toISOString();
+    return this.getRoomAvailability(s, e);
   },
 
-  async getRoomAvailability(date, start, end) {
-    const res = await fetch('/api/v1/rooms/availability?date=' + encodeURIComponent(date) + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end), { credentials: 'same-origin' });
+  async getRoomAvailability(startsAt, endsAt) {
+    // Backend: GET /api/v1/rooms/candidates?starts_at=&ends_at= (RFC3339).
+    const res = await fetch('/api/v1/rooms/candidates?starts_at=' + encodeURIComponent(startsAt) + '&ends_at=' + encodeURIComponent(endsAt), {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
     if (!res.ok) return null;
     return (await res.json()).data;
   },
 
   async getAudit(params) {
     const qs = new URLSearchParams(params || {}).toString();
-    const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), { credentials: 'same-origin' });
+    const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
     if (!res.ok) return null;
     return (await res.json()).data || [];
   },
 
-  async getClassSettings(classId) {
-    const res = await fetch('/api/v1/classes/' + classId + '/settings', { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    return (await res.json()).data;
+  async getClassSettings() {
+    // Backend belum punya GET /api/v1/classes/{id}/settings.
+    return null;
   },
 
-  async updateClassSettings(classId, payload) {
-    const res = await fetch('/api/v1/classes/' + classId + '/settings', {
-      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
-    });
-    if (res.status === 409) {
-      const err = new Error('Pengaturan berubah di tempat lain, muat ulang sebelum menyimpan.');
-      err.code = 'VERSION_CONFLICT'; throw err;
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal menyimpan pengaturan.');
-      err.code = 'SAVE_FAILED'; throw err;
-    }
-    return true;
+  async updateClassSettings() {
+    const err = new Error('Pengaturan kelas belum tersedia di backend.');
+    err.code = 'NOT_IMPLEMENTED';
+    throw err;
   },
 
-  async issueRecovery(identityKey, reason) {
-    const res = await fetch('/api/v1/admin/recovery/issue', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
-      body: JSON.stringify({ identity_key: identityKey, reason: reason })
-    });
-    if (!res.ok) {
-      const err = new Error('Gagal menerbitkan token pemulihan.');
-      err.code = 'SAVE_FAILED'; throw err;
-    }
-    return (await res.json()).data;
+  async issueRecovery() {
+    const err = new Error('Pemulihan akun via API belum tersedia.');
+    err.code = 'NOT_IMPLEMENTED';
+    throw err;
   },
 
   async getAdminStatus() {
@@ -651,26 +672,23 @@ const BotApi = {
     return await res.json();
   },
 
-  async getPortalTasks(slug) {
-    const res = await fetch('/api/portal/' + encodeURIComponent(slug) + '/tasks?group=all', { credentials: 'same-origin' });
+  async getPortalTasks(slug, group) {
+    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
+    const g = valid.includes(group) ? group : '';
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (g ? '?group=' + g : ''), { credentials: 'same-origin' });
     if (!res.ok) return null;
     const json = await res.json();
-    if (!json.data || !json.data.tugas) return null;
-    return json.data.tugas.map(item => {
-      let deadlineAt = '';
-      const parts = String(item.tenggat || '').split(' ');
-      if (parts.length === 2) {
-        deadlineAt = parts[0] + 'T' + parts[1].replace('.', ':') + ':00+07:00';
-      }
+    const arr = Array.isArray(json.data) ? json.data : [];
+    return arr.map(item => {
       return {
         id: item.id,
         course_offering_id: null,
-        course_code: item.kode_mata_kuliah || 'TUGAS',
-        course_name: item.mata_kuliah || 'Mata Kuliah',
-        title: item.judul,
-        instructions: item.instruksi,
-        deadline_at: deadlineAt,
-        submission_target: item.tempat_pengumpulan || 'LMS Kampus',
+        course_code: item.offering || 'TUGAS',
+        course_name: item.offering || 'Mata Kuliah',
+        title: item.title,
+        instructions: item.instructions,
+        deadline_at: item.deadline_at,
+        submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
         status: 'PUBLISHED',
         review_status: 'APPROVED',
         is_completed: false,
@@ -688,39 +706,31 @@ const BotApi = {
       }
     } catch (e) {}
 
-    // Fallback ke endpoint portal v1
+    // Fallback ke endpoint portal v1 (shape: {data:{items:[]}})
     try {
       const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule?date=' + encodeURIComponent(dateStr || ''), { credentials: 'same-origin' });
       if (res.ok) {
         const json = await res.json();
-        if (json.data && json.data.jadwal) return json.data.jadwal;
+        if (json.data && json.data.items) return json.data.items;
       }
     } catch (e) {}
     return [];
   },
 
-  async deleteTask(taskId) {
-    try {
-      const res = await fetch('/api/tasks/' + taskId, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-        headers: mutationHeaders()
-      });
-      if (res.ok) return true;
-    } catch (e) {}
-    return this.deleteTaskV1(taskId);
+  async deleteTask(taskId, version) {
+    // Legacy DELETE = 410 — langsung arsip via v1.
+    return this.deleteTaskV1(taskId, version);
   },
 
-  async getChanges(slug, limit) {
-    const res = await fetch('/api/portal/' + encodeURIComponent(slug) + '/changes?limit=' + (limit || 20), { credentials: 'same-origin' });
+  async getChanges(slug) {
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/changes', { credentials: 'same-origin' });
     if (!res.ok) return null;
     const json = await res.json();
-    if (!json.data || !json.data.perubahan) return null;
-    return json.data.perubahan;
+    return json.data || null;
   },
 
   async getSession() {
-    const res = await fetch('/api/v1/auth/session', { credentials: 'same-origin' });
+    const res = await fetch('/api/v1/auth/me', { headers: authHeaders(), credentials: 'same-origin' });
     if (res.status === 401) return { authenticated: false };
     if (res.status === 503) return { unavailable: true };
     if (!res.ok) return null;
@@ -729,14 +739,13 @@ const BotApi = {
     return {
       authenticated: true,
       user: json.data.user,
-      activeRoleAssignmentId: json.data.active_role_assignment_id,
+      activeRoleAssignmentId: json.data.active_assignment && json.data.active_assignment.id,
       assignments: json.data.assignments || []
     };
   },
 
-  async login(identityKey, password, roleAssignmentId) {
+  async login(identityKey, password) {
     const body = { identity_key: identityKey, password: password };
-    if (roleAssignmentId) body.role_assignment_id = roleAssignmentId;
     const res = await fetch('/api/v1/auth/login', {
       method: 'POST',
       credentials: 'same-origin',

@@ -784,6 +784,8 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		newPubStatus = "DRAFT"
 	} else if decision == "REVOKED" {
 		newPubStatus = "REVOKED"
+	} else if decision == "APPROVED" {
+		newPubStatus = "PUBLISHED"
 	}
 
 	tx, err := c.db.Begin()

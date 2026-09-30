@@ -995,8 +995,8 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if len(req.Password) < 6 {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi minimal 6 karakter")
+	if len(req.Password) < 12 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi minimal 12 karakter")
 		return
 	}
 
@@ -1110,7 +1110,7 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	res, err := tx.Exec(`UPDATE role_invitations SET status = 'ACCEPTED' WHERE id = ? AND status = 'PENDING';`, invID)
+	res, err := tx.Exec(`UPDATE role_invitations SET status = 'ACCEPTED', accepted_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'PENDING';`, invID)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status undangan")
 		return

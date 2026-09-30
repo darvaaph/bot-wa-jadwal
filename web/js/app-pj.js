@@ -114,7 +114,17 @@ function pjApp() {
           window.location.replace('/login.html?role=pj');
           return;
         }
+        const role = me.active_assignment && me.active_assignment.role;
+        if (role === 'KM') {
+          window.location.replace('/km.html');
+          return;
+        }
+        if (role && role !== 'PJ' && role !== 'SYSTEM_ADMIN') {
+          window.location.replace('/login.html?role=pj');
+          return;
+        }
         this.currentUser = me.user;
+        this.activeRole = role || null;
       } catch (e) {
         localStorage.removeItem('access_token');
         window.location.replace('/login.html?role=pj');
