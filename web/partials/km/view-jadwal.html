@@ -7,26 +7,82 @@
     </div>
     <button type="button" @click="go('dosen')" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Pindah jadwal</button>
   </div>
-  <div class="flex items-center gap-3 mt-5">
+  <div class="flex flex-wrap items-center gap-3 mt-5">
     <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_left</span></button>
     <span class="text-[14px] font-medium" x-text="weekLabel">-</span>
     <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_right</span></button>
+    <button type="button" @click="weekOffset = 0" class="h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium text-slate-600 hover:bg-slate-50">Hari ini</button>
+    <label class="ml-auto flex items-center gap-2 text-[13px] text-slate-600 select-none">
+      <input type="checkbox" x-model="hideEmpty" class="w-4 h-4 accent-[#3965FB]" />
+      Sembunyikan slot kosong
+    </label>
   </div>
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white overflow-x-auto">
-      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Kalender mingguan</h2>
-      <p class="text-[12px] text-slate-500">Data jadwal reguler dari API. Slot kosong = tidak ada sesi tercatat.</p>
-      <div class="grid grid-cols-5 gap-2 mt-4 min-w-[640px]">
-        <template x-for="d in weekDays" :key="d.name">
-          <div class="text-center text-[12px] font-medium bg-slate-50 rounded-lg py-2"><span x-text="d.name">-</span> <span class="text-slate-400" x-text="d.dateNum">-</span></div>
-        </template>
-        <template x-for="slot in ['08','10','13','15']" :key="slot">
-          <template x-for="d in weekDays" :key="d.name + slot">
-            <div class="rounded-lg p-2 min-h-[64px] text-[11px] leading-snug" :class="slotAt(d.name, slot) ? 'bg-[#E9EAFF]' : 'bg-[#E1FFB7]'">
-              <p class="font-mono font-semibold text-[#3965FB]" x-text="slot + '.00'">-</p>
-              <p class="font-medium line-clamp-2" x-text="slotAt(d.name, slot) ? slotAt(d.name, slot).matkul : 'Kosong'">-</p>
+    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Kalender mingguan</h2>
+        <div class="flex items-center gap-3 text-[12px] text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-[#E9EAFF] border border-[#3965FB]/30 inline-block"></span>Terisi</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-slate-50 border border-dashed border-slate-300 inline-block"></span>Kosong</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-[#3965FB] inline-block"></span>Hari ini</span>
+        </div>
+      </div>
+      <p class="text-[12px] text-slate-500 mt-1">Data jadwal reguler dari API. Slot kosong = tidak ada sesi tercatat.</p>
+
+      <!-- Desktop: 1 header loop (5) + 1 flat cells loop (20). Tanpa nested x-for. -->
+      <div class="hidden md:block overflow-x-auto">
+        <div class="grid grid-cols-5 gap-2 mt-4 min-w-[640px]">
+          <template x-for="d in weekDays" :key="'h-' + d.name">
+            <div class="text-center text-[12px] font-medium rounded-lg py-2 border" :class="isToday(d.name) ? 'bg-[#3965FB] text-white border-[#3965FB]' : 'bg-slate-50 border-transparent'">
+              <span x-text="d.name">-</span> <span :class="isToday(d.name) ? 'text-white/80' : 'text-slate-400'" x-text="d.dateNum">-</span>
             </div>
           </template>
+          <template x-for="c in calendarCells" :key="c.key">
+            <div>
+              <template x-if="slotAt(c.day, c.slot)">
+                <button type="button" @click="goPindah(c.day, c.slot)" :aria-label="'Pindah jadwal ' + c.day + ' ' + c.slot"
+                  class="w-full text-left rounded-lg p-2 min-h-[86px] text-[12px] leading-snug bg-[#E9EAFF] border hover:border-[#3965FB] transition"
+                  :class="isToday(c.day) ? 'border-[#3965FB] ring-1 ring-[#3965FB]/40' : 'border-transparent'">
+                  <p class="font-mono font-semibold text-[#3965FB] text-[12px]" x-text="slotRange(slotAt(c.day, c.slot), c.slot)">-</p>
+                  <p class="font-medium line-clamp-2 mt-0.5" x-text="slotAt(c.day, c.slot).matkul">-</p>
+                  <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="(slotAt(c.day, c.slot).ruang || '') + (slotAt(c.day, c.slot).dosen ? ' • ' + slotAt(c.day, c.slot).dosen : '')">-</p>
+                  <span x-show="slotKind(slotAt(c.day, c.slot).matkul)" class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white text-[#3965FB] border border-[#3965FB]/20" x-text="slotKind(slotAt(c.day, c.slot).matkul)"></span>
+                </button>
+              </template>
+              <template x-if="!slotAt(c.day, c.slot)">
+                <div class="rounded-lg p-2 min-h-[86px] text-[12px] leading-snug bg-slate-50 border border-dashed border-slate-200 text-slate-400" :class="hideEmpty ? 'opacity-40' : ''">
+                  <p class="font-mono font-semibold text-[12px]" x-text="c.slot + '.00'">-</p>
+                  <p class="mt-0.5" x-text="hideEmpty ? '—' : 'Kosong'">-</p>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Mobile: list per hari -->
+      <div class="md:hidden mt-4 space-y-3">
+        <template x-for="d in weekDays" :key="'m-' + d.name">
+          <div class="rounded-xl border p-3" :class="isToday(d.name) ? 'border-[#3965FB] bg-[#E9EAFF]/30' : 'border-[#EEEEEE]'">
+            <div class="flex items-center justify-between">
+              <p class="text-[14px] font-semibold"><span x-text="d.name">-</span> <span class="text-slate-400 font-normal" x-text="d.dateNum">-</span></p>
+              <span x-show="isToday(d.name)" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3965FB] text-white">HARI INI</span>
+            </div>
+            <template x-if="daySessions(d.name).length === 0">
+              <p class="text-[13px] text-slate-400 mt-2">Tidak ada sesi.</p>
+            </template>
+            <div class="mt-2 divide-y divide-[#EEEEEE]">
+              <template x-for="s in daySessions(d.name)" :key="s.id">
+                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0])" class="w-full text-left py-2 flex gap-3 items-start">
+                  <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-14" x-text="s.timeStart">-</span>
+                  <span class="min-w-0">
+                    <span class="block text-[14px] font-medium line-clamp-1" x-text="s.matkul">-</span>
+                    <span class="block text-[12px] text-slate-500" x-text="(s.ruang || '') + (s.dosen ? ' • ' + s.dosen : '')">-</span>
+                  </span>
+                </button>
+              </template>
+            </div>
+          </div>
         </template>
       </div>
     </div>

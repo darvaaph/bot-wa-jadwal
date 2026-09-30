@@ -9,6 +9,7 @@ function kmApp() {
     drawer: false,
     q: '',
     weekOffset: 0,
+    hideEmpty: false,
 
     roleLabel: 'KM',
 
@@ -132,7 +133,52 @@ function kmApp() {
     get weekLabel() {
       const fmt = (d) => d.getDate() + ' ' + d.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
       const days = this.weekDays;
-      return `${fmt(days[0].full)}–${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+      return `${fmt(days[0].full)} – ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+    },
+
+    get slots() {
+      const base = ['08', '10', '13', '15'];
+      const fromData = (this.fullSchedule || []).map(s => String(s.timeStart || '').split(':')[0].padStart(2, '0')).filter(h => /^\d{2}$/.test(h));
+      return Array.from(new Set([...base, ...fromData])).sort();
+    },
+
+    get calendarCells() {
+      const cells = [];
+      for (const slot of this.slots) {
+        for (const d of this.weekDays) {
+          cells.push({ day: d.name, slot: slot, key: d.name + '-' + slot });
+        }
+      }
+      return cells;
+    },
+
+    isToday(dayName) { return dayName === this.todayName; },
+
+    slotKind(matkul) {
+      const s = String(matkul || '').toLowerCase();
+      if (s.includes('praktikum') || s.includes('praktik')) return 'Praktikum';
+      if (s.includes('teori')) return 'Teori';
+      return '';
+    },
+
+    slotRange(entry, slotHH) {
+      if (entry && entry.timeStart) {
+        return entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+      }
+      return slotHH + '.00';
+    },
+
+    daySessions(dayName) {
+      return this.fullSchedule
+        .filter(s => s.hari === dayName)
+        .slice()
+        .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+    },
+
+    goPindah(dayName, slotHH) {
+      const hit = this.slotAt(dayName, slotHH);
+      if (hit && hit.jam) this.dosen.jam = hit.jam;
+      this.go('dosen');
     },
 
     slotAt(dayName, slotHH) {
@@ -197,14 +243,15 @@ function kmApp() {
     },
 
     async loadPartials(slots) {
+      // Alpine v3 auto-init node baru via MutationObserver.
+      // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261002', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261003', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
             el.innerHTML = await res.text();
-            if (window.Alpine && window.Alpine.initTree) window.Alpine.initTree(el);
           }
         } catch (err) {
           console.error(`Gagal memuat ${url}:`, err);
@@ -270,14 +317,21 @@ function kmApp() {
     async loadSchedule() {
       try {
         const raw = await API.getSchedule(this.selectedClass, 'all');
-        this.fullSchedule = (raw || []).map((s, i) => {
+        const seen = new Set();
+        const list = [];
+        (raw || []).forEach((s, i) => {
           const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
-          return {
+          const entry = {
             id: `sch-${i}`, hari: s.hari, jam: s.jam, matkul: s.matkul,
             dosen: s.dosen, ruang: s.ruang,
             timeStart: parts[0] || '', timeEnd: parts[1] || ''
           };
+          const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          list.push(entry);
         });
+        this.fullSchedule = list;
       } catch (e) { this.fullSchedule = []; }
     },
 
