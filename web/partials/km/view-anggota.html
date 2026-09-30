@@ -4,7 +4,7 @@
     <div>
       <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Anggota &amp; Tim</h1>
+          <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Anggota &amp; Tim</h1>
           <p class="text-[14px] text-slate-500 mt-1">Kelola PJ mata kuliah di kelas <span class="font-mono" x-text="selectedClass">-</span></p>
         </div>
         <button type="button" @click="anggotaSub = 'undang'" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Undang PJ</button>
@@ -19,7 +19,7 @@
 
   <template x-if="anggotaSub === 'undang'">
     <div class="p-5 md:p-6 rounded-2xl border border-[#EEEEEE] bg-white max-w-3xl">
-      <h1 class="text-[24px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Undang PJ Mata Kuliah</h1>
+      <h1 class="text-[24px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Undang PJ Mata Kuliah</h1>
       <p class="text-[13px] text-slate-500 mt-1">Calon PJ menerima tautan undangan sekali pakai via WhatsApp.</p>
       <div x-show="undangError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -29,6 +29,10 @@
             <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
+          <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
+            <span x-text="pesanOffering()">-</span>
+            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+          </p>
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Nomor WhatsApp calon PJ <span class="text-[#FF6C48]">*</span></label>

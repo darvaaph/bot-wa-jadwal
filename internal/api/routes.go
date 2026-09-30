@@ -42,6 +42,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks/{id}", s.handlePortalTaskDetail)
 	mux.HandleFunc("GET /api/v1/portal/{slug}/changes", s.handlePortalChanges)
 	mux.HandleFunc("GET /api/v1/portal/{slug}/materials", s.handlePortalMaterials)
+	mux.HandleFunc("GET /api/v1/portal/{slug}/semesters", s.handlePortalSemesters)
 
 	// 3. Semester & Offering (§3)
 	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetClassSemesters)))
@@ -87,6 +88,13 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/status", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetAdminStatus)))
 	mux.HandleFunc("POST /api/v1/admin/users/{id}/suspend", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminSuspendUser)))
 	mux.HandleFunc("POST /api/v1/admin/users/{id}/recover", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleAdminRecoverUser)))
+	mux.HandleFunc("GET /api/v1/admin/users", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetAdminUsers)))
+	mux.HandleFunc("GET /api/v1/master/rooms", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterRooms)))
+	mux.HandleFunc("POST /api/v1/master/rooms", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterRoom)))
+	mux.HandleFunc("PATCH /api/v1/master/rooms/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterRoom)))
+	mux.HandleFunc("GET /api/v1/master/courses", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterCourses)))
+	mux.HandleFunc("POST /api/v1/master/courses", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterCourse)))
+	mux.HandleFunc("PATCH /api/v1/master/courses/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterCourse)))
 
 	// Fallback untuk route API v1 yang belum diimplementasikan
 	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {

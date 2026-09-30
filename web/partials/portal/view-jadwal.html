@@ -23,6 +23,7 @@
         </div>
         <p class="text-[16px] font-bold mt-1" x-text="s.matkul">-</p>
         <p class="text-[12px] text-slate-500 mt-0.5" x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang || '')">-</p>
+        <a x-show="s.link" :href="s.link" target="_blank" rel="noopener noreferrer" class="mt-1.5 inline-flex items-center gap-1 text-[12px] text-[#3965FB] font-semibold hover:underline min-h-[44px]"><span class="material-symbols-outlined text-[16px]">videocam</span>Gabung kelas daring</a>
       </div>
     </template>
     <div x-show="!jadwalLoading && !jadwalError && jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>

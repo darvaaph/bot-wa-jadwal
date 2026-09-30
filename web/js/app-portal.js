@@ -10,6 +10,7 @@ function portalApp() {
     view: 'dashboard',
     drawer: false,
     q: '',
+    unreadCount: 0,
     hari: 'Senin',
     tugasMatkul: 'Semua',
 
@@ -19,6 +20,7 @@ function portalApp() {
       { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
       { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       { id: 'perubahan', label: 'Perubahan', img: '/assets/icons/activity.svg' },
+      { id: 'arsip', label: 'Arsip', img: '/assets/icons/folder.svg' },
       { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' }
     ],
 
@@ -48,6 +50,8 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
+    semesterList: [],
+    semesterLoading: false,
     perubahanList: [],
     perubahanLoading: false,
     detailTugas: {},
@@ -111,11 +115,11 @@ function portalApp() {
 
     badgeJadwal(kind) {
       const k = String(kind || '').toUpperCase();
-      if (k === 'PENGGANTI') return { label: 'Kelas Pengganti', cls: 'bg-[#FFF1CF] text-[#946200] border-[#D4A64A]', icon: 'swap_horiz' };
+      if (k === 'PENGGANTI') return { label: 'Kelas Pengganti', cls: 'bg-amber-50 text-amber-900 border-amber-300', icon: 'swap_horiz' };
       if (k === 'TAMBAHAN') return { label: 'Kelas Tambahan', cls: 'bg-[#E9EAFF] text-[#3965FB] border-[#3965FB]/30', icon: 'add_circle' };
       if (k === 'LIBUR') return { label: 'Diliburkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'event_busy' };
       if (k === 'DIBATALKAN') return { label: 'Sesi Dibatalkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'cancel' };
-      return { label: 'Jadwal Reguler', cls: 'bg-[#E8F5E9] text-[#32704A] border-green-200', icon: 'event' };
+      return { label: 'Jadwal Reguler', cls: 'bg-[#E1FFB7] text-green-800 border-green-200', icon: 'event' };
     },
 
     fmtDeadlineID(iso) {
@@ -151,8 +155,10 @@ function portalApp() {
         ['portal-jadwal', '/partials/portal/view-jadwal.html'],
         ['portal-materi', '/partials/portal/view-materi.html'],
         ['portal-perubahan', '/partials/portal/view-perubahan.html'],
+        ['portal-arsip', '/partials/portal/view-arsip.html'],
         ['portal-notif', '/partials/portal/view-notif.html'],
         ['portal-drawer', '/partials/portal/drawer.html'],
+        ['portal-bottombar', '/partials/portal/bottombar.html'],
         ['portal-toast', '/partials/portal/toast.html']
       ]);
       this.updateClock();
@@ -164,13 +170,14 @@ function portalApp() {
       await this.loadTugasPortal();
       await this.loadMateri();
       await this.loadPerubahan();
+      await this.loadSemester();
     },
 
     async loadPartials(slots) {
       // Alpine v3 auto-init node baru via MutationObserver; jangan initTree manual (render ganda).
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261007', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261010', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -232,7 +239,7 @@ function portalApp() {
           this.unlocked = true;
           this.gateStep = 'select';
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
-          await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan()]);
+          await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
           return;
         }
 
@@ -243,19 +250,16 @@ function portalApp() {
           return;
         }
 
-        // Jika status 404 (kelas berbasis data jadwal reguler), langsung masuk ke portal
-        localStorage.setItem('portal_pin_ok', '1');
-        localStorage.setItem('portal_class', slug);
-        this.unlocked = true;
-        this.gateStep = 'select';
-        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan()]);
+        // Jika kelas tidak dikenal portal (404): jangan buka; tampilkan error jujur.
+        // Status lain (500, dsb): masalah server/koneksi, juga jangan buka diam-diam.
+        this.showToast(res.status === 404
+          ? 'Kelas tidak terdaftar di portal. Periksa kode kelas atau hubungi KM.'
+          : 'Portal belum dapat diakses. Periksa koneksi lalu coba lagi.');
+        return;
       } catch (err) {
-        // Fallback jika offline/error
-        localStorage.setItem('portal_pin_ok', '1');
-        localStorage.setItem('portal_class', this.selectedClassSlug);
-        this.unlocked = true;
-        this.gateStep = 'select';
-        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan()]);
+        // Fallback jika offline/error: tetap terkunci agar tidak tampil portal kosong.
+        this.showToast('Tidak dapat terhubung ke portal. Periksa koneksi lalu coba lagi.');
+        return;
       } finally {
         this.checkingAccess = false;
       }
@@ -290,7 +294,7 @@ function portalApp() {
         this.gateStep = 'select';
         this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
 
-        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan()]);
+        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
       } catch (err) {
         this.pinError = err.message || 'Kode akses tidak valid. Periksa kembali kode dari grup kelas.';
         this.showToast(this.pinError);
@@ -327,6 +331,7 @@ function portalApp() {
           this.loadTugasPortal();
           this.loadMateri();
           this.loadPerubahan();
+          this.loadSemester();
         }
       }
 
@@ -486,6 +491,8 @@ function portalApp() {
     go(v) {
       this.view = v;
       this.drawer = false;
+      if (v === 'jadwal') this.loadJadwalEfektif();
+      if (v === 'arsip') this.loadSemester();
       window.scrollTo({ top: 0 });
     },
 
@@ -537,6 +544,7 @@ function portalApp() {
         matkul: it.offering || it.title || 'Mata Kuliah',
         dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
         ruang: it.room || '',
+        link: it.meeting_link || '',
         timeStart: (it.starts_at || '').slice(0, 5),
         timeEnd: (it.ends_at || '').slice(0, 5)
       }));
@@ -606,7 +614,22 @@ function portalApp() {
       const slug = this.selectedClassSlug;
       try {
         const grup = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
-        const hasil = await Promise.all(grup.map(g => API.getPortalTasks(slug, g).catch(() => null)));
+        const hasil = await Promise.all(grup.map(g =>
+          API.getPortalTasks(slug, g)
+            .then(data => ({ ok: true, data: data }))
+            .catch(err => ({ ok: false, err: err }))
+        ));
+        if (hasil.every(h => !h.ok)) {
+          const st = hasil[0].err && hasil[0].err.status;
+          this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
+          this.tasks = [];
+          this.tugasError = st === 404
+            ? 'Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.'
+            : st === 401
+              ? 'Kelas ini dilindungi kode akses. Kunci portal lalu masuk dengan kode 6 digit dari grup kelas.'
+              : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+          return;
+        }
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline);
@@ -617,10 +640,10 @@ function portalApp() {
                    urgency: u.level, countdown: u.badge };
         });
         this.tugasGrup = {
-          hari_ini: petakan(hasil[0]),
-          minggu_ini: petakan(hasil[1]),
-          mendatang: petakan(hasil[2]),
-          terlewat: petakan(hasil[3])
+          hari_ini: petakan(hasil[0].ok ? hasil[0].data : []),
+          minggu_ini: petakan(hasil[1].ok ? hasil[1].data : []),
+          mendatang: petakan(hasil[2].ok ? hasil[2].data : []),
+          terlewat: petakan(hasil[3].ok ? hasil[3].data : [])
         };
         const gabung = new Map();
         [...this.tugasGrup.mendatang, ...this.tugasGrup.minggu_ini, ...this.tugasGrup.hari_ini, ...this.tugasGrup.terlewat]
@@ -693,6 +716,25 @@ function portalApp() {
       } finally {
         this.perubahanLoading = false;
       }
+    },
+
+    async loadSemester() {
+      this.semesterLoading = true;
+      try {
+        this.semesterList = await API.getPortalSemesters(this.selectedClassSlug).catch(() => []);
+      } catch (e) {
+        this.semesterList = [];
+      } finally {
+        this.semesterLoading = false;
+      }
+    },
+
+    labelStatusSemester(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'ACTIVE') return 'Aktif';
+      if (s === 'DRAFT') return 'Draf';
+      if (s === 'ARCHIVED') return 'Arsip';
+      return st || '-';
     },
 
     labelJenisUbah(kind) {

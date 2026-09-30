@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script src="/js/api.js?v=20261007"></script>
-  <script src="/js/app-login.js?v=20261007"></script>
+  <script src="/js/api.js?v=20261010"></script>
+  <script src="/js/app-login.js?v=20261010"></script>
 </head>
 <!--
   MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
@@ -20,10 +20,10 @@
 -->
 <body class="bg-white text-[#1F1F1F] min-h-screen" x-data="loginApp()" x-init="initLogin()">
   <div class="min-h-screen grid grid-cols-1 md:grid-cols-2">
-    <div class="hidden md:flex flex-col justify-between bg-[#F6F7FF] px-12 py-10">
+    <div class="hidden md:flex flex-col justify-between bg-[#E9EAFF] px-12 py-10">
       <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto self-start" />
       <div>
-        <h1 class="text-[40px] leading-tight font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Satu tempat untuk kelas yang lebih teratur.</h1>
+        <h1 class="text-[40px] leading-tight font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Satu tempat untuk kelas yang lebih teratur.</h1>
         <p class="text-[15px] text-slate-500 mt-3 max-w-md">Tugas, jadwal, materi, dan pengumuman WhatsApp tersusun dalam alur yang mudah diikuti.</p>
         <div class="mt-8 space-y-5 text-[14px]">
           <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">01</span><span>Pantau tenggat tugas tanpa terlewat</span></div>
@@ -44,7 +44,7 @@
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
 
           <!-- Quick Demo Selector (hanya localhost / ?demo=1, isi nomor saja) -->
-          <div x-show="showDemo" x-cloak class="mt-4 p-3.5 rounded-2xl bg-[#EEF2FF]/70 border border-[#3965FB]/20">
+          <div x-show="showDemo" x-cloak class="mt-4 p-3.5 rounded-2xl bg-[#E9EAFF]/70 border border-[#3965FB]/20">
             <div class="flex items-center justify-between mb-1.5">
               <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#3965FB] uppercase tracking-wider">
                 <span class="material-symbols-outlined text-[15px]">developer_mode</span>
@@ -93,7 +93,7 @@
 
             <!-- Terisi -->
             <div x-show="selectedDemoRole" class="mt-2.5 pt-2 border-t border-[#3965FB]/15 text-[11px] text-slate-600">
-              Terisi: <strong class="text-[#1D1B3A]" x-text="demoAccounts[selectedDemoRole]?.label"></strong> — lanjut ketik kata sandi lalu tekan Masuk.
+              Terisi: <strong class="text-[#1F1F1F]" x-text="demoAccounts[selectedDemoRole]?.label"></strong> — lanjut ketik kata sandi lalu tekan Masuk.
             </div>
           </div>
           <div class="mt-5">
@@ -120,7 +120,7 @@
           <button type="button" @click="mode = 'lupa'" class="mt-3 w-full h-12 rounded-xl border border-[#3965FB] text-[#3965FB] text-[15px] font-medium min-h-[44px]">Lupa kata sandi?</button>
           <p class="text-[13px] text-slate-500 mt-5">Akun pengurus dibuat melalui undangan WhatsApp dari System Admin atau Ketua Murid.</p>
           <p class="text-[13px] text-slate-500 mt-2">Mahasiswa tidak perlu login. Buka tautan portal kelas dari grup WhatsApp.</p>
-          <a :href="areaUrl" class="mt-4 inline-block text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Lanjut tanpa masuk (pratinjau area) →</a>
+          <a :href="areaUrl" class="mt-4 inline-block text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Lanjut tanpa masuk (pratinjau area)</a>
         </div>
       </template>
 
@@ -147,7 +147,7 @@
           <p class="text-[13px] text-slate-500 mt-1">Pemulihan mandiri via WhatsApp belum tersedia. Minta tautan undangan baru kepada Administrator atau KM kelas Anda untuk mengatur ulang akses.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
           <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50 text-[13px] text-slate-600">
-            <p class="font-semibold text-[#1D1B3A]">Cara mendapatkan akses kembali:</p>
+            <p class="font-semibold text-[#1F1F1F]">Cara mendapatkan akses kembali:</p>
             <ol class="list-decimal ml-5 mt-2 space-y-1">
               <li>Hubungi Administrator (untuk KM) atau KM kelas (untuk PJ).</li>
               <li>Buka tautan undangan baru yang dikirim via WhatsApp.</li>
@@ -160,7 +160,7 @@
     </div>
   </div>
 
-  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-[#1D1B3A] text-white px-4 py-3 rounded-xl shadow-xl text-[13px] max-w-[calc(100vw-2rem)]">
+  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-[#1F1F1F] text-white px-4 py-3 rounded-xl shadow-xl text-[13px] max-w-[calc(100vw-2rem)]">
     <span x-text="toast.message">-</span>
   </div>
 </body>

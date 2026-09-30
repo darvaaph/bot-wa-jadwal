@@ -8,6 +8,7 @@ function kmApp() {
     view: 'dashboard',
     drawer: false,
     q: '',
+    unreadCount: 0,
     weekOffset: 0,
     hideEmpty: false,
 
@@ -45,12 +46,14 @@ function kmApp() {
     todayFull: '',
     currentTime: '',
     selectedClass: '',
+    classSlug: '',
     classList: [],
     botOnline: false,
     fullSchedule: [],
     tasks: [],
     offeringList: [],
     offeringLoading: false,
+    offeringState: 'idle',
     semesterId: '',
 
     tugasSub: 'list',
@@ -266,6 +269,20 @@ function kmApp() {
       this.mulaiUbah({ dayName: dayName, slotHH: slotHH });
     },
 
+    // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
+    // (mis. d4-ti-smt3-a) memakai active_assignment + daftar classes dari /me.
+    resolveClassSlug(me) {
+      const asg = (me && me.active_assignment) || {};
+      if (asg.class_slug) return String(asg.class_slug);
+      const list = (me && me.classes) || [];
+      const code = String(this.selectedClass || '').toLowerCase();
+      if (code && Array.isArray(list)) {
+        const hit = list.find(c => String(c.slug || '') === code || String(c.code || '').toLowerCase() === code);
+        if (hit && hit.slug) return String(hit.slug);
+      }
+      return String(this.selectedClass || '');
+    },
+
     slotAt(dayName, slotHH) {
       return this.fullSchedule.find(s => s.hari === dayName && parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
     },
@@ -274,9 +291,9 @@ function kmApp() {
     jadwalSub: 'daftar',
     filtMatkul: '', filtDosen: '', filtRuang: '',
     polaLoading: false, polaError: '',
-    polaForm: { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', effectiveDate: '' },
+    polaForm: { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', link: '', effectiveDate: '' },
     polaFormError: '',
-    ubahForm: { offeringId: '', kind: 'REPLACEMENT', scope: 'sementara', originPatternId: '', originDate: '', date: '', start: '', end: '', roomId: '', reason: '', effectiveDate: '', participantIds: '', conflictReason: '' },
+    ubahForm: { offeringId: '', kind: 'REPLACEMENT', scope: 'sementara', originPatternId: '', originDate: '', date: '', start: '', end: '', roomId: '', link: '', reason: '', effectiveDate: '', participantIds: '', conflictReason: '' },
     ubahFormError: '',
     draftEvent: null,
     previewData: null, previewLoading: false, previewError: '',
@@ -359,7 +376,7 @@ function kmApp() {
       f.kind = (prefill && prefill.kind) || 'REPLACEMENT';
       f.scope = 'sementara';
       f.originPatternId = ''; f.originDate = ''; f.date = ''; f.start = ''; f.end = '';
-      f.roomId = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
+      f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
       if (prefill && prefill.dayName) {
         const hit = this.slotAt(prefill.dayName, prefill.slotHH || '');
         if (hit) {
@@ -379,14 +396,14 @@ function kmApp() {
     },
 
     mulaiTambahPola() {
-      this.polaForm = { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', effectiveDate: '' };
+      this.polaForm = { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', link: '', effectiveDate: '' };
       this.polaFormError = '';
       this.view = 'jadwal'; this.jadwalSub = 'pola';
       window.scrollTo({ top: 0 });
     },
 
     editPola(p) {
-      this.polaForm = { id: String(p.id), version: p.version || 0, offeringId: String(p.course_offering_id || ''), day: String(p.day_of_week || '1'), start: (p.start_time || '').slice(0, 5), end: (p.end_time || '').slice(0, 5), roomId: p.room_id ? String(p.room_id) : '', effectiveDate: '' };
+      this.polaForm = { id: String(p.id), version: p.version || 0, offeringId: String(p.course_offering_id || ''), day: String(p.day_of_week || '1'), start: (p.start_time || '').slice(0, 5), end: (p.end_time || '').slice(0, 5), roomId: p.room_id ? String(p.room_id) : '', link: p.meeting_link || '', effectiveDate: '' };
       this.polaFormError = '';
       this.view = 'jadwal'; this.jadwalSub = 'pola';
       window.scrollTo({ top: 0 });
@@ -410,12 +427,14 @@ function kmApp() {
         if (f.id) {
           const payload = { version: Number(f.version) || 0, offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
+          if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           if (f.effectiveDate) payload.effective_from = f.effectiveDate;
           await API.patchPattern(f.id, payload);
           this.showToast('Jadwal reguler diperbarui.');
         } else {
           const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
+          if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           await API.createPattern(payload);
           this.showToast('Jadwal reguler ditambahkan.');
         }
@@ -470,6 +489,7 @@ function kmApp() {
         payload.origin_date = f.originDate;
       }
       if (f.roomId) payload.room_id = Number(f.roomId);
+      if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
       const parts = String(f.participantIds || '').split(',').map(s => Number(String(s).trim())).filter(n => n > 0);
       if (parts.length > 0) payload.participant_offering_ids = parts;
       return payload;
@@ -646,6 +666,8 @@ function kmApp() {
         }
         this.currentUser = me.user;
         this.activeRole = role || null;
+        this.meCache = me;
+        this.classSlug = this.resolveClassSlug(me);
       } catch (e) {
         localStorage.removeItem('access_token');
         window.location.replace('/login.html?role=km');
@@ -665,6 +687,7 @@ function kmApp() {
         ['km-notif', '/partials/km/view-notif.html'],
         ['km-pengaturan', '/partials/km/view-pengaturan.html'],
         ['km-drawer', '/partials/common/drawer.html'],
+        ['km-bottombar', '/partials/common/bottombar.html'],
         ['km-toast', '/partials/common/toast.html']
       ]);
       this.updateClock();
@@ -684,7 +707,7 @@ function kmApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261007', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261013', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -744,16 +767,19 @@ function kmApp() {
         if (data && data.default_class) {
           this.selectedClass = data.default_class;
           this.classList = data.classes || [];
-          return;
         }
       } catch (e) { /* fallback */ }
       try {
         const st = await API.getStatus();
         if (st && st.default_class) {
-          this.selectedClass = st.default_class;
-          this.classList = st.classes || [];
+          if (!this.selectedClass) this.selectedClass = st.default_class;
+          if (st.classes) this.classList = st.classes;
         }
       } catch (e) { /* kosong */ }
+      if (this.meCache) {
+        const s = this.resolveClassSlug(this.meCache);
+        if (s) this.classSlug = s;
+      }
     },
 
     async loadSchedule() {
@@ -802,20 +828,44 @@ function kmApp() {
 
     async loadOfferings() {
       this.offeringLoading = true;
+      this.offeringState = 'loading';
       try {
-        if (!this.selectedClass) return;
-        const semesters = await API.getSemesters(this.selectedClass).catch(() => []);
-        const list = Array.isArray(semesters) ? semesters : [];
+        if (!this.selectedClass) { this.offeringState = 'no-class'; this.offeringList = []; return; }
+        const slug = this.classSlug || this.selectedClass;
+        const hasil = await API.getSemestersResult(slug).catch(() => ({ ok: false, status: 0, data: [] }));
+        const list = Array.isArray(hasil.data) ? hasil.data : [];
+        if (!hasil.ok && hasil.status === 404) {
+          this.offeringState = 'no-v1-class'; this.offeringList = []; this.semesterId = ''; return;
+        }
+        if (!hasil.ok) {
+          this.offeringState = 'error'; this.offeringList = []; this.semesterId = ''; return;
+        }
         const active = list.find(s => s.status === 'ACTIVE') || list[0];
-        if (!active) { this.offeringList = []; this.semesterId = ''; return; }
+        if (!active) {
+          this.offeringState = 'empty-semester'; this.offeringList = []; this.semesterId = ''; return;
+        }
         this.semesterId = String(active.id);
-        const offerings = await API.getSemesterOfferings(active.id).catch(() => []);
+        const offerings = await API.getSemesterOfferings(active.id).catch(() => null);
+        if (offerings === null) {
+          this.offeringState = 'error'; this.offeringList = []; return;
+        }
         this.offeringList = Array.isArray(offerings) ? offerings : [];
+        this.offeringState = this.offeringList.length > 0 ? 'ok' : 'empty-offering';
       } catch (e) {
         this.offeringList = [];
+        this.offeringState = 'error';
       } finally {
         this.offeringLoading = false;
       }
+    },
+
+    pesanOffering() {
+      if (this.offeringState === 'no-v1-class') return 'Kelas ' + (this.selectedClass || 'ini') + ' belum terdaftar di database (kode: NOT_FOUND). Minta Administrator membuat kelas tersebut, lalu siapkan semester dan mata kuliah.';
+      if (this.offeringState === 'empty-semester') return 'Belum ada semester untuk kelas ' + (this.selectedClass || 'ini') + '. Minta Administrator menyiapkan semester dan mata kuliah di database.';
+      if (this.offeringState === 'empty-offering') return 'Semester aktif belum memiliki mata kuliah. Tambahkan mata kuliah ke semester dahulu.';
+      if (this.offeringState === 'error') return 'Daftar mata kuliah gagal dimuat. Periksa koneksi lalu coba lagi.';
+      if (this.offeringState === 'no-class') return 'Kelas belum termuat. Muat ulang halaman.';
+      return '';
     },
 
     offeringDisplay(id) {
@@ -1116,7 +1166,7 @@ function kmApp() {
       try {
         const res = await API.createInvitation({
           role: 'PJ',
-          class_slug: this.selectedClass,
+          class_slug: this.classSlug || this.selectedClass,
           semester_id: Number(this.semesterId),
           offering_id: Number(offeringId),
           invited_identity_key: this.undang.nomor.trim()

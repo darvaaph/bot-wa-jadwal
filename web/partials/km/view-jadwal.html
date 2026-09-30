@@ -11,7 +11,7 @@
 
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Manajemen Jadwal</h1>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Manajemen Jadwal</h1>
       <p class="text-[14px] text-slate-500 mt-1">Kalender kelas, ruangan, dan perubahan terkini</p>
     </div>
     <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Buat perubahan</button>
@@ -32,7 +32,7 @@
 
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Kalender mingguan</h2>
+        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Kalender mingguan</h2>
         <div class="flex items-center gap-3 text-[12px] text-slate-500">
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-[#E9EAFF] border border-[#3965FB]/30 inline-block"></span>Terisi</span>
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-slate-50 border border-dashed border-slate-300 inline-block"></span>Kosong</span>
@@ -98,7 +98,7 @@
     <!-- SCR-SCH-001: Pola jadwal reguler -->
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Jadwal reguler</h2>
+        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Jadwal reguler</h2>
         <button type="button" @click="mulaiTambahPola()" class="h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px] flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal</button>
       </div>
       <p class="text-[12px] text-slate-500 mt-1">Pola mingguan yang berulang. Perubahan sementara tidak mengubah pola ini.</p>
@@ -138,7 +138,7 @@
     <!-- Daftar perubahan jadwal -->
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Perubahan jadwal</h2>
+        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Perubahan jadwal</h2>
         <select x-model="eventFilter" aria-label="Filter status publikasi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
           <option value="semua">Semua status</option>
           <option value="DRAFT">Draf</option>
@@ -195,7 +195,7 @@
   <div x-show="jadwalSub === 'pola'">
     <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold text-[#1D1B3A]" x-text="polaForm.id ? 'Ubah Jadwal Reguler' : 'Tambah Jadwal Reguler'">-</h2>
+      <h2 class="text-[18px] font-semibold text-[#1F1F1F]" x-text="polaForm.id ? 'Ubah Jadwal Reguler' : 'Tambah Jadwal Reguler'">-</h2>
       <p class="text-[13px] text-slate-500 mt-1">Pola mingguan yang berulang dalam semester aktif.</p>
       <div x-show="polaFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="polaFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -205,6 +205,10 @@
             <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
+          <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
+            <span x-text="pesanOffering()">-</span>
+            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+          </p>
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Hari <span class="text-red-600">*</span></label>
@@ -228,6 +232,10 @@
           <label class="block text-[13px] font-medium mb-1">Jam selesai <span class="text-red-600">*</span></label>
           <input type="time" x-model="polaForm.end" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
         </div>
+        <div class="sm:col-span-2">
+          <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
+          <input type="text" x-model="polaForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+        </div>
         <div x-show="polaForm.id" class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku (perubahan permanen)</label>
           <input type="date" x-model="polaForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
@@ -245,7 +253,7 @@
   <div x-show="jadwalSub === 'ubah'">
     <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Buat Perubahan Jadwal</h2>
+      <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Buat Perubahan Jadwal</h2>
       <p class="text-[13px] text-slate-500 mt-1">Waktu memakai zona waktu kelas (WIB) dan harus berada dalam rentang semester.</p>
       <div x-show="ubahFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ubahFormError">-</div>
 
@@ -256,6 +264,10 @@
             <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
+          <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
+            <span x-text="pesanOffering()">-</span>
+            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+          </p>
         </div>
       </div>
 
@@ -327,6 +339,10 @@
             <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
             <input type="date" x-model="ubahForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
           </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
+            <input type="text" x-model="ubahForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+          </div>
         </div>
       </div>
 
@@ -336,7 +352,7 @@
         <textarea x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="w-full px-3 py-2.5 rounded-xl border border-[#EEEEEE] text-[14px]"></textarea>
       </div>
 
-      <div class="mt-4 p-4 rounded-xl bg-[#FFF1CF] border border-[#D4A64A] text-[13px] text-[#946200] flex gap-2">
+      <div class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
         <span class="material-symbols-outlined text-[20px] shrink-0">campaign</span>
         <p>Perubahan yang terbit akan disiarkan ke grup kelas melalui WhatsApp. Kegagalan pengiriman pesan tidak membatalkan penerbitan di web.</p>
       </div>
@@ -352,7 +368,7 @@
   <div x-show="jadwalSub === 'tinjau'">
     <button type="button" @click="ubahLagi()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Tinjau Perubahan</h2>
+      <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Tinjau Perubahan</h2>
       <p class="text-[13px] text-slate-500 mt-1">Periksa dampak sebelum menerbitkan. Tidak ada konfirmasi tambahan setelah ini.</p>
       <div x-show="previewLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pratinjau perubahan...</div>
       <div x-show="previewError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
@@ -370,10 +386,11 @@
             <p class="text-[11px] font-bold tracking-widest text-[#3965FB]">MENJADI</p>
             <p class="text-[14px] font-semibold mt-1" x-text="previewData.new ? previewData.new.offering : ''">-</p>
             <p class="text-[13px] font-mono" x-text="previewData.new ? fmtWaktuID(previewData.new.starts_at) + ' – ' + fmtWaktuID(previewData.new.ends_at) + (previewData.new.room ? ' · ' + previewData.new.room : '') : ''">-</p>
+            <a x-show="previewData.new && previewData.new.meeting_link" :href="previewData.new.meeting_link" target="_blank" rel="noopener noreferrer" class="text-[13px] text-[#3965FB] font-medium hover:underline break-all" x-text="previewData.new.meeting_link">-</a>
             <p class="text-[12px] mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-[#3965FB]/20 text-[#3965FB] font-semibold"><span class="material-symbols-outlined text-[14px]">event</span><span x-text="previewData ? kindLabel(previewData.kind) : ''">-</span></p>
           </div>
         </div>
-        <div x-show="previewData && previewData.room_note" class="mt-3 p-3 rounded-xl bg-[#FFF1CF] border border-[#D4A64A] text-[13px] text-[#946200] flex gap-2">
+        <div x-show="previewData && previewData.room_note" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
           <span class="material-symbols-outlined text-[20px] shrink-0">meeting_room</span>
           <p>Ruangan <span class="font-semibold">perlu konfirmasi TU</span>. Catat konfirmasi manual sebelum menerbitkan bila ruangan diwajibkan.</p>
         </div>
@@ -383,13 +400,13 @@
             <p class="text-[13px] text-red-700 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
           </template>
         </div>
-        <div x-show="overrideConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-[#FFF1CF] border border-[#D4A64A]">
-          <p class="text-[14px] font-semibold text-[#946200] flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Konflik butuh alasan pengecualian</p>
+        <div x-show="overrideConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
+          <p class="text-[14px] font-semibold text-amber-900 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Konflik butuh alasan pengecualian</p>
           <template x-for="(c, i) in overrideConflicts" :key="i">
-            <p class="text-[13px] text-[#946200] mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
+            <p class="text-[13px] text-amber-900 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
           </template>
           <label class="block text-[13px] font-medium mt-3 mb-1">Alasan pengecualian <span class="text-red-600">*</span></label>
-          <textarea x-model="ubahForm.conflictReason" rows="2" placeholder="Jelaskan mengapa perubahan tetap diterbitkan" class="w-full px-3 py-2.5 rounded-xl border border-[#D4A64A] text-[14px] bg-white"></textarea>
+          <textarea x-model="ubahForm.conflictReason" rows="2" placeholder="Jelaskan mengapa perubahan tetap diterbitkan" class="w-full px-3 py-2.5 rounded-xl border border-amber-300 text-[14px] bg-white"></textarea>
         </div>
         <div x-show="blockingConflicts.length === 0 && overrideConflicts.length === 0" class="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 text-[13px] text-green-800 flex items-center gap-2">
           <span class="material-symbols-outlined">check_circle</span>Tidak ada konflik tercatat untuk jadwal ini.
@@ -407,7 +424,7 @@
     <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
       <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Detail Perubahan Jadwal</h2>
+        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Detail Perubahan Jadwal</h2>
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold"
           :class="String(selectedEvent.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'bg-[#E1FFB7] text-green-800' : (String(selectedEvent.lifecycle_status).toUpperCase() === 'DRAFT' ? 'bg-[#FCD484] text-amber-900' : 'bg-slate-100 text-slate-500')">
           <span class="material-symbols-outlined text-[14px]">info</span>
@@ -423,6 +440,7 @@
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Mata kuliah</dt><dd class="font-medium" x-text="selectedEvent.offering || '—'">-</dd></div>
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Waktu baru</dt><dd class="font-mono" x-text="fmtWaktuID(selectedEvent.starts_at) + ' – ' + fmtWaktuID(selectedEvent.ends_at)">-</dd></div>
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Ruangan</dt><dd x-text="selectedEvent.room || '—'">-</dd></div>
+        <div class="flex gap-2" x-show="selectedEvent.meeting_link"><dt class="w-32 shrink-0 text-slate-500">Tautan daring</dt><dd><a :href="selectedEvent.meeting_link" target="_blank" rel="noopener noreferrer" class="text-[#3965FB] font-medium hover:underline break-all" x-text="selectedEvent.meeting_link">-</a></dd></div>
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Keterangan</dt><dd x-text="selectedEvent.reason || '—'">-</dd></div>
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Versi</dt><dd class="font-mono" x-text="selectedEvent.version || '—'">-</dd></div>
       </dl>

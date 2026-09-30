@@ -26,6 +26,7 @@ type CreatePatternRequest struct {
 	DurationMin int     `json:"duration_min"`
 	RoomID      *int64  `json:"room_id,omitempty"`
 	LecturerIDs []int64 `json:"lecturer_ids,omitempty"`
+	MeetingLink *string `json:"meeting_link,omitempty"`
 }
 
 // CreateTeachingEventRequest adalah payload pembuatan kejadian perkuliahan
@@ -39,6 +40,7 @@ type CreateTeachingEventRequest struct {
 	ParticipantOfferingIDs []int64 `json:"participant_offering_ids,omitempty"`
 	RoomID                 *int64  `json:"room_id,omitempty"`
 	Reason                 *string `json:"reason,omitempty"`
+	MeetingLink            *string `json:"meeting_link,omitempty"`
 }
 
 // PublishEventRequest adalah payload publikasi kejadian perkuliahan
@@ -61,6 +63,7 @@ type PatchPatternRequest struct {
 	DurationMin int     `json:"duration_min"`
 	RoomID      *int64  `json:"room_id,omitempty"`
 	LecturerIDs []int64 `json:"lecturer_ids,omitempty"`
+	MeetingLink *string `json:"meeting_link,omitempty"`
 	Version     int     `json:"version"`
 }
 
@@ -105,7 +108,7 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 
 	query := `
 		SELECT sp.id, sp.course_offering_id, co.display_name, sp.room_id, COALESCE(r.code, ''),
-		       sp.day_of_week, sp.start_time, sp.end_time, sp.status, sp.version
+		       sp.day_of_week, sp.start_time, sp.end_time, sp.status, sp.version, COALESCE(sp.meeting_link, '')
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -149,11 +152,11 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 	var patterns []map[string]any
 	for rows.Next() {
 		var id, offID int64
-		var offName, roomCode, startTime, endTime, status string
+		var offName, roomCode, startTime, endTime, status, meetingLink string
 		var roomID sql.NullInt64
 		var dayOfWeek, version int
 
-		if err := rows.Scan(&id, &offID, &offName, &roomID, &roomCode, &dayOfWeek, &startTime, &endTime, &status, &version); err == nil {
+		if err := rows.Scan(&id, &offID, &offName, &roomID, &roomCode, &dayOfWeek, &startTime, &endTime, &status, &version, &meetingLink); err == nil {
 			patterns = append(patterns, map[string]any{
 				"id":                 id,
 				"course_offering_id": offID,
@@ -164,12 +167,13 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 					}
 					return nil
 				}(),
-				"room":        roomCode,
-				"day_of_week": dayOfWeek,
-				"start_time":  startTime,
-				"end_time":    endTime,
-				"status":      status,
-				"version":     version,
+				"room":         roomCode,
+				"day_of_week":  dayOfWeek,
+				"start_time":   startTime,
+				"end_time":     endTime,
+				"status":       status,
+				"version":      version,
+				"meeting_link": meetingLink,
 			})
 		}
 	}
@@ -264,13 +268,17 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 
 	effectiveFrom := time.Now().Format("2006-01-02")
 	var patternID int64
+	var meetingLink any
+	if req.MeetingLink != nil && strings.TrimSpace(*req.MeetingLink) != "" {
+		meetingLink = strings.TrimSpace(*req.MeetingLink)
+	}
 	err = tx.QueryRow(`
 		INSERT INTO schedule_patterns (
-			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version
+			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version, meeting_link
 		)
-		VALUES (?, ?, ?, ?, ?, ?, 1)
+		VALUES (?, ?, ?, ?, ?, ?, 1, ?)
 		RETURNING id;
-	`, req.OfferingID, req.RoomID, req.DayOfWeek, req.StartTime, endTime, effectiveFrom).Scan(&patternID)
+	`, req.OfferingID, req.RoomID, req.DayOfWeek, req.StartTime, endTime, effectiveFrom, meetingLink).Scan(&patternID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan pola jadwal: %v", err))
@@ -380,14 +388,18 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 	defer tx.Rollback()
 
 	var eventID int64
+	var eventLink any
+	if req.MeetingLink != nil && strings.TrimSpace(*req.MeetingLink) != "" {
+		eventLink = strings.TrimSpace(*req.MeetingLink)
+	}
 	err = tx.QueryRow(`
 		INSERT INTO teaching_events (
 			origin_schedule_pattern_id, origin_occurrence_date, event_kind,
-			starts_at, ends_at, room_id, reason, lifecycle_status, version
+			starts_at, ends_at, room_id, reason, lifecycle_status, version, meeting_link
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1, ?)
 		RETURNING id;
-	`, req.OriginPatternID, req.OriginDate, kind, startsAt, endsAt, req.RoomID, req.Reason).Scan(&eventID)
+	`, req.OriginPatternID, req.OriginDate, kind, startsAt, endsAt, req.RoomID, req.Reason, eventLink).Scan(&eventID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan teaching event: %v", err))
@@ -471,7 +483,8 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 
 	query := `
 		SELECT te.id, te.event_kind, co.id, co.display_name, te.starts_at, te.ends_at,
-		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.lifecycle_status, te.version
+		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.lifecycle_status, te.version,
+		       COALESCE(te.meeting_link, '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -506,11 +519,11 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 	var events []map[string]any
 	for rows.Next() {
 		var id, offID int64
-		var kind, offDisplay, roomCode, reason, lifeStatus string
+		var kind, offDisplay, roomCode, reason, lifeStatus, meetingLink string
 		var startsAt, endsAt common.DBTimestamp
 		var version int
 
-		if err := rows.Scan(&id, &kind, &offID, &offDisplay, &startsAt, &endsAt, &roomCode, &reason, &lifeStatus, &version); err == nil {
+		if err := rows.Scan(&id, &kind, &offID, &offDisplay, &startsAt, &endsAt, &roomCode, &reason, &lifeStatus, &version, &meetingLink); err == nil {
 			events = append(events, map[string]any{
 				"id":               id,
 				"event_kind":       kind,
@@ -522,6 +535,7 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 				"reason":           reason,
 				"lifecycle_status": lifeStatus,
 				"version":          version,
+				"meeting_link":     meetingLink,
 			})
 		}
 	}
@@ -964,15 +978,16 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		curEndTime    string
 		curClassID    int64
 		curVersion    int
+		curLink       sql.NullString
 	)
 
 	err = c.db.QueryRow(`
-		SELECT sp.course_offering_id, sp.room_id, sp.day_of_week, sp.start_time, sp.end_time, s.class_id, sp.version
+		SELECT sp.course_offering_id, sp.room_id, sp.day_of_week, sp.start_time, sp.end_time, s.class_id, sp.version, sp.meeting_link
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN semesters s ON co.semester_id = s.id
 		WHERE sp.id = ? AND sp.effective_until IS NULL;
-	`, patternID).Scan(&curOfferingID, &curRoomID, &curDayOfWeek, &curStartTime, &curEndTime, &curClassID, &curVersion)
+	`, patternID).Scan(&curOfferingID, &curRoomID, &curDayOfWeek, &curStartTime, &curEndTime, &curClassID, &curVersion, &curLink)
 
 	if err == sql.ErrNoRows {
 		var closedVersion int
@@ -1121,11 +1136,15 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	}
 
 	var newPatternID int64
+	newLink := curLink.String
+	if req.MeetingLink != nil {
+		newLink = strings.TrimSpace(*req.MeetingLink)
+	}
 	err = tx.QueryRow(`
 		INSERT INTO schedule_patterns (
-			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version
-		) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id;
-	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, tomorrowStr, curVersion+1).Scan(&newPatternID)
+			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version, meeting_link
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id;
+	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, tomorrowStr, curVersion+1, newLink).Scan(&newPatternID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pola jadwal baru")
@@ -1198,18 +1217,19 @@ func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http
 		originPatternID   sql.NullInt64
 		previewOfferingID int64
 		previewClassID    int64
+		meetingLink       sql.NullString
 	)
 
 	err = c.db.QueryRow(`
 		SELECT te.event_kind, te.starts_at, te.ends_at, te.room_id, r.code, co.display_name, te.origin_schedule_pattern_id,
-		       co.id, sem.class_id
+		       co.id, sem.class_id, te.meeting_link
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
-	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName, &originPatternID, &previewOfferingID, &previewClassID)
+	`, eventID).Scan(&kind, &startsAt, &endsAt, &roomID, &roomCode, &offName, &originPatternID, &previewOfferingID, &previewClassID, &meetingLink)
 
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian tidak ditemukan")
@@ -1285,10 +1305,11 @@ func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
 		"old": oldData,
 		"new": map[string]any{
-			"offering":  offName,
-			"starts_at": startsAt.Time.Format(time.RFC3339),
-			"ends_at":   endsAt.Time.Format(time.RFC3339),
-			"room":      roomCode.String,
+			"offering":     offName,
+			"starts_at":    startsAt.Time.Format(time.RFC3339),
+			"ends_at":      endsAt.Time.Format(time.RFC3339),
+			"room":         roomCode.String,
+			"meeting_link": meetingLink.String,
 		},
 		"kind":      kind,
 		"conflicts": conflicts,

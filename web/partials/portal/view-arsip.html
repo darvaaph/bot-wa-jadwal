@@ -1,0 +1,23 @@
+<!-- partials/portal/view-arsip.html — Portal Arsip Semester (hanya-baca) -->
+<section x-show="view === 'arsip'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',system-ui,sans-serif">Arsip Semester</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Daftar semester kelas. Semester arsip bersifat hanya-baca.</p>
+  <div x-show="semesterLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat semester...</div>
+  <div x-show="!semesterLoading && semesterList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada data semester.</div>
+  <div class="mt-4 space-y-3">
+    <template x-for="s in semesterList" :key="s.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-[15px] font-bold" x-text="(s.academic_year || '') + ' · ' + (s.term || '')">-</p>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border shrink-0"
+            :class="String(s.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800 border-green-200' : (String(s.status).toUpperCase() === 'ARCHIVED' ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-amber-50 text-amber-900 border-amber-300')">
+            <span class="material-symbols-outlined text-[12px]">archive</span>
+            <span x-text="labelStatusSemester(s.status)">-</span>
+          </span>
+        </div>
+        <p class="text-[12px] text-slate-500 font-mono mt-1" x-text="(s.starts_on || '') + ' – ' + (s.ends_on || '')">-</p>
+        <p x-show="String(s.status).toUpperCase() === 'ARCHIVED'" class="text-[12px] text-slate-400 mt-1">Semester ini diarsipkan dan hanya dapat dibaca.</p>
+      </div>
+    </template>
+  </div>
+</section>

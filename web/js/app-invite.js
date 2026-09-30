@@ -43,7 +43,15 @@ function inviteApp() {
       }
       this.loading = true;
       try {
-        await API.acceptInvitation(this.token, this.sandi, this.nama.trim());
+        const res = await API.acceptInvitation(this.token, this.sandi, this.nama.trim());
+        if (res && res.token) {
+          API.setAuthToken(res.token);
+          const daftar = (res && res.assignments) || [];
+          const peran = daftar.length > 0 ? String(daftar[0].role || '').toUpperCase() : '';
+          const tujuan = peran === 'SYSTEM_ADMIN' ? '/system-admin.html' : (peran === 'KM' ? '/km.html' : '/pj.html');
+          window.location.href = tujuan;
+          return;
+        }
         this.done = true;
         window.scrollTo({ top: 0 });
       } catch (err) {

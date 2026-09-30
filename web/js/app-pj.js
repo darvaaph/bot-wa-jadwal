@@ -8,12 +8,14 @@ function pjApp() {
     view: 'dashboard',
     drawer: false,
     q: '',
+    unreadCount: 0,
     weekOffset: 0,
     hideEmpty: false,
     pjMatkul: localStorage.getItem('pj_matkul') || '',
     offeringId: localStorage.getItem('pj_offering_id') || '',
     offeringList: [],
     offeringLoading: false,
+    offeringState: 'idle',
 
     roleLabel: 'PJ',
 
@@ -44,6 +46,7 @@ function pjApp() {
     todayFull: '',
     currentTime: '',
     selectedClass: '',
+    classSlug: '',
     botOnline: false,
     fullSchedule: [],
     tasks: [],
@@ -253,6 +256,20 @@ function pjApp() {
       this.mulaiUbah({ dayName: dayName, slotHH: slotHH });
     },
 
+    // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
+    // (mis. d4-ti-smt3-a) memakai active_assignment + daftar classes dari /me.
+    resolveClassSlug(me) {
+      const asg = (me && me.active_assignment) || {};
+      if (asg.class_slug) return String(asg.class_slug);
+      const list = (me && me.classes) || [];
+      const code = String(this.selectedClass || '').toLowerCase();
+      if (code && Array.isArray(list)) {
+        const hit = list.find(c => String(c.slug || '') === code || String(c.code || '').toLowerCase() === code);
+        if (hit && hit.slug) return String(hit.slug);
+      }
+      return String(this.selectedClass || '');
+    },
+
     slotSaya(dayName, slotHH) {
       return this.scopeList.find(s => s.hari === dayName && parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
     },
@@ -263,9 +280,9 @@ function pjApp() {
     jadwalSub: 'daftar',
     filtMatkul: '', filtDosen: '', filtRuang: '',
     polaLoading: false, polaError: '',
-    polaForm: { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', effectiveDate: '' },
+    polaForm: { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', link: '', effectiveDate: '' },
     polaFormError: '',
-    ubahForm: { kind: 'REPLACEMENT', scope: 'sementara', originPatternId: '', originDate: '', date: '', start: '', end: '', roomId: '', reason: '', effectiveDate: '', participantIds: '', conflictReason: '' },
+    ubahForm: { kind: 'REPLACEMENT', scope: 'sementara', originPatternId: '', originDate: '', date: '', start: '', end: '', roomId: '', link: '', reason: '', effectiveDate: '', participantIds: '', conflictReason: '' },
     ubahFormError: '',
     draftEvent: null,
     previewData: null, previewLoading: false, previewError: '',
@@ -354,7 +371,7 @@ function pjApp() {
       f.kind = (prefill && prefill.kind) || 'REPLACEMENT';
       f.scope = 'sementara';
       f.originPatternId = ''; f.originDate = ''; f.date = ''; f.start = ''; f.end = '';
-      f.roomId = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
+      f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
       if (prefill && prefill.dayName) {
         const hit = this.slotSaya(prefill.dayName, prefill.slotHH || '');
         if (hit) {
@@ -371,14 +388,14 @@ function pjApp() {
     },
 
     mulaiTambahPola() {
-      this.polaForm = { id: '', version: 0, offeringId: this.offeringId || '', day: '1', start: '', end: '', roomId: '', effectiveDate: '' };
+      this.polaForm = { id: '', version: 0, offeringId: this.offeringId || '', day: '1', start: '', end: '', roomId: '', link: '', effectiveDate: '' };
       this.polaFormError = '';
       this.view = 'jadwal'; this.jadwalSub = 'pola';
       window.scrollTo({ top: 0 });
     },
 
     editPola(p) {
-      this.polaForm = { id: String(p.id), version: p.version || 0, offeringId: String(p.course_offering_id || ''), day: String(p.day_of_week || '1'), start: (p.start_time || '').slice(0, 5), end: (p.end_time || '').slice(0, 5), roomId: p.room_id ? String(p.room_id) : '', effectiveDate: '' };
+      this.polaForm = { id: String(p.id), version: p.version || 0, offeringId: String(p.course_offering_id || ''), day: String(p.day_of_week || '1'), start: (p.start_time || '').slice(0, 5), end: (p.end_time || '').slice(0, 5), roomId: p.room_id ? String(p.room_id) : '', link: p.meeting_link || '', effectiveDate: '' };
       this.polaFormError = '';
       this.view = 'jadwal'; this.jadwalSub = 'pola';
       window.scrollTo({ top: 0 });
@@ -402,12 +419,14 @@ function pjApp() {
         if (f.id) {
           const payload = { version: Number(f.version) || 0, day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
+          if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           if (f.effectiveDate) payload.effective_from = f.effectiveDate;
           await API.patchPattern(f.id, payload);
           this.showToast('Jadwal reguler diperbarui.');
         } else {
           const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
+          if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           await API.createPattern(payload);
           this.showToast('Jadwal reguler ditambahkan.');
         }
@@ -462,6 +481,7 @@ function pjApp() {
         payload.origin_date = f.originDate;
       }
       if (f.roomId) payload.room_id = Number(f.roomId);
+      if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
       return payload;
     },
 
@@ -606,6 +626,8 @@ function pjApp() {
         }
         this.currentUser = me.user;
         this.activeRole = role || null;
+        this.meCache = me;
+        this.classSlug = this.resolveClassSlug(me);
         const assignedOffering = me.active_assignment && me.active_assignment.offering_id;
         if (assignedOffering && !this.offeringId) {
           this.offeringId = String(assignedOffering);
@@ -627,6 +649,7 @@ function pjApp() {
         ['pj-notif', '/partials/pj/view-notif.html'],
         ['pj-akun', '/partials/pj/view-akun.html'],
         ['pj-drawer', '/partials/common/drawer.html'],
+        ['pj-bottombar', '/partials/common/bottombar.html'],
         ['pj-toast', '/partials/common/toast.html']
       ]);
       this.updateClock();
@@ -646,7 +669,7 @@ function pjApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261006', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261013', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -693,14 +716,24 @@ function pjApp() {
 
     async loadOfferings() {
       this.offeringLoading = true;
+      this.offeringState = 'loading';
       try {
-        if (!this.selectedClass) return;
-        const semesters = await API.getSemesters(this.selectedClass).catch(() => []);
-        const list = Array.isArray(semesters) ? semesters : [];
+        if (!this.selectedClass) { this.offeringState = 'no-class'; this.offeringList = []; return; }
+        const slug = this.classSlug || this.selectedClass;
+        const hasil = await API.getSemestersResult(slug).catch(() => ({ ok: false, status: 0, data: [] }));
+        const list = Array.isArray(hasil.data) ? hasil.data : [];
+        if (!hasil.ok && hasil.status === 404) {
+          this.offeringState = 'no-v1-class'; this.offeringList = []; return;
+        }
+        if (!hasil.ok) {
+          this.offeringState = 'error'; this.offeringList = []; return;
+        }
         const active = list.find(s => s.status === 'ACTIVE') || list[0];
-        if (!active) { this.offeringList = []; return; }
-        const offerings = await API.getSemesterOfferings(active.id).catch(() => []);
+        if (!active) { this.offeringState = 'empty-semester'; this.offeringList = []; return; }
+        const offerings = await API.getSemesterOfferings(active.id).catch(() => null);
+        if (offerings === null) { this.offeringState = 'error'; this.offeringList = []; return; }
         this.offeringList = Array.isArray(offerings) ? offerings : [];
+        this.offeringState = this.offeringList.length > 0 ? 'ok' : 'empty-offering';
         const ids = this.offeringList.map(o => String(o.id));
         if (this.offeringId && !ids.includes(String(this.offeringId))) {
           this.offeringId = '';
@@ -713,9 +746,19 @@ function pjApp() {
         this.syncMatkulFromOffering();
       } catch (e) {
         this.offeringList = [];
+        this.offeringState = 'error';
       } finally {
         this.offeringLoading = false;
       }
+    },
+
+    pesanOffering() {
+      if (this.offeringState === 'no-v1-class') return 'Kelas ' + (this.selectedClass || 'ini') + ' belum terdaftar di database (kode: NOT_FOUND). Minta Administrator membuat kelas tersebut, lalu siapkan semester dan mata kuliah.';
+      if (this.offeringState === 'empty-semester') return 'Belum ada semester untuk kelas ini. Minta Administrator menyiapkan semester dan mata kuliah.';
+      if (this.offeringState === 'empty-offering') return 'Semester aktif belum memiliki mata kuliah.';
+      if (this.offeringState === 'error') return 'Daftar mata kuliah gagal dimuat. Periksa koneksi lalu coba lagi.';
+      if (this.offeringState === 'no-class') return 'Kelas belum termuat. Muat ulang halaman.';
+      return '';
     },
 
     simpanOffering() {
@@ -752,14 +795,17 @@ function pjApp() {
     async loadClasses() {
       try {
         const data = await API.getClasses();
-        if (data && data.default_class) { this.selectedClass = data.default_class; return; }
+        if (data && data.default_class) { this.selectedClass = data.default_class; }
       } catch (e) { /* fallback */ }
       try {
         const st = await API.getStatus();
-        if (st && st.default_class) this.selectedClass = st.default_class;
+        if (st && st.default_class && !this.selectedClass) this.selectedClass = st.default_class;
       } catch (e) { /* kosong */ }
+      if (this.meCache) {
+        const s = this.resolveClassSlug(this.meCache);
+        if (s) this.classSlug = s;
+      }
     },
-
     async loadSchedule() {
       try {
         const raw = await API.getSchedule(this.selectedClass, 'all');

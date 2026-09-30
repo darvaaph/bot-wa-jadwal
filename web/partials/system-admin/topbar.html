@@ -2,7 +2,7 @@
 <header class="sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
   <div class="flex items-center justify-between gap-4 px-4 md:px-8 h-16 max-w-[1440px] mx-auto w-full">
     <!-- Hamburger button on mobile (Figma: Fixed header / Menu button) -->
-    <button type="button" @click="drawer = true" aria-label="Buka menu" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#1D1B3A]">
+    <button type="button" @click="drawer = true" aria-label="Buka menu" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#1F1F1F]">
       <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
@@ -11,27 +11,23 @@
     <!-- Search Input -->
     <div class="relative flex-1 max-w-xl">
       <img src="/assets/icons/search.svg" alt="" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-60" />
-      <input type="text" x-model="q" @keydown.enter="go('kelas')" placeholder="Cari tugas, jadwal, materi..."
+      <input type="text" x-model="q" @keydown.enter="go('kelas')" placeholder="Cari kelas, pengguna, KM..."
+             aria-label="Cari kelas atau pengguna"
              class="w-full h-11 pl-10 pr-4 rounded-xl border border-[#EEEEEE] bg-white text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
     </div>
 
-    <!-- Right Controls: Theme Toggle & Bell Notification -->
+    <!-- Right Controls: Bell Notification -->
     <div class="flex items-center gap-3 shrink-0">
-      <!-- Theme toggle -->
-      <button type="button" @click="soon('Ganti tema')" aria-label="Ganti tema" class="hidden sm:flex items-center justify-center focus:outline-none">
-        <img src="/assets/icons/theme-toggle.svg" alt="Theme Toggle" class="h-8 w-auto hover:opacity-90 transition-opacity" />
-      </button>
-
-      <!-- Bell notification with red dot -->
-      <button type="button" @click="soon('Notifikasi')" aria-label="Notifikasi" class="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50 text-[#1F1F1F] focus:outline-none">
+      <!-- Bell notification with count -->
+      <button type="button" @click="go('antrean')" aria-label="Buka Antrean Notifikasi" title="Antrean Notifikasi gagal" class="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50 text-[#1F1F1F] focus:outline-none">
         <img src="/assets/icons/bell.svg" alt="Notifikasi" class="w-5 h-5" />
-        <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#E53935]"></span>
+        <span x-show="failedCount > 0" class="absolute top-1 right-1 min-w-[20px] h-5 px-1 rounded-full bg-[#E53935] text-white text-[11px] font-bold flex items-center justify-center" x-text="failedCount > 50 ? '50+' : failedCount">0</span>
       </button>
 
-      <!-- Account Avatar (Figma: Account avatar) -->
-      <button type="button" @click="soon('Profil System Admin')" aria-label="Profil" class="shrink-0 flex items-center justify-center focus:outline-none ml-1">
-        <img src="/assets/icons/avatar.svg" alt="Avatar" class="w-9 h-9 rounded-xl hover:opacity-90 transition-opacity" />
-      </button>
+      <!-- Account Avatar -->
+      <div class="shrink-0 flex items-center justify-center ml-1" title="System Admin">
+        <img src="/assets/icons/avatar.svg" alt="Avatar" class="w-9 h-9 rounded-xl" />
+      </div>
 
       <!-- Logout button -->
       <button type="button" @click="logout()" title="Keluar / Logout" class="h-9 px-3 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200 text-slate-600 hover:text-red-600 text-[12px] font-semibold flex items-center gap-1.5 transition ml-1 cursor-pointer">

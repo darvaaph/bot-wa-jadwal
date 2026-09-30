@@ -64,6 +64,82 @@ type RecoverUserRequest struct {
 	Reason      *string `json:"reason,omitempty"`
 }
 
+// AdminUserItem merepresentasikan satu pengguna beserta ringkasan penugasannya
+type AdminUserItem struct {
+	ID          int64    `json:"id"`
+	IdentityKey string   `json:"identity_key"`
+	DisplayName string   `json:"display_name"`
+	Status      string   `json:"status"`
+	Roles       []string `json:"roles"`
+}
+
+// GetUsers menangani GET /api/v1/admin/users
+func (c *AdminController) GetUsers(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang melihat daftar pengguna")
+		return
+	}
+
+	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	limit := 50
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+	offset := 0
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = o
+	}
+
+	query := `SELECT id, identity_key, display_name, status FROM users WHERE (1=1)`
+	var args []any
+	if statusFilter != "" {
+		query += " AND status = ?"
+		args = append(args, statusFilter)
+	}
+	query += " ORDER BY id ASC LIMIT ? OFFSET ?;"
+	args = append(args, limit, offset)
+
+	rows, err := c.db.Query(query, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat daftar pengguna")
+		return
+	}
+	defer rows.Close()
+
+	users := []AdminUserItem{}
+	for rows.Next() {
+		var item AdminUserItem
+		if err := rows.Scan(&item.ID, &item.IdentityKey, &item.DisplayName, &item.Status); err != nil {
+			continue
+		}
+		roleRows, err := c.db.Query(`
+			SELECT DISTINCT ra.role FROM role_assignments ra
+			WHERE ra.user_id = ? AND ra.status = 'ACTIVE' ORDER BY ra.role;
+		`, item.ID)
+		if err == nil {
+			for roleRows.Next() {
+				var role string
+				if err := roleRows.Scan(&role); err == nil {
+					item.Roles = append(item.Roles, role)
+				}
+			}
+			roleRows.Close()
+		}
+		if item.Roles == nil {
+			item.Roles = []string{}
+		}
+		users = append(users, item)
+	}
+
+	common.WriteV1Success(w, http.StatusOK, users)
+}
+
 // AuditLogResponseItem merepresentasikan catatan riwayat audit sistem
 type AuditLogResponseItem struct {
 	ID          int64   `json:"id"`

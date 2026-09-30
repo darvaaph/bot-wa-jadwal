@@ -11,7 +11,7 @@
 
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Tugas</h1>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Tugas</h1>
       <p class="text-[14px] text-slate-500 mt-1">Kelola tugas <span x-text="offeringName() || 'mata kuliah yang ditugaskan'">-</span> dan pantau pemeriksaan Ketua Murid.</p>
     </div>
     <button type="button" @click="mulaiTambah()" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
@@ -118,7 +118,7 @@
           <textarea x-model="tugasForm.deskripsi" rows="3" placeholder="Jelaskan instruksi dan ketentuan dari dosen..." class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB] resize-none"></textarea>
         </div>
       </div>
-      <h2 class="text-[18px] font-semibold mt-6">Pengumpulan</h2>
+      <h2 class="text-[18px] font-semibold mt-6">Pengumpulan <span class="text-[#FF6C48]">*</span></h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
         <div>
           <label class="block text-[13px] font-medium mb-1">Jenis tugas</label>
@@ -127,7 +127,7 @@
           </select>
         </div>
         <div>
-          <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan <span class="text-[#FF6C48]">*</span></label>
+          <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan</label>
           <input type="text" x-model="tugasForm.kumpul" placeholder="Tautan LMS kelas" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
         </div>
         <div class="sm:col-span-2">
@@ -169,7 +169,7 @@
       <p class="mt-1 text-slate-600" x-text="tugasPreview.deskripsi">-</p>
       <p class="mt-1">Kumpulkan: <span x-text="tugasPreview.kumpulUrl || tugasPreview.kumpul">-</span></p>
     </div>
-    <div class="mt-3 p-3 rounded-xl bg-[#FFF1CF] border border-[#D4A64A] text-[13px] text-[#946200] flex gap-2">
+    <div class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
       <span class="material-symbols-outlined shrink-0">campaign</span>
       <p>Tugas terbit langsung tampil di portal dan masuk antrean pemeriksaan KM. Kegagalan pesan WhatsApp tidak membatalkan penerbitan.</p>
     </div>
@@ -275,7 +275,7 @@
         </select>
       </div>
       <div>
-        <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan <span class="text-[#FF6C48]">*</span></label>
+        <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan</label>
         <input type="text" x-model="tugasForm.kumpul" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
       </div>
       <div class="sm:col-span-2">

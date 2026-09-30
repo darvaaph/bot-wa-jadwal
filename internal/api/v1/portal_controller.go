@@ -737,6 +737,55 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 	common.WriteV1Success(w, http.StatusOK, changes)
 }
 
+// Semesters menangani GET /api/v1/portal/{slug}/semesters
+func (c *PortalController) Semesters(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+
+	slug := r.PathValue("slug")
+	var classID int64
+	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	if !c.portalAccessAllowed(w, r, classID) {
+		return
+	}
+
+	rows, err := c.db.Query(`
+		SELECT id, academic_year, term, starts_on, ends_on, status,
+		       COALESCE(published_at, ''), COALESCE(activated_at, ''), COALESCE(archived_at, '')
+		FROM semesters WHERE class_id = ? ORDER BY starts_on DESC;
+	`, classID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+		return
+	}
+	defer rows.Close()
+
+	out := []map[string]any{}
+	for rows.Next() {
+		var id int64
+		var year, term, startsOn, endsOn, status, publishedAt, activatedAt, archivedAt string
+		if err := rows.Scan(&id, &year, &term, &startsOn, &endsOn, &status, &publishedAt, &activatedAt, &archivedAt); err == nil {
+			out = append(out, map[string]any{
+				"id": id, "academic_year": year, "term": term,
+				"starts_on": startsOn, "ends_on": endsOn, "status": status,
+				"published_at": publishedAt, "activated_at": activatedAt, "archived_at": archivedAt,
+			})
+		}
+	}
+
+	common.WriteV1Success(w, http.StatusOK, out)
+}
+
 // Materials menangani GET /api/v1/portal/{slug}/materials
 func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 	if c.db == nil {
@@ -814,7 +863,8 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 
 	patternRows, err := c.db.Query(`
 		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
-		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until
+		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until,
+		       COALESCE(sp.meeting_link, '')
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
@@ -836,10 +886,10 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 
 	for patternRows.Next() {
 		var patternID, offID int64
-		var offDisplay, courseName, actType, startTime, endTime, roomCode string
+		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 		var effFrom, effUntil sql.NullString
 
-		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil); err == nil {
+		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink); err == nil {
 			lecturers := c.getOfferingLecturers(offID)
 			items = append(items, map[string]any{
 				"id":            fmt.Sprintf("pat_%d", patternID),
@@ -850,6 +900,7 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 				"starts_at":     startTime,
 				"ends_at":       endTime,
 				"room":          roomCode,
+				"meeting_link":  meetingLink,
 				"lecturers":     lecturers,
 				"source": map[string]any{
 					"pattern_id": patternID,
@@ -862,7 +913,7 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
 		       strftime('%H:%M', te.starts_at) as start_time,
 		       strftime('%H:%M', te.ends_at) as end_time,
-		       COALESCE(r.code, ''), te.origin_schedule_pattern_id
+		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -878,10 +929,10 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 		defer eventRows.Close()
 		for eventRows.Next() {
 			var eventID, offID int64
-			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode string
+			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 			var originPatID sql.NullInt64
 
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID); err == nil {
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink); err == nil {
 				kindMap := map[string]string{
 					"REPLACEMENT":       "PENGGANTI",
 					"EXTRA":             "TAMBAHAN",
@@ -904,6 +955,7 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 					"starts_at":     startTime,
 					"ends_at":       endTime,
 					"room":          roomCode,
+					"meeting_link":  meetingLink,
 					"lecturers":     lecturers,
 					"source": map[string]any{
 						"event_id":   eventID,

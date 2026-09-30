@@ -31,6 +31,11 @@
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
       <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span>Perubahan</span>
     </button>
+    <button type="button" @click="go('arsip')"
+      :class="view === 'arsip' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span>Arsip</span>
+    </button>
   </nav>
   <div class="mt-auto pt-4 text-[13px]">
     <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>

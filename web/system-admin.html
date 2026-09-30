@@ -19,19 +19,30 @@
     })();
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script src="/js/api.js?v=20261008"></script>
-  <script src="/js/app-system-admin.js?v=20261008"></script>
+  <script src="/js/api.js?v=20261011"></script>
+  <script src="/js/app-system-admin.js?v=20261011"></script>
 </head>
 <!--
   AREA SYSTEM ADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
   Isi per layar: web/partials/system-admin/*.html dimuat oleh initSystemAdmin() di js/app-system-admin.js.
+  View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna, dukungan,
+  antrean, audit, status-bot, master-ruangan, master-matkul, backup.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false; kelasStatusConfirm = null; penggunaAksi = null">
 
   <div id="sa-sidebar"></div>
 
   <div class="md:pl-[248px] flex flex-col min-h-screen min-w-0">
     <div id="sa-topbar"></div>
+    <div x-show="dukunganAktif" x-cloak class="bg-amber-100 border-b border-amber-300 px-4 md:px-8 py-3" role="status">
+      <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-2 text-[13px] text-amber-900">
+        <p class="flex-1"><span class="font-bold">Mode Dukungan aktif</span> — <span x-text="dukunganAktif ? dukunganAktif.nama : ''"></span> · Alasan: <span x-text="dukunganAktif ? dukunganAktif.alasan : ''"></span></p>
+        <div class="flex gap-2">
+          <button type="button" @click="bukaDetail(dukunganAktif.slug)" class="h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
+          <button type="button" @click="keluarDukungan()" class="h-10 px-4 rounded-lg bg-amber-600 text-white text-[12px] font-semibold min-h-[44px]">Keluar</button>
+        </div>
+      </div>
+    </div>
     <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
       <div id="sa-dashboard"></div>
       <div id="sa-kelas"></div>
@@ -39,6 +50,9 @@
       <div id="sa-dukungan"></div>
       <div id="sa-antrean"></div>
       <div id="sa-backup"></div>
+      <div id="sa-pengguna"></div>
+      <div id="sa-ruangan"></div>
+      <div id="sa-matkul"></div>
       <div id="sa-soon"></div>
     </main>
   </div>

@@ -37,3 +37,12 @@ func (s *Server) handleAdminRecoverUser(w http.ResponseWriter, r *http.Request) 
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleGetAdminUsers menangani GET /api/v1/admin/users
+func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetUsers(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}

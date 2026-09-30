@@ -1156,8 +1156,81 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyInviteAccept, inviteSubject, inviteSource, "SUCCESS")
 	}
 
+	// Buat sesi login langsung agar pengguna masuk ke ruang kerja tanpa login ulang.
+	var sessionVersion int
+	if err := c.db.QueryRow(`SELECT session_version FROM users WHERE id = ?;`, userID).Scan(&sessionVersion); err != nil {
+		sessionVersion = 1
+	}
+	rows, err := c.db.Query(`
+		SELECT ra.id, ra.role, c.slug, ra.semester_id, ra.course_offering_id, COALESCE(co.display_name, '')
+		FROM role_assignments ra
+		LEFT JOIN classes c ON ra.class_id = c.id
+		LEFT JOIN course_offerings co ON ra.course_offering_id = co.id
+		WHERE ra.user_id = ? AND ra.status = 'ACTIVE';
+	`, userID)
+	assignments := []RoleAssignmentItem{}
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var a RoleAssignmentItem
+			var slug sql.NullString
+			var semID, offID sql.NullInt64
+			var offName string
+			if err := rows.Scan(&a.ID, &a.Role, &slug, &semID, &offID, &offName); err == nil {
+				if slug.Valid {
+					a.ClassSlug = slug.String
+				}
+				if semID.Valid {
+					a.SemesterID = &semID.Int64
+				}
+				if offID.Valid {
+					a.OfferingID = &offID.Int64
+				}
+				a.OfferingName = offName
+				assignments = append(assignments, a)
+			}
+		}
+	}
+
+	absTTL := 24 * time.Hour
+	if role == "SYSTEM_ADMIN" {
+		absTTL = 8 * time.Hour
+	}
+	sessionExpiresAt := time.Now().Add(absTTL)
+
+	token, err := generateSecureToken()
+	if err != nil {
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"user_id":       userID,
+			"assignment_id": assignmentID,
+		})
+		return
+	}
+	if _, err := c.db.Exec(`
+		INSERT INTO user_sessions (
+			user_id, active_role_assignment_id, token_hash, session_version,
+			created_at, last_seen_at, absolute_expires_at
+		)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?);
+	`, userID, assignmentID, computeHash(token), sessionVersion, sessionExpiresAt.UTC().Format(time.RFC3339)); err != nil {
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"user_id":       userID,
+			"assignment_id": assignmentID,
+		})
+		return
+	}
+	_, _ = c.db.Exec(`UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?;`, userID)
+
+	noStore(w)
+	c.setAuthCookie(w, token, sessionExpiresAt)
+
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
-		"user_id":       userID,
-		"assignment_id": assignmentID,
+		"user_id":             userID,
+		"assignment_id":       assignmentID,
+		"token":               token,
+		"token_type":          "Bearer",
+		"expires_at":          sessionExpiresAt.UTC().Format(time.RFC3339),
+		"assignments":         assignments,
+		"need_context_choice": len(assignments) > 1,
 	})
 }

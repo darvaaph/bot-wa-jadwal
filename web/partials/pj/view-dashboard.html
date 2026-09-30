@@ -9,7 +9,7 @@
   </div>
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
       <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
     </div>
     <button type="button" @click="mulaiTambah()" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
@@ -25,6 +25,10 @@
     </select>
   </div>
   <p x-show="offeringLoading" class="mt-2 text-[12px] text-slate-500">Memuat daftar mata kuliah...</p>
+  <p x-show="!offeringLoading && pesanOffering()" class="mt-2 text-[12px] text-amber-800">
+    <span x-text="pesanOffering()">-</span>
+    <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+  </p>
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
@@ -50,7 +54,10 @@
         <h2 class="text-[18px] font-semibold">Tugas mendekati deadline</h2>
         <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semua</button>
       </div>
-      <div x-show="urgentSaya.length === 0" class="py-8 text-center text-[13px] text-slate-400">✅ Tidak ada tugas mendesak.</div>
+      <div x-show="urgentSaya.length === 0" class="py-8 text-center">
+        <p class="text-[13px] text-slate-400">Tidak ada tugas mendesak.</p>
+        <button type="button" @click="go('tugas')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat semua tugas</button>
+      </div>
       <div class="divide-y divide-[#EEEEEE]">
         <template x-for="t in urgentSaya" :key="t.id">
           <div class="py-4 flex items-start justify-between gap-3">
@@ -66,7 +73,10 @@
     <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <h2 class="text-[18px] font-semibold">Jadwal hari ini</h2>
       <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
-      <div x-show="todayList.length === 0" class="py-6 text-center text-[13px] text-slate-400">🎉 Tidak ada jadwal hari ini.</div>
+      <div x-show="todayList.length === 0" class="py-6 text-center">
+        <p class="text-[13px] text-slate-400">Tidak ada jadwal hari ini.</p>
+        <button type="button" @click="go('jadwal')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat jadwal minggu ini</button>
+      </div>
       <div class="mt-2 divide-y divide-[#EEEEEE]">
         <template x-for="s in todayList" :key="s.id">
           <div class="py-3 flex gap-3">
@@ -81,7 +91,7 @@
   <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] font-semibold">Log Aktivitas</h2>
-      <span class="text-[13px] text-slate-400">Butuh endpoint audit →</span>
+      <span class="text-[13px] text-slate-400">Butuh endpoint audit</span>
     </div>
     <div class="py-6 text-center text-[13px] text-slate-400">Riwayat tampil setelah backend siap.</div>
   </div>

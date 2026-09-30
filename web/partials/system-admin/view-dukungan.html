@@ -1,12 +1,20 @@
-<!-- partials/system-admin/view-dukungan.html - System Admin: Mode Dukungan + Pembaruan terbaru -->
+<!-- partials/system-admin/view-dukungan.html - System Admin: Mode Dukungan + Audit Global -->
 <section x-show="view === 'dukungan'" x-cloak>
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
-    <h1 class="text-[24px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Mode Dukungan</h1>
-    <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan. Setiap perubahan dicatat sebagai akses
-      dukungan beserta alasan.</p>
-    <div class="mt-4">
-      <label class="block text-[14px] font-bold mb-1">Kelas tujuan</label>
-      <select x-model="kelasAktif"
+    <h1 class="text-[24px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Mode Dukungan</h1>
+    <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan break-glass. Setiap perubahan dicatat sebagai akses dukungan beserta alasan.</p>
+    <div x-show="dukunganAktif" class="mt-4 p-4 rounded-xl bg-white border border-amber-300 text-[13px]">
+      <p class="font-bold text-[#1F1F1F]">Aktif: <span x-text="dukunganAktif ? dukunganAktif.nama : ''"></span></p>
+      <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? dukunganAktif.alasan : ''"></span></p>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button type="button" @click="bukaDetail(dukunganAktif.slug)" class="h-10 px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
+        <button type="button" @click="bukaAuditKelas(dukunganAktif.slug)" class="h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat audit kelas</button>
+        <button type="button" @click="keluarDukungan()" class="h-10 px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold min-h-[44px]">Keluar mode dukungan</button>
+      </div>
+    </div>
+    <div x-show="!dukunganAktif" class="mt-4">
+      <label class="block text-[14px] font-bold mb-1" for="sa-dukungan-kelas">Kelas tujuan</label>
+      <select id="sa-dukungan-kelas" x-model="kelasAktif"
         class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
         <option value="">-- Pilih kelas --</option>
         <template x-for="k in kelasList" :key="k.slug">
@@ -14,40 +22,48 @@
         </template>
       </select>
     </div>
-    <div class="mt-4">
-      <label class="block text-[14px] font-bold mb-1">Alasan dukungan <span class="text-[#FF6C48]">*</span></label>
-      <input type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM"
+    <div x-show="!dukunganAktif" class="mt-4">
+      <label class="block text-[14px] font-bold mb-1" for="sa-dukungan-alasan">Alasan dukungan <span class="text-[#FF6C48]">*</span> <span class="font-normal text-amber-800">(min. 10 karakter)</span></label>
+      <input id="sa-dukungan-alasan" type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM kelas D4 TI 2025 B"
         class="w-full max-w-xl h-11 px-3 rounded-xl border border-amber-300 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
     </div>
-    <button type="button" @click="masukDukungan()"
+    <button x-show="!dukunganAktif" type="button" @click="masukDukungan()"
       class="mt-4 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-medium min-h-[44px]">Masuk mode
       dukungan</button>
-    <p class="text-[11px] text-amber-800 mt-3">Mode dukungan via API belum tersedia. Pilihan kelas dan alasan dicatat sebagai acuan tindak lanjut manual.</p>
+    <p class="text-[11px] text-amber-800 mt-3">Fase 1: flag frontend + alasan wajib + banner global. Konteks dukungan sejati di backend menyusul sebagai tiket terpisah.</p>
   </div>
 </section>
 
-<section x-show="view === 'pembaruan'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Pembaruan
-    terbaru</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Perubahan sistem dan publikasi terakhir.</p>
-  <div class="mt-4 flex flex-col sm:flex-row gap-3">
-    <input type="text" x-model="auditKelas" placeholder="Filter slug kelas (opsional)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] max-w-xs" />
-    <button type="button" @click="loadAudit()" class="h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[14px] font-semibold min-h-[44px] w-fit">Terapkan filter</button>
-  </div>
-  <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
-  <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-    <span x-text="auditError">-</span>
-    <button type="button" @click="loadAudit()" class="ml-2 font-semibold underline">Coba Lagi</button>
-  </div>
-  <div x-show="!auditLoading && !auditError && auditList.length === 0"
-    class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada riwayat tercatat.</div>
-  <div x-show="!auditLoading && auditList.length > 0" class="mt-4 space-y-2">
-    <template x-for="a in auditList" :key="a.id">
-      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[14px] font-semibold text-[#1D1B3A]" x-text="a.action || '-'">-</p>
-        <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="(a.actor_name || 'Sistem') + (a.actor_role ? ' · ' + a.actor_role : '')">-</span><span x-show="a.class_slug" x-text="' · ' + a.class_slug">-</span></p>
-        <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
-      </div>
-    </template>
+<section x-show="['audit','pembaruan'].includes(view)" x-cloak>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Audit Global</h1>
+    <p class="text-[14px] text-slate-500 mt-1">Riwayat Perubahan lintas kelas: tindakan keamanan dan dukungan.</p>
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <input type="text" x-model="auditKelas" placeholder="Slug kelas (opsional)" aria-label="Filter slug kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      <input type="text" x-model="auditAction" placeholder="Aksi (mis. SUSPEND_USER)" aria-label="Filter aksi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+      <input type="text" x-model="auditEntity" placeholder="Tipe entitas (mis. USER)" aria-label="Filter tipe entitas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+      <button type="button" @click="loadAudit()" class="h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[14px] font-semibold min-h-[44px] w-fit">Terapkan filter</button>
+    </div>
+    <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat Riwayat Perubahan...</div>
+    <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+      <span x-text="auditError">-</span>
+      <button type="button" @click="loadAudit()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    </div>
+    <div x-show="!auditLoading && !auditError && auditList.length === 0"
+      class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada riwayat tercatat untuk filter ini.</div>
+    <div x-show="!auditLoading && auditList.length > 0" class="mt-4 space-y-2">
+      <template x-for="a in auditList" :key="a.id">
+        <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+          <p class="text-[14px] font-semibold text-[#1F1F1F] font-mono" x-text="a.action || '-'">-</p>
+          <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="(a.actor_name || 'Sistem') + (a.actor_role ? ' · ' + a.actor_role : '')">-</span><span x-show="a.class_slug" x-text="' · ' + a.class_slug">-</span><span x-show="a.entity_type" x-text="' · ' + a.entity_type + (a.entity_id ? ' #' + a.entity_id : '')">-</span></p>
+          <p x-show="a.reason" class="text-[12px] text-amber-800 mt-1">Alasan: <span x-text="a.reason"></span></p>
+          <details class="mt-1 text-[11px] text-slate-500">
+            <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center">Sebelum / sesudah</summary>
+            <pre class="mt-1 p-2 rounded-lg bg-slate-50 border border-[#EEEEEE] overflow-x-auto font-mono" x-text="'Sebelum: ' + (a.before_json || '-') + '\nSesudah: ' + (a.after_json || '-')"></pre>
+          </details>
+          <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
+        </div>
+      </template>
+    </div>
   </div>
 </section>

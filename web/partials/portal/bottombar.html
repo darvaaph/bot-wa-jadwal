@@ -1,0 +1,22 @@
+<!-- partials/portal/bottombar.html — Bottom nav mobile portal -->
+<nav aria-label="Navigasi bawah portal" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#EEEEEE]">
+  <div class="grid grid-cols-4 h-[68px]">
+    <template x-for="bid in ['dashboard','jadwal','tugas']" :key="bid">
+      <button type="button" @click="go(bid)"
+        :class="view === bid || (bid === 'tugas' && view === 'detail-tugas') ? 'text-[#3965FB]' : 'text-slate-500'"
+        class="flex flex-col items-center justify-center gap-1 min-h-[44px]">
+        <span class="px-4 py-1 rounded-full" :class="view === bid || (bid === 'tugas' && view === 'detail-tugas') ? 'bg-[#E9EAFF]' : ''">
+          <img class="w-5 h-5" :src="(portalNav.find(n => n.id === bid) || {}).img" alt="" />
+        </span>
+        <span class="text-[11px] font-semibold" x-text="(portalNav.find(n => n.id === bid) || {}).label || bid">-</span>
+      </button>
+    </template>
+    <button type="button" @click="drawer = true" aria-label="Menu lainnya"
+      class="flex flex-col items-center justify-center gap-1 min-h-[44px] text-slate-500">
+      <span class="px-4 py-1 rounded-full">
+        <span class="material-symbols-outlined text-[22px]">more_horiz</span>
+      </span>
+      <span class="text-[11px] font-semibold">Lainnya</span>
+    </button>
+  </div>
+</nav>

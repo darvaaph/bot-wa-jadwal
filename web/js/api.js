@@ -376,12 +376,24 @@ const BotApi = {
   },
 
   async getSemesters(classSlug) {
-    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters', {
-      headers: authHeaders(),
-      credentials: 'same-origin'
-    });
-    if (!res.ok) return null;
-    return (await res.json()).data || [];
+    const r = await this.getSemestersResult(classSlug);
+    return r.ok ? r.data : null;
+  },
+
+  // Versi mentah agar pemanggil bisa membedakan 404 (kelas belum terdaftar)
+  // dari gagal jaringan/server.
+  async getSemestersResult(classSlug) {
+    try {
+      const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters', {
+        headers: authHeaders(),
+        credentials: 'same-origin'
+      });
+      if (!res.ok) return { ok: false, status: res.status, data: [] };
+      const json = await res.json().catch(() => null);
+      return { ok: true, status: res.status, data: (json && json.data) || [] };
+    } catch (e) {
+      return { ok: false, status: 0, data: [] };
+    }
   },
 
   async createSemesterDraft(classSlug, payload) {
@@ -417,13 +429,18 @@ const BotApi = {
   },
 
   async getSemesterOfferings(semesterId) {
-    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/offerings', {
-      headers: authHeaders(),
-      credentials: 'same-origin'
-    });
-    if (!res.ok) return [];
-    const json = await res.json().catch(() => null);
-    return (json && json.data) || [];
+    // null = gagal dimuat (bedakan dari [] = semester tanpa mata kuliah).
+    try {
+      const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/offerings', {
+        headers: authHeaders(),
+        credentials: 'same-origin'
+      });
+      if (!res.ok) return null;
+      const json = await res.json().catch(() => null);
+      return (json && json.data) || [];
+    } catch (e) {
+      return null;
+    }
   },
 
   async importSemester(semesterId, payload) {
@@ -810,6 +827,20 @@ const BotApi = {
     }
   },
 
+  async getPortalSemesters(slug) {
+    try {
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/semesters', {
+        credentials: 'same-origin',
+        headers: this.portalHeaders()
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
   async getPortalTaskDetail(slug, taskId) {
     const headers = this.portalHeaders();
     const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks/' + encodeURIComponent(taskId), {
@@ -856,7 +887,24 @@ const BotApi = {
       credentials: 'same-origin',
       headers: headers
     });
-    if (!res.ok) return null;
+    if (res.status === 404) {
+      const err = new Error('Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.');
+      err.code = 'CLASS_NOT_FOUND';
+      err.status = 404;
+      throw err;
+    }
+    if (res.status === 401) {
+      const err = new Error('Kelas ini dilindungi kode akses. Masukkan kode 6 digit dari grup kelas.');
+      err.code = 'PORTAL_UNAUTHORIZED';
+      err.status = 401;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
     const json = await res.json();
     const arr = Array.isArray(json.data) ? json.data : [];
     return arr.map(item => {
@@ -996,6 +1044,118 @@ const BotApi = {
       throw err;
     }
     return json.data;
+  },
+
+  async getAdminUsers(status) {
+    let url = '/api/v1/admin/users';
+    if (status) url += '?status=' + encodeURIComponent(status);
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async suspendUser(userId, reason) {
+    const res = await fetch('/api/v1/admin/users/' + encodeURIComponent(userId) + '/suspend', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menangguhkan pengguna.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async recoverUser(userId, reason) {
+    const res = await fetch('/api/v1/admin/users/' + encodeURIComponent(userId) + '/recover', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal memulihkan pengguna.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async getMasterRooms(status) {
+    let url = '/api/v1/master/rooms';
+    if (status) url += '?status=' + encodeURIComponent(status);
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async createMasterRoom(payload) {
+    const res = await fetch('/api/v1/master/rooms', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menambah ruangan.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async patchMasterRoom(id, payload) {
+    const res = await fetch('/api/v1/master/rooms/' + encodeURIComponent(id), {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah ruangan.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
+  },
+
+  async getMasterCourses(status) {
+    let url = '/api/v1/master/courses';
+    if (status) url += '?status=' + encodeURIComponent(status);
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async createMasterCourse(payload) {
+    const res = await fetch('/api/v1/master/courses', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menambah mata kuliah.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async patchMasterCourse(id, payload) {
+    const res = await fetch('/api/v1/master/courses/' + encodeURIComponent(id), {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah mata kuliah.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
   },
 
   getAuthToken: getAuthToken,

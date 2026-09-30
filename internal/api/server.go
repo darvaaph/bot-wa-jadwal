@@ -36,6 +36,7 @@ type Server struct {
 	rlManager          *middleware.RateLimitManager
 	taskController     *v1.TaskController
 	scheduleController *v1.ScheduleController
+	masterController   *v1.MasterController
 	portalController   *v1.PortalController
 	authController     *v1.AuthController
 	academicController *v1.AcademicController
@@ -96,6 +97,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	s.legacyHandler = legacy.NewHandler(classManager, taskManager, s.v1DB)
 	s.taskController = v1.NewTaskController(s.v1DB)
 	s.scheduleController = v1.NewScheduleController(s.v1DB)
+	s.masterController = v1.NewMasterController(s.v1DB)
 	s.portalController = v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager)
 	s.authController = v1.NewAuthController(s.v1DB, s.secManager, s.rlManager, s.portalService)
 	s.academicController = v1.NewAcademicController(s.v1DB)

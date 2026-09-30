@@ -11,16 +11,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script src="/js/api.js?v=20261005"></script>
-  <script src="/js/app-invite.js?v=20261005"></script>
+  <script src="/js/api.js?v=20261010"></script>
+  <script src="/js/app-invite.js?v=20261010"></script>
 </head>
-<body class="bg-[#F6F7FB] text-[#1F1F1F] min-h-screen" x-data="inviteApp()" x-init="initInvite()">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="inviteApp()" x-init="initInvite()">
   <div class="min-h-screen flex flex-col items-center justify-center px-4 py-10">
     <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto" />
     <div class="w-full max-w-md mt-6 bg-white rounded-2xl border border-[#EEEEEE] p-6 sm:p-8">
       <template x-if="!done">
         <div>
-          <h1 class="text-[24px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Undangan Pengurus</h1>
+          <h1 class="text-[24px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Undangan Pengurus</h1>
           <p class="text-[13px] text-slate-500 mt-1">Anda menerima undangan sebagai <strong>Ketua Murid</strong> atau <strong>PJ Mata Kuliah</strong>. Detail kelas dan mata kuliah mengikuti pesan undangan dari pengirim.</p>
 
           <div x-show="!token" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
@@ -64,7 +64,7 @@
       <template x-if="done">
         <div class="text-center">
           <span class="inline-flex w-14 h-14 rounded-full bg-[#E1FFB7] items-center justify-center"><span class="material-symbols-outlined text-[28px] text-emerald-700">check_circle</span></span>
-          <h1 class="text-[24px] font-bold text-[#1D1B3A] mt-3" style="font-family:'Poppins',sans-serif">Akun aktif</h1>
+          <h1 class="text-[24px] font-bold text-[#1F1F1F] mt-3" style="font-family:'Poppins',sans-serif">Akun aktif</h1>
           <p class="text-[13px] text-slate-500 mt-1">Peran pengurus sudah ditambahkan ke akun Anda. Masuk untuk membuka ruang kerja.</p>
           <a href="/login.html" class="mt-5 flex w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold items-center justify-center min-h-[44px]">Masuk Pengurus</a>
         </div>

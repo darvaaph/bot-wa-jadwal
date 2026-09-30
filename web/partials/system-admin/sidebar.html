@@ -1,44 +1,68 @@
-<!-- partials/system-admin/sidebar.html - Sidebar System Admin Desktop (Figma: UI / Sidebar / Role / System Admin) -->
+<!-- partials/system-admin/sidebar.html - Sidebar System Admin Desktop -->
 <aside class="hidden md:flex flex-col w-[248px] fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] px-4 py-6 z-40 overflow-y-auto">
   <!-- Brand Logo -->
   <div class="flex items-center px-3">
-    <img src="/assets/icons/asterisk-logo.svg" alt="Asterisk" class="h-8 w-auto" />
+    <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto" />
   </div>
 
   <!-- Navigation -->
   <nav aria-label="Navigasi System Admin" class="mt-8 flex flex-col gap-1 text-[14px]">
-    <!-- Section SUPERADMIN -->
-    <p class="px-3 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">SUPERADMIN</p>
+    <!-- Section SYSTEM ADMIN -->
+    <p class="px-3 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">SYSTEM ADMIN</p>
     <button type="button" @click="go('dashboard')"
       :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'dashboard' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Dashboard</span>
+      <span>Ringkasan Sistem</span>
     </button>
 
     <!-- Section ADMINISTRASI -->
     <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">ADMINISTRASI</p>
     <button type="button" @click="go('kelas')"
-      :class="['kelas','buat','detail'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      :class="isKelasView() ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/classes.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
-        :style="['kelas','buat','detail'].includes(view) ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+        :style="isKelasView() ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
       <span>Daftar Kelas</span>
+    </button>
+    <button type="button" @click="go('pengguna')"
+      :class="view === 'pengguna' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/people.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'pengguna' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span>Pengguna dan Penugasan</span>
+    </button>
+    <button type="button" @click="go('dukungan')"
+      :class="view === 'dukungan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/settings.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'dukungan' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span>Mode Dukungan</span>
+    </button>
+
+    <!-- Section OPERASIONAL -->
+    <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">OPERASIONAL</p>
+    <button type="button" @click="go('antrean')"
+      :class="view === 'antrean' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/message-queue.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'antrean' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span>Antrean Notifikasi</span>
+    </button>
+    <button type="button" @click="go('audit')"
+      :class="['audit','pembaruan'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="['audit','pembaruan'].includes(view) ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span>Audit Global</span>
     </button>
     <button type="button" @click="go('status-bot')"
       :class="view === 'status-bot' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/bot.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'status-bot' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Status Bot WhatsApp</span>
-    </button>
-    <button type="button" @click="go('antrean')"
-      :class="view === 'antrean' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
-      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
-      <img src="/assets/icons/message-queue.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
-        :style="view === 'antrean' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Antrean Pesan</span>
+      <span>Status Sistem dan WhatsApp</span>
     </button>
 
     <!-- Section DATA & SISTEM -->
@@ -57,19 +81,12 @@
         :style="view === 'master-matkul' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
       <span>Master Mata Kuliah</span>
     </button>
-    <button type="button" @click="go('pengguna')"
-      :class="view === 'pengguna' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
-      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
-      <img src="/assets/icons/people.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
-        :style="view === 'pengguna' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Kelola Pengguna</span>
-    </button>
     <button type="button" @click="go('backup')"
       :class="view === 'backup' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/backup.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'backup' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span>Backup Data</span>
+      <span>Backup dan Pemulihan</span>
     </button>
   </nav>
 
@@ -80,7 +97,7 @@
         <p class="font-semibold text-[#1F1F1F] truncate" x-text="currentUser ? currentUser.display_name : 'System Admin'">System Admin</p>
         <p class="text-[12px] text-[#667085] mt-0.5 font-mono truncate" x-text="currentUser ? currentUser.identity_key : 'Pengelola sistem'">Pengelola sistem</p>
       </div>
-      <button type="button" @click="logout()" title="Keluar dari akun" class="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0">
+      <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center">
         <span class="material-symbols-outlined text-[18px]">logout</span>
       </button>
     </div>

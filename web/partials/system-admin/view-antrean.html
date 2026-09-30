@@ -1,19 +1,28 @@
-<!-- partials/system-admin/view-antrean.html - System Admin: Antrean Pesan WhatsApp -->
+<!-- partials/system-admin/view-antrean.html - System Admin: Antrean Notifikasi -->
 <section x-show="view === 'antrean'" x-cloak>
   <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Antrean Pesan</h1>
+        <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Antrean Notifikasi</h1>
         <p class="text-[14px] text-[#667085] mt-1">Status pengiriman WhatsApp seluruh kelas. Publikasi web tidak menunggu antrean ini.</p>
       </div>
-      <select x-model="notifFilter" @change="loadAntrean()" aria-label="Filter status pesan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white self-start">
-        <option value="">Semua status</option>
-        <option value="PENDING">Menunggu</option>
-        <option value="PROCESSING">Diproses</option>
-        <option value="SENT">Terkirim</option>
-        <option value="FAILED">Gagal</option>
-      </select>
+      <div class="flex flex-col sm:flex-row gap-2 self-start">
+        <select x-model="notifFilter" @change="loadAntrean()" aria-label="Filter status pesan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua status</option>
+          <option value="PENDING">Menunggu</option>
+          <option value="PROCESSING">Diproses</option>
+          <option value="SENT">Terkirim</option>
+          <option value="FAILED">Gagal</option>
+        </select>
+        <select x-model="notifKelas" aria-label="Filter kelas (lokal)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+          <option value="">Semua kelas</option>
+          <template x-for="opt in notifKelasOptions()" :key="opt.id">
+            <option :value="opt.id" x-text="opt.label">-</option>
+          </template>
+        </select>
+      </div>
     </div>
+    <p class="text-[11px] text-slate-400 mt-2">Filter kelas bersifat lokal (server hanya filter status). Detail penerima/isi penuh menyusul.</p>
 
     <div x-show="notifLoading" class="p-12 text-center text-[#667085]">
       <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
@@ -23,21 +32,21 @@
       <span x-text="notifError">-</span>
       <button type="button" @click="loadAntrean()" class="ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!notifLoading && !notifError && notifList.length === 0" class="p-12 text-center text-[#667085] mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+    <div x-show="!notifLoading && !notifError && filteredNotif().length === 0" class="p-12 text-center text-[#667085] mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
       <span class="material-symbols-outlined text-[36px] text-slate-300">mark_chat_read</span>
-      <p class="mt-2 text-[15px] font-semibold text-[#1D1B3A]">Antrean kosong</p>
-      <p class="text-[13px] text-[#667085] mt-0.5">Tidak ada pesan dengan status yang dipilih.</p>
+      <p class="mt-2 text-[15px] font-semibold text-[#1F1F1F]">Antrean kosong</p>
+      <p class="text-[13px] text-[#667085] mt-0.5">Tidak ada pesan dengan filter yang dipilih.</p>
     </div>
 
-    <div x-show="!notifLoading && notifList.length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
-      <template x-for="n in notifList" :key="n.id">
+    <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+      <template x-for="n in filteredNotif()" :key="n.id">
         <div class="py-4 flex flex-col md:flex-row md:items-center gap-2">
           <div class="flex-1 min-w-0">
-            <p class="text-[14px] font-semibold text-[#1D1B3A]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span></p>
+            <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal" x-text="'· Kelas #' + n.class_id">-</span></p>
             <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
           </div>
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-            :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E8F5E9] text-[#32704A]' : (String(n.status).toUpperCase() === 'FAILED' ? 'bg-[#FBE9E7] text-[#A53A32]' : 'bg-[#FFF1CF] text-[#946200]')">
+            :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E1FFB7] text-green-800' : (String(n.status).toUpperCase() === 'FAILED' ? 'bg-[#FF6C48] text-white' : 'bg-amber-50 text-amber-900')">
             <span class="material-symbols-outlined text-[14px]" x-text="String(n.status).toUpperCase() === 'SENT' ? 'check_circle' : (String(n.status).toUpperCase() === 'FAILED' ? 'error' : 'pending')">-</span>
             <span x-text="statusNotifLabel(n.status)">-</span>
           </span>
