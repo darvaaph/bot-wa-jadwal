@@ -1,6 +1,13 @@
 <!-- partials/pj/view-dashboard.html — PJ Dashboard -->
 <section x-show="view === 'dashboard'" x-cloak>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+  <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
+    <div class="min-w-0">
+      <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
+      <p class="text-[14px] font-semibold truncate"><span x-text="selectedClass || '—'">-</span> · PJ Mata Kuliah · <span x-text="offeringName() || pjMatkul || '—'">-</span></p>
+    </div>
+    <button type="button" @click="go('akun')" class="sm:ml-auto h-11 px-4 rounded-xl border border-[#EEEEEE] bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
+  </div>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
       <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
       <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
@@ -13,11 +20,11 @@
   <div class="p-4 rounded-2xl border border-[#3965FB]/40 bg-[#E9EAFF]/50 mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
     <p class="text-[13px] font-semibold shrink-0">Mata kuliah yang ditugaskan</p>
     <select x-model="offeringId" @change="simpanOffering()" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-      <option value="">-- Pilih offering --</option>
+      <option value="">-- Pilih mata kuliah --</option>
       <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
     </select>
   </div>
-  <p x-show="offeringLoading" class="mt-2 text-[12px] text-slate-500">Memuat daftar offering...</p>
+  <p x-show="offeringLoading" class="mt-2 text-[12px] text-slate-500">Memuat daftar mata kuliah...</p>
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">

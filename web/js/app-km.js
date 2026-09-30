@@ -54,11 +54,16 @@ function kmApp() {
     semesterId: '',
 
     tugasSub: 'list',
-    tugasChip: 'Semua',
+    tugasTab: 'aktif',
+    tugasDari: '', tugasSampai: '',
+    tugasLoading: false, tugasListError: '',
     tugasMatkul: 'Semua',
     tugasSort: 'dekat',
-    tugasForm: { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' },
+    tugasForm: { offeringId: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' },
     tugasError: '',
+    tugasDetail: null, tugasReviews: [], tugasDetailLoading: false, tugasDetailTab: 'detail',
+    tugasPreview: null, tugasPublishMsg: '',
+    editTugasId: '', editTugasVersion: 0, tugasConflict: null,
     patternsList: [],
 
     anggotaSub: 'list',
@@ -84,12 +89,111 @@ function kmApp() {
 
     get withUrgency() {
       const rank = { mendesak: 0, mendekati: 1, aman: 2 };
-      return [...this.tasks].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));
+      return [...this.tugasAktif].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));
+    },
+
+    get tugasAktif() {
+      return (this.tasks || []).filter(t =>
+        String(t.publication_status || '').toUpperCase() === 'PUBLISHED' && !t.completed_at && !t.archived_at);
+    },
+
+    get antrean() {
+      return (this.tasks || [])
+        .filter(t => String(t.publication_status || '').toUpperCase() === 'PUBLISHED'
+          && String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED' && !t.archived_at)
+        .slice().sort((a, b) => String(a.deadline_at || '').localeCompare(String(b.deadline_at || '')));
+    },
+
+    get tugasTabCounts() {
+      const c = { aktif: 0, draf: 0, review: 0, selesai: 0, terlewat: 0, arsip: 0 };
+      (this.tasks || []).forEach(t => {
+        if (t.archived_at) { c.arsip++; return; }
+        if (t.completed_at) { c.selesai++; return; }
+        if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { c.draf++; return; }
+        if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') c.review++;
+        if (this.lewatDeadline(t)) { c.terlewat++; return; }
+        c.aktif++;
+      });
+      return c;
+    },
+
+    get tugasTabList() {
+      const dari = this.tugasDari ? new Date(this.tugasDari + 'T00:00:00+07:00') : null;
+      const sampai = this.tugasSampai ? new Date(this.tugasSampai + 'T23:59:59+07:00') : null;
+      return (this.tasks || []).filter(t => {
+        if (this.tugasMatkul !== 'Semua' && t.matkul !== this.tugasMatkul) return false;
+        if (t.archived_at) { if (this.tugasTab !== 'arsip') return false; }
+        else if (t.completed_at) { if (this.tugasTab !== 'selesai') return false; }
+        else if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { if (this.tugasTab !== 'draf') return false; }
+        else if (this.tugasTab === 'review') {
+          if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() !== 'NOT_REVIEWED') return false;
+        }
+        else if (this.lewatDeadline(t)) { if (this.tugasTab !== 'terlewat') return false; }
+        else if (this.tugasTab !== 'aktif') return false;
+        if (dari || sampai) {
+          const d = t.deadline_at ? new Date(t.deadline_at) : null;
+          if (!d) return false;
+          if (dari && d < dari) return false;
+          if (sampai && d > sampai) return false;
+        }
+        return true;
+      }).slice().sort((a, b) => this.tugasSort === 'dekat'
+        ? String(a.deadline_at || '').localeCompare(String(b.deadline_at || ''))
+        : String(b.deadline_at || '').localeCompare(String(a.deadline_at || '')));
+    },
+
+    get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
+    hapusTugasFilter() { this.tugasDari = ''; this.tugasSampai = ''; this.tugasMatkul = 'Semua'; },
+
+    pubLabel(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'DRAFT') return 'Draf';
+      if (s === 'PUBLISHED') return 'Terbit';
+      if (s === 'REVOKED') return 'Publikasi Dicabut';
+      return st || '-';
+    },
+
+    reviewLabel(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'NOT_REVIEWED') return 'Perlu diperiksa KM';
+      if (s === 'APPROVED') return 'Disetujui';
+      if (s === 'CHANGES_REQUESTED') return 'Perlu koreksi';
+      if (s === 'REVOKED') return 'Dibatalkan';
+      return st || '-';
+    },
+
+    fmtDeadlineID(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso || '-');
+        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
+      } catch (e) { return String(iso || '-'); }
+    },
+
+    lewatDeadline(t) {
+      try {
+        if (!t || !t.deadline_at || t.completed_at) return false;
+        return new Date(t.deadline_at) < new Date();
+      } catch (e) { return false; }
+    },
+
+    deadlineBadge(iso, completed) {
+      try {
+        if (completed) return { level: 'aman', badge: 'Selesai' };
+        const d = new Date(iso);
+        if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
+        const diffH = (d - new Date()) / 3600000;
+        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
+        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
+        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+        return { level: 'aman', badge: 'Aktif' };
+      } catch (e) {
+        return { level: 'aman', badge: 'Aktif' };
+      }
     },
 
     get urgent3() { return this.withUrgency.slice(0, 3); },
-    get nearCount() { return this.tasks.filter(t => t.urgency !== 'aman').length; },
-    get antrean() { return this.withUrgency.filter(t => (t.review_state || 'NOT_REVIEWED') === 'NOT_REVIEWED'); },
+    get nearCount() { return this.withUrgency.filter(t => t.urgency !== 'aman').length; },
 
     get matkulOpts() {
       const set = new Set(this.fullSchedule.map(s => s.matkul));
@@ -98,21 +202,6 @@ function kmApp() {
 
     get roomList() {
       return Array.from(new Set(this.fullSchedule.map(s => s.ruang).filter(Boolean)));
-    },
-
-    get tugasList() {
-      const q = this.q.toLowerCase();
-      let list = this.tasks.filter(t => {
-        const hit = (t.matkul + ' ' + t.deskripsi).toLowerCase().includes(q);
-        const mk = this.tugasMatkul === 'Semua' || t.matkul === this.tugasMatkul;
-        if (this.tugasChip === 'Terjadwal' || this.tugasChip === 'Selesai') return false;
-        return hit && mk;
-      });
-      const rank = { mendesak: 0, mendekati: 1, aman: 2 };
-      list.sort((a, b) => this.tugasSort === 'dekat'
-        ? (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2)
-        : (rank[b.urgency] ?? 2) - (rank[a.urgency] ?? 2));
-      return list;
     },
 
     get weekDays() {
@@ -595,7 +684,7 @@ function kmApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261004', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261006', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -628,6 +717,10 @@ function kmApp() {
     },
 
     go(v) {
+      if (v === 'tugas-tambah') {
+        this.mulaiTambahTugas();
+        return;
+      }
       this.view = v;
       this.drawer = false;
       if (v === 'tugas') this.tugasSub = 'list';
@@ -684,16 +777,26 @@ function kmApp() {
     },
 
     async loadTasks() {
+      this.tugasLoading = true; this.tugasListError = '';
       try {
-        const raw = await API.getTasks('');
+        const raw = await API.getAllTasks('');
         this.tasks = (raw || []).map(t => {
-          const u = this.urgencyOf(t.deadline_at || t.deadline);
-          return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi,
-                   deadline: t.deadline, title: t.title, version: t.version,
-                   review_state: t.review_status || 'NOT_REVIEWED',
+          const u = this.deadlineBadge(t.deadline_at, t.completed_at);
+          return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi, title: t.title,
+                   instructions: t.instructions, deadline: this.fmtDeadlineID(t.deadline_at),
+                   deadline_at: t.deadline_at, task_type: t.task_type,
+                   submission_text: t.submission_text, submission_url: t.submission_url,
+                   publication_status: t.publication_status, review_state: t.review_state,
+                   version: t.version, completed_at: t.completed_at, archived_at: t.archived_at,
+                   offering_id: t.offering_id,
                    urgency: u.level, countdown: u.badge };
         });
-      } catch (e) { this.tasks = []; }
+      } catch (e) {
+        this.tasks = [];
+        this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.tugasLoading = false;
+      }
     },
 
     async loadOfferings() {
@@ -767,68 +870,235 @@ function kmApp() {
       }
     },
 
-    // Tugas — tambah + hapus via API asli.
-    async terbitTugas() {
+    // Tugas — tambah + tinjau + terbit + ubah + selesai + arsip via API asli.
+    mulaiTambahTugas() {
+      this.tugasForm = { offeringId: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' };
+      this.tugasError = '';
+      this.editTugasId = ''; this.editTugasVersion = 0; this.tugasConflict = null;
+      this.tugasSub = 'tambah';
+      this.view = 'tugas';
+      window.scrollTo({ top: 0 });
+    },
+
+    validasiTugasTerbit() {
       const f = this.tugasForm;
       const offeringId = f.offeringId || '';
-      if (!offeringId) { this.tugasError = 'Mata kuliah di kelas ini wajib dipilih.'; return; }
-      if (!f.judul || f.judul.trim().length < 5) { this.tugasError = 'Judul tugas minimal 5 karakter.'; return; }
-      if (!f.tanggal || !f.jam) { this.tugasError = 'Tanggal dan jam deadline wajib diisi.'; return; }
-      if (!f.deskripsi || f.deskripsi.trim().length < 5) { this.tugasError = 'Deskripsi tugas minimal 5 karakter.'; return; }
-      const deadlineAt = this.parseDeadlineID(f.tanggal, f.jam);
-      if (!deadlineAt) { this.tugasError = 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.'; return; }
+      if (!offeringId) return 'Pilih mata kuliah di kelas ini dulu.';
+      if (!f.judul || f.judul.trim().length < 5) return 'Judul tugas minimal 5 karakter.';
+      if (!f.tanggal || !f.jam) return 'Tanggal dan jam deadline wajib diisi.';
+      if (!f.deskripsi || f.deskripsi.trim().length < 5) return 'Instruksi tugas minimal 5 karakter.';
+      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan atau tautan).';
+      if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.';
+      return '';
+    },
+
+    rakitTugasPayload(saveAs) {
+      const f = this.tugasForm;
+      const payload = {
+        offering_id: Number(f.offeringId),
+        title: f.judul.trim(),
+        instructions: f.deskripsi.trim(),
+        save_as: saveAs
+      };
+      const deadlineAt = (f.tanggal && f.jam) ? this.parseDeadlineID(f.tanggal, f.jam) : '';
+      if (deadlineAt) payload.deadline_at = deadlineAt;
+      if (f.jenis) payload.task_type = f.jenis;
+      if ((f.kumpul || '').trim()) payload.submission_text = f.kumpul.trim();
+      if ((f.kumpulUrl || '').trim()) payload.submission_url = f.kumpulUrl.trim();
+      return payload;
+    },
+
+    async terbitTugas() {
+      if (!this.tugasPreview) { this.tinjauTugas(); return; }
       this.tugasError = '';
       try {
-        await API.createTask({
-          offering_id: Number(offeringId),
-          title: f.judul.trim(),
-          instructions: f.deskripsi.trim(),
-          deadline_at: deadlineAt,
-          submission_text: (f.kumpul || '').trim() || undefined,
-          save_as: 'published'
-        });
+        const res = await API.createTask(this.rakitTugasPayload('published'));
+        const newId = res && res.data && res.data.id;
+        await this.loadTasks();
+        this.tugasPublishMsg = 'Tugas diterbitkan.';
+        this.tugasPreview = null;
+        this.tugasSub = 'list';
+        if (newId) {
+          await this.bukaDetailTugas(newId);
+        } else {
+          this.view = 'tugas';
+          this.showToast(this.tugasPublishMsg);
+        }
       } catch (err) {
         this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
-        return;
+        this.tugasSub = 'tinjau';
       }
-      await this.loadTasks();
-      this.tugasForm = { offeringId: '', matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' };
-      this.tugasSub = 'list';
-      this.showToast('Tugas diterbitkan.');
     },
 
     async simpanDraf() {
       const f = this.tugasForm || {};
-      if (!f.offeringId) { this.showToast('Pilih mata kuliah (offering) dulu.'); return; }
+      if (!f.offeringId) { this.showToast('Pilih mata kuliah di kelas ini dulu.'); return; }
       if (!f.judul || f.judul.trim().length < 5) { this.showToast('Judul tugas minimal 5 karakter.'); return; }
       try {
-        const payload = {
-          offering_id: Number(f.offeringId),
-          title: f.judul.trim(),
-          instructions: (f.deskripsi || '').trim(),
-          save_as: 'draft'
-        };
-        const deadlineAt = (f.tanggal && f.jam) ? this.parseDeadlineID(f.tanggal, f.jam) : '';
-        if (deadlineAt) payload.deadline_at = deadlineAt;
-        if ((f.kumpul || '').trim()) payload.submission_text = f.kumpul.trim();
-        await API.createTask(payload);
+        await API.createTask(this.rakitTugasPayload('draft'));
         await this.loadTasks();
+        this.tugasTab = 'draf';
         this.tugasSub = 'list';
         this.showToast('Draf tersimpan di server.');
+        this.view = 'tugas';
       } catch (err) {
         this.showToast(err.message || 'Gagal menyimpan draf di server.');
       }
     },
 
-    async hapusTugas(id) {
+    tinjauTugas() {
+      const err = this.validasiTugasTerbit();
+      if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
+      this.tugasError = '';
+      const f = this.tugasForm;
+      this.tugasPreview = {
+        matkul: this.offeringDisplay(f.offeringId),
+        judul: f.judul.trim(),
+        deadline_at: this.parseDeadlineID(f.tanggal, f.jam),
+        deskripsi: f.deskripsi.trim(),
+        jenis: f.jenis || '',
+        kumpul: (f.kumpul || '').trim(),
+        kumpulUrl: (f.kumpulUrl || '').trim()
+      };
+      this.tugasSub = 'tinjau';
+      window.scrollTo({ top: 0 });
+    },
+
+    async bukaDetailTugas(id) {
+      this.tugasDetailLoading = true;
+      this.tugasDetail = null; this.tugasReviews = [];
+      this.tugasDetailTab = 'detail'; this.tugasConflict = null;
+      this.tugasPublishMsg = this.tugasPublishMsg || '';
+      this.tugasSub = 'detail';
+      this.view = 'tugas';
+      window.scrollTo({ top: 0 });
       try {
-        const detail = await API.getTaskDetail(id).catch(() => null);
-        const version = detail && (detail.version || (detail.task && detail.task.version));
+        const d = await API.getTaskDetail(id);
+        const info = (d && (d.task || d)) || null;
+        if (!info) { this.showToast('Tugas tidak ditemukan.'); this.tugasSub = 'list'; return; }
+        const u = this.deadlineBadge(info.deadline_at, info.completed_at || info.is_completed);
+        this.tugasDetail = {
+          id: info.id, matkul: info.offering || info.matkul || '', title: info.title || '',
+          deskripsi: info.instructions || info.deskripsi || '', instructions: info.instructions || '',
+          deadline_at: info.deadline_at, deadline: this.fmtDeadlineID(info.deadline_at),
+          task_type: info.task_type || '', submission_text: info.submission_text || '',
+          submission_url: info.submission_url || '',
+          publication_status: info.publication_status || info.status || 'DRAFT',
+          review_state: info.review_state || info.review_status || 'NOT_REVIEWED',
+          version: info.version || 0,
+          completed_at: info.completed_at || null, archived_at: info.archived_at || null,
+          offering_id: info.offering_id || info.course_offering_id || '',
+          urgency: u.level, countdown: u.badge
+        };
+        const revs = (d && d.reviews) || [];
+        this.tugasReviews = revs.map(r => ({
+          reviewer: r.reviewer || 'KM', decision: r.decision || '',
+          note: r.note || '', version: r.task_version || r.version || '',
+          waktu: r.created_at || ''
+        }));
+      } catch (e) {
+        this.showToast('Gagal memuat detail tugas dari server.');
+        this.tugasSub = 'list';
+      } finally {
+        this.tugasDetailLoading = false;
+      }
+    },
+
+    mulaiUbahTugas() {
+      const d = this.tugasDetail;
+      if (!d) return;
+      const dl = d.deadline_at ? new Date(d.deadline_at) : null;
+      const pad = (n) => String(n).padStart(2, '0');
+      let tgl = '', jam = '';
+      if (dl && !isNaN(dl)) {
+        tgl = `${dl.getFullYear()}-${pad(dl.getMonth() + 1)}-${pad(dl.getDate())}`;
+        jam = `${pad(dl.getHours())}:${pad(dl.getMinutes())}`;
+      }
+      this.tugasForm = { offeringId: String(d.offering_id || ''), judul: d.title || '', tanggal: tgl, jam: jam,
+        deskripsi: d.instructions || d.deskripsi || '', kumpul: d.submission_text || '',
+        kumpulUrl: d.submission_url || '', jenis: d.task_type || 'Individu' };
+      this.tugasError = '';
+      this.editTugasId = d.id; this.editTugasVersion = d.version || 0;
+      this.tugasConflict = null;
+      this.tugasSub = 'ubah';
+      window.scrollTo({ top: 0 });
+    },
+
+    async simpanUbahTugas() {
+      if (!this.editTugasId) return;
+      const err = this.validasiTugasTerbit();
+      if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
+      this.tugasError = '';
+      try {
+        const payload = this.rakitTugasPayload(undefined);
+        delete payload.offering_id;
+        delete payload.save_as;
+        payload.version = Number(this.editTugasVersion) || 0;
+        await API.updateTask(this.editTugasId, payload);
+        await this.loadTasks();
+        this.showToast('Perubahan tersimpan sebagai versi baru.');
+        await this.bukaDetailTugas(this.editTugasId);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.tugasConflict = (e.payload && (e.payload.current_data || e.payload.data)) || null;
+        } else {
+          this.tugasError = e.message || 'Gagal menyimpan perubahan.';
+        }
+      }
+    },
+
+    async muatUlangVersiTugas() {
+      if (!this.editTugasId) return;
+      try {
+        const d = await API.getTaskDetail(this.editTugasId);
+        const info = (d && (d.task || d)) || null;
+        if (info) {
+          this.editTugasVersion = info.version || 0;
+          this.tugasConflict = null;
+          this.showToast('Versi terbaru dimuat. Periksa sebelum menyimpan ulang.');
+        }
+      } catch (e) {
+        this.showToast('Gagal memuat versi terbaru.');
+      }
+    },
+
+    async tandaiSelesai(id, version) {
+      try {
+        await API.completeTask(id, version);
+        await this.loadTasks();
+        this.showToast('Tugas ditandai selesai.');
+        if (this.tugasSub === 'detail') await this.bukaDetailTugas(id);
+      } catch (e) {
+        this.showToast(e.message || 'Gagal menandai selesai.');
+        await this.loadTasks();
+      }
+    },
+
+    async arsipkanTugas(id, version) {
+      try {
         await API.deleteTask(id, version);
         await this.loadTasks();
         this.showToast('Tugas diarsipkan.');
-      } catch (err) {
-        this.showToast(err.message || 'Gagal mengarsipkan tugas.');
+        if (this.tugasSub === 'detail') { this.tugasSub = 'list'; }
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengarsipkan tugas.');
+        await this.loadTasks();
+      }
+    },
+
+    hapusTugas(id) {
+      const t = (this.tasks || []).find(x => String(x.id) === String(id));
+      this.arsipkanTugas(id, t && t.version);
+    },
+
+    async pulihkanTugas(id, version) {
+      try {
+        await API.restoreTask(id, version);
+        await this.loadTasks();
+        this.showToast('Tugas dipulihkan dari arsip.');
+      } catch (e) {
+        this.showToast(e.message || 'Gagal memulihkan tugas.');
+        await this.loadTasks();
       }
     },
 
@@ -858,8 +1128,11 @@ function kmApp() {
       }
     },
 
-    // Review retrospektif KM — via POST /api/v1/tasks/{id}/reviews.
+    // Pemeriksaan KM — via POST /api/v1/tasks/{id}/reviews (terikat versi).
+    reviewConflict: null,
+
     async setujuiTugas(id) {
+      this.reviewConflict = null;
       try {
         const detail = await API.getTaskDetail(id).catch(() => null);
         const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
@@ -867,7 +1140,13 @@ function kmApp() {
         await this.loadTasks();
         this.showToast('Tugas disetujui.');
       } catch (err) {
-        this.showToast(err.message || 'Gagal menyimpan persetujuan.');
+        if (err.code === 'VERSION_CONFLICT') {
+          this.reviewConflict = { id: id };
+          this.showToast('Versi tugas berubah. Muat versi terbaru sebelum memutuskan.');
+          await this.loadTasks();
+        } else {
+          this.showToast(err.message || 'Gagal menyimpan persetujuan.');
+        }
       }
     },
     async kirimReview(id) {
@@ -875,6 +1154,7 @@ function kmApp() {
       if (!targetId) return;
       const decision = this.reviewMode === 'batal' ? 'REVOKED' : 'CHANGES_REQUESTED';
       if (!this.reviewNote.trim()) { this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return; }
+      this.reviewConflict = null;
       try {
         const detail = await API.getTaskDetail(targetId).catch(() => null);
         const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
@@ -882,9 +1162,46 @@ function kmApp() {
         this.reviewNote = '';
         this.reviewId = null;
         await this.loadTasks();
-        this.showToast('Keputusan review tersimpan di server.');
+        this.showToast('Keputusan pemeriksaan tersimpan di server.');
       } catch (err) {
-        this.showToast(err.message || 'Gagal menyimpan keputusan review.');
+        if (err.code === 'VERSION_CONFLICT') {
+          this.reviewConflict = { id: targetId };
+          this.showToast('Versi tugas berubah. Muat versi terbaru sebelum memutuskan.');
+          await this.loadTasks();
+        } else {
+          this.showToast(err.message || 'Gagal menyimpan keputusan pemeriksaan.');
+        }
+      }
+    },
+
+    async muatUlangAntrean() {
+      this.reviewConflict = null;
+      this.reviewId = null;
+      await this.loadTasks();
+      this.showToast('Versi terbaru dimuat.');
+    },
+
+    // Keputusan dari layar detail (menyebut versi yang ditinjau).
+    async putuskanDetail(decision) {
+      const d = this.tugasDetail;
+      if (!d) return;
+      if ((decision === 'CHANGES_REQUESTED' || decision === 'REVOKED') && !(this.reviewNote || '').trim()) {
+        this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return;
+      }
+      try {
+        await API.reviewTask(d.id, { decision: decision, note: (this.reviewNote || '').trim() || undefined, task_version: d.version || 0 });
+        this.reviewNote = '';
+        await this.loadTasks();
+        this.showToast(decision === 'APPROVED' ? 'Tugas disetujui untuk versi ini.' : 'Keputusan pemeriksaan tersimpan di server.');
+        await this.bukaDetailTugas(d.id);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.tugasConflict = { id: d.id };
+          this.showToast('Versi tugas berubah. Muat versi terbaru sebelum memutuskan.');
+          await this.loadTasks();
+        } else {
+          this.showToast(e.message || 'Gagal menyimpan keputusan.');
+        }
       }
     },
 

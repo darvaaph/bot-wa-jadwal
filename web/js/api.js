@@ -60,6 +60,37 @@ const BotApi = {
     return null;
   },
 
+  mapTaskItem(item) {
+    return {
+      id: item.id,
+      course_offering_id: item.offering_id,
+      offering_id: item.offering_id,
+      course_code: item.offering || 'TUGAS',
+      course_name: item.offering || 'Mata Kuliah',
+      matkul: item.offering || 'Mata Kuliah',
+      title: item.title,
+      deskripsi: item.instructions || item.title,
+      instructions: item.instructions,
+      deadline: item.deadline_at,
+      deadline_at: item.deadline_at,
+      task_type: item.task_type || '',
+      submission_text: item.submission_text || '',
+      submission_url: item.submission_url || '',
+      submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
+      status: item.publication_status || 'DRAFT',
+      publication_status: item.publication_status || 'DRAFT',
+      review_status: item.review_state || 'NOT_REVIEWED',
+      review_state: item.review_state || 'NOT_REVIEWED',
+      version: item.version || 0,
+      completed_at: item.completed_at || null,
+      archived_at: item.archived_at || null,
+      is_done: !!item.completed_at,
+      is_completed: !!item.completed_at,
+      is_archived: !!item.archived_at,
+      creator_name: 'PJ Mata Kuliah'
+    };
+  },
+
   async getTasks(offeringId, tab) {
     const params = new URLSearchParams();
     if (offeringId && /^\d+$/.test(String(offeringId))) params.set('offering_id', String(offeringId));
@@ -73,25 +104,7 @@ const BotApi = {
       if (res.ok) {
         const json = await res.json();
         if (json.data && json.data.length > 0) {
-          return json.data.map(item => ({
-            id: item.id,
-            course_offering_id: item.offering_id,
-            course_code: item.offering || 'TUGAS',
-            course_name: item.offering || 'Mata Kuliah',
-            matkul: item.offering || 'Mata Kuliah',
-            title: item.title,
-            deskripsi: item.instructions || item.title,
-            instructions: item.instructions,
-            deadline: item.deadline_at,
-            deadline_at: item.deadline_at,
-            submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
-            status: item.publication_status || 'DRAFT',
-            review_status: item.review_state || 'NOT_REVIEWED',
-            version: item.version,
-            is_done: !!item.completed_at,
-            is_completed: !!item.completed_at,
-            creator_name: 'PJ Mata Kuliah'
-          }));
+          return json.data.map(item => this.mapTaskItem(item));
         }
       }
     } catch (e) {}
@@ -147,12 +160,33 @@ const BotApi = {
       err.code = 'UNAUTHORIZED';
       throw err;
     }
+    if (res.status === 409) {
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || 'Versi tugas telah berubah. Muat ulang untuk melihat revisi terbaru.');
+      err.code = 'VERSION_CONFLICT';
+      err.payload = json && json.data ? json.data : json;
+      throw err;
+    }
     if (!res.ok) {
-      const err = new Error('Gagal menyimpan hasil pemeriksaan di server.');
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyimpan hasil pemeriksaan di server.');
       err.code = 'SAVE_FAILED';
       throw err;
     }
-    return true;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || true;
+  },
+
+  // Mengambil seluruh tab server paralel lalu menggabung (dedupe per id).
+  // Backend tidak punya tab "semua", jadi gabungkan: aktif, draf, review, selesai, terlewat, arsip.
+  async getAllTasks(offeringId) {
+    const tabs = ['aktif', 'draf', 'review', 'selesai', 'terlewat', 'arsip'];
+    const results = await Promise.all(tabs.map(t => this.getTasks(offeringId, t).catch(() => [])));
+    const seen = new Map();
+    results.flat().forEach(t => {
+      if (t && t.id != null && !seen.has(String(t.id))) seen.set(String(t.id), t);
+    });
+    return Array.from(seen.values());
   },
 
   async completeTask(taskId, version) {
@@ -171,6 +205,9 @@ const BotApi = {
       const err = new Error('Sesi berakhir atau belum masuk.');
       err.code = 'UNAUTHORIZED';
       throw err;
+    }
+    if (res.status === 409) {
+      throw this.versionConflictErr('Versi tugas telah berubah. Muat ulang sebelum menandai selesai.');
     }
     if (!res.ok) {
       const err = new Error('Gagal menandai selesai di server.');
@@ -239,6 +276,12 @@ const BotApi = {
     return json.data;
   },
 
+  versionConflictErr(fallbackMsg) {
+    const err = new Error(fallbackMsg);
+    err.code = 'VERSION_CONFLICT';
+    return err;
+  },
+
   async archiveTask(taskId, unarchive, version) {
     // Backend: POST .../archive dan POST .../restore (tidak ada /unarchive).
     const endpoint = unarchive ? '/restore' : '/archive';
@@ -253,6 +296,9 @@ const BotApi = {
       headers: mutationHeaders(),
       body: JSON.stringify({ version: v || 0 })
     });
+    if (res.status === 409) {
+      throw this.versionConflictErr('Versi tugas telah berubah. Muat ulang sebelum mengubah status.');
+    }
     if (!res.ok) {
       const err = new Error('Gagal mengubah status arsip.');
       err.code = 'SAVE_FAILED';
@@ -279,6 +325,9 @@ const BotApi = {
       headers: mutationHeaders(),
       body: JSON.stringify({ version: v || 0 })
     });
+    if (res.status === 409) {
+      throw this.versionConflictErr('Versi tugas telah berubah. Muat ulang sebelum memulihkan.');
+    }
     if (!res.ok) {
       const err = new Error('Gagal memulihkan tugas.');
       err.code = 'SAVE_FAILED';

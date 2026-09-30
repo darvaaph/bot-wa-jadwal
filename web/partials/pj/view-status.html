@@ -5,16 +5,19 @@
   <div x-show="tugasSaya.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada tugas untuk diperiksa.</div>
   <div class="mt-4 space-y-3">
     <template x-for="t in tugasSaya" :key="t.id">
-      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col md:flex-row md:items-center gap-3">
+      <button type="button" @click="bukaDetailTugas(t.id)" class="w-full p-4 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col md:flex-row md:items-center gap-3 text-left">
         <div class="flex-1 min-w-0">
-          <p class="text-[15px] font-medium line-clamp-1" x-text="t.deskripsi">-</p>
+          <p class="text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</p>
           <p class="text-[12px] text-slate-500" x-text="'Tenggat ' + t.deadline">-</p>
         </div>
-        <span class="px-3 py-1.5 rounded-lg bg-[#FCD484] text-[12px] font-semibold shrink-0">Menunggu pemeriksaan</span>
-      </div>
+        <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold shrink-0"
+          :class="String(t.review_state).toUpperCase() === 'APPROVED' ? 'bg-[#E1FFB7] text-green-800' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'bg-[#FCD484] text-amber-900' : 'bg-slate-100 text-slate-600')">
+          <span class="material-symbols-outlined text-[16px]" x-text="String(t.review_state).toUpperCase() === 'APPROVED' ? 'check_circle' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'warning' : 'pending')">-</span>
+          <span x-text="reviewLabel(t.review_state) + ' · versi ' + t.version">-</span>
+        </span>
+      </button>
     </template>
   </div>
-  <p class="text-[11px] text-slate-400 mt-3">Status detail (Disetujui / Perlu koreksi) butuh endpoint review backend.</p>
 </section>
 
 <!-- partials/pj/view-materi.html — PJ Materi -->
