@@ -61,12 +61,12 @@
         :style="['audit','pembaruan'].includes(view) ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
       <span class="sidebar-label">Audit Global</span>
     </button>
-    <button type="button" @click="go('status-bot')" :title="sidebarCollapsed ? 'Status Sistem dan WhatsApp' : ''"
+    <button type="button" @click="go('status-bot')" :title="sidebarCollapsed ? 'Status Sistem' : ''"
       :class="view === 'status-bot' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
       <img src="/assets/icons/bot.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
         :style="view === 'status-bot' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
-      <span class="sidebar-label">Status Sistem dan WhatsApp</span>
+      <span class="sidebar-label">Status Sistem</span>
     </button>
 
     <!-- Section DATA & SISTEM -->

@@ -20,7 +20,7 @@ function systemAdminApp() {
       { id: 'dukungan', label: 'Mode Dukungan', img: '/assets/icons/settings.svg' },
       { id: 'antrean', label: 'Antrean Notifikasi', img: '/assets/icons/message-queue.svg' },
       { id: 'audit', label: 'Audit Global', img: '/assets/icons/activity.svg' },
-      { id: 'status-bot', label: 'Status Sistem dan WhatsApp', img: '/assets/icons/bot.svg' },
+      { id: 'status-bot', label: 'Status Sistem', img: '/assets/icons/bot.svg' },
       { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
       { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
       { id: 'backup', label: 'Backup dan Pemulihan', img: '/assets/icons/backup.svg' }
@@ -159,6 +159,7 @@ function systemAdminApp() {
 
     auditList: [],
     auditLoading: false,
+    auditLoadingMore: false,
     auditError: '',
     auditKelas: '',
     auditAction: '',
@@ -167,6 +168,13 @@ function systemAdminApp() {
     auditActor: '',
     auditSince: '',
     auditUntil: '',
+    auditFilterOpen: (typeof window !== 'undefined' ? window.innerWidth >= 768 : true),
+    auditAdvancedOpen: false,
+    auditLimit: 50,
+    auditOffset: 0,
+    auditHasMore: false,
+    auditActionOptions: ['SUSPEND_USER', 'RECOVER_USER', 'ROTATE_PORTAL_CODE', 'SUPPORT_ENTER', 'SUPPORT_EXIT', 'INVITE_ROLE', 'ASSIGN_ROLE', 'SUSPEND_ROLE', 'REVOKE_ROLE', 'UPDATE_CLASS_STATUS', 'CREATE_BACKUP', 'VERIFY_RESTORE', 'LOGIN', 'LOGOUT'],
+    auditEntityOptions: ['USER', 'ROLE_ASSIGNMENT', 'ROLE_INVITATION', 'CLASS', 'CLASS_SETTINGS', 'BACKUP', 'PORTAL_SESSION', 'TASK', 'TEACHING_EVENT', 'MATERIAL'],
 
     toast: { show: false, message: '', timer: null },
 
@@ -971,27 +979,151 @@ function systemAdminApp() {
       this.auditActor = '';
       this.auditSince = '';
       this.auditUntil = '';
+      this.auditOffset = 0;
+      this.auditHasMore = false;
+    },
+
+    auditFilterCount() {
+      let n = 0;
+      if ((this.auditKelas || '').trim()) n++;
+      if ((this.auditAction || '').trim()) n++;
+      if ((this.auditEntity || '').trim()) n++;
+      if ((this.auditEntityId || '').trim()) n++;
+      if ((this.auditActor || '').trim()) n++;
+      if ((this.auditSince || '').trim()) n++;
+      if ((this.auditUntil || '').trim()) n++;
+      return n;
+    },
+
+    auditChips() {
+      const out = [];
+      if ((this.auditKelas || '').trim()) out.push({ key: 'auditKelas', label: 'Kelas', value: this.auditKelas.trim() });
+      if ((this.auditAction || '').trim()) out.push({ key: 'auditAction', label: 'Aksi', value: this.auditAction.trim() });
+      if ((this.auditEntity || '').trim()) out.push({ key: 'auditEntity', label: 'Entitas', value: this.auditEntity.trim() });
+      if ((this.auditEntityId || '').trim()) out.push({ key: 'auditEntityId', label: 'ID', value: this.auditEntityId.trim() });
+      if ((this.auditActor || '').trim()) out.push({ key: 'auditActor', label: 'Pelaku', value: this.auditActor.trim() });
+      if ((this.auditSince || '').trim()) out.push({ key: 'auditSince', label: 'Sejak', value: this.auditSince.trim() });
+      if ((this.auditUntil || '').trim()) out.push({ key: 'auditUntil', label: 'Sampai', value: this.auditUntil.trim() });
+      return out;
+    },
+
+    removeAuditChip(key) {
+      if (key && key in this) this[key] = '';
+      this.loadAudit();
+    },
+
+    auditAdvancedCount() {
+      let n = 0;
+      if ((this.auditEntityId || '').trim()) n++;
+      if ((this.auditActor || '').trim()) n++;
+      if ((this.auditSince || '').trim()) n++;
+      if ((this.auditUntil || '').trim()) n++;
+      return n;
+    },
+
+    setAuditPreset(name) {
+      this.resetAuditFilter();
+      if (name === 'dukungan') {
+        this.auditAction = 'SUPPORT_ENTER';
+      } else if (name === 'kritis') {
+        this.auditAction = 'ROTATE_PORTAL_CODE';
+      } else if (name === 'hari-ini') {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        const pad = (v) => String(v).padStart(2, '0');
+        this.auditSince = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T00:00';
+      }
+      this.loadAudit();
+    },
+
+    auditSeverity(action) {
+      const a = String(action || '').toUpperCase();
+      if (['SUSPEND_USER', 'SUSPEND_ROLE', 'REVOKE_ROLE', 'ROTATE_PORTAL_CODE', 'REVOKE_TEACHING_EVENT', 'REVOKE', 'DELETE'].includes(a)) return 'Kritis';
+      if (['SUPPORT_ENTER', 'SUPPORT_EXIT'].includes(a)) return 'Dukungan';
+      return 'Biasa';
+    },
+
+    auditSeverityClass(action) {
+      const s = this.auditSeverity(action);
+      if (s === 'Kritis') return 'bg-red-50 border-red-200 text-red-700';
+      if (s === 'Dukungan') return 'bg-amber-50 border-amber-300 text-amber-800';
+      return 'bg-slate-100 border-slate-200 text-slate-600';
+    },
+
+    auditActorLabel(a) {
+      if (!a) return 'Sistem';
+      return (a.actor_name || 'Sistem') + (a.actor_role ? ' · ' + a.actor_role : '');
+    },
+
+    auditEntityLabel(a) {
+      if (!a) return '-';
+      let s = a.entity_type || '-';
+      if (a.entity_id) s += ' #' + a.entity_id;
+      return s;
+    },
+
+    parseAuditJSON(v) {
+      if (v == null || v === '') return null;
+      if (typeof v === 'object') return v;
+      try {
+        const p = JSON.parse(v);
+        return (p && typeof p === 'object') ? p : { value: p };
+      } catch (e) {
+        return { value: String(v) };
+      }
+    },
+
+    auditChanges(a) {
+      const b = this.parseAuditJSON(a ? a.before_json : null) || {};
+      const af = this.parseAuditJSON(a ? a.after_json : null) || {};
+      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 20);
+      return keys.map(k => {
+        const bv = b[k] === undefined ? '-' : JSON.stringify(b[k]);
+        const av = af[k] === undefined ? '-' : JSON.stringify(af[k]);
+        return { key: k, before: String(bv).slice(0, 160), after: String(av).slice(0, 160), changed: bv !== av };
+      });
+    },
+
+    auditParams(offset) {
+      const params = { limit: this.auditLimit, offset: offset || 0 };
+      if ((this.auditKelas || '').trim()) params.class_slug = this.auditKelas.trim();
+      if ((this.auditAction || '').trim()) params.action = this.auditAction.trim();
+      if ((this.auditEntity || '').trim()) params.entity_type = this.auditEntity.trim();
+      if ((this.auditEntityId || '').trim()) params.entity_id = this.auditEntityId.trim();
+      if ((this.auditActor || '').trim()) params.actor = this.auditActor.trim();
+      const since = this.auditDateTimeParam(this.auditSince);
+      const until = this.auditDateTimeParam(this.auditUntil);
+      if (since) params.since = since;
+      if (until) params.until = until;
+      return params;
     },
 
     async loadAudit() {
       this.auditLoading = true; this.auditError = '';
+      this.auditOffset = 0; this.auditHasMore = false;
       try {
-        const params = { limit: 50 };
-        if ((this.auditKelas || '').trim()) params.class_slug = this.auditKelas.trim();
-        if ((this.auditAction || '').trim()) params.action = this.auditAction.trim();
-        if ((this.auditEntity || '').trim()) params.entity_type = this.auditEntity.trim();
-        if ((this.auditEntityId || '').trim()) params.entity_id = this.auditEntityId.trim();
-        if ((this.auditActor || '').trim()) params.actor = this.auditActor.trim();
-        const since = this.auditDateTimeParam(this.auditSince);
-        const until = this.auditDateTimeParam(this.auditUntil);
-        if (since) params.since = since;
-        if (until) params.until = until;
-        this.auditList = await API.getAudit(params).catch(() => null) || [];
+        const rows = await API.getAudit(this.auditParams(0)).catch(() => null) || [];
+        this.auditList = rows;
+        this.auditHasMore = rows.length >= this.auditLimit;
       } catch (e) {
         this.auditList = [];
         this.auditError = 'Riwayat Perubahan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.auditLoading = false;
+      }
+    },
+
+    async loadAuditMore() {
+      if (this.auditLoadingMore || !this.auditHasMore) return;
+      this.auditLoadingMore = true;
+      try {
+        const offset = (this.auditList || []).length;
+        const rows = await API.getAudit(this.auditParams(offset)).catch(() => null) || [];
+        this.auditList = [...(this.auditList || []), ...rows];
+        this.auditOffset = offset;
+        this.auditHasMore = rows.length >= this.auditLimit;
+      } finally {
+        this.auditLoadingMore = false;
       }
     },
 
