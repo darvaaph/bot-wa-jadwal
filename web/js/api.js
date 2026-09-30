@@ -44,6 +44,7 @@ const BotApi = {
       if (res.ok) {
         const json = await res.json();
         if (json.data) return json.data;
+        if (json.classes) return json;
       }
     } catch (e) {}
     try {

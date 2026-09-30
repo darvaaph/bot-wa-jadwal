@@ -121,6 +121,25 @@ function kmApp() {
     },
 
     async initKM() {
+      const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
+      if (!token) {
+        window.location.replace('/login.html?role=km');
+        return;
+      }
+      try {
+        const me = await API.getMe();
+        if (!me || !me.user) {
+          localStorage.removeItem('access_token');
+          window.location.replace('/login.html?role=km');
+          return;
+        }
+        this.currentUser = me.user;
+      } catch (e) {
+        localStorage.removeItem('access_token');
+        window.location.replace('/login.html?role=km');
+        return;
+      }
+
       await this.loadPartials([
         ['km-sidebar', '/partials/km/sidebar.html'],
         ['km-topbar', '/partials/km/topbar.html'],
@@ -423,6 +442,18 @@ function kmApp() {
       } else {
         this.showToast('Clipboard tidak tersedia di browser ini.');
       }
+    },
+
+    async logout() {
+      try {
+        await API.logout();
+      } catch (e) {}
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
+      this.showToast('Berhasil keluar. Mengarahkan ke login...');
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 500);
     },
 
     showToast(msg) {

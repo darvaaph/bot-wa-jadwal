@@ -25,6 +25,15 @@ function portalApp() {
     todayName: 'Senin',
     todayFull: '',
     selectedClass: '',
+    selectedProdi: 'D4',
+    selectedSemester: '3',
+    selectedAbjad: 'A',
+    classList: [],
+    comboboxOpen: false,
+    classQuery: '',
+    classFilterProdi: 'ALL',
+    gateStep: 'select',
+    checkingAccess: false,
     fullSchedule: [],
     tasks: [],
     detailTugas: {},
@@ -62,6 +71,7 @@ function portalApp() {
     },
 
     async initPortal() {
+      await this.loadClasses();
       await this.loadPartials([
         ['portal-gate', '/partials/portal/gate.html'],
         ['portal-sidebar', '/partials/portal/sidebar.html'],
@@ -78,7 +88,6 @@ function portalApp() {
       const wd = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const today = wd[new Date().getDay()];
       this.hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'].includes(today) ? today : 'Senin';
-      await this.loadClasses();
       await this.loadSchedule();
       await this.loadTasks();
     },
@@ -86,7 +95,7 @@ function portalApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20260927d', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20260930_segmented_v2', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -122,6 +131,68 @@ function portalApp() {
 
     loadingPin: false,
 
+    async masukKelas() {
+      if (!this.selectedClass) {
+        this.showToast('Pilih kelas terlebih dahulu.');
+        return;
+      }
+      this.checkingAccess = true;
+      this.pinError = '';
+
+      try {
+        const slug = this.selectedClassSlug;
+        const savedToken = localStorage.getItem('portal_token');
+        const savedClass = localStorage.getItem('portal_class');
+        const tokenToSend = (savedClass === slug && savedToken) ? savedToken : '';
+
+        // Cek apakah kelas ini membutuhkan kode akses v1
+        const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/summary', {
+          credentials: 'same-origin',
+          headers: tokenToSend ? { 'X-Portal-Token': tokenToSend } : {}
+        });
+
+        if (res.ok) {
+          // Akses langsung diizinkan (mode LINK atau sesi token valid)
+          localStorage.setItem('portal_pin_ok', '1');
+          localStorage.setItem('portal_class', slug);
+          this.unlocked = true;
+          this.gateStep = 'select';
+          this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
+          await Promise.all([this.loadSchedule(), this.loadTasks()]);
+          return;
+        }
+
+        if (res.status === 401) {
+          // Kelas ini memerlukan PIN (mode CODE)
+          this.gateStep = 'pin';
+          this.pin = '';
+          return;
+        }
+
+        // Jika status 404 (kelas berbasis data jadwal reguler), langsung masuk ke portal
+        localStorage.setItem('portal_pin_ok', '1');
+        localStorage.setItem('portal_class', slug);
+        this.unlocked = true;
+        this.gateStep = 'select';
+        await Promise.all([this.loadSchedule(), this.loadTasks()]);
+      } catch (err) {
+        // Fallback jika offline/error
+        localStorage.setItem('portal_pin_ok', '1');
+        localStorage.setItem('portal_class', this.selectedClassSlug);
+        this.unlocked = true;
+        this.gateStep = 'select';
+        await Promise.all([this.loadSchedule(), this.loadTasks()]);
+      } finally {
+        this.checkingAccess = false;
+      }
+    },
+
+    kembaliKePilihKelas() {
+      this.gateStep = 'select';
+      this.pin = '';
+      this.pinError = '';
+    },
+
     async bukaPortal() {
       const code = this.pin.trim();
       if (!/^\d{6}$/.test(code)) {
@@ -139,8 +210,10 @@ function portalApp() {
           localStorage.setItem('portal_token', res.portal_token);
         }
         localStorage.setItem('portal_pin_ok', '1');
+        localStorage.setItem('portal_class', slug);
         localStorage.setItem('portal_pin_at', String(Date.now()));
         this.unlocked = true;
+        this.gateStep = 'select';
         this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
 
         await Promise.all([this.loadSchedule(), this.loadTasks()]);
@@ -155,9 +228,182 @@ function portalApp() {
     kunciPortal() {
       localStorage.removeItem('portal_pin_ok');
       localStorage.removeItem('portal_token');
+      localStorage.removeItem('portal_class');
       this.unlocked = false;
+      this.gateStep = 'select';
       this.pin = '';
+      this.pinError = '';
       this.view = 'dashboard';
+    },
+
+    pilihKelas(kelas) {
+      if (!kelas || kelas === this.selectedClass) return;
+      this.selectedClass = kelas;
+      this.syncSegmentsFromClass();
+      this.gateStep = 'select';
+      this.pin = '';
+      this.pinError = '';
+
+      if (this.unlocked) {
+        const savedClass = localStorage.getItem('portal_class');
+        this.unlocked = (savedClass === this.selectedClassSlug && localStorage.getItem('portal_pin_ok') === '1');
+        if (this.unlocked) {
+          this.loadSchedule();
+          this.loadTasks();
+        }
+      }
+
+      try {
+        const newUrl = '/c/' + this.selectedClassSlug;
+        if (window.location.pathname !== newUrl) {
+          window.history.replaceState({}, '', newUrl);
+        }
+      } catch (e) {}
+    },
+
+    parseClass(code) {
+      if (!code) return { prodi: 'D4', smt: '3', abjad: 'A' };
+      const m = String(code).match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      if (m) {
+        return { prodi: m[1].toUpperCase(), smt: m[2], abjad: m[3].toUpperCase() };
+      }
+      return { prodi: 'D4', smt: '3', abjad: 'A' };
+    },
+
+    get selectedClassMeta() {
+      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'Belum dipilih' };
+      const p = this.parseClass(this.selectedClass);
+      const prodiName = p.prodi === 'D4' ? 'D4 Teknik Informatika' : (p.prodi === 'D3' ? 'D3 Teknik Informatika' : p.prodi);
+      return {
+        ...p,
+        prodiName,
+        label: `${prodiName} · Semester ${p.smt} · Kelas ${p.abjad}`
+      };
+    },
+
+    toggleCombobox() {
+      this.comboboxOpen = !this.comboboxOpen;
+      if (this.comboboxOpen) {
+        setTimeout(() => {
+          const inp = document.getElementById('search-class-input');
+          if (inp) inp.focus();
+        }, 50);
+      }
+    },
+
+    get flatClassGroups() {
+      const q = this.classQuery.trim().toLowerCase();
+      const groups = [
+        {
+          title: 'D4 Teknik Informatika',
+          prodi: 'D4',
+          badge: 'Sarjana Terapan',
+          items: this.classList.filter(c => this.parseClass(c).prodi === 'D4')
+        },
+        {
+          title: 'D3 Teknik Informatika',
+          prodi: 'D3',
+          badge: 'Diploma Tiga',
+          items: this.classList.filter(c => this.parseClass(c).prodi === 'D3')
+        }
+      ];
+
+      return groups.map(g => {
+        if (this.classFilterProdi !== 'ALL' && g.prodi !== this.classFilterProdi) {
+          return { ...g, items: [] };
+        }
+        const matched = g.items.filter(c => {
+          if (!q) return true;
+          const p = this.parseClass(c);
+          const searchStr = `${c} ${p.prodi} ${p.smt} ${p.abjad} semester ${p.smt} kelas ${p.abjad} smt${p.smt} ${p.smt}${p.abjad}`.toLowerCase();
+          return searchStr.includes(q);
+        }).map(c => {
+          const p = this.parseClass(c);
+          return {
+            code: c,
+            smt: p.smt,
+            abjad: p.abjad,
+            label: `Semester ${p.smt} · Kelas ${p.abjad}`
+          };
+        });
+        return { ...g, items: matched };
+      }).filter(g => g.items.length > 0);
+    },
+
+    get totalFilteredCount() {
+      return this.flatClassGroups.reduce((acc, g) => acc + g.items.length, 0);
+    },
+
+    selectAndCloseClass(c) {
+      this.pilihKelas(c);
+      this.comboboxOpen = false;
+      this.classQuery = '';
+    },
+
+    get availableProdis() {
+      const list = this.classList.map(c => this.parseClass(c).prodi);
+      const unique = Array.from(new Set(list));
+      return unique.length ? unique : ['D4', 'D3'];
+    },
+
+    get availableSemesters() {
+      const list = this.classList
+        .map(c => this.parseClass(c))
+        .filter(p => p.prodi === this.selectedProdi)
+        .map(p => p.smt);
+      const unique = Array.from(new Set(list)).sort((a, b) => Number(a) - Number(b));
+      return unique.length ? unique : ['1', '3', '5', '7'];
+    },
+
+    get availableAbjads() {
+      const list = this.classList
+        .map(c => this.parseClass(c))
+        .filter(p => p.prodi === this.selectedProdi && p.smt === this.selectedSemester)
+        .map(p => p.abjad);
+      const unique = Array.from(new Set(list)).sort();
+      return unique.length ? unique : ['A', 'B', 'C', 'D'];
+    },
+
+    setProdi(prodi) {
+      this.selectedProdi = prodi;
+      const semList = this.availableSemesters;
+      if (!semList.includes(this.selectedSemester)) {
+        this.selectedSemester = semList[0] || '1';
+      }
+      const abjadList = this.availableAbjads;
+      if (!abjadList.includes(this.selectedAbjad)) {
+        this.selectedAbjad = abjadList[0] || 'A';
+      }
+      this.syncClassFromSegments();
+    },
+
+    setSemester(smt) {
+      this.selectedSemester = smt;
+      const abjadList = this.availableAbjads;
+      if (!abjadList.includes(this.selectedAbjad)) {
+        this.selectedAbjad = abjadList[0] || 'A';
+      }
+      this.syncClassFromSegments();
+    },
+
+    setAbjad(abjad) {
+      this.selectedAbjad = abjad;
+      this.syncClassFromSegments();
+    },
+
+    syncClassFromSegments() {
+      const targetPattern = new RegExp(`^${this.selectedProdi}-.*-SMT${this.selectedSemester}-${this.selectedAbjad}$`, 'i');
+      const found = this.classList.find(c => targetPattern.test(c));
+      const targetClass = found || `${this.selectedProdi}-TI-SMT${this.selectedSemester}-${this.selectedAbjad}`;
+      this.pilihKelas(targetClass);
+    },
+
+    syncSegmentsFromClass() {
+      if (!this.selectedClass) return;
+      const p = this.parseClass(this.selectedClass);
+      this.selectedProdi = p.prodi;
+      this.selectedSemester = p.smt;
+      this.selectedAbjad = p.abjad;
     },
 
     go(v) {
@@ -175,14 +421,41 @@ function portalApp() {
     },
 
     async loadClasses() {
+      const pathMatch = window.location.pathname.match(/\/c\/([^/]+)/);
+      const urlParams = new URLSearchParams(window.location.search);
+      const slugFromUrl = (pathMatch && pathMatch[1]) || urlParams.get('c') || urlParams.get('kelas');
+
       try {
         const data = await API.getClasses();
-        if (data && data.default_class) { this.selectedClass = data.default_class; return; }
+        if (data && Array.isArray(data.classes)) {
+          this.classList = data.classes;
+        }
+        if (slugFromUrl) {
+          this.selectedClass = decodeURIComponent(slugFromUrl);
+        } else if (data && data.default_class) {
+          this.selectedClass = data.default_class;
+        }
       } catch (e) { /* fallback */ }
-      try {
-        const st = await API.getStatus();
-        if (st && st.default_class) this.selectedClass = st.default_class;
-      } catch (e) { /* kosong */ }
+
+      if (!this.selectedClass) {
+        try {
+          const st = await API.getStatus();
+          if (st && st.default_class) this.selectedClass = st.default_class;
+          if (st && Array.isArray(st.classes)) this.classList = st.classes;
+        } catch (e) { /* kosong */ }
+      }
+
+      if (!this.selectedClass && this.classList.length > 0) {
+        this.selectedClass = this.classList[0];
+      }
+      this.syncSegmentsFromClass();
+
+      const savedClass = localStorage.getItem('portal_class');
+      if (savedClass && savedClass === this.selectedClassSlug) {
+        this.unlocked = localStorage.getItem('portal_pin_ok') === '1';
+      } else if (savedClass && savedClass !== this.selectedClassSlug) {
+        this.unlocked = false;
+      }
     },
 
     async loadSchedule() {

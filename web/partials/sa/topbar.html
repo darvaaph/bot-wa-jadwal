@@ -32,6 +32,12 @@
       <button type="button" @click="soon('Profil Superadmin')" aria-label="Profil" class="shrink-0 flex items-center justify-center focus:outline-none ml-1">
         <img src="/assets/icons/avatar.svg" alt="Avatar" class="w-9 h-9 rounded-xl hover:opacity-90 transition-opacity" />
       </button>
+
+      <!-- Logout button -->
+      <button type="button" @click="logout()" title="Keluar / Logout" class="h-9 px-3 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200 text-slate-600 hover:text-red-600 text-[12px] font-semibold flex items-center gap-1.5 transition ml-1 cursor-pointer">
+        <span class="material-symbols-outlined text-[16px]">logout</span>
+        <span class="hidden sm:inline">Keluar</span>
+      </button>
     </div>
   </div>
 </header>

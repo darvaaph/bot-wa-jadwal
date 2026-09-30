@@ -53,8 +53,16 @@
       <img src="/assets/icons/event.svg" alt="" class="w-5 h-5 shrink-0" /><span>Akun</span>
     </button>
   </nav>
-  <div class="mt-auto pt-4 text-[13px]">
-    <p class="font-semibold text-[#1F1F1F]">PJ · <span x-text="selectedClass || '—'">—</span></p>
-    <p class="text-[12px] text-slate-500" x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</p>
+  <div class="mt-auto pt-4 text-[13px] border-t border-[#EEEEEE]">
+    <div class="flex items-center justify-between gap-2">
+      <div class="truncate">
+        <p class="font-semibold text-[#1F1F1F] truncate">PJ · <span x-text="selectedClass || '—'">—</span></p>
+        <p class="text-[12px] text-slate-500 truncate" x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</p>
+      </div>
+      <button type="button" @click="logout()" title="Keluar / Logout" aria-label="Keluar dari akun PJ"
+              class="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0 cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+      </button>
+    </div>
   </div>
 </aside>

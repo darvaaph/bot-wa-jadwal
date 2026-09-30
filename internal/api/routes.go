@@ -100,6 +100,17 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		})
 	})
 
-	// Menyajikan aset web statis (Dashboard Admin) dari web.Files embedded
+	// Route akses portal mahasiswa via slug (/c/{slug})
+	mux.HandleFunc("GET /c/{slug}", func(w http.ResponseWriter, r *http.Request) {
+		indexFile, err := web.Files.ReadFile("index.html")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(indexFile)
+	})
+
+	// Menyajikan aset web statis dari web.Files embedded
 	mux.Handle("/", http.FileServer(http.FS(web.Files)))
 }

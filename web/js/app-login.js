@@ -15,12 +15,34 @@ function loginApp() {
     fieldError: '',
     toast: { show: false, message: '', timer: null },
 
+    selectedDemoRole: '',
+    demoAccounts: {
+      sa: { nomor: '081111111111', sandi: 'password123', label: 'Superadmin (Semua Akses)', role: 'sa' },
+      km: { nomor: '081234567890', sandi: 'password123', label: 'Ketua Murid (KM)', role: 'km' },
+      pj: { nomor: '081298765432', sandi: 'password123', label: 'PJ Mata Kuliah (PJ)', role: 'pj' }
+    },
+
     get roleLabel() {
       return { km: 'Ketua Murid', pj: 'PJ Mata Kuliah', sa: 'Superadmin' }[this.role] || 'Pengurus';
     },
 
     get areaUrl() {
       return { km: '/km.html', pj: '/pj.html', sa: '/superadmin.html' }[this.role] || '/km.html';
+    },
+
+    pilihDemo(roleKey, autoSubmit = false) {
+      const acc = this.demoAccounts[roleKey];
+      if (!acc) return;
+      this.selectedDemoRole = roleKey;
+      this.nomor = acc.nomor;
+      this.sandi = acc.sandi;
+      this.role = acc.role;
+      this.formError = '';
+      this.fieldError = '';
+      this.showToast(`Akun demo ${acc.label} terisi.`);
+      if (autoSubmit) {
+        this.masuk();
+      }
     },
 
     initLogin() {

@@ -93,6 +93,13 @@ function saApp() {
     },
 
     async initSA() {
+      const isAuthed = await this.checkAuth();
+      if (!isAuthed) {
+        localStorage.removeItem('access_token');
+        window.location.replace('/login.html?role=sa');
+        return;
+      }
+
       await this.loadPartials([
         ['sa-sidebar', '/partials/sa/sidebar.html'],
         ['sa-topbar', '/partials/sa/topbar.html'],
@@ -102,16 +109,10 @@ function saApp() {
         ['sa-dukungan', '/partials/sa/view-dukungan.html'],
         ['sa-soon', '/partials/sa/view-soon.html'],
         ['sa-drawer', '/partials/sa/drawer.html'],
-        ['sa-toast', '/partials/sa/toast.html'],
-        ['sa-auth-modal', '/partials/sa/auth-modal.html']
+        ['sa-toast', '/partials/sa/toast.html']
       ]);
 
-      const isAuthed = await this.checkAuth();
-      if (isAuthed) {
-        await Promise.all([this.checkBot(), this.loadKelas()]);
-      } else {
-        this.authModal = true;
-      }
+      await Promise.all([this.checkBot(), this.loadKelas()]);
 
       setInterval(() => {
         if (this.currentUser) this.checkBot();
@@ -179,11 +180,15 @@ function saApp() {
       try {
         await API.logout();
       } catch (e) {}
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
       this.currentUser = null;
       this.kelasList = [];
       this.totalKelas = 0;
-      this.authModal = true;
-      this.showToast('Sesi telah ditutup.');
+      this.showToast('Sesi telah ditutup. Mengarahkan ke login...');
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 500);
     },
 
     go(v) {
@@ -365,6 +370,18 @@ function saApp() {
       } else {
         this.showToast('Clipboard tidak didukung browser ini.');
       }
+    },
+
+    async logout() {
+      try {
+        await API.logout();
+      } catch (e) {}
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
+      this.showToast('Berhasil keluar. Mengarahkan ke login...');
+      setTimeout(() => {
+        window.location.href = '/login.html?role=sa';
+      }, 500);
     },
 
     showToast(msg) {

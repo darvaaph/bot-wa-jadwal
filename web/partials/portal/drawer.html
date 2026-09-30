@@ -21,7 +21,8 @@
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] px-2">
-    <p class="font-semibold">User · <span x-text="selectedClass || '—'">—</span></p>
+    <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>
     <p class="text-[12px] text-slate-500">Hanya lihat · tanpa akun</p>
+    <button type="button" @click="drawer = false; kunciPortal()" class="mt-2 text-[12px] text-red-600 hover:underline min-h-[44px] block">Kunci portal / Ganti kelas</button>
   </div>
 </aside>

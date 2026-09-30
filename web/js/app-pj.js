@@ -102,6 +102,25 @@ function pjApp() {
     },
 
     async initPJ() {
+      const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
+      if (!token) {
+        window.location.replace('/login.html?role=pj');
+        return;
+      }
+      try {
+        const me = await API.getMe();
+        if (!me || !me.user) {
+          localStorage.removeItem('access_token');
+          window.location.replace('/login.html?role=pj');
+          return;
+        }
+        this.currentUser = me.user;
+      } catch (e) {
+        localStorage.removeItem('access_token');
+        window.location.replace('/login.html?role=pj');
+        return;
+      }
+
       await this.loadPartials([
         ['pj-sidebar', '/partials/pj/sidebar.html'],
         ['pj-topbar', '/partials/pj/topbar.html'],
@@ -385,6 +404,18 @@ function pjApp() {
       } else {
         this.showToast('Clipboard tidak tersedia di browser ini.');
       }
+    },
+
+    async logout() {
+      try {
+        await API.logout();
+      } catch (e) {}
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token');
+      this.showToast('Berhasil keluar. Mengarahkan ke login...');
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 500);
     },
 
     showToast(msg) {
