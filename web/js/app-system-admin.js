@@ -102,6 +102,7 @@ function systemAdminApp() {
     backupLoading: false,
     restoreForm: { id: '', alasan: '', paham: false },
     restoreError: '',
+    restoreHasil: null,
     restoreLoading: false,
 
     auditList: [],
@@ -397,6 +398,14 @@ function systemAdminApp() {
       return st || '-';
     },
 
+    labelStatusKelas(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'ACTIVE') return 'Aktif';
+      if (s === 'INACTIVE') return 'Nonaktif';
+      if (s === 'ARCHIVED') return 'Arsip';
+      return st || '-';
+    },
+
     filteredRuang() {
       const q = (this.ruangQ || '').trim().toLowerCase();
       if (!q) return this.ruangList || [];
@@ -638,11 +647,11 @@ function systemAdminApp() {
     async buatBackup() {
       const f = this.backupForm;
       if (!f.kelas) { this.backupError = 'Pilih kelas untuk dicadangkan.'; return; }
+      if (!((f.alasan || '').trim())) { this.backupError = 'Isi alasan pencadangan. Alasan tercatat di Riwayat Perubahan.'; return; }
       this.backupError = ''; this.backupHasil = null;
       this.backupLoading = true;
       try {
-        const payload = { class_slug: f.kelas };
-        if ((f.alasan || '').trim()) payload.reason = f.alasan.trim();
+        const payload = { class_slug: f.kelas, reason: f.alasan.trim() };
         this.backupHasil = await API.createBackup(payload);
         this.showToast('Cadangan berhasil dibuat.');
       } catch (err) {
@@ -654,20 +663,32 @@ function systemAdminApp() {
 
     async pulihkanBackup() {
       const f = this.restoreForm;
-      if (!f.id) { this.restoreError = 'Isi ID cadangan yang akan dipulihkan.'; return; }
-      if (!((f.alasan || '').trim())) { this.restoreError = 'Isi alasan pemulihan.'; return; }
+      if (!f.id) { this.restoreError = 'Isi ID cadangan yang akan diverifikasi.'; return; }
+      if (!((f.alasan || '').trim())) { this.restoreError = 'Isi alasan verifikasi.'; return; }
       if (!f.paham) { this.restoreError = 'Centang pernyataan pemahaman dampak terlebih dahulu.'; return; }
-      this.restoreError = '';
+      this.restoreError = ''; this.restoreHasil = null;
       this.restoreLoading = true;
       try {
-        await API.restoreBackup(f.id, f.alasan.trim());
-        this.showToast('Pemulihan diverifikasi server.');
+        this.restoreHasil = await API.restoreBackup(f.id, f.alasan.trim());
+        this.showToast('Berkas cadangan terverifikasi. Database aktif tidak diubah.');
         this.restoreForm = { id: '', alasan: '', paham: false };
       } catch (err) {
-        this.restoreError = err.message || 'Gagal memulihkan cadangan.';
+        this.restoreError = err.message || 'Gagal memverifikasi cadangan.';
       } finally {
         this.restoreLoading = false;
       }
+    },
+
+    bukaKelasStatus(status) {
+      this.resetKelasFilter();
+      this.kelasFilter.status = String(status || '');
+      this.go('kelas');
+    },
+
+    bukaPenggunaStatus(status) {
+      this.penggunaTab = 'akun';
+      this.penggunaFilter = String(status || '');
+      this.go('pengguna');
     },
 
     go(v) {
@@ -675,7 +696,7 @@ function systemAdminApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'antrean') this.loadAntrean();
-      if (v === 'backup') { this.backupHasil = null; }
+      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') this.loadPengguna();
       if (v === 'master-ruangan') this.loadRuang();

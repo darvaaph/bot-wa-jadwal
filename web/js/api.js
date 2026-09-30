@@ -787,12 +787,12 @@ const BotApi = {
     const res = await fetch('/api/v1/restores', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ backup_id: backupId, reason: reason })
     });
+    const json = await res.json().catch(() => null);
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal memverifikasi restore.');
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal memverifikasi restore.');
       err.code = 'SAVE_FAILED'; throw err;
     }
-    return true;
+    return (json && json.data) || true;
   },
 
   async getStatus() {

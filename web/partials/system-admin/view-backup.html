@@ -1,8 +1,8 @@
-<!-- partials/system-admin/view-backup.html - System Admin: Backup dan Pemulihan Data -->
+<!-- partials/system-admin/view-backup.html - System Admin: Backup dan Pemulihan -->
 <section x-show="view === 'backup'" x-cloak>
   <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
     <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Backup dan Pemulihan</h1>
-    <p class="text-[14px] text-[#667085] mt-1">Cadangan snapshot database per kelas dan pemulihan dengan alasan tercatat.</p>
+    <p class="text-[14px] text-[#667085] mt-1">Snapshot per kelas dengan alasan tercatat. API belum menyediakan pilihan semester/paket dan daftar cadangan.</p>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 items-start">
       <div class="p-6 rounded-2xl border border-[#EEEEEE]">
@@ -10,15 +10,15 @@
         <div x-show="backupError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="backupError">-</div>
         <div class="mt-4 space-y-4">
           <div>
-            <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Kelas <span class="text-[#FF6C48]">*</span></label>
-            <select x-model="backupForm.kelas" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+            <label for="sa-backup-kelas" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Kelas <span class="text-[#FF6C48]">*</span></label>
+            <select id="sa-backup-kelas" x-model="backupForm.kelas" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
               <option value="">-- Pilih kelas --</option>
-              <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama">-</option></template>
+              <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama + ' · ' + labelStatusKelas(k.status)">-</option></template>
             </select>
           </div>
           <div>
-            <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan</label>
-            <input type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi semester" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+            <label for="sa-backup-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan <span class="text-[#FF6C48]">*</span></label>
+            <input id="sa-backup-alasan" type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi semester" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
           </div>
           <button type="button" @click="buatBackup()" :disabled="backupLoading" class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px] flex items-center gap-2">
             <span x-show="backupLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -27,31 +27,46 @@
         </div>
         <div x-show="backupHasil" class="mt-4 p-4 rounded-xl bg-[#E1FFB7] border border-green-200 text-[13px] text-green-800">
           <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">check_circle</span>Cadangan siap</p>
-          <p class="mt-1 font-mono break-all" x-text="'ID ' + backupHasil.id + ' · ' + (backupHasil.checksum || '')">-</p>
+          <dl class="mt-2 space-y-1">
+            <div class="flex gap-2"><dt class="w-20 shrink-0">ID</dt><dd class="font-mono font-semibold" x-text="backupHasil.id">-</dd></div>
+            <div class="flex gap-2"><dt class="w-20 shrink-0">Status</dt><dd class="font-mono" x-text="backupHasil.status || 'READY'">-</dd></div>
+            <div class="flex gap-2"><dt class="w-20 shrink-0">Checksum</dt><dd class="font-mono break-all" x-text="backupHasil.checksum || ''">-</dd></div>
+            <div x-show="backupHasil.created_at" class="flex gap-2"><dt class="w-20 shrink-0">Dibuat</dt><dd class="font-mono" x-text="backupHasil.created_at ? fmtWaktuID(backupHasil.created_at) : ''">-</dd></div>
+          </dl>
+          <p class="mt-2">Catat ID ini — daftar cadangan belum tersedia di API.</p>
         </div>
       </div>
 
       <div class="p-6 rounded-2xl border border-red-200 bg-red-50/40">
-        <h2 class="text-[18px] font-bold text-red-700 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Pulihkan cadangan</h2>
-        <p class="text-[13px] text-red-800 mt-1">Verifikasi berkas cadangan (checksum, format, schema, scope). Database aktif tidak diubah.</p>
+        <h2 class="text-[18px] font-bold text-red-700 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Verifikasi cadangan</h2>
+        <p class="text-[13px] text-red-800 mt-1">Memeriksa checksum, format, schema, dan scope berkas. Database aktif tidak diubah.</p>
         <div x-show="restoreError" class="mt-3 p-3 rounded-xl bg-white border border-red-300 text-[13px] text-red-700" x-text="restoreError">-</div>
         <div class="mt-4 space-y-4">
           <div>
-            <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">ID cadangan <span class="text-[#FF6C48]">*</span></label>
-            <input type="text" x-model="restoreForm.id" placeholder="Contoh: 12" inputmode="numeric" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white" />
+            <label for="sa-restore-id" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">ID cadangan <span class="text-[#FF6C48]">*</span></label>
+            <input id="sa-restore-id" type="text" x-model="restoreForm.id" placeholder="Contoh: 12" inputmode="numeric" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white" />
           </div>
           <div>
-            <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan pemulihan <span class="text-[#FF6C48]">*</span></label>
-            <textarea x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan mengapa data dipulihkan" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white resize-none"></textarea>
+            <label for="sa-restore-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan verifikasi <span class="text-[#FF6C48]">*</span></label>
+            <textarea id="sa-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan mengapa berkas diverifikasi" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white resize-none"></textarea>
           </div>
-          <label class="flex items-start gap-2 text-[13px] text-[#1F1F1F] select-none">
-            <input type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-red-700" />
+          <label class="flex items-start gap-2 text-[13px] text-[#1F1F1F] select-none" for="sa-restore-paham">
+            <input id="sa-restore-paham" type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
             Saya memahami verifikasi ini hanya memeriksa berkas cadangan tanpa mengubah database aktif.
           </label>
           <button type="button" @click="pulihkanBackup()" :disabled="restoreLoading" class="h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">
             <span x-show="restoreLoading" class="w-4 h-4 border-2 border-red-200 border-t-transparent rounded-full animate-spin"></span>
             <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi cadangan'">Verifikasi cadangan</span>
           </button>
+        </div>
+        <div x-show="restoreHasil" class="mt-4 p-4 rounded-xl bg-white border border-green-300 text-[13px] text-green-800">
+          <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">verified</span>Terverifikasi</p>
+          <dl class="mt-2 space-y-1">
+            <div class="flex gap-2"><dt class="w-20 shrink-0">ID</dt><dd class="font-mono font-semibold" x-text="restoreHasil.backup_id || restoreHasil.id || ''">-</dd></div>
+            <div class="flex gap-2"><dt class="w-20 shrink-0">Status</dt><dd class="font-mono" x-text="restoreHasil.status || 'VERIFIED'">-</dd></div>
+            <div x-show="restoreHasil.checksum" class="flex gap-2"><dt class="w-20 shrink-0">Checksum</dt><dd class="font-mono break-all" x-text="restoreHasil.checksum || ''">-</dd></div>
+          </dl>
+          <p class="mt-2" x-show="restoreHasil.message" x-text="restoreHasil.message"></p>
         </div>
       </div>
     </div>
