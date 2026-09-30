@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Asterisk — Area Superadmin</title>
+  <title>Asterisk - Area System Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,13 +20,13 @@
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
   <script src="/js/api.js?v=20260930_authguard"></script>
-  <script src="/js/app-sa.js?v=20260930_authguard"></script>
+  <script src="/js/app-system-admin.js?v=20260930_authguard"></script>
 </head>
 <!--
-  AREA SUPERADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
-  Isi per layar: web/partials/sa/*.html dimuat oleh initSA() di js/app-sa.js.
+  AREA SYSTEM ADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
+  Isi per layar: web/partials/system-admin/*.html dimuat oleh initSystemAdmin() di js/app-system-admin.js.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="saApp()" x-init="initSA()" @keydown.escape.window="drawer = false">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="drawer = false">
 
   <div id="sa-sidebar"></div>
 

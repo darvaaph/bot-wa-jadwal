@@ -111,6 +111,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		_, _ = w.Write(indexFile)
 	})
 
+	// Alias lama: /superadmin.html dialihkan permanen ke /system-admin.html.
+	mux.HandleFunc("GET /superadmin.html", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/system-admin.html", http.StatusMovedPermanently)
+	})
+
 	// Menyajikan aset web statis dari web.Files embedded
 	mux.Handle("/", http.FileServer(http.FS(web.Files)))
 }

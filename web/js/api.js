@@ -801,7 +801,7 @@ const BotApi = {
   setAuthToken: setAuthToken
 };
 
-// Ekspor global untuk komponen Alpine.js (app-km.js, app.js, app-sa.js)
+// Ekspor global untuk komponen Alpine.js (app-km.js, app.js, app-system-admin.js)
 if (typeof window !== 'undefined') {
   window.BotApi = BotApi;
   window.API = BotApi;

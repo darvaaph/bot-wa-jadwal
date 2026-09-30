@@ -17,17 +17,17 @@ function loginApp() {
 
     selectedDemoRole: '',
     demoAccounts: {
-      sa: { nomor: '081111111111', sandi: 'password123', label: 'Superadmin (Semua Akses)', role: 'sa' },
+      sa: { nomor: '081111111111', sandi: 'password123', label: 'System Admin (Semua Akses)', role: 'sa' },
       km: { nomor: '081234567890', sandi: 'password123', label: 'Ketua Murid (KM)', role: 'km' },
       pj: { nomor: '081298765432', sandi: 'password123', label: 'PJ Mata Kuliah (PJ)', role: 'pj' }
     },
 
     get roleLabel() {
-      return { km: 'Ketua Murid', pj: 'PJ Mata Kuliah', sa: 'Superadmin' }[this.role] || 'Pengurus';
+      return { km: 'Ketua Murid', pj: 'PJ Mata Kuliah', sa: 'System Admin' }[this.role] || 'Pengurus';
     },
 
     get areaUrl() {
-      return { km: '/km.html', pj: '/pj.html', sa: '/superadmin.html' }[this.role] || '/km.html';
+      return { km: '/km.html', pj: '/pj.html', sa: '/system-admin.html' }[this.role] || '/km.html';
     },
 
     pilihDemo(roleKey, autoSubmit = false) {
@@ -89,7 +89,7 @@ function loginApp() {
         if (data && data.assignments && data.assignments.length > 0) {
           const role = (data.assignments[0].role || '').toUpperCase();
           if (role === 'SYSTEM_ADMIN') {
-            targetUrl = '/superadmin.html';
+            targetUrl = '/system-admin.html';
           } else if (role === 'KM') {
             targetUrl = '/km.html';
           } else if (role === 'PJ') {

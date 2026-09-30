@@ -1,9 +1,9 @@
 /**
- * web/js/app-sa.js — Pengendali Area Superadmin
+ * web/js/app-system-admin.js — Pengendali Area System Admin
  * Terhubung langsung ke REST API v1: /api/v1/admin/status, /api/v1/classes,
  * /api/v1/invitations, dan /api/v1/auth/*.
  */
-function saApp() {
+function systemAdminApp() {
   return {
     view: 'dashboard',
     drawer: false,
@@ -92,7 +92,7 @@ function saApp() {
       return item ? item.label : id;
     },
 
-    async initSA() {
+    async initSystemAdmin() {
       const isAuthed = await this.checkAuth();
       if (!isAuthed) {
         localStorage.removeItem('access_token');
@@ -101,15 +101,15 @@ function saApp() {
       }
 
       await this.loadPartials([
-        ['sa-sidebar', '/partials/sa/sidebar.html'],
-        ['sa-topbar', '/partials/sa/topbar.html'],
-        ['sa-dashboard', '/partials/sa/view-dashboard.html'],
-        ['sa-kelas', '/partials/sa/view-kelas.html'],
-        ['sa-undang', '/partials/sa/view-undang.html'],
-        ['sa-dukungan', '/partials/sa/view-dukungan.html'],
-        ['sa-soon', '/partials/sa/view-soon.html'],
-        ['sa-drawer', '/partials/sa/drawer.html'],
-        ['sa-toast', '/partials/sa/toast.html']
+        ['sa-sidebar', '/partials/system-admin/sidebar.html'],
+        ['sa-topbar', '/partials/system-admin/topbar.html'],
+        ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
+        ['sa-kelas', '/partials/system-admin/view-kelas.html'],
+        ['sa-undang', '/partials/system-admin/view-undang.html'],
+        ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
+        ['sa-soon', '/partials/system-admin/view-soon.html'],
+        ['sa-drawer', '/partials/system-admin/drawer.html'],
+        ['sa-toast', '/partials/system-admin/toast.html']
       ]);
 
       await Promise.all([this.checkBot(), this.loadKelas()]);
@@ -164,7 +164,7 @@ function saApp() {
           this.authModal = false;
           await this.checkAuth();
           await Promise.all([this.checkBot(), this.loadKelas()]);
-          this.showToast('Berhasil masuk sebagai Superadmin.');
+          this.showToast('Berhasil masuk sebagai System Admin.');
         }
       } catch (err) {
         this.authError = err.message || 'Gagal masuk. Periksa kembali kredensial Anda.';

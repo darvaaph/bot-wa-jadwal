@@ -1,4 +1,4 @@
-<!-- partials/sa/view-undang.html — Superadmin: Undang KM & Undangan Siap -->
+<!-- partials/system-admin/view-undang.html - System Admin: Undang Ketua Murid & Undangan Siap -->
 
 <!-- 1. FORM UNDANG KM -->
 <section x-show="view === 'undang'" x-cloak>
@@ -6,7 +6,7 @@
     <h1 class="text-[28px] md:text-[32px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Undang Ketua Murid</h1>
     <div class="mt-2 space-y-0.5 text-[14px] text-[#667085]">
       <p><span class="font-semibold text-[#1D1B3A]" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</span> · <span x-text="kelasAktifObj ? kelasAktifObj.prodi : '-'">-</span></p>
-      <p>Kelas ditetapkan oleh Superadmin dan tidak dapat diubah oleh pengurus.</p>
+      <p>Kelas ditetapkan oleh System Admin dan tidak dapat diubah oleh pengurus.</p>
     </div>
 
     <div x-show="undangError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError"></div>
