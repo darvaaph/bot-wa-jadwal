@@ -5,7 +5,7 @@
   <div x-show="antrean.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <span class="material-symbols-outlined text-[36px] text-emerald-600">fact_check</span>
     <p class="text-[15px] font-semibold mt-2">Antrean kosong</p>
-    <p class="text-[13px] text-slate-500" x-text="tasks.length === 0 ? 'Belum ada tugas terbit. Review KM tampil di sini setelah endpoint review tersedia.' : 'Semua ' + tasks.length + ' tugas terbit sudah diperiksa. (Detail review butuh endpoint backend.)'">-</p>
+    <p class="text-[13px] text-slate-500" x-text="tasks.length === 0 ? 'Belum ada tugas terbit. Tugas PJ yang perlu review tampil di sini.' : 'Semua ' + tasks.length + ' tugas terbit sudah diperiksa.'">-</p>
   </div>
   <div class="mt-4 space-y-3">
     <template x-for="t in antrean" :key="t.id">

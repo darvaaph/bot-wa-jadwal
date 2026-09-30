@@ -685,7 +685,16 @@ const BotApi = {
   async getPortalTasks(slug, group) {
     const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
     const g = valid.includes(group) ? group : '';
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (g ? '?group=' + g : ''), { credentials: 'same-origin' });
+    const headers = {};
+    try {
+      const savedToken = localStorage.getItem('portal_token');
+      const savedClass = localStorage.getItem('portal_class');
+      if (savedToken && (!slug || savedClass === slug)) headers['X-Portal-Token'] = savedToken;
+    } catch (e) {}
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (g ? '?group=' + g : ''), {
+      credentials: 'same-origin',
+      headers: headers
+    });
     if (!res.ok) return null;
     const json = await res.json();
     const arr = Array.isArray(json.data) ? json.data : [];
@@ -740,17 +749,21 @@ const BotApi = {
   },
 
   async getSession() {
+    // GET /api/v1/auth/me hanya mengembalikan {user, active_assignment, classes}.
+    // Daftar assignments lengkap hanya ada di respons login(); gunakan itu untuk pilih konteks.
     const res = await fetch('/api/v1/auth/me', { headers: authHeaders(), credentials: 'same-origin' });
     if (res.status === 401) return { authenticated: false };
     if (res.status === 503) return { unavailable: true };
     if (!res.ok) return null;
     const json = await res.json();
     if (!json.data) return null;
+    const active = json.data.active_assignment || null;
     return {
       authenticated: true,
       user: json.data.user,
-      activeRoleAssignmentId: json.data.active_assignment && json.data.active_assignment.id,
-      assignments: json.data.assignments || []
+      activeAssignment: active,
+      activeRoleAssignmentId: active && active.id,
+      classes: json.data.classes || []
     };
   },
 
@@ -811,7 +824,7 @@ const BotApi = {
   setAuthToken: setAuthToken
 };
 
-// Ekspor global untuk komponen Alpine.js (app-km.js, app.js, app-system-admin.js)
+// Ekspor global untuk komponen Alpine.js (app-portal.js, app-km.js, app-pj.js, app-login.js, app-system-admin.js)
 if (typeof window !== 'undefined') {
   window.BotApi = BotApi;
   window.API = BotApi;

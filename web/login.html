@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
-  <script src="/js/api.js?v=20260930_demo"></script>
-  <script src="/js/app-login.js?v=20260930_demo"></script>
+  <script src="/js/api.js?v=20261001"></script>
+  <script src="/js/app-login.js?v=20261001"></script>
 </head>
 <!--
   MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
@@ -43,8 +43,8 @@
           <p class="text-[13px] text-slate-500 mt-1">Sebagai <strong x-text="roleLabel">-</strong> · Nomor WhatsApp + kata sandi.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
 
-          <!-- Quick Demo Selector (Khusus Mode Pengembangan) -->
-          <div class="mt-4 p-3.5 rounded-2xl bg-[#EEF2FF]/70 border border-[#3965FB]/20">
+          <!-- Quick Demo Selector (hanya localhost / ?demo=1, isi nomor saja) -->
+          <div x-show="showDemo" x-cloak class="mt-4 p-3.5 rounded-2xl bg-[#EEF2FF]/70 border border-[#3965FB]/20">
             <div class="flex items-center justify-between mb-1.5">
               <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#3965FB] uppercase tracking-wider">
                 <span class="material-symbols-outlined text-[15px]">developer_mode</span>
@@ -52,7 +52,7 @@
               </div>
               <span class="text-[10px] px-2 py-0.5 rounded-md bg-white border border-[#3965FB]/20 text-[#3965FB] font-semibold">1-Klik Isi</span>
             </div>
-            <p class="text-[11px] text-slate-500 mb-2.5">Pilih role untuk mengisi nomor WhatsApp & kata sandi secara instan:</p>
+            <p class="text-[11px] text-slate-500 mb-2.5">Pilih role untuk mengisi nomor WhatsApp (kata sandi ketik manual):</p>
             <div class="grid grid-cols-3 gap-2">
               <!-- System Admin -->
               <button type="button" @click="pilihDemo('sa')"
@@ -91,13 +91,9 @@
               </button>
             </div>
 
-            <!-- Quick Auto-Login Link -->
-            <div x-show="selectedDemoRole" class="mt-2.5 pt-2 border-t border-[#3965FB]/15 flex items-center justify-between text-[11px]">
-              <span class="text-slate-600">Terisi: <strong class="text-[#1D1B3A]" x-text="demoAccounts[selectedDemoRole]?.label"></strong></span>
-              <button type="button" @click="masuk()" :disabled="loading" class="font-bold text-[#3965FB] hover:underline flex items-center gap-0.5 cursor-pointer">
-                <span>Langsung Masuk</span>
-                <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
-              </button>
+            <!-- Terisi -->
+            <div x-show="selectedDemoRole" class="mt-2.5 pt-2 border-t border-[#3965FB]/15 text-[11px] text-slate-600">
+              Terisi: <strong class="text-[#1D1B3A]" x-text="demoAccounts[selectedDemoRole]?.label"></strong> — lanjut ketik kata sandi lalu tekan Masuk.
             </div>
           </div>
           <div class="mt-5">

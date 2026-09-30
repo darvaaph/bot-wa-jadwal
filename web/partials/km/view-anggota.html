@@ -24,10 +24,10 @@
       <div x-show="undangError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div>
-          <label class="block text-[13px] font-medium mb-1">Mata kuliah <span class="text-[#FF6C48]">*</span></label>
-          <select x-model="undang.matkul" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-            <option value="">-- Pilih --</option>
-            <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
+          <label class="block text-[13px] font-medium mb-1">Mata kuliah (offering) <span class="text-[#FF6C48]">*</span></label>
+          <select x-model="undang.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+            <option value="">-- Pilih offering --</option>
+            <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
         </div>
         <div>
@@ -52,7 +52,7 @@
         <button type="button" @click="copyText(undangLink, 'Tautan undangan tersalin.')" class="flex-1 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] font-medium min-h-[44px]">Salin tautan</button>
         <button type="button" @click="anggotaSub = 'list'" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white font-semibold min-h-[44px]">Kembali ke anggota</button>
       </div>
-      <p class="text-[11px] text-slate-400 mt-3">Penerbitan undangan permanen butuh endpoint backend.</p>
+      <p class="text-[11px] text-slate-400 mt-3">Tautan berlaku 7 hari dan hanya dapat digunakan satu kali untuk aktivasi.</p>
     </div>
   </template>
 </section>

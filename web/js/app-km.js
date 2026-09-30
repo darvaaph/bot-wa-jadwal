@@ -32,6 +32,9 @@ function kmApp() {
     botOnline: false,
     fullSchedule: [],
     tasks: [],
+    offeringList: [],
+    offeringLoading: false,
+    semesterId: '',
 
     tugasSub: 'list',
     tugasChip: 'Semua',
@@ -40,11 +43,11 @@ function kmApp() {
     tugasForm: { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' },
     tugasError: '',
 
-    dosen: { matkul: '', tanggal: '', mode: 'online', hariGanti: '', jamGanti: '', alasan: '', link: '' },
+    dosen: { offeringId: '', tanggal: '', mode: 'online', hariGanti: '', jamGanti: '', alasan: '', link: '' },
     patternsList: [],
 
     anggotaSub: 'list',
-    undang: { matkul: '', nomor: '' },
+    undang: { offeringId: '', nomor: '' },
     undangError: '',
     undangLink: '',
 
@@ -71,7 +74,7 @@ function kmApp() {
 
     get urgent3() { return this.withUrgency.slice(0, 3); },
     get nearCount() { return this.tasks.filter(t => t.urgency !== 'aman').length; },
-    get antrean() { return this.withUrgency; },
+    get antrean() { return this.withUrgency.filter(t => (t.review_state || 'NOT_REVIEWED') === 'NOT_REVIEWED'); },
 
     get matkulOpts() {
       const set = new Set(this.fullSchedule.map(s => s.matkul));
@@ -170,6 +173,7 @@ function kmApp() {
       setInterval(() => this.updateClock(), 1000);
       await this.checkBot();
       await this.loadClasses();
+      await this.loadOfferings();
       await this.loadSchedule();
       await this.loadTasks();
       this.patternsList = await API.getPatterns().catch(() => []);
@@ -179,7 +183,7 @@ function kmApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20260927a', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -263,13 +267,58 @@ function kmApp() {
 
     async loadTasks() {
       try {
-        const raw = await API.getTasks(this.selectedClass);
+        const raw = await API.getTasks('');
         this.tasks = (raw || []).map(t => {
-          const u = this.urgencyOf(t.deadline);
+          const u = this.urgencyOf(t.deadline_at || t.deadline);
           return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi,
-                   deadline: t.deadline, urgency: u.level, countdown: u.badge };
+                   deadline: t.deadline, title: t.title, version: t.version,
+                   review_state: t.review_status || 'NOT_REVIEWED',
+                   urgency: u.level, countdown: u.badge };
         });
       } catch (e) { this.tasks = []; }
+    },
+
+    async loadOfferings() {
+      this.offeringLoading = true;
+      try {
+        if (!this.selectedClass) return;
+        const semesters = await API.getSemesters(this.selectedClass).catch(() => []);
+        const list = Array.isArray(semesters) ? semesters : [];
+        const active = list.find(s => s.status === 'ACTIVE') || list[0];
+        if (!active) { this.offeringList = []; this.semesterId = ''; return; }
+        this.semesterId = String(active.id);
+        const offerings = await API.getSemesterOfferings(active.id).catch(() => []);
+        this.offeringList = Array.isArray(offerings) ? offerings : [];
+      } catch (e) {
+        this.offeringList = [];
+      } finally {
+        this.offeringLoading = false;
+      }
+    },
+
+    offeringDisplay(id) {
+      const found = (this.offeringList || []).find(o => String(o.id) === String(id));
+      return found ? (found.display_name || found.course_code || '') : '';
+    },
+
+    parseDeadlineID(tanggal, jam) {
+      const t = String(tanggal || '').trim();
+      const j = String(jam || '').trim().replace('.', ':');
+      let datePart = '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+        datePart = t;
+      } else {
+        const dm = t.match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
+        if (!dm) return '';
+        const months = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08', sep: '09', okt: '10', nov: '11', des: '12' };
+        const month = months[dm[2].toLowerCase().slice(0, 3)] || '';
+        if (!month) return '';
+        const year = dm[3] || new Date().getFullYear();
+        datePart = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
+      }
+      const hm = j.match(/(\d{1,2})[:.](\d{2})/);
+      if (!hm) return '';
+      return `${datePart}T${String(hm[1]).padStart(2, '0')}:${hm[2]}:00+07:00`;
     },
 
     urgencyOf(label) {
@@ -303,37 +352,72 @@ function kmApp() {
     // Tugas — tambah + hapus via API asli.
     async terbitTugas() {
       const f = this.tugasForm;
-      if (!f.matkul) { this.tugasError = 'Mata kuliah wajib dipilih.'; return; }
+      const offeringId = f.offeringId || '';
+      if (!offeringId) { this.tugasError = 'Mata kuliah (offering) wajib dipilih.'; return; }
       if (!f.judul || f.judul.trim().length < 5) { this.tugasError = 'Judul tugas minimal 5 karakter.'; return; }
       if (!f.tanggal || !f.jam) { this.tugasError = 'Tanggal dan jam deadline wajib diisi.'; return; }
       if (!f.deskripsi || f.deskripsi.trim().length < 5) { this.tugasError = 'Deskripsi tugas minimal 5 karakter.'; return; }
+      const deadlineAt = this.parseDeadlineID(f.tanggal, f.jam);
+      if (!deadlineAt) { this.tugasError = 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.'; return; }
       this.tugasError = '';
-      await API.createTask({
-        matkul: f.matkul,
-        deskripsi: `${f.judul} — ${f.deskripsi.trim()}`,
-        deadline: `${f.tanggal} ${f.jam}`
-      });
+      try {
+        await API.createTask({
+          offering_id: Number(offeringId),
+          title: f.judul.trim(),
+          instructions: f.deskripsi.trim(),
+          deadline_at: deadlineAt,
+          submission_text: (f.kumpul || '').trim() || undefined,
+          save_as: 'published'
+        });
+      } catch (err) {
+        this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
+        return;
+      }
       await this.loadTasks();
-      this.tugasForm = { matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' };
+      this.tugasForm = { offeringId: '', matkul: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '' };
       this.tugasSub = 'list';
       this.showToast('Tugas diterbitkan.');
     },
 
     async simpanDraf() {
-      this.showToast('Draf tersimpan lokal — status draf butuh endpoint backend.');
-      this.tugasSub = 'list';
+      const f = this.tugasForm || {};
+      if (!f.offeringId) { this.showToast('Pilih mata kuliah (offering) dulu.'); return; }
+      if (!f.judul || f.judul.trim().length < 5) { this.showToast('Judul tugas minimal 5 karakter.'); return; }
+      try {
+        const payload = {
+          offering_id: Number(f.offeringId),
+          title: f.judul.trim(),
+          instructions: (f.deskripsi || '').trim(),
+          save_as: 'draft'
+        };
+        const deadlineAt = (f.tanggal && f.jam) ? this.parseDeadlineID(f.tanggal, f.jam) : '';
+        if (deadlineAt) payload.deadline_at = deadlineAt;
+        if ((f.kumpul || '').trim()) payload.submission_text = f.kumpul.trim();
+        await API.createTask(payload);
+        await this.loadTasks();
+        this.tugasSub = 'list';
+        this.showToast('Draf tersimpan di server.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyimpan draf di server.');
+      }
     },
 
     async hapusTugas(id) {
-      await API.deleteTask(id);
-      await this.loadTasks();
-      this.showToast('Tugas diarsipkan.');
+      try {
+        const detail = await API.getTaskDetail(id).catch(() => null);
+        const version = detail && (detail.version || (detail.task && detail.task.version));
+        await API.deleteTask(id, version);
+        await this.loadTasks();
+        this.showToast('Tugas diarsipkan.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengarsipkan tugas.');
+      }
     },
 
     // Dosen berhalangan — draf lokal, tidak tersimpan ke backend.
     previewDosen() {
-      if (!this.dosen.matkul || !this.dosen.tanggal || !this.dosen.alasan) {
-        this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
+      if (!this.dosen.offeringId || !this.dosen.tanggal || !this.dosen.alasan) {
+        this.showToast('Pilih offering, lengkapi tanggal dan alasan dulu.');
         return;
       }
       this.showToast('Preview diperbarui.');
@@ -342,15 +426,17 @@ function kmApp() {
     dosenMessage() {
       const f = this.dosen;
       const judul = f.mode === 'ganti' ? 'Jadwal diganti hari' : 'Perkuliahan dialihkan online';
-      return `INFO PERKULIAHAN • ${this.selectedClass}\n${judul}\n${f.matkul}\n${f.tanggal}${f.mode === 'ganti' && f.hariGanti ? ' → ' + f.hariGanti + ' ' + f.jamGanti : ''}\n${f.alasan}${f.link ? '\nTautan pertemuan: ' + f.link : ''}`;
+      const nama = this.offeringDisplay(f.offeringId);
+      return `INFO PERKULIAHAN • ${this.selectedClass}\n${judul}\n${nama}\n${f.tanggal}${f.mode === 'ganti' && f.hariGanti ? ' → ' + f.hariGanti + ' ' + f.jamGanti : ''}\n${f.alasan}${f.link ? '\nTautan pertemuan: ' + f.link : ''}`;
     },
 
     copyDosen() { this.copyText(this.dosenMessage(), 'Teks pengumuman tersalin.'); },
 
     async publishDosen() {
       const f = this.dosen;
-      if (!f.matkul || !f.tanggal || !f.alasan) {
-        this.showToast('Lengkapi mata kuliah, tanggal, dan alasan dulu.');
+      const offeringId = f.offeringId || '';
+      if (!offeringId || !f.tanggal || !f.alasan) {
+        this.showToast('Pilih offering, lengkapi tanggal dan alasan dulu.');
         return;
       }
 
@@ -360,11 +446,8 @@ function kmApp() {
           this.patternsList = await API.getPatterns().catch(() => []);
         }
 
-        const targetLower = f.matkul.toLowerCase();
-        const matched = (this.patternsList || []).find(p => {
-          const name = String(p.display_name || p.course_name || '').toLowerCase();
-          return name.includes(targetLower) || targetLower.includes(name);
-        });
+        const matched = (this.patternsList || []).find(p =>
+          String(p.course_offering_id || '') === String(offeringId));
 
         // Parse tanggal ke format ISO YYYY-MM-DD
         let dateIso = new Date().toISOString().slice(0, 10);
@@ -392,7 +475,7 @@ function kmApp() {
         const kind = (f.mode === 'ganti' && matched) ? 'REPLACEMENT' : 'EXTRA';
 
         const payload = {
-          owner_offering_id: matched ? matched.course_offering_id : 1,
+          owner_offering_id: Number(offeringId),
           event_kind: kind,
           starts_at: startsAt,
           ends_at: endsAt,
@@ -418,25 +501,60 @@ function kmApp() {
       }
     },
 
-    // Undang PJ — link digenerate lokal; endpoint undangan belum tersedia.
-    buatUndangPJ() {
-      if (!this.undang.matkul) { this.undangError = 'Mata kuliah wajib dipilih.'; return; }
+    // Undang PJ — via POST /api/v1/invitations (butuh semester_id + offering_id).
+    async buatUndangPJ() {
+      const offeringId = (this.undang && this.undang.offeringId) || '';
+      if (!offeringId) { this.undangError = 'Mata kuliah (offering) wajib dipilih.'; return; }
       if (!this.undang.nomor || this.undang.nomor.replace(/\D/g, '').length < 9) {
         this.undangError = 'Nomor WhatsApp calon PJ tidak valid.';
         return;
       }
+      if (!this.semesterId) { this.undangError = 'Semester aktif tidak ditemukan untuk kelas ini.'; return; }
       this.undangError = '';
-      this.undangLink = `https://bot-jadwal/undang/pj?kelas=${encodeURIComponent(this.selectedClass)}&matkul=${encodeURIComponent(this.undang.matkul)}&wa=${encodeURIComponent(this.undang.nomor)}`;
-      this.anggotaSub = 'siap';
+      try {
+        const res = await API.createInvitation({
+          role: 'PJ',
+          class_slug: this.selectedClass,
+          semester_id: Number(this.semesterId),
+          offering_id: Number(offeringId),
+          invited_identity_key: this.undang.nomor.trim()
+        });
+        const token = (res && res.token) ? res.token : '';
+        this.undangLink = `${window.location.origin}/invite?token=${encodeURIComponent(token)}`;
+        this.anggotaSub = 'siap';
+      } catch (err) {
+        this.undangError = err.message || 'Gagal membuat undangan PJ.';
+      }
     },
 
-    // Review — keputusan tercatat lokal; sinkronisasi butuh endpoint backend.
-    setujuiTugas() { this.showToast('Keputusan review butuh endpoint backend.'); },
-    kirimReview() {
+    // Review retrospektif KM — via POST /api/v1/tasks/{id}/reviews.
+    async setujuiTugas(id) {
+      try {
+        const detail = await API.getTaskDetail(id).catch(() => null);
+        const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
+        await API.reviewTask(id, { decision: 'APPROVED', task_version: version });
+        await this.loadTasks();
+        this.showToast('Tugas disetujui.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyimpan persetujuan.');
+      }
+    },
+    async kirimReview(id) {
+      const targetId = id || this.reviewId;
+      if (!targetId) return;
+      const decision = this.reviewMode === 'batal' ? 'REVOKED' : 'CHANGES_REQUESTED';
       if (!this.reviewNote.trim()) { this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return; }
-      this.reviewNote = '';
-      this.reviewId = null;
-      this.showToast('Keputusan tercatat lokal — sinkronisasi butuh endpoint backend.');
+      try {
+        const detail = await API.getTaskDetail(targetId).catch(() => null);
+        const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
+        await API.reviewTask(targetId, { decision: decision, note: this.reviewNote.trim(), task_version: version });
+        this.reviewNote = '';
+        this.reviewId = null;
+        await this.loadTasks();
+        this.showToast('Keputusan review tersimpan di server.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyimpan keputusan review.');
+      }
     },
 
     simpanPengaturan() {

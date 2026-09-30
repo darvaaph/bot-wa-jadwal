@@ -109,7 +109,8 @@ function systemAdminApp() {
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-soon', '/partials/system-admin/view-soon.html'],
         ['sa-drawer', '/partials/system-admin/drawer.html'],
-        ['sa-toast', '/partials/system-admin/toast.html']
+        ['sa-toast', '/partials/system-admin/toast.html'],
+        ['sa-auth', '/partials/system-admin/auth-modal.html']
       ]);
 
       await Promise.all([this.checkBot(), this.loadKelas()]);
@@ -122,7 +123,7 @@ function systemAdminApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

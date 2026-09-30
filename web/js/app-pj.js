@@ -166,7 +166,7 @@ function pjApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20260927c', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

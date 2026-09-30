@@ -175,7 +175,7 @@ bot-jadwal/
 │   ├── embed.go             # Go embed.FS pengemas aset web ke dalam biner tunggal
 │   ├── index.html           # Halaman utama SPA Dashboard
 │   ├── css/style.css        # Styling custom pendukung
-│   └── js/                  # api.js (REST client & mock) & app.js (state reaktif Alpine.js)
+│   └── js/                  # api.js (REST client) & app-*.js (state reaktif Alpine.js per peran)
 ├── internal/
 │   ├── academic/            # Domain akademik: semester lifecycle, PJ offering, rooms, & kurikulum
 │   ├── api/                 # Lapisan HTTP REST API server

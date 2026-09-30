@@ -76,10 +76,10 @@
           <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div>
-              <label class="block text-[13px] font-medium mb-1">Mata kuliah <span class="text-[#FF6C48]">*</span></label>
-              <select x-model="tugasForm.matkul" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-                <option value="">Pilih mata kuliah</option>
-                <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
+              <label class="block text-[13px] font-medium mb-1">Mata kuliah (offering) <span class="text-[#FF6C48]">*</span></label>
+              <select x-model="tugasForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+                <option value="">Pilih offering</option>
+                <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
               </select>
             </div>
             <div>
@@ -88,11 +88,11 @@
             </div>
             <div>
               <label class="block text-[13px] font-medium mb-1">Tanggal deadline <span class="text-[#FF6C48]">*</span></label>
-              <input type="text" x-model="tugasForm.tanggal" placeholder="25 September 2026" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+              <input type="date" x-model="tugasForm.tanggal" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
             </div>
             <div>
               <label class="block text-[13px] font-medium mb-1">Jam deadline <span class="text-[#FF6C48]">*</span></label>
-              <input type="text" x-model="tugasForm.jam" placeholder="23.59 WIB" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+              <input type="time" x-model="tugasForm.jam" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
             </div>
           </div>
           <div class="mt-4">
@@ -114,7 +114,7 @@
           <div class="mt-3 p-4 rounded-2xl bg-[#E1FFB7]/60 border border-[#d3f5a0] text-[13px] leading-relaxed">
             <p class="text-[11px] font-semibold tracking-wide text-slate-600">TUGAS BARU • <span x-text="selectedClass">-</span></p>
             <p class="text-[17px] font-semibold text-[#1D1B3A] mt-1" x-text="tugasForm.judul || '—'">-</p>
-            <p class="mt-2">Mata kuliah: <span x-text="tugasForm.matkul || '—'">-</span></p>
+            <p class="mt-2">Mata kuliah: <span x-text="offeringDisplay(tugasForm.offeringId) || '—'">-</span></p>
             <p>Kumpulkan: <span x-text="(tugasForm.tanggal || '—') + ' • ' + (tugasForm.jam || '')">-</span></p>
             <p class="mt-1 text-slate-600" x-text="tugasForm.deskripsi || '—'">-</p>
           </div>

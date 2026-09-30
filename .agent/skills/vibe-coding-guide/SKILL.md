@@ -42,7 +42,7 @@ Seluruh instruksi dari pengembang atau AI **DILARANG KERAS** melanggar batas-bat
    - Berkas disematkan langsung ke dalam biner Go melalui `web/embed.go`. Penambahan berkas di luar struktur ini akan menyebabkan aset tidak terbawa ke biner produksi di server Azure.
 3. **Pemisahan Berkas Skrip:**
    - Logika komunikasi HTTP fetch / API disimpan di `web/js/api.js`.
-   - Logika state reaktif dan interaktivitas Alpine.js disimpan di `web/js/app.js`.
+   - Logika state reaktif dan interaktivitas Alpine.js disimpan di `web/js/app-*.js` (`app-portal.js`, `app-login.js`, `app-km.js`, `app-pj.js`, `app-system-admin.js`).
    - Dilarang menulis blok `<script>` panjang bercampur baur di dalam `index.html`.
 
 ### B. Backend: Modular Go & SQLite WAL

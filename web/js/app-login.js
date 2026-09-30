@@ -16,10 +16,11 @@ function loginApp() {
     toast: { show: false, message: '', timer: null },
 
     selectedDemoRole: '',
+    showDemo: false,
     demoAccounts: {
-      sa: { nomor: '081111111111', sandi: 'password123', label: 'System Admin (Semua Akses)', role: 'sa' },
-      km: { nomor: '081234567890', sandi: 'password123', label: 'Ketua Murid (KM)', role: 'km' },
-      pj: { nomor: '081298765432', sandi: 'password123', label: 'PJ Mata Kuliah (PJ)', role: 'pj' }
+      sa: { nomor: '081111111111', label: 'System Admin (Semua Akses)', role: 'sa' },
+      km: { nomor: '081234567890', label: 'Ketua Murid (KM)', role: 'km' },
+      pj: { nomor: '081298765432', label: 'PJ Mata Kuliah (PJ)', role: 'pj' }
     },
 
     get roleLabel() {
@@ -30,19 +31,16 @@ function loginApp() {
       return { km: '/km.html', pj: '/pj.html', sa: '/system-admin.html' }[this.role] || '/km.html';
     },
 
-    pilihDemo(roleKey, autoSubmit = false) {
+    pilihDemo(roleKey) {
       const acc = this.demoAccounts[roleKey];
       if (!acc) return;
       this.selectedDemoRole = roleKey;
       this.nomor = acc.nomor;
-      this.sandi = acc.sandi;
+      this.sandi = '';
       this.role = acc.role;
       this.formError = '';
       this.fieldError = '';
-      this.showToast(`Akun demo ${acc.label} terisi.`);
-      if (autoSubmit) {
-        this.masuk();
-      }
+      this.showToast(`Nomor demo ${acc.label} terisi. Ketik kata sandi manual.`);
     },
 
     initLogin() {
@@ -50,6 +48,8 @@ function loginApp() {
         const params = new URLSearchParams(window.location.search);
         const r = (params.get('role') || 'km').toLowerCase();
         if (['km', 'pj', 'sa'].includes(r)) this.role = r;
+        const host = (window.location.hostname || '').toLowerCase();
+        this.showDemo = host === 'localhost' || host === '127.0.0.1' || host === '::1' || params.get('demo') === '1';
       } catch (e) { /* default km */ }
     },
 

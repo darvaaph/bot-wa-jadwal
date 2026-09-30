@@ -95,7 +95,7 @@ function portalApp() {
     async loadPartials(slots) {
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20260930_segmented_v2', { cache: 'no-store' });
+          const res = await fetch(url + '?v=20261001', { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -474,11 +474,16 @@ function portalApp() {
 
     async loadTasks() {
       try {
-        const raw = await API.getTasks(this.selectedClass);
+        const slug = this.selectedClassSlug;
+        const portal = await API.getPortalTasks(slug).catch(() => null);
+        const raw = portal && portal.length ? portal : await API.getTasks(this.selectedClass);
         this.tasks = (raw || []).map(t => {
-          const u = this.urgencyOf(t.deadline);
-          return { id: t.id, matkul: t.matkul, deskripsi: t.deskripsi,
-                   deadline: t.deadline, urgency: u.level, countdown: u.badge };
+          const deadline = t.deadline_at || t.deadline;
+          const u = this.urgencyOf(deadline);
+          return { id: t.id,
+                   matkul: t.course_name || t.matkul,
+                   deskripsi: t.title ? (t.title + (t.instructions ? ' — ' + t.instructions : '')) : t.deskripsi,
+                   deadline: deadline, urgency: u.level, countdown: u.badge };
         });
       } catch (e) { this.tasks = []; }
     },

@@ -13,10 +13,10 @@
       <p class="text-[12px] text-slate-500">Pilih kelas yang terdampak hari ini.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div>
-          <label class="block text-[13px] font-medium mb-1">Mata kuliah <span class="text-[#FF6C48]">*</span></label>
-          <select x-model="dosen.matkul" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-            <option value="">-- Pilih --</option>
-            <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
+          <label class="block text-[13px] font-medium mb-1">Mata kuliah (offering) <span class="text-[#FF6C48]">*</span></label>
+          <select x-model="dosen.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+            <option value="">-- Pilih offering --</option>
+            <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
         </div>
         <div>
