@@ -1,5 +1,7 @@
 <!-- partials/pj/view-dashboard.html — PJ Dashboard -->
 <section x-show="view === 'dashboard'" x-cloak>
+  <div id="pj-skeleton"></div>
+  <div x-show="!dashboardLoading">
   <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
     <div class="min-w-0">
       <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
@@ -94,5 +96,6 @@
       <span class="text-[13px] text-slate-400">Butuh endpoint audit</span>
     </div>
     <div class="py-6 text-center text-[13px] text-slate-400">Riwayat tampil setelah backend siap.</div>
+  </div>
   </div>
 </section>

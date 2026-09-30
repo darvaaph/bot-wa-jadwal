@@ -9,6 +9,7 @@ function systemAdminApp() {
     drawer: false,
     sidebarCollapsed: false,
     pageState: null,
+    dashboardLoading: true,
     q: '',
     unreadCount: 0,
 
@@ -122,6 +123,8 @@ function systemAdminApp() {
     notifFilter: '',
     notifKelas: '',
     notifJenis: '',
+    notifSince: '',
+    notifUntil: '',
     notifDetailId: null,
     notifList: [],
     notifLoading: false,
@@ -282,6 +285,11 @@ function systemAdminApp() {
       ]);
 
       await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
+      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
+      await this.loadPartials([
+        ['sa-skeleton', '/partials/common/skeleton-dashboard.html'],
+      ]);
+      this.dashboardLoading = false;
 
       setInterval(() => {
         if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
@@ -803,14 +811,31 @@ function systemAdminApp() {
     async loadAntrean() {
       this.notifLoading = true; this.notifError = '';
       try {
-        this.notifList = await API.getNotifications(this.notifFilter || '', 50).catch(() => null) || [];
+        const extra = {};
+        if ((this.notifKelas || '').trim()) extra.class_id = this.notifKelas.trim();
+        if ((this.notifJenis || '').trim()) extra.event_type = this.notifJenis.trim();
+        const since = this.dateTimeLocalParam(this.notifSince);
+        const until = this.dateTimeLocalParam(this.notifUntil);
+        if (since) extra.since = since;
+        if (until) extra.until = until;
+        this.notifList = await API.getNotifications(this.notifFilter || '', 50, extra) || [];
         this.updateFailedCount();
       } catch (e) {
         this.notifList = [];
-        this.notifError = 'Antrean notifikasi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.notifError = (e && e.code === 'UNAUTHORIZED')
+          ? 'Sesi berakhir. Masuk kembali lalu coba lagi.'
+          : 'Antrean notifikasi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.notifLoading = false;
       }
+    },
+
+    resetNotifFilter() {
+      this.notifFilter = '';
+      this.notifKelas = '';
+      this.notifJenis = '';
+      this.notifSince = '';
+      this.notifUntil = '';
     },
 
     async loadFailedCount() {
@@ -844,10 +869,16 @@ function systemAdminApp() {
     },
 
     auditDateTimeParam(v) {
+      return this.dateTimeLocalParam(v);
+    },
+
+    dateTimeLocalParam(v) {
       const s = (v || '').trim();
       if (!s) return '';
-      // datetime-local tanpa detik -> lengkapi agar ParseTime server terima.
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s + ':00';
+      // datetime-local dibaca sebagai zona lokal browser -> kirim instan UTC
+      // agar filter server (UTC) tepat tanpa selisih zona.
+      const d = new Date(s.length === 16 ? s + ':00' : s);
+      if (!isNaN(d)) return d.toISOString();
       return s;
     },
 

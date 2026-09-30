@@ -1,5 +1,7 @@
 <!-- partials/km/view-dashboard.html — KM / D+ M / Dashboard -->
 <section x-show="view === 'dashboard'" x-cloak>
+  <div id="km-skeleton"></div>
+  <div x-show="!dashboardLoading">
   <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
     <div class="min-w-0">
       <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
@@ -84,5 +86,6 @@
       <button type="button" @click="go('log')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semuanya</button>
     </div>
     <div class="py-6 text-center text-[13px] text-slate-400">Butuh endpoint audit — riwayat tampil setelah backend siap.</div>
+  </div>
   </div>
 </section>

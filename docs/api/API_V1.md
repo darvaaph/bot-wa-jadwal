@@ -91,7 +91,7 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 |---|---|---|
 | `GET /api/v1/rooms/candidates` | `?starts_at=&ends_at=` | Auth; Cari ruangan yang tidak bentrok dengan jadwal lain |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
-| `GET /api/v1/notifications` | `?status=PENDING\|SENT\|FAILED&limit=` | KM / Admin; Antrean siaran pesan WhatsApp |
+| `GET /api/v1/notifications` | `?status=&class_id=&event_type=&since=&until=&limit=` | KM (kelasnya, asing 404) / Admin; Antrean siaran + penerima, idempotensi, galat terakhir. `since/until` RFC3339/YYYY-MM-DD (naive = UTC; FE kirim UTC dari zona lokal). `event_type` tak peka huruf besar; `class_id`/`since` invalid 422 |
 | `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING`. Response `{id, status:"PENDING", scheduled_at, retry_scheduled:true}` tanpa `attempt_number`; attempt hanya dibuat worker saat delivery (BE-010) |
 | `GET /api/v1/audit` | `?entity_type=&action=&entity_id=&actor=&since=&until=&class_slug=&limit=` | KM (kelasnya) / Admin; Rekam jejak audit trail perubahan sistem. `since/until` RFC3339 atau YYYY-MM-DD (presisi detik, UTC); `actor` = ID numerik atau identity_key; `entity_id` numerik |
 | `POST /api/v1/backups` | `{class_slug?, semester_id?, reason?}` | KM (kelasnya) / Admin; Snapshot basis data aman via `VACUUM INTO`. `semester_id` opsional, wajib milik kelas; nama berkas unik |

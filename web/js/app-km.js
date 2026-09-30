@@ -9,6 +9,7 @@ function kmApp() {
     drawer: false,
     sidebarCollapsed: false,
     pageState: null,
+    dashboardLoading: true,
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -710,6 +711,10 @@ function kmApp() {
         ['km-bottombar', '/partials/common/bottombar.html'],
         ['km-toast', '/partials/common/toast.html']
       ]);
+      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
+      await this.loadPartials([
+        ['km-skeleton', '/partials/common/skeleton-dashboard.html'],
+      ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
       await this.checkBot();
@@ -720,6 +725,7 @@ function kmApp() {
       this.patternsList = await API.getPatterns().catch(() => []);
       await this.loadEvents();
       setInterval(() => this.checkBot(), 30000);
+      this.dashboardLoading = false;
     },
 
     async loadPartials(slots) {

@@ -34,3 +34,4 @@
 | Logo Asterisk (pemicu) | Logo, asterisk | Tombol logo di atas sidebar untuk menciutkan/melebarkan navigasi |
 | State Galat Halaman | Error page, empty state | Tampilan penuh saat halaman gagal: `500` (server), `offline` (luring), `404` (tak ditemukan) via `pageState` |
 | Halaman 404 Server | Not found, 404 | `web/404.html` mandiri untuk path halaman yang tidak ada di server |
+| Kerangka Muat | Skeleton, loading | `skeleton-dashboard.html` saat `dashboardLoading`: menahan layout muat awal dashboard |

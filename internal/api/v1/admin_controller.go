@@ -192,21 +192,21 @@ type RestoreRequest struct {
 // Penerima = kanal WhatsApp tujuan (jid/nama); riwayat percobaan = jumlah +
 // galat terakhir.
 type NotificationResponseItem struct {
-	ID              int64   `json:"id"`
-	ClassID         int64   `json:"class_id"`
-	EventType       string  `json:"event_type"`
-	EntityType      *string `json:"entity_type,omitempty"`
-	EntityID        *int64  `json:"entity_id,omitempty"`
-	Status          string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
-	IdempotencyKey  string  `json:"idempotency_key"`
-	ChannelJID      *string `json:"channel_jid,omitempty"`
-	ChannelName     *string `json:"channel_name,omitempty"`
-	PayloadJSON     string  `json:"payload_json"`
-	ScheduledAt     *string `json:"scheduled_at,omitempty"`
-	SentAt          *string `json:"sent_at,omitempty"`
-	CreatedAt       string  `json:"created_at"`
-	AttemptCount    int     `json:"attempt_count"`
-	LastAttemptAt   *string `json:"last_attempt_at,omitempty"`
+	ID               int64   `json:"id"`
+	ClassID          int64   `json:"class_id"`
+	EventType        string  `json:"event_type"`
+	EntityType       *string `json:"entity_type,omitempty"`
+	EntityID         *int64  `json:"entity_id,omitempty"`
+	Status           string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
+	IdempotencyKey   string  `json:"idempotency_key"`
+	ChannelJID       *string `json:"channel_jid,omitempty"`
+	ChannelName      *string `json:"channel_name,omitempty"`
+	PayloadJSON      string  `json:"payload_json"`
+	ScheduledAt      *string `json:"scheduled_at,omitempty"`
+	SentAt           *string `json:"sent_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	AttemptCount     int     `json:"attempt_count"`
+	LastAttemptAt    *string `json:"last_attempt_at,omitempty"`
 	LastAttemptError *string `json:"last_attempt_error,omitempty"`
 }
 
@@ -1165,7 +1165,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 		       nm.status, nm.idempotency_key, wc.jid, wc.display_name,
 		       nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
 		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts,
-		       (SELECT na2.finished_at FROM notification_attempts na2
+		       (SELECT COALESCE(na2.finished_at, na2.started_at) FROM notification_attempts na2
 		         WHERE na2.notification_message_id = nm.id
 		         ORDER BY na2.attempt_number DESC LIMIT 1) AS last_attempt_at,
 		       (SELECT na3.error_message FROM notification_attempts na3
@@ -1177,7 +1177,22 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	`
 	var args []any
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveClassID.Valid {
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak valid")
+			return
+		}
+		if classIDFilter != "" {
+			want, err := strconv.ParseInt(classIDFilter, 10, 64)
+			if err != nil || want <= 0 {
+				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "class_id tidak valid")
+				return
+			}
+			if want != u.ActiveClassID.Int64 {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Notifikasi tidak ditemukan")
+				return
+			}
+		}
 		query += " AND nm.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	} else if classIDFilter != "" {
@@ -1196,8 +1211,8 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	if eventTypeFilter != "" {
-		query += " AND nm.event_type = ?"
-		args = append(args, eventTypeFilter)
+		query += " AND UPPER(nm.event_type) = ?"
+		args = append(args, strings.ToUpper(eventTypeFilter))
 	}
 
 	if sinceFilter != "" {
@@ -1346,8 +1361,12 @@ func (c *AdminController) RetryNotification(w http.ResponseWriter, r *http.Reque
 	}
 
 	if u.ActiveRole != "SYSTEM_ADMIN" {
-		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != curClassID {
-			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya pengurus kelas terkait yang berwenang mencoba ulang pengiriman notifikasi")
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak valid")
+			return
+		}
+		if u.ActiveClassID.Int64 != curClassID {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
 			return
 		}
 	}

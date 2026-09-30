@@ -1,5 +1,7 @@
 <!-- partials/portal/view-dashboard.html — Portal Beranda: kuliah hari ini, tugas mendesak, perubahan terbaru -->
 <section x-show="view === 'dashboard'" x-cloak>
+  <div id="portal-skeleton"></div>
+  <div x-show="!dashboardLoading">
   <p class="text-[12px] font-semibold tracking-widest text-slate-400">PORTAL KELAS</p>
   <h1 class="text-[24px] md:text-[30px] font-bold leading-tight" style="font-family:'Poppins',sans-serif" x-text="selectedClassMeta.label">-</h1>
   <p class="text-[13px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
@@ -72,5 +74,6 @@
         </template>
       </div>
     </div>
+  </div>
   </div>
 </section>

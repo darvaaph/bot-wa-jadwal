@@ -621,16 +621,33 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async getNotifications(status, limit) {
-    // Backend: GET /api/v1/notifications?status=&limit=&offset= (tanpa class_id).
+  async getNotifications(status, limit, extra) {
+    // Backend: GET /api/v1/notifications?status=&class_id=&event_type=&since=&until=&limit=&offset=.
     let url = '/api/v1/notifications';
     const qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (limit) qs.set('limit', String(limit));
+    if (extra) {
+      if (extra.class_id) qs.set('class_id', String(extra.class_id));
+      if (extra.event_type) qs.set('event_type', extra.event_type);
+      if (extra.since) qs.set('since', extra.since);
+      if (extra.until) qs.set('until', extra.until);
+    }
     if ([...qs].length) url += '?' + qs.toString();
     const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
-    if (!res.ok) return null;
-    return (await res.json()).data || [];
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Antrean notifikasi gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
   },
 
   async retryNotification(messageId) {

@@ -113,12 +113,21 @@
 
 ### BE-08 — Filter server antrean
 
+> Status: **Selesai** — `class_id/event_type/since/until` server-side (KM terlingkup,
+> asing 404; invalid 422; `event_type` tak peka huruf) + wiring filter + reset di
+> Antrean Notifikasi. Tes di `internal/api/admin_notifications_test.go`.
+
 - **Problem:** `GET /api/v1/notifications` hanya filter `status` (+ `limit/offset`);
   filter kelas/jenis/b Waktu dikerjakan lokal di `filteredNotif()`.
 - **Kebutuhan:** filter `class_id`, `event_type`, rentang waktu + sort di server.
 - **Acuan:** IA §10, FR-NOTIF-004.
 
 ### BE-09 — Detail pesan
+
+> Status: **Selesai** — respons memuat `idempotency_key`, kanal penerima
+> (`channel_jid/name`), `attempt_count` + galat/waktu percobaan terakhir
+> (ringkasan, bukan riwayat per-attempt penuh); tampil di panel detail antrean.
+> Lanjutan: endpoint riwayat attempts per pesan bila dibutuhkan.
 
 - **Problem:** respons tak memuat penerima, `idempotency_key`, dan riwayat percobaan;
   UI hanya tampilkan payload mentah.

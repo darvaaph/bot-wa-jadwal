@@ -9,6 +9,7 @@ function pjApp() {
     drawer: false,
     sidebarCollapsed: false,
     pageState: null,
+    dashboardLoading: true,
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -672,6 +673,10 @@ function pjApp() {
         ['pj-bottombar', '/partials/common/bottombar.html'],
         ['pj-toast', '/partials/common/toast.html']
       ]);
+      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
+      await this.loadPartials([
+        ['pj-skeleton', '/partials/common/skeleton-dashboard.html'],
+      ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
       await this.checkBot();
@@ -682,6 +687,7 @@ function pjApp() {
       this.patternsList = await API.getPatterns().catch(() => []);
       await this.loadEvents();
       setInterval(() => this.checkBot(), 30000);
+      this.dashboardLoading = false;
     },
 
     async loadPartials(slots) {

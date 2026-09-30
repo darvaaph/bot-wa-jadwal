@@ -443,7 +443,7 @@ Khusus untuk peran **PJ (Penanggung Jawab Matkul)** dan **KM (Ketua Mahasiswa)**
 |---|---|---|
 | `GET /api/v1/rooms/candidates?starts_at=&ends_at=&capacity=` | KM / PJ | Mencari ruangan kosong yang tidak bentrok pada jam tersebut. |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | KM | Konfirmasi persetujuan penggunaan ruangan dari Tata Usaha/Pengelola Lab. |
-| `GET /api/v1/notifications?status=PENDING\|SENT\|FAILED` | Admin / KM | Melihat antrean status pengiriman pesan broadcast WhatsApp. |
+| `GET /api/v1/notifications?status=&class_id=&event_type=&since=&until=` | Admin / KM | Melihat antrean status pengiriman pesan broadcast WhatsApp + penerima dan galat terakhir. |
 | `POST /api/v1/notifications/:id/retry` | Admin / KM | Menjadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING` (`{retry_scheduled:true}`, tanpa `attempt_number`). |
 | `GET /api/v1/audit?entity_type=&action=&entity_id=&actor=&since=&until=&limit=` | Admin / KM | Melihat log jejak audit perubahan data penting (`since/until` RFC3339/YYYY-MM-DD; `actor` ID atau identitas). |
 | `POST /api/v1/backups` | Admin | Membuat backup basis data SQLite target v1 secara instan (`semester_id` opsional). |

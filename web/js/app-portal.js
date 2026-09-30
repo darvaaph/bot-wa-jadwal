@@ -11,6 +11,7 @@ function portalApp() {
     drawer: false,
     sidebarCollapsed: false,
     pageState: null,
+    dashboardLoading: true,
     q: '',
     unreadCount: 0,
     hari: 'Senin',
@@ -167,6 +168,10 @@ function portalApp() {
         ['portal-bottombar', '/partials/portal/bottombar.html'],
         ['portal-toast', '/partials/portal/toast.html']
       ]);
+      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
+      await this.loadPartials([
+        ['portal-skeleton', '/partials/common/skeleton-dashboard.html'],
+      ]);
       this.updateClock();
       const wd = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const today = wd[new Date().getDay()];
@@ -177,6 +182,7 @@ function portalApp() {
       await this.loadMateri();
       await this.loadPerubahan();
       await this.loadSemester();
+      this.dashboardLoading = false;
     },
 
     async loadPartials(slots) {

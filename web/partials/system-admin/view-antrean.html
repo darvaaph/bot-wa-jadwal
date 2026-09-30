@@ -15,23 +15,24 @@
           <option value="FAILED">Gagal</option>
           <option value="CANCELLED">Dibatalkan</option>
         </select>
-        <select x-model="notifKelas" aria-label="Filter kelas (lokal)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+        <select x-model="notifKelas" @change="loadAntrean()" aria-label="Filter kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
           <option value="">Semua kelas</option>
           <template x-for="opt in notifKelasOptions()" :key="opt.id">
             <option :value="opt.id" x-text="opt.label">-</option>
           </template>
         </select>
-        <select x-model="notifJenis" aria-label="Filter jenis pesan (lokal)" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
+        <select x-model="notifJenis" @change="loadAntrean()" aria-label="Filter jenis pesan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]">
           <option value="">Semua jenis</option>
           <template x-for="j in notifJenisOptions()" :key="j">
             <option :value="j" x-text="j">-</option>
           </template>
         </select>
+        <input type="datetime-local" x-model="notifSince" @change="loadAntrean()" aria-label="Filter sejak waktu" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]" />
+        <input type="datetime-local" x-model="notifUntil" @change="loadAntrean()" aria-label="Filter sampai waktu" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white max-w-[220px]" />
+        <button type="button" @click="resetNotifFilter(); loadAntrean()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset</button>
       </div>
     </div>
-    <p class="text-[11px] text-slate-400 mt-2">Filter kelas dan jenis bersifat lokal (server hanya filter status). API tidak menyediakan penerima/idempotensi per pesan; isi mentah tersedia di detail.
-      <button type="button" @click="notifFilter = ''; notifKelas = ''; notifJenis = ''; loadAntrean()" class="underline font-semibold">Reset filter</button>
-    </p>
+    <p class="text-[11px] text-slate-400 mt-2">Filter kelas, jenis, dan waktu diproses server. Detail memuat penerima, idempotensi, dan galat terakhir.</p>
 
     <div x-show="notifLoading" class="p-12 text-center text-[#667085]">
       <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
@@ -45,6 +46,7 @@
       <span class="material-symbols-outlined text-[36px] text-slate-300">mark_chat_read</span>
       <p class="mt-2 text-[15px] font-semibold text-[#1F1F1F]">Antrean kosong</p>
       <p class="text-[13px] text-[#667085] mt-0.5">Tidak ada pesan dengan filter yang dipilih.</p>
+      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="mt-3 h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
     </div>
 
     <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
@@ -55,6 +57,8 @@
               <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal" x-text="'· Kelas #' + n.class_id">-</span></p>
               <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
               <p x-show="n.entity_type" class="text-[12px] text-slate-500 mt-0.5">Terkait: <span class="font-mono" x-text="(n.entity_type || '') + (n.entity_id ? ' #' + n.entity_id : '')"></span></p>
+              <p x-show="n.channel_jid || n.channel_name" class="text-[12px] text-slate-500 mt-0.5">Penerima: <span class="font-mono" x-text="n.channel_name ? (n.channel_name + ' · ' + (n.channel_jid || '')) : (n.channel_jid || '')"></span></p>
+              <p x-show="n.last_attempt_error" class="text-[12px] text-red-700 mt-0.5">Galat terakhir: <span x-text="n.last_attempt_error"></span></p>
             </div>
             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
               :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E1FFB7] text-green-800' : (notifDapatDiulang(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')">
@@ -70,6 +74,8 @@
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div><dt class="text-slate-500">Dijadwalkan</dt><dd class="font-mono" x-text="n.scheduled_at ? fmtWaktuID(n.scheduled_at) : '—'">-</dd></div>
               <div><dt class="text-slate-500">Percobaan</dt><dd class="font-mono" x-text="n.attempt_count || n.attempts || 0">-</dd></div>
+              <div><dt class="text-slate-500">Kunci idempotensi</dt><dd class="font-mono break-all" x-text="n.idempotency_key || '—'">-</dd></div>
+              <div><dt class="text-slate-500">Percobaan terakhir</dt><dd class="font-mono" x-text="n.last_attempt_at ? fmtWaktuID(n.last_attempt_at) : '—'">-</dd></div>
             </dl>
             <details>
               <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi mentah (payload)</summary>
