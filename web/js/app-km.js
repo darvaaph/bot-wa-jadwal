@@ -19,6 +19,7 @@ function kmApp() {
       ] },
       { title: 'AKADEMIK', items: [
         { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
+        { id: 'antrean', label: 'Antrean pemeriksaan', img: '/assets/icons/ext-check.svg' },
         { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
         { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       ] },
@@ -850,7 +851,7 @@ function kmApp() {
           invited_identity_key: this.undang.nomor.trim()
         });
         const token = (res && res.token) ? res.token : '';
-        this.undangLink = `${window.location.origin}/invite?token=${encodeURIComponent(token)}`;
+        this.undangLink = `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}`;
         this.anggotaSub = 'siap';
       } catch (err) {
         this.undangError = err.message || 'Gagal membuat undangan PJ.';

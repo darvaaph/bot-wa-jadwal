@@ -347,7 +347,7 @@ function systemAdminApp() {
         });
 
         const token = (res && res.token) ? res.token : '';
-        this.undangLink = `${window.location.origin}/invite?token=${encodeURIComponent(token)}`;
+        this.undangLink = `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}`;
         this.view = 'undang-siap';
         await this.loadKelas();
         this.showToast('Tautan undangan KM berhasil dibuat.');

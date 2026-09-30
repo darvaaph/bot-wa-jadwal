@@ -873,6 +873,23 @@ const BotApi = {
     setAuthToken(null);
   },
 
+  async acceptInvitation(token, password, displayName) {
+    const res = await fetch('/api/v1/invitations/accept', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, password: password, display_name: displayName || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Undangan tidak valid atau telah digunakan.');
+      err.code = (json && json.error && json.error.code) || 'INVITE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
   getAuthToken: getAuthToken,
   setAuthToken: setAuthToken
 };
