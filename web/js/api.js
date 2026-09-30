@@ -420,6 +420,34 @@ const BotApi = {
     return (json && json.data) || [];
   },
 
+  async createPattern(payload) {
+    const res = await fetch('/api/v1/schedule/patterns', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyimpan pola jadwal.');
+      err.code = 'SAVE_FAILED'; err.payload = json; throw err;
+    }
+    return json.data;
+  },
+
+  async patchPattern(patternId, payload) {
+    const res = await fetch('/api/v1/schedule/patterns/' + encodeURIComponent(patternId), {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((json && json.error && json.error.message) || 'Ada perubahan yang lebih baru. Muat ulang sebelum menyimpan.');
+      err.code = 'VERSION_CONFLICT'; err.payload = json; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah pola jadwal.');
+      err.code = 'SAVE_FAILED'; err.payload = json; throw err;
+    }
+    return json.data;
+  },
+
   async getTeachingEvents(filters) {
     // Backend: GET /api/v1/teaching-events?status= (DRAFT/PUBLISHED/REVOKED).
     let url = '/api/v1/teaching-events';
@@ -481,6 +509,31 @@ const BotApi = {
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
+  },
+
+  async participateTeachingEvent(eventId, action) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/participation', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ action: action })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyimpan keputusan partisipasi.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return json.data;
+  },
+
+  async confirmTeachingEventRoom(eventId, payload) {
+    const res = await fetch('/api/v1/teaching-events/' + eventId + '/room-confirmations', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mencatat konfirmasi ruangan.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return json.data;
   },
 
   async revokeTeachingEvent(eventId, reason, version) {

@@ -24,9 +24,9 @@
       <div x-show="undangError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div>
-          <label class="block text-[13px] font-medium mb-1">Mata kuliah (offering) <span class="text-[#FF6C48]">*</span></label>
+          <label class="block text-[13px] font-medium mb-1">Mata kuliah di kelas ini <span class="text-[#FF6C48]">*</span></label>
           <select x-model="undang.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
-            <option value="">-- Pilih offering --</option>
+            <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
         </div>
