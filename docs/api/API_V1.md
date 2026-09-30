@@ -106,6 +106,12 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/admin/support/enter` | `{class_slug!, reason! min 10}` | Admin; Hibah dukungan 60 menit, tutup hibah lama; audit `SUPPORT_ENTER` |
 | `POST /api/v1/admin/support/exit` | `{reason?}` | Admin; Tutup hibah aktif; audit `SUPPORT_EXIT` |
 | `GET /api/v1/admin/support/active` | — | Admin; Hibah aktif atau `null`; kedaluwarsa ditandai `EXPIRED` |
+| `GET /api/v1/classes/:slug/settings` | — | KM (kelasnya) / Admin; Baca pengaturan kelas (zona waktu, mode portal, versi kode) |
+| `PATCH /api/v1/classes/:slug/portal-mode` | `{mode!: LINK\|CODE, reason?}` | KM (kelasnya) / Admin; Ganti mode Portal Kelas + audit `UPDATE_PORTAL_MODE`. LINK selalu bisa (hapus hash); CODE wajib hash aktif (422 bila belum: putar kode dulu); idempoten (`changed:false`) |
+| `GET /api/v1/master/proposals` | `?status=&kind=&class_slug=` | KM (kelasnya) / Admin; Daftar usulan koreksi master tanpa token |
+| `POST /api/v1/master/proposals` | `{kind!, target_id?, payload!, note?}` | KM; Usul tambah/ubah ruangan/matkul (kode immutable); audit `PROPOSE_MASTER_CORRECTION` |
+| `POST /api/v1/master/proposals/:id/approve` | `{review_note?}` | Admin; Terapkan ke master + audit ganda; hanya `PENDING` |
+| `POST /api/v1/master/proposals/:id/reject` | `{review_note!}` | Admin; Tolak + audit; hanya `PENDING` |
 | `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
 | `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
 

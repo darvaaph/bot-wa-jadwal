@@ -127,3 +127,39 @@ func (s *Server) handleGetActiveSupport(w http.ResponseWriter, r *http.Request) 
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleCreateProposal menangani POST /api/v1/master/proposals
+func (s *Server) handleCreateProposal(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.CreateProposal(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleGetProposals menangani GET /api/v1/master/proposals
+func (s *Server) handleGetProposals(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetProposals(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleApproveProposal menangani POST /api/v1/master/proposals/{id}/approve
+func (s *Server) handleApproveProposal(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.ApproveProposal(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleRejectProposal menangani POST /api/v1/master/proposals/{id}/reject
+func (s *Server) handleRejectProposal(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.RejectProposal(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}

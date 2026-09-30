@@ -74,6 +74,11 @@
 
 ### BE-05 — Ubah mode Portal Kelas
 
+> Status: **Selesai** — `GET .../classes/{slug}/settings`,
+> `PATCH .../portal-mode` (LINK/CODE + audit, CODE wajib hash aktif) + wiring
+> Detail Kelas (mode/zona/versi + tombol + rotasi). Tes di
+> `internal/api/admin_portal_master_test.go`.
+
 - **Problem:** `PATCH /api/v1/classes/{slug}` hanya menerima status; tak ada endpoint
   ganti mode `LINK`/`CODE`. UI tampilkan default server (`LINK`, `Asia/Jakarta`) readonly.
 - **Kebutuhan:** endpoint ubah `portal_access_mode` (+ audit).
@@ -83,11 +88,22 @@
 
 ### BE-06 — Audit perubahan master
 
+> Status: **Selesai** — `CREATE/UPDATE_MASTER_ROOM/COURSE` + before/after di semua
+> tulis master; KM tulis tetap 403. Terlihat di Audit Global (`entity_type`
+> `MASTER_ROOM`/`MASTER_COURSE`).
+
 - **Problem:** `PATCH /api/v1/master/rooms/{id}` dan `/courses/{id}` tak tulis audit.
 - **Kebutuhan:** setiap tambah/ubah/nonaktif master masuk Riwayat Perubahan.
 - **Acuan:** FR-ROOM-003 ("Perubahan master masuk audit log").
 
 ### BE-07 — Usulan koreksi KM
+
+> Status: **Selesai sebagian** — tabel `master_proposals` (migrasi 011) + alur penuh
+> (KM usul, SA setujui/diterapkan/tolak + audit ganda) + panel review di kedua
+> halaman master SA. Tes di `internal/api/admin_portal_master_test.go`.
+> **Belum**: form usul di Area KM (`km.html`) — KM kini via API langsung.
+> Diketahui: pencarian kandidat hanya tampilkan ruangan ACTIVE (penegakan utama);
+> impor mentoleransi kode tak dikenal; konfirmasi TU adalah override manusia.
 
 - **Problem:** tak ada jalur KM mengusulkan koreksi master tanpa ubah langsung.
 - **Kebutuhan:** endpoint usulan + persetujuan/penolakan System Admin.

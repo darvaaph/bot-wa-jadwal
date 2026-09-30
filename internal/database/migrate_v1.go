@@ -419,4 +419,20 @@ var v1Schema = []string{
 		CHECK ((status = 'ACTIVE' AND closed_at IS NULL) OR (status <> 'ACTIVE' AND closed_at IS NOT NULL))
 	);`,
 	`CREATE INDEX IF NOT EXISTS idx_support_grants_user_status ON support_grants(user_id, status);`,
+	`CREATE TABLE IF NOT EXISTS master_proposals (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind TEXT NOT NULL CHECK (kind IN ('ROOM','COURSE')),
+		target_id INTEGER,
+		payload_json TEXT NOT NULL,
+		note TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+		proposed_by_user_id INTEGER NOT NULL REFERENCES users(id),
+		class_id INTEGER NOT NULL REFERENCES classes(id),
+		reviewed_by_user_id INTEGER REFERENCES users(id),
+		review_note TEXT,
+		decided_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`,
+	`CREATE INDEX IF NOT EXISTS idx_master_proposals_status ON master_proposals(status, kind);`,
 }

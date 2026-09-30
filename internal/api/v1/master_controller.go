@@ -1,13 +1,17 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"bot-jadwal/internal/api/common"
+	"bot-jadwal/internal/audit"
 )
 
 // MasterController mengelola data master kampus: ruangan dan mata kuliah.
@@ -17,6 +21,44 @@ type MasterController struct {
 
 func NewMasterController(db *sql.DB) *MasterController {
 	return &MasterController{db: db}
+}
+
+// masterActor mengambil identitas pelaku dari konteks autentikasi (route
+// master tulis selalu di belakang RequireAuth + RequireRole).
+func masterActor(r *http.Request) (uid int64, raid *int64, ok bool) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		return 0, nil, false
+	}
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	return u.UserID, raid, true
+}
+
+// writeMasterAudit mencatat perubahan master (BE-006: FR-ROOM-003) pada database
+// atau transaksi yang diberikan — pemanggil wajib commit agar keduanya atomik.
+// before/after kosong berarti nil (khusus create: before kosong).
+func writeMasterAudit(ctx context.Context, db audit.DBTX, r *http.Request, action, entity string, entityID int64, beforeJSON, afterJSON string) error {
+	uid, raid, ok := masterActor(r)
+	if !ok {
+		return fmt.Errorf("konteks autentikasi hilang")
+	}
+	entry := audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		Action:        action,
+		EntityType:    entity,
+		EntityID:      &entityID,
+		CorrelationID: fmt.Sprintf("master-%d-%d", entityID, time.Now().UnixNano()),
+	}
+	if strings.TrimSpace(beforeJSON) != "" {
+		entry.BeforeJSON = &beforeJSON
+	}
+	if strings.TrimSpace(afterJSON) != "" {
+		entry.AfterJSON = &afterJSON
+	}
+	return audit.Write(ctx, db, entry)
 }
 
 // GET /api/v1/master/rooms
@@ -76,13 +118,29 @@ func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode ruangan wajib diisi")
 		return
 	}
-	res, err := c.db.Exec(`INSERT INTO rooms (code, name, building, room_type, capacity, status) VALUES (?, ?, ?, ?, ?, 'ACTIVE');`,
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi ruangan")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`INSERT INTO rooms (code, name, building, room_type, capacity, status) VALUES (?, ?, ?, ?, ?, 'ACTIVE');`,
 		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType), req.Capacity)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode ruangan sudah dipakai atau tidak valid")
 		return
 	}
 	id, _ := res.LastInsertId()
+	afterJSON := fmt.Sprintf(`{"code":%q,"name":%q,"building":%q,"room_type":%q,"status":"ACTIVE"}`,
+		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType))
+	if err := writeMasterAudit(r.Context(), tx, r, "CREATE_MASTER_ROOM", "MASTER_ROOM", id, "", afterJSON); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan beserta auditnya")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan")
+		return
+	}
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": "ACTIVE"})
 }
 
@@ -143,14 +201,57 @@ func (c *MasterController) PatchRoom(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
 		return
 	}
+	var before struct {
+		name, building, roomType, status string
+		capacity                         int
+	}
+	if err := c.db.QueryRow(`SELECT name, COALESCE(building,''), COALESCE(room_type,''), COALESCE(capacity,0), status FROM rooms WHERE id = ?;`, id).
+		Scan(&before.name, &before.building, &before.roomType, &before.capacity, &before.status); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan")
+		return
+	}
 	args = append(args, id)
-	res, err := c.db.Exec(`UPDATE rooms SET `+strings.Join(sets, ", ")+` WHERE id = ?;`, args...)
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi ruangan")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`UPDATE rooms SET `+strings.Join(sets, ", ")+` WHERE id = ?;`, args...)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah ruangan")
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan")
+		return
+	}
+	after := before
+	if req.Name != nil {
+		after.name = strings.TrimSpace(*req.Name)
+	}
+	if req.Building != nil {
+		after.building = strings.TrimSpace(*req.Building)
+	}
+	if req.RoomType != nil {
+		after.roomType = strings.TrimSpace(*req.RoomType)
+	}
+	if req.Capacity != nil {
+		after.capacity = *req.Capacity
+	}
+	if req.Status != nil {
+		after.status = strings.ToUpper(strings.TrimSpace(*req.Status))
+	}
+	beforeJSON := fmt.Sprintf(`{"name":%q,"building":%q,"room_type":%q,"capacity":%d,"status":%q}`,
+		before.name, before.building, before.roomType, before.capacity, before.status)
+	afterJSON := fmt.Sprintf(`{"name":%q,"building":%q,"room_type":%q,"capacity":%d,"status":%q}`,
+		after.name, after.building, after.roomType, after.capacity, after.status)
+	if err := writeMasterAudit(r.Context(), tx, r, "UPDATE_MASTER_ROOM", "MASTER_ROOM", id, beforeJSON, afterJSON); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan beserta auditnya")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan")
 		return
 	}
 	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": id})
@@ -207,12 +308,27 @@ func (c *MasterController) CreateCourse(w http.ResponseWriter, r *http.Request) 
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode dan nama mata kuliah wajib diisi")
 		return
 	}
-	res, err := c.db.Exec(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE');`, code, name)
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi mata kuliah")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE');`, code, name)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode mata kuliah sudah dipakai atau tidak valid")
 		return
 	}
 	id, _ := res.LastInsertId()
+	afterJSON := fmt.Sprintf(`{"code":%q,"name":%q,"status":"ACTIVE"}`, code, name)
+	if err := writeMasterAudit(r.Context(), tx, r, "CREATE_MASTER_COURSE", "MASTER_COURSE", id, "", afterJSON); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan mata kuliah beserta auditnya")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan mata kuliah")
+		return
+	}
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": "ACTIVE"})
 }
 
@@ -258,14 +374,45 @@ func (c *MasterController) PatchCourse(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
 		return
 	}
+	var before struct {
+		name, status string
+	}
+	if err := c.db.QueryRow(`SELECT name, status FROM courses WHERE id = ?;`, id).
+		Scan(&before.name, &before.status); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Mata kuliah tidak ditemukan")
+		return
+	}
 	args = append(args, id)
-	res, err := c.db.Exec(`UPDATE courses SET `+strings.Join(sets, ", ")+` WHERE id = ?;`, args...)
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi mata kuliah")
+		return
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`UPDATE courses SET `+strings.Join(sets, ", ")+` WHERE id = ?;`, args...)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah mata kuliah")
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Mata kuliah tidak ditemukan")
+		return
+	}
+	after := before
+	if req.Name != nil {
+		after.name = strings.TrimSpace(*req.Name)
+	}
+	if req.Status != nil {
+		after.status = strings.ToUpper(strings.TrimSpace(*req.Status))
+	}
+	beforeJSON := fmt.Sprintf(`{"name":%q,"status":%q}`, before.name, before.status)
+	afterJSON := fmt.Sprintf(`{"name":%q,"status":%q}`, after.name, after.status)
+	if err := writeMasterAudit(r.Context(), tx, r, "UPDATE_MASTER_COURSE", "MASTER_COURSE", id, beforeJSON, afterJSON); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan mata kuliah beserta auditnya")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan mata kuliah")
 		return
 	}
 	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": id})

@@ -672,15 +672,77 @@ const BotApi = {
     return (await res.json()).data || [];
   },
 
-  async getClassSettings() {
-    // Backend belum punya GET /api/v1/classes/{id}/settings.
-    return null;
+  async getClassSettings(slug) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(slug) + '/settings', {
+      headers: authHeaders(),
+      credentials: 'same-origin'
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || null;
+  },
+
+  async setPortalMode(slug, mode, reason) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(slug) + '/portal-mode', {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ mode: mode, reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah mode portal.');
+      err.code = res.status === 422 ? 'VALIDATION' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
   },
 
   async updateClassSettings() {
-    const err = new Error('Pengaturan kelas belum tersedia di backend.');
+    const err = new Error('Pengaturan kelas kini via endpoint settings/portal-mode.');
     err.code = 'NOT_IMPLEMENTED';
     throw err;
+  },
+
+  async getProposals(status, kind) {
+    let url = '/api/v1/master/proposals';
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (kind) qs.set('kind', kind);
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Daftar usulan gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async decideProposal(id, keputusan, reviewNote) {
+    const res = await fetch('/api/v1/master/proposals/' + encodeURIComponent(id) + '/' + keputusan, {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ review_note: reviewNote || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal memutuskan usulan.');
+      err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
   },
 
   async issueRecovery() {

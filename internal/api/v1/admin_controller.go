@@ -188,19 +188,26 @@ type RestoreRequest struct {
 	Reason   *string `json:"reason,omitempty"`
 }
 
-// NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp
+// NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp.
+// Penerima = kanal WhatsApp tujuan (jid/nama); riwayat percobaan = jumlah +
+// galat terakhir.
 type NotificationResponseItem struct {
-	ID           int64   `json:"id"`
-	ClassID      int64   `json:"class_id"`
-	EventType    string  `json:"event_type"`
-	EntityType   *string `json:"entity_type,omitempty"`
-	EntityID     *int64  `json:"entity_id,omitempty"`
-	Status       string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
-	PayloadJSON  string  `json:"payload_json"`
-	ScheduledAt  *string `json:"scheduled_at,omitempty"`
-	SentAt       *string `json:"sent_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	AttemptCount int     `json:"attempt_count"`
+	ID              int64   `json:"id"`
+	ClassID         int64   `json:"class_id"`
+	EventType       string  `json:"event_type"`
+	EntityType      *string `json:"entity_type,omitempty"`
+	EntityID        *int64  `json:"entity_id,omitempty"`
+	Status          string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
+	IdempotencyKey  string  `json:"idempotency_key"`
+	ChannelJID      *string `json:"channel_jid,omitempty"`
+	ChannelName     *string `json:"channel_name,omitempty"`
+	PayloadJSON     string  `json:"payload_json"`
+	ScheduledAt     *string `json:"scheduled_at,omitempty"`
+	SentAt          *string `json:"sent_at,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	AttemptCount    int     `json:"attempt_count"`
+	LastAttemptAt   *string `json:"last_attempt_at,omitempty"`
+	LastAttemptError *string `json:"last_attempt_error,omitempty"`
 }
 
 // AdminController mengelola telemetri sistem, penangguhan/pemulihan akun, audit logs, backup & restore, dan notifikasi outbox
@@ -1137,6 +1144,10 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	classIDFilter := strings.TrimSpace(r.URL.Query().Get("class_id"))
+	eventTypeFilter := strings.TrimSpace(r.URL.Query().Get("event_type"))
+	sinceFilter := strings.TrimSpace(r.URL.Query().Get("since"))
+	untilFilter := strings.TrimSpace(r.URL.Query().Get("until"))
 	limitStr := r.URL.Query().Get("limit")
 	limit := 50
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
@@ -1151,9 +1162,17 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 
 	query := `
 		SELECT nm.id, nm.class_id, nm.event_type, nm.entity_type, nm.entity_id,
-		       nm.status, nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
-		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts
+		       nm.status, nm.idempotency_key, wc.jid, wc.display_name,
+		       nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
+		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts,
+		       (SELECT na2.finished_at FROM notification_attempts na2
+		         WHERE na2.notification_message_id = nm.id
+		         ORDER BY na2.attempt_number DESC LIMIT 1) AS last_attempt_at,
+		       (SELECT na3.error_message FROM notification_attempts na3
+		         WHERE na3.notification_message_id = nm.id
+		         ORDER BY na3.attempt_number DESC LIMIT 1) AS last_attempt_error
 		FROM notification_messages nm
+		LEFT JOIN whatsapp_channels wc ON wc.id = nm.whatsapp_channel_id
 		WHERE (1=1)
 	`
 	var args []any
@@ -1161,11 +1180,47 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveClassID.Valid {
 		query += " AND nm.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
+	} else if classIDFilter != "" {
+		classID, err := strconv.ParseInt(classIDFilter, 10, 64)
+		if err != nil || classID <= 0 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "class_id tidak valid")
+			return
+		}
+		query += " AND nm.class_id = ?"
+		args = append(args, classID)
 	}
 
 	if statusFilter != "" {
 		query += " AND nm.status = ?"
 		args = append(args, statusFilter)
+	}
+
+	if eventTypeFilter != "" {
+		query += " AND nm.event_type = ?"
+		args = append(args, eventTypeFilter)
+	}
+
+	if sinceFilter != "" {
+		since, err := common.ParseTime(sinceFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format since tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		query += " AND replace(substr(nm.created_at, 1, 19), ' ', 'T') >= ?"
+		args = append(args, since.UTC().Format("2006-01-02T15:04:05"))
+	}
+
+	if untilFilter != "" {
+		until, err := common.ParseTime(untilFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format until tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		if s := strings.TrimSpace(untilFilter); len(s) == 10 && s[4] == '-' && s[7] == '-' {
+			until = time.Date(until.Year(), until.Month(), until.Day(), 23, 59, 59, 0, time.UTC)
+		}
+		query += " AND replace(substr(nm.created_at, 1, 19), ' ', 'T') <= ?"
+		args = append(args, until.UTC().Format("2006-01-02T15:04:05"))
 	}
 
 	query += " ORDER BY nm.created_at DESC LIMIT ? OFFSET ?;"
@@ -1181,20 +1236,27 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	notifications := []NotificationResponseItem{}
 	for rows.Next() {
 		var (
-			id          int64
-			classID     int64
-			eventType   string
-			entityType  sql.NullString
-			entityID    sql.NullInt64
-			status      string
-			payloadJSON string
-			scheduledAt common.DBTimestamp
-			sentAt      common.DBTimestamp
-			createdAt   common.DBTimestamp
-			attempts    int
+			id             int64
+			classID        int64
+			eventType      string
+			entityType     sql.NullString
+			entityID       sql.NullInt64
+			status         string
+			idempotencyKey string
+			channelJID     sql.NullString
+			channelName    sql.NullString
+			payloadJSON    string
+			scheduledAt    common.DBTimestamp
+			sentAt         common.DBTimestamp
+			createdAt      common.DBTimestamp
+			attempts       int
+			lastAttemptAt  sql.NullString
+			lastAttemptErr sql.NullString
 		)
 
-		if err := rows.Scan(&id, &classID, &eventType, &entityType, &entityID, &status, &payloadJSON, &scheduledAt, &sentAt, &createdAt, &attempts); err == nil {
+		if err := rows.Scan(&id, &classID, &eventType, &entityType, &entityID, &status,
+			&idempotencyKey, &channelJID, &channelName, &payloadJSON,
+			&scheduledAt, &sentAt, &createdAt, &attempts, &lastAttemptAt, &lastAttemptErr); err == nil {
 			var schedStr *string
 			if scheduledAt.Valid {
 				formatted := scheduledAt.Time.Format(time.RFC3339)
@@ -1213,19 +1275,43 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 			if entityID.Valid {
 				eID = &entityID.Int64
 			}
+			var chJID, chName *string
+			if channelJID.Valid && channelJID.String != "" {
+				chJID = &channelJID.String
+			}
+			if channelName.Valid && channelName.String != "" {
+				chName = &channelName.String
+			}
+			var lastAt, lastErr *string
+			if lastAttemptAt.Valid && lastAttemptAt.String != "" {
+				if t, err := common.ParseTime(lastAttemptAt.String); err == nil {
+					formatted := t.Format(time.RFC3339)
+					lastAt = &formatted
+				} else {
+					lastAt = &lastAttemptAt.String
+				}
+			}
+			if lastAttemptErr.Valid && lastAttemptErr.String != "" {
+				lastErr = &lastAttemptErr.String
+			}
 
 			notifications = append(notifications, NotificationResponseItem{
-				ID:           id,
-				ClassID:      classID,
-				EventType:    eventType,
-				EntityType:   eType,
-				EntityID:     eID,
-				Status:       status,
-				PayloadJSON:  payloadJSON,
-				ScheduledAt:  schedStr,
-				SentAt:       sentStr,
-				CreatedAt:    createdAt.Time.Format(time.RFC3339),
-				AttemptCount: attempts,
+				ID:               id,
+				ClassID:          classID,
+				EventType:        eventType,
+				EntityType:       eType,
+				EntityID:         eID,
+				Status:           status,
+				IdempotencyKey:   idempotencyKey,
+				ChannelJID:       chJID,
+				ChannelName:      chName,
+				PayloadJSON:      payloadJSON,
+				ScheduledAt:      schedStr,
+				SentAt:           sentStr,
+				CreatedAt:        createdAt.Time.Format(time.RFC3339),
+				AttemptCount:     attempts,
+				LastAttemptAt:    lastAt,
+				LastAttemptError: lastErr,
 			})
 		}
 	}

@@ -218,11 +218,37 @@
 
       <div class="p-6 rounded-2xl bg-slate-50 border border-[#EEEEEE] space-y-3">
         <h3 class="text-[16px] font-bold text-[#1F1F1F]">Keamanan &amp; Akses Portal</h3>
-        <p class="text-[13px] text-[#667085]">Mode Portal Kelas default LINK · Zona waktu Asia/Jakarta. Rotasi kode mencabut sesi portal versi lama.</p>
+        <div x-show="detailSettingsError" class="text-[13px] text-amber-800" x-text="detailSettingsError"></div>
+        <div x-show="detailSettings" class="text-[14px] space-y-1.5">
+          <p class="text-[#667085]">Mode Portal Kelas: <span class="font-semibold text-[#1F1F1F]" x-text="detailSettings.portal_access_mode === 'CODE' ? 'Kode' : 'Tautan'">-</span></p>
+          <p class="text-[#667085]">Zona waktu: <span class="font-mono text-[#1F1F1F]" x-text="detailSettings.timezone || 'Asia/Jakarta'">-</span></p>
+          <p class="text-[#667085]">Versi kode: <span class="font-mono text-[#1F1F1F]" x-text="detailSettings.portal_code_version">-</span></p>
+        </div>
+        <p class="text-[13px] text-[#667085]">Mode kode butuh kode aktif (putar dulu). Kembali ke tautan mencabut kode. Rotasi kode mengaktifkan mode kode.</p>
         <div class="pt-2 flex flex-wrap gap-3">
-          <button type="button" @click="rotasiKodePortal()" class="h-10 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+          <button type="button" @click="mintaKonfirmasiModePortal('LINK')" class="h-10 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+            Mode tautan
+          </button>
+          <button type="button" @click="mintaKonfirmasiModePortal('CODE')" class="h-10 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+            Mode kode
+          </button>
+          <button type="button" @click="rotasiKodePortal()" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-white text-[13px] font-medium min-h-[44px]">
             Rotasi Kode Portal
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi mode portal -->
+    <div x-show="portalModeConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiModePortal()"></div>
+      <div class="relative bg-white rounded-2xl border border-[#EEEEEE] max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi mode portal">
+        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Ubah mode Portal Kelas?</h3>
+        <p class="text-[13px] text-[#667085] mt-1">Kelas <span class="font-semibold text-[#1F1F1F]" x-text="portalModeConfirm ? portalModeConfirm.nama : ''"></span> dari <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.dari : ''"></span> ke <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.ke : ''"></span>.</p>
+        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Mode tautan mencabut kode aktif: sesi portal versi lama tak berlaku. Mode kode butuh kode aktif — putar kode dulu bila belum ada.</p>
+        <div class="flex gap-2 mt-4">
+          <button type="button" @click="jalankanUbahModePortal()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiModePortal()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
     </div>

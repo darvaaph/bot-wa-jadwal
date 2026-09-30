@@ -50,6 +50,9 @@ function systemAdminApp() {
     detailSemesterList: [],
     detailSemesterLoading: false,
     detailSemesterError: '',
+    detailSettings: null,
+    detailSettingsError: '',
+    portalModeConfirm: null,
 
     undangNomor: '',
     undangError: '',
@@ -109,6 +112,12 @@ function systemAdminApp() {
     matkulEdit: null,
     matkulEditError: '',
     matkulStatusConfirm: null,
+
+    usulanList: [],
+    usulanLoading: false,
+    usulanError: '',
+    usulanKeputusan: null,
+    usulanCatatan: '',
 
     notifFilter: '',
     notifKelas: '',
@@ -978,8 +987,8 @@ function systemAdminApp() {
         if (this.penggunaTab === 'penugasan') await this.loadPenugasan();
         if (this.penggunaTab === 'undangan') await this.loadUndangan();
       }
-      if (v === 'master-ruangan') this.loadRuang();
-      if (v === 'master-matkul') this.loadMatkul();
+      if (v === 'master-ruangan') { this.loadRuang(); this.loadUsulan('ROOM'); }
+      if (v === 'master-matkul') { this.loadMatkul(); this.loadUsulan('COURSE'); }
       window.scrollTo({ top: 0 });
     },
 
@@ -1074,6 +1083,7 @@ function systemAdminApp() {
       this.view = 'detail';
       window.scrollTo({ top: 0 });
       this.loadDetailSemester(obj.slug);
+      this.loadDetailSettings(obj.slug);
     },
 
     async loadDetailSemester(slug) {
@@ -1197,8 +1207,99 @@ function systemAdminApp() {
         } else {
           this.showToast('Kode portal kelas berhasil dirotasi.');
         }
+        await this.loadDetailSettings(this.kelasAktifObj.slug);
       } catch (err) {
         this.showToast(err.message || 'Gagal merotasi kode portal.');
+      }
+    },
+
+    async loadDetailSettings(slug) {
+      if (!slug) return;
+      this.detailSettings = null;
+      this.detailSettingsError = '';
+      try {
+        this.detailSettings = await API.getClassSettings(slug);
+        if (!this.detailSettings) this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat.';
+      } catch (e) {
+        this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      }
+    },
+
+    mintaKonfirmasiModePortal(mode) {
+      if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
+      const dari = this.detailSettings ? this.detailSettings.portal_access_mode : '?';
+      if (dari === mode) {
+        this.showToast(`Mode portal sudah ${mode}.`);
+        return;
+      }
+      this.portalModeConfirm = { ke: mode, dari, nama: this.kelasAktifObj.nama };
+    },
+
+    batalKonfirmasiModePortal() {
+      this.portalModeConfirm = null;
+    },
+
+    async jalankanUbahModePortal() {
+      const c = this.portalModeConfirm;
+      if (!c) return;
+      this.portalModeConfirm = null;
+      await this.ubahModePortal(c.ke);
+    },
+
+    async ubahModePortal(mode) {
+      if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
+      const alasan = this.isDukunganUntuk(this.kelasAktifObj.slug) && this.dukunganAktif
+        ? (this.dukunganAktif.reason || '') : '';
+      try {
+        const res = await API.setPortalMode(this.kelasAktifObj.slug, mode, alasan);
+        if (res && res.changed === false) {
+          this.showToast(`Mode portal sudah ${mode}.`);
+        } else {
+          this.showToast(mode === 'LINK' ? 'Mode tautan aktif. Kode lama tak berlaku.' : 'Mode kode aktif.');
+        }
+        await this.loadDetailSettings(this.kelasAktifObj.slug);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengubah mode portal.');
+      }
+    },
+
+    async loadUsulan(kind) {
+      this.usulanLoading = true; this.usulanError = '';
+      try {
+        this.usulanList = await API.getProposals('PENDING', kind || '');
+      } catch (e) {
+        this.usulanList = [];
+        this.usulanError = (e && e.code === 'UNAUTHORIZED')
+          ? 'Sesi berakhir. Masuk kembali lalu coba lagi.'
+          : 'Daftar usulan belum dapat dimuat.';
+      } finally {
+        this.usulanLoading = false;
+      }
+    },
+
+    usulanKindList(kind) {
+      return (this.usulanList || []).filter(u => !kind || u.kind === kind);
+    },
+
+    mulaiKeputusanUsulan(u, keputusan) {
+      this.usulanKeputusan = { id: u.id, keputusan, judul: (u.target_code || u.kind) + ' · ' + (u.class_slug || '') };
+      this.usulanCatatan = '';
+    },
+
+    async jalankanKeputusanUsulan() {
+      const k = this.usulanKeputusan;
+      if (!k) return;
+      if (k.keputusan === 'reject' && !((this.usulanCatatan || '').trim())) {
+        this.showToast('Catatan penolakan wajib diisi.');
+        return;
+      }
+      try {
+        await API.decideProposal(k.id, k.keputusan, (this.usulanCatatan || '').trim());
+        this.showToast(k.keputusan === 'approve' ? `Usulan ${k.judul} disetujui dan diterapkan.` : `Usulan ${k.judul} ditolak.`);
+        this.usulanKeputusan = null;
+        await Promise.all([this.loadUsulan(''), this.loadRuang(), this.loadMatkul()]);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal memutuskan usulan.');
       }
     },
 

@@ -13,6 +13,7 @@ import (
 
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
+	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
 )
@@ -247,6 +248,187 @@ func (c *PortalController) RotateCode(w http.ResponseWriter, r *http.Request) {
 		"portal_code_version": result.Version,
 		"portal_access_mode":  "CODE",
 		"reveal_once":         true,
+	})
+}
+
+// GetClassSettings menangani GET /api/v1/classes/{slug}/settings (BE-005).
+// KM hanya kelasnya; System Admin global. Tanpa audit (operasi baca).
+func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var out struct {
+		ClassID           int64  `json:"-"`
+		Timezone          string `json:"timezone"`
+		PortalAccessMode  string `json:"portal_access_mode"`
+		PortalCodeVersion int    `json:"portal_code_version"`
+	}
+	err := c.db.QueryRow(`
+		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version
+		FROM classes c
+		JOIN class_settings cs ON cs.class_id = c.id
+		WHERE c.slug = ?;
+	`, slug).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat pengaturan kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != out.ClassID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"slug":                slug,
+		"timezone":            out.Timezone,
+		"portal_access_mode":  out.PortalAccessMode,
+		"portal_code_version": out.PortalCodeVersion,
+	})
+}
+
+// SetPortalModeRequest adalah payload ganti mode Portal Kelas.
+type SetPortalModeRequest struct {
+	Mode   string  `json:"mode"`
+	Reason *string `json:"reason,omitempty"`
+}
+
+// SetPortalMode menangani PATCH /api/v1/classes/{slug}/portal-mode (BE-005).
+// LINK selalu bisa (membersihkan hash kode). CODE wajib sudah punya hash aktif —
+// bila belum, putar kode portal dulu (rotate otomatis mengaktifkan CODE).
+func (c *PortalController) SetPortalMode(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	var req SetPortalModeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	mode := strings.ToUpper(strings.TrimSpace(req.Mode))
+	if mode != "LINK" && mode != "CODE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Mode harus LINK atau CODE")
+		return
+	}
+	reason := ""
+	if req.Reason != nil {
+		reason = strings.TrimSpace(*req.Reason)
+	}
+
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var classID int64
+	var curMode string
+	var hasHash bool
+	err := c.db.QueryRow(`
+		SELECT c.id, cs.portal_access_mode, cs.portal_code_hash IS NOT NULL
+		FROM classes c
+		JOIN class_settings cs ON cs.class_id = c.id
+		WHERE c.slug = ?;
+	`, slug).Scan(&classID, &curMode, &hasHash)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	if curMode == mode {
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"slug": slug, "portal_access_mode": curMode, "changed": false,
+		})
+		return
+	}
+	if mode == "CODE" && !hasHash {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Belum ada kode aktif. Putar kode portal dulu untuk mengaktifkan mode CODE")
+		return
+	}
+
+	modeSubject := fmt.Sprintf("portal-mode:%d:class:%d", u.UserID, classID)
+	var trusted []string
+	if c.secManager != nil {
+		trusted = c.secManager.TrustedProxyCIDRs()
+	}
+	modeSource := middleware.ClientSource(r, trusted)
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trusted, ratelimit.PolicyPortalRotate, modeSubject) {
+		return
+	}
+
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi mode portal")
+		return
+	}
+	defer tx.Rollback()
+	if mode == "LINK" {
+		if _, err := tx.Exec(`UPDATE class_settings SET portal_access_mode='LINK',
+			portal_code_hash=NULL, portal_code_version=portal_code_version+1, version=version+1,
+			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah mode portal")
+			return
+		}
+	} else {
+		if _, err := tx.Exec(`UPDATE class_settings SET portal_access_mode='CODE', version=version+1,
+			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah mode portal")
+			return
+		}
+	}
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"portal_access_mode":%q}`, curMode)
+		afterJSON := fmt.Sprintf(`{"portal_access_mode":%q}`, mode)
+		correlationID := fmt.Sprintf("portal-mode-%d-%d", classID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "UPDATE_PORTAL_MODE",
+			EntityType:    "CLASS",
+			EntityID:      &classID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			Reason:        reason,
+			CorrelationID: correlationID,
+		}); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit mode portal")
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit mode portal")
+		return
+	}
+	if c.rlManager != nil {
+		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyPortalRotate, modeSubject, modeSource, "SUCCESS")
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"slug": slug, "portal_access_mode": mode, "changed": true,
 	})
 }
 
