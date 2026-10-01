@@ -30,6 +30,32 @@
         <p class="text-[12px] text-red-800">pesan WhatsApp perlu dijadwalkan ulang. Publikasi web tidak terdampak.</p>
         <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="mt-2 h-11 px-5 rounded-xl border border-red-700 text-red-700 text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
       </div>
+      <div x-show="undanganMenunggu > 0" class="p-5 rounded-2xl border border-[#9AB7FD] bg-[#E9EAFF]/50">
+        <p class="text-[13px] text-[#3965FB]">Undangan menunggu</p>
+        <p class="text-[32px] font-bold leading-tight text-[#1F1F1F]" x-text="undanganMenunggu" aria-live="polite">0</p>
+        <p class="text-[12px] text-slate-600">undangan peran belum dipakai atau kedaluwarsa.</p>
+        <button type="button" @click="anggotaSub = 'list'; go('anggota')" class="mt-2 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Lihat undangan</button>
+      </div>
+      <div x-show="drafPerubahan.length > 0" class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+        <p class="text-[13px] text-slate-500">Draf perubahan</p>
+        <p class="text-[32px] font-bold leading-tight text-[#1F1F1F]" x-text="drafPerubahan.length" aria-live="polite">0</p>
+        <p class="text-[12px] text-slate-500">draf jadwal menunggu ditinjau dan diterbitkan.</p>
+        <button type="button" @click="go('jadwal')" class="mt-2 h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Tinjau draf</button>
+      </div>
+      <div x-show="publikasiTerbaru.length > 0" class="p-5 rounded-2xl border border-[#EEEEEE] bg-white sm:col-span-2">
+        <p class="text-[13px] text-slate-500">Publikasi terbaru</p>
+        <div class="mt-2 divide-y divide-[#EEEEEE]">
+          <template x-for="a in publikasiTerbaru" :key="a.id">
+            <div class="py-2 flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-[14px] font-medium line-clamp-1" x-text="labelAksiAudit(a.action)">-</p>
+                <p class="text-[11px] text-slate-400 font-mono" x-text="fmtWaktuID(a.created_at)">-</p>
+              </div>
+              <button type="button" @click="go('log')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px] shrink-0">Riwayat</button>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
   </div>
 

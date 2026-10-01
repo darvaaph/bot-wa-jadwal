@@ -43,6 +43,57 @@
         <button type="button" @click="rotasiKodeKelas()" :disabled="rotatingCode" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="rotatingCode ? 'Merotasi...' : 'Rotasi kode kelas'">Rotasi kode kelas</button>
       </div>
     </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-[18px] font-semibold">Cadangan kelas</h2>
+        <button type="button" @click="backupFormOpen = !backupFormOpen" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]" x-text="backupFormOpen ? 'Tutup' : 'Minta cadangan'">Minta cadangan</button>
+      </div>
+      <p class="text-[12px] text-slate-500 mt-0.5">Permintaan diteruskan ke System Admin untuk dieksekusi.</p>
+      <div x-show="backupFormOpen" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+        <div x-show="backupFormError" class="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="backupFormError">-</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Cakupan</label>
+            <select x-model="backupForm.scope" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+              <option value="kelas">Kelas ini (semua semester)</option>
+              <option value="semester">Satu semester</option>
+            </select>
+          </div>
+          <div x-show="backupForm.scope === 'semester'">
+            <label class="block text-[13px] font-medium mb-1">Semester</label>
+            <select x-model="backupForm.semester_id" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+              <option value="">-- Pilih semester --</option>
+              <template x-for="s in semesterList" :key="'bk-' + s.id"><option :value="s.id" x-text="semesterLabel(s)">-</option></template>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[13px] font-medium mb-1">Alasan <span class="text-[#FF6C48]">*</span></label>
+            <input type="text" x-model="backupForm.reason" placeholder="Contoh: Arsip akhir semester" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+          </div>
+        </div>
+        <button type="button" @click="mintaBackup()" :disabled="backupSaving" class="mt-3 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="backupSaving ? 'Mengirim...' : 'Kirim permintaan'">Kirim permintaan</button>
+      </div>
+      <div x-show="backupLoading" class="mt-3 py-3 text-center text-[13px] text-slate-400">Memuat cadangan...</div>
+      <div x-show="backupError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="backupError">-</span>
+        <button type="button" @click="loadBackupSaya()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!backupLoading && !backupError && backupList.length === 0" class="mt-3 text-[13px] text-slate-400">Belum ada permintaan cadangan.</div>
+      <div x-show="!backupLoading && backupList.length > 0" class="mt-3 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+        <template x-for="b in backupList" :key="b.id">
+          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold">Cadangan <span class="font-mono" x-text="'#' + b.id">-</span><span x-show="b.semester_id" class="font-normal text-slate-500" x-text="' · semester #' + b.semester_id">-</span></p>
+              <p class="text-[12px] text-slate-500" x-text="(b.reason || '—') + ' · ' + fmtWaktuID(b.created_at)">-</p>
+              <p x-show="b.checksum" class="text-[11px] text-slate-400 font-mono truncate" x-text="'checksum ' + b.checksum">-</p>
+            </div>
+            <span class="inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(b.status).toUpperCase() === 'FAILED' ? 'bg-red-700 text-white' : (['READY','VERIFIED'].includes(String(b.status).toUpperCase()) ? 'bg-[#E1FFB7] text-green-800' : 'bg-amber-50 text-amber-900')"
+              x-text="labelStatusBackup(b.status)">-</span>
+          </div>
+        </template>
+      </div>
+    </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white lg:col-span-2">
       <h2 class="text-[18px] font-semibold">Kanal WhatsApp kelas</h2>
       <p class="text-[12px] text-slate-500 mt-0.5">Tautkan grup agar notifikasi terkirim. Minta JID via perintah <span class="font-mono">!kanal</span> di grup.</p>

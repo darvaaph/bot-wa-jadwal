@@ -45,7 +45,7 @@
           <p class="text-slate-500">Data terbit di portal terpisah dari status pesan ini. Kegagalan pesan tidak membatalkan publikasi.</p>
           <div x-show="notifAttemptsLoading" class="py-2 text-center text-slate-400">Memuat riwayat...</div>
           <div x-show="notifAttemptsError" class="text-red-700"><span x-text="notifAttemptsError"></span>
-            <button type="button" @click="loadNotifAttemptsKM(n.id)" class="ml-1 font-semibold underline">Coba lagi</button>
+            <button type="button" @click="loadNotifAttemptsKM(n.id)" class="ml-1 font-semibold underline min-h-[44px] inline-flex items-center">Coba lagi</button>
           </div>
           <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="text-slate-400">Belum ada percobaan tercatat.</div>
           <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="space-y-1.5">

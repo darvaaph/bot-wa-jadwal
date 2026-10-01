@@ -116,7 +116,7 @@
               <p x-show="offeringLoading" class="text-[12px] text-slate-500 mt-1">Memuat daftar mata kuliah...</p>
               <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
                 <span x-text="pesanOffering()">-</span>
-                <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+                <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1 min-h-[44px] inline-flex items-center">Muat ulang</button>
               </p>
             </div>
             <div>

@@ -215,7 +215,7 @@
           </select>
           <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
             <span x-text="pesanOffering()">-</span>
-            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1 min-h-[44px] inline-flex items-center">Muat ulang</button>
           </p>
         </div>
         <div>
@@ -274,7 +274,7 @@
           </select>
           <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
             <span x-text="pesanOffering()">-</span>
-            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1">Muat ulang</button>
+            <button type="button" @click="loadOfferings()" class="font-semibold underline ml-1 min-h-[44px] inline-flex items-center">Muat ulang</button>
           </p>
         </div>
       </div>
@@ -507,8 +507,8 @@
     </div>
   </div>
 <!-- Modal Konfirmasi TU -->
-<div x-show="tuConfirmOpen" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-50" @click.self="tuConfirmOpen = false" aria-hidden="true"></div>
-<div x-show="tuConfirmOpen" x-cloak
+<div x-show="tuConfirm.open" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-50" @click.self="tuConfirm.open = false" aria-hidden="true"></div>
+<div x-show="tuConfirm.open" x-cloak
      x-transition:enter="transition ease-out duration-200 transform"
      x-transition:enter-start="-translate-y-4 opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
      x-transition:leave="transition ease-in duration-150 transform"
@@ -519,30 +519,30 @@
   <p class="text-[13px] text-slate-500 mt-1">Catat hasil konfirmasi manual dengan petugas TU untuk ruangan ini.</p>
   <div class="mt-4 space-y-3">
     <div class="p-3 rounded-xl bg-blue-50 border border-blue-200">
-      <p class="text-[14px] font-semibold" x-text="tuConfirmRoom?.name || tuConfirmRoom?.code">-</p>
-      <p class="text-[12px] text-slate-500 font-mono" x-text="tuConfirmRoom?.code + ' · Kapasitas ' + tuConfirmRoom?.capacity + ' · ' + tuConfirmRoom?.room_type">-</p>
+      <p class="text-[14px] font-semibold" x-text="tuConfirm.room?.name || tuConfirm.room?.code">-</p>
+      <p class="text-[12px] text-slate-500 font-mono" x-text="tuConfirm.room?.code + ' · Kapasitas ' + tuConfirm.room?.capacity + ' · ' + tuConfirm.room?.room_type">-</p>
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Status konfirmasi <span class="text-red-600">*</span></label>
-      <select x-model="tuConfirmForm.status" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+      <select x-model="tuConfirm.form.status" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
         <option value="CONFIRMED">Disetujui (CONFIRMED)</option>
         <option value="REJECTED">Ditolak (REJECTED)</option>
       </select>
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Nama petugas TU <span class="text-red-600">*</span></label>
-      <input type="text" x-model="tuConfirmForm.name" placeholder="Contoh: Bpk. Ahmad" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      <input type="text" x-model="tuConfirm.form.name" placeholder="Contoh: Bpk. Ahmad" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Catatan (opsional)</label>
-      <textarea x-model="tuConfirmForm.note" rows="2" placeholder="Contoh: Ruangan dikunci jam 07:00, kunci di TU" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
+      <textarea x-model="tuConfirm.form.note" rows="2" placeholder="Contoh: Ruangan dikunci jam 07:00, kunci di TU" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
     </div>
   </div>
-  <div x-show="tuConfirmSaving" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">Menyimpan konfirmasi...</div>
-  <div x-show="tuConfirmError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tuConfirmError">-</div>
+  <div x-show="tuConfirm.saving" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">Menyimpan konfirmasi...</div>
+  <div x-show="tuConfirm.error" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tuConfirm.error">-</div>
   <div class="flex gap-3 mt-5">
     <button type="button" @click="tutupKonfirmasiTU()" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] font-medium min-h-[44px]">Batal</button>
-    <button type="button" @click="simpanKonfirmasiTU()" :disabled="tuConfirmSaving" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white font-semibold min-h-[44px] disabled:opacity-60">Simpan Konfirmasi</button>
+    <button type="button" @click="simpanKonfirmasiTU()" :disabled="tuConfirm.saving" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white font-semibold min-h-[44px] disabled:opacity-60">Simpan Konfirmasi</button>
   </div>
 </div>
 
