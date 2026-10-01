@@ -476,6 +476,18 @@ func (c *TaskController) GetTaskDetail(w http.ResponseWriter, r *http.Request) {
 			"version":            version,
 			"is_completed":       completedAt.Valid,
 			"is_archived":        archivedAt.Valid,
+			"completed_at": func() any {
+				if completedAt.Valid {
+					return completedAt.RFC3339()
+				}
+				return nil
+			}(),
+			"archived_at": func() any {
+				if archivedAt.Valid {
+					return archivedAt.RFC3339()
+				}
+				return nil
+			}(),
 		},
 		"reviews": reviews,
 	})

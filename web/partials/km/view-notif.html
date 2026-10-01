@@ -18,7 +18,7 @@
   <div x-show="notifLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat notifikasi...</div>
   <div x-show="notifError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="notifError">-</span>
-    <button type="button" @click="loadNotifikasi()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    <button type="button" @click="loadNotifikasi()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
   <div x-show="!notifLoading && !notifError && notifList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <p class="text-[15px] font-semibold">Belum ada notifikasi</p>

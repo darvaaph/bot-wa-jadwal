@@ -57,7 +57,7 @@
         <div x-show="tugasLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat tugas...</div>
         <div x-show="tugasListError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
           <span x-text="tugasListError">-</span>
-          <button type="button" @click="loadTasks()" class="ml-2 font-semibold underline">Coba Lagi</button>
+          <button type="button" @click="loadTasks()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
         </div>
         <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-10 text-center">
           <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />

@@ -514,6 +514,40 @@ const BotApi = {
     return json.data;
   },
 
+  async deletePattern(patternId, version) {
+    const url = '/api/v1/schedule/patterns/' + encodeURIComponent(patternId) + '?version=' + encodeURIComponent(version);
+    const res = await fetch(url, {
+      method: 'DELETE', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((json && json.error && json.error.message) || 'Versi pola jadwal tidak cocok. Muat ulang sebelum menghapus.');
+      err.code = 'VERSION_CONFLICT'; err.payload = json; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menghapus pola jadwal.');
+      err.code = 'SAVE_FAILED'; err.payload = json; throw err;
+    }
+    return json.data;
+  },
+
+  async deleteTeachingEvent(eventId, version) {
+    const url = '/api/v1/teaching-events/' + encodeURIComponent(eventId) + '?version=' + encodeURIComponent(version);
+    const res = await fetch(url, {
+      method: 'DELETE', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((json && json.error && json.error.message) || 'Versi kejadian jadwal tidak cocok. Muat ulang sebelum menghapus.');
+      err.code = 'VERSION_CONFLICT'; err.payload = json; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menghapus draf perubahan jadwal.');
+      err.code = 'SAVE_FAILED'; err.payload = json; throw err;
+    }
+    return json.data;
+  },
+
   async getTeachingEvents(filters) {
     // Backend: GET /api/v1/teaching-events?status= (DRAFT/PUBLISHED/REVOKED).
     let url = '/api/v1/teaching-events';

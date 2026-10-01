@@ -59,6 +59,8 @@ function pjApp() {
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 
+    pinnedNav(id) { return (this.nav || []).find(n => n.id === id) || null; },
+
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}

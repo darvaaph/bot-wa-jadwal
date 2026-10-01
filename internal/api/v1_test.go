@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1046,6 +1047,70 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 }
 
+func TestV1Tasks_DetailIncludesTimestamps(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	getDetail := func() map[string]any {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/api/v1/tasks/1", nil)
+		req.Header.Set("Authorization", "Bearer "+kmToken)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET task detail expected 200, got %d; body=%s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Data struct {
+				Task map[string]any `json:"task"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("respons bukan JSON: %v", err)
+		}
+		return resp.Data.Task
+	}
+
+	// Awal: belum selesai/diarsip -> null + boolean false
+	task := getDetail()
+	if task["completed_at"] != nil {
+		t.Errorf("completed_at awal expected null, got %v", task["completed_at"])
+	}
+	if task["archived_at"] != nil {
+		t.Errorf("archived_at awal expected null, got %v", task["archived_at"])
+	}
+
+	// Complete -> completed_at terisi
+	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", strings.NewReader(`{"version":1}`))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Complete expected 200, got %d", w.Code)
+	}
+	task = getDetail()
+	completed, _ := task["completed_at"].(string)
+	if completed == "" {
+		t.Errorf("completed_at expected terisi setelah complete, got %v", task["completed_at"])
+	}
+
+	// Archive -> archived_at terisi
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":2}`))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Archive expected 200, got %d", w.Code)
+	}
+	task = getDetail()
+	archived, _ := task["archived_at"].(string)
+	if archived == "" {
+		t.Errorf("archived_at expected terisi setelah archive, got %v", task["archived_at"])
+	}
+}
+
 // 4. Fitur Lanjutan Tests (Status Kelas, Ruangan, Notifikasi, Audit, Backup, Admin, Impor)
 
 func TestV1Classes_PatchStatus(t *testing.T) {
@@ -1903,5 +1968,125 @@ func TestV1TeachingEvents_ScopeAndConflict(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusConflict {
 		t.Errorf("Expected 409 Conflict for mismatched version on revoke, got %d", w.Code)
+	}
+}
+
+func TestV1Schedule_DeletePattern(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Cari pattern aktif
+	var patternID int64
+	var version int
+	err := db.QueryRow(`
+		SELECT sp.id, sp.version
+		FROM schedule_patterns sp
+		JOIN course_offerings co ON sp.course_offering_id = co.id
+		WHERE co.id = 1 AND sp.effective_until IS NULL
+		LIMIT 1
+	`).Scan(&patternID, &version)
+	if err != nil {
+		t.Fatalf("No active pattern found for test: %v", err)
+	}
+
+	// Hapus tanpa version -> 422
+	req := httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE pattern without version expected 422, got %d", w.Code)
+	}
+
+	// Hapus dengan versi salah -> 409
+	req = httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10)+"?version=99", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE pattern wrong version expected 409, got %d", w.Code)
+	}
+
+	// Hapus dengan versi benar -> 200
+	req = httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10)+"?version="+strconv.Itoa(version), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("DELETE pattern correct version expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+
+	// Baris tetap ada untuk audit: effective_until terisi, bukan hapus fisik
+	var effUntil sql.NullString
+	err = db.QueryRow(`SELECT effective_until FROM schedule_patterns WHERE id = ?`, patternID).Scan(&effUntil)
+	if err != nil {
+		t.Fatalf("pola terhapus fisik, riwayat audit hilang: %v", err)
+	}
+	if !effUntil.Valid || effUntil.String == "" {
+		t.Errorf("effective_until kosong setelah hapus, pola masih dianggap aktif")
+	}
+}
+
+func TestV1Schedule_DeleteTeachingEvent(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Buat draf event untuk dihapus
+	draftBody := `{"owner_offering_id":1,"event_kind":"EXTRA","starts_at":"2024-12-01T10:00:00+07:00","ends_at":"2024-12-01T12:00:00+07:00","reason":"Test hapus draf"}`
+	req := httptest.NewRequest("POST", "/api/v1/teaching-events", bytes.NewReader([]byte(draftBody)))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create draft for delete test expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var draftResp struct {
+		Data struct {
+			ID      int64 `json:"id"`
+			Version int   `json:"version"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &draftResp)
+	eventID := draftResp.Data.ID
+	eventVersion := draftResp.Data.Version
+
+	// Hapus tanpa version -> 422
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE event without version expected 422, got %d", w.Code)
+	}
+
+	// Hapus dengan versi salah -> 409
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10)+"?version=99", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE event wrong version expected 409, got %d", w.Code)
+	}
+
+	// Coba hapus PUBLISHED event -> 409
+	pubEventID := int64(1)
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(pubEventID, 10)+"?version=1", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE published event expected 409, got %d", w.Code)
+	}
+
+	// Hapus draf dengan versi benar -> 200
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10)+"?version="+strconv.Itoa(eventVersion), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("DELETE draft event correct version expected 200, got %d; body=%s", w.Code, w.Body.String())
 	}
 }

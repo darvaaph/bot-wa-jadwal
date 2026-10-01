@@ -16,6 +16,7 @@
       <div class="contents">
         <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400" :class="si === 0 ? 'pt-0' : ''" x-text="section.title">-</p>
         <template x-for="item in section.items" :key="item.id">
+          <template x-if="item.id !== 'pengaturan' && item.id !== 'akun'">
           <button type="button" @click="go(item.id)" :aria-current="isActive(item) ? 'page' : null"
             :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
@@ -23,16 +24,29 @@
             <span x-show="item.id === 'antrean' && antrean.length > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-[#FCD484] text-[#1F1F1F] text-[11px] font-bold" x-text="antrean.length">-</span>
             <span x-show="item.id === 'notifikasi' && notifGagal > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-red-700 text-white text-[11px] font-bold" x-text="notifGagal">-</span>
           </button>
+          </template>
         </template>
+      </div>
+    </template>
+    <template x-if="pinnedNav('pengaturan')">
+      <div class="contents">
+        <div class="mx-1 mt-3 border-t border-[#EEEEEE]"></div>
+        <button type="button" @click="go('pengaturan')" :aria-current="isActive(pinnedNav('pengaturan')) ? 'page' : null"
+          :class="isActive(pinnedNav('pengaturan')) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+          class="mt-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+          <img class="w-5 h-5 shrink-0" :src="pinnedNav('pengaturan').img" alt="" /><span x-text="pinnedNav('pengaturan').label">-</span>
+        </button>
       </div>
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] px-2 border-t border-[#EEEEEE]">
     <div class="flex items-center justify-between gap-2">
-      <div>
-        <p class="font-semibold"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
-        <p class="text-[12px] text-slate-500" x-text="roleSub">-</p>
-      </div>
+      <button type="button" @click="go('akun')" :aria-label="'Akun ' + roleLabel" :aria-current="view === 'akun' ? 'page' : null"
+        class="min-w-0 flex-1 text-left rounded-xl px-2 py-1.5 hover:bg-slate-50 min-h-[44px]"
+        :class="view === 'akun' ? 'bg-[#E9EAFF] text-[#3965FB]' : ''">
+        <p class="font-semibold truncate"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
+        <p class="text-[12px] text-slate-500 truncate" x-text="roleSub">-</p>
+      </button>
       <button type="button" @click="drawer = false; logout()" title="Keluar / Logout" :aria-label="'Keluar dari akun ' + roleLabel"
               class="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0">
         <span class="material-symbols-outlined text-[18px]">logout</span>

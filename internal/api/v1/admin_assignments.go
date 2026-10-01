@@ -93,15 +93,16 @@ func normalizeTimestamp(v string) string {
 	return v
 }
 
-// GetAssignments menangani GET /api/v1/admin/assignments (khusus System Admin).
+// GetAssignments menangani GET /api/v1/admin/assignments.
+// System Admin lintas kelas; KM hanya kelas penugasannya.
 func (c *AdminController) GetAssignments(w http.ResponseWriter, r *http.Request) {
 	u, ok := common.GetAuthContext(r)
 	if !ok {
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
 		return
 	}
-	if u.ActiveRole != "SYSTEM_ADMIN" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang melihat penugasan peran")
+	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang melihat penugasan peran")
 		return
 	}
 
@@ -134,7 +135,22 @@ func (c *AdminController) GetAssignments(w http.ResponseWriter, r *http.Request)
 		query += " AND ra.role = ?"
 		args = append(args, roleFilter)
 	}
-	if classSlugFilter != "" {
+	if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak valid")
+			return
+		}
+		if classSlugFilter != "" {
+			var ownSlug string
+			_ = c.db.QueryRow(`SELECT slug FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&ownSlug)
+			if classSlugFilter != ownSlug {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Penugasan tidak ditemukan")
+				return
+			}
+		}
+		query += " AND ra.class_id = ?"
+		args = append(args, u.ActiveClassID.Int64)
+	} else if classSlugFilter != "" {
 		query += " AND c.slug = ?"
 		args = append(args, classSlugFilter)
 	}

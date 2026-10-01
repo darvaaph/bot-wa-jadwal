@@ -47,6 +47,8 @@ function kmApp() {
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 
+    pinnedNav(id) { return (this.nav || []).find(n => n.id === id) || null; },
+
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
@@ -168,8 +170,9 @@ function kmApp() {
     get antrean() {
       return (this.tasks || [])
         .filter(t => String(t.publication_status || '').toUpperCase() === 'PUBLISHED'
-          && String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED' && !t.archived_at)
-        .slice().sort((a, b) => String(a.deadline_at || '').localeCompare(String(b.deadline_at || '')));
+          && String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED'
+          && !t.completed_at && !t.archived_at)
+        .slice().sort((a, b) => this.bandingDeadline(a.deadline_at, b.deadline_at, true));
     },
 
     get tugasTabCounts() {
@@ -178,7 +181,7 @@ function kmApp() {
         if (t.archived_at) { c.arsip++; return; }
         if (t.completed_at) { c.selesai++; return; }
         if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { c.draf++; return; }
-        if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') c.review++;
+        if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') { c.review++; return; }
         if (this.lewatDeadline(t)) { c.terlewat++; return; }
         c.aktif++;
       });
@@ -193,9 +196,8 @@ function kmApp() {
         if (t.archived_at) { if (this.tugasTab !== 'arsip') return false; }
         else if (t.completed_at) { if (this.tugasTab !== 'selesai') return false; }
         else if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { if (this.tugasTab !== 'draf') return false; }
-        else if (this.tugasTab === 'review') {
-          if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() !== 'NOT_REVIEWED') return false;
-        }
+        else if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') { if (this.tugasTab !== 'review') return false; }
+        else if (this.tugasTab === 'review') return false;
         else if (this.lewatDeadline(t)) { if (this.tugasTab !== 'terlewat') return false; }
         else if (this.tugasTab !== 'aktif') return false;
         if (dari || sampai) {
@@ -205,9 +207,7 @@ function kmApp() {
           if (sampai && d > sampai) return false;
         }
         return true;
-      }).slice().sort((a, b) => this.tugasSort === 'dekat'
-        ? String(a.deadline_at || '').localeCompare(String(b.deadline_at || ''))
-        : String(b.deadline_at || '').localeCompare(String(a.deadline_at || '')));
+      }).slice().sort((a, b) => this.bandingDeadline(a.deadline_at, b.deadline_at, this.tugasSort === 'dekat'));
     },
 
     get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
@@ -243,6 +243,21 @@ function kmApp() {
         if (!t || !t.deadline_at || t.completed_at) return false;
         return new Date(t.deadline_at) < new Date();
       } catch (e) { return false; }
+    },
+
+    waktuDeadline(iso) {
+      if (!iso) return NaN;
+      const t = new Date(iso).getTime();
+      return isNaN(t) ? NaN : t;
+    },
+
+    // Pembanding deadline; tanpa deadline selalu paling bawah.
+    bandingDeadline(aIso, bIso, dekat) {
+      const da = this.waktuDeadline(aIso), db = this.waktuDeadline(bIso);
+      if (isNaN(da) && isNaN(db)) return 0;
+      if (isNaN(da)) return 1;
+      if (isNaN(db)) return -1;
+      return dekat ? da - db : db - da;
     },
 
     deadlineBadge(iso, completed) {
@@ -324,10 +339,12 @@ function kmApp() {
     },
 
     daySessions(dayName) {
-      return this.fullSchedule
+      const sessions = this.fullSchedule
         .filter(s => s.hari === dayName)
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+      if (this.hideEmpty) return sessions;
+      return sessions;
     },
 
     goPindah(dayName, slotHH) {
@@ -367,6 +384,12 @@ function kmApp() {
     selectedEvent: null, revokeReason: '', revokeError: '',
     roomCands: [], roomCandsLoading: false,
     roomConfirm: { roomId: '', name: '', note: '' },
+    // TU Konfirmasi
+    tuConfirmOpen: false,
+    tuConfirmRoom: null,
+    tuConfirmForm: { status: 'CONFIRMED', name: '', note: '' },
+    tuConfirmSaving: false,
+    tuConfirmError: '',
 
     get polaRooms() {
       const map = new Map();
@@ -474,6 +497,32 @@ function kmApp() {
       window.scrollTo({ top: 0 });
     },
 
+    async hapusPola(p) {
+      if (!p.id || !p.version) { this.showToast('Data pola tidak lengkap.'); return; }
+      const ok = window.confirm('Hapus pola jadwal ini? Pola tidak aktif mulai hari ini. Versi lama tetap tersimpan.');
+      if (!ok) return;
+      try {
+        await API.deletePattern(p.id, p.version);
+        this.showToast('Pola jadwal dihapus (tidak aktif mulai hari ini).');
+        this.patternsList = await API.getPatterns().catch(() => []);
+      } catch (e) {
+        this.showToast(e.message || 'Gagal menghapus pola jadwal.');
+      }
+    },
+
+    async hapusDrafPerubahan(ev) {
+      if (!ev.id || !ev.version) { this.showToast('Data draf tidak lengkap.'); return; }
+      const ok = window.confirm('Hapus draf perubahan jadwal ini? Tindakan ini tidak dapat dibatalkan.');
+      if (!ok) return;
+      try {
+        await API.deleteTeachingEvent(ev.id, ev.version);
+        this.showToast('Draf perubahan jadwal dihapus.');
+        await this.loadEvents();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal menghapus draf perubahan.');
+      }
+    },
+
     durasiMenit(start, end) {
       const m = String(start || '').match(/(\d{1,2}):(\d{2})/);
       const n = String(end || '').match(/(\d{1,2}):(\d{2})/);
@@ -507,6 +556,17 @@ function kmApp() {
         this.jadwalSub = 'daftar';
       } catch (err) {
         this.polaFormError = err.message || 'Gagal menyimpan pola jadwal.';
+      }
+    },
+
+    async loadPatterns() {
+      this.polaLoading = true; this.polaError = '';
+      try {
+        this.patternsList = await API.getPatterns().catch(() => []) || [];
+      } catch (e) {
+        this.patternsList = []; this.polaError = 'Pola jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.polaLoading = false;
       }
     },
 
@@ -612,6 +672,11 @@ function kmApp() {
       if (this.overrideConflicts.length > 0 && !(this.ubahForm.conflictReason || '').trim()) {
         this.showToast('Isi alasan pengecualian konflik sebelum menerbitkan.'); return;
       }
+      // Peringatan: jika ruangan dipilih tapi belum konfirmasi TU
+      if (this.ubahForm.roomId && this.draftEvent && !this.draftEvent.room_id) {
+        const confirm = window.confirm('Anda memilih ruangan tapi belum mencatat konfirmasi TU. Lanjutkan tanpa konfirmasi TU? (Ruangan mungkin tidak tersedia saat publish)');
+        if (!confirm) return;
+      }
       try {
         await API.publishTeachingEvent(this.draftEvent.id, (this.ubahForm.conflictReason || '').trim() || null, this.draftEvent.version || 1);
         this.showToast('Perubahan jadwal terbit.');
@@ -707,6 +772,46 @@ function kmApp() {
       }
     },
 
+    bukaKonfirmasiTU(room) {
+      this.tuConfirmRoom = room;
+      this.tuConfirmForm = { status: 'CONFIRMED', name: '', note: '' };
+      this.tuConfirmError = '';
+      this.tuConfirmOpen = true;
+    },
+
+    tutupKonfirmasiTU() {
+      this.tuConfirmOpen = false;
+      this.tuConfirmRoom = null;
+      this.tuConfirmForm = { status: 'CONFIRMED', name: '', note: '' };
+      this.tuConfirmError = '';
+    },
+
+    async simpanKonfirmasiTU() {
+      if (!this.draftEvent || !this.draftEvent.id || !this.tuConfirmRoom) {
+        this.showToast('Data draf atau ruangan tidak tersedia.'); return;
+      }
+      if (!((this.tuConfirmForm.name || '').trim())) {
+        this.showToast('Nama petugas TU wajib diisi.'); return;
+      }
+      this.tuConfirmError = '';
+      this.tuConfirmSaving = true;
+      try {
+        await API.confirmTeachingEventRoom(this.draftEvent.id, {
+          room_id: Number(this.tuConfirmRoom.id),
+          confirmation_status: this.tuConfirmForm.status,
+          external_contact: this.tuConfirmForm.name.trim(),
+          note: this.tuConfirmForm.note || undefined
+        });
+        this.showToast(this.tuConfirmForm.status === 'CONFIRMED' ? 'Konfirmasi TU disetujui.' : 'Konfirmasi TU ditolak.');
+        this.tutupKonfirmasiTU();
+        await this.muatPratinjau();
+      } catch (e) {
+        this.tuConfirmError = e.message || 'Gagal menyimpan konfirmasi TU.';
+      } finally {
+        this.tuConfirmSaving = false;
+      }
+    },
+
     async initKM() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
@@ -772,7 +877,7 @@ function kmApp() {
       await this.loadOfferings();
       await this.loadSchedule();
       await this.loadTasks();
-      this.patternsList = await API.getPatterns().catch(() => []);
+      await this.loadPatterns();
       await this.loadEvents();
       await this.loadSemesters().catch(() => {});
       await this.loadMateri().catch(() => {});
@@ -1054,14 +1159,14 @@ function kmApp() {
         const res = await API.createTask(this.rakitTugasPayload('published'));
         const newId = res && res.data && res.data.id;
         await this.loadTasks();
-        this.tugasPublishMsg = 'Tugas diterbitkan.';
         this.tugasPreview = null;
         this.tugasSub = 'list';
         if (newId) {
           await this.bukaDetailTugas(newId);
+          this.tugasPublishMsg = 'Tugas diterbitkan.';
         } else {
           this.view = 'tugas';
-          this.showToast(this.tugasPublishMsg);
+          this.showToast('Tugas diterbitkan.');
         }
       } catch (err) {
         this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
@@ -1107,7 +1212,7 @@ function kmApp() {
       this.tugasDetailLoading = true;
       this.tugasDetail = null; this.tugasReviews = [];
       this.tugasDetailTab = 'detail'; this.tugasConflict = null;
-      this.tugasPublishMsg = this.tugasPublishMsg || '';
+      this.tugasPublishMsg = '';
       this.tugasSub = 'detail';
       this.view = 'tugas';
       window.scrollTo({ top: 0 });
@@ -1125,7 +1230,8 @@ function kmApp() {
           publication_status: info.publication_status || info.status || 'DRAFT',
           review_state: info.review_state || info.review_status || 'NOT_REVIEWED',
           version: info.version || 0,
-          completed_at: info.completed_at || null, archived_at: info.archived_at || null,
+          completed_at: info.completed_at || (info.is_completed ? true : null),
+          archived_at: info.archived_at || (info.is_archived ? true : null),
           offering_id: info.offering_id || info.course_offering_id || '',
           urgency: u.level, countdown: u.badge
         };
@@ -1395,6 +1501,12 @@ function kmApp() {
       if (s) return `Semester ${s.term || ''} ${s.academic_year || ''}`.trim();
       if (this.semesterId) return 'Semester aktif dimuat';
       return '';
+    },
+
+    get isAlsoPJ() {
+      const classes = this.meCache?.classes || [];
+      return classes.some(c => String(c.slug || '') === String(this.classSlug) &&
+        (c.assignments || []).some(a => String(a.role || '').toUpperCase() === 'PJ'));
     },
 
     get auditPreview() {
@@ -1782,6 +1894,10 @@ function kmApp() {
 
     infoPengingat() {
       this.showToast('Waktu pengingat diatur System Admin. Hubungi admin bila perlu diubah.');
+    },
+
+    mintaResetSandi() {
+      this.showToast('Minta bantuan System Admin untuk mengatur ulang kata sandi.');
     },
 
     copyText(text, okMsg) {

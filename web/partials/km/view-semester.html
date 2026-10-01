@@ -11,7 +11,7 @@
   <div x-show="semesterLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat semester...</div>
   <div x-show="semesterError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="semesterError">-</span>
-    <button type="button" @click="loadSemesters()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    <button type="button" @click="loadSemesters()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
 
   <div x-show="!semesterLoading && !semesterError" class="mt-5 space-y-3">

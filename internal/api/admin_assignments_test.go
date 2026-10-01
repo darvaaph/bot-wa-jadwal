@@ -194,6 +194,49 @@ func TestV1Admin_GetAssignments(t *testing.T) {
 	}
 }
 
+func TestV1Admin_GetAssignmentsKMScope(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	seedSecondClass(t, db)
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// KM: 200, hanya 3 penugasan kelasnya (tanpa baris global SA, tanpa kelas 2)
+	w := helperDo(t, s, "GET", "/api/v1/admin/assignments", kmToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("respons bukan JSON: %v", err)
+	}
+	if len(body.Data) != 3 {
+		t.Fatalf("KM expected 3 penugasan kelasnya, got %d: %v", len(body.Data), body.Data)
+	}
+	for _, a := range body.Data {
+		if a["role"] == "SYSTEM_ADMIN" {
+			t.Fatalf("KM tak boleh melihat penugasan global: %v", a)
+		}
+		if slug, _ := a["class_slug"].(string); slug != "" && slug != "d4-ti-2024-a" {
+			t.Fatalf("KM melihat kelas lain: %v", a)
+		}
+	}
+
+	// KM filter kelas sendiri: 200
+	w = helperDo(t, s, "GET", "/api/v1/admin/assignments?class_slug=d4-ti-2024-a", kmToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM filter kelas sendiri expected 200, got %d", w.Code)
+	}
+
+	// KM filter kelas lain: 404
+	w = helperDo(t, s, "GET", "/api/v1/admin/assignments?class_slug=d4-ti-2024-b", kmToken, nil)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("KM filter kelas lain expected 404, got %d", w.Code)
+	}
+}
+
 func TestV1Admin_SuspendAssignment(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()

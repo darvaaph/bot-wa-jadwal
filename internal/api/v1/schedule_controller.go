@@ -1456,3 +1456,194 @@ func participantOfferingIDs(ctx context.Context, db *sql.DB, eventID, ownerOffer
 	}
 	return out
 }
+
+// DeletePattern menangani DELETE /api/v1/schedule/patterns/{id}
+// Hanya menghapus pola aktif (effective_until IS NULL). Versi lama (effective_until SET) tidak dihapus.
+func (c *ScheduleController) DeletePattern(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang menghapus pola jadwal")
+		return
+	}
+
+	patternIDStr := r.PathValue("id")
+	patternID, err := strconv.ParseInt(patternIDStr, 10, 64)
+	if err != nil || patternID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID pola jadwal tidak valid")
+		return
+	}
+
+	// Ambil version untuk optimistic locking
+	var curVersion int
+	var curOfferingID int64
+	var curClassID int64
+	err = c.db.QueryRow(`
+		SELECT sp.version, sp.course_offering_id, s.class_id
+		FROM schedule_patterns sp
+		JOIN course_offerings co ON sp.course_offering_id = co.id
+		JOIN semesters s ON co.semester_id = s.id
+		WHERE sp.id = ? AND sp.effective_until IS NULL;
+	`, patternID).Scan(&curVersion, &curOfferingID, &curClassID)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pola jadwal aktif tidak ditemukan")
+		return
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca pola jadwal")
+		return
+	}
+
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != curOfferingID {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya dapat menghapus pola untuk offering penugasan Anda")
+			return
+		}
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != curClassID {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya dapat menghapus pola untuk kelas penugasan Anda")
+			return
+		}
+	}
+
+	version := r.URL.Query().Get("version")
+	if version == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib disertakan sebagai query parameter")
+		return
+	}
+	ver, err := strconv.Atoi(version)
+	if err != nil || ver <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version tidak valid")
+		return
+	}
+	if ver != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{
+			"current_version": curVersion,
+		})
+		return
+	}
+
+	// Hapus (set effective_until = kemarin) — soft delete, riwayat tetap untuk audit
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	_, err = c.db.Exec(`
+		UPDATE schedule_patterns
+		SET effective_until = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND effective_until IS NULL AND version = ?;
+	`, yesterday, patternID, curVersion)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus pola jadwal")
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"id": patternID, "deleted": true, "effective_until": yesterday,
+	})
+}
+
+// DeleteTeachingEvent menangani DELETE /api/v1/teaching-events/{id}
+// Hanya boleh menghapus event berstatus DRAFT.
+func (c *ScheduleController) DeleteTeachingEvent(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang menghapus draf perubahan jadwal")
+		return
+	}
+
+	eventIDStr := r.PathValue("id")
+	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID kejadian jadwal tidak valid")
+		return
+	}
+
+	var curStatus string
+	var curVersion int
+	var curOfferingID int64
+	var curClassID int64
+	err = c.db.QueryRow(`
+		SELECT te.lifecycle_status, te.version, co.id, s.class_id
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters s ON co.semester_id = s.id
+		WHERE te.id = ?;
+	`, eventID).Scan(&curStatus, &curVersion, &curOfferingID, &curClassID)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		return
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca kejadian jadwal")
+		return
+	}
+
+	if curStatus != "DRAFT" {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Hanya DRAFT yang dapat dihapus. Event terbit gunakan Revoke.")
+		return
+	}
+
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != curOfferingID {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya dapat menghapus draf untuk offering penugasan Anda")
+			return
+		}
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != curClassID {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya dapat menghapus draf untuk kelas penugasan Anda")
+			return
+		}
+	}
+
+	version := r.URL.Query().Get("version")
+	if version == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib disertakan sebagai query parameter")
+		return
+	}
+	ver, err := strconv.Atoi(version)
+	if err != nil || ver <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version tidak valid")
+		return
+	}
+	if ver != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{
+			"current_version": curVersion,
+		})
+		return
+	}
+
+	// Hard delete DRAFT — hapus offerings dulu (FK tanpa CASCADE)
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`DELETE FROM teaching_event_offerings WHERE teaching_event_id = ?;`, eventID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus penawaran event")
+		return
+	}
+
+	_, err = tx.Exec(`DELETE FROM teaching_events WHERE id = ? AND version = ? AND lifecycle_status = 'DRAFT';`, eventID, curVersion)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus draf perubahan jadwal")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit transaksi hapus")
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"id": eventID, "deleted": true,
+	})
+}

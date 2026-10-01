@@ -7,6 +7,7 @@
     <div class="relative flex-1 max-w-xl min-w-0">
       <button type="button" @click="go('akun')" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] bg-white text-left flex items-center gap-2 min-h-[44px] hover:bg-slate-50">
         <span class="w-2 h-2 rounded-full shrink-0" :class="botOnline ? 'bg-emerald-500' : 'bg-[#FF6C48]'" aria-hidden="true"></span>
+        <span class="sr-only" x-text="botOnline ? 'Bot terhubung' : 'Bot terputus'"></span>
         <span class="min-w-0 truncate text-[14px] font-semibold" x-text="(selectedClass || '—') + ' · ' + roleLabel">-</span>
         <span class="hidden sm:inline shrink-0 text-[12px] text-slate-500 truncate" x-text="activeSemesterLabel">-</span>
       </button>

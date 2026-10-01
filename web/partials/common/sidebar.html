@@ -12,21 +12,36 @@
       <div class="contents">
         <p class="sidebar-section" :class="si === 0 ? 'px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400' : 'px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400'" x-text="section.title">-</p>
         <template x-for="item in section.items" :key="item.id">
+          <template x-if="item.id !== 'pengaturan' && item.id !== 'akun'">
           <button type="button" @click="go(item.id)" :title="sidebarCollapsed ? item.label : ''" :aria-current="isActive(item) ? 'page' : null"
             :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
             <img :src="item.img" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label" x-text="item.label">-</span>
           </button>
+          </template>
         </template>
+      </div>
+    </template>
+    <template x-if="pinnedNav('pengaturan')">
+      <div class="contents">
+        <div class="mx-1 mt-3 border-t border-[#EEEEEE]"></div>
+        <button type="button" @click="go('pengaturan')" :title="sidebarCollapsed ? pinnedNav('pengaturan').label : ''" :aria-current="isActive(pinnedNav('pengaturan')) ? 'page' : null"
+          :class="isActive(pinnedNav('pengaturan')) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+          class="mt-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+          <img :src="pinnedNav('pengaturan').img" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label" x-text="pinnedNav('pengaturan').label">-</span>
+        </button>
       </div>
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] border-t border-[#EEEEEE]">
     <div class="sidebar-footer flex items-center justify-between gap-2">
-      <div class="sidebar-footer-text truncate" x-show="!sidebarCollapsed">
+      <button type="button" @click="go('akun')" :title="sidebarCollapsed ? 'Akun' : ''" :aria-label="'Akun ' + roleLabel" :aria-current="view === 'akun' ? 'page' : null"
+        class="sidebar-footer-text min-w-0 flex-1 truncate text-left rounded-xl px-2 py-1.5 hover:bg-slate-50 min-h-[44px]"
+        :class="view === 'akun' ? 'bg-[#E9EAFF] text-[#3965FB]' : ''">
         <p class="font-semibold text-[#1F1F1F] truncate"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
         <p class="text-[12px] text-slate-500 truncate" x-text="roleSub">-</p>
-      </div>
+      </button>
+      <button type="button" x-show="sidebarCollapsed" @click="go('akun')" aria-label="Akun" class="w-9 h-9 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold text-[13px] shrink-0 flex items-center justify-center" x-text="roleLabel">-</button>
       <button type="button" @click="logout()" title="Keluar / Logout" :aria-label="'Keluar dari akun ' + roleLabel"
               class="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0 cursor-pointer">
         <span class="material-symbols-outlined text-[18px]">logout</span>

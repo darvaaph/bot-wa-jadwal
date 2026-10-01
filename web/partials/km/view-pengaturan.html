@@ -5,7 +5,7 @@
   <div x-show="settingsLoading" class="mt-5 py-4 text-center text-[13px] text-slate-400">Memuat pengaturan...</div>
   <div x-show="settingsError" class="mt-5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="settingsError">-</span>
-    <button type="button" @click="loadPengaturanKelas()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    <button type="button" @click="loadPengaturanKelas()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 items-start">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
@@ -41,7 +41,7 @@
       <div x-show="kanalLoading" class="mt-3 py-4 text-center text-[13px] text-slate-400">Memuat kanal...</div>
       <div x-show="kanalError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="kanalError">-</span>
-        <button type="button" @click="loadKanalSaya()" class="ml-2 font-semibold underline">Coba Lagi</button>
+        <button type="button" @click="loadKanalSaya()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
       <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="mt-3 p-4 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">Belum ada kanal tertaut.</div>
       <div x-show="!kanalLoading && kanalList.length > 0" class="mt-3 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
@@ -84,13 +84,13 @@
         <p class="text-[12px] text-slate-500">Kelas <span class="font-mono" x-text="selectedClass">-</span> · Pengelola seluruh kelas</p>
       </div>
     </div>
-    <div class="mt-4 p-4 rounded-xl bg-[#E9EAFF]/50 border border-[#9AB7FD]">
+    <div class="mt-4 p-4 rounded-xl bg-[#E9EAFF]/50 border border-[#9AB7FD]" x-show="isAlsoPJ">
       <p class="text-[13px] font-semibold">Pindah peran</p>
-      <p class="text-[12px] text-slate-500 mt-0.5">Akun ini juga terdaftar sebagai PJ Mata Kuliah di kelas yang sama.</p>
+      <p class="text-[12px] text-slate-500 mt-0.5">Akun ini juga terdaftar sebagai PJ Mata Kuliah di kelas ini.</p>
       <a href="/pj.html" class="mt-2 inline-flex h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold items-center min-h-[44px]">Pindah ke Area PJ</a>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
-      <button type="button" @click="infoPengingat()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Ubah kata sandi via admin</button>
+      <button type="button" @click="mintaResetSandi()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Ubah kata sandi via admin</button>
       <button type="button" @click="logout()" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
     </div>
     <p class="text-[11px] text-slate-400 mt-3">Sesi masuk memakai token pengelola. Pemulihan akun dibantu System Admin.</p>

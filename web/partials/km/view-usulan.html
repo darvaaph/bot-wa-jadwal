@@ -78,12 +78,12 @@
       <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
       <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="usulanError">-</span>
-        <button type="button" @click="loadUsulanSaya()" class="ml-2 font-semibold underline">Coba Lagi</button>
+        <button type="button" @click="loadUsulanSaya()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
       <div x-show="!usulanLoading && !usulanError && usulanList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">
         <span x-text="(usulanFilterKind || usulanFilterStatus) ? 'Tidak ada usulan dengan filter yang dipilih.' : 'Belum ada usulan dari kelas ini.'">-</span>
         <div x-show="usulanFilterKind || usulanFilterStatus" class="mt-3">
-          <button type="button" @click="usulanFilterKind = ''; usulanFilterStatus = ''; loadUsulanSaya()" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+          <button type="button" @click="usulanFilterKind = ''; usulanFilterStatus = ''; loadUsulanSaya()" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Atur ulang filter</button>
         </div>
       </div>
       <div x-show="!usulanLoading && usulanList.length > 0" class="mt-3 space-y-3">

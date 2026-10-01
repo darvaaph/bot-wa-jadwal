@@ -85,3 +85,19 @@ func (s *Server) handleParticipationV1TeachingEvent(w http.ResponseWriter, r *ht
 	}
 	v1.NewScheduleController(s.v1DB).ParticipationTeachingEvent(w, r)
 }
+
+func (s *Server) handleDeleteV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.DeletePattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).DeletePattern(w, r)
+}
+
+func (s *Server) handleDeleteV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.DeleteTeachingEvent(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).DeleteTeachingEvent(w, r)
+}

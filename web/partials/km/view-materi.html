@@ -89,7 +89,7 @@
       <div x-show="materiLoading" class="py-8 text-center text-[13px] text-slate-400">Memuat materi...</div>
       <div x-show="materiError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="materiError">-</span>
-        <button type="button" @click="loadMateri()" class="ml-2 font-semibold underline">Coba Lagi</button>
+        <button type="button" @click="loadMateri()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
       <div x-show="!materiLoading && !materiError && materiTampil.length === 0" class="py-10 text-center">
         <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />

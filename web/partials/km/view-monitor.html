@@ -20,7 +20,7 @@
     </div>
   </div>
   <div class="mt-4 p-4 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col sm:flex-row sm:items-center gap-2">
-    <p class="text-[13px] text-slate-600 flex-1">Tugas aktif <span class="font-mono font-semibold" x-text="tasks.length">0</span> · Perlu Review <span class="font-mono font-semibold" x-text="antrean.length">0</span></p>
+    <p class="text-[13px] text-slate-600 flex-1">Tugas aktif <span class="font-mono font-semibold" x-text="tugasAktif.length">0</span> · Perlu Review <span class="font-mono font-semibold" x-text="antrean.length">0</span></p>
     <button type="button" @click="loadNotifikasi()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Muat ulang antrean</button>
   </div>
 </section>
@@ -31,7 +31,7 @@
   <div x-show="auditLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
   <div x-show="auditError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="auditError">-</span>
-    <button type="button" @click="loadAuditLog()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    <button type="button" @click="loadAuditLog()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
   <div x-show="!auditLoading && !auditError && auditList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <p class="text-[15px] font-semibold">Belum ada riwayat</p>

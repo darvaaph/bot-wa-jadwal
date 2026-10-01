@@ -18,7 +18,7 @@
         <div x-show="penugasanLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat penugasan...</div>
         <div x-show="penugasanError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
           <span x-text="penugasanError">-</span>
-          <button type="button" @click="loadPenugasan()" class="ml-2 font-semibold underline">Coba Lagi</button>
+          <button type="button" @click="loadPenugasan()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
         </div>
         <div x-show="!penugasanLoading && !penugasanError && penugasanList.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#EEEEEE] text-center">
           <p class="text-[15px] font-semibold">Belum ada PJ terdaftar</p>
