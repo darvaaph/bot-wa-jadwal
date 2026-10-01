@@ -12,11 +12,12 @@
       </button>
     </template>
     <button type="button" @click="drawer = true" aria-label="Menu lainnya"
-      class="flex flex-col items-center justify-center gap-1 min-h-[44px] text-slate-500">
+      class="relative flex flex-col items-center justify-center gap-1 min-h-[44px] text-slate-500">
       <span class="px-4 py-1 rounded-full">
         <span class="material-symbols-outlined text-[22px]">more_horiz</span>
       </span>
       <span class="text-[11px] font-semibold">Lainnya</span>
+      <span x-show="attentionCount > 0" class="absolute top-1 right-1/2 translate-x-6 min-w-[16px] h-4 px-1 rounded-full bg-[#FF6C48] text-white text-[10px] font-bold flex items-center justify-center" x-text="attentionCount > 9 ? '9+' : attentionCount">-</span>
     </button>
   </div>
 </nav>

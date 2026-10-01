@@ -42,6 +42,11 @@ function pjApp() {
     get nav() { return this.navSections.flatMap(s => s.items); },
     get pjNav() { return this.nav; },
     get roleSub() { return this.pjMatkul || 'Mata kuliah belum dipilih'; },
+    // Disediakan agar topbar/drawer bersama tetap hidup di area PJ.
+    get antrean() { return []; },
+    get notifGagal() { return 0; },
+    get attentionCount() { return 0; },
+    get activeSemesterLabel() { return ''; },
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 

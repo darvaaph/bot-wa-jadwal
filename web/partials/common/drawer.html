@@ -12,12 +12,19 @@
     <button type="button" @click="drawer = false" aria-label="Tutup menu" class="p-2 min-w-[44px] min-h-[44px] rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button>
   </div>
   <nav aria-label="Navigasi mobile" class="mt-6 flex flex-col gap-0.5 text-[14px]">
-    <template x-for="item in nav" :key="item.id">
-      <button type="button" @click="go(item.id)"
-        :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
-        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-        <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
-      </button>
+    <template x-for="(section, si) in navSections" :key="section.title">
+      <div class="contents">
+        <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400" :class="si === 0 ? 'pt-0' : ''" x-text="section.title">-</p>
+        <template x-for="item in section.items" :key="item.id">
+          <button type="button" @click="go(item.id)" :aria-current="isActive(item) ? 'page' : null"
+            :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+            <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
+            <span x-show="item.id === 'antrean' && antrean.length > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-[#FCD484] text-[#1F1F1F] text-[11px] font-bold" x-text="antrean.length">-</span>
+            <span x-show="item.id === 'notifikasi' && notifGagal > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-red-700 text-white text-[11px] font-bold" x-text="notifGagal">-</span>
+          </button>
+        </template>
+      </div>
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] px-2 border-t border-[#EEEEEE]">

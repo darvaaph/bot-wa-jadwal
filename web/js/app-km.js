@@ -1385,6 +1385,17 @@ function kmApp() {
       return (this.notifList || []).filter(n => ['PENDING', 'PROCESSING'].includes(String(n.status || '').toUpperCase())).length;
     },
 
+    get attentionCount() {
+      return this.antrean.length + this.notifGagal;
+    },
+
+    get activeSemesterLabel() {
+      const s = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE');
+      if (s) return `Semester ${s.term || ''} ${s.academic_year || ''}`.trim();
+      if (this.semesterId) return 'Semester aktif dimuat';
+      return '';
+    },
+
     get auditPreview() {
       return (this.auditList || []).slice(0, 5);
     },
