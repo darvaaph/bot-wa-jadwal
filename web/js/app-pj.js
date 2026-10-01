@@ -17,6 +17,15 @@ function pjApp() {
     pjMatkul: localStorage.getItem('pj_matkul') || '',
     offeringId: localStorage.getItem('pj_offering_id') || '',
     offeringList: [],
+
+    materiList: [],
+    materiLoading: false,
+    materiError: '',
+    materiSort: 'terbaru',
+    materiFormOpen: false,
+    materiForm: { title: '', material_type: 'DOCUMENT', url: '', description: '' },
+    materiFormError: '',
+    materiSaving: false,
     offeringLoading: false,
     offeringState: 'idle',
 
@@ -737,6 +746,7 @@ function pjApp() {
       if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
+      if (v === 'materi') this.loadMateri();
       window.scrollTo({ top: 0 });
     },
 
@@ -1166,6 +1176,103 @@ function pjApp() {
       localStorage.setItem('pj_rem_pagi', this.pengaturan.pagi);
       localStorage.setItem('pj_rem_sore', this.pengaturan.sore);
       this.showToast('Pengaturan tersimpan di perangkat ini.');
+    },
+
+    // Materi — lingkup offering penugasan PJ.
+    get materiTampil() {
+      const list = (this.materiList || []).slice();
+      const terbaru = this.materiSort !== 'terlama';
+      return list.sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return terbaru ? (tb - ta) : (ta - tb);
+      });
+    },
+
+    materiTipeLabel(t) {
+      const s = String(t || '').toUpperCase();
+      if (s === 'DOCUMENT') return 'Dokumen';
+      if (s === 'MEETING') return 'Tautan rapat';
+      if (s === 'REPOSITORY') return 'Repositori';
+      if (s === 'PORTAL') return 'Portal';
+      return 'Lainnya';
+    },
+
+    sumberMateri(m) {
+      const url = String((m && m.url) || '').trim();
+      if (!url) return String((m && m.description) || '').trim() ? 'Catatan' : 'Tautan';
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+      const path = url.split('?')[0];
+      const ext = (path.split('.').pop() || '').toUpperCase();
+      if (/^[A-Z0-9]{2,5}$/.test(ext) && !/^(COM|ID|ORG|NET|IO|DEV|APP|ME|LINK|GLYPH|US)$/.test(ext)) return ext;
+      if (host) {
+        if (host.includes('drive.google')) return 'Tautan Google Drive';
+        if (host.includes('docs.google')) return 'Tautan Google Docs';
+        return 'Tautan ' + host;
+      }
+      return 'Tautan';
+    },
+
+    fmtTanggalSingkat(iso) {
+      try {
+        const d = new Date(iso);
+        if (!iso || isNaN(d)) return '—';
+        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' });
+        return tgl.replace('.', '');
+      } catch (e) { return '—'; }
+    },
+
+    async loadMateri() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.materiList = []; return; }
+      this.materiLoading = true; this.materiError = '';
+      try {
+        const data = await API.getMaterials(slug, this.offeringId || '');
+        if (data === null) {
+          this.materiList = [];
+          this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+          return;
+        }
+        const list = Array.isArray(data) ? data : [];
+        this.materiList = this.offeringId
+          ? list.filter(m => String(m.offering_id || '') === String(this.offeringId))
+          : list;
+      } catch (e) {
+        this.materiList = [];
+        this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.materiLoading = false;
+      }
+    },
+
+    async simpanMateri() {
+      const f = this.materiForm;
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.materiFormError = 'Kelas belum termuat.'; return; }
+      if (!this.offeringId) { this.materiFormError = 'Pilih mata kuliah penugasan di Dashboard dulu.'; return; }
+      if (!((f.title || '').trim()) || String(f.title).trim().length < 3) { this.materiFormError = 'Judul materi minimal 3 karakter.'; return; }
+      this.materiFormError = '';
+      this.materiSaving = true;
+      try {
+        const payload = {
+          class_slug: slug,
+          offering_id: Number(this.offeringId),
+          title: f.title.trim(),
+          material_type: (f.material_type || 'OTHER').toUpperCase()
+        };
+        if ((f.url || '').trim()) payload.url = f.url.trim();
+        if ((f.description || '').trim()) payload.description = f.description.trim();
+        await API.createMaterial(payload);
+        this.showToast('Materi tersimpan.');
+        this.materiForm = { title: '', material_type: 'DOCUMENT', url: '', description: '' };
+        this.materiFormOpen = false;
+        await this.loadMateri();
+      } catch (e) {
+        this.materiFormError = e.message || 'Gagal menyimpan materi.';
+      } finally {
+        this.materiSaving = false;
+      }
     },
 
     copyText(text, okMsg) {

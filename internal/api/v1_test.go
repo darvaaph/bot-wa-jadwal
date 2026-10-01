@@ -1834,6 +1834,32 @@ func TestV1SemesterAndMaterial_RejectCrossClassKM(t *testing.T) {
 	}
 }
 
+func TestV1Materials_GetIncludesCreatedAt(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/materials?class_slug=d4-ti-2024-a", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET materials expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Gagal parsing respons materials: %v", err)
+	}
+	if len(resp.Data) == 0 {
+		t.Fatal("GET materials expected minimal 1 item")
+	}
+	created, _ := resp.Data[0]["created_at"].(string)
+	if created == "" {
+		t.Fatal("GET materials expected created_at terisi untuk urutan terbaru/terlama")
+	}
+}
+
 func TestV1Tasks_CreateRejectsOfferingOutsideActiveClass(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	_, err := db.Exec(`

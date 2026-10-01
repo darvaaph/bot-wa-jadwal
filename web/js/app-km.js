@@ -108,6 +108,7 @@ function kmApp() {
     materiLoading: false,
     materiError: '',
     materiFilterOffering: '',
+    materiSort: 'terbaru',
     materiFormOpen: false,
     materiForm: { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' },
     materiFormError: '',
@@ -1403,8 +1404,55 @@ function kmApp() {
     get materiTampil() {
       const f = String(this.materiFilterOffering || '');
       const list = this.materiList || [];
-      if (!f) return list;
-      return list.filter(m => String(m.offering_id || '') === f);
+      const filtered = (!f || f === 'semua')
+        ? list.slice()
+        : (f === 'umum'
+          ? list.filter(m => m.offering_id === null || m.offering_id === undefined || String(m.offering_id) === '')
+          : list.filter(m => String(m.offering_id || '') === f));
+      const terbaru = this.materiSort !== 'terlama';
+      return filtered.sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return terbaru ? (tb - ta) : (ta - tb);
+      });
+    },
+
+    get materiCountUmum() {
+      return (this.materiList || []).filter(m => m.offering_id === null || m.offering_id === undefined || String(m.offering_id) === '').length;
+    },
+
+    materiCountOffering(id) {
+      return (this.materiList || []).filter(m => String(m.offering_id || '') === String(id)).length;
+    },
+
+    materiOfferingName(m) {
+      if (!m || m.offering_id === null || m.offering_id === undefined || String(m.offering_id) === '') return 'Umum kelas';
+      return this.offeringDisplay(m.offering_id) || 'Mata kuliah';
+    },
+
+    sumberMateri(m) {
+      const url = String((m && m.url) || '').trim();
+      if (!url) return String((m && m.description) || '').trim() ? 'Catatan' : 'Tautan';
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { host = ''; }
+      const path = url.split('?')[0];
+      const ext = (path.split('.').pop() || '').toUpperCase();
+      if (/^[A-Z0-9]{2,5}$/.test(ext) && !/^(COM|ID|ORG|NET|IO|DEV|APP|ME|LINK|GLYPH|US)$/.test(ext)) return ext;
+      if (host) {
+        if (host.includes('drive.google')) return 'Tautan Google Drive';
+        if (host.includes('docs.google')) return 'Tautan Google Docs';
+        return 'Tautan ' + host;
+      }
+      return 'Tautan';
+    },
+
+    fmtTanggalSingkat(iso) {
+      try {
+        const d = new Date(iso);
+        if (!iso || isNaN(d)) return '—';
+        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' });
+        return tgl.replace('.', '');
+      } catch (e) { return '—'; }
     },
 
     semesterLabel(s) {
