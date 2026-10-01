@@ -28,6 +28,46 @@
 <section x-show="view === 'log'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Log Aktivitas</h1>
   <p class="text-[14px] text-slate-500 mt-1">Riwayat perubahan kelas dalam urutan waktu</p>
+
+  <div class="mt-4 p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-[12px] font-semibold text-slate-500 mb-1">Tindakan</label>
+        <input type="text" x-model="auditFilter.action" @change="loadAuditLog()" placeholder="mis. PUBLISH_TEACHING_EVENT" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] font-mono" />
+      </div>
+      <div>
+        <label class="block text-[12px] font-semibold text-slate-500 mb-1">Objek</label>
+        <select x-model="auditFilter.entity_type" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+          <option value="">Semua objek</option>
+          <option value="TASK">Tugas</option>
+          <option value="TEACHING_EVENT">Kejadian perkuliahan</option>
+          <option value="SCHEDULE_PATTERN">Pola jadwal</option>
+          <option value="ROOM_CONFIRMATION">Konfirmasi ruangan</option>
+          <option value="SEMESTER">Semester</option>
+          <option value="CLASS">Kelas</option>
+          <option value="USER">Pengguna</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[12px] font-semibold text-slate-500 mb-1">Pelaku (nomor WA / ID)</label>
+        <input type="text" x-model="auditFilter.actor" @change="loadAuditLog()" placeholder="mis. +62812..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] font-mono" />
+      </div>
+      <div>
+        <label class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
+        <input type="datetime-local" x-model="auditFilter.since" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px]" />
+      </div>
+      <div>
+        <label class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
+        <input type="datetime-local" x-model="auditFilter.until" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px]" />
+      </div>
+      <div class="flex items-end gap-2">
+        <button type="button" @click="loadAuditLog()" class="flex-1 h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Terapkan</button>
+        <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Reset</button>
+      </div>
+    </div>
+    <p x-show="auditFilterCount() > 0" class="mt-2 text-[12px] text-[#3965FB] font-medium" x-text="auditFilterCount() + ' filter aktif'">-</p>
+  </div>
+
   <div x-show="auditLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
   <div x-show="auditError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="auditError">-</span>
@@ -35,15 +75,32 @@
   </div>
   <div x-show="!auditLoading && !auditError && auditList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <p class="text-[15px] font-semibold">Belum ada riwayat</p>
-    <p class="text-[13px] text-slate-500">Aktivitas kelas yang tercatat akan muncul di sini.</p>
+    <p class="text-[13px] text-slate-500" x-text="auditFilterCount() > 0 ? 'Tidak ada riwayat dengan filter yang dipilih.' : 'Aktivitas kelas yang tercatat akan muncul di sini.'">-</p>
+    <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="mt-3 h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Hapus filter</button>
   </div>
   <div x-show="!auditLoading && auditList.length > 0" class="mt-5 space-y-2">
     <template x-for="a in auditList" :key="a.id">
       <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[14px] font-semibold text-[#1F1F1F]" x-text="labelAksiAudit(a.action)">-</p>
-        <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="a.actor_name || 'Sistem'">-</span><span x-show="a.actor_role" x-text="' · ' + a.actor_role">-</span><span x-show="a.entity_type" x-text="' · ' + a.entity_type + (a.entity_id ? ' #' + a.entity_id : '')">-</span></p>
-        <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
+        <button type="button" @click="auditDetailId = auditDetailId === a.id ? null : a.id" class="w-full text-left">
+          <p class="text-[14px] font-semibold text-[#1F1F1F]" x-text="labelAksiAudit(a.action)">-</p>
+          <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="a.actor_name || 'Sistem'">-</span><span x-show="a.actor_role" x-text="' · ' + a.actor_role">-</span><span x-show="a.entity_type" x-text="' · ' + a.entity_type + (a.entity_id ? ' #' + a.entity_id : '')">-</span></p>
+          <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
+        </button>
+        <div x-show="auditDetailId === a.id" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <p class="text-[12px] font-semibold text-slate-500 mb-1">Sebelum</p>
+            <pre class="p-2.5 rounded-xl bg-slate-50 border border-[#EEEEEE] font-mono text-[11px] overflow-x-auto whitespace-pre-wrap break-all" x-text="prettyJSON(a.before_json)">-</pre>
+          </div>
+          <div>
+            <p class="text-[12px] font-semibold text-slate-500 mb-1">Sesudah</p>
+            <pre class="p-2.5 rounded-xl bg-slate-50 border border-[#EEEEEE] font-mono text-[11px] overflow-x-auto whitespace-pre-wrap break-all" x-text="prettyJSON(a.after_json)">-</pre>
+          </div>
+          <p x-show="a.reason" class="text-[12px] text-slate-500 sm:col-span-2">Alasan: <span x-text="a.reason">-</span></p>
+        </div>
       </div>
     </template>
+  </div>
+  <div x-show="!auditLoading && !auditError && auditHasMore" class="mt-4 text-center">
+    <button type="button" @click="loadAuditLog(true)" :disabled="auditLoadingMore" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="auditLoadingMore ? 'Memuat...' : 'Muat 50 lagi'">Muat 50 lagi</button>
   </div>
 </section>

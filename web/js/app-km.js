@@ -95,15 +95,29 @@ function kmApp() {
     undangError: '',
     undangLink: '',
 
-    // Semester (buat draf + aktivasi; impor/salin/preview tunda).
+    // Semester (draf manual/salin, impor JSON, preview, aktivasi, arsip).
     semesterList: [],
     semesterLoading: false,
     semesterError: '',
-    semesterForm: { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '' },
+    semesterForm: { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '', source_semester_id: '' },
     semesterFormError: '',
     semesterSaving: false,
     semesterAktif: null,
     semesterAktifAlasan: '',
+    semesterPreview: null,
+    semesterPreviewLoading: false,
+    semesterPreviewError: '',
+    imporFile: null,
+    imporHasil: null,
+    imporError: '',
+    imporSaving: false,
+    arsipDetail: null,
+    arsipOfferings: [],
+    arsipLoading: false,
+    offeringForm: { course_code: '', activity_type: 'TEORI', display_name: '', lecturer_codes: '' },
+    offeringFormError: '',
+    offeringSaving: false,
+    offeringTargetId: null,
 
     // Materi (list + tambah; ubah/arsip tunda).
     materiList: [],
@@ -883,6 +897,7 @@ function kmApp() {
       await this.loadMateri().catch(() => {});
       await this.loadNotifikasi().catch(() => {});
       await this.loadAuditLog().catch(() => {});
+      this.auditPreviewList = (this.auditList || []).slice(0, 5);
       await this.loadPengaturanKelas().catch(() => {});
       setInterval(() => this.checkBot(), 30000);
       this.dashboardLoading = false;
@@ -1451,6 +1466,9 @@ function kmApp() {
     },
 
     auditList: [], auditLoading: false, auditError: '',
+    auditFilter: { action: '', entity_type: '', actor: '', since: '', until: '' },
+    auditDetailId: null, auditHasMore: false, auditLoadingMore: false,
+    auditPreviewList: [],
 
     fmtWaktuID(iso) {
       try {
@@ -1472,15 +1490,59 @@ function kmApp() {
       return map[a] || action || '-';
     },
 
-    async loadAuditLog() {
-      this.auditLoading = true; this.auditError = '';
+    async loadAuditLog(more) {
+      const isMore = !!more;
+      if (isMore) {
+        this.auditLoadingMore = true;
+      } else {
+        this.auditLoading = true; this.auditError = ''; this.auditDetailId = null;
+      }
       try {
-        this.auditList = await API.getAudit({ limit: 50 }).catch(() => null) || [];
+        const params = this.rakitAuditParams(isMore ? this.auditList.length : 0);
+        const rows = await API.getAudit(params).catch(() => null);
+        const list = Array.isArray(rows) ? rows : [];
+        this.auditList = isMore ? [...this.auditList, ...list] : list;
+        this.auditHasMore = list.length >= 50;
       } catch (e) {
-        this.auditList = [];
-        this.auditError = 'Riwayat belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        if (!isMore) {
+          this.auditList = [];
+          this.auditError = 'Riwayat belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        } else {
+          this.showToast('Gagal memuat riwayat berikutnya.');
+        }
       } finally {
-        this.auditLoading = false;
+        this.auditLoading = false; this.auditLoadingMore = false;
+      }
+    },
+
+    rakitAuditParams(offset) {
+      const f = this.auditFilter || {};
+      const params = { limit: 50 };
+      if ((f.action || '').trim()) params.action = f.action.trim().toUpperCase();
+      if ((f.entity_type || '').trim()) params.entity_type = f.entity_type.trim().toUpperCase();
+      if ((f.actor || '').trim()) params.actor = f.actor.trim();
+      if (f.since) params.since = String(f.since).length === 16 ? f.since + ':00+07:00' : f.since;
+      if (f.until) params.until = String(f.until).length === 16 ? f.until + ':00+07:00' : f.until;
+      if (offset > 0) params.offset = offset;
+      return params;
+    },
+
+    auditFilterCount() {
+      const f = this.auditFilter || {};
+      return ['action', 'entity_type', 'actor', 'since', 'until'].filter(k => (f[k] || '').trim()).length;
+    },
+
+    resetAuditFilter() {
+      this.auditFilter = { action: '', entity_type: '', actor: '', since: '', until: '' };
+    },
+
+    prettyJSON(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      try {
+        const obj = typeof v === 'string' ? JSON.parse(v) : v;
+        return JSON.stringify(obj, null, 2);
+      } catch (e) {
+        return String(v);
       }
     },
 
@@ -1510,7 +1572,8 @@ function kmApp() {
     },
 
     get auditPreview() {
-      return (this.auditList || []).slice(0, 5);
+      const src = (this.auditPreviewList && this.auditPreviewList.length ? this.auditPreviewList : this.auditList) || [];
+      return src.slice(0, 5);
     },
 
     get materiTampil() {
@@ -1618,20 +1681,124 @@ function kmApp() {
       this.semesterFormError = '';
       this.semesterSaving = true;
       try {
-        await API.createSemesterDraft(slug, {
+        const payload = {
           academic_year: f.academic_year.trim(),
           term: f.term.trim(),
           starts_on: f.starts_on,
           ends_on: f.ends_on
-        });
-        this.showToast('Semester draf dibuat.');
-        this.semesterForm = { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '' };
+        };
+        if (f.source_semester_id) payload.source_semester_id = Number(f.source_semester_id);
+        const res = await API.createSemesterDraft(slug, payload);
+        this.showToast(f.source_semester_id ? 'Semester draf disalin dari semester sebelumnya.' : 'Semester draf dibuat.');
+        this.semesterForm = { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '', source_semester_id: '' };
         await this.loadSemesters();
         await this.loadOfferings();
+        if (res && res.id) await this.muatPreviewSemester(res.id);
       } catch (e) {
         this.semesterFormError = e.message || 'Gagal membuat semester draf.';
       } finally {
         this.semesterSaving = false;
+      }
+    },
+
+    async muatPreviewSemester(id) {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug || !id) return;
+      this.semesterPreviewLoading = true; this.semesterPreviewError = ''; this.semesterPreview = null;
+      try {
+        this.semesterPreview = await API.previewSemester(slug, id);
+        if (!this.semesterPreview) this.semesterPreviewError = 'Pratinjau belum dapat dimuat. Coba lagi.';
+      } catch (e) {
+        this.semesterPreviewError = 'Pratinjau belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.semesterPreviewLoading = false;
+      }
+    },
+
+    pilihFileImpor(ev) {
+      const files = ev && ev.target && ev.target.files;
+      this.imporFile = files && files[0] ? files[0] : null;
+      this.imporHasil = null; this.imporError = '';
+    },
+
+    async validasiImpor(id) {
+      if (!this.imporFile) { this.imporError = 'Pilih file JSON kurikulum dulu.'; return; }
+      let payload = null;
+      try {
+        payload = JSON.parse(await this.imporFile.text());
+      } catch (e) {
+        this.imporError = 'File bukan JSON valid.';
+        return;
+      }
+      this.imporError = ''; this.imporSaving = true;
+      try {
+        this.imporHasil = await API.importSemester(id, payload);
+        if (this.imporHasil && this.imporHasil.has_fatal_errors) {
+          this.imporError = 'Impor ditolak: perbaiki baris bertanda GALAT lalu validasi ulang.';
+        } else {
+          this.showToast('Validasi lolos. Terapkan untuk menyimpan.');
+        }
+      } catch (e) {
+        this.imporHasil = null;
+        this.imporError = e.message || 'Gagal memvalidasi impor.';
+      } finally {
+        this.imporSaving = false;
+      }
+    },
+
+    async terapkanImpor(id) {
+      const hasil = this.imporHasil;
+      if (!hasil || !hasil.batch_id) { this.imporError = 'Validasi dulu sebelum menerapkan.'; return; }
+      if (hasil.has_fatal_errors) { this.imporError = 'Masih ada GALAT. Perbaiki dulu sebelum menerapkan.'; return; }
+      this.imporSaving = true;
+      try {
+        await API.applySemesterImport(id, hasil.batch_id);
+        this.showToast('Impor diterapkan ke semester draf.');
+        this.imporHasil = null; this.imporFile = null;
+        await this.loadSemesters();
+        await this.loadOfferings();
+        await this.muatPreviewSemester(id);
+      } catch (e) {
+        this.imporError = e.message || 'Gagal menerapkan impor.';
+      } finally {
+        this.imporSaving = false;
+      }
+    },
+
+    async simpanOfferingManual(semId) {
+      const f = this.offeringForm;
+      if (!semId) return;
+      if (!((f.course_code || '').trim())) { this.offeringFormError = 'Kode mata kuliah wajib diisi.'; return; }
+      if (!((f.display_name || '').trim())) { this.offeringFormError = 'Nama tampilan wajib diisi.'; return; }
+      this.offeringFormError = '';
+      this.offeringSaving = true;
+      try {
+        await API.createSemesterOffering(semId, {
+          course_code: f.course_code.trim(),
+          activity_type: (f.activity_type || 'TEORI').toUpperCase(),
+          display_name: f.display_name.trim(),
+          lecturer_codes: String(f.lecturer_codes || '').split(',').map(s => s.trim()).filter(Boolean)
+        });
+        this.showToast('Mata kuliah ditambahkan ke draf.');
+        this.offeringForm = { course_code: '', activity_type: 'TEORI', display_name: '', lecturer_codes: '' };
+        this.offeringTargetId = null;
+        await this.loadOfferings();
+        await this.muatPreviewSemester(semId);
+      } catch (e) {
+        this.offeringFormError = e.message || 'Gagal menambah mata kuliah.';
+      } finally {
+        this.offeringSaving = false;
+      }
+    },
+
+    async bukaArsipSemester(s) {
+      this.arsipDetail = s;
+      this.arsipOfferings = [];
+      this.arsipLoading = true;
+      try {
+        this.arsipOfferings = await API.getSemesterOfferings(s.id).catch(() => []) || [];
+      } finally {
+        this.arsipLoading = false;
       }
     },
 

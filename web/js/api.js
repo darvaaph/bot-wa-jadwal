@@ -409,10 +409,36 @@ const BotApi = {
   },
 
   async previewSemester(classSlug, semesterId) {
-    // Backend tidak punya endpoint preview semester — kembalikan semester dari list.
-    const list = await this.getSemesters(classSlug).catch(() => null);
-    if (Array.isArray(list)) return list.find(s => String(s.id) === String(semesterId)) || null;
-    return null;
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters/' + encodeURIComponent(semesterId) + '/preview', {
+      headers: authHeaders(), credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || null;
+  },
+
+  async createSemesterOffering(semesterId, payload) {
+    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/offerings', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menambah mata kuliah.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return json.data;
+  },
+
+  async applySemesterImport(semesterId, batchId) {
+    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/import-apply', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ batch_id: batchId })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error) || 'Gagal menerapkan impor.');
+      err.code = 'SAVE_FAILED'; throw err;
+    }
+    return json.data;
   },
 
   async activateSemester(classSlug, semesterId) {

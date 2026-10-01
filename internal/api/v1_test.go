@@ -1488,6 +1488,157 @@ func TestV1Curriculum_ImportValidateAndApply(t *testing.T) {
 	}
 }
 
+func TestV1Semester_Preview(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest("GET", "/api/v1/classes/d4-ti-2024-a/semesters/1/preview", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET preview expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Offerings   int      `json:"offerings"`
+			CanActivate bool     `json:"can_activate"`
+			Blockers    []string `json:"blockers"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respons bukan JSON: %v", err)
+	}
+	if resp.Data.Offerings < 1 {
+		t.Errorf("preview offerings expected >= 1, got %d", resp.Data.Offerings)
+	}
+	if resp.Data.CanActivate {
+		t.Errorf("semester ACTIVE tak boleh can_activate=true")
+	}
+
+	// Semester tak ada -> 404
+	req = httptest.NewRequest("GET", "/api/v1/classes/d4-ti-2024-a/semesters/999/preview", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("preview semester tak ada expected 404, got %d", w.Code)
+	}
+}
+
+func TestV1Semester_CreateWithSource(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	body, _ := json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GANJIL",
+		"starts_on": "2025-09-01", "ends_on": "2026-01-31",
+		"source_semester_id": 1,
+	})
+	req := httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST semesters+source expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	var copied, original int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM course_offerings WHERE semester_id = ?;`, resp.Data.ID).Scan(&copied)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM course_offerings WHERE semester_id = 1;`).Scan(&original)
+	if original == 0 || copied != original {
+		t.Errorf("salinan offerings expected %d, got %d", original, copied)
+	}
+
+	// Sumber tak ada -> 404
+	body, _ = json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GENAP",
+		"starts_on": "2026-02-01", "ends_on": "2026-06-30",
+		"source_semester_id": 999,
+	})
+	req = httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("source tak ada expected 404, got %d", w.Code)
+	}
+}
+
+func TestV1Semester_CreateOffering(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Semester ACTIVE (id 1) -> 422
+	body, _ := json.Marshal(map[string]any{
+		"course_code": "TI201", "activity_type": "TEORI", "display_name": "Struktur Data (Teori)",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/semesters/1/offerings", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("offering ke semester ACTIVE expected 422, got %d", w.Code)
+	}
+
+	// Buat semester DRAFT dulu
+	draftBody, _ := json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GANJIL",
+		"starts_on": "2025-09-01", "ends_on": "2026-01-31",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(draftBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("buat draf expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var draftResp struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &draftResp)
+
+	// Kode matkul tak dikenal -> 422
+	badBody, _ := json.Marshal(map[string]any{
+		"course_code": "XX999", "activity_type": "TEORI", "display_name": "Tidak Ada",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/semesters/"+strconv.FormatInt(draftResp.Data.ID, 10)+"/offerings", bytes.NewReader(badBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("course tak dikenal expected 422, got %d", w.Code)
+	}
+
+	// Happy path -> 201
+	req = httptest.NewRequest("POST", "/api/v1/semesters/"+strconv.FormatInt(draftResp.Data.ID, 10)+"/offerings", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("tambah offering expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+}
+
 // 5. Legacy Shim Tests (Header Deprecation & Backward Compatibility)
 
 func TestLegacyShim_HeadersAndTelemetry(t *testing.T) {
