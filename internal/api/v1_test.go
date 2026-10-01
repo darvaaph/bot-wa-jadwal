@@ -1047,6 +1047,90 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 }
 
+func TestV1Materials_PatchAndArchive(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	doReq := func(method, target, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		var reader *strings.Reader
+		if body == "" {
+			reader = strings.NewReader("")
+		} else {
+			reader = strings.NewReader(body)
+		}
+		req := httptest.NewRequest(method, target, reader)
+		req.Header.Set("Authorization", "Bearer "+kmToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+
+	// PATCH versi salah -> 409
+	w := doReq("PATCH", "/api/v1/materials/1", `{"version":99,"title":"X"}`)
+	if w.Code != http.StatusConflict {
+		t.Errorf("PATCH versi salah expected 409, got %d", w.Code)
+	}
+
+	// PATCH judul -> 200, version 2
+	w = doReq("PATCH", "/api/v1/materials/1", `{"version":1,"title":"Slide Revisi"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PATCH expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var patched struct {
+		Data struct {
+			Version int `json:"version"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &patched)
+	if patched.Data.Version != 2 {
+		t.Errorf("PATCH version expected 2, got %d", patched.Data.Version)
+	}
+
+	// GET memuat version + judul baru
+	w = doReq("GET", "/api/v1/materials?class_slug=d4-ti-2024-a", "")
+	var listed struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &listed)
+	if len(listed.Data) == 0 {
+		t.Fatalf("GET materials expected >= 1 item")
+	}
+	if v, _ := listed.Data[0]["version"].(float64); v != 2 {
+		t.Errorf("GET version expected 2, got %v", listed.Data[0]["version"])
+	}
+	if listed.Data[0]["title"] != "Slide Revisi" {
+		t.Errorf("GET title expected revisi, got %v", listed.Data[0]["title"])
+	}
+
+	// DELETE tanpa version -> 422
+	w = doReq("DELETE", "/api/v1/materials/1", "")
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE tanpa version expected 422, got %d", w.Code)
+	}
+
+	// DELETE versi benar -> 200 ARCHIVED
+	w = doReq("DELETE", "/api/v1/materials/1?version=2", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("DELETE expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+
+	// GET tak lagi tampil
+	w = doReq("GET", "/api/v1/materials?class_slug=d4-ti-2024-a", "")
+	listed.Data = nil
+	_ = json.Unmarshal(w.Body.Bytes(), &listed)
+	if len(listed.Data) != 0 {
+		t.Errorf("materi terarsip tak boleh tampil, got %d item", len(listed.Data))
+	}
+
+	// PATCH materi terarsip -> 422
+	w = doReq("PATCH", "/api/v1/materials/1", `{"version":3,"title":"Y"}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("PATCH terarsip expected 422, got %d", w.Code)
+	}
+}
+
 func TestV1Tasks_DetailIncludesTimestamps(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()

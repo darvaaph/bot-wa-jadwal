@@ -84,6 +84,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// 6. Materi (§6)
 	mux.HandleFunc("GET /api/v1/materials", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1Materials)))
 	mux.HandleFunc("POST /api/v1/materials", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1Material)))
+	mux.HandleFunc("PATCH /api/v1/materials/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Material)))
+	mux.HandleFunc("DELETE /api/v1/materials/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleDeleteV1Material)))
 
 	// 7. Fitur Lanjutan v1.1+ (Ruangan, Notifikasi, Audit, Backup/Restore, Admin)
 	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetRoomCandidates)))

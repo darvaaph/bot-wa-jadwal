@@ -33,7 +33,7 @@
   </div>
 
   <div x-show="materiFormOpen" class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-    <h2 class="text-[18px] font-semibold">Tambah materi</h2>
+    <h2 class="text-[18px] font-semibold" x-text="editMateriId ? 'Ubah materi' : 'Tambah materi'">-</h2>
     <p class="text-[12px] text-slate-500 mt-0.5">Tersimpan untuk <span class="font-semibold" x-text="pjMatkul || 'mata kuliah penugasan'">-</span>.</p>
     <div x-show="materiFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="materiFormError">-</div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -60,7 +60,8 @@
         <textarea x-model="materiForm.description" rows="2" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
       </div>
     </div>
-    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="materiSaving ? 'Menyimpan...' : 'Simpan materi'">Simpan materi</button>
+    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan perubahan' : 'Simpan materi')">Simpan materi</button>
+    <button type="button" @click="batalUbahMateri()" x-show="editMateriId" class="mt-4 ml-2 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px]">Batal</button>
   </div>
 
   <div class="mt-5 p-4 sm:p-5 rounded-2xl border border-[#EEEEEE] bg-white">
@@ -104,6 +105,10 @@
           <div class="shrink-0 text-right">
             <p class="text-[13px] font-medium text-[#3965FB]" x-text="materiTipeLabel(m.material_type)">-</p>
             <p class="text-[12px] text-slate-400 mt-0.5" x-text="fmtTanggalSingkat(m.created_at)">-</p>
+            <div class="flex gap-1.5 mt-1.5 justify-end">
+              <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah" class="w-11 h-11 rounded-xl border border-[#EEEEEE] inline-flex items-center justify-center hover:bg-slate-50 text-slate-600"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+              <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan" class="w-11 h-11 rounded-xl border border-[#EEEEEE] inline-flex items-center justify-center hover:bg-red-50 text-slate-600 hover:text-red-600"><span class="material-symbols-outlined text-[18px]">archive</span></button>
+            </div>
           </div>
         </div>
       </template>

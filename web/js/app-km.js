@@ -129,6 +129,7 @@ function kmApp() {
     materiForm: { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' },
     materiFormError: '',
     materiSaving: false,
+    editMateriId: null, editMateriVersion: 0,
 
     // Notifikasi (list + retry + attempts; tiru pola System Admin).
     notifList: [],
@@ -1849,23 +1850,72 @@ function kmApp() {
       this.materiFormError = '';
       this.materiSaving = true;
       try {
-        const payload = {
-          class_slug: slug,
-          title: f.title.trim(),
-          material_type: (f.material_type || 'OTHER').toUpperCase()
-        };
-        if (f.offeringId) payload.offering_id = Number(f.offeringId);
-        if ((f.url || '').trim()) payload.url = f.url.trim();
-        if ((f.description || '').trim()) payload.description = f.description.trim();
-        await API.createMaterial(payload);
-        this.showToast('Materi tersimpan.');
+        if (this.editMateriId) {
+          await API.updateMaterial(this.editMateriId, {
+            version: Number(this.editMateriVersion) || 0,
+            title: f.title.trim(),
+            material_type: (f.material_type || 'OTHER').toUpperCase(),
+            url: (f.url || '').trim(),
+            description: (f.description || '').trim()
+          });
+          this.showToast('Materi diperbarui.');
+        } else {
+          const payload = {
+            class_slug: slug,
+            title: f.title.trim(),
+            material_type: (f.material_type || 'OTHER').toUpperCase()
+          };
+          if (f.offeringId) payload.offering_id = Number(f.offeringId);
+          if ((f.url || '').trim()) payload.url = f.url.trim();
+          if ((f.description || '').trim()) payload.description = f.description.trim();
+          await API.createMaterial(payload);
+          this.showToast('Materi tersimpan.');
+        }
         this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
+        this.editMateriId = null; this.editMateriVersion = 0;
         this.materiFormOpen = false;
         await this.loadMateri();
       } catch (e) {
-        this.materiFormError = e.message || 'Gagal menyimpan materi.';
+        if (e.code === 'VERSION_CONFLICT') {
+          this.materiFormError = 'Versi berubah di server. Muat ulang lalu ubah kembali.';
+          await this.loadMateri();
+        } else {
+          this.materiFormError = e.message || 'Gagal menyimpan materi.';
+        }
       } finally {
         this.materiSaving = false;
+      }
+    },
+
+    mulaiUbahMateri(m) {
+      this.materiForm = {
+        offeringId: m.offering_id ? String(m.offering_id) : '',
+        title: m.title || '', material_type: m.material_type || 'DOCUMENT',
+        url: m.url || '', description: m.description || ''
+      };
+      this.materiFormError = '';
+      this.editMateriId = m.id; this.editMateriVersion = m.version || 0;
+      this.materiFormOpen = true;
+      window.scrollTo({ top: 0 });
+    },
+
+    batalUbahMateri() {
+      this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
+      this.editMateriId = null; this.editMateriVersion = 0;
+      this.materiFormError = '';
+      this.materiFormOpen = false;
+    },
+
+    async arsipkanMateri(m) {
+      if (!m || !m.id) return;
+      if (!window.confirm('Arsipkan materi "' + (m.title || '') + '"? Materi tidak tampil di daftar.')) return;
+      try {
+        await API.archiveMaterial(m.id, m.version || 0);
+        this.showToast('Materi diarsipkan.');
+        await this.loadMateri();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengarsipkan materi.');
+        await this.loadMateri();
       }
     },
 

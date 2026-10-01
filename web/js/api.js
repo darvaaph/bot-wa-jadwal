@@ -363,6 +363,47 @@ const BotApi = {
     return json.data;
   },
 
+  async updateMaterial(id, payload) {
+    const res = await fetch('/api/v1/materials/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Versi materi berubah di server.');
+      err.code = 'VERSION_CONFLICT'; err.payload = body;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal mengubah materi.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return body.data;
+  },
+
+  async archiveMaterial(id, version) {
+    const res = await fetch('/api/v1/materials/' + encodeURIComponent(id) + '?version=' + encodeURIComponent(version || 0), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: mutationHeaders()
+    });
+    const body = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Versi materi berubah di server.');
+      err.code = 'VERSION_CONFLICT'; err.payload = body;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal mengarsipkan materi.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return body.data;
+  },
+
   async createClass(payload) {
     const res = await fetch('/api/v1/classes', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)

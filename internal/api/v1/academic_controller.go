@@ -1199,7 +1199,7 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 	query := `
 		SELECT m.id, m.class_id, c.slug, m.course_offering_id, m.task_id, m.title,
 		       m.material_type, COALESCE(m.url, ''), COALESCE(m.description, ''),
-		       COALESCE(m.created_at, '')
+		       COALESCE(m.created_at, ''), m.version
 		FROM materials m
 		JOIN classes c ON m.class_id = c.id
 		WHERE m.status = 'ACTIVE' AND m.deleted_at IS NULL
@@ -1231,9 +1231,10 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 	for rows.Next() {
 		var id, classID int64
 		var slug, title, matType, urlStr, desc, created string
+		var version int
 		var offID, taskID sql.NullInt64
 
-		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc, &created); err == nil {
+		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc, &created, &version); err == nil {
 			materials = append(materials, map[string]any{
 				"id":         id,
 				"class_slug": slug,
@@ -1254,6 +1255,7 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 				"url":           urlStr,
 				"description":   desc,
 				"created_at":    created,
+				"version":       version,
 			})
 		}
 	}
@@ -1357,6 +1359,185 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		"id":     matID,
 		"status": "ACTIVE",
 	})
+}
+
+// PatchMaterialRequest adalah payload ubah materi
+type PatchMaterialRequest struct {
+	Version      int     `json:"version"`
+	Title        *string `json:"title,omitempty"`
+	MaterialType *string `json:"material_type,omitempty"`
+	URL          *string `json:"url,omitempty"`
+	Description  *string `json:"description,omitempty"`
+}
+
+// PatchMaterial menangani PATCH /api/v1/materials/{id}
+func (c *AcademicController) PatchMaterial(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang mengubah materi")
+		return
+	}
+	matID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if matID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID materi tidak valid")
+		return
+	}
+	var req PatchMaterialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	if req.Version <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib diisi")
+		return
+	}
+	var classID, offeringID sql.NullInt64
+	var curVersion int
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT class_id, course_offering_id, version, status FROM materials WHERE id = ? AND deleted_at IS NULL;`, matID).
+		Scan(&classID, &offeringID, &curVersion, &curStatus); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Materi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if curStatus != "ACTIVE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya materi aktif yang dapat diubah")
+		return
+	}
+	if req.Version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || !classID.Valid || u.ActiveClassID.Int64 != classID.Int64) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang mengubah materi kelas penugasannya")
+		return
+	}
+	if u.ActiveRole == "PJ" {
+		if !offeringID.Valid || !u.ActiveCourseOfferingID.Valid || offeringID.Int64 != u.ActiveCourseOfferingID.Int64 {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "PJ hanya berwenang mengubah materi offering penugasannya")
+			return
+		}
+	}
+	sets := []string{}
+	args := []any{}
+	if req.Title != nil {
+		if strings.TrimSpace(*req.Title) == "" {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "title tidak boleh kosong")
+			return
+		}
+		sets = append(sets, "title = ?")
+		args = append(args, strings.TrimSpace(*req.Title))
+	}
+	if req.MaterialType != nil {
+		matType := strings.ToUpper(strings.TrimSpace(*req.MaterialType))
+		switch matType {
+		case "DOCUMENT", "MEETING", "REPOSITORY", "PORTAL", "OTHER":
+		default:
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "material_type harus DOCUMENT/MEETING/REPOSITORY/PORTAL/OTHER")
+			return
+		}
+		sets = append(sets, "material_type = ?")
+		args = append(args, matType)
+	}
+	if req.URL != nil {
+		sets = append(sets, "url = ?")
+		args = append(args, strings.TrimSpace(*req.URL))
+	}
+	if req.Description != nil {
+		if strings.TrimSpace(*req.Description) == "" {
+			sets = append(sets, "description = NULL")
+		} else {
+			sets = append(sets, "description = ?")
+			args = append(args, *req.Description)
+		}
+	}
+	if len(sets) == 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
+		return
+	}
+	sets = append(sets, "version = version + 1")
+	args = append(args, matID, curVersion)
+	res, err := c.db.Exec(`UPDATE materials SET `+strings.Join(sets, ", ")+` WHERE id = ? AND version = ? AND deleted_at IS NULL;`, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah materi")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan", map[string]any{"current_version": curVersion})
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "version": curVersion + 1})
+}
+
+// DeleteMaterial menangani DELETE /api/v1/materials/{id} (arsip lunak)
+func (c *AcademicController) DeleteMaterial(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang mengarsipkan materi")
+		return
+	}
+	matID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if matID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID materi tidak valid")
+		return
+	}
+	version := 0
+	if v := strings.TrimSpace(r.URL.Query().Get("version")); v != "" {
+		version, _ = strconv.Atoi(v)
+	}
+	if version <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib disertakan sebagai query parameter")
+		return
+	}
+	var classID, offeringID sql.NullInt64
+	var curVersion int
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT class_id, course_offering_id, version, status FROM materials WHERE id = ? AND deleted_at IS NULL;`, matID).
+		Scan(&classID, &offeringID, &curVersion, &curStatus); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Materi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if curStatus != "ACTIVE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya materi aktif yang dapat diarsipkan")
+		return
+	}
+	if version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || !classID.Valid || u.ActiveClassID.Int64 != classID.Int64) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang mengarsipkan materi kelas penugasannya")
+		return
+	}
+	if u.ActiveRole == "PJ" {
+		if !offeringID.Valid || !u.ActiveCourseOfferingID.Valid || offeringID.Int64 != u.ActiveCourseOfferingID.Int64 {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "PJ hanya berwenang mengarsipkan materi offering penugasannya")
+			return
+		}
+	}
+	res, err := c.db.Exec(`UPDATE materials SET status = 'ARCHIVED', version = version + 1 WHERE id = ? AND version = ? AND deleted_at IS NULL;`, matID, curVersion)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengarsipkan materi")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "status": "ARCHIVED"})
 }
 
 // GetRoomCandidates menangani GET /api/v1/rooms/candidates
