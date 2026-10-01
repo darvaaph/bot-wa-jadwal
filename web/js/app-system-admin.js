@@ -406,21 +406,6 @@ function systemAdminApp() {
       }
     },
 
-    async logout() {
-      try {
-        await API.logout();
-      } catch (e) {}
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('token');
-      this.currentUser = null;
-      this.kelasList = [];
-      this.totalKelas = 0;
-      this.showToast('Sesi telah ditutup. Mengarahkan ke login...');
-      setTimeout(() => {
-        window.location.href = '/login.html';
-      }, 500);
-    },
-
     statusNotifLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'PENDING') return 'Menunggu';
@@ -606,13 +591,7 @@ function systemAdminApp() {
       this.go('audit');
     },
 
-    fmtWaktuID(iso) {
-      try {
-        const d = new Date(iso);
-        if (isNaN(d)) return String(iso || '-');
-        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
-      } catch (e) { return String(iso || '-'); }
-    },
+    fmtWaktuID(iso) { return API.fmtWaktuID(iso); },
 
     async loadPengguna() {
       this.penggunaLoading = true; this.penggunaError = '';

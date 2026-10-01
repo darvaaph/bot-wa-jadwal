@@ -37,7 +37,99 @@ function mutationHeaders(extra) {
   return authHeaders(extra);
 }
 
+const DateUtil = {
+  fmtDeadlineID(iso) {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return String(iso || '-');
+      return d.toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }) + ' WIB';
+    } catch (e) {
+      return String(iso || '-');
+    }
+  },
+
+  fmtWaktuID(iso) {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d)) return String(iso || '-');
+      return d.toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }) + ' WIB';
+    } catch (e) {
+      return String(iso || '-');
+    }
+  },
+
+  lewatDeadline(t) {
+    try {
+      if (!t || !t.deadline_at || t.completed_at) return false;
+      return new Date(t.deadline_at) < new Date();
+    } catch (e) {
+      return false;
+    }
+  },
+
+  waktuDeadline(iso) {
+    if (!iso) return NaN;
+    const t = new Date(iso).getTime();
+    return isNaN(t) ? NaN : t;
+  },
+
+  deadlineBadge(iso, completed) {
+    try {
+      if (completed) return { level: 'aman', badge: 'Selesai' };
+      const d = new Date(iso);
+      if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
+      const diffH = (d - new Date()) / 3600000;
+      if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
+      if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
+      if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+      return { level: 'aman', badge: 'Aktif' };
+    } catch (e) {
+      return { level: 'aman', badge: 'Aktif' };
+    }
+  },
+
+  parseDeadlineID(tanggal, jam) {
+    const t = String(tanggal || '').trim();
+    const j = String(jam || '').trim().replace('.', ':');
+    let datePart = '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+      datePart = t;
+    } else {
+      const dm = t.match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
+      if (!dm) return '';
+      const months = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08', sep: '09', okt: '10', nov: '11', des: '12' };
+      const month = months[dm[2].toLowerCase().slice(0, 3)] || '';
+      if (!month) return '';
+      const year = dm[3] || new Date().getFullYear();
+      datePart = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
+    }
+    const hm = j.match(/(\d{1,2})[:.](\d{2})/);
+    if (!hm) return '';
+    const hh = String(hm[1]).padStart(2, '0');
+    return `${datePart}T${hh}:${hm[2]}:00+07:00`;
+  }
+};
+
 const BotApi = {
+  ...DateUtil,
+  DateUtil,
   async getClasses() {
     try {
       const res = await fetch('/api/classes', { credentials: 'same-origin' });
@@ -306,11 +398,6 @@ const BotApi = {
     }
     const json = await res.json();
     return json.data;
-  },
-
-  async deleteTaskV1(taskId, version) {
-    // Backend tidak punya DELETE /api/v1/tasks/{id} — hapus = arsip.
-    return this.archiveTask(taskId, false, version);
   },
 
   async restoreTask(taskId, version) {
@@ -833,14 +920,6 @@ const BotApi = {
     return true;
   },
 
-  async getRooms() {
-    // Tidak ada GET /api/v1/rooms — gunakan kandidat dengan rentang hari ini.
-    const now = new Date();
-    const s = now.toISOString();
-    const e = new Date(now.getTime() + 3600000).toISOString();
-    return this.getRoomAvailability(s, e);
-  },
-
   async getRoomAvailability(startsAt, endsAt) {
     // Backend: GET /api/v1/rooms/candidates?starts_at=&ends_at= (RFC3339).
     const res = await fetch('/api/v1/rooms/candidates?starts_at=' + encodeURIComponent(startsAt) + '&ends_at=' + encodeURIComponent(endsAt), {
@@ -959,12 +1038,6 @@ const BotApi = {
       throw err;
     }
     return json.data;
-  },
-
-  async issueRecovery() {
-    const err = new Error('Pemulihan akun via API belum tersedia.');
-    err.code = 'NOT_IMPLEMENTED';
-    throw err;
   },
 
   async getAdminStatus() {
@@ -1213,12 +1286,17 @@ const BotApi = {
         course_offering_id: null,
         course_code: item.offering || 'TUGAS',
         course_name: item.offering || 'Mata Kuliah',
+        matkul: item.offering || 'Mata Kuliah',
         title: item.title,
+        deskripsi: item.instructions || item.title,
         instructions: item.instructions,
+        deadline: item.deadline_at,
         deadline_at: item.deadline_at,
         submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
         status: 'PUBLISHED',
+        publication_status: 'PUBLISHED',
         review_status: 'APPROVED',
+        review_state: 'APPROVED',
         is_completed: false,
         creator_name: 'PJ Mata Kuliah'
       };
@@ -1246,8 +1324,8 @@ const BotApi = {
   },
 
   async deleteTask(taskId, version) {
-    // Legacy DELETE = 410 — langsung arsip via v1.
-    return this.deleteTaskV1(taskId, version);
+    // Backend tidak punya DELETE /api/v1/tasks/{id} (410 Gone) — hapus di UI diterjemahkan ke arsip.
+    return this.archiveTask(taskId, false, version);
   },
 
   async getChanges(slug) {
@@ -1255,25 +1333,6 @@ const BotApi = {
     if (!res.ok) return null;
     const json = await res.json();
     return json.data || null;
-  },
-
-  async getSession() {
-    // GET /api/v1/auth/me hanya mengembalikan {user, active_assignment, classes}.
-    // Daftar assignments lengkap hanya ada di respons login(); gunakan itu untuk pilih konteks.
-    const res = await fetch('/api/v1/auth/me', { headers: authHeaders(), credentials: 'same-origin' });
-    if (res.status === 401) return { authenticated: false };
-    if (res.status === 503) return { unavailable: true };
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (!json.data) return null;
-    const active = json.data.active_assignment || null;
-    return {
-      authenticated: true,
-      user: json.data.user,
-      activeAssignment: active,
-      activeRoleAssignmentId: active && active.id,
-      classes: json.data.classes || []
-    };
   },
 
   async login(identityKey, password) {
@@ -1497,14 +1556,6 @@ const BotApi = {
     return json.data;
   },
 
-  async suspendAssignment(id, reason, force) {
-    return this.changeAssignmentStatus(id, 'tangguhkan', reason, force);
-  },
-
-  async revokeAssignment(id, reason, force) {
-    return this.changeAssignmentStatus(id, 'cabut', reason, force);
-  },
-
   async supportEnter(classSlug, reason) {
     const res = await fetch('/api/v1/admin/support/enter', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
@@ -1603,6 +1654,7 @@ const BotApi = {
 
 // Ekspor global untuk komponen Alpine.js (app-portal.js, app-km.js, app-pj.js, app-login.js, app-system-admin.js)
 if (typeof window !== 'undefined') {
+  window.DateUtil = DateUtil;
   window.BotApi = BotApi;
   window.API = BotApi;
 }

@@ -178,36 +178,9 @@ function pjApp() {
       return st || '-';
     },
 
-    fmtDeadlineID(iso) {
-      try {
-        const d = new Date(iso);
-        if (isNaN(d)) return String(iso || '-');
-        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
-      } catch (e) { return String(iso || '-'); }
-    },
-
-    lewatDeadline(t) {
-      try {
-        if (!t || !t.deadline_at || t.completed_at) return false;
-        return new Date(t.deadline_at) < new Date();
-      } catch (e) { return false; }
-    },
-
-    // Lencana kondisi dari tanggal ISO asli (bukan label teks).
-    deadlineBadge(iso, completed) {
-      try {
-        if (completed) return { level: 'aman', badge: 'Selesai' };
-        const d = new Date(iso);
-        if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
-        const diffH = (d - new Date()) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
-        return { level: 'aman', badge: 'Aktif' };
-      } catch (e) {
-        return { level: 'aman', badge: 'Aktif' };
-      }
-    },
+    fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
+    lewatDeadline(t) { return API.lewatDeadline(t); },
+    deadlineBadge(iso, completed) { return API.deadlineBadge(iso, completed); },
 
     get tugasSaya() {
       if (!this.pjMatkul) return [];
@@ -384,12 +357,7 @@ function pjApp() {
       return st || '-';
     },
 
-    fmtWaktuID(iso) {
-      try {
-        const d = new Date(iso);
-        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hour12: false });
-      } catch (e) { return String(iso || '-'); }
-    },
+    fmtWaktuID(iso) { return API.fmtWaktuID(iso); },
 
     canEditPattern(p) {
       if (!this.offeringId) return false;
@@ -456,13 +424,13 @@ function pjApp() {
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           if (f.effectiveDate) payload.effective_from = f.effectiveDate;
           await API.patchPattern(f.id, payload);
-          this.showToast('Jadwal reguler diperbarui.');
+          this.showToast('Pola jadwal diperbarui.');
         } else {
           const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           await API.createPattern(payload);
-          this.showToast('Jadwal reguler ditambahkan.');
+          this.showToast('Pola jadwal ditambahkan.');
         }
         this.patternsList = await API.getPatterns().catch(() => []);
         this.jadwalSub = 'daftar';
@@ -901,26 +869,7 @@ function pjApp() {
       }
     },
 
-    parseDeadlineID(tanggal, jam) {
-      const t = String(tanggal || '').trim();
-      const j = String(jam || '').trim().replace('.', ':');
-      let datePart = '';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-        datePart = t;
-      } else {
-        const dm = t.match(/(\d{1,2})\s+([A-Za-z]+)\s*(\d{4})?/);
-        if (!dm) return '';
-        const months = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08', sep: '09', okt: '10', nov: '11', des: '12' };
-        const month = months[dm[2].toLowerCase().slice(0, 3)] || '';
-        if (!month) return '';
-        const year = dm[3] || new Date().getFullYear();
-        datePart = `${year}-${month}-${String(dm[1]).padStart(2, '0')}`;
-      }
-      const hm = j.match(/(\d{1,2})[:.](\d{2})/);
-      if (!hm) return '';
-      const hh = String(hm[1]).padStart(2, '0');
-      return `${datePart}T${hh}:${hm[2]}:00+07:00`;
-    },
+    parseDeadlineID(tanggal, jam) { return API.parseDeadlineID(tanggal, jam); },
 
     urgencyOf(label) {
       try {
@@ -1001,6 +950,7 @@ function pjApp() {
         this.showToast(err.message || 'Gagal menyimpan draf di server.');
       }
     },
+    async simpanDraf() { return this.simpanDrafTugas(); },
 
     tinjauTugas() {
       const err = this.validasiTugasTerbit();

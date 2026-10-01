@@ -122,30 +122,11 @@ function portalApp() {
       if (k === 'TAMBAHAN') return { label: 'Kelas Tambahan', cls: 'bg-[#E9EAFF] text-[#3965FB] border-[#3965FB]/30', icon: 'add_circle' };
       if (k === 'LIBUR') return { label: 'Diliburkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'event_busy' };
       if (k === 'DIBATALKAN') return { label: 'Sesi Dibatalkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'cancel' };
-      return { label: 'Jadwal Reguler', cls: 'bg-[#E1FFB7] text-green-800 border-green-200', icon: 'event' };
+      return { label: 'Pola Jadwal', cls: 'bg-[#E1FFB7] text-green-800 border-green-200', icon: 'event' };
     },
 
-    fmtDeadlineID(iso) {
-      try {
-        const d = new Date(iso);
-        if (isNaN(d)) return String(iso || '-');
-        return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' WIB';
-      } catch (e) { return String(iso || '-'); }
-    },
-
-    deadlineBadge(iso) {
-      try {
-        const d = new Date(iso);
-        if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
-        const diffH = (d - new Date()) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
-        return { level: 'aman', badge: 'Aktif' };
-      } catch (e) {
-        return { level: 'aman', badge: 'Aktif' };
-      }
-    },
+    fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
+    deadlineBadge(iso) { return API.deadlineBadge(iso); },
 
     async initPortal() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
@@ -661,8 +642,8 @@ function portalApp() {
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline);
-          return { id: t.id, matkul: t.offering || t.course_name || 'Mata Kuliah',
-                   title: t.title || '', deskripsi: t.title || '',
+          return { id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
+                   title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
                    instructions: t.instructions || '',
                    deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
                    urgency: u.level, countdown: u.badge };

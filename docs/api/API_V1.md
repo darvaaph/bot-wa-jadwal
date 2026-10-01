@@ -119,6 +119,14 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/master/proposals/:id/reject` | `{review_note!}` | Admin; Tolak + audit; hanya `PENDING` |
 | `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
 | `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
+| `GET /api/v1/admin/users` | `?q=&status=` | Admin; Daftar pengguna sistem |
+| `GET /api/v1/notifications/:id/attempts` | — | KM (kelasnya) / Admin; Riwayat percobaan pengiriman notifikasi |
+| `GET /api/v1/master/rooms` | `?status=` | KM / PJ / Admin; Daftar master ruangan kuliah |
+| `POST /api/v1/master/rooms` | `{code!, name!, capacity?, location?}` | Admin; Tambah master ruangan baru |
+| `PATCH /api/v1/master/rooms/:id` | `{name?, capacity?, location?, status?}` | Admin; Ubah master ruangan |
+| `GET /api/v1/master/courses` | `?status=` | KM / PJ / Admin; Daftar master mata kuliah |
+| `POST /api/v1/master/courses` | `{code!, name!, sks?}` | Admin; Tambah master mata kuliah baru |
+| `PATCH /api/v1/master/courses/:id` | `{name?, sks?, status?}` | Admin; Ubah master mata kuliah |
 
 ## 8. Shim legacy → v1
 
