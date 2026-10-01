@@ -1,15 +1,80 @@
-<!-- partials/km/view-materi.html — KM Materi (butuh endpoint backend) -->
+<!-- partials/km/view-materi.html — KM Materi -->
 <section x-show="view === 'materi'" x-cloak>
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
     <div>
       <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Materi</h1>
       <p class="text-[14px] text-slate-500 mt-1">Repositori materi dan tautan kelas</p>
     </div>
-    <button type="button" disabled title="Segera hadir" class="h-11 px-5 rounded-xl bg-slate-100 text-slate-400 text-[14px] font-semibold self-start min-h-[44px] inline-flex items-center gap-2 cursor-not-allowed">Tambah materi<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#FCD484] text-[#1F1F1F]">Segera</span></button>
+    <button type="button" @click="materiFormOpen = !materiFormOpen" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]" x-text="materiFormOpen ? 'Tutup form' : 'Tambah materi'">Tambah materi</button>
   </div>
-  <div class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+
+  <div x-show="materiFormOpen" class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <h2 class="text-[18px] font-semibold">Tambah materi</h2>
+    <div x-show="materiFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="materiFormError">-</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Judul <span class="text-[#FF6C48]">*</span></label>
+        <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide basis data pekan 1" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Mata kuliah (opsional — kosongkan untuk materi umum kelas)</label>
+        <select x-model="materiForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <option value="">Umum kelas</option>
+          <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Jenis</label>
+        <select x-model="materiForm.material_type" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <option value="DOCUMENT">Dokumen</option>
+          <option value="MEETING">Tautan rapat</option>
+          <option value="REPOSITORY">Repositori</option>
+          <option value="PORTAL">Portal</option>
+          <option value="OTHER">Lainnya</option>
+        </select>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Tautan</label>
+        <input type="text" x-model="materiForm.url" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Deskripsi</label>
+        <textarea x-model="materiForm.description" rows="2" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
+      </div>
+    </div>
+    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="materiSaving ? 'Menyimpan...' : 'Simpan materi'">Simpan materi</button>
+  </div>
+
+  <div class="mt-5 flex flex-col sm:flex-row gap-3">
+    <select x-model="materiFilterOffering" aria-label="Filter mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white min-h-[44px]">
+      <option value="">Semua mata kuliah + umum kelas</option>
+      <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
+    </select>
+    <button type="button" @click="loadMateri()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+  </div>
+
+  <div x-show="materiLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat materi...</div>
+  <div x-show="materiError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="materiError">-</span>
+    <button type="button" @click="loadMateri()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
+  <div x-show="!materiLoading && !materiError && materiTampil.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
     <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
     <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
-    <p class="text-[13px] text-slate-500">Materi tampil di sini setelah endpoint materi tersedia.</p>
+    <p class="text-[13px] text-slate-500">Tambahkan materi umum kelas atau per mata kuliah.</p>
+  </div>
+  <div x-show="!materiLoading && materiTampil.length > 0" class="mt-5 space-y-2">
+    <template x-for="m in materiTampil" :key="m.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <p class="text-[14px] font-semibold line-clamp-1" x-text="m.title">-</p>
+            <p class="text-[12px] text-slate-500" x-text="materiTipeLabel(m.material_type) + (m.offering_id ? ' · #' + m.offering_id : ' · Umum kelas')">-</p>
+            <p x-show="m.description" class="text-[13px] text-slate-600 mt-1 line-clamp-2" x-text="m.description">-</p>
+            <p x-show="m.url" class="text-[12px] text-[#3965FB] mt-1 truncate"><a :href="m.url" target="_blank" rel="noopener" class="underline font-mono" x-text="m.url">-</a></p>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </section>

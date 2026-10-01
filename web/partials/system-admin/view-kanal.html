@@ -1,0 +1,84 @@
+<!-- partials/system-admin/view-kanal.html - System Admin: Kanal WhatsApp -->
+<section x-show="view === 'kanal'" x-cloak>
+  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Kanal WhatsApp</h1>
+    <p class="text-[14px] text-[#667085] mt-1">Tautkan grup WhatsApp ke kelas agar notifikasi terkirim. Tanpa tautan, pesan antrean tetap yatim.</p>
+
+    <div class="mt-6 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
+      <h2 class="text-[16px] font-bold text-[#1F1F1F]">Tautkan grup baru</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Minta JID via perintah <span class="font-mono">!kanal</span> di grup, lalu tempel di bawah.</p>
+      <div x-show="kanalFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2"><span class="material-symbols-outlined shrink-0">error</span><span x-text="kanalFormError"></span></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        <div>
+          <label for="sa-kanal-jid" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">JID grup *</label>
+          <input id="sa-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="12036...@g.us" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] font-mono bg-white w-full" />
+        </div>
+        <div>
+          <label for="sa-kanal-kelas" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kelas *</label>
+          <select id="sa-kanal-kelas" x-model="kanalForm.kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white w-full">
+            <option value="">-- Pilih kelas --</option>
+            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama">-</option></template>
+          </select>
+        </div>
+        <div>
+          <label for="sa-kanal-nama" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Nama tampilan</label>
+          <input id="sa-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="Grup Kelas A" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+        </div>
+      </div>
+      <button type="button" @click="tautkanKanal()" :disabled="kanalSaving" class="mt-3 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60">Tautkan kanal</button>
+    </div>
+
+    <!-- Filter -->
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <select x-model="kanalKelas" @change="loadKanal()" aria-label="Filter kelas kanal" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white sm:col-span-2">
+        <option value="">Semua kelas</option>
+        <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama">-</option></template>
+      </select>
+      <button type="button" @click="resetKanalFilter(); loadKanal()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset</button>
+    </div>
+
+    <div x-show="kanalLoading" class="p-12 text-center text-slate-500">
+      <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+      <p class="mt-3 text-[14px]">Memuat kanal...</p>
+    </div>
+    <div x-show="kanalError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2">
+      <span class="material-symbols-outlined shrink-0">error</span><span x-text="kanalError">-</span>
+      <button type="button" @click="loadKanal()" class="ml-2 font-semibold underline">Coba Lagi</button>
+    </div>
+    <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+      <p class="text-[15px] font-semibold text-[#1F1F1F]">Belum ada kanal</p>
+      <p class="text-[13px] mt-0.5">Tautkan grup pertama di atas.</p>
+    </div>
+    <div x-show="!kanalLoading && kanalList.length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+      <template x-for="k in kanalList" :key="k.id">
+        <div class="py-4">
+          <div class="flex flex-col md:flex-row md:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold text-[#1F1F1F] truncate" x-text="k.display_name || k.jid">-</p>
+              <p class="text-[12px] text-slate-500 font-mono truncate" x-text="k.jid">-</p>
+              <p class="text-[11px] text-slate-400 mt-0.5" x-text="(k.class_slug || ('kelas #' + k.class_id)) + ' · sejak ' + fmtWaktuID(k.created_at)">-</p>
+            </div>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500'">
+              <span class="material-symbols-outlined text-[14px]" x-text="String(k.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
+              <span x-text="labelStatusKanal(k.status)">-</span>
+            </span>
+            <div class="flex gap-2" x-show="String(k.status).toUpperCase() === 'ACTIVE'">
+              <button type="button" @click="mulaiLepasKanal(k)" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Lepas</button>
+            </div>
+          </div>
+          <div x-show="kanalLepas && kanalLepas.id === k.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+            <p class="text-[13px] font-semibold" x-text="'Lepas ' + kanalLepas.nama">-</p>
+            <p class="text-[12px] text-red-700 mt-1">Pesan PENDING kanal ini tetap yatim. Tercatat di Audit Global.</p>
+            <label :for="'sa-kanal-alasan-' + k.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan pelepasan <span class="text-red-600">*</span></label>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input :id="'sa-kanal-alasan-' + k.id" type="text" x-model="kanalAlasan" placeholder="Contoh: Grup bubar" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+              <button type="button" @click="jalankanLepasKanal()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+              <button type="button" @click="kanalLepas = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</section>

@@ -19,6 +19,7 @@ function systemAdminApp() {
       { id: 'pengguna', label: 'Pengguna dan Penugasan', img: '/assets/icons/people.svg' },
       { id: 'dukungan', label: 'Mode Dukungan', img: '/assets/icons/settings.svg' },
       { id: 'antrean', label: 'Antrean Notifikasi', img: '/assets/icons/message-queue.svg' },
+      { id: 'kanal', label: 'Kanal WhatsApp', img: '/assets/icons/bell.svg' },
       { id: 'audit', label: 'Audit Global', img: '/assets/icons/activity.svg' },
       { id: 'status-bot', label: 'Status Sistem', img: '/assets/icons/bot.svg' },
       { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
@@ -139,9 +140,24 @@ function systemAdminApp() {
     notifAttempts: [],
     notifAttemptsLoading: false,
     notifAttemptsError: '',
+
+    kanalList: [],
+    kanalLoading: false,
+    kanalError: '',
+    kanalKelas: '',
+    kanalForm: { jid: '', kelas: '', nama: '' },
+    kanalFormError: '',
+    kanalSaving: false,
+    kanalLepas: null,
+    kanalAlasan: '',
     notifList: [],
     notifLoading: false,
+    notifLoadingMore: false,
     notifError: '',
+    notifFilterOpen: (typeof window !== 'undefined' ? window.innerWidth >= 768 : true),
+    notifAdvancedOpen: false,
+    notifLimit: 50,
+    notifHasMore: false,
     failedCount: 0,
 
     backupForm: { kelas: '', semester: '', alasan: '' },
@@ -263,13 +279,13 @@ function systemAdminApp() {
     },
 
     notifKelasOptions() {
-      // class_id backend numerik dan GET classes tak kembalikan id numerik,
-      // jadi label jujur "Kelas #id" tanpa tebak mapping ke slug/nama.
+      // Label jujur: slug bila backend mengirimnya, kalau tidak "Kelas #id".
+      // Opsi dibangun dari data termuat (limit) — bukan daftar kelas global.
       const seen = new Map();
       (this.notifList || []).forEach(n => {
         const id = String(n.class_id ?? '');
         if (!id || seen.has(id)) return;
-        seen.set(id, 'Kelas #' + id);
+        seen.set(id, n.class_slug || ('Kelas #' + id));
       });
       return Array.from(seen.entries()).map(([id, label]) => ({ id, label }));
     },
@@ -284,7 +300,7 @@ function systemAdminApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'dukungan', 'antrean', 'audit', 'status-bot', 'master-ruangan', 'master-matkul', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'dukungan', 'antrean', 'kanal', 'audit', 'status-bot', 'master-ruangan', 'master-matkul', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -313,6 +329,7 @@ function systemAdminApp() {
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-antrean', '/partials/system-admin/view-antrean.html'],
+        ['sa-kanal', '/partials/system-admin/view-kanal.html'],
         ['sa-backup', '/partials/system-admin/view-backup.html'],
         ['sa-pengguna', '/partials/system-admin/view-pengguna.html'],
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
@@ -425,6 +442,72 @@ function systemAdminApp() {
       if (membuka) this.loadNotifAttempts(id);
     },
 
+    async loadKanal() {
+      this.kanalLoading = true; this.kanalError = '';
+      try {
+        this.kanalList = await API.getChannels(this.kanalKelas || '', '');
+      } catch (e) {
+        this.kanalList = [];
+        this.kanalError = (e && e.code === 'UNAUTHORIZED')
+          ? 'Sesi berakhir. Masuk kembali lalu coba lagi.'
+          : 'Daftar kanal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.kanalLoading = false;
+      }
+    },
+
+    resetKanalFilter() {
+      this.kanalKelas = '';
+    },
+
+    labelStatusKanal(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'ACTIVE') return 'Aktif';
+      if (s === 'DISCONNECTED') return 'Terputus';
+      if (s === 'REVOKED') return 'Dilepas';
+      return st || '-';
+    },
+
+    async tautkanKanal() {
+      const f = this.kanalForm;
+      if (!((f.jid || '').trim()) || !(f.jid || '').includes('@')) { this.kanalFormError = 'JID grup wajib diisi (minta via perintah !kanal di grup).'; return; }
+      if (!f.kelas) { this.kanalFormError = 'Pilih kelas tujuan.'; return; }
+      this.kanalFormError = '';
+      this.kanalSaving = true;
+      try {
+        const res = await API.linkChannel(f.jid.trim(), f.kelas, (f.nama || '').trim());
+        this.showToast(res && res.changed === false ? 'Kanal sudah tertaut ke kelas ini.' : 'Kanal berhasil ditautkan.');
+        this.kanalForm = { jid: '', kelas: '', nama: '' };
+        await this.loadKanal();
+      } catch (err) {
+        this.kanalFormError = err.message || 'Gagal menautkan kanal.';
+      } finally {
+        this.kanalSaving = false;
+      }
+    },
+
+    mulaiLepasKanal(k) {
+      this.kanalLepas = { id: k.id, nama: (k.display_name || k.jid) + ' · ' + (k.class_slug || '') };
+      this.kanalAlasan = '';
+    },
+
+    async jalankanLepasKanal() {
+      const k = this.kanalLepas;
+      if (!k) return;
+      if (!((this.kanalAlasan || '').trim())) {
+        this.showToast('Isi alasan pelepasan terlebih dahulu.');
+        return;
+      }
+      try {
+        await API.revokeChannel(k.id, this.kanalAlasan.trim());
+        this.showToast(`Kanal ${k.nama} dilepas. Pesan PENDING-nya tetap yatim.`);
+        this.kanalLepas = null;
+        await this.loadKanal();
+      } catch (err) {
+        this.showToast(err.message || 'Gagal melepas kanal.');
+      }
+    },
+
     async loadNotifAttempts(id) {
       this.notifAttemptsLoading = true;
       this.notifAttemptsError = '';
@@ -460,6 +543,56 @@ function systemAdminApp() {
         if (t && !seen.has(t)) seen.add(t);
       });
       return Array.from(seen).sort();
+    },
+
+    notifFilterCount() {
+      let n = 0;
+      if ((this.notifFilter || '').trim()) n++;
+      if ((this.notifKelas || '').trim()) n++;
+      if ((this.notifJenis || '').trim()) n++;
+      if ((this.notifSince || '').trim()) n++;
+      if ((this.notifUntil || '').trim()) n++;
+      return n;
+    },
+
+    notifChips() {
+      const out = [];
+      if ((this.notifFilter || '').trim()) out.push({ key: 'notifFilter', label: 'Status', value: this.statusNotifLabel(this.notifFilter) });
+      if ((this.notifKelas || '').trim()) out.push({ key: 'notifKelas', label: 'Kelas', value: this.notifKelasLabelById(this.notifKelas) });
+      if ((this.notifJenis || '').trim()) out.push({ key: 'notifJenis', label: 'Jenis', value: this.notifJenis.trim() });
+      if ((this.notifSince || '').trim()) out.push({ key: 'notifSince', label: 'Sejak', value: this.notifSince.trim() });
+      if ((this.notifUntil || '').trim()) out.push({ key: 'notifUntil', label: 'Sampai', value: this.notifUntil.trim() });
+      return out;
+    },
+
+    removeNotifChip(key) {
+      if (key && key in this) this[key] = '';
+      this.loadAntrean();
+    },
+
+    notifAdvancedCount() {
+      let n = 0;
+      if ((this.notifKelas || '').trim()) n++;
+      if ((this.notifSince || '').trim()) n++;
+      if ((this.notifUntil || '').trim()) n++;
+      return n;
+    },
+
+    notifKelasLabelById(id) {
+      const opt = (this.notifKelasOptions() || []).find(o => String(o.id) === String(id));
+      return opt ? opt.label : ('Kelas #' + id);
+    },
+
+    notifKelasLabel(n) {
+      if (!n) return '-';
+      return n.class_slug || ('Kelas #' + (n.class_id ?? '-'));
+    },
+
+    notifPenerima(n) {
+      if (!n) return '— (tanpa kanal terdaftar)';
+      if (n.channel_name) return n.channel_name + (n.channel_jid ? ' · ' + n.channel_jid : '');
+      if (n.channel_jid) return n.channel_jid;
+      return '— (tanpa kanal terdaftar)';
     },
 
     bukaAuditEntitas(entityType) {
@@ -544,6 +677,21 @@ function systemAdminApp() {
       if (s === 'EXPIRED') return 'Kedaluwarsa';
       if (s === 'REVOKED') return 'Dicabut';
       return st || '-';
+    },
+
+    undanganSisaWaktu(expiresAt) {
+      // Label relatif sisa berlaku; '' bila tak dapat di-parse.
+      try {
+        const t = new Date(expiresAt);
+        if (isNaN(t)) return '';
+        const ms = t.getTime() - Date.now();
+        if (ms <= 0) return 'kedaluwarsa';
+        const h = Math.floor(ms / 3600000);
+        if (h < 1) return 'kurang dari 1 jam lagi';
+        if (h < 24) return h + ' jam lagi';
+        const d = Math.floor(h / 24);
+        return d + ' hari lagi';
+      } catch (e) { return ''; }
     },
 
     scopePenugasan(a) {
@@ -664,7 +812,7 @@ function systemAdminApp() {
       }
       try {
         await API.revokeInvitation(a.id, this.undanganAlasan.trim());
-        this.showToast(`Undangan ${a.nama} dicabut. Kirim ulang via Daftar Kelas untuk membuat token baru.`);
+        this.showToast(`Undangan ${a.nama} dicabut. Buat tautan baru via Daftar Kelas bila masih dibutuhkan.`);
         this.undanganAksi = null;
         await this.loadUndangan();
       } catch (err) {
@@ -704,10 +852,15 @@ function systemAdminApp() {
     kirimUlangUndangan(u) {
       const slug = u && u.class_slug ? u.class_slug : '';
       const target = (this.kelasList || []).find(k => k.slug === slug);
-      if (!target) { this.showToast('Kelas undangan tak ada di daftar. Muat ulang Daftar Kelas.'); return; }
+      if (!target) {
+        // Tanpa dead-end: bawa ke Daftar Kelas agar admin pilih kelas manual.
+        this.go('kelas');
+        this.showToast('Pilih kelas undangan di Daftar Kelas, lalu buat tautan baru.');
+        return;
+      }
       this.bukaUndang(target);
       this.undangNomor = u.invited_identity_key || '';
-      this.showToast('Nomor terisi dari undangan lama. Buat tautan untuk membatalkan token lama.');
+      this.showToast('Nomor terisi dari undangan lama. Buat tautan baru untuk membatalkan token lama.');
     },
 
     labelStatusKelas(st) {
@@ -899,15 +1052,11 @@ function systemAdminApp() {
 
     async loadAntrean() {
       this.notifLoading = true; this.notifError = '';
+      this.notifHasMore = false;
       try {
-        const extra = {};
-        if ((this.notifKelas || '').trim()) extra.class_id = this.notifKelas.trim();
-        if ((this.notifJenis || '').trim()) extra.event_type = this.notifJenis.trim();
-        const since = this.dateTimeLocalParam(this.notifSince);
-        const until = this.dateTimeLocalParam(this.notifUntil);
-        if (since) extra.since = since;
-        if (until) extra.until = until;
-        this.notifList = await API.getNotifications(this.notifFilter || '', 50, extra) || [];
+        const extra = this.notifParams(0);
+        this.notifList = await API.getNotifications(this.notifFilter || '', this.notifLimit, extra) || [];
+        this.notifHasMore = (this.notifList || []).length >= this.notifLimit;
         this.updateFailedCount();
       } catch (e) {
         this.notifList = [];
@@ -919,12 +1068,40 @@ function systemAdminApp() {
       }
     },
 
+    notifParams(offset) {
+      const extra = {};
+      if ((this.notifKelas || '').trim()) extra.class_id = this.notifKelas.trim();
+      if ((this.notifJenis || '').trim()) extra.event_type = this.notifJenis.trim();
+      const since = this.dateTimeLocalParam(this.notifSince);
+      const until = this.dateTimeLocalParam(this.notifUntil);
+      if (since) extra.since = since;
+      if (until) extra.until = until;
+      if (offset) extra.offset = offset;
+      return extra;
+    },
+
+    async loadAntreanMore() {
+      if (this.notifLoadingMore || !this.notifHasMore) return;
+      this.notifLoadingMore = true;
+      try {
+        const offset = (this.notifList || []).length;
+        const extra = this.notifParams(offset);
+        const rows = await API.getNotifications(this.notifFilter || '', this.notifLimit, extra) || [];
+        this.notifList = [...(this.notifList || []), ...rows];
+        this.notifHasMore = rows.length >= this.notifLimit;
+        this.updateFailedCount();
+      } finally {
+        this.notifLoadingMore = false;
+      }
+    },
+
     resetNotifFilter() {
       this.notifFilter = '';
       this.notifKelas = '';
       this.notifJenis = '';
       this.notifSince = '';
       this.notifUntil = '';
+      this.notifHasMore = false;
     },
 
     async loadFailedCount() {
@@ -1224,6 +1401,7 @@ function systemAdminApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'antrean') this.loadAntrean();
+      if (v === 'kanal') this.loadKanal();
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {

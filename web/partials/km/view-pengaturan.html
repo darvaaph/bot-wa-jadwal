@@ -1,26 +1,74 @@
-<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas + Pengingat + Akun -->
+<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas -->
 <section x-show="view === 'pengaturan'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Pengaturan Kelas</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Kelas <span class="font-mono" x-text="selectedClass">-</span> · perubahan tersimpan lokal sampai endpoint tersedia</p>
+  <p class="text-[14px] text-slate-500 mt-1">Kelas <span class="font-mono" x-text="selectedClass">-</span> · dibaca dari server</p>
+  <div x-show="settingsLoading" class="mt-5 py-4 text-center text-[13px] text-slate-400">Memuat pengaturan...</div>
+  <div x-show="settingsError" class="mt-5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="settingsError">-</span>
+    <button type="button" @click="loadPengaturanKelas()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 items-start">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <h2 class="text-[18px] font-semibold">Waktu pengingat</h2>
-      <div class="grid grid-cols-2 gap-4 mt-3">
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Ringkasan pagi</label>
-          <input type="text" x-model="pengaturan.pagi" placeholder="06:00" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Pengingat sore</label>
-          <input type="text" x-model="pengaturan.sore" placeholder="17:00" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-        </div>
-      </div>
-      <button type="button" @click="simpanPengaturan()" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px]">Simpan pengaturan</button>
+      <p class="text-[12px] text-slate-500 mt-0.5">Ringkasan pagi <span class="font-mono" x-text="pengaturan.pagi">-</span> · pengingat sore <span class="font-mono" x-text="pengaturan.sore">-</span>.</p>
+      <p class="text-[12px] text-slate-500 mt-1">Waktu pengingat diatur System Admin dan berlaku untuk pengiriman berikutnya.</p>
+      <button type="button" @click="infoPengingat()" class="mt-3 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px]">Minta perubahan ke admin</button>
     </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <h2 class="text-[18px] font-semibold">Akses portal kelas</h2>
-      <p class="text-[12px] text-slate-500">Mode tautan atau kode kelas. Rotasi kode membatalkan sesi portal lama.</p>
-      <button type="button" disabled title="Segera hadir" class="mt-3 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px] inline-flex items-center gap-2 text-slate-400 bg-slate-50 cursor-not-allowed">Rotasi kode kelas<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#FCD484] text-[#1F1F1F]">Segera</span></button>
+      <p class="text-[12px] text-slate-500">Mode <span class="font-mono font-semibold" x-text="(classSettings && classSettings.portal_access_mode) || '-'">-</span> · rotasi kode membatalkan sesi portal lama.</p>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button type="button" @click="setModePortal('LINK')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Pakai tautan</button>
+        <button type="button" @click="setModePortal('CODE')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Pakai kode</button>
+        <button type="button" @click="rotasiKodeKelas()" :disabled="rotatingCode" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="rotatingCode ? 'Merotasi...' : 'Rotasi kode kelas'">Rotasi kode kelas</button>
+      </div>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white lg:col-span-2">
+      <h2 class="text-[18px] font-semibold">Kanal WhatsApp kelas</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Tautkan grup agar notifikasi terkirim. Minta JID via perintah <span class="font-mono">!kanal</span> di grup.</p>
+      <div x-show="kanalFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kanalFormError"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        <div class="sm:col-span-2">
+          <label for="km-kanal-jid" class="block text-[12px] font-semibold mb-1">JID grup *</label>
+          <input id="km-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="12036...@g.us" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] font-mono bg-white w-full" />
+        </div>
+        <div>
+          <label for="km-kanal-nama" class="block text-[12px] font-semibold mb-1">Nama tampilan</label>
+          <input id="km-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="Grup Kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+        </div>
+      </div>
+      <button type="button" @click="tautkanKanalSaya()" :disabled="kanalSaving" class="mt-3 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60">Tautkan kanal</button>
+      <div x-show="kanalLoading" class="mt-3 py-4 text-center text-[13px] text-slate-400">Memuat kanal...</div>
+      <div x-show="kanalError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="kanalError">-</span>
+        <button type="button" @click="loadKanalSaya()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      </div>
+      <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="mt-3 p-4 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">Belum ada kanal tertaut.</div>
+      <div x-show="!kanalLoading && kanalList.length > 0" class="mt-3 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+        <template x-for="k in kanalList" :key="k.id">
+          <div class="py-3">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-[14px] font-semibold truncate" x-text="k.display_name || k.jid">-</p>
+                <p class="text-[12px] text-slate-500 font-mono truncate" x-text="k.jid">-</p>
+              </div>
+              <span class="inline-flex px-2 py-0.5 rounded text-[11px] font-bold w-fit"
+                :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500'"
+                x-text="labelStatusKanal(k.status)">-</span>
+              <button type="button" @click="mulaiLepasKanalSaya(k)" x-show="String(k.status).toUpperCase() === 'ACTIVE'" class="h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Lepas</button>
+            </div>
+            <div x-show="kanalLepas && kanalLepas.id === k.id" class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+              <p class="text-[13px] font-semibold" x-text="'Lepas ' + kanalLepas.nama">-</p>
+              <label :for="'km-kanal-alasan-' + k.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan <span class="text-red-600">*</span></label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input :id="'km-kanal-alasan-' + k.id" type="text" x-model="kanalAlasan" placeholder="Contoh: Grup bubar" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+                <button type="button" @click="jalankanLepasKanalSaya()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                <button type="button" @click="kanalLepas = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </section>
@@ -42,9 +90,9 @@
       <a href="/pj.html" class="mt-2 inline-flex h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold items-center min-h-[44px]">Pindah ke Area PJ</a>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
-      <button type="button" disabled title="Segera hadir" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px] inline-flex items-center gap-2 text-slate-400 bg-slate-50 cursor-not-allowed">Ubah kata sandi<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#FCD484] text-[#1F1F1F]">Segera</span></button>
+      <button type="button" @click="infoPengingat()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Ubah kata sandi via admin</button>
       <button type="button" @click="logout()" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
     </div>
-    <p class="text-[11px] text-slate-400 mt-3">Login dan sesi butuh endpoint autentikasi backend.</p>
+    <p class="text-[11px] text-slate-400 mt-3">Sesi masuk memakai token pengelola. Pemulihan akun dibantu System Admin.</p>
   </div>
 </section>

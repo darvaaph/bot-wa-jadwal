@@ -1,4 +1,4 @@
-<!-- partials/km/view-monitor.html — KM Monitoring + Log Aktivitas (butuh endpoint) -->
+<!-- partials/km/view-monitor.html — KM Monitoring + Log Aktivitas -->
 <section x-show="view === 'monitoring'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Monitoring</h1>
   <p class="text-[14px] text-slate-500 mt-1">Kesehatan publikasi dan pengiriman pesan kelas</p>
@@ -6,16 +6,22 @@
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <p class="text-[13px] text-slate-500">Status bot</p>
       <p class="text-[20px] font-bold mt-1" :class="botOnline ? 'text-emerald-600' : 'text-[#FF6C48]'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
+      <p class="text-[11px] text-slate-400 mt-1">Publikasi web tetap berjalan saat bot terputus.</p>
     </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <p class="text-[13px] text-slate-500">Tugas aktif</p>
-      <p class="text-[32px] font-bold leading-tight" x-text="tasks.length">0</p>
+      <p class="text-[13px] text-slate-500">Pesan menunggu</p>
+      <p class="text-[32px] font-bold leading-tight" x-text="notifMenunggu">0</p>
+      <button type="button" @click="go('notifikasi')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat antrean</button>
     </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <p class="text-[13px] text-slate-500">Antrean pesan</p>
-      <p class="text-[20px] font-bold mt-1 text-slate-400">—</p>
-      <p class="text-[11px] text-slate-400">Butuh endpoint antrean</p>
+      <p class="text-[13px] text-slate-500">Pesan gagal</p>
+      <p class="text-[32px] font-bold leading-tight" :class="notifGagal > 0 ? 'text-red-700' : ''" x-text="notifGagal">0</p>
+      <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Jadwalkan ulang</button>
     </div>
+  </div>
+  <div class="mt-4 p-4 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col sm:flex-row sm:items-center gap-2">
+    <p class="text-[13px] text-slate-600 flex-1">Tugas aktif <span class="font-mono font-semibold" x-text="tasks.length">0</span> · Perlu Review <span class="font-mono font-semibold" x-text="antrean.length">0</span></p>
+    <button type="button" @click="loadNotifikasi()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Muat ulang antrean</button>
   </div>
 </section>
 

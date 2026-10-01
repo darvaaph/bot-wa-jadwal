@@ -173,7 +173,7 @@
         </select>
         <button type="button" @click="go('kelas')" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] sm:ml-auto">Buat undangan KM</button>
       </div>
-      <p class="text-[11px] text-slate-400 mt-2">Undangan berlaku 7 hari, sekali pakai. Kirim ulang = buat baru (token lama otomatis batal). Penerima tak dapat ubah peran/scope.</p>
+      <p class="text-[11px] text-slate-400 mt-2">Undangan berlaku 7 hari, sekali pakai. Tautan hanya tampil sekali saat dibuat; hilang = buat baru (token lama otomatis batal). Penerima tak dapat ubah peran/scope.</p>
       <div class="mt-4 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
         <h2 class="text-[15px] font-bold text-[#1F1F1F]">Undang System Admin</h2>
         <p class="text-[12px] text-slate-500 mt-0.5">Tanpa kelas (scope global). Hanya System Admin yang bisa mengundang.</p>
@@ -208,7 +208,7 @@
               <div class="flex-1 min-w-0">
                 <p class="text-[14px] font-semibold text-[#1F1F1F] font-mono truncate" x-text="u.invited_identity_key">-</p>
                 <p class="text-[12px] text-slate-500 truncate"><span x-text="u.role">-</span><span x-show="u.class_slug" x-text="' · ' + u.class_slug"></span><span x-show="u.invited_by" x-text="' · oleh ' + u.invited_by"></span></p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Kedaluwarsa <span class="font-mono" x-text="fmtWaktuID(u.expires_at)">-</span></p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Berlaku s.d. <span class="font-mono" :title="u.expires_at" x-text="fmtWaktuID(u.expires_at)">-</span><span x-show="undanganSisaWaktu(u.expires_at)" x-text="' (' + undanganSisaWaktu(u.expires_at) + ')'"></span></p>
               </div>
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
                 :class="String(u.status).toUpperCase() === 'PENDING' && !u.is_expired ? 'bg-amber-50 text-amber-900' : (String(u.status).toUpperCase() === 'ACCEPTED' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500')">
@@ -216,7 +216,7 @@
                 <span x-text="labelStatusUndangan(u.status, u.is_expired)">-</span>
               </span>
               <div class="flex gap-2" x-show="String(u.status).toUpperCase() === 'PENDING'">
-                <button type="button" @click="kirimUlangUndangan(u)" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Kirim ulang</button>
+                <button type="button" @click="kirimUlangUndangan(u)" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Buat baru</button>
                 <button type="button" @click="mulaiAksiUndangan(u)" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Cabut</button>
               </div>
             </div>

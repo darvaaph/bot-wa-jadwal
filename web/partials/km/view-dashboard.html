@@ -32,8 +32,26 @@
     </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <p class="text-[13px] text-slate-500">Materi tersimpan</p>
-      <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight">—</p>
-      <p class="text-[12px] text-slate-400">Butuh endpoint materi</p>
+      <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight" x-text="materiList.length">0</p>
+      <button type="button" @click="go('materi')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Kelola materi</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Perlu Review</p>
+      <p class="text-[32px] font-bold leading-tight" x-text="antrean.length">0</p>
+      <button type="button" @click="go('antrean')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Periksa sekarang</button>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Pesan gagal</p>
+      <p class="text-[32px] font-bold leading-tight" :class="notifGagal > 0 ? 'text-red-700' : ''" x-text="notifGagal">0</p>
+      <button type="button" @click="go('notifikasi')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Jadwalkan ulang</button>
+    </div>
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <p class="text-[13px] text-slate-500">Status bot</p>
+      <p class="text-[20px] font-bold mt-1" :class="botOnline ? 'text-emerald-600' : 'text-[#FF6C48]'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
+      <p class="text-[11px] text-slate-400 mt-1">Publikasi web tetap berjalan.</p>
     </div>
   </div>
 
@@ -85,7 +103,18 @@
       <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Log Aktivitas</h2>
       <button type="button" @click="go('log')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semuanya</button>
     </div>
-    <div class="py-6 text-center text-[13px] text-slate-400">Butuh endpoint audit — riwayat tampil setelah backend siap.</div>
+    <div x-show="auditLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
+    <div x-show="!auditLoading && auditPreview.length === 0" class="py-4 text-center text-[13px] text-slate-400">Belum ada riwayat tercatat.</div>
+    <div x-show="!auditLoading && auditPreview.length > 0" class="mt-2 divide-y divide-[#EEEEEE]">
+      <template x-for="a in auditPreview" :key="a.id">
+        <div class="py-2.5 flex items-center gap-3">
+          <div class="min-w-0 flex-1">
+            <p class="text-[14px] font-medium line-clamp-1" x-text="labelAksiAudit(a.action)">-</p>
+            <p class="text-[11px] text-slate-400 font-mono" x-text="fmtWaktuID(a.created_at)">-</p>
+          </div>
+        </div>
+      </template>
+    </div>
   </div>
   </div>
 </section>

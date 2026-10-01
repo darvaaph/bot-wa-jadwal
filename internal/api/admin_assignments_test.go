@@ -397,6 +397,44 @@ func TestV1Admin_GetInvitations(t *testing.T) {
 	}
 }
 
+func TestV1Admin_GetInvitations_NormalizeLegacyTimestamp(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	// Baris demo lama menyimpan expires_at format Go String() + monotonik.
+	if _, err := db.Exec(`
+		INSERT INTO role_invitations
+			(token_hash, invited_identity_key, role, scope_type, class_id,
+			 status, expires_at, invited_by_user_id)
+		VALUES ('h-legacy', '+6281000000099', 'KM', 'CLASS', 1,
+		        'PENDING', '2026-10-08 07:28:27.689792 +0700 +07 m=+608457.938573901', 1);
+	`); err != nil {
+		t.Fatalf("gagal seed undangan legacy: %v", err)
+	}
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	w := helperDo(t, s, "GET", "/api/v1/admin/invitations", adminToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	found := false
+	for _, inv := range body.Data {
+		if inv["invited_identity_key"] != "+6281000000099" {
+			continue
+		}
+		found = true
+		exp, _ := inv["expires_at"].(string)
+		if exp != "2026-10-08T07:28:27+07:00" {
+			t.Errorf("expires_at tak ternormalisasi RFC3339: %q", exp)
+		}
+	}
+	if !found {
+		t.Fatalf("undangan legacy tak ditemukan: %s", w.Body.String())
+	}
+}
+
 func TestV1Admin_RevokeInvitation(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()

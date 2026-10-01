@@ -17,14 +17,78 @@ const (
 )
 
 func NormalizeIdentity(identity string) string {
-	return strings.ToLower(strings.TrimSpace(identity))
+	s := strings.TrimSpace(identity)
+	if s == "" {
+		return ""
+	}
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return strings.ToLower(s)
+		}
+	}
+	if strings.Contains(s, "@") {
+		return strings.ToLower(s)
+	}
+	hasPlus := strings.HasPrefix(s, "+")
+	var digits strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			digits.WriteRune(r)
+		}
+	}
+	d := digits.String()
+	if d == "" {
+		return strings.ToLower(s)
+	}
+	if strings.HasPrefix(d, "00") && len(d) > 2 {
+		d = d[2:]
+		hasPlus = true
+	}
+	var canonical string
+	switch {
+	case strings.HasPrefix(d, "62"):
+		canonical = "+" + d
+	case strings.HasPrefix(d, "0"):
+		canonical = "+62" + d[1:]
+	case strings.HasPrefix(d, "8"):
+		canonical = "+62" + d
+	default:
+		if len(d) >= 9 && len(d) <= 15 && hasPlus {
+			canonical = "+" + d
+		} else {
+			return strings.ToLower(s)
+		}
+	}
+	return canonical
+}
+
+// IsValidPhoneIdentity melaporkan apakah identitas sudah dalam bentuk
+// kanonis WhatsApp Indonesia (+62... dengan digit cukup).
+func IsValidPhoneIdentity(identity string) bool {
+	s := strings.TrimSpace(identity)
+	if !strings.HasPrefix(s, "+62") {
+		return false
+	}
+	digits := 0
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			digits++
+		} else if r != '+' {
+			return false
+		}
+	}
+	return digits >= 10 && digits <= 15
 }
 
 func ValidatePassword(identity, password string) error {
 	if utf8.RuneCountInString(password) < MinimumPasswordLength {
 		return fmt.Errorf("%w: kata sandi minimal %d karakter", ErrInvalidInput, MinimumPasswordLength)
 	}
-	if strings.EqualFold(strings.TrimSpace(password), NormalizeIdentity(identity)) {
+	normalizedIdentity := NormalizeIdentity(identity)
+	if strings.EqualFold(strings.TrimSpace(password), normalizedIdentity) {
+		return fmt.Errorf("%w: kata sandi tidak boleh sama dengan identitas", ErrInvalidInput)
+	}
+	if normalizedPassword := NormalizeIdentity(password); normalizedPassword != "" && normalizedPassword == normalizedIdentity {
 		return fmt.Errorf("%w: kata sandi tidak boleh sama dengan identitas", ErrInvalidInput)
 	}
 	return nil

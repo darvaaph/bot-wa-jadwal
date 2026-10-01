@@ -76,7 +76,9 @@ func (s *V1BotService) FindClass(ctx context.Context, identifier string) (*V1Cla
 	return nil, sql.ErrNoRows
 }
 
-// BindChannel mendaftarkan atau memperbarui kanal WhatsApp (JID) grup kelas ke tabel whatsapp_channels
+// BindChannel mendaftarkan atau memperbarui kanal WhatsApp (JID) grup kelas ke tabel whatsapp_channels.
+// Liang pembatas: JID yang sudah tertaut ke kelas LAIN tidak dipindahkan
+// (kembalikan galat; pemindahan = lepas + taut ulang via dashboard beraudit).
 func (s *V1BotService) BindChannel(ctx context.Context, classID int64, jid, groupName string) error {
 	if s.db == nil {
 		return fmt.Errorf("database v1 belum siap")
@@ -87,14 +89,25 @@ func (s *V1BotService) BindChannel(ctx context.Context, classID int64, jid, grou
 		return fmt.Errorf("JID kosong")
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	var existingClass int64
+	err := s.db.QueryRowContext(ctx, `SELECT class_id FROM whatsapp_channels WHERE jid = ?;`, cleanJID).Scan(&existingClass)
+	if err == nil {
+		if existingClass != classID {
+			return fmt.Errorf("JID sudah tertaut ke kelas lain")
+		}
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE whatsapp_channels
+			SET display_name = ?, status = 'ACTIVE', verified_at = CURRENT_TIMESTAMP
+			WHERE jid = ?;
+		`, groupName, cleanJID)
+		return err
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO whatsapp_channels (class_id, jid, channel_type, display_name, status, verified_at)
-		VALUES (?, ?, 'GROUP', ?, 'ACTIVE', CURRENT_TIMESTAMP)
-		ON CONFLICT(jid) DO UPDATE SET
-			class_id = excluded.class_id,
-			display_name = excluded.display_name,
-			status = 'ACTIVE',
-			verified_at = CURRENT_TIMESTAMP;
+		VALUES (?, ?, 'GROUP', ?, 'ACTIVE', CURRENT_TIMESTAMP);
 	`, classID, cleanJID, groupName)
 
 	return err

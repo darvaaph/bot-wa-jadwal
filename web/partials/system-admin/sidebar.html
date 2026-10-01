@@ -54,6 +54,13 @@
         :style="view === 'antrean' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
       <span class="sidebar-label">Antrean Notifikasi</span>
     </button>
+    <button type="button" @click="go('kanal')" :title="sidebarCollapsed ? 'Kanal WhatsApp' : ''"
+      :class="view === 'kanal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/bell.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'kanal' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Kanal WhatsApp</span>
+    </button>
     <button type="button" @click="go('audit')" :title="sidebarCollapsed ? 'Audit Global' : ''"
       :class="['audit','pembaruan'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">

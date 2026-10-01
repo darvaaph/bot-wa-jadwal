@@ -181,3 +181,30 @@ func (s *Server) handleRejectProposal(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleGetChannels menangani GET /api/v1/whatsapp-channels
+func (s *Server) handleGetChannels(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.GetChannels(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleLinkChannel menangani POST /api/v1/whatsapp-channels
+func (s *Server) handleLinkChannel(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.LinkChannel(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleRevokeChannel menangani POST /api/v1/whatsapp-channels/{id}/revoke
+func (s *Server) handleRevokeChannel(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.RevokeChannel(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}

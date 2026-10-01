@@ -180,8 +180,8 @@
     </div>
 
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold text-center">Ruangan tersedia</h2>
-      <p class="text-[11px] text-slate-400 text-center mt-1">Data internal — perlu konfirmasi TU.</p>
+      <h2 class="text-[18px] font-semibold text-center">Ruangan Kandidat</h2>
+      <p class="text-[11px] text-slate-400 text-center mt-1">Hasil pencarian internal — wajib konfirmasi TU sebelum publish.</p>
       <div class="divide-y divide-[#EEEEEE] mt-2">
         <template x-for="r in roomList" :key="r">
           <div class="py-3"><p class="text-[14px] font-medium" x-text="r">-</p><p class="text-[12px] text-slate-500">Tidak tercatat dipakai</p></div>
@@ -464,8 +464,9 @@
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
       <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
         <span class="material-symbols-outlined shrink-0">notifications</span>
-        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis — pantau di menu Notifikasi.</p>
+        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis.</p>
       </div>
+      <button type="button" @click="go('notifikasi')" class="mt-3 h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Pantau di Notifikasi</button>
       <div class="flex flex-wrap gap-3 mt-5">
         <button type="button" @click="lanjutkanDraf(selectedEvent)" x-show="String(selectedEvent.lifecycle_status).toUpperCase() === 'DRAFT'" class="h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px]">Lanjutkan Draf</button>
       </div>

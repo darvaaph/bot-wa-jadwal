@@ -15,6 +15,7 @@ import (
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
 	"golang.org/x/crypto/bcrypt"
@@ -238,7 +239,7 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cleanIdentity := strings.ToLower(strings.TrimSpace(req.IdentityKey))
+	cleanIdentity := auth.NormalizeIdentity(req.IdentityKey)
 	if cleanIdentity == "" || req.Password == "" {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Nomor WhatsApp (identity_key) dan kata sandi wajib diisi")
 		return
@@ -921,9 +922,13 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	cleanIdentity := strings.TrimSpace(req.InvitedIdentityKey)
+	cleanIdentity := auth.NormalizeIdentity(req.InvitedIdentityKey)
 	if cleanIdentity == "" {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Nomor WhatsApp (invited_identity_key) wajib diisi")
+		return
+	}
+	if !auth.IsValidPhoneIdentity(cleanIdentity) {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Nomor WhatsApp tidak valid (gunakan format 08... atau +62...)")
 		return
 	}
 
@@ -962,11 +967,41 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 		scopeType = "CLASS"
 	}
 
+	var scopeClassVal, scopeSemVal, scopeOffVal any
+	if classID.Valid {
+		scopeClassVal = classID.Int64
+	}
+	if req.SemesterID != nil {
+		scopeSemVal = *req.SemesterID
+	}
+	if req.OfferingID != nil {
+		scopeOffVal = *req.OfferingID
+	}
+
+	var alreadyActive bool
+	if err := c.db.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM users u
+			JOIN role_assignments ra ON ra.user_id = u.id
+			WHERE u.identity_key = ? AND ra.role = ? AND ra.scope_type = ?
+			AND COALESCE(ra.class_id,0)=COALESCE(?,0)
+			AND COALESCE(ra.semester_id,0)=COALESCE(?,0)
+			AND COALESCE(ra.course_offering_id,0)=COALESCE(?,0)
+			AND ra.status = 'ACTIVE'
+		);
+	`, cleanIdentity, role, scopeType, scopeClassVal, scopeSemVal, scopeOffVal).Scan(&alreadyActive); err == nil && alreadyActive {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Nomor sudah terdaftar aktif sebagai "+role+" pada cakupan ini")
+		return
+	}
+
 	_, _ = c.db.Exec(`
 		UPDATE role_invitations
 		SET status = 'REVOKED'
-		WHERE invited_identity_key = ? AND status = 'PENDING';
-	`, cleanIdentity)
+		WHERE invited_identity_key = ? AND role = ? AND status = 'PENDING'
+		AND COALESCE(class_id,0)=COALESCE(?,0)
+		AND COALESCE(semester_id,0)=COALESCE(?,0)
+		AND COALESCE(course_offering_id,0)=COALESCE(?,0);
+	`, cleanIdentity, role, scopeClassVal, scopeSemVal, scopeOffVal)
 
 	token, err := generateSecureToken()
 	if err != nil {
@@ -1072,6 +1107,8 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	identityKey = auth.NormalizeIdentity(identityKey)
+
 	if !expiresAt.Valid || time.Now().After(expiresAt.Time) {
 		_, _ = c.db.Exec(`UPDATE role_invitations SET status = 'EXPIRED' WHERE id = ?;`, invID)
 		if !recordInviteFailure() {
@@ -1120,10 +1157,23 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 			user_id, role, scope_type, class_id, semester_id, course_offering_id,
 			accepted_invitation_id, status
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+		SELECT ?, ?, ?, ?, ?, ?, ?, 'ACTIVE'
+		WHERE NOT EXISTS(
+			SELECT 1 FROM role_assignments
+			WHERE user_id = ? AND role = ? AND scope_type = ?
+			AND COALESCE(class_id,0)=COALESCE(?,0)
+			AND COALESCE(semester_id,0)=COALESCE(?,0)
+			AND COALESCE(course_offering_id,0)=COALESCE(?,0)
+			AND status = 'ACTIVE'
+		)
 		RETURNING id;
-	`, userID, role, scopeType, classID, semesterID, courseOfferingID, invID).Scan(&assignmentID)
+	`, userID, role, scopeType, classID, semesterID, courseOfferingID, invID,
+		userID, role, scopeType, classID, semesterID, courseOfferingID).Scan(&assignmentID)
 	if err != nil {
+		if err == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "unique") {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Nomor sudah memiliki peran aktif pada cakupan ini")
+			return
+		}
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menetapkan peran: %v", err))
 		return
 	}

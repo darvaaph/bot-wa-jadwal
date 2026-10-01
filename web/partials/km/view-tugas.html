@@ -22,7 +22,7 @@
       </div>
 
       <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Tab tugas">
-        <template x-for="tb in [['aktif','Aktif'],['draf','Draf'],['review','Perlu diperiksa KM'],['selesai','Selesai'],['terlewat','Terlewat'],['arsip','Arsip']]" :key="tb[0]">
+        <template x-for="tb in [['aktif','Aktif'],['draf','Draf'],['review','Perlu Review'],['selesai','Selesai'],['terlewat','Terlewat'],['arsip','Arsip']]" :key="tb[0]">
           <button type="button" @click="tugasTab = tb[0]" role="tab" :aria-selected="tugasTab === tb[0]"
             :class="tugasTab === tb[0] ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'"
             class="px-4 py-2 rounded-xl text-[13px] whitespace-nowrap min-h-[44px] flex items-center gap-1.5">
@@ -271,8 +271,9 @@
           <div x-show="tugasDetailTab === 'notif'" class="mt-4">
             <div class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
               <span class="material-symbols-outlined shrink-0">notifications</span>
-              <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis — pantau di menu Notifikasi.</p>
+              <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis.</p>
             </div>
+            <button type="button" @click="go('notifikasi')" class="mt-3 h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Pantau di Notifikasi</button>
           </div>
         </div>
       </div>

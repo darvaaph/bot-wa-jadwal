@@ -59,6 +59,9 @@ func TestV1Notifications_FiltersAndDetail(t *testing.T) {
 	if m1["channel_jid"] != "120363000000000001@g.us" {
 		t.Errorf("tanpa channel_jid penerima: %v", m1)
 	}
+	if m1["class_slug"] != "d4-ti-2024-a" {
+		t.Errorf("tanpa class_slug kelas: %v", m1)
+	}
 	if m1["attempt_count"] != float64(2) {
 		t.Errorf("attempt_count expected 2: %v", m1)
 	}

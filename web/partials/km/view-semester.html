@@ -1,0 +1,73 @@
+<!-- partials/km/view-semester.html — KM Semester: daftar + buat draf + aktivasi -->
+<section x-show="view === 'semester'" x-cloak>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Semester</h1>
+      <p class="text-[14px] text-slate-500 mt-1">Kelola semester kelas <span class="font-mono" x-text="selectedClass">-</span> · hanya satu semester aktif</p>
+    </div>
+    <button type="button" @click="loadSemesters()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium hover:bg-slate-50 self-start min-h-[44px]">Muat ulang</button>
+  </div>
+
+  <div x-show="semesterLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat semester...</div>
+  <div x-show="semesterError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="semesterError">-</span>
+    <button type="button" @click="loadSemesters()" class="ml-2 font-semibold underline">Coba Lagi</button>
+  </div>
+
+  <div x-show="!semesterLoading && !semesterError" class="mt-5 space-y-3">
+    <template x-for="s in semesterList" :key="s.id">
+      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <p class="text-[15px] font-semibold" x-text="semesterLabel(s)">-</p>
+            <p class="text-[12px] text-slate-500 font-mono" x-text="(s.starts_on || '') + ' → ' + (s.ends_on || '')">-</p>
+            <p class="text-[12px] text-slate-500" x-text="(s.offerings || 0) + ' mata kuliah · ' + (s.patterns || 0) + ' pola'">-</p>
+          </div>
+          <span class="inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+            :class="String(s.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : (String(s.status).toUpperCase() === 'DRAFT' ? 'bg-[#FCD484]/60 text-amber-900' : 'bg-slate-100 text-slate-500')"
+            x-text="semesterStatusLabel(s.status)">-</span>
+          <button type="button" @click="mulaiAktifkanSemester(s)" x-show="String(s.status).toUpperCase() === 'DRAFT'" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Aktifkan</button>
+        </div>
+        <div x-show="semesterAktif && semesterAktif.id === s.id" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
+          <p class="font-semibold">Aktifkan semester ini?</p>
+          <p class="mt-1">Semester aktif lama menjadi arsip secara atomik. Arsip hanya-baca.</p>
+          <div class="flex flex-col sm:flex-row gap-2 mt-3">
+            <button type="button" @click="jalankanAktifkanSemester()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Ya, aktifkan</button>
+            <button type="button" @click="semesterAktif = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <div x-show="semesterList.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+      <p class="text-[15px] font-semibold">Belum ada semester</p>
+      <p class="text-[13px] text-slate-500">Buat semester draf pertama di bawah.</p>
+    </div>
+  </div>
+
+  <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <h2 class="text-[18px] font-semibold">Buat semester draf</h2>
+    <p class="text-[12px] text-slate-500 mt-0.5">Semester baru selalu berstatus draf. Mata kuliah ditambahkan via impor atau oleh System Admin.</p>
+    <div x-show="semesterFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="semesterFormError">-</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Tahun ajaran <span class="text-[#FF6C48]">*</span></label>
+        <input type="text" x-model="semesterForm.academic_year" placeholder="2024/2025" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Semester <span class="text-[#FF6C48]">*</span></label>
+        <select x-model="semesterForm.term" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <option>Ganjil</option><option>Genap</option><option>Pendek</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Mulai <span class="text-[#FF6C48]">*</span></label>
+        <input type="date" x-model="semesterForm.starts_on" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Selesai <span class="text-[#FF6C48]">*</span></label>
+        <input type="date" x-model="semesterForm.ends_on" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      </div>
+    </div>
+    <button type="button" @click="buatSemesterDraf()" :disabled="semesterSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="semesterSaving ? 'Menyimpan...' : 'Buat draf'">Buat draf</button>
+  </div>
+</section>

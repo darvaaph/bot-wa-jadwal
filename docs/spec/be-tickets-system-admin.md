@@ -202,3 +202,27 @@
 - **Problem:** tak ada endpoint QR/test-kirim/reconnect; UI hanya prosedur terminal-server.
 - **Kebutuhan:** penyambungan ulang + uji kirim untuk System Admin sesuai prosedur.
 - **Acuan:** IA §7.2.
+
+## Kanal WhatsApp
+
+### BE-14 — Kelola Kanal WhatsApp
+
+> Status: **Selesai** — `GET /api/v1/whatsapp-channels` (filter class_slug/status;
+> SA semua, KM kelasnya), `POST` tautkan (tolak-dulu bila JID ACTIVE di kelas lain
+> 409; reuse pasca-lepas diizinkan; idempoten sekelas; KM boleh kosongkan kelas),
+> `POST .../{id}/revoke` (alasan wajib; hanya ACTIVE; baris REVOKED dipertahankan) +
+> audit `LINK/REVOKE_CHANNEL` + halaman SA + seksi KM + perintah `!kanal`. Tes di
+> `internal/api/admin_channels_test.go` + `TestKanalCommand`.
+
+- **Problem:** pesan yatim tanpa kanal (worker syaratkan kanal ACTIVE);
+  `!setkelas` grup ditolak ke halaman yang tak ada.
+- **Kebutuhan:** SA/KM kelola tautan JID↔kelas sesuai cakupan + audit.
+- **Acuan:** FR-NOTIF-004, IA §7.2.
+
+### BE-15 — Perintah `!kanal` balas JID
+
+> Status: **Selesai** — bot membalas JID chat saat ini (grup/DM) agar admin
+> tinggal salin ke form tautkan. Baca saja, aman untuk semua pengirim.
+
+- **Kebutuhan:** perintah baca JID grup untuk ditempel ke form.
+- **Acuan:** FR-NOTIF-004.

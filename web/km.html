@@ -26,7 +26,7 @@
   AREA KM (REVISI Figma, tanpa role switcher). Entry di /km.html.
   Portal User di /. Isi per layar: web/partials/km/*.html via initKM() di js/app-km.js.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="drawer = false">
+<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="drawer = false; kanalLepas = null">
 
   <div id="km-sidebar"></div>
 
@@ -38,6 +38,7 @@
       <div id="km-tugas"></div>
       <div id="km-jadwal"></div>
       <div id="km-materi"></div>
+      <div id="km-semester"></div>
       <div id="km-anggota"></div>
       <div id="km-antrean"></div>
       <div id="km-monitor"></div>

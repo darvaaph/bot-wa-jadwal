@@ -197,6 +197,7 @@ type RestoreRequest struct {
 type NotificationResponseItem struct {
 	ID               int64   `json:"id"`
 	ClassID          int64   `json:"class_id"`
+	ClassSlug        *string `json:"class_slug,omitempty"`
 	EventType        string  `json:"event_type"`
 	EntityType       *string `json:"entity_type,omitempty"`
 	EntityID         *int64  `json:"entity_id,omitempty"`
@@ -1201,7 +1202,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	query := `
-		SELECT nm.id, nm.class_id, nm.event_type, nm.entity_type, nm.entity_id,
+		SELECT nm.id, nm.class_id, cl.slug, nm.event_type, nm.entity_type, nm.entity_id,
 		       nm.status, nm.idempotency_key, wc.jid, wc.display_name,
 		       nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
 		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts,
@@ -1213,6 +1214,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 		         ORDER BY na3.attempt_number DESC LIMIT 1) AS last_attempt_error
 		FROM notification_messages nm
 		LEFT JOIN whatsapp_channels wc ON wc.id = nm.whatsapp_channel_id
+		LEFT JOIN classes cl ON cl.id = nm.class_id
 		WHERE (1=1)
 	`
 	var args []any
@@ -1293,6 +1295,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 		var (
 			id             int64
 			classID        int64
+			classSlug      sql.NullString
 			eventType      string
 			entityType     sql.NullString
 			entityID       sql.NullInt64
@@ -1309,7 +1312,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 			lastAttemptErr sql.NullString
 		)
 
-		if err := rows.Scan(&id, &classID, &eventType, &entityType, &entityID, &status,
+		if err := rows.Scan(&id, &classID, &classSlug, &eventType, &entityType, &entityID, &status,
 			&idempotencyKey, &channelJID, &channelName, &payloadJSON,
 			&scheduledAt, &sentAt, &createdAt, &attempts, &lastAttemptAt, &lastAttemptErr); err == nil {
 			var schedStr *string
@@ -1334,6 +1337,10 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 			if channelJID.Valid && channelJID.String != "" {
 				chJID = &channelJID.String
 			}
+			var clSlug *string
+			if classSlug.Valid && classSlug.String != "" {
+				clSlug = &classSlug.String
+			}
 			if channelName.Valid && channelName.String != "" {
 				chName = &channelName.String
 			}
@@ -1353,6 +1360,7 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 			notifications = append(notifications, NotificationResponseItem{
 				ID:               id,
 				ClassID:          classID,
+				ClassSlug:        clSlug,
 				EventType:        eventType,
 				EntityType:       eType,
 				EntityID:         eID,

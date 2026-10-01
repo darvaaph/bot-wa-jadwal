@@ -107,6 +107,9 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | `POST /api/v1/admin/support/enter` | `{class_slug!, reason! min 10}` | Admin; Hibah dukungan 60 menit, tutup hibah lama; audit `SUPPORT_ENTER` |
 | `POST /api/v1/admin/support/exit` | `{reason?}` | Admin; Tutup hibah aktif; audit `SUPPORT_EXIT` |
 | `GET /api/v1/admin/support/active` | — | Admin; Hibah aktif atau `null`; kedaluwarsa ditandai `EXPIRED` |
+| `GET /api/v1/whatsapp-channels` | `?class_slug=&status=` | KM (kelasnya) / Admin; Daftar kanal + tautan kelas |
+| `POST /api/v1/whatsapp-channels` | `{jid!, class_slug! (KM boleh kosong = kelasnya), display_name?}` | KM / Admin sesuai cakupan; tolak-dulu bila JID tertaut kelas lain (409); idempoten sekelas |
+| `POST /api/v1/whatsapp-channels/:id/revoke` | `{reason!}` | KM / Admin sesuai cakupan; hanya ACTIVE; baris dipertahankan REVOKED |
 | `POST /api/v1/admin/bot/test-message` | `{to!, text! 1-500}` | Admin; Uji kirim hanya ke kanal terdaftar + audit `BOT_TEST_MESSAGE`. Reconnect/QR tak diekspos web |
 | `GET /api/v1/classes/:slug/settings` | — | KM (kelasnya) / Admin; Baca pengaturan kelas (zona waktu, mode portal, versi kode) |
 | `PATCH /api/v1/classes/:slug/portal-mode` | `{mode!: LINK\|CODE, reason?}` | KM (kelasnya) / Admin; Ganti mode Portal Kelas + audit `UPDATE_PORTAL_MODE`. LINK selalu bisa (hapus hash); CODE wajib hash aktif (422 bila belum: putar kode dulu); idempoten (`changed:false`) |

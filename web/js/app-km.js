@@ -23,12 +23,13 @@ function kmApp() {
       ] },
       { title: 'AKADEMIK', items: [
         { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
-        { id: 'antrean', label: 'Antrean pemeriksaan', img: '/assets/icons/ext-check.svg' },
+        { id: 'antrean', label: 'Perlu Review', img: '/assets/icons/ext-check.svg' },
         { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
         { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       ] },
       { title: 'KELOLA KELAS', items: [
-        { id: 'anggota', label: 'Anggota & Tim', img: '/assets/icons/ext-settings-edit.svg' },
+        { id: 'semester', label: 'Semester', img: '/assets/icons/calendar.svg' },
+        { id: 'anggota', label: 'Penugasan Peran', img: '/assets/icons/ext-settings-edit.svg' },
         { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
         { id: 'usulan', label: 'Usulan Master', img: '/assets/icons/book.svg' },
       ] },
@@ -51,7 +52,7 @@ function kmApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'anggota', 'pengaturan', 'usulan', 'monitoring', 'log', 'notifikasi', 'akun'],
+    knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'semester', 'anggota', 'pengaturan', 'usulan', 'monitoring', 'log', 'notifikasi', 'akun'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -92,15 +93,60 @@ function kmApp() {
     undangError: '',
     undangLink: '',
 
+    // Semester (buat draf + aktivasi; impor/salin/preview tunda).
+    semesterList: [],
+    semesterLoading: false,
+    semesterError: '',
+    semesterForm: { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '' },
+    semesterFormError: '',
+    semesterSaving: false,
+    semesterAktif: null,
+    semesterAktifAlasan: '',
+
+    // Materi (list + tambah; ubah/arsip tunda).
+    materiList: [],
+    materiLoading: false,
+    materiError: '',
+    materiFilterOffering: '',
+    materiFormOpen: false,
+    materiForm: { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' },
+    materiFormError: '',
+    materiSaving: false,
+
+    // Notifikasi (list + retry + attempts; tiru pola System Admin).
+    notifList: [],
+    notifLoading: false,
+    notifError: '',
+    notifFilter: '',
+    notifDetailId: null,
+    notifAttempts: [],
+    notifAttemptsLoading: false,
+    notifAttemptsError: '',
+
+    // Penugasan Peran (daftar PJ + undangan + tangguhkan/cabut).
+    penugasanList: [],
+    penugasanLoading: false,
+    penugasanError: '',
+    undanganList: [],
+    undanganLoading: false,
+    undanganError: '',
+    penugasanAksi: null,
+    penugasanAlasan: '',
+    penugasanForce: false,
+
     reviewId: null,
     reviewMode: 'koreksi',
     reviewNote: '',
 
-    // Pengaturan (lokal sampai endpoint tersedia)
+    // Pengaturan kelas (baca dari server; waktu pengingat diatur System Admin).
     pengaturan: {
-      pagi: localStorage.getItem('km_rem_pagi') || '06:00',
-      sore: localStorage.getItem('km_rem_sore') || '17:00'
+      pagi: '06:00',
+      sore: '17:00'
     },
+    classSettings: null,
+    settingsLoading: false,
+    settingsError: '',
+    rotatingCode: false,
 
     toast: { show: false, message: '', timer: null },
 
@@ -176,7 +222,7 @@ function kmApp() {
 
     reviewLabel(st) {
       const s = String(st || '').toUpperCase();
-      if (s === 'NOT_REVIEWED') return 'Perlu diperiksa KM';
+      if (s === 'NOT_REVIEWED') return 'Perlu Review';
       if (s === 'APPROVED') return 'Disetujui';
       if (s === 'CHANGES_REQUESTED') return 'Perlu koreksi';
       if (s === 'REVOKED') return 'Dibatalkan';
@@ -703,6 +749,7 @@ function kmApp() {
         ['km-tugas', '/partials/km/view-tugas.html'],
         ['km-jadwal', '/partials/km/view-jadwal.html'],
         ['km-materi', '/partials/km/view-materi.html'],
+        ['km-semester', '/partials/km/view-semester.html'],
         ['km-anggota', '/partials/km/view-anggota.html'],
         ['km-antrean', '/partials/km/view-antrean.html'],
         ['km-monitor', '/partials/km/view-monitor.html'],
@@ -726,6 +773,11 @@ function kmApp() {
       await this.loadTasks();
       this.patternsList = await API.getPatterns().catch(() => []);
       await this.loadEvents();
+      await this.loadSemesters().catch(() => {});
+      await this.loadMateri().catch(() => {});
+      await this.loadNotifikasi().catch(() => {});
+      await this.loadAuditLog().catch(() => {});
+      await this.loadPengaturanKelas().catch(() => {});
       setInterval(() => this.checkBot(), 30000);
       this.dashboardLoading = false;
     },
@@ -777,8 +829,12 @@ function kmApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'tugas') this.tugasSub = 'list';
-      if (v === 'anggota') this.anggotaSub = 'list';
+      if (v === 'anggota') { this.anggotaSub = 'list'; this.loadPenugasan(); this.loadUndanganKM(); }
+      if (v === 'semester') this.loadSemesters();
+      if (v === 'materi') this.loadMateri();
+      if (v === 'notifikasi' || v === 'monitoring') this.loadNotifikasi();
       if (v === 'log') this.loadAuditLog();
+      if (v === 'pengaturan') { this.loadKanalSaya(); this.loadPengaturanKelas(); }
       if (v === 'usulan') { this.loadUsulanTarget(); this.loadUsulanSaya(); }
       window.scrollTo({ top: 0 });
     },
@@ -1321,10 +1377,352 @@ function kmApp() {
       }
     },
 
-    simpanPengaturan() {
-      localStorage.setItem('km_rem_pagi', this.pengaturan.pagi);
-      localStorage.setItem('km_rem_sore', this.pengaturan.sore);
-      this.showToast('Pengaturan tersimpan di perangkat ini.');
+    get notifGagal() {
+      return (this.notifList || []).filter(n => ['FAILED', 'CANCELLED'].includes(String(n.status || '').toUpperCase())).length;
+    },
+
+    get notifMenunggu() {
+      return (this.notifList || []).filter(n => ['PENDING', 'PROCESSING'].includes(String(n.status || '').toUpperCase())).length;
+    },
+
+    get auditPreview() {
+      return (this.auditList || []).slice(0, 5);
+    },
+
+    get materiTampil() {
+      const f = String(this.materiFilterOffering || '');
+      const list = this.materiList || [];
+      if (!f) return list;
+      return list.filter(m => String(m.offering_id || '') === f);
+    },
+
+    semesterLabel(s) {
+      if (!s) return '-';
+      return `${s.academic_year || ''} · ${s.term || ''}`.trim();
+    },
+
+    semesterStatusLabel(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'DRAFT') return 'Draf';
+      if (s === 'ACTIVE') return 'Aktif';
+      if (s === 'ARCHIVED') return 'Arsip';
+      return st || '-';
+    },
+
+    async loadSemesters() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.semesterList = []; this.semesterError = 'Kelas belum termuat.'; return; }
+      this.semesterLoading = true; this.semesterError = '';
+      try {
+        const hasil = await API.getSemestersResult(slug).catch(() => ({ ok: false, status: 0, data: [] }));
+        if (!hasil.ok && hasil.status === 404) {
+          this.semesterList = [];
+          this.semesterError = 'Kelas belum terdaftar di database. Minta System Admin membuat kelas.';
+          return;
+        }
+        if (!hasil.ok) {
+          this.semesterList = [];
+          this.semesterError = 'Daftar semester belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+          return;
+        }
+        this.semesterList = Array.isArray(hasil.data) ? hasil.data : [];
+        const active = this.semesterList.find(s => String(s.status).toUpperCase() === 'ACTIVE');
+        if (active) this.semesterId = String(active.id);
+      } catch (e) {
+        this.semesterList = [];
+        this.semesterError = 'Daftar semester belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.semesterLoading = false;
+      }
+    },
+
+    async buatSemesterDraf() {
+      const f = this.semesterForm;
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.semesterFormError = 'Kelas belum termuat.'; return; }
+      if (!((f.academic_year || '').trim())) { this.semesterFormError = 'Tahun ajaran wajib diisi (contoh 2024/2025).'; return; }
+      if (!((f.term || '').trim())) { this.semesterFormError = 'Semester (Ganjil/Genap) wajib diisi.'; return; }
+      if (!f.starts_on || !f.ends_on) { this.semesterFormError = 'Tanggal mulai dan selesai wajib diisi.'; return; }
+      if (!(f.ends_on > f.starts_on)) { this.semesterFormError = 'Tanggal selesai harus setelah tanggal mulai.'; return; }
+      this.semesterFormError = '';
+      this.semesterSaving = true;
+      try {
+        await API.createSemesterDraft(slug, {
+          academic_year: f.academic_year.trim(),
+          term: f.term.trim(),
+          starts_on: f.starts_on,
+          ends_on: f.ends_on
+        });
+        this.showToast('Semester draf dibuat.');
+        this.semesterForm = { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '' };
+        await this.loadSemesters();
+        await this.loadOfferings();
+      } catch (e) {
+        this.semesterFormError = e.message || 'Gagal membuat semester draf.';
+      } finally {
+        this.semesterSaving = false;
+      }
+    },
+
+    mulaiAktifkanSemester(s) {
+      this.semesterAktif = s;
+    },
+
+    async jalankanAktifkanSemester() {
+      const s = this.semesterAktif;
+      if (!s) return;
+      const slug = this.classSlug || this.selectedClass;
+      try {
+        await API.activateSemester(slug, s.id);
+        this.showToast('Semester diaktifkan. Semester aktif lama menjadi arsip.');
+        this.semesterAktif = null;
+        await this.loadSemesters();
+        await this.loadOfferings();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengaktifkan semester.');
+      }
+    },
+
+    async loadMateri() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.materiList = []; return; }
+      this.materiLoading = true; this.materiError = '';
+      try {
+        const data = await API.getMaterials(slug, '');
+        if (data === null) {
+          this.materiList = [];
+          this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+          return;
+        }
+        this.materiList = Array.isArray(data) ? data : [];
+      } catch (e) {
+        this.materiList = [];
+        this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.materiLoading = false;
+      }
+    },
+
+    async simpanMateri() {
+      const f = this.materiForm;
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) { this.materiFormError = 'Kelas belum termuat.'; return; }
+      if (!((f.title || '').trim()) || String(f.title).trim().length < 3) { this.materiFormError = 'Judul materi minimal 3 karakter.'; return; }
+      this.materiFormError = '';
+      this.materiSaving = true;
+      try {
+        const payload = {
+          class_slug: slug,
+          title: f.title.trim(),
+          material_type: (f.material_type || 'OTHER').toUpperCase()
+        };
+        if (f.offeringId) payload.offering_id = Number(f.offeringId);
+        if ((f.url || '').trim()) payload.url = f.url.trim();
+        if ((f.description || '').trim()) payload.description = f.description.trim();
+        await API.createMaterial(payload);
+        this.showToast('Materi tersimpan.');
+        this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
+        this.materiFormOpen = false;
+        await this.loadMateri();
+      } catch (e) {
+        this.materiFormError = e.message || 'Gagal menyimpan materi.';
+      } finally {
+        this.materiSaving = false;
+      }
+    },
+
+    materiTipeLabel(t) {
+      const s = String(t || '').toUpperCase();
+      if (s === 'DOCUMENT') return 'Dokumen';
+      if (s === 'MEETING') return 'Tautan rapat';
+      if (s === 'REPOSITORY') return 'Repositori';
+      if (s === 'PORTAL') return 'Portal';
+      return 'Lainnya';
+    },
+
+    async loadNotifikasi() {
+      this.notifLoading = true; this.notifError = '';
+      try {
+        const extra = {};
+        const slug = this.classSlug || this.selectedClass;
+        const list = await API.getNotifications(this.notifFilter || '', 50, extra).catch((e) => { throw e; });
+        this.notifList = Array.isArray(list) ? list.filter(n => {
+          if (!slug) return true;
+          if (!n.class_slug) return true;
+          return String(n.class_slug) === String(slug);
+        }) : [];
+      } catch (e) {
+        this.notifList = [];
+        this.notifError = 'Notifikasi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.notifLoading = false;
+      }
+    },
+
+    statusNotifLabelKM(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'PENDING') return 'Menunggu';
+      if (s === 'PROCESSING') return 'Diproses';
+      if (s === 'SENT') return 'Terkirim';
+      if (s === 'FAILED') return 'Gagal';
+      if (s === 'CANCELLED') return 'Dibatalkan';
+      return st || '-';
+    },
+
+    notifDapatDiulangKM(st) {
+      const s = String(st || '').toUpperCase();
+      return s === 'FAILED' || s === 'CANCELLED';
+    },
+
+    async toggleNotifDetailKM(id) {
+      if (this.notifDetailId === id) { this.notifDetailId = null; return; }
+      this.notifDetailId = id;
+      this.notifAttempts = [];
+      this.notifAttemptsError = '';
+      await this.loadNotifAttemptsKM(id);
+    },
+
+    async loadNotifAttemptsKM(id) {
+      this.notifAttemptsLoading = true; this.notifAttemptsError = '';
+      try {
+        this.notifAttempts = await API.getNotificationAttempts(id) || [];
+      } catch (e) {
+        this.notifAttempts = [];
+        this.notifAttemptsError = 'Riwayat percobaan gagal dimuat.';
+      } finally {
+        this.notifAttemptsLoading = false;
+      }
+    },
+
+    async ulangiPesanKM(id) {
+      try {
+        await API.retryNotification(id);
+        this.showToast('Notifikasi dijadwalkan ulang.');
+        await this.loadNotifikasi();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal menjadwalkan ulang.');
+      }
+    },
+
+    async loadPenugasan() {
+      const slug = this.classSlug || this.selectedClass;
+      this.penugasanLoading = true; this.penugasanError = '';
+      try {
+        const list = await API.getAdminAssignments('', '', slug || '').catch(() => { throw new Error('load'); });
+        this.penugasanList = (Array.isArray(list) ? list : []).filter(a => {
+          if (slug && a.class_slug) return String(a.class_slug) === String(slug);
+          return true;
+        });
+      } catch (e) {
+        this.penugasanList = [];
+        this.penugasanError = 'Daftar penugasan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.penugasanLoading = false;
+      }
+    },
+
+    async loadUndanganKM() {
+      const slug = this.classSlug || this.selectedClass;
+      this.undanganLoading = true; this.undanganError = '';
+      try {
+        const list = await API.getAdminInvitations('PENDING', '', slug || '').catch(() => { throw new Error('load'); });
+        this.undanganList = (Array.isArray(list) ? list : []).filter(u => {
+          if (slug && u.class_slug) return String(u.class_slug) === String(slug);
+          return true;
+        });
+      } catch (e) {
+        this.undanganList = [];
+        this.undanganError = '';
+      } finally {
+        this.undanganLoading = false;
+      }
+    },
+
+    penugasanLabel(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'KM') return 'Ketua Murid';
+      if (r === 'PJ') return 'PJ Mata Kuliah';
+      return role || '-';
+    },
+
+    mulaiAksiPenugasan(a, aksi) {
+      this.penugasanAksi = { id: a.id, aksi: aksi, nama: a.display_name || a.username || ('#' + a.id) };
+      this.penugasanAlasan = '';
+      this.penugasanForce = false;
+    },
+
+    async jalankanAksiPenugasan() {
+      const a = this.penugasanAksi;
+      if (!a) return;
+      if (!((this.penugasanAlasan || '').trim())) {
+        this.showToast('Isi alasan terlebih dahulu.');
+        return;
+      }
+      try {
+        await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), this.penugasanForce);
+        this.showToast(a.aksi === 'cabut' ? 'Penugasan dicabut.' : 'Penugasan ditangguhkan.');
+        this.penugasanAksi = null;
+        await this.loadPenugasan();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengubah penugasan.');
+      }
+    },
+
+    async cabutUndanganKM(id) {
+      try {
+        await API.revokeInvitation(id, 'Dicabut KM');
+        this.showToast('Undangan dicabut.');
+        await this.loadUndanganKM();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mencabut undangan.');
+      }
+    },
+
+    async loadPengaturanKelas() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) return;
+      this.settingsLoading = true; this.settingsError = '';
+      try {
+        const s = await API.getClassSettings(slug).catch(() => null);
+        this.classSettings = s;
+        if (s && s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
+        if (s && s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
+      } catch (e) {
+        this.settingsError = 'Pengaturan kelas belum dapat dimuat.';
+      } finally {
+        this.settingsLoading = false;
+      }
+    },
+
+    async rotasiKodeKelas() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) return;
+      this.rotatingCode = true;
+      try {
+        await API.rotatePortalCode(slug);
+        this.showToast('Kode kelas dirotasi. Sesi portal lama dibatalkan.');
+        await this.loadPengaturanKelas();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal merotasi kode kelas.');
+      } finally {
+        this.rotatingCode = false;
+      }
+    },
+
+    async setModePortal(mode) {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) return;
+      try {
+        await API.setPortalMode(slug, mode, 'Diubah KM');
+        this.showToast(mode === 'CODE' ? 'Portal memakai kode kelas.' : 'Portal memakai tautan.');
+        await this.loadPengaturanKelas();
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengubah mode portal.');
+      }
+    },
+
+    infoPengingat() {
+      this.showToast('Waktu pengingat diatur System Admin. Hubungi admin bila perlu diubah.');
     },
 
     copyText(text, okMsg) {
@@ -1354,6 +1752,76 @@ function kmApp() {
       this.toast.show = true;
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
     },
+
+    // ---- Kanal WhatsApp ----
+    async loadKanalSaya() {
+      this.kanalLoading = true; this.kanalError = '';
+      try {
+        this.kanalList = await API.getChannels('', '');
+      } catch (e) {
+        this.kanalList = [];
+        this.kanalError = 'Daftar kanal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.kanalLoading = false;
+      }
+    },
+
+    labelStatusKanal(st) {
+      const s = String(st || '').toUpperCase();
+      if (s === 'ACTIVE') return 'Aktif';
+      if (s === 'DISCONNECTED') return 'Terputus';
+      if (s === 'REVOKED') return 'Dilepas';
+      return st || '-';
+    },
+
+    async tautkanKanalSaya() {
+      const f = this.kanalForm;
+      if (!((f.jid || '').trim()) || !(f.jid || '').includes('@')) { this.kanalFormError = 'JID grup wajib diisi (minta via perintah !kanal di grup).'; return; }
+      this.kanalFormError = '';
+      this.kanalSaving = true;
+      try {
+        const res = await API.linkChannel(f.jid.trim(), '', (f.nama || '').trim());
+        this.showToast(res && res.changed === false ? 'Kanal sudah tertaut ke kelas ini.' : 'Kanal berhasil ditautkan.');
+        this.kanalForm = { jid: '', nama: '' };
+        await this.loadKanalSaya();
+      } catch (err) {
+        this.kanalFormError = err.message || 'Gagal menautkan kanal.';
+      } finally {
+        this.kanalSaving = false;
+      }
+    },
+
+    mulaiLepasKanalSaya(k) {
+      this.kanalLepas = { id: k.id, nama: k.display_name || k.jid };
+      this.kanalAlasan = '';
+    },
+
+    async jalankanLepasKanalSaya() {
+      const k = this.kanalLepas;
+      if (!k) return;
+      if (!((this.kanalAlasan || '').trim())) {
+        this.showToast('Isi alasan pelepasan terlebih dahulu.');
+        return;
+      }
+      try {
+        await API.revokeChannel(k.id, this.kanalAlasan.trim());
+        this.showToast(`Kanal ${k.nama} dilepas.`);
+        this.kanalLepas = null;
+        await this.loadKanalSaya();
+      } catch (err) {
+        this.showToast(err.message || 'Gagal melepas kanal.');
+      }
+    },
+
+    // ---- Kanal WhatsApp kelas (KM menautkan grupnya sendiri) ----
+    kanalList: [],
+    kanalLoading: false,
+    kanalError: '',
+    kanalForm: { jid: '', nama: '' },
+    kanalFormError: '',
+    kanalSaving: false,
+    kanalLepas: null,
+    kanalAlasan: '',
 
     // ---- Usulan koreksi master (KM mengusulkan, System Admin memutuskan) ----
     usulanList: [],

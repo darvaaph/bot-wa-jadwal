@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +62,35 @@ type InvitationItem struct {
 type assignmentStatusBody struct {
 	Reason string `json:"reason"`
 	Force  bool   `json:"force"`
+}
+
+// goStringTimeRe mencocokkan awalan format Go Time.String():
+// "2006-01-02 15:04:05.999999999 -0700 ..." (data lama/demo menyimpan
+// expires_at demikian, termasuk akhiran zona/monotonik seperti "+07 m=+...").
+var goStringTimeRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)? [+-]\d{4})`)
+
+// normalizeTimestamp mengembalikan representasi RFC3339 dari nilai waktu
+// database. Tulisan baru sudah RFC3339; data lama/demo bisa berformat Go
+// String() yang gagal di-parse browser. Tak dapat di-parse -> apa adanya.
+func normalizeTimestamp(v string) string {
+	s := strings.TrimSpace(v)
+	if s == "" {
+		return s
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t.Format(time.RFC3339)
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.Format(time.RFC3339)
+	}
+	if m := goStringTimeRe.FindStringSubmatch(s); m != nil {
+		for _, f := range []string{"2006-01-02 15:04:05.999999999 -0700", "2006-01-02 15:04:05 -0700"} {
+			if t, err := time.Parse(f, m[1]); err == nil {
+				return t.Format(time.RFC3339)
+			}
+		}
+	}
+	return v
 }
 
 // GetAssignments menangani GET /api/v1/admin/assignments (khusus System Admin).
@@ -459,6 +489,8 @@ func (c *AdminController) GetInvitations(w http.ResponseWriter, r *http.Request)
 		if inviter.Valid {
 			it.InvitedBy = &inviter.String
 		}
+		it.ExpiresAt = normalizeTimestamp(it.ExpiresAt)
+		it.CreatedAt = normalizeTimestamp(it.CreatedAt)
 		items = append(items, it)
 	}
 

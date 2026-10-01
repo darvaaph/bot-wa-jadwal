@@ -632,6 +632,7 @@ const BotApi = {
       if (extra.event_type) qs.set('event_type', extra.event_type);
       if (extra.since) qs.set('since', extra.since);
       if (extra.until) qs.set('until', extra.until);
+      if (extra.offset) qs.set('offset', String(extra.offset));
     }
     if ([...qs].length) url += '?' + qs.toString();
     const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
@@ -650,8 +651,59 @@ const BotApi = {
     return (json && json.data) || [];
   },
 
-  async getNotificationAttempts(id) {
-    const res = await fetch('/api/v1/notifications/' + encodeURIComponent(id) + '/attempts', {
+  async getChannels(classSlug, status) {
+    let url = '/api/v1/whatsapp-channels';
+    const qs = new URLSearchParams();
+    if (classSlug) qs.set('class_slug', classSlug);
+    if (status) qs.set('status', status);
+    if ([...qs].length) url += '?' + qs.toString();
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error('Daftar kanal gagal dimuat.');
+      err.code = 'LOAD_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async linkChannel(jid, classSlug, displayName) {
+    const res = await fetch('/api/v1/whatsapp-channels', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ jid: jid, class_slug: classSlug, display_name: displayName || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menautkan kanal.');
+      err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async revokeChannel(id, reason) {
+    const res = await fetch('/api/v1/whatsapp-channels/' + encodeURIComponent(id) + '/revoke', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason: reason || '' })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal melepas kanal.');
+      err.code = res.status === 409 ? 'CONFLICT' : 'SAVE_FAILED';
+      err.status = res.status;
+      throw err;
+    }
+    return json.data;
+  },
+
+  async getNotificationAttempts(id) {    const res = await fetch('/api/v1/notifications/' + encodeURIComponent(id) + '/attempts', {
       headers: authHeaders(), credentials: 'same-origin'
     });
     if (res.status === 401) {
