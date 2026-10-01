@@ -34,6 +34,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/classes/{slug}", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handlePatchV1ClassStatus)))
 	mux.HandleFunc("POST /api/v1/classes/{slug}/portal-code/rotate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRotatePortalCode)))
 	mux.HandleFunc("GET /api/v1/classes/{slug}/settings", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetClassSettings)))
+	mux.HandleFunc("PATCH /api/v1/classes/{slug}/settings", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleUpdateClassSettings)))
 	mux.HandleFunc("PATCH /api/v1/classes/{slug}/portal-mode", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSetPortalMode)))
 	mux.HandleFunc("POST /api/v1/invitations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateInvitation)))
 	mux.HandleFunc("POST /api/v1/invitations/accept", s.handleAcceptInvitation)

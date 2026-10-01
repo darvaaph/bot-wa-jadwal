@@ -28,14 +28,14 @@ function kmApp() {
         { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       ] },
       { title: 'KELOLA KELAS', items: [
-        { id: 'semester', label: 'Semester', img: '/assets/icons/calendar.svg' },
+        { id: 'semester', label: 'Semester', img: '/assets/icons/event.svg' },
         { id: 'anggota', label: 'Penugasan Peran', img: '/assets/icons/ext-settings-edit.svg' },
         { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
         { id: 'usulan', label: 'Usulan Master', img: '/assets/icons/book.svg' },
       ] },
       { title: 'LAINNYA', items: [
         { id: 'monitoring', label: 'Monitoring', img: '/assets/icons/activity.svg' },
-        { id: 'log', label: 'Log Aktivitas', img: '/assets/icons/ext-check.svg' },
+        { id: 'log', label: 'Log Aktivitas', img: '/assets/icons/message-queue.svg' },
         { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
         { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' },
       ] },
@@ -156,11 +156,15 @@ function kmApp() {
     reviewMode: 'koreksi',
     reviewNote: '',
 
-    // Pengaturan kelas (baca dari server; waktu pengingat diatur System Admin).
+    // Pengaturan kelas (ditulis ke server; berlaku pengiriman berikutnya).
     pengaturan: {
       pagi: '06:00',
-      sore: '17:00'
+      sore: '17:00',
+      gantiMenit: 60,
+      zona: 'Asia/Jakarta'
     },
+    pengaturanSaving: false,
+    pengaturanFormError: '',
     classSettings: null,
     settingsLoading: false,
     settingsError: '',
@@ -2073,12 +2077,54 @@ function kmApp() {
       try {
         const s = await API.getClassSettings(slug).catch(() => null);
         this.classSettings = s;
-        if (s && s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
-        if (s && s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
+        if (!s) { this.settingsError = 'Pengaturan kelas belum dapat dimuat.'; return; }
+        if (s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
+        if (s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
+        if (s.replacement_reminder_minutes !== undefined && s.replacement_reminder_minutes !== null) {
+          this.pengaturan.gantiMenit = Number(s.replacement_reminder_minutes);
+        }
+        if (s.timezone) this.pengaturan.zona = s.timezone;
       } catch (e) {
         this.settingsError = 'Pengaturan kelas belum dapat dimuat.';
       } finally {
         this.settingsLoading = false;
+      }
+    },
+
+    async simpanPengaturan() {
+      const slug = this.classSlug || this.selectedClass;
+      if (!slug) return;
+      const hhmm = (v) => /^\d{2}:\d{2}$/.test(String(v || '')) && Number(String(v).slice(0, 2)) <= 23 && Number(String(v).slice(3)) <= 59;
+      if (!hhmm(this.pengaturan.pagi) || !hhmm(this.pengaturan.sore)) {
+        this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00–23:59).';
+        return;
+      }
+      const menit = Number(this.pengaturan.gantiMenit);
+      if (!Number.isInteger(menit) || menit < 0 || menit > 1440) {
+        this.pengaturanFormError = 'Pengingat pengganti harus 0–1440 menit.';
+        return;
+      }
+      this.pengaturanFormError = '';
+      this.pengaturanSaving = true;
+      try {
+        await API.updateClassSettings(slug, {
+          version: this.classSettings && this.classSettings.version,
+          timezone: (this.pengaturan.zona || '').trim() || undefined,
+          morning_reminder_time: this.pengaturan.pagi,
+          afternoon_reminder_time: this.pengaturan.sore,
+          replacement_reminder_minutes: menit
+        });
+        this.showToast('Pengaturan kelas disimpan. Berlaku pengiriman berikutnya.');
+        await this.loadPengaturanKelas();
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.pengaturanFormError = 'Versi berubah di server. Muat ulang lalu simpan kembali.';
+          await this.loadPengaturanKelas();
+        } else {
+          this.pengaturanFormError = e.message || 'Gagal menyimpan pengaturan.';
+        }
+      } finally {
+        this.pengaturanSaving = false;
       }
     },
 
@@ -2107,10 +2153,6 @@ function kmApp() {
       } catch (e) {
         this.showToast(e.message || 'Gagal mengubah mode portal.');
       }
-    },
-
-    infoPengingat() {
-      this.showToast('Waktu pengingat diatur System Admin. Hubungi admin bila perlu diubah.');
     },
 
     mintaResetSandi() {

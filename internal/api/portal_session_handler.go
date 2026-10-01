@@ -33,6 +33,14 @@ func (s *Server) handleGetClassSettings(w http.ResponseWriter, r *http.Request) 
 	v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager).GetClassSettings(w, r)
 }
 
+func (s *Server) handleUpdateClassSettings(w http.ResponseWriter, r *http.Request) {
+	if s.portalController != nil {
+		s.portalController.UpdateClassSettings(w, r)
+		return
+	}
+	v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager).UpdateClassSettings(w, r)
+}
+
 func (s *Server) handleSetPortalMode(w http.ResponseWriter, r *http.Request) {
 	if s.portalController != nil {
 		s.portalController.SetPortalMode(w, r)

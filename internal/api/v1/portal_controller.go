@@ -265,17 +265,24 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 	}
 	slug := strings.TrimSpace(r.PathValue("slug"))
 	var out struct {
-		ClassID           int64  `json:"-"`
-		Timezone          string `json:"timezone"`
-		PortalAccessMode  string `json:"portal_access_mode"`
-		PortalCodeVersion int    `json:"portal_code_version"`
+		ClassID           int64          `json:"-"`
+		Timezone          string         `json:"timezone"`
+		PortalAccessMode  string         `json:"portal_access_mode"`
+		PortalCodeVersion int            `json:"portal_code_version"`
+		Morning           sql.NullString `json:"-"`
+		Afternoon         sql.NullString `json:"-"`
+		Replacement       sql.NullInt64  `json:"-"`
+		Version           int            `json:"-"`
 	}
 	err := c.db.QueryRow(`
-		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version
+		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version,
+		       cs.morning_reminder_time, cs.afternoon_reminder_time,
+		       cs.replacement_reminder_minutes, cs.version
 		FROM classes c
 		JOIN class_settings cs ON cs.class_id = c.id
 		WHERE c.slug = ?;
-	`, slug).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion)
+	`, slug).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion,
+		&out.Morning, &out.Afternoon, &out.Replacement, &out.Version)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
@@ -287,12 +294,158 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
-	common.WriteV1Success(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"slug":                slug,
 		"timezone":            out.Timezone,
 		"portal_access_mode":  out.PortalAccessMode,
 		"portal_code_version": out.PortalCodeVersion,
+		"version":             out.Version,
+	}
+	if out.Morning.Valid {
+		resp["morning_reminder_time"] = out.Morning.String
+	}
+	if out.Afternoon.Valid {
+		resp["afternoon_reminder_time"] = out.Afternoon.String
+	}
+	if out.Replacement.Valid {
+		resp["replacement_reminder_minutes"] = out.Replacement.Int64
+	}
+	common.WriteV1Success(w, http.StatusOK, resp)
+}
+
+// UpdateClassSettingsRequest adalah payload ubah pengaturan kelas.
+type UpdateClassSettingsRequest struct {
+	Version                    *int    `json:"version,omitempty"`
+	Timezone                   *string `json:"timezone,omitempty"`
+	MorningReminderTime        *string `json:"morning_reminder_time,omitempty"`
+	AfternoonReminderTime      *string `json:"afternoon_reminder_time,omitempty"`
+	ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes,omitempty"`
+}
+
+// UpdateClassSettings menangani PATCH /api/v1/classes/{slug}/settings.
+func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang mengubah pengaturan kelas")
+		return
+	}
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var req UpdateClassSettingsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	var classID int64
+	var curVersion int
+	var curTz string
+	var curMorning, curAfternoon sql.NullString
+	var curRepl sql.NullInt64
+	if err := c.db.QueryRow(`SELECT c.id, cs.version, cs.timezone, cs.morning_reminder_time, cs.afternoon_reminder_time, cs.replacement_reminder_minutes
+		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.slug = ?;`, slug).
+		Scan(&classID, &curVersion, &curTz, &curMorning, &curAfternoon, &curRepl); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca pengaturan kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if req.Version != nil && *req.Version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	sets := []string{}
+	args := []any{}
+	isHHMM := func(s string) bool {
+		if len(s) != 5 || s[2] != ':' {
+			return false
+		}
+		h, herr := strconv.Atoi(s[:2])
+		m, merr := strconv.Atoi(s[3:])
+		return herr == nil && merr == nil && h >= 0 && h <= 23 && m >= 0 && m <= 59
+	}
+	newTz := curTz
+	if req.Timezone != nil {
+		tz := strings.TrimSpace(*req.Timezone)
+		if _, err := time.LoadLocation(tz); err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "timezone tidak dikenal (format IANA, mis. Asia/Jakarta)")
+			return
+		}
+		sets = append(sets, "timezone = ?")
+		args = append(args, tz)
+		newTz = tz
+	}
+	if req.MorningReminderTime != nil {
+		t := strings.TrimSpace(*req.MorningReminderTime)
+		if !isHHMM(t) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "morning_reminder_time harus HH:MM")
+			return
+		}
+		sets = append(sets, "morning_reminder_time = ?")
+		args = append(args, t)
+	}
+	if req.AfternoonReminderTime != nil {
+		t := strings.TrimSpace(*req.AfternoonReminderTime)
+		if !isHHMM(t) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "afternoon_reminder_time harus HH:MM")
+			return
+		}
+		sets = append(sets, "afternoon_reminder_time = ?")
+		args = append(args, t)
+	}
+	if req.ReplacementReminderMinutes != nil {
+		if *req.ReplacementReminderMinutes < 0 || *req.ReplacementReminderMinutes > 1440 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "replacement_reminder_minutes harus 0-1440")
+			return
+		}
+		sets = append(sets, "replacement_reminder_minutes = ?")
+		args = append(args, *req.ReplacementReminderMinutes)
+	}
+	if len(sets) == 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
+		return
+	}
+	sets = append(sets, "version = version + 1")
+	args = append(args, classID, curVersion)
+	res, err := c.db.Exec(`UPDATE class_settings SET `+strings.Join(sets, ", ")+` WHERE class_id = ? AND version = ?;`, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pengaturan kelas")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
+		return
+	}
+	beforeJSON := fmt.Sprintf(`{"timezone":%q}`, curTz)
+	afterJSON := fmt.Sprintf(`{"timezone":%q}`, newTz)
+	uid := u.UserID
+	var raid *int64
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	_ = audit.Write(r.Context(), c.db, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		ClassID:       &classID,
+		Action:        "UPDATE_CLASS_SETTINGS",
+		EntityType:    "CLASS_SETTINGS",
+		EntityID:      &classID,
+		BeforeJSON:    &beforeJSON,
+		AfterJSON:     &afterJSON,
+		CorrelationID: fmt.Sprintf("class-settings-%d-%d", classID, time.Now().UnixNano()),
 	})
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"slug": slug, "version": curVersion + 1})
 }
 
 // SetPortalModeRequest adalah payload ganti mode Portal Kelas.

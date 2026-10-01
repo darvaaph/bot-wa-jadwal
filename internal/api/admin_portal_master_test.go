@@ -47,7 +47,6 @@ func TestV1Class_PortalMode(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("KM sendiri expected 200, got %d", w.Code)
 	}
-
 	// 4. Mode invalid -> 422
 	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/portal-mode", adminToken, map[string]string{"mode": "SMS"})
 	if w.Code != http.StatusUnprocessableEntity {
@@ -95,6 +94,87 @@ func TestV1Class_PortalMode(t *testing.T) {
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("KM lintas kelas expected 404, got %d", w.Code)
 	}
+}
+
+func TestV1Class_UpdateSettings(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	seedSecondClass(t, db)
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	kmToken = helperSwitchContext(t, s, kmToken, 1)
+
+	// 1. GET memuat field pengingat + version
+	w := helperDo(t, s, "GET", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("settings expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var get struct {
+		Data map[string]any `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &get)
+	ver, _ := get.Data["version"].(float64)
+	if ver != 1 {
+		t.Fatalf("version awal expected 1, got %v", get.Data["version"])
+	}
+
+	// 2. Timezone invalid -> 422
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]string{"timezone": "Mars/Olympus"})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("timezone invalid expected 422, got %d", w.Code)
+	}
+
+	// 3. Jam invalid -> 422
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]string{"morning_reminder_time": "25:00"})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("jam invalid expected 422, got %d", w.Code)
+	}
+
+	// 4. Menit di luar rentang -> 422
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{"replacement_reminder_minutes": 2000})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("menit invalid expected 422, got %d", w.Code)
+	}
+
+	// 5. Body kosong -> 422
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("body kosong expected 422, got %d", w.Code)
+	}
+
+	// 6. Happy path KM -> 200 version 2 + audit
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{
+		"timezone": "Asia/Jakarta", "morning_reminder_time": "06:00",
+		"afternoon_reminder_time": "17:00", "replacement_reminder_minutes": 60,
+	})
+	if w.Code != http.StatusOK {
+		t.Fatalf("PATCH expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var dbTz, dbPagi, dbSore string
+	var dbGanti int
+	var dbVer int
+	_ = db.QueryRow(`SELECT timezone, morning_reminder_time, afternoon_reminder_time, replacement_reminder_minutes, version FROM class_settings WHERE class_id = 1;`).Scan(&dbTz, &dbPagi, &dbSore, &dbGanti, &dbVer)
+	if dbTz != "Asia/Jakarta" || dbPagi != "06:00" || dbSore != "17:00" || dbGanti != 60 || dbVer != 2 {
+		t.Fatalf("DB tak sesuai: %v %v %v %v %v", dbTz, dbPagi, dbSore, dbGanti, dbVer)
+	}
+	var nAudit int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'UPDATE_CLASS_SETTINGS';`).Scan(&nAudit)
+	if nAudit != 1 {
+		t.Fatalf("audit UPDATE_CLASS_SETTINGS expected 1, got %d", nAudit)
+	}
+
+	// 7. Version basi -> 409
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{"version": 1, "morning_reminder_time": "06:30"})
+	if w.Code != http.StatusConflict {
+		t.Fatalf("version basi expected 409, got %d", w.Code)
+	}
+
+	// 8. KM lintas kelas -> 404; admin -> 200
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-b/settings", kmToken, map[string]any{"morning_reminder_time": "06:30"})
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("KM lintas kelas expected 404, got %d", w.Code)
+	}
+	_ = adminToken
 }
 
 func TestV1Master_AuditTrail(t *testing.T) {

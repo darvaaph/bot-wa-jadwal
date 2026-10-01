@@ -9,10 +9,30 @@
   </div>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 items-start">
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <h2 class="text-[18px] font-semibold">Waktu pengingat</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5">Ringkasan pagi <span class="font-mono" x-text="pengaturan.pagi">-</span> · pengingat sore <span class="font-mono" x-text="pengaturan.sore">-</span>.</p>
-      <p class="text-[12px] text-slate-500 mt-1">Waktu pengingat diatur System Admin dan berlaku untuk pengiriman berikutnya.</p>
-      <button type="button" @click="infoPengingat()" class="mt-3 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px]">Minta perubahan ke admin</button>
+      <h2 class="text-[18px] font-semibold">Waktu pengingat & zona</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Berlaku untuk pengiriman berikutnya.</p>
+      <div x-show="pengaturanFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="pengaturanFormError">-</div>
+      <div class="grid grid-cols-2 gap-4 mt-3">
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Ringkasan pagi</label>
+          <input type="time" x-model="pengaturan.pagi" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Pengingat sore</label>
+          <input type="time" x-model="pengaturan.sore" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Pengganti (menit)</label>
+          <input type="number" min="0" max="1440" x-model.number="pengaturan.gantiMenit" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Zona waktu</label>
+          <select x-model="pengaturan.zona" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white font-mono">
+            <option>Asia/Jakarta</option><option>Asia/Makassar</option><option>Asia/Jayapura</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" @click="simpanPengaturan()" :disabled="pengaturanSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="pengaturanSaving ? 'Menyimpan...' : 'Simpan pengaturan'">Simpan pengaturan</button>
     </div>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
       <h2 class="text-[18px] font-semibold">Akses portal kelas</h2>

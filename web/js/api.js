@@ -891,10 +891,22 @@ const BotApi = {
     return json.data;
   },
 
-  async updateClassSettings() {
-    const err = new Error('Pengaturan kelas kini via endpoint settings/portal-mode.');
-    err.code = 'NOT_IMPLEMENTED';
-    throw err;
+  async updateClassSettings(slug, payload) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(slug) + '/settings', {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify(payload || {})
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 409) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Versi pengaturan berubah di server.');
+      err.code = 'VERSION_CONFLICT'; err.payload = json; throw err;
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyimpan pengaturan kelas.');
+      err.code = 'SAVE_FAILED'; err.status = res.status;
+      throw err;
+    }
+    return json.data;
   },
 
   async getProposals(status, kind) {
