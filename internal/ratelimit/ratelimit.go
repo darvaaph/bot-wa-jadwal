@@ -17,12 +17,14 @@ import (
 type PolicyKey string
 
 const (
-	PolicyAuthLogin     PolicyKey = "AUTH_LOGIN"
-	PolicyPortalCode    PolicyKey = "PORTAL_CODE_EXCHANGE"
-	PolicyInviteAccept  PolicyKey = "INVITE_ACCEPT"
-	PolicyBackupRestore PolicyKey = "BACKUP_RESTORE"
-	PolicyAdminMutation PolicyKey = "ADMIN_MUTATION"
-	PolicyPortalRotate  PolicyKey = "PORTAL_CODE_ROTATE"
+	PolicyAuthLogin       PolicyKey = "AUTH_LOGIN"
+	PolicyRecoveryRequest PolicyKey = "AUTH_RECOVERY_REQUEST"
+	PolicyRecoveryConfirm PolicyKey = "AUTH_RECOVERY_CONFIRM"
+	PolicyPortalCode      PolicyKey = "PORTAL_CODE_EXCHANGE"
+	PolicyInviteAccept    PolicyKey = "INVITE_ACCEPT"
+	PolicyBackupRestore   PolicyKey = "BACKUP_RESTORE"
+	PolicyAdminMutation   PolicyKey = "ADMIN_MUTATION"
+	PolicyPortalRotate    PolicyKey = "PORTAL_CODE_ROTATE"
 )
 
 // Policy menetapkan threshold limiter. Nilai production dibakukan pada
@@ -37,12 +39,14 @@ type Policy struct {
 // DefaultPolicies mengembalikan registry bawaan sesuai ADR-0009.
 func DefaultPolicies() map[PolicyKey]Policy {
 	return map[PolicyKey]Policy{
-		PolicyAuthLogin:     {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
-		PolicyPortalCode:    {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
-		PolicyInviteAccept:  {MaxFailures: 10, Window: 15 * time.Minute, BlockPeriod: 30 * time.Minute},
-		PolicyBackupRestore: {MaxFailures: 10, Window: 60 * time.Minute, BlockPeriod: 30 * time.Minute},
-		PolicyAdminMutation: {MaxFailures: 10, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
-		PolicyPortalRotate:  {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
+		PolicyAuthLogin:       {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
+		PolicyRecoveryRequest: {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 30 * time.Minute},
+		PolicyRecoveryConfirm: {MaxFailures: 10, Window: 15 * time.Minute, BlockPeriod: 30 * time.Minute},
+		PolicyPortalCode:      {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
+		PolicyInviteAccept:    {MaxFailures: 10, Window: 15 * time.Minute, BlockPeriod: 30 * time.Minute},
+		PolicyBackupRestore:   {MaxFailures: 10, Window: 60 * time.Minute, BlockPeriod: 30 * time.Minute},
+		PolicyAdminMutation:   {MaxFailures: 10, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
+		PolicyPortalRotate:    {MaxFailures: 5, Window: 15 * time.Minute, BlockPeriod: 15 * time.Minute},
 	}
 }
 

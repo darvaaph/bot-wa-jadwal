@@ -55,6 +55,10 @@ function portalApp() {
     materiLoading: false,
     semesterList: [],
     semesterLoading: false,
+    archiveSelected: null,
+    archiveLoading: false,
+    archiveError: '',
+    archiveData: { schedule: [], tasks: [], materials: [], changes: [] },
     perubahanList: [],
     perubahanLoading: false,
     detailTugas: {},
@@ -115,6 +119,43 @@ function portalApp() {
     },
 
     get perubahanTerbaru() { return (this.perubahanList || []).slice(0, 3); },
+
+    async bukaArsipSemester(semester) {
+      if (!semester || String(semester.status || '').toUpperCase() !== 'ARCHIVED') return;
+      this.archiveSelected = semester;
+      this.archiveLoading = true;
+      this.archiveError = '';
+      this.archiveData = { schedule: [], tasks: [], materials: [], changes: [] };
+      try {
+        const start = new Date(`${semester.starts_on}T00:00:00+07:00`);
+        const end = new Date(`${semester.ends_on}T23:59:59+07:00`);
+        const days = [];
+        if (!Number.isNaN(start.getTime())) {
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(start); d.setDate(start.getDate() + i);
+            if (d > end) break;
+            days.push(d.toISOString().slice(0, 10));
+          }
+        }
+        const [schedules, tasks, materials, changes] = await Promise.all([
+          Promise.all(days.map(d => API.getPortalSchedule(this.selectedClassSlug, d, semester.id))),
+          API.getPortalTasks(this.selectedClassSlug, '', semester.id),
+          API.getPortalMaterials(this.selectedClassSlug, semester.id),
+          API.getChanges(this.selectedClassSlug, semester.id)
+        ]);
+        this.archiveData = {
+          schedule: schedules.flatMap(x => x && Array.isArray(x.items) ? x.items : []),
+          tasks: tasks || [], materials: materials || [], changes: changes || []
+        };
+      } catch (err) {
+        this.archiveError = err.message || 'Arsip semester belum dapat dimuat.';
+      } finally { this.archiveLoading = false; }
+    },
+
+    tutupArsipSemester() {
+      this.archiveSelected = null;
+      this.archiveError = '';
+    },
 
     badgeJadwal(kind) {
       const k = String(kind || '').toUpperCase();
@@ -266,8 +307,8 @@ function portalApp() {
 
     async bukaPortal() {
       const code = this.pin.trim();
-      if (!/^\d{6}$/.test(code)) {
-        this.pinError = 'Kode akses harus 6 digit angka.';
+      if (code.length < 6 || code.length > 128) {
+        this.pinError = 'Kode akses harus terdiri dari 6 sampai 128 karakter.';
         return;
       }
       this.pinError = '';
@@ -635,7 +676,7 @@ function portalApp() {
           this.tugasError = st === 404
             ? 'Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.'
             : st === 401
-              ? 'Kelas ini dilindungi kode akses. Kunci portal lalu masuk dengan kode 6 digit dari grup kelas.'
+              ? 'Kelas ini dilindungi kode akses. Kunci portal lalu masukkan kode dari grup kelas.'
               : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
           return;
         }

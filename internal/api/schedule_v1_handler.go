@@ -54,6 +54,14 @@ func (s *Server) handleGetV1TeachingEvents(w http.ResponseWriter, r *http.Reques
 	v1.NewScheduleController(s.v1DB).GetTeachingEvents(w, r)
 }
 
+func (s *Server) handleGetV1TeachingEventDetail(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.GetTeachingEventDetail(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).GetTeachingEventDetail(w, r)
+}
+
 func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
 	if s.scheduleController != nil {
 		s.scheduleController.PreviewTeachingEvent(w, r)

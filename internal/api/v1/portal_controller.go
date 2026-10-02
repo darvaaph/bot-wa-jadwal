@@ -636,7 +636,7 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		dayOfWeek = 7
 	}
 
-	scheduleItems, _ := c.getScheduleForDate(classID, targetDate, dayOfWeek)
+	scheduleItems, _ := c.getScheduleForDate(classID, 0, targetDate, dayOfWeek)
 
 	nowTimeStr := targetDate.Format("15:04")
 	var nowEvent any
@@ -733,6 +733,11 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -755,7 +760,7 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		dayOfWeek = 7
 	}
 
-	items, err := c.getScheduleForDate(classID, targetDate, dayOfWeek)
+	items, err := c.getScheduleForDate(classID, semesterID, targetDate, dayOfWeek)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat jadwal")
 		return
@@ -797,6 +802,11 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -808,11 +818,11 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ? AND sem.id = ?
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
 	`
-	args := []any{classID}
+	args := []any{classID, semesterID}
 
 	group := r.URL.Query().Get("group")
 	if group != "" && group != "hari_ini" && group != "minggu_ini" && group != "mendatang" && group != "terlewat" {
@@ -919,6 +929,11 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	var (
 		id           int64
 		offeringID   int64
@@ -939,8 +954,9 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE t.id = ? AND sem.class_id = ? AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
-	`, taskID, classID).Scan(
+		WHERE t.id = ? AND sem.class_id = ? AND sem.id = ?
+		  AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
+	`, taskID, classID, semesterID).Scan(
 		&id, &offeringID, &offeringName, &title, &instructions, &deadlineAt,
 		&taskType, &subText, &subURL, &version, &completedAt,
 	)
@@ -957,7 +973,8 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 	matRows, err := c.db.Query(`
 		SELECT id, title, material_type, url, description
 		FROM materials
-		WHERE (task_id = ? OR course_offering_id = ?) AND status = 'ACTIVE' AND deleted_at IS NULL;
+		WHERE (task_id = ? OR (task_id IS NULL AND course_offering_id = ?))
+		  AND status = 'ACTIVE' AND visibility = 'CLASS_ACCESS' AND deleted_at IS NULL;
 	`, id, offeringID)
 	if err == nil {
 		defer matRows.Close()
@@ -1017,6 +1034,11 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	query := `
 		SELECT te.id, te.event_kind, co.display_name, te.starts_at, te.ends_at,
 		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.published_at
@@ -1025,9 +1047,9 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE sem.class_id = ? AND te.lifecycle_status = 'PUBLISHED'
+		WHERE sem.class_id = ? AND sem.id = ? AND te.lifecycle_status = 'PUBLISHED'
 	`
-	args := []any{classID}
+	args := []any{classID, semesterID}
 
 	since := r.URL.Query().Get("since")
 	if since != "" {
@@ -1097,7 +1119,11 @@ func (c *PortalController) Semesters(w http.ResponseWriter, r *http.Request) {
 	rows, err := c.db.Query(`
 		SELECT id, academic_year, term, starts_on, ends_on, status,
 		       COALESCE(published_at, ''), COALESCE(activated_at, ''), COALESCE(archived_at, '')
-		FROM semesters WHERE class_id = ? ORDER BY starts_on DESC;
+		FROM semesters
+		WHERE class_id = ?
+		  AND status IN ('ACTIVE', 'ARCHIVED')
+		  AND published_at IS NOT NULL
+		ORDER BY starts_on DESC;
 	`, classID)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
@@ -1143,27 +1169,34 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	query := `
 		SELECT m.id, m.title, m.material_type, COALESCE(m.url, ''), COALESCE(m.description, '')
 		FROM materials m
+		LEFT JOIN tasks mt ON mt.id = m.task_id
+		LEFT JOIN course_offerings co ON co.id = COALESCE(m.course_offering_id, mt.course_offering_id)
+		WHERE m.class_id = ?
+		  AND m.status = 'ACTIVE'
+		  AND m.visibility = 'CLASS_ACCESS'
+		  AND m.deleted_at IS NULL
+		  AND (m.task_id IS NULL OR mt.publication_status = 'PUBLISHED')
+		  AND (co.semester_id = ? OR (m.course_offering_id IS NULL AND m.task_id IS NULL))
 	`
-	args := []any{}
+	args := []any{classID, semesterID}
 
 	offering := r.URL.Query().Get("offering")
 	if offering != "" {
 		if offID, err := strconv.ParseInt(offering, 10, 64); err == nil {
-			query += " WHERE m.class_id = ? AND m.course_offering_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
-			args = append(args, classID, offID)
+			query += " AND co.id = ?"
+			args = append(args, offID)
 		} else {
-			query += `
-				JOIN course_offerings co ON m.course_offering_id = co.id
-				WHERE m.class_id = ? AND co.display_name = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
-			`
-			args = append(args, classID, offering)
+			query += " AND co.display_name = ?"
+			args = append(args, offering)
 		}
-	} else {
-		query += " WHERE m.class_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
-		args = append(args, classID)
 	}
 
 	query += " ORDER BY m.created_at DESC;"
@@ -1193,7 +1226,54 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 	common.WriteV1Success(w, http.StatusOK, materials)
 }
 
-func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
+// resolvePortalSemester memilih semester aktif secara default dan hanya menerima
+// semester yang pernah dipublikasikan ketika semester_id diberikan eksplisit.
+func (c *PortalController) resolvePortalSemester(w http.ResponseWriter, r *http.Request, classID int64) (int64, bool) {
+	rawID := strings.TrimSpace(r.URL.Query().Get("semester_id"))
+	if rawID == "" {
+		var semesterID int64
+		err := c.db.QueryRow(`
+			SELECT id
+			FROM semesters
+			WHERE class_id = ? AND status = 'ACTIVE' AND published_at IS NOT NULL
+		`, classID).Scan(&semesterID)
+		if errors.Is(err, sql.ErrNoRows) {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester aktif tidak ditemukan")
+			return 0, false
+		}
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+			return 0, false
+		}
+		return semesterID, true
+	}
+
+	semesterID, err := strconv.ParseInt(rawID, 10, 64)
+	if err != nil || semesterID <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "semester_id harus berupa bilangan bulat positif")
+		return 0, false
+	}
+
+	err = c.db.QueryRow(`
+		SELECT id
+		FROM semesters
+		WHERE id = ? AND class_id = ?
+		  AND status IN ('ACTIVE', 'ARCHIVED')
+		  AND published_at IS NOT NULL
+	`, semesterID, classID).Scan(&semesterID)
+	if errors.Is(err, sql.ErrNoRows) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return 0, false
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+		return 0, false
+	}
+
+	return semesterID, true
+}
+
+func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
 	dateStr := targetDate.Format("2006-01-02")
 
 	patternRows, err := c.db.Query(`
@@ -1205,13 +1285,14 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 		JOIN courses c ON co.course_id = c.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ?
+		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
 		  AND sp.status = 'ACTIVE'
 		  AND sp.day_of_week = ?
 		  AND (sp.effective_from IS NULL OR sp.effective_from <= ?)
 		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
 		ORDER BY sp.start_time ASC;
-	`, classID, dayOfWeek, dateStr, dateStr)
+	`, classID, semesterID, semesterID, dayOfWeek, dateStr, dateStr)
 
 	var items []map[string]any
 	if err != nil {
@@ -1255,10 +1336,11 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 		JOIN courses c ON co.course_id = c.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ?
+		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
 		  AND te.lifecycle_status = 'PUBLISHED'
 		  AND date(te.starts_at) = ?;
-	`, classID, dateStr)
+	`, classID, semesterID, semesterID, dateStr)
 
 	if err == nil {
 		defer eventRows.Close()

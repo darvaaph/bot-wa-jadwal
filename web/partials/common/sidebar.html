@@ -34,6 +34,13 @@
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] border-t border-[#EEEEEE]">
+    <label x-show="!sidebarCollapsed && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block px-2 pb-3 text-[11px] font-semibold text-slate-500">
+      Ruang kerja
+      <select :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching"
+        class="mt-1 w-full min-h-[44px] rounded-xl border border-[#EEEEEE] bg-white px-2 text-[12px] text-[#1F1F1F] focus:outline-none focus:ring-2 focus:ring-[#3965FB] disabled:opacity-60">
+        <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+      </select>
+    </label>
     <div class="sidebar-footer flex items-center justify-between gap-2">
       <button type="button" @click="go('akun')" :title="sidebarCollapsed ? 'Akun' : ''" :aria-label="'Akun ' + roleLabel" :aria-current="view === 'akun' ? 'page' : null"
         class="sidebar-footer-text min-w-0 flex-1 truncate text-left rounded-xl px-2 py-1.5 hover:bg-slate-50 min-h-[44px]"

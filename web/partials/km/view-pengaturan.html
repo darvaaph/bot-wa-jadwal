@@ -143,6 +143,14 @@
     </div>
   </div>
 </section>
+<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center" @click.self="tutupKodePortal()">
+  <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="portal-code-title">
+    <h2 id="portal-code-title" class="text-[18px] font-semibold">Kode portal baru</h2>
+    <p class="mt-1 text-[13px] text-slate-500">Kode ini hanya ditampilkan sekali. Salin dan bagikan melalui kanal kelas yang tepat.</p>
+    <p class="mt-4 rounded-xl border border-[#9AB7FD] bg-[#E9EAFF]/50 p-4 text-center font-mono text-[24px] font-bold tracking-wider break-all" x-text="portalCodeReveal"></p>
+    <div class="mt-5 flex gap-3"><button type="button" @click="salinKodePortal()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold">Salin kode</button><button type="button" @click="tutupKodePortal()" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold">Sudah disimpan</button></div>
+  </div>
+</div>
 
 <section x-show="view === 'akun'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Akun</h1>
@@ -155,10 +163,12 @@
         <p class="text-[12px] text-slate-500">Kelas <span class="font-mono" x-text="selectedClass">-</span> · Pengelola seluruh kelas</p>
       </div>
     </div>
-    <div class="mt-4 p-4 rounded-xl bg-[#E9EAFF]/50 border border-[#9AB7FD]" x-show="isAlsoPJ">
-      <p class="text-[13px] font-semibold">Pindah peran</p>
-      <p class="text-[12px] text-slate-500 mt-0.5">Akun ini juga terdaftar sebagai PJ Mata Kuliah di kelas ini.</p>
-      <a href="/pj.html" class="mt-2 inline-flex h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold items-center min-h-[44px]">Pindah ke Area PJ</a>
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="mt-4 p-4 rounded-xl bg-[#E9EAFF]/50 border border-[#9AB7FD]">
+      <label for="km-context-select" class="text-[13px] font-semibold">Pindah ruang kerja</label>
+      <p class="text-[12px] text-slate-500 mt-0.5">Pilih penugasan aktif agar izin dan data mengikuti konteks yang benar.</p>
+      <select id="km-context-select" :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="mt-2 w-full h-11 px-3 rounded-xl border border-[#9AB7FD] bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB] disabled:opacity-60">
+        <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+      </select>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
       <button type="button" @click="mintaResetSandi()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]">Ubah kata sandi via admin</button>

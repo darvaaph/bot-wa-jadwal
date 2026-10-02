@@ -31,6 +31,8 @@ function pjApp() {
     offeringState: 'idle',
 
     roleLabel: 'PJ',
+    contextAssignments: [],
+    contextSwitching: false,
 
     navSections: [
       { title: 'PJ', items: [
@@ -42,6 +44,8 @@ function pjApp() {
         { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       ] },
       { title: 'LAINNYA', items: [
+        { id: 'semester', label: 'Semester', img: '/assets/icons/event.svg' },
+        { id: 'audit', label: 'Riwayat Perubahan', img: '/assets/icons/activity.svg' },
         { id: 'status', label: 'Status pemeriksaan', img: '/assets/icons/ext-check.svg' },
         { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
         { id: 'pengaturan', label: 'Pengaturan', img: '/assets/icons/settings.svg' },
@@ -67,7 +71,27 @@ function pjApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit', 'jadwal', 'pindah', 'perubahan', 'materi', 'status', 'notifikasi', 'pengaturan', 'akun'],
+    contextLabel(a) {
+      const role = String(a && a.role || '').toUpperCase();
+      const scope = a && (a.offering_name || a.class_slug) || 'Global';
+      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+    },
+
+    async switchContextById(id) {
+      const activeId = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.id;
+      if (!id || this.contextSwitching || String(id) === String(activeId)) return;
+      this.contextSwitching = true;
+      try {
+        const result = await API.switchContext(Number(id));
+        const chosen = this.contextAssignments.find(a => String(a.id) === String(id));
+        const role = String((result && (result.role || result.active_role)) || (chosen && chosen.role) || '').toUpperCase();
+        window.location.href = role === 'KM' ? '/km.html' : role === 'SYSTEM_ADMIN' ? '/system-admin.html' : '/pj.html';
+      } catch (err) {
+        this.showToast(err.message || 'Konteks akses tidak tersedia.');
+      } finally { this.contextSwitching = false; }
+    },
+
+    knownViews: ['dashboard', 'tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit', 'jadwal', 'pindah', 'perubahan', 'materi', 'semester', 'audit', 'status', 'notifikasi', 'pengaturan', 'akun'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -81,6 +105,9 @@ function pjApp() {
     currentTime: '',
     selectedClass: '',
     classSlug: '',
+    classList: [],
+    semesterList: [], semesterLoading: false, semesterError: '',
+    auditList: [], auditLoading: false, auditError: '', auditDetailId: null,
     botOnline: false,
     fullSchedule: [],
     tasks: [],
@@ -296,8 +323,9 @@ function pjApp() {
     eventsList: [], eventsLoading: false, eventsError: '',
     eventFilter: 'semua',
     selectedEvent: null, revokeReason: '', revokeError: '',
+    eventDetailLoading: false, eventDetailError: '',
     roomCands: [], roomCandsLoading: false,
-    roomConfirm: { roomId: '', name: '', note: '' },
+    roomConfirm: { roomId: '', status: 'PENDING', name: '', note: '' },
 
     get polaRooms() {
       const map = new Map();
@@ -554,11 +582,22 @@ function pjApp() {
 
     ubahLagi() { this.jadwalSub = 'ubah'; window.scrollTo({ top: 0 }); },
 
-    bukaDetail(ev) {
+    async bukaDetail(ev) {
       this.selectedEvent = ev;
       this.revokeReason = ''; this.revokeError = '';
+      this.eventDetailError = '';
       this.jadwalSub = 'detail';
       window.scrollTo({ top: 0 });
+      this.eventDetailLoading = true;
+      try {
+        const detail = await API.getTeachingEvent(ev.id);
+        this.selectedEvent = Object.assign({}, detail && detail.event || ev, {
+          participants: detail && detail.participations || [],
+          confirmations: detail && detail.confirmations || []
+        });
+      } catch (err) {
+        this.eventDetailError = err.message || 'Detail perubahan jadwal gagal dimuat.';
+      } finally { this.eventDetailLoading = false; }
     },
 
     async lanjutkanDraf(ev) {
@@ -594,11 +633,13 @@ function pjApp() {
       try {
         await API.confirmTeachingEventRoom(this.draftEvent.id, {
           room_id: Number(this.roomConfirm.roomId),
-          confirmation_status: 'CONFIRMED',
-          confirmed_by: this.roomConfirm.name || undefined,
+          confirmation_status: this.roomConfirm.status,
+          external_contact: this.roomConfirm.name || undefined,
           note: this.roomConfirm.note || undefined
         });
         this.showToast('Konfirmasi ruangan tercatat.');
+        const current = (this.eventsList || []).find(e => String(e.id) === String(this.draftEvent.id));
+        if (current) await this.bukaDetail(current);
       } catch (e) {
         this.showToast(e.message || 'Gagal mencatat konfirmasi.');
       }
@@ -632,7 +673,9 @@ function pjApp() {
         this.currentUser = me.user;
         this.activeRole = role || null;
         this.meCache = me;
+        this.contextAssignments = Array.isArray(me.assignments) ? me.assignments : [];
         this.classSlug = this.resolveClassSlug(me);
+        this.selectedClass = this.classSlug;
         const assignedOffering = me.active_assignment && me.active_assignment.offering_id;
         if (assignedOffering && !this.offeringId) {
           this.offeringId = String(assignedOffering);
@@ -651,6 +694,9 @@ function pjApp() {
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
         ['pj-jadwal', '/partials/pj/view-jadwal.html'],
+        ['pj-materi', '/partials/pj/view-materi.html'],
+        ['pj-semester', '/partials/pj/view-semester.html'],
+        ['pj-audit', '/partials/pj/view-audit.html'],
         ['pj-status', '/partials/pj/view-status.html'],
         ['pj-notif', '/partials/pj/view-notif.html'],
         ['pj-akun', '/partials/pj/view-akun.html'],
@@ -671,6 +717,7 @@ function pjApp() {
       await this.loadTasks();
       this.patternsList = await API.getPatterns().catch(() => []);
       await this.loadEvents();
+      await this.loadSemesterPJ();
       setInterval(() => this.checkBot(), 30000);
       this.dashboardLoading = false;
     },
@@ -718,7 +765,39 @@ function pjApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'materi') this.loadMateri();
+      if (v === 'semester') this.loadSemesterPJ();
+      if (v === 'audit') this.loadAuditPJ();
       window.scrollTo({ top: 0 });
+    },
+
+    semesterLabelPJ(s) {
+      return `${s.academic_year || ''} · ${s.term || ''}`;
+    },
+
+    async loadSemesterPJ() {
+      this.semesterLoading = true; this.semesterError = '';
+      try {
+        const result = await API.getSemestersResult(this.classSlug || this.selectedClass);
+        if (!result.ok) throw new Error(result.status === 403 ? 'Konteks ini tidak diizinkan melihat semester.' : 'Semester gagal dimuat.');
+        this.semesterList = Array.isArray(result.data) ? result.data : [];
+      } catch (err) {
+        this.semesterList = []; this.semesterError = err.message || 'Semester gagal dimuat.';
+      } finally { this.semesterLoading = false; }
+    },
+
+    async loadAuditPJ() {
+      this.auditLoading = true; this.auditError = '';
+      try {
+        const rows = await API.getAudit({ limit: 50 });
+        if (!Array.isArray(rows)) throw new Error('Riwayat tidak tersedia.');
+        this.auditList = rows;
+      } catch (err) {
+        this.auditList = []; this.auditError = err.message || 'Riwayat perubahan gagal dimuat.';
+      } finally { this.auditLoading = false; }
+    },
+
+    labelAuditPJ(action) {
+      return String(action || '').replaceAll('_', ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
     },
 
     soon(fitur) { this.showToast(`${fitur}: fitur belum tersedia.`); },
@@ -746,7 +825,9 @@ function pjApp() {
         if (!active) { this.offeringState = 'empty-semester'; this.offeringList = []; return; }
         const offerings = await API.getSemesterOfferings(active.id).catch(() => null);
         if (offerings === null) { this.offeringState = 'error'; this.offeringList = []; return; }
-        this.offeringList = Array.isArray(offerings) ? offerings : [];
+        const assignedOffering = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.offering_id;
+        this.offeringList = (Array.isArray(offerings) ? offerings : []).filter(o =>
+          assignedOffering && String(o.id) === String(assignedOffering));
         this.offeringState = this.offeringList.length > 0 ? 'ok' : 'empty-offering';
         const ids = this.offeringList.map(o => String(o.id));
         if (this.offeringId && !ids.includes(String(this.offeringId))) {
@@ -807,35 +888,43 @@ function pjApp() {
     },
 
     async loadClasses() {
+      const scopedClass = this.meCache ? this.resolveClassSlug(this.meCache) : '';
+      this.selectedClass = scopedClass || '';
       try {
         const data = await API.getClasses();
-        if (data && data.default_class) { this.selectedClass = data.default_class; }
-      } catch (e) { /* fallback */ }
-      try {
-        const st = await API.getStatus();
-        if (st && st.default_class && !this.selectedClass) this.selectedClass = st.default_class;
-      } catch (e) { /* kosong */ }
-      if (this.meCache) {
-        const s = this.resolveClassSlug(this.meCache);
-        if (s) this.classSlug = s;
-      }
+        const classes = (data && data.classes) || [];
+        this.classList = classes.filter(c => {
+          const slug = typeof c === 'string' ? c : c.slug;
+          return !scopedClass || slug === scopedClass;
+        });
+      } catch (e) { this.classList = scopedClass ? [scopedClass] : []; }
+      this.classSlug = scopedClass;
     },
     async loadSchedule() {
       try {
-        const raw = await API.getSchedule(this.selectedClass, 'all');
+        const [rawPatterns, rawEvents] = await Promise.all([API.getPatterns(), API.getTeachingEvents()]);
+        const raw = (rawPatterns || []).filter(p => !this.offeringId || String(p.course_offering_id) === String(this.offeringId));
         const seen = new Set();
         const list = [];
         (raw || []).forEach((s, i) => {
-          const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
           const entry = {
-            id: `sch-${i}`, hari: s.hari, jam: s.jam, matkul: s.matkul,
-            dosen: s.dosen, ruang: s.ruang,
-            timeStart: parts[0] || '', timeEnd: parts[1] || ''
+            id: `pattern-${s.id || i}`, hari: this.polaHariName(s.day_of_week),
+            jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
+            matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
+            dosen: s.lecturer || s.dosen || '', ruang: s.room || s.room_code || '',
+            timeStart: String(s.start_time || '').slice(0, 5), timeEnd: String(s.end_time || '').slice(0, 5)
           };
           const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
           if (seen.has(key)) return;
           seen.add(key);
           list.push(entry);
+        });
+        (rawEvents || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED' && (!this.offeringId || String(e.offering_id) === String(this.offeringId))).forEach((e, i) => {
+          const start = new Date(e.starts_at), end = new Date(e.ends_at);
+          if (Number.isNaN(start.getTime())) return;
+          const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+          list.push({ id: `event-${e.id || i}`, hari, jam: `${hm(start)} - ${hm(end)}`, matkul: e.offering || 'Mata Kuliah', dosen: '', ruang: e.room || '', timeStart: hm(start), timeEnd: hm(end), eventKind: e.event_kind });
         });
         this.fullSchedule = list;
       } catch (e) { this.fullSchedule = []; }

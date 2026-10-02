@@ -16,6 +16,8 @@ function kmApp() {
     hideEmpty: false,
 
     roleLabel: 'KM',
+    contextAssignments: [],
+    contextSwitching: false,
 
     navSections: [
       { title: 'KM', items: [
@@ -54,6 +56,26 @@ function kmApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
+    contextLabel(a) {
+      const role = String(a && a.role || '').toUpperCase();
+      const scope = a && (a.offering_name || a.class_slug) || 'Global';
+      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+    },
+
+    async switchContextById(id) {
+      const activeId = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.id;
+      if (!id || this.contextSwitching || String(id) === String(activeId)) return;
+      this.contextSwitching = true;
+      try {
+        const result = await API.switchContext(Number(id));
+        const chosen = this.contextAssignments.find(a => String(a.id) === String(id));
+        const role = String((result && (result.role || result.active_role)) || (chosen && chosen.role) || '').toUpperCase();
+        window.location.href = role === 'PJ' ? '/pj.html' : role === 'SYSTEM_ADMIN' ? '/system-admin.html' : '/km.html';
+      } catch (err) {
+        this.showToast(err.message || 'Konteks akses tidak tersedia.');
+      } finally { this.contextSwitching = false; }
+    },
+
     knownViews: ['dashboard', 'tugas', 'antrean', 'jadwal', 'materi', 'semester', 'anggota', 'pengaturan', 'usulan', 'monitoring', 'log', 'notifikasi', 'akun'],
 
     showPageError(status) {
@@ -76,6 +98,7 @@ function kmApp() {
     offeringLoading: false,
     offeringState: 'idle',
     semesterId: '',
+    portalCodeReveal: '',
 
     tugasSub: 'list',
     tugasTab: 'aktif',
@@ -373,6 +396,7 @@ function kmApp() {
     eventsList: [], eventsLoading: false, eventsError: '',
     eventFilter: 'semua',
     selectedEvent: null, revokeReason: '', revokeError: '',
+    eventDetailLoading: false, eventDetailError: '',
     roomCands: [], roomCandsLoading: false,
     // Konfirmasi TU: satu objek (open/room/form/saving/error).
     tuConfirm: { open: false, room: null, form: { status: 'CONFIRMED', name: '', note: '' }, saving: false, error: '' },
@@ -671,11 +695,22 @@ function kmApp() {
 
     ubahLagi() { this.jadwalSub = 'ubah'; window.scrollTo({ top: 0 }); },
 
-    bukaDetail(ev) {
+    async bukaDetail(ev) {
       this.selectedEvent = ev;
       this.revokeReason = ''; this.revokeError = '';
+      this.eventDetailError = '';
       this.jadwalSub = 'detail';
       window.scrollTo({ top: 0 });
+      this.eventDetailLoading = true;
+      try {
+        const detail = await API.getTeachingEvent(ev.id);
+        this.selectedEvent = Object.assign({}, detail && detail.event || ev, {
+          participants: detail && detail.participations || [],
+          confirmations: detail && detail.confirmations || []
+        });
+      } catch (err) {
+        this.eventDetailError = err.message || 'Detail perubahan jadwal gagal dimuat.';
+      } finally { this.eventDetailLoading = false; }
     },
 
     async lanjutkanDraf(ev) {
@@ -716,6 +751,7 @@ function kmApp() {
         const label = action === 'accept' ? 'diterima' : (action === 'decline' ? 'ditolak' : 'dilepas');
         this.showToast(`Partisipasi kelas ${label}.`);
         await this.loadEvents();
+        await this.bukaDetail(ev);
       } catch (e) {
         this.showToast(e.message || 'Gagal menyimpan keputusan partisipasi.');
       }
@@ -765,6 +801,8 @@ function kmApp() {
         this.showToast(tc.form.status === 'CONFIRMED' ? 'Konfirmasi TU disetujui.' : 'Konfirmasi TU ditolak.');
         this.tutupKonfirmasiTU();
         await this.muatPratinjau();
+        const current = (this.eventsList || []).find(e => String(e.id) === String(this.draftEvent.id));
+        if (current) await this.bukaDetail(current);
       } catch (e) {
         tc.error = e.message || 'Gagal menyimpan konfirmasi TU.';
       } finally {
@@ -800,7 +838,9 @@ function kmApp() {
         this.currentUser = me.user;
         this.activeRole = role || null;
         this.meCache = me;
+        this.contextAssignments = Array.isArray(me.assignments) ? me.assignments : [];
         this.classSlug = this.resolveClassSlug(me);
+        this.selectedClass = this.classSlug;
       } catch (e) {
         localStorage.removeItem('access_token');
         window.location.replace('/login.html?role=km');
@@ -917,42 +957,43 @@ function kmApp() {
     },
 
     async loadClasses() {
+      const scopedClass = this.meCache ? this.resolveClassSlug(this.meCache) : '';
+      this.selectedClass = scopedClass || '';
       try {
         const data = await API.getClasses();
-        if (data && data.default_class) {
-          this.selectedClass = data.default_class;
-          this.classList = data.classes || [];
-        }
-      } catch (e) { /* fallback */ }
-      try {
-        const st = await API.getStatus();
-        if (st && st.default_class) {
-          if (!this.selectedClass) this.selectedClass = st.default_class;
-          if (st.classes) this.classList = st.classes;
-        }
-      } catch (e) { /* kosong */ }
-      if (this.meCache) {
-        const s = this.resolveClassSlug(this.meCache);
-        if (s) this.classSlug = s;
-      }
+        const classes = (data && data.classes) || [];
+        this.classList = classes.filter(c => {
+          const slug = typeof c === 'string' ? c : c.slug;
+          return !scopedClass || slug === scopedClass;
+        });
+      } catch (e) { this.classList = scopedClass ? [scopedClass] : []; }
+      this.classSlug = scopedClass;
     },
 
     async loadSchedule() {
       try {
-        const raw = await API.getSchedule(this.selectedClass, 'all');
+        const [patterns, events] = await Promise.all([API.getPatterns(), API.getTeachingEvents()]);
         const seen = new Set();
         const list = [];
-        (raw || []).forEach((s, i) => {
-          const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
+        (patterns || []).forEach((s, i) => {
           const entry = {
-            id: `sch-${i}`, hari: s.hari, jam: s.jam, matkul: s.matkul,
-            dosen: s.dosen, ruang: s.ruang,
-            timeStart: parts[0] || '', timeEnd: parts[1] || ''
+            id: `pattern-${s.id || i}`, hari: this.polaHariName(s.day_of_week),
+            jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
+            matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
+            dosen: s.lecturer || s.dosen || '', ruang: s.room || s.room_code || '',
+            timeStart: String(s.start_time || '').slice(0, 5), timeEnd: String(s.end_time || '').slice(0, 5)
           };
           const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
           if (seen.has(key)) return;
           seen.add(key);
           list.push(entry);
+        });
+        (events || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED').forEach((e, i) => {
+          const start = new Date(e.starts_at), end = new Date(e.ends_at);
+          if (Number.isNaN(start.getTime())) return;
+          const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+          list.push({ id: `event-${e.id || i}`, hari, jam: `${hm(start)} - ${hm(end)}`, matkul: e.offering || 'Mata Kuliah', dosen: '', ruang: e.room || '', timeStart: hm(start), timeEnd: hm(end), eventKind: e.event_kind });
         });
         this.fullSchedule = list;
       } catch (e) { this.fullSchedule = []; }
@@ -1499,12 +1540,6 @@ function kmApp() {
       if (s) return `Semester ${s.term || ''} ${s.academic_year || ''}`.trim();
       if (this.semesterId) return 'Semester aktif dimuat';
       return '';
-    },
-
-    get isAlsoPJ() {
-      const classes = this.meCache?.classes || [];
-      return classes.some(c => String(c.slug || '') === String(this.classSlug) &&
-        (c.assignments || []).some(a => String(a.role || '').toUpperCase() === 'PJ'));
     },
 
     get auditPreview() {
@@ -2116,14 +2151,26 @@ function kmApp() {
       if (!slug) return;
       this.rotatingCode = true;
       try {
-        await API.rotatePortalCode(slug);
-        this.showToast('Kode kelas dirotasi. Sesi portal lama dibatalkan.');
+        const result = await API.rotatePortalCode(slug);
+        this.portalCodeReveal = result && result.portal_code || '';
+        this.showToast('Kode kelas dirotasi. Salin kode baru sebelum menutup dialog.');
         await this.loadPengaturanKelas();
       } catch (e) {
         this.showToast(e.message || 'Gagal merotasi kode kelas.');
       } finally {
         this.rotatingCode = false;
       }
+    },
+
+    tutupKodePortal() {
+      this.portalCodeReveal = '';
+    },
+
+    salinKodePortal() {
+      if (!this.portalCodeReveal) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(this.portalCodeReveal).then(() => this.showToast('Kode portal disalin.')).catch(() => this.showToast('Kode tidak dapat disalin otomatis.'));
+      } else this.showToast('Clipboard tidak didukung browser ini.');
     },
 
     async setModePortal(mode) {

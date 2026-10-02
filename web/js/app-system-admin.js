@@ -29,6 +29,9 @@ function systemAdminApp() {
     kelasViews: ['kelas', 'buat', 'detail', 'undang', 'undang-siap'],
 
     currentUser: null,
+    meCache: null,
+    contextAssignments: [],
+    contextSwitching: false,
     authModal: false,
     authForm: { identityKey: '', password: '' },
     authLoading: false,
@@ -378,10 +381,32 @@ function systemAdminApp() {
           if (role && role !== 'SYSTEM_ADMIN') return false;
           this.currentUser = me.user;
           this.activeRole = role || null;
+          this.meCache = me;
+          this.contextAssignments = Array.isArray(me.assignments) ? me.assignments : [];
           return true;
         }
       } catch (e) {}
       return false;
+    },
+
+    contextLabel(a) {
+      const role = String(a && a.role || '').toUpperCase();
+      const scope = a && (a.offering_name || a.class_slug) || 'Global';
+      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+    },
+
+    async switchContextById(id) {
+      const activeId = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.id;
+      if (!id || this.contextSwitching || String(id) === String(activeId)) return;
+      this.contextSwitching = true;
+      try {
+        const result = await API.switchContext(Number(id));
+        const chosen = this.contextAssignments.find(a => String(a.id) === String(id));
+        const role = String((result && (result.role || result.active_role)) || (chosen && chosen.role) || '').toUpperCase();
+        window.location.href = role === 'KM' ? '/km.html' : role === 'PJ' ? '/pj.html' : '/system-admin.html';
+      } catch (err) {
+        this.showToast(err.message || 'Konteks akses tidak tersedia.');
+      } finally { this.contextSwitching = false; }
     },
 
     async login() {

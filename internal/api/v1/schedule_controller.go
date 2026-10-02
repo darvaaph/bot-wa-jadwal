@@ -89,10 +89,185 @@ func (c *ScheduleController) RegisterRoutes(mux *http.ServeMux, auth *middleware
 	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchPattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreateTeachingEvent)))
 	mux.HandleFunc("GET /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEvents)))
+	mux.HandleFunc("GET /api/v1/teaching-events/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEventDetail)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PreviewTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PublishTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.RevokeTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participation", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ParticipationTeachingEvent)))
+}
+
+// GetTeachingEventDetail returns one event together with its offering
+// participations and append-only TU confirmation history.
+func (c *ScheduleController) GetTeachingEventDetail(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	eventID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || eventID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID kejadian jadwal tidak valid")
+		return
+	}
+
+	allowed, err := c.canReadTeachingEvent(r.Context(), u, eventID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi cakupan kejadian jadwal")
+		return
+	}
+	if !allowed {
+		if u.ActiveRole == "SYSTEM_ADMIN" {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		} else {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+		}
+		return
+	}
+
+	var roomID sql.NullInt64
+	var id, offeringID int64
+	var startsAt, endsAt common.DBTimestamp
+	var kind, offering, room, reason, lifecycle, meetingLink string
+	var version int
+	err = c.db.QueryRowContext(r.Context(), `
+		SELECT te.id, te.event_kind, co.id, co.display_name, te.starts_at, te.ends_at,
+		       te.room_id, COALESCE(r.code, ''), COALESCE(te.reason, ''),
+		       te.lifecycle_status, te.version, COALESCE(te.meeting_link, '')
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo
+		  ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		LEFT JOIN rooms r ON r.id = te.room_id
+		WHERE te.id = ?`, eventID).Scan(
+		&id, &kind, &offeringID, &offering, &startsAt, &endsAt, &roomID,
+		&room, &reason, &lifecycle, &version, &meetingLink,
+	)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat detail kejadian jadwal")
+		return
+	}
+
+	var roomValue any
+	if roomID.Valid {
+		roomValue = roomID.Int64
+	}
+	event := map[string]any{
+		"id":               id,
+		"event_kind":       kind,
+		"offering_id":      offeringID,
+		"offering":         offering,
+		"starts_at":        startsAt.RFC3339(),
+		"ends_at":          endsAt.RFC3339(),
+		"room_id":          roomValue,
+		"room":             room,
+		"reason":           reason,
+		"lifecycle_status": lifecycle,
+		"version":          version,
+		"meeting_link":     meetingLink,
+	}
+
+	participations := []map[string]any{}
+	rows, err := c.db.QueryContext(r.Context(), `
+		SELECT co.id, co.display_name, teo.participation_role, teo.participation_status
+		FROM teaching_event_offerings teo
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		WHERE teo.teaching_event_id = ?
+		ORDER BY CASE teo.participation_role WHEN 'OWNER' THEN 0 ELSE 1 END, co.display_name`, eventID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat partisipasi kejadian jadwal")
+		return
+	}
+	for rows.Next() {
+		var pid int64
+		var display, role, status string
+		if err := rows.Scan(&pid, &display, &role, &status); err != nil {
+			rows.Close()
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca partisipasi kejadian jadwal")
+			return
+		}
+		participations = append(participations, map[string]any{
+			"offering_id": pid, "offering": display,
+			"participation_role": role, "participation_status": status,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca partisipasi kejadian jadwal")
+		return
+	}
+	rows.Close()
+
+	confirmations := []map[string]any{}
+	rows, err = c.db.QueryContext(r.Context(), `
+		SELECT rc.id, rc.room_id, r.code, rc.confirmation_status,
+		       COALESCE(rc.external_contact, ''), COALESCE(rc.note, ''),
+		       u.id, u.display_name, rc.recorded_at, rc.confirmed_at
+		FROM room_confirmations rc
+		JOIN rooms r ON r.id = rc.room_id
+		JOIN users u ON u.id = rc.recorded_by_user_id
+		WHERE rc.teaching_event_id = ?
+		ORDER BY rc.recorded_at DESC, rc.id DESC`, eventID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat riwayat konfirmasi ruangan")
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, rid, recordedByID int64
+		var roomCode, status, contact, note, recordedByName string
+		var recordedAt common.DBTimestamp
+		var confirmedAt common.DBTimestamp
+		if err := rows.Scan(&cid, &rid, &roomCode, &status, &contact, &note,
+			&recordedByID, &recordedByName, &recordedAt, &confirmedAt); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca riwayat konfirmasi ruangan")
+			return
+		}
+		confirmations = append(confirmations, map[string]any{
+			"id": cid, "room_id": rid, "room": roomCode,
+			"confirmation_status": status, "external_contact": contact, "note": note,
+			"recorded_by": map[string]any{"id": recordedByID, "display_name": recordedByName},
+			"recorded_at": recordedAt.RFC3339(), "confirmed_at": confirmedAt.RFC3339(),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca riwayat konfirmasi ruangan")
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"event": event, "participations": participations, "confirmations": confirmations,
+	})
+}
+
+func (c *ScheduleController) canReadTeachingEvent(ctx context.Context, u *common.UserContext, eventID int64) (bool, error) {
+	var exists bool
+	var err error
+	switch u.ActiveRole {
+	case "SYSTEM_ADMIN":
+		err = c.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM teaching_events WHERE id = ?)`, eventID).Scan(&exists)
+	case "PJ":
+		if !u.ActiveCourseOfferingID.Valid {
+			return false, nil
+		}
+		err = c.db.QueryRowContext(ctx, `SELECT EXISTS(
+			SELECT 1 FROM teaching_event_offerings
+			WHERE teaching_event_id = ? AND course_offering_id = ? AND participation_role = 'OWNER'
+		)`, eventID, u.ActiveCourseOfferingID.Int64).Scan(&exists)
+	case "KM":
+		if !u.ActiveClassID.Valid {
+			return false, nil
+		}
+		err = c.db.QueryRowContext(ctx, `SELECT EXISTS(
+			SELECT 1 FROM teaching_event_offerings teo
+			JOIN course_offerings co ON co.id = teo.course_offering_id
+			JOIN semesters sem ON sem.id = co.semester_id
+			WHERE teo.teaching_event_id = ? AND sem.class_id = ?
+		)`, eventID, u.ActiveClassID.Int64).Scan(&exists)
+	default:
+		return false, nil
+	}
+	return exists, err
 }
 
 // GetPatterns menangani GET /api/v1/schedule/patterns
@@ -494,11 +669,24 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 	`
 	var args []any
 
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid {
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
+			return
+		}
 		query += " AND co.id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" && u.ActiveClassID.Valid {
-		query += " AND sem.class_id = ?"
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			return
+		}
+		query += ` AND EXISTS (
+			SELECT 1 FROM teaching_event_offerings visible_teo
+			JOIN course_offerings visible_co ON visible_co.id = visible_teo.course_offering_id
+			JOIN semesters visible_sem ON visible_sem.id = visible_co.semester_id
+			WHERE visible_teo.teaching_event_id = te.id AND visible_sem.class_id = ?
+		)`
 		args = append(args, u.ActiveClassID.Int64)
 	}
 

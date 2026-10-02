@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
@@ -9,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -94,12 +96,42 @@ type AcceptInvitationRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
+type RecoveryRequest struct {
+	IdentityKey string `json:"identity_key"`
+}
+
+type RecoveryConfirmRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+// RecoverySender is the minimum WhatsApp capability needed by password
+// recovery. BotClient and test doubles implement this interface.
+type RecoverySender interface {
+	SendText(ctx context.Context, jid, text string) (string, error)
+}
+
 // AuthController mengelola seluruh endpoint autentikasi, sesi pengurus, hak akses kelas, dan undangan
 type AuthController struct {
-	db            *sql.DB
-	secManager    *middleware.SecurityManager
-	rlManager     *middleware.RateLimitManager
-	portalService *portal.Service
+	db              *sql.DB
+	secManager      *middleware.SecurityManager
+	rlManager       *middleware.RateLimitManager
+	portalService   *portal.Service
+	recoveryService *auth.Service
+	recoverySender  RecoverySender
+	publicBaseURL   string
+}
+
+// ConfigureRecovery wires the auth domain service and verified WhatsApp
+// delivery after server security configuration has been loaded.
+func (c *AuthController) ConfigureRecovery(service *auth.Service, sender RecoverySender, publicBaseURL string) {
+	c.recoveryService = service
+	c.recoverySender = sender
+	c.publicBaseURL = strings.TrimRight(strings.TrimSpace(publicBaseURL), "/")
+}
+
+func (c *AuthController) SetRecoverySender(sender RecoverySender) {
+	c.recoverySender = sender
 }
 
 // NewAuthController membuat instance baru AuthController
@@ -115,6 +147,8 @@ func NewAuthController(db *sql.DB, secManager *middleware.SecurityManager, rlMan
 // RegisterRoutes mendaftarkan seluruh endpoint auth ke ServeMux
 func (c *AuthController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
 	mux.HandleFunc("POST /api/v1/auth/login", c.Login)
+	mux.HandleFunc("POST /api/v1/auth/recovery/request", c.RequestRecovery)
+	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", c.ConfirmRecovery)
 	mux.HandleFunc("POST /api/v1/auth/logout", auth.RequireAuth(c.Logout))
 	mux.HandleFunc("GET /api/v1/auth/me", auth.RequireAuth(c.GetMe))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", auth.RequireAuth(c.SwitchContext))
@@ -318,7 +352,9 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		FROM role_assignments ra
 		LEFT JOIN classes c ON ra.class_id = c.id
 		LEFT JOIN course_offerings co ON ra.course_offering_id = co.id
-		WHERE ra.user_id = ? AND ra.status = 'ACTIVE';
+		WHERE ra.user_id = ? AND ra.status = 'ACTIVE'
+		  AND julianday(ra.valid_from) <= julianday('now')
+		  AND (ra.valid_until IS NULL OR julianday(ra.valid_until) > julianday('now'));
 	`, userID)
 
 	var assignments []RoleAssignmentItem
@@ -479,11 +515,174 @@ func (c *AuthController) GetMe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	assignments := make([]RoleAssignmentItem, 0)
+	assignmentRows, err := c.db.QueryContext(r.Context(), `
+		SELECT ra.id, ra.role, c.slug, ra.semester_id, ra.course_offering_id,
+		       COALESCE(co.display_name, '')
+		FROM role_assignments ra
+		LEFT JOIN classes c ON c.id = ra.class_id
+		LEFT JOIN course_offerings co ON co.id = ra.course_offering_id
+		WHERE ra.user_id = ? AND ra.status = 'ACTIVE'
+		  AND (ra.valid_from IS NULL OR julianday(ra.valid_from) <= julianday('now'))
+		  AND (ra.valid_until IS NULL OR julianday(ra.valid_until) > julianday('now'))
+		ORDER BY ra.id`, u.UserID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat penugasan aktif")
+		return
+	}
+	defer assignmentRows.Close()
+	for assignmentRows.Next() {
+		var item RoleAssignmentItem
+		var classSlug sql.NullString
+		var semesterID, offeringID sql.NullInt64
+		if err := assignmentRows.Scan(&item.ID, &item.Role, &classSlug, &semesterID, &offeringID, &item.OfferingName); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca penugasan aktif")
+			return
+		}
+		if classSlug.Valid {
+			item.ClassSlug = classSlug.String
+		}
+		if semesterID.Valid {
+			item.SemesterID = &semesterID.Int64
+		}
+		if offeringID.Valid {
+			item.OfferingID = &offeringID.Int64
+		}
+		assignments = append(assignments, item)
+	}
+	if err := assignmentRows.Err(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat penugasan aktif")
+		return
+	}
+
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
 		"user":              userData,
 		"active_assignment": activeAssignmentData,
+		"assignments":       assignments,
 		"classes":           classes,
 	})
+}
+
+// RequestRecovery handles POST /api/v1/auth/recovery/request. Its accepted
+// response is deliberately identical for known and unknown identities.
+func (c *AuthController) RequestRecovery(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
+	var req RecoveryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.IdentityKey) == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "identity_key wajib diisi")
+		return
+	}
+
+	identity := auth.NormalizeIdentity(req.IdentityKey)
+	source := c.clientSource(r)
+	trusted := []string(nil)
+	if c.secManager != nil {
+		trusted = c.secManager.TrustedProxyCIDRs()
+	}
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trusted, ratelimit.PolicyRecoveryRequest, identity) {
+		return
+	}
+	recordAttempt := func() bool {
+		if c.rlManager == nil || c.rlManager.Limiter() == nil {
+			return true
+		}
+		if err := c.rlManager.Limiter().Record(r.Context(), ratelimit.PolicyRecoveryRequest, identity, source, "FAILURE"); err != nil {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return false
+		}
+		return true
+	}
+	accepted := func() {
+		common.WriteV1Success(w, http.StatusAccepted, map[string]string{
+			"message": "Jika akun ditemukan, petunjuk pemulihan akan dikirim melalui WhatsApp.",
+		})
+	}
+
+	if c.recoveryService == nil {
+		if !recordAttempt() {
+			return
+		}
+		accepted()
+		return
+	}
+	token, err := c.recoveryService.RequestRecovery(r.Context(), identity, "WHATSAPP", "self-service WhatsApp recovery")
+	if err != nil {
+		if !errors.Is(err, auth.ErrAuthenticationFailed) && !errors.Is(err, auth.ErrTooFrequent) && !errors.Is(err, auth.ErrInvalidInput) {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return
+		}
+		if !recordAttempt() {
+			return
+		}
+		accepted()
+		return
+	}
+
+	delivered := false
+	if c.recoverySender != nil && auth.IsValidPhoneIdentity(identity) {
+		jid := strings.TrimPrefix(identity, "+") + "@s.whatsapp.net"
+		resetPath := "/login.html?mode=recovery&token=" + url.QueryEscape(token)
+		resetURL := resetPath
+		if c.publicBaseURL != "" {
+			resetURL = c.publicBaseURL + resetPath
+		}
+		message := "Permintaan pemulihan kata sandi Bot Jadwal diterima. Buka tautan berikut dalam 1 jam:\n" + resetURL + "\n\nAbaikan pesan ini jika Anda tidak meminta pemulihan."
+		_, sendErr := c.recoverySender.SendText(r.Context(), jid, message)
+		delivered = sendErr == nil
+	}
+	if !delivered {
+		if err := c.recoveryService.InvalidateRecoveryToken(r.Context(), token); err != nil {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return
+		}
+	}
+	if !recordAttempt() {
+		return
+	}
+	accepted()
+}
+
+// ConfirmRecovery handles POST /api/v1/auth/recovery/confirm.
+func (c *AuthController) ConfirmRecovery(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
+	var req RecoveryConfirmRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Token) == "" || req.NewPassword == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "token dan new_password wajib diisi")
+		return
+	}
+	source := c.clientSource(r)
+	subject := computeHash(req.Token)
+	trusted := []string(nil)
+	if c.secManager != nil {
+		trusted = c.secManager.TrustedProxyCIDRs()
+	}
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trusted, ratelimit.PolicyRecoveryConfirm, subject) {
+		return
+	}
+	if c.recoveryService == nil {
+		common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan pemulihan tidak tersedia")
+		return
+	}
+	err := c.recoveryService.ConfirmRecovery(r.Context(), req.Token, req.NewPassword)
+	outcome := "SUCCESS"
+	if err != nil {
+		outcome = "FAILURE"
+	}
+	if c.rlManager != nil && c.rlManager.Limiter() != nil {
+		if recordErr := c.rlManager.Limiter().Record(r.Context(), ratelimit.PolicyRecoveryConfirm, subject, source, outcome); recordErr != nil {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+			return
+		}
+	}
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidInput) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Token pemulihan atau kata sandi tidak valid")
+			return
+		}
+		common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Layanan tidak tersedia. Coba lagi nanti.")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]bool{"password_reset": true})
 }
 
 // SwitchContext menangani POST /api/v1/auth/switch-context
@@ -504,7 +703,9 @@ func (c *AuthController) SwitchContext(w http.ResponseWriter, r *http.Request) {
 	var role string
 	err := c.db.QueryRow(`
 		SELECT role FROM role_assignments
-		WHERE id = ? AND user_id = ? AND status = 'ACTIVE';
+		WHERE id = ? AND user_id = ? AND status = 'ACTIVE'
+		  AND julianday(valid_from) <= julianday('now')
+		  AND (valid_until IS NULL OR julianday(valid_until) > julianday('now'));
 	`, req.RoleAssignmentID, u.UserID).Scan(&role)
 
 	if err == sql.ErrNoRows {

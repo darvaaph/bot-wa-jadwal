@@ -1,0 +1,8 @@
+<section x-show="view === 'semester'" x-cloak>
+  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Semester</h1>
+  <p class="mt-1 text-[14px] text-slate-500">Daftar semester kelas dalam mode hanya-baca untuk konteks PJ aktif.</p>
+  <p x-show="semesterLoading" class="mt-5 py-6 text-center text-[13px] text-slate-500" role="status">Memuat semester...</p>
+  <div x-show="semesterError" class="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-700" role="alert"><span x-text="semesterError"></span><button type="button" @click="loadSemesterPJ()" class="ml-2 font-semibold underline">Coba lagi</button></div>
+  <div x-show="!semesterLoading && !semesterError && semesterList.length === 0" class="mt-5 rounded-2xl border border-dashed border-[#EEEEEE] p-8 text-center text-[13px] text-slate-500">Belum ada semester pada kelas ini.</div>
+  <div class="mt-5 space-y-3"><template x-for="s in semesterList" :key="s.id"><article class="rounded-2xl border border-[#EEEEEE] bg-white p-4"><div class="flex flex-wrap items-center gap-2"><h2 class="flex-1 font-semibold" x-text="semesterLabelPJ(s)"></h2><span class="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold" x-text="s.status"></span></div><p class="mt-1 font-mono text-[12px] text-slate-500" x-text="(s.starts_on || '') + ' sampai ' + (s.ends_on || '')"></p></article></template></div>
+</section>

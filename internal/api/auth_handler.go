@@ -14,6 +14,8 @@ type SwitchContextRequest = v1.SwitchContextRequest
 type UpdateClassStatusRequest = v1.UpdateClassStatusRequest
 type InvitationRequest = v1.InvitationRequest
 type AcceptInvitationRequest = v1.AcceptInvitationRequest
+type RecoveryRequest = v1.RecoveryRequest
+type RecoveryConfirmRequest = v1.RecoveryConfirmRequest
 
 // handleLogin mendelegasikan proses autentikasi pengurus ke AuthController.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +102,22 @@ func (s *Server) handleCreateInvitation(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if s.authController != nil {
 		s.authController.AcceptInvitation(w, r)
+		return
+	}
+	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+func (s *Server) handleRequestRecovery(w http.ResponseWriter, r *http.Request) {
+	if s.authController != nil {
+		s.authController.RequestRecovery(w, r)
+		return
+	}
+	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+func (s *Server) handleConfirmRecovery(w http.ResponseWriter, r *http.Request) {
+	if s.authController != nil {
+		s.authController.ConfirmRecovery(w, r)
 		return
 	}
 	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)

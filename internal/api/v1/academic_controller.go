@@ -236,7 +236,7 @@ func (c *AcademicController) CreateClassSemester(w http.ResponseWriter, r *http.
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format tanggal harus YYYY-MM-DD, ends_on harus setelah starts_on, dan semester sumber harus sekelas")
 		case errors.Is(err, academic.ErrNotFound):
 			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester sumber tidak ditemukan")
-	 default:
+		default:
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan semester: %v", err))
 		}
 		return
@@ -1642,48 +1642,132 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Status konfirmasi harus PENDING, CONFIRMED, atau REJECTED")
 		return
 	}
-
-	var roomExists int
-	if err := c.db.QueryRow(`SELECT COUNT(*) FROM rooms WHERE id = ?;`, req.RoomID).Scan(&roomExists); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi ruangan")
-		return
-	}
-	if roomExists == 0 {
-		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan")
-		return
-	}
-	var eventClassID int64
-	if err := c.db.QueryRow(`
-		SELECT sem.class_id FROM teaching_events te
-		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
-		JOIN course_offerings co ON co.id = teo.course_offering_id
-		JOIN semesters sem ON sem.id = co.semester_id
-		WHERE te.id = ?;
-	`, eventID).Scan(&eventClassID); err != nil {
-		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
-		return
-	}
-	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != eventClassID) {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+	if req.RoomID <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "room_id wajib diisi")
 		return
 	}
 
-	var confirmedAt any
-	if status == "CONFIRMED" {
-		confirmedAt = time.Now().UTC().Format(time.RFC3339)
-	}
-
-	tx, err := c.db.Begin()
+	tx, err := c.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi konfirmasi ruangan")
 		return
 	}
 	defer tx.Rollback()
+
+	var eventClassID int64
+	var lifecycle, timezone string
+	var startsAt, endsAt common.DBTimestamp
+	scopeQuery := `
+		SELECT sem.class_id, te.lifecycle_status, te.starts_at, te.ends_at,
+		       COALESCE(cs.timezone, 'Asia/Jakarta')
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo
+		  ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		JOIN semesters sem ON sem.id = co.semester_id
+		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
+		WHERE te.id = ?`
+	scopeArgs := []any{eventID}
+	switch u.ActiveRole {
+	case "PJ":
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+			return
+		}
+		scopeQuery += ` AND co.id = ?`
+		scopeArgs = append(scopeArgs, u.ActiveCourseOfferingID.Int64)
+	case "KM":
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+			return
+		}
+		scopeQuery += ` AND sem.class_id = ?`
+		scopeArgs = append(scopeArgs, u.ActiveClassID.Int64)
+	case "SYSTEM_ADMIN":
+	default:
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+		return
+	}
+	err = tx.QueryRowContext(r.Context(), scopeQuery, scopeArgs...).Scan(
+		&eventClassID, &lifecycle, &startsAt, &endsAt, &timezone,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		if u.ActiveRole == "SYSTEM_ADMIN" {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		} else {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+		}
+		return
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi cakupan kejadian jadwal")
+		return
+	}
+	if lifecycle != "DRAFT" {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Konfirmasi TU hanya dapat dicatat pada teaching event DRAFT")
+		return
+	}
+
+	var roomExists bool
+	if err := tx.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM rooms WHERE id = ? AND status = 'ACTIVE')`, req.RoomID).Scan(&roomExists); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi ruangan")
+		return
+	}
+	if !roomExists {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan atau nonaktif")
+		return
+	}
+
+	if status == "CONFIRMED" {
+		loc, err := time.LoadLocation(timezone)
+		if err != nil {
+			loc = time.FixedZone("WIB", 7*60*60)
+		}
+		localStart := startsAt.Time.In(loc)
+		localEnd := endsAt.Time.In(loc)
+		dayOfWeek := int(localStart.Weekday())
+		if dayOfWeek == 0 {
+			dayOfWeek = 7
+		}
+		date := localStart.Format("2006-01-02")
+		var roomConflict bool
+		err = tx.QueryRowContext(r.Context(), `SELECT EXISTS(
+			SELECT 1 FROM teaching_events other
+			WHERE other.room_id = ? AND other.id <> ? AND other.lifecycle_status = 'PUBLISHED'
+			  AND other.starts_at < ? AND other.ends_at > ?
+			UNION ALL
+			SELECT 1 FROM schedule_patterns sp
+			WHERE sp.room_id = ? AND sp.status = 'ACTIVE' AND sp.day_of_week = ?
+			  AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+			  AND sp.start_time < ? AND sp.end_time > ?
+		)`, req.RoomID, eventID, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339),
+			req.RoomID, dayOfWeek, date, date, localEnd.Format("15:04"), localStart.Format("15:04")).Scan(&roomConflict)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa ketersediaan ruangan")
+			return
+		}
+		if roomConflict {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Ruangan tidak lagi tersedia pada rentang waktu kejadian")
+			return
+		}
+	}
+
+	var externalContact, note any
+	if req.ExternalContact != nil && strings.TrimSpace(*req.ExternalContact) != "" {
+		externalContact = strings.TrimSpace(*req.ExternalContact)
+	}
+	if req.Note != nil && strings.TrimSpace(*req.Note) != "" {
+		note = strings.TrimSpace(*req.Note)
+	}
+	var confirmedAt any
+	if status == "CONFIRMED" {
+		confirmedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 	res, err := tx.Exec(`
 		INSERT INTO room_confirmations (
 			teaching_event_id, room_id, confirmation_status, external_contact, note, recorded_by_user_id, recorded_at, confirmed_at
 		) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?);
-	`, eventID, req.RoomID, status, req.ExternalContact, req.Note, u.UserID, confirmedAt)
+	`, eventID, req.RoomID, status, externalContact, note, u.UserID, confirmedAt)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan konfirmasi ruangan: %v", err))

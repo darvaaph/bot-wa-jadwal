@@ -277,7 +277,7 @@
             <div class="mt-3">
               <h2 class="text-[17px] font-bold text-[#1D1B3A]">Kode Akses Diperlukan</h2>
               <p class="text-[12px] text-slate-500 mt-1 leading-relaxed">
-                Kelas <span class="font-semibold text-slate-800" x-text="selectedClass"></span> dilindungi kode akses. Masukkan 6 digit kode yang dibagikan KM di grup kelas.
+                Kelas <span class="font-semibold text-slate-800" x-text="selectedClass"></span> dilindungi kode akses. Masukkan kode yang dibagikan KM di grup kelas. Kode otomatis terdiri dari 8 digit; kode khusus dapat lebih panjang.
               </p>
             </div>
 
@@ -292,16 +292,18 @@
             <!-- PIN Input -->
             <div class="mt-4">
               <label for="gate-pin-input-compact" class="block text-[12px] font-semibold text-slate-700 mb-1">
-                Kode Akses 6-Digit <span class="text-[#FF6C48]">*</span>
+                Kode Akses <span class="text-[#FF6C48]">*</span>
               </label>
               <input id="gate-pin-input-compact"
                      type="text" 
                      x-model="pin" 
                      @keydown.enter="bukaPortal()"
-                     inputmode="numeric" 
-                     maxlength="6" 
-                     placeholder="2 4 8 1 6 9"
-                     class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[16px] font-mono tracking-[0.3em] text-center text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#3965FB] transition" />
+                     inputmode="text"
+                     minlength="6"
+                     maxlength="128"
+                     autocomplete="one-time-code"
+                     placeholder="Masukkan kode dari KM"
+                     class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[16px] font-mono text-center text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#3965FB] transition" />
               <p class="text-[10px] text-slate-400 mt-1 text-center">
                 Akses tersimpan otomatis selama 30 hari di peramban ini.
               </p>
@@ -310,7 +312,7 @@
             <!-- Submit PIN Button -->
             <button type="button" 
                     @click="bukaPortal()" 
-                    :disabled="loadingPin || pin.trim().length !== 6"
+                    :disabled="loadingPin || pin.trim().length < 6 || pin.trim().length > 128"
                     class="mt-4 w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
               <span x-show="loadingPin" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               <span x-text="loadingPin ? 'Memverifikasi...' : 'Verifikasi & Buka Portal'">Verifikasi & Buka Portal</span>

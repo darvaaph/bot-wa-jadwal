@@ -195,28 +195,15 @@ const BotApi = {
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data && json.data.length > 0) {
-          return json.data.map(item => this.mapTaskItem(item));
-        }
+        const items = Array.isArray(json.data) ? json.data : [];
+        return items.map(item => this.mapTaskItem(item));
       }
-    } catch (e) {}
-
-    // Fallback ke endpoint legacy /api/tasks?class=... (untuk portal publik tanpa auth)
-    try {
-      const classSlug = offeringId && !/^\d+$/.test(String(offeringId)) ? String(offeringId) : '';
-      const legRes = await fetch('/api/tasks?class=' + encodeURIComponent(classSlug), { credentials: 'same-origin' });
-      if (legRes.ok) {
-        const legJson = await legRes.json();
-        return (legJson.data || []).map(item => ({
-          id: item.id,
-          matkul: item.matkul,
-          deskripsi: item.deskripsi,
-          deadline: item.deadline,
-          is_done: !!item.is_done
-        }));
-      }
-    } catch (e) {}
-    return [];
+      const err = new Error('Daftar tugas gagal dimuat.');
+      err.status = res.status;
+      throw err;
+    } catch (e) {
+      throw e;
+    }
   },
 
   async createTask(payload) {
@@ -325,7 +312,7 @@ const BotApi = {
   },
 
   async getTaskReviews(taskId) {
-    // Tidak ada GET /api/v1/tasks/{id}/reviews — review ikut di GetTaskDetail.
+    // Tidak ada GET /api/v1/tasks/{id}/reviews â€” review ikut di GetTaskDetail.
     const d = await this.getTaskDetail(taskId).catch(() => null);
     if (!d) return [];
     if (Array.isArray(d)) return d;
@@ -333,7 +320,7 @@ const BotApi = {
   },
 
   async publishTask(taskId, version) {
-    // Tidak ada POST /api/v1/tasks/{id}/publish — publish via PATCH save_as=published.
+    // Tidak ada POST /api/v1/tasks/{id}/publish â€” publish via PATCH save_as=published.
     let v = version;
     if (!v) {
       const d = await this.getTaskDetail(taskId).catch(() => null);
@@ -713,12 +700,6 @@ const BotApi = {
     return (await res.json()).data || [];
   },
 
-  async getTeachingEventDetail(eventId) {
-    // Backend tidak punya GET detail — cari dari list.
-    const list = await this.getTeachingEvents().catch(() => null);
-    if (Array.isArray(list)) return list.find(e => String(e.id) === String(eventId)) || null;
-    return null;
-  },
 
   async previewTeachingEvent(eventId) {
     const res = await fetch('/api/v1/teaching-events/' + eventId + '/preview', {
@@ -837,6 +818,19 @@ const BotApi = {
     }
     const json = await res.json().catch(() => null);
     return (json && json.data) || [];
+  },
+
+  async getTeachingEvent(eventId) {
+    const res = await fetch('/api/v1/teaching-events/' + encodeURIComponent(eventId), {
+      headers: authHeaders(), credentials: 'same-origin'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Detail perubahan jadwal gagal dimuat.');
+      err.status = res.status;
+      throw err;
+    }
+    return json && json.data;
   },
 
   async getChannels(classSlug, status) {
@@ -1174,23 +1168,26 @@ const BotApi = {
     return await res.json();
   },
 
-  portalHeaders() {
+  portalHeaders(slug) {
     const headers = {};
     try {
       const savedToken = localStorage.getItem('portal_token');
       const savedClass = localStorage.getItem('portal_class');
-      if (savedToken && savedClass) headers['X-Portal-Token'] = savedToken;
+      if (savedToken && savedClass && (!slug || savedClass === slug)) headers['X-Portal-Token'] = savedToken;
     } catch (e) {}
     return headers;
   },
 
   // Jadwal efektif portal untuk satu tanggal (pola + perubahan terbit).
   // Mengembalikan {date, items} atau null bila kelas tak ditemukan / akses ditolak.
-  async getPortalSchedule(slug, dateStr) {
+  async getPortalSchedule(slug, dateStr, semesterId) {
     try {
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (dateStr ? '?date=' + encodeURIComponent(dateStr) : ''), {
+      const qs = new URLSearchParams();
+      if (dateStr) qs.set('date', dateStr);
+      if (semesterId) qs.set('semester_id', String(semesterId));
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
         credentials: 'same-origin',
-        headers: this.portalHeaders()
+        headers: this.portalHeaders(slug)
       });
       if (!res.ok) return null;
       const json = await res.json();
@@ -1204,7 +1201,7 @@ const BotApi = {
     try {
       const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/semesters', {
         credentials: 'same-origin',
-        headers: this.portalHeaders()
+        headers: this.portalHeaders(slug)
       });
       if (!res.ok) return [];
       const json = await res.json();
@@ -1215,7 +1212,7 @@ const BotApi = {
   },
 
   async getPortalTaskDetail(slug, taskId) {
-    const headers = this.portalHeaders();
+    const headers = this.portalHeaders(slug);
     const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks/' + encodeURIComponent(taskId), {
       credentials: 'same-origin',
       headers: headers
@@ -1234,11 +1231,13 @@ const BotApi = {
     return json.data || null;
   },
 
-  async getPortalMaterials(slug) {
+  async getPortalMaterials(slug, semesterId) {
     try {
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials', {
+      const qs = new URLSearchParams();
+      if (semesterId) qs.set('semester_id', String(semesterId));
+      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials' + (qs.toString() ? '?' + qs.toString() : ''), {
         credentials: 'same-origin',
-        headers: this.portalHeaders()
+        headers: this.portalHeaders(slug)
       });
       if (!res.ok) return [];
       const json = await res.json();
@@ -1248,7 +1247,7 @@ const BotApi = {
     }
   },
 
-  async getPortalTasks(slug, group) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
+  async getPortalTasks(slug, group, semesterId) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
     const g = valid.includes(group) ? group : '';
     const headers = {};
     try {
@@ -1256,7 +1255,10 @@ const BotApi = {
       const savedClass = localStorage.getItem('portal_class');
       if (savedToken && (!slug || savedClass === slug)) headers['X-Portal-Token'] = savedToken;
     } catch (e) {}
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (g ? '?group=' + g : ''), {
+    const qs = new URLSearchParams();
+    if (g) qs.set('group', g);
+    if (semesterId) qs.set('semester_id', String(semesterId));
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (qs.toString() ? '?' + qs.toString() : ''), {
       credentials: 'same-origin',
       headers: headers
     });
@@ -1304,23 +1306,19 @@ const BotApi = {
   },
 
   async getSchedule(slug, dateStr) {
-    try {
-      const res = await fetch('/api/schedule?class=' + encodeURIComponent(slug || '') + '&day=' + encodeURIComponent(dateStr || 'all'), { credentials: 'same-origin' });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) return json.data;
-      }
-    } catch (e) {}
-
-    // Fallback ke endpoint portal v1 (shape: {data:{items:[]}})
-    try {
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule?date=' + encodeURIComponent(dateStr || ''), { credentials: 'same-origin' });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && json.data.items) return json.data.items;
-      }
-    } catch (e) {}
-    return [];
+    const qs = new URLSearchParams();
+    if (dateStr && dateStr !== 'all') qs.set('date', dateStr);
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
+      credentials: 'same-origin',
+      headers: this.portalHeaders(slug)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Jadwal portal gagal dimuat.');
+      err.status = res.status;
+      throw err;
+    }
+    return (json && json.data && Array.isArray(json.data.items)) ? json.data.items : [];
   },
 
   async deleteTask(taskId, version) {
@@ -1328,8 +1326,13 @@ const BotApi = {
     return this.archiveTask(taskId, false, version);
   },
 
-  async getChanges(slug) {
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/changes', { credentials: 'same-origin' });
+  async getChanges(slug, semesterId) {
+    const qs = new URLSearchParams();
+    if (semesterId) qs.set('semester_id', String(semesterId));
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/changes' + (qs.toString() ? '?' + qs.toString() : ''), {
+      credentials: 'same-origin',
+      headers: this.portalHeaders(slug)
+    });
     if (!res.ok) return null;
     const json = await res.json();
     return json.data || null;
@@ -1354,6 +1357,34 @@ const BotApi = {
       setAuthToken(json.data.token);
     }
     return json.data;
+  },
+
+  async requestPasswordRecovery(identityKey) {
+    const res = await fetch('/api/v1/auth/recovery/request', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ identity_key: identityKey })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Permintaan pemulihan belum dapat diproses.');
+      err.status = res.status;
+      throw err;
+    }
+    return json && json.data;
+  },
+
+  async confirmPasswordRecovery(token, newPassword) {
+    const res = await fetch('/api/v1/auth/recovery/confirm', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ token: token, new_password: newPassword })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || 'Tautan pemulihan tidak valid atau sudah kedaluwarsa.');
+      err.status = res.status;
+      throw err;
+    }
+    return json && json.data;
   },
 
   async switchContext(roleAssignmentId) {

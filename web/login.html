@@ -144,17 +144,39 @@
       <template x-if="mode === 'lupa'">
         <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
           <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Lupa kata sandi?</h1>
-          <p class="text-[13px] text-slate-500 mt-1">Pemulihan mandiri via WhatsApp belum tersedia. Minta tautan undangan baru kepada Administrator atau KM kelas Anda untuk mengatur ulang akses.</p>
+          <p class="text-[13px] text-slate-500 mt-1">Kami akan mengirim tautan pemulihan ke WhatsApp akun jika identitas terdaftar dan bot sedang terhubung.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
-          <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50 text-[13px] text-slate-600">
-            <p class="font-semibold text-[#1F1F1F]">Cara mendapatkan akses kembali:</p>
-            <ol class="list-decimal ml-5 mt-2 space-y-1">
-              <li>Hubungi Administrator (untuk KM) atau KM kelas (untuk PJ).</li>
-              <li>Buka tautan undangan baru yang dikirim via WhatsApp.</li>
-              <li>Buat kata sandi baru di halaman aktivasi.</li>
-            </ol>
-            <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-4 w-full h-11 rounded-xl border border-[#EEEEEE] bg-white text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
+          <div x-show="!recoverySent" class="mt-5">
+            <label for="recovery-identity" class="block text-[14px] font-bold mb-1">Nomor WhatsApp</label>
+            <input id="recovery-identity" type="text" x-model="nomor" inputmode="tel" autocomplete="tel" placeholder="0812 3456 7890" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            <button type="button" @click="mintaPemulihan()" :disabled="loading" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Mengirim...' : 'Kirim tautan pemulihan'"></span></button>
           </div>
+          <div x-show="recoverySent" class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50 text-[13px] text-slate-600" role="status">
+            <p class="font-semibold text-[#1F1F1F]">Periksa WhatsApp Anda</p>
+            <p class="mt-1">Jika akun ditemukan dan bot terhubung, tautan pemulihan telah dikirim. Jika tidak masuk, hubungi System Admin untuk pemulihan manual.</p>
+          </div>
+          <button type="button" @click="mode = 'masuk'; formError = ''; recoverySent = false" class="mt-4 w-full h-11 rounded-xl border border-[#EEEEEE] bg-white text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
+        </div>
+      </template>
+
+      <template x-if="mode === 'reset'">
+        <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0">
+          <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Atur ulang kata sandi</h1>
+          <p class="text-[13px] text-slate-500 mt-1">Buat kata sandi baru minimal 12 karakter. Semua sesi lama akan dicabut.</p>
+          <p x-show="formError" class="mt-3 text-[13px] text-red-600" role="alert" x-text="formError">-</p>
+          <label for="recovery-password" class="block text-[14px] font-bold mt-5 mb-1">Kata sandi baru</label>
+          <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+          <label for="recovery-confirm" class="block text-[14px] font-bold mt-4 mb-1">Ulangi kata sandi</label>
+          <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password" @keydown.enter="aturUlangSandi()" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+          <button type="button" @click="aturUlangSandi()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Menyimpan...' : 'Simpan kata sandi baru'"></span></button>
+        </div>
+      </template>
+
+      <template x-if="mode === 'reset-selesai'">
+        <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0" role="status">
+          <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Kata sandi diperbarui</h1>
+          <p class="text-[13px] text-slate-500 mt-2">Silakan masuk kembali menggunakan kata sandi baru.</p>
+          <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium">Kembali ke halaman masuk</button>
         </div>
       </template>
     </div>

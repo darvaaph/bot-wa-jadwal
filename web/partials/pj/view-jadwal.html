@@ -32,6 +32,8 @@
     </div>
 
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+      <p x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</p>
+      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert"><span x-text="eventDetailError"></span><button type="button" @click="bukaDetail(selectedEvent)" class="ml-2 underline font-semibold">Coba lagi</button></div>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-[18px] font-semibold">Kalender mingguan</h2>
         <div class="flex items-center gap-3 text-[12px] text-slate-500">
@@ -357,6 +359,18 @@
           <span class="material-symbols-outlined text-[20px] shrink-0">meeting_room</span>
           <p>Ruangan <span class="font-semibold">perlu konfirmasi TU</span>. Catat konfirmasi manual sebelum menerbitkan bila ruangan diwajibkan.</p>
         </div>
+        <div x-show="roomCandsLoading" class="mt-3 py-4 text-center text-[13px] text-slate-500" role="status">Mencari kandidat ruangan...</div>
+        <div x-show="roomCands.length > 0" class="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <h3 class="text-[14px] font-semibold text-blue-900">Catat konfirmasi TU</h3>
+          <p class="mt-1 text-[12px] text-blue-800">Kandidat berasal dari data internal. Pilih hasil komunikasi aktual dengan TU sebelum menerbitkan.</p>
+          <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="block text-[12px] font-semibold mb-1">Ruangan</label><select x-model="roomConfirm.roomId" class="w-full h-11 rounded-xl border border-blue-200 bg-white px-3 text-[14px]"><option value="">Pilih kandidat</option><template x-for="r in roomCands" :key="r.id"><option :value="r.id" x-text="(r.code || r.name) + ' · kapasitas ' + r.capacity"></option></template></select></div>
+            <div><label class="block text-[12px] font-semibold mb-1">Status</label><select x-model="roomConfirm.status" class="w-full h-11 rounded-xl border border-blue-200 bg-white px-3 text-[14px]"><option value="PENDING">Menunggu TU</option><option value="CONFIRMED">Disetujui</option><option value="REJECTED">Ditolak</option></select></div>
+            <div><label class="block text-[12px] font-semibold mb-1">Kontak TU</label><input type="text" x-model="roomConfirm.name" placeholder="Nama atau unit TU" class="w-full h-11 rounded-xl border border-blue-200 bg-white px-3 text-[14px]" /></div>
+            <div><label class="block text-[12px] font-semibold mb-1">Catatan</label><input type="text" x-model="roomConfirm.note" placeholder="Hasil konfirmasi" class="w-full h-11 rounded-xl border border-blue-200 bg-white px-3 text-[14px]" /></div>
+          </div>
+          <button type="button" @click="catatKonfirmasiRuang()" :disabled="!roomConfirm.roomId" class="mt-3 h-11 rounded-xl bg-[#3965FB] px-4 text-[13px] font-semibold text-white disabled:opacity-60">Simpan konfirmasi</button>
+        </div>
         <div x-show="blockingConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-300">
           <p class="text-[14px] font-semibold text-red-800 flex items-center gap-1.5"><span class="material-symbols-outlined">block</span>Konflik pemblokir — penerbitan dinonaktifkan</p>
           <template x-for="(c, i) in blockingConflicts" :key="i">
@@ -407,6 +421,11 @@
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Keterangan</dt><dd x-text="selectedEvent.reason || '—'">-</dd></div>
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Versi</dt><dd class="font-mono" x-text="selectedEvent.version || '—'">-</dd></div>
       </dl>
+      <h3 class="text-[14px] font-semibold mt-4">Riwayat konfirmasi ruangan</h3>
+      <div class="mt-2 space-y-2">
+        <p x-show="!(selectedEvent.confirmations && selectedEvent.confirmations.length)" class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-500">Belum ada konfirmasi TU yang dicatat.</p>
+        <template x-for="c in (selectedEvent.confirmations || [])" :key="c.id"><div class="p-3 rounded-xl border border-[#EEEEEE] text-[13px]"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold" x-text="c.room || 'Ruangan'"></p><span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="c.confirmation_status"></span></div><p class="text-slate-500 mt-1" x-text="(c.external_contact || 'Kontak TU tidak dicatat') + (c.note ? ' · ' + c.note : '')"></p><p class="text-[11px] text-slate-400 mt-1" x-text="fmtWaktuID(c.recorded_at)"></p></div></template>
+      </div>
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
       <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
         <span class="material-symbols-outlined shrink-0">notifications</span>

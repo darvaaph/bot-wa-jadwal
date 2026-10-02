@@ -21,8 +21,10 @@
 |---|---|---|---|---|
 | `POST /api/v1/auth/login` | publik, rate-limit | `{identity_key, password}` | `{token, token_type:"Bearer", expires_at, assignments:[{id,role,class_slug,semester_id,offering_id}], need_context_choice:bool}` | 5 gagal/15 mnt → 429 + `login_attempts`; pesan gagal generik |
 | `POST /api/v1/auth/logout` | Bearer | `{}` | `{revoked:true}` | Cabut token aktif |
-| `GET /api/v1/auth/me` | Bearer | — | `{user, active_assignment, classes}` | Setiap halaman pengelola wajib panggil untuk tampilkan konteks aktif |
+| `GET /api/v1/auth/me` | Bearer | — | `{user, active_assignment, assignments:[{id,role,class_slug,semester_id,offering_id,offering_name}], classes}` | `assignments` hanya penugasan aktif dan masih berlaku milik pengguna; setiap halaman pengelola wajib panggil untuk tampilkan konteks aktif |
 | `POST /api/v1/auth/switch-context` | Bearer | `{role_assignment_id}` | `{token_baru, expires_at}` | Rotasi token, ganti konteks tanpa login ulang |
+| `POST /api/v1/auth/recovery/request` | publik, rate-limit | `{identity_key}` | `202 {message}` | Respons sama untuk identitas dikenal/tidak dikenal; token sekali pakai dikirim lewat WhatsApp dan diinvalkan bila pengiriman gagal |
+| `POST /api/v1/auth/recovery/confirm` | publik, rate-limit | `{token,new_password}` | `{password_reset:true}` | Token berlaku 1 jam dan sekali pakai; kata sandi minimal 12 karakter; seluruh sesi pengguna dicabut |
 | `GET /api/v1/classes` | Bearer KM/Admin atau portal-token | — | `{classes:[{slug,code,program,cohort,group,status}]}` | KM: kelas konteks aktif; Admin: seluruh kelas; portal-token: hanya kelas token; PJ ditolak |
 | `POST /api/v1/classes/:slug/portal-code/rotate` | KM kelas terkait/Admin | `{code?}` | `{portal_code,portal_code_version,portal_access_mode:"CODE",reveal_once:true}` | Tanpa `code`, server membuat kode 8 digit; kode hanya ditampilkan sekali; versi naik dan sesi lama dicabut atomik |
 | `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role: KM\|PJ\|SYSTEM_ADMIN, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; SYSTEM_ADMIN hanya oleh SA, tanpa kelas; kirim ulang → revoke lama |

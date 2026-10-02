@@ -9,6 +9,10 @@ function loginApp() {
     mode: 'masuk',
     nomor: '',
     sandi: '',
+    recoveryToken: '',
+    recoveryPassword: '',
+    recoveryConfirm: '',
+    recoverySent: false,
     lihat: false,
     formError: '',
     fieldError: '',
@@ -48,9 +52,53 @@ function loginApp() {
         const params = new URLSearchParams(window.location.search);
         const r = (params.get('role') || 'km').toLowerCase();
         if (['km', 'pj', 'sa'].includes(r)) this.role = r;
+        this.recoveryToken = params.get('recovery_token') || params.get('token') || '';
+        if (this.recoveryToken && (params.get('mode') === 'recovery' || params.has('recovery_token') || params.has('token'))) this.mode = 'reset';
         const host = (window.location.hostname || '').toLowerCase();
         this.showDemo = host === 'localhost' || host === '127.0.0.1' || host === '::1' || params.get('demo') === '1';
       } catch (e) { /* default km */ }
+    },
+
+    normalizedIdentity() {
+      let clean = this.nomor.trim().replace(/[-\s]/g, '');
+      if (clean.startsWith('08')) clean = '+62' + clean.slice(1);
+      else if (clean.startsWith('62')) clean = '+' + clean;
+      return clean;
+    },
+
+    async mintaPemulihan() {
+      this.formError = '';
+      if (!this.nomorValid()) {
+        this.formError = 'Masukkan nomor WhatsApp yang digunakan pada akun.';
+        return;
+      }
+      this.loading = true;
+      try {
+        await API.requestPasswordRecovery(this.normalizedIdentity());
+        this.recoverySent = true;
+      } catch (err) {
+        this.formError = err.status === 429 ? 'Terlalu banyak permintaan. Tunggu beberapa saat lalu coba lagi.' : (err.message || 'Permintaan pemulihan belum dapat diproses.');
+      } finally { this.loading = false; }
+    },
+
+    async aturUlangSandi() {
+      this.formError = '';
+      if (this.recoveryPassword.length < 12) {
+        this.formError = 'Kata sandi baru minimal 12 karakter.';
+        return;
+      }
+      if (this.recoveryPassword !== this.recoveryConfirm) {
+        this.formError = 'Konfirmasi kata sandi belum sama.';
+        return;
+      }
+      this.loading = true;
+      try {
+        await API.confirmPasswordRecovery(this.recoveryToken, this.recoveryPassword);
+        this.mode = 'reset-selesai';
+        window.history.replaceState({}, '', '/login.html?role=' + encodeURIComponent(this.role));
+      } catch (err) {
+        this.formError = err.message || 'Tautan pemulihan tidak valid atau sudah kedaluwarsa.';
+      } finally { this.loading = false; }
     },
 
     nomorValid() {
@@ -75,12 +123,7 @@ function loginApp() {
 
       this.loading = true;
       try {
-        let clean = this.nomor.trim().replace(/[-\s]/g, '');
-        if (clean.startsWith('08')) {
-          clean = '+62' + clean.slice(1);
-        } else if (clean.startsWith('62')) {
-          clean = '+' + clean;
-        }
+        const clean = this.normalizedIdentity();
 
         const data = await API.login(clean, this.sandi);
         this.showToast('Berhasil masuk. Mengarahkan...');

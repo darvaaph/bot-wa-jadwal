@@ -31,6 +31,8 @@
     </div>
 
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+      <p x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</p>
+      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert"><span x-text="eventDetailError"></span><button type="button" @click="bukaDetail(selectedEvent)" class="ml-2 underline font-semibold">Coba lagi</button></div>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Kalender mingguan</h2>
         <div class="flex items-center gap-3 text-[12px] text-slate-500">
@@ -475,7 +477,7 @@
         <p x-show="!(selectedEvent.participants && selectedEvent.participants.length)">Perubahan ini hanya berlaku di kelas pemilik. Jika ada kelas peserta, status persetujuan (menunggu, diterima, ditolak, dilepas) tampil di sini setelah server mengirim datanya.</p>
         <template x-if="selectedEvent.participants && selectedEvent.participants.length">
           <div class="space-y-2">
-            <template x-for="pt in selectedEvent.participants" :key="pt.course_offering_id || pt.id">
+            <template x-for="pt in selectedEvent.participants" :key="pt.offering_id || pt.course_offering_id || pt.id">
               <div class="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-white border border-[#EEEEEE]">
                 <span class="text-[13px] font-medium flex-1" x-text="pt.display_name || pt.offering || '—'">-</span>
                 <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="pt.participation_status || '—'">-</span>
@@ -486,6 +488,11 @@
             </template>
           </div>
         </template>
+      </div>
+      <h3 class="text-[14px] font-semibold mt-4">Riwayat konfirmasi ruangan</h3>
+      <div class="mt-2 space-y-2">
+        <p x-show="!(selectedEvent.confirmations && selectedEvent.confirmations.length)" class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-500">Belum ada konfirmasi TU yang dicatat.</p>
+        <template x-for="c in (selectedEvent.confirmations || [])" :key="c.id"><div class="p-3 rounded-xl border border-[#EEEEEE] text-[13px]"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold" x-text="c.room || 'Ruangan'"></p><span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="c.confirmation_status"></span></div><p class="text-slate-500 mt-1" x-text="(c.external_contact || 'Kontak TU tidak dicatat') + (c.note ? ' · ' + c.note : '')"></p><p class="text-[11px] text-slate-400 mt-1" x-text="fmtWaktuID(c.recorded_at)"></p></div></template>
       </div>
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
       <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
@@ -525,6 +532,7 @@
     <div>
       <label class="block text-[13px] font-medium mb-1">Status konfirmasi <span class="text-red-600">*</span></label>
       <select x-model="tuConfirm.form.status" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+        <option value="PENDING">Menunggu TU (PENDING)</option>
         <option value="CONFIRMED">Disetujui (CONFIRMED)</option>
         <option value="REJECTED">Ditolak (REJECTED)</option>
       </select>

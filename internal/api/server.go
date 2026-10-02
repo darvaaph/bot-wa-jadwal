@@ -15,6 +15,7 @@ import (
 	"bot-jadwal/internal/api/legacy"
 	"bot-jadwal/internal/api/middleware"
 	v1 "bot-jadwal/internal/api/v1"
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
@@ -122,6 +123,26 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	}
 
 	return s
+}
+
+// SetRecoverySender replaces the WhatsApp delivery adapter used by password
+// recovery. Production uses BotClient; tests may inject a deterministic fake.
+func (s *Server) SetRecoverySender(sender v1.RecoverySender) {
+	if s.authController != nil {
+		s.authController.SetRecoverySender(sender)
+	}
+}
+
+func (s *Server) configureRecovery() {
+	if s.authController == nil || s.v1DB == nil || len(s.authHashKey) < 32 {
+		return
+	}
+	service, err := auth.NewService(s.v1DB, auth.Config{HashKey: s.authHashKey})
+	if err != nil {
+		fmt.Printf("[Auth] gagal menginisialisasi pemulihan kata sandi: %v\n", err)
+		return
+	}
+	s.authController.ConfigureRecovery(service, s.botClient, s.publicBaseURL)
 }
 
 // Start menjalankan HTTP Server di background goroutine

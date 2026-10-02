@@ -26,6 +26,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 
 	// 1. Auth & Konteks (§1)
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/recovery/request", s.handleRequestRecovery)
+	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", s.handleConfirmRecovery)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
 	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
@@ -66,6 +68,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleDeleteV1Pattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
 	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEvents)))
+	mux.HandleFunc("GET /api/v1/teaching-events/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEventDetail)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1TeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePublishV1TeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRevokeV1TeachingEvent)))
@@ -90,7 +93,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 
 	// 7. Fitur Lanjutan v1.1+ (Ruangan, Notifikasi, Audit, Backup/Restore, Admin)
 	mux.HandleFunc("GET /api/v1/rooms/candidates", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetRoomCandidates)))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
+	mux.HandleFunc("POST /api/v1/teaching-events/{id}/room-confirmations", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateRoomConfirmation)))
 	mux.HandleFunc("GET /api/v1/notifications", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotifications)))
 	mux.HandleFunc("GET /api/v1/notifications/{id}/attempts", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetNotificationAttempts)))
 	mux.HandleFunc("POST /api/v1/notifications/{id}/retry", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRetryNotification)))
