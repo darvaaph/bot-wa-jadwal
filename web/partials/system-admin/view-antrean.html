@@ -1,34 +1,34 @@
 <!-- partials/system-admin/view-antrean.html - System Admin: Antrean Notifikasi -->
 <section x-show="view === 'antrean'" x-cloak class="min-w-0">
-  <div class="rounded-2xl md:rounded-[24px] border border-[#EEEEEE] bg-white p-3 sm:p-6 md:p-10 shadow-sm min-w-0 overflow-x-clip">
+  <div class="rounded-2xl md:rounded-[24px] border border-border bg-white p-3 sm:p-6 md:p-10 shadow-sm min-w-0 overflow-x-clip">
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div class="min-w-0">
-        <h1 class="text-[20px] sm:text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Antrean Notifikasi</h1>
-        <p class="text-[13px] md:text-[14px] text-[#667085] mt-0.5">Status pengiriman WhatsApp seluruh kelas. Publikasi web tidak menunggu antrean ini.</p>
+        <h1 class="text-[20px] sm:text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Antrean Notifikasi</h1>
+        <p class="text-[13px] md:text-[14px] text-muted mt-0.5">Status pengiriman WhatsApp seluruh kelas. Publikasi web tidak menunggu antrean ini.</p>
       </div>
       <p class="text-[11px] text-slate-500 font-mono self-center whitespace-nowrap" x-show="!notifLoading" x-text="'Menampilkan ' + filteredNotif().length + ' hasil · limit ' + notifLimit">-</p>
     </div>
     <div class="flex flex-col">
     <div class="mt-4 md:hidden order-1">
       <button type="button" @click="notifFilterOpen = !notifFilterOpen" :aria-expanded="notifFilterOpen" aria-controls="sa-notif-filter"
-        class="w-full h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold flex items-center justify-between min-h-[44px]">
+        class="w-full h-11 px-4 rounded-xl border border-border text-[13px] font-semibold flex items-center justify-between min-h-[44px]">
         <span>Filter <span x-show="notifFilterCount() > 0" x-text="'· ' + notifFilterCount() + ' aktif'"></span></span>
         <span aria-hidden="true" x-text="notifFilterOpen ? '▾' : '▸'"></span>
       </button>
     </div>
     <div x-show="notifFilterCount() > 0" class="mt-3 flex flex-wrap gap-2 order-2" aria-live="polite">
       <template x-for="c in notifChips()" :key="c.key">
-        <span class="inline-flex items-center gap-1 h-11 pl-4 pr-1 rounded-full border border-[#EEEEEE] bg-slate-50 text-[12px] min-h-[44px]">
+        <span class="inline-flex items-center gap-1 h-11 pl-4 pr-1 rounded-full border border-border bg-slate-50 text-[12px] min-h-[44px]">
           <span class="text-slate-500" x-text="c.label + ':'"></span>
           <span class="font-mono font-medium max-w-[160px] truncate" x-text="c.value"></span>
           <button type="button" @click="removeNotifChip(c.key)" :aria-label="'Hapus filter ' + c.label" class="w-11 h-11 rounded-full hover:bg-slate-200 font-bold min-w-[44px]">×</button>
         </span>
       </template>
-      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="h-11 px-4 rounded-full text-[12px] font-semibold text-[#3965FB] underline min-h-[44px]">Reset semua</button>
+      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="h-11 px-4 rounded-full text-[12px] font-semibold text-primary underline min-h-[44px]">Reset semua</button>
     </div>
     <div id="sa-notif-filter" :class="notifFilterOpen ? 'block' : 'hidden md:block'" class="mt-3 order-3">
       <div class="grid grid-cols-2 lg:flex gap-2">
-        <select x-model="notifFilter" @change="loadAntrean()" aria-label="Filter status pesan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white min-w-0 w-full lg:w-44">
+        <select x-model="notifFilter" @change="loadAntrean()" aria-label="Filter status pesan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white min-w-0 w-full lg:w-44">
           <option value="">Semua status</option>
           <option value="PENDING">Menunggu</option>
           <option value="PROCESSING">Diproses</option>
@@ -36,7 +36,7 @@
           <option value="FAILED">Gagal</option>
           <option value="CANCELLED">Dibatalkan</option>
         </select>
-        <select x-model="notifJenis" @change="loadAntrean()" aria-label="Filter jenis pesan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white min-w-0 w-full lg:w-44">
+        <select x-model="notifJenis" @change="loadAntrean()" aria-label="Filter jenis pesan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white min-w-0 w-full lg:w-44">
           <option value="">Semua jenis</option>
           <template x-for="j in notifJenisOptions()" :key="j">
             <option :value="j" x-text="j">-</option>
@@ -44,15 +44,15 @@
         </select>
         <div class="col-span-2 lg:col-span-1 flex gap-2">
           <button type="button" @click="notifAdvancedOpen = !notifAdvancedOpen" :aria-expanded="notifAdvancedOpen" aria-controls="sa-notif-advanced"
-            class="flex-1 lg:flex-none h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold min-h-[44px] whitespace-nowrap">
+            class="flex-1 lg:flex-none h-11 px-4 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] whitespace-nowrap">
             <span x-text="notifAdvancedOpen ? 'Tutup' : 'Lanjutan'"></span><span x-show="notifAdvancedCount() > 0" x-text="' · ' + notifAdvancedCount()"></span>
           </button>
         </div>
       </div>
-      <div id="sa-notif-advanced" x-show="notifAdvancedOpen" class="mt-2 p-3 rounded-2xl border border-[#EEEEEE] bg-slate-50/60 grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+      <div id="sa-notif-advanced" x-show="notifAdvancedOpen" class="mt-2 p-3 rounded-2xl border border-border bg-slate-50/60 grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
         <div class="min-w-0 col-span-2 lg:col-span-1">
           <label for="sa-notif-kelas" class="block text-[12px] font-semibold text-slate-500 mb-1">Kelas</label>
-          <select id="sa-notif-kelas" x-model="notifKelas" @change="loadAntrean()" aria-label="Filter kelas" class="w-full min-w-0 h-11 px-3 rounded-xl border border-[#EEEEEE] bg-white text-[13px]">
+          <select id="sa-notif-kelas" x-model="notifKelas" @change="loadAntrean()" aria-label="Filter kelas" class="w-full min-w-0 h-11 px-3 rounded-xl border border-border bg-white text-[13px]">
             <option value="">Semua kelas</option>
             <template x-for="opt in notifKelasOptions()" :key="opt.id">
               <option :value="opt.id" x-text="opt.label">-</option>
@@ -61,11 +61,11 @@
         </div>
         <div class="min-w-0">
           <label for="sa-notif-since" class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
-          <input id="sa-notif-since" type="datetime-local" x-model="notifSince" @change="loadAntrean()" aria-label="Filter sejak waktu" class="w-full min-w-0 h-11 px-2 sm:px-3 rounded-xl border border-[#EEEEEE] bg-white text-[13px]" />
+          <input id="sa-notif-since" type="datetime-local" x-model="notifSince" @change="loadAntrean()" aria-label="Filter sejak waktu" class="w-full min-w-0 h-11 px-2 sm:px-3 rounded-xl border border-border bg-white text-[13px]" />
         </div>
         <div class="min-w-0">
           <label for="sa-notif-until" class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
-          <input id="sa-notif-until" type="datetime-local" x-model="notifUntil" @change="loadAntrean()" aria-label="Filter sampai waktu" class="w-full min-w-0 h-11 px-2 sm:px-3 rounded-xl border border-[#EEEEEE] bg-white text-[13px]" />
+          <input id="sa-notif-until" type="datetime-local" x-model="notifUntil" @change="loadAntrean()" aria-label="Filter sampai waktu" class="w-full min-w-0 h-11 px-2 sm:px-3 rounded-xl border border-border bg-white text-[13px]" />
         </div>
         <div class="col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2">
           <p class="text-[11px] text-slate-400">Opsi kelas/jenis diambil dari data termuat (limit <span x-text="notifLimit"></span>).</p>
@@ -76,43 +76,43 @@
     </div>
     <p class="text-[11px] text-slate-400 mt-2">Filter diproses server dan langsung diterapkan. Detail memuat penerima, idempotensi, dan galat terakhir.</p>
 
-    <div x-show="notifLoading" class="p-12 text-center text-[#667085]">
-      <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+    <div x-show="notifLoading" class="p-12 text-center text-muted">
+      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       <p class="mt-3 text-[14px]">Memuat antrean notifikasi...</p>
     </div>
     <div x-show="notifError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
       <span x-text="notifError">-</span>
       <button type="button" @click="loadAntrean()" class="ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!notifLoading && !notifError && filteredNotif().length === 0" class="p-12 text-center text-[#667085] mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+    <div x-show="!notifLoading && !notifError && filteredNotif().length === 0" class="p-12 text-center text-muted mt-6 border border-dashed border-border rounded-2xl">
       <span class="material-symbols-outlined text-[36px] text-slate-300">mark_chat_read</span>
-      <p class="mt-2 text-[15px] font-semibold text-[#1F1F1F]">Antrean kosong</p>
-      <p class="text-[13px] text-[#667085] mt-0.5">Tidak ada pesan dengan filter yang dipilih.</p>
-      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="mt-3 h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+      <p class="mt-2 text-[15px] font-semibold text-ink">Antrean kosong</p>
+      <p class="text-[13px] text-muted mt-0.5">Tidak ada pesan dengan filter yang dipilih.</p>
+      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
     </div>
 
-    <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+    <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
       <template x-for="n in filteredNotif()" :key="n.id">
         <div class="py-4">
           <div class="flex flex-col md:flex-row md:items-center gap-2">
             <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal font-mono" x-text="'· ' + notifKelasLabel(n)">-</span></p>
-              <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
+              <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal font-mono" x-text="'· ' + notifKelasLabel(n)">-</span></p>
+              <p class="text-[12px] text-muted font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
               <p x-show="n.entity_type" class="text-[12px] text-slate-500 mt-0.5">Terkait: <span class="font-mono" x-text="(n.entity_type || '') + (n.entity_id ? ' #' + n.entity_id : '')"></span></p>
               <p class="text-[12px] text-slate-500 mt-0.5">Penerima: <span class="font-mono" x-text="notifPenerima(n)"></span></p>
               <p x-show="n.last_attempt_error" class="text-[12px] text-red-700 mt-0.5">Galat terakhir: <span x-text="n.last_attempt_error"></span></p>
             </div>
             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-[#E1FFB7] text-green-800' : (notifDapatDiulang(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')">
+              :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-success text-green-800' : (notifDapatDiulang(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')">
               <span class="material-symbols-outlined text-[14px]" x-text="String(n.status).toUpperCase() === 'SENT' ? 'check_circle' : (notifDapatDiulang(n.status) ? 'error' : 'pending')">-</span>
               <span x-text="statusNotifLabel(n.status)">-</span>
             </span>
             <div class="flex gap-2">
-              <button type="button" @click="toggleNotifDetail(n.id)" class="h-11 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup detail' : 'Detail'">Detail</button>
-              <button type="button" @click="ulangiPesan(n.id)" x-show="notifDapatDiulang(n.status)" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
+              <button type="button" @click="toggleNotifDetail(n.id)" class="h-11 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup detail' : 'Detail'">Detail</button>
+              <button type="button" @click="ulangiPesan(n.id)" x-show="notifDapatDiulang(n.status)" class="h-11 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
             </div>
           </div>
-          <div x-show="notifDetailId === n.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[12px] space-y-2">
+          <div x-show="notifDetailId === n.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border text-[12px] space-y-2">
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div><dt class="text-slate-500">Dijadwalkan</dt><dd class="font-mono" x-text="n.scheduled_at ? fmtWaktuID(n.scheduled_at) : '—'">-</dd></div>
               <div><dt class="text-slate-500">Percobaan</dt><dd class="font-mono" x-text="n.attempt_count || n.attempts || 0">-</dd></div>
@@ -121,10 +121,10 @@
             </dl>
             <details>
               <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi mentah (payload)</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-white border border-[#EEEEEE] overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(n.payload_json)"></pre>
+              <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(n.payload_json)"></pre>
             </details>
             <div>
-              <p class="text-[13px] font-semibold text-[#1F1F1F] mt-1">Riwayat percobaan</p>
+              <p class="text-[13px] font-semibold text-ink mt-1">Riwayat percobaan</p>
               <div x-show="notifAttemptsLoading" class="py-3 text-center text-[12px] text-slate-400">Memuat riwayat...</div>
               <div x-show="notifAttemptsError" class="mt-1 text-[12px] text-red-700"><span x-text="notifAttemptsError"></span>
                 <button type="button" @click="loadNotifAttempts(n.id)" class="ml-1 font-semibold underline">Coba lagi</button>
@@ -132,7 +132,7 @@
               <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="mt-1 text-[12px] text-slate-400">Belum ada percobaan tercatat.</div>
               <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="mt-2 space-y-1.5">
                 <template x-for="t in notifAttempts" :key="t.attempt_number">
-                  <div class="p-2.5 rounded-lg bg-white border border-[#EEEEEE]">
+                  <div class="p-2.5 rounded-lg bg-white border border-border">
                     <p class="font-mono font-semibold" x-text="'#' + t.attempt_number + ' · ' + (t.result || 'berjalan')">-</p>
                     <p class="font-mono text-slate-500 mt-0.5" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')">-</p>
                     <p x-show="t.error_message" class="text-red-700 mt-0.5" x-text="t.error_message">-</p>
@@ -141,14 +141,14 @@
                 </template>
               </div>
             </div>
-            <button type="button" @click="bukaAuditEntitas(n.entity_type)" x-show="n.entity_type" class="h-10 px-4 rounded-lg border border-[#EEEEEE] bg-white text-[12px] font-medium min-h-[44px]">Lihat di Audit Global</button>
+            <button type="button" @click="bukaAuditEntitas(n.entity_type)" x-show="n.entity_type" class="h-10 px-4 rounded-lg border border-border bg-white text-[12px] font-medium min-h-[44px]">Lihat di Audit Global</button>
           </div>
         </div>
       </template>
     </div>
     <div x-show="!notifLoading && !notifError && filteredNotif().length > 0" class="mt-4 text-center">
       <p class="text-[12px] text-slate-400 font-mono" x-text="'Menampilkan ' + filteredNotif().length + ' hasil' + (notifHasMore ? ' · masih ada data' : ' · semua data termuat')"></p>
-      <button type="button" x-show="notifHasMore" @click="loadAntreanMore()" :disabled="notifLoadingMore" class="mt-2 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="notifLoadingMore ? 'Memuat...' : 'Muat 50 lagi'"></button>
+      <button type="button" x-show="notifHasMore" @click="loadAntreanMore()" :disabled="notifLoadingMore" class="mt-2 h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="notifLoadingMore ? 'Memuat...' : 'Muat 50 lagi'"></button>
     </div>
   </div>
 </section>

@@ -3,21 +3,21 @@
   <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Materi</h1>
   <p class="text-[14px] text-slate-500 mt-1">Materi dan tautan kelas.</p>
   <div x-show="materiLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat materi...</div>
-  <div x-show="!materiLoading && materiList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+  <div x-show="!materiLoading && materiList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center">
     <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
     <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
     <p class="text-[13px] text-slate-500">Materi dari pengurus kelas akan muncul di sini.</p>
   </div>
   <div x-show="!materiLoading && materiList.length > 0" class="mt-4 space-y-4">
     <template x-for="g in materiGrup" :key="g.jenis">
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="p-5 rounded-2xl border border-border bg-white">
         <h2 class="text-[16px] font-semibold" x-text="g.jenis">-</h2>
-        <div class="mt-2 divide-y divide-[#EEEEEE]">
+        <div class="mt-2 divide-y divide-border">
           <template x-for="m in g.items" :key="m.id">
             <div class="py-3">
               <p class="text-[14px] font-medium" x-text="m.title">-</p>
               <p x-show="m.description" class="text-[12px] text-slate-500 mt-0.5" x-text="m.description">-</p>
-              <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer" class="text-[13px] text-[#3965FB] font-medium hover:underline break-all" x-text="m.url">-</a>
+              <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-medium hover:underline break-all" x-text="m.url">-</a>
             </div>
           </template>
         </div>

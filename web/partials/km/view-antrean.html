@@ -1,35 +1,35 @@
 <!-- partials/km/view-antrean.html — KM Perlu Review (SCR-TASK-005) -->
 <section x-show="view === 'antrean'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Perlu Review</h1>
+  <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Perlu Review</h1>
   <p class="text-[14px] text-slate-500 mt-1">Tugas terbit yang perlu diperiksa KM. Publikasi awal tidak terhambat.</p>
   <div x-show="reviewConflict" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
     <p class="font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Ada perubahan yang lebih baru</p>
     <p class="mt-1">Versi tugas berubah saat ditinjau. Keputusan tidak diterapkan.</p>
     <button type="button" @click="muatUlangAntrean()" class="mt-2 h-11 px-4 rounded-xl border border-amber-600 text-[13px] font-semibold min-h-[44px]">Muat Versi Terbaru</button>
   </div>
-  <div x-show="antrean.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center">
+  <div x-show="antrean.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center">
     <span class="material-symbols-outlined text-[36px] text-emerald-600">fact_check</span>
     <p class="text-[15px] font-semibold mt-2">Antrean kosong</p>
     <p class="text-[13px] text-slate-500" x-text="tasks.length === 0 ? 'Belum ada tugas terbit. Tugas PJ yang perlu diperiksa tampil di sini.' : 'Semua ' + tasks.length + ' tugas sudah diperiksa.'">-</p>
   </div>
   <div class="mt-4 space-y-3">
     <template x-for="t in antrean" :key="t.id">
-      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="p-4 rounded-2xl border border-border bg-white">
         <button type="button" @click="bukaDetailTugas(t.id)" class="w-full text-left">
           <p class="text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</p>
           <p class="text-[12px] text-slate-500" x-text="t.matkul + ' • ' + t.deadline">-</p>
           <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="'Versi ' + t.version">-</p>
         </button>
         <div x-show="reviewId !== t.id" class="flex flex-wrap gap-2 mt-3">
-          <button type="button" @click="setujuiTugas(t.id)" class="h-10 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Setujui</button>
+          <button type="button" @click="setujuiTugas(t.id)" class="h-10 px-4 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Setujui</button>
           <button type="button" @click="reviewId = t.id; reviewMode = 'koreksi'" class="h-10 px-4 rounded-xl border border-amber-400 text-amber-800 text-[13px] font-semibold min-h-[44px]">Minta koreksi</button>
           <button type="button" @click="reviewId = t.id; reviewMode = 'batal'" class="h-10 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-semibold min-h-[44px]">Batalkan</button>
         </div>
         <div x-show="reviewId === t.id" class="mt-3 space-y-2">
-          <textarea x-model="reviewNote" rows="2" placeholder="Catatan wajib untuk koreksi/pembatalan..." class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#3965FB] resize-none"></textarea>
+          <textarea x-model="reviewNote" rows="2" placeholder="Catatan wajib untuk koreksi/pembatalan..." class="w-full p-3 rounded-xl border border-border text-[13px] focus:outline-none focus:ring-2 focus:ring-primary resize-none"></textarea>
           <div class="flex gap-2">
-            <button type="button" @click="kirimReview(t.id)" class="h-10 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Kirim keputusan</button>
-            <button type="button" @click="reviewId = null" class="h-10 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+            <button type="button" @click="kirimReview(t.id)" class="h-10 px-4 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Kirim keputusan</button>
+            <button type="button" @click="reviewId = null" class="h-10 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
           </div>
         </div>
       </div>

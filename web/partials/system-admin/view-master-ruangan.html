@@ -1,41 +1,41 @@
 <!-- partials/system-admin/view-master-ruangan.html - System Admin: Master Ruangan -->
 <section x-show="view === 'master-ruangan'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',system-ui,sans-serif">Master Ruangan</h1>
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',system-ui,sans-serif">Master Ruangan</h1>
     <p class="text-[14px] text-slate-500 mt-1">Daftar seluruh ruangan kuliah. Kode tidak dapat diubah. Ruangan nonaktif tak dipakai untuk jadwal baru; referensi lama tetap tampil.</p>
 
-    <div class="mt-6 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
-      <h2 class="text-[16px] font-bold text-[#1F1F1F]">Tambah Ruangan Baru</h2>
+    <div class="mt-6 p-5 rounded-2xl border border-border bg-slate-50/60">
+      <h2 class="text-[16px] font-bold text-ink">Tambah Ruangan Baru</h2>
       <div x-show="ruangFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ruangFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3">
         <div>
-          <label for="sa-ruang-kode" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kode *</label>
-          <input id="sa-ruang-kode" type="text" x-model="ruangForm.kode" placeholder="R-101" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white font-mono" />
+          <label for="sa-ruang-kode" class="block text-[12px] font-semibold text-ink mb-1">Kode *</label>
+          <input id="sa-ruang-kode" type="text" x-model="ruangForm.kode" placeholder="R-101" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white font-mono" />
         </div>
         <div>
-          <label for="sa-ruang-nama" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Nama</label>
-          <input id="sa-ruang-nama" type="text" x-model="ruangForm.nama" placeholder="Nama ruangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <label for="sa-ruang-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama</label>
+          <input id="sa-ruang-nama" type="text" x-model="ruangForm.nama" placeholder="Nama ruangan" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
-          <label for="sa-ruang-gedung" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Gedung</label>
-          <input id="sa-ruang-gedung" type="text" x-model="ruangForm.gedung" placeholder="Gedung" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <label for="sa-ruang-gedung" class="block text-[12px] font-semibold text-ink mb-1">Gedung</label>
+          <input id="sa-ruang-gedung" type="text" x-model="ruangForm.gedung" placeholder="Gedung" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
-          <label for="sa-ruang-tipe" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Tipe</label>
-          <input id="sa-ruang-tipe" type="text" x-model="ruangForm.tipe" placeholder="Lab/Teori" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <label for="sa-ruang-tipe" class="block text-[12px] font-semibold text-ink mb-1">Tipe</label>
+          <input id="sa-ruang-tipe" type="text" x-model="ruangForm.tipe" placeholder="Lab/Teori" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
-          <label for="sa-ruang-kapasitas" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kapasitas</label>
-          <input id="sa-ruang-kapasitas" type="number" x-model="ruangForm.kapasitas" placeholder="0" min="0" step="1" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <label for="sa-ruang-kapasitas" class="block text-[12px] font-semibold text-ink mb-1">Kapasitas</label>
+          <input id="sa-ruang-kapasitas" type="number" x-model="ruangForm.kapasitas" placeholder="0" min="0" step="1" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
       </div>
-      <button type="button" @click="tambahRuang()" class="mt-3 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px]">Tambah Ruangan</button>
+      <button type="button" @click="tambahRuang()" class="mt-3 h-11 px-6 rounded-xl bg-primary text-white text-[14px] font-semibold min-h-[44px]">Tambah Ruangan</button>
     </div>
 
     <!-- Cari + filter status -->
     <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <input type="text" x-model="ruangQ" placeholder="Cari kode, nama, gedung..." aria-label="Cari ruangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white sm:col-span-2" />
-      <select x-model="ruangStatusFilter" @change="loadRuang()" aria-label="Filter status ruangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+      <input type="text" x-model="ruangQ" placeholder="Cari kode, nama, gedung..." aria-label="Cari ruangan" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white sm:col-span-2" />
+      <select x-model="ruangStatusFilter" @change="loadRuang()" aria-label="Filter status ruangan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white">
         <option value="">Semua status</option>
         <option value="ACTIVE">Aktif</option>
         <option value="INACTIVE">Nonaktif</option>
@@ -43,15 +43,15 @@
     </div>
 
     <div x-show="ruangLoading" class="p-12 text-center text-slate-500">
-      <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       <p class="mt-3 text-[14px]">Memuat daftar ruangan...</p>
     </div>
     <div x-show="ruangError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
       <span x-text="ruangError">-</span>
       <button type="button" @click="loadRuang()" class="ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!ruangLoading && !ruangError && filteredRuang().length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
-      <p class="text-[15px] font-semibold text-[#1F1F1F]">Tidak ada ruangan</p>
+    <div x-show="!ruangLoading && !ruangError && filteredRuang().length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
+      <p class="text-[15px] font-semibold text-ink">Tidak ada ruangan</p>
       <p class="text-[13px] mt-0.5">Ubah pencarian/filter, atau tambahkan ruangan pertama di atas.</p>
     </div>
 
@@ -59,7 +59,7 @@
     <div x-show="!ruangLoading && filteredRuang().length > 0" class="mt-6 overflow-x-auto hidden md:block">
       <table class="w-full text-[13px] min-w-[720px]">
         <thead>
-          <tr class="text-left text-slate-500 border-b border-[#EEEEEE]">
+          <tr class="text-left text-slate-500 border-b border-border">
             <th class="py-2 pr-3 font-semibold">Kode</th>
             <th class="py-2 pr-3 font-semibold">Nama</th>
             <th class="py-2 pr-3 font-semibold">Gedung</th>
@@ -69,7 +69,7 @@
             <th class="py-2 font-semibold text-right">Aksi</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-[#EEEEEE]">
+        <tbody class="divide-y divide-border">
           <template x-for="r in filteredRuang()" :key="r.id">
             <tr>
               <td class="py-3 pr-3 font-mono font-semibold" x-text="r.code">-</td>
@@ -79,14 +79,14 @@
               <td class="py-3 pr-3" x-text="(r.capacity ?? '') === '' ? '—' : r.capacity">-</td>
               <td class="py-3 pr-3">
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
-                  :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500'">
+                  :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'">
                   <span class="material-symbols-outlined text-[12px]">meeting_room</span>
                   <span x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
                 </span>
               </td>
               <td class="py-3 text-right whitespace-nowrap">
-                <button type="button" @click="mulaiUbahRuang(r)" class="h-10 px-3 rounded-lg border border-[#3965FB] text-[#3965FB] text-[12px] font-semibold min-h-[44px]">Ubah</button>
-                <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="h-10 px-3 rounded-lg border border-[#EEEEEE] text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+                <button type="button" @click="mulaiUbahRuang(r)" class="h-10 px-3 rounded-lg border border-primary text-primary text-[12px] font-semibold min-h-[44px]">Ubah</button>
+                <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="h-10 px-3 rounded-lg border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
               </td>
             </tr>
           </template>
@@ -97,11 +97,11 @@
     <!-- Mobile: daftar berlabel -->
     <div x-show="!ruangLoading && filteredRuang().length > 0" class="mt-6 space-y-3 md:hidden">
       <template x-for="r in filteredRuang()" :key="r.id">
-        <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="p-4 rounded-2xl border border-border bg-white">
           <div class="flex items-start justify-between gap-2">
             <p class="font-mono font-bold text-[15px]" x-text="r.code">-</p>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
-              :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500'"
+              :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
               x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
           </div>
           <dl class="mt-2 text-[13px] space-y-1">
@@ -111,75 +111,75 @@
             <div class="flex gap-2"><dt class="w-20 shrink-0 text-slate-500">Kapasitas</dt><dd class="flex-1" x-text="(r.capacity ?? '') === '' ? '—' : r.capacity">-</dd></div>
           </dl>
           <div class="mt-3 flex gap-2">
-            <button type="button" @click="mulaiUbahRuang(r)" class="flex-1 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Ubah</button>
-            <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] text-[13px] font-medium min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+            <button type="button" @click="mulaiUbahRuang(r)" class="flex-1 h-11 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Ubah</button>
+            <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="flex-1 h-11 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
           </div>
         </div>
       </template>
     </div>
 
     <!-- Panel ubah -->
-    <div x-show="ruangEdit" x-cloak class="mt-6 p-5 rounded-2xl border border-[#3965FB]/40 bg-[#E9EAFF]/30">
-      <h2 class="text-[15px] font-bold text-[#1F1F1F]">Ubah ruangan <span class="font-mono" x-text="ruangEdit ? ruangEdit.kode : ''"></span></h2>
+    <div x-show="ruangEdit" x-cloak class="mt-6 p-5 rounded-2xl border border-primary/40 bg-primary-soft/30">
+      <h2 class="text-[15px] font-bold text-ink">Ubah ruangan <span class="font-mono" x-text="ruangEdit ? ruangEdit.kode : ''"></span></h2>
       <p class="text-[12px] text-slate-500 mt-0.5">Kode tidak dapat diubah.</p>
       <div x-show="ruangEditError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ruangEditError"></div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
         <div>
           <label for="sa-ruang-ubah-nama" class="block text-[12px] font-semibold mb-1">Nama</label>
-          <input id="sa-ruang-ubah-nama" type="text" x-model="ruangEdit.nama" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <input id="sa-ruang-ubah-nama" type="text" x-model="ruangEdit.nama" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
           <label for="sa-ruang-ubah-gedung" class="block text-[12px] font-semibold mb-1">Gedung</label>
-          <input id="sa-ruang-ubah-gedung" type="text" x-model="ruangEdit.gedung" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <input id="sa-ruang-ubah-gedung" type="text" x-model="ruangEdit.gedung" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
           <label for="sa-ruang-ubah-tipe" class="block text-[12px] font-semibold mb-1">Tipe</label>
-          <input id="sa-ruang-ubah-tipe" type="text" x-model="ruangEdit.tipe" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <input id="sa-ruang-ubah-tipe" type="text" x-model="ruangEdit.tipe" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
         <div>
           <label for="sa-ruang-ubah-kapasitas" class="block text-[12px] font-semibold mb-1">Kapasitas</label>
-          <input id="sa-ruang-ubah-kapasitas" type="number" x-model="ruangEdit.kapasitas" min="0" step="1" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
+          <input id="sa-ruang-ubah-kapasitas" type="number" x-model="ruangEdit.kapasitas" min="0" step="1" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
         </div>
       </div>
       <div class="flex gap-2 mt-3">
-        <button type="button" @click="simpanUbahRuang()" class="h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Simpan</button>
-        <button type="button" @click="batalUbahRuang()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+        <button type="button" @click="simpanUbahRuang()" class="h-11 px-6 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Simpan</button>
+        <button type="button" @click="batalUbahRuang()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
       </div>
     </div>
 
     <!-- Usulan KM menunggu -->
     <div class="mt-8">
       <div class="flex items-center justify-between gap-3">
-        <h2 class="text-[16px] font-bold text-[#1F1F1F]">Usulan KM menunggu</h2>
-        <button type="button" @click="loadUsulan('ROOM')" class="h-10 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+        <h2 class="text-[16px] font-bold text-ink">Usulan KM menunggu</h2>
+        <button type="button" @click="loadUsulan('ROOM')" class="h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
       </div>
       <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
       <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="usulanError">-</span>
         <button type="button" @click="loadUsulan('ROOM')" class="ml-2 font-semibold underline">Coba Lagi</button>
       </div>
-      <div x-show="!usulanLoading && !usulanError && usulanKindList('ROOM').length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">Tidak ada usulan ruangan menunggu.</div>
+      <div x-show="!usulanLoading && !usulanError && usulanKindList('ROOM').length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Tidak ada usulan ruangan menunggu.</div>
       <div x-show="!usulanLoading && usulanKindList('ROOM').length > 0" class="mt-3 space-y-3">
         <template x-for="u in usulanKindList('ROOM')" :key="u.id">
           <div class="p-4 rounded-2xl border border-amber-300 bg-amber-50/40">
-            <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="u.target_code || 'Ruangan baru'">-</span> <span class="font-normal text-slate-500" x-text="'· ' + u.class_slug">-</span></p>
+            <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="u.target_code || 'Ruangan baru'">-</span> <span class="font-normal text-slate-500" x-text="'· ' + u.class_slug">-</span></p>
             <p class="text-[12px] text-slate-500 mt-0.5">Oleh <span x-text="u.proposed_by">-</span><span x-show="u.note" x-text="' · ' + u.note"></span></p>
             <details class="mt-1 text-[11px] text-slate-500">
               <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi usulan</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-white border border-[#EEEEEE] overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(u.payload_json)"></pre>
+              <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(u.payload_json)"></pre>
             </details>
             <div class="flex gap-2 mt-2">
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="h-10 px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold min-h-[44px]">Setujui</button>
+              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="h-10 px-4 rounded-lg bg-primary text-white text-[12px] font-semibold min-h-[44px]">Setujui</button>
               <button type="button" @click="mulaiKeputusanUsulan(u, 'reject')" class="h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
             </div>
-            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="mt-3 p-4 rounded-xl bg-white border border-[#EEEEEE]">
+            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="mt-3 p-4 rounded-xl bg-white border border-border">
               <p class="text-[13px] font-semibold" x-text="(usulanKeputusan.keputusan === 'approve' ? 'Setujui ' : 'Tolak ') + usulanKeputusan.judul">-</p>
               <p x-show="usulanKeputusan.keputusan === 'approve'" class="text-[12px] text-slate-500 mt-1">Diterapkan ke master dan tercatat di Audit Global.</p>
               <label :for="'sa-usulan-catatan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Catatan <span x-show="usulanKeputusan.keputusan === 'reject'" class="text-red-600">*</span></label>
               <div class="flex flex-col sm:flex-row gap-2">
-                <input :id="'sa-usulan-catatan-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
-                <button type="button" @click="jalankanKeputusanUsulan()" class="h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-                <button type="button" @click="usulanKeputusan = null" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+                <input :id="'sa-usulan-catatan-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="flex-1 h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
+                <button type="button" @click="jalankanKeputusanUsulan()" class="h-11 px-5 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                <button type="button" @click="usulanKeputusan = null" class="h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
               </div>
             </div>
           </div>
@@ -190,13 +190,13 @@
     <!-- Dialog konfirmasi status -->
     <div x-show="ruangStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiStatusRuang()"></div>
-      <div class="relative bg-white rounded-2xl border border-[#EEEEEE] max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status ruangan">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Ubah status ruangan?</h3>
-        <p class="text-[13px] text-[#667085] mt-1">Ruangan <span class="font-mono font-semibold text-[#1F1F1F]" x-text="ruangStatusConfirm ? ruangStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="ruangStatusConfirm ? ruangStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="ruangStatusConfirm ? ruangStatusConfirm.ke : ''"></span>.</p>
+      <div class="relative bg-white rounded-2xl border border-border max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status ruangan">
+        <h3 class="text-[16px] font-bold text-ink">Ubah status ruangan?</h3>
+        <p class="text-[13px] text-muted mt-1">Ruangan <span class="font-mono font-semibold text-ink" x-text="ruangStatusConfirm ? ruangStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="ruangStatusConfirm ? ruangStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="ruangStatusConfirm ? ruangStatusConfirm.ke : ''"></span>.</p>
         <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah pemakaian untuk jadwal baru. Referensi pada jadwal lama tetap tampil.</p>
         <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatusRuang()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatusRuang()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+          <button type="button" @click="jalankanUbahStatusRuang()" class="flex-1 h-11 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiStatusRuang()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
     </div>

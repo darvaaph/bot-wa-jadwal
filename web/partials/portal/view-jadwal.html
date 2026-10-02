@@ -5,7 +5,7 @@
   <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Filter hari">
     <template x-for="d in ['Senin','Selasa','Rabu','Kamis','Jumat']" :key="d">
       <button type="button" @click="pilihHari(d)" role="tab" :aria-selected="hari === d" x-text="d + (tanggalPekan[d] ? ' ' + tanggalPekan[d].slice(8, 10) : '')"
-        :class="hari === d ? 'bg-[#3965FB] text-white font-semibold' : 'bg-slate-50 text-slate-600'"
+        :class="hari === d ? 'bg-primary text-white font-semibold' : 'bg-slate-50 text-slate-600'"
         class="px-4 py-2.5 rounded-xl text-[13px] font-medium whitespace-nowrap min-h-[44px]">-</button>
     </template>
   </div>
@@ -16,16 +16,16 @@
   </div>
   <div class="mt-4 space-y-3">
     <template x-for="s in jadwalHari" :key="s.id">
-      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="p-4 rounded-2xl border border-border bg-white">
         <div class="flex items-center justify-between gap-2">
-          <span class="font-mono text-[13px] font-bold text-[#3965FB]" x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">-</span>
+          <span class="font-mono text-[13px] font-bold text-primary" x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">-</span>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border shrink-0" :class="badgeJadwal(s.kind).cls"><span class="material-symbols-outlined text-[12px]" x-text="badgeJadwal(s.kind).icon">-</span><span x-text="badgeJadwal(s.kind).label">-</span></span>
         </div>
         <p class="text-[16px] font-bold mt-1" x-text="s.matkul">-</p>
         <p class="text-[12px] text-slate-500 mt-0.5" x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang || '')">-</p>
-        <a x-show="s.link" :href="s.link" target="_blank" rel="noopener noreferrer" class="mt-1.5 inline-flex items-center gap-1 text-[12px] text-[#3965FB] font-semibold hover:underline min-h-[44px]"><span class="material-symbols-outlined text-[16px]">videocam</span>Gabung kelas daring</a>
+        <a x-show="s.link" :href="s.link" target="_blank" rel="noopener noreferrer" class="mt-1.5 inline-flex items-center gap-1 text-[12px] text-primary font-semibold hover:underline min-h-[44px]"><span class="material-symbols-outlined text-[16px]">videocam</span>Gabung kelas daring</a>
       </div>
     </template>
-    <div x-show="!jadwalLoading && !jadwalError && jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>
+    <div x-show="!jadwalLoading && !jadwalError && jadwalHari.length === 0" class="p-10 rounded-2xl border border-dashed border-border bg-white text-center text-[13px] text-slate-400">Tidak ada sesi pada hari ini.</div>
   </div>
 </section>

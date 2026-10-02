@@ -17,7 +17,7 @@
   <nav aria-label="Navigasi mobile System Admin" class="mt-6 flex flex-col gap-0.5 text-[14px]">
     <template x-for="item in saNav" :key="item.id">
       <button type="button" @click="go(item.id)"
-        :class="view === item.id ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+        :class="view === item.id ? 'bg-primary-soft text-primary font-semibold' : 'text-ink'"
         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
         <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
       </button>
@@ -26,7 +26,7 @@
   <div class="mt-auto pt-4 text-[13px] px-2">
     <label x-show="contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-slate-500">
       Ruang kerja
-      <select :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="mt-1 w-full min-h-[44px] rounded-xl border border-[#EEEEEE] bg-white px-2 text-[12px] text-[#1F1F1F] focus:outline-none focus:ring-2 focus:ring-[#3965FB] disabled:opacity-60">
+      <select :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="mt-1 w-full min-h-[44px] rounded-xl border border-border bg-white px-2 text-[12px] text-ink focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60">
         <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
       </select>
     </label>

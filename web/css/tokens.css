@@ -1,0 +1,102 @@
+/* Identitas visual dan ukuran bersama. Lihat DESIGN.md. */
+:root {
+  --primary: #3965FB;
+  --primary-hover: #2f54d6;
+  --primary-soft: #E9EAFF;
+  --primary-faint: #EEF2FF;
+  --ink: #1F1F1F;
+  --deep-ink: #1D1B3A;
+  --muted: #667085;
+  --border: #EEEEEE;
+  --surface: #FFFFFF;
+  --surface-subtle: #F6F7FB;
+  --canvas: #F8FAFC;
+  --canvas-blue: #F8FAFF;
+  --danger: #FF6C48;
+  --danger-strong: #E53935;
+  --success: #E1FFB7;
+  --success-border: #d3f5a0;
+  --warning-soft: #FCD484;
+  --illustration-blue: #9AB7FD;
+  --illustration-mint: #C9F5E9;
+  --illustration-gold: #FDE5A8;
+  --illustration-lilac: #E5D5FF;
+  --illustration-royal: #7192F8;
+  --text: var(--ink);
+  --focus: var(--primary-hover);
+  --disabled: #98A2B3;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-sm: .5rem;
+  --radius-md: .75rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / .05);
+  --shadow-card: 0 8px 24px rgb(15 23 42 / .08);
+  --type-xs: .75rem;
+  --type-sm: .875rem;
+  --type-base: 1rem;
+  --type-lg: 1.25rem;
+  --type-xl: 1.5rem;
+  --type-2xl: 2rem;
+  --leading-body: 1.5;
+  --leading-heading: 1.25;
+}
+
+/* Kelas warna semantik dipakai oleh HTML dan string kelas Alpine/JS. */
+.accent-primary { accent-color: var(--primary); }
+.bg-canvas { background-color: var(--canvas); }
+.bg-canvas-blue { background-color: var(--canvas-blue); }
+.bg-danger { background-color: var(--danger); }
+.bg-danger-strong { background-color: var(--danger-strong); }
+.bg-deep-ink { background-color: var(--deep-ink); }
+.bg-ink { background-color: var(--ink); }
+.bg-primary { background-color: var(--primary); }
+.bg-primary-faint { background-color: var(--primary-faint); }
+.bg-primary-soft { background-color: var(--primary-soft); }
+.bg-primary-soft\/30 { background-color: color-mix(in srgb, var(--primary-soft) 30%, transparent); }
+.bg-primary-soft\/50 { background-color: color-mix(in srgb, var(--primary-soft) 50%, transparent); }
+.bg-primary-soft\/60 { background-color: color-mix(in srgb, var(--primary-soft) 60%, transparent); }
+.bg-success { background-color: var(--success); }
+.bg-success\/60 { background-color: color-mix(in srgb, var(--success) 60%, transparent); }
+.bg-surface-subtle { background-color: var(--surface-subtle); }
+.bg-warning-soft { background-color: var(--warning-soft); }
+.bg-warning-soft\/60 { background-color: color-mix(in srgb, var(--warning-soft) 60%, transparent); }
+.border-border { border-color: var(--border); }
+.border-illustration-blue { border-color: var(--illustration-blue); }
+.border-l-primary { border-left-color: var(--primary); }
+.border-primary { border-color: var(--primary); }
+.border-primary\/20 { border-color: color-mix(in srgb, var(--primary) 20%, transparent); }
+.border-primary\/25 { border-color: color-mix(in srgb, var(--primary) 25%, transparent); }
+.border-primary\/30 { border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+.border-primary\/40 { border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.border-success-border { border-color: var(--success-border); }
+.border-t-primary { border-top-color: var(--primary); }
+.disabled\:hover\:border-border:disabled:hover { border-color: var(--border); }
+.divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
+.file\:border-border::file-selector-button { border-color: var(--border); }
+.focus-visible\:outline-primary:focus-visible { outline-color: var(--primary); }
+.focus\:ring-primary:focus { --tw-ring-color: var(--primary); }
+.group:hover .group-hover\:bg-primary { background-color: var(--primary); }
+.group:hover .group-hover\:text-primary { color: var(--primary); }
+.hover\:bg-primary-hover:hover { background-color: var(--primary-hover); }
+.hover\:bg-primary-soft:hover { background-color: var(--primary-soft); }
+.hover\:border-illustration-blue:hover { border-color: var(--illustration-blue); }
+.hover\:border-primary:hover { border-color: var(--primary); }
+.hover\:border-primary\/40:hover { border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.hover\:border-primary\/50:hover { border-color: color-mix(in srgb, var(--primary) 50%, transparent); }
+.hover\:text-primary:hover { color: var(--primary); }
+.ring-primary { --tw-ring-color: var(--primary); }
+.ring-primary\/30 { --tw-ring-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+.ring-primary\/40 { --tw-ring-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.text-danger { color: var(--danger); }
+.text-deep-ink { color: var(--deep-ink); }
+.text-ink { color: var(--ink); }
+.text-muted { color: var(--muted); }
+.text-primary { color: var(--primary); }
+.text-primary\/80 { color: color-mix(in srgb, var(--primary) 80%, transparent); }
+.text-success { color: var(--success); }

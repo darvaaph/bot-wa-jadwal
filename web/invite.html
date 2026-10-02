@@ -11,17 +11,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261002" />
   <script defer src="/js/vendor/alpine.cdn.min.js"></script>
   <script src="/js/api.js?v=20261010"></script>
   <script src="/js/app-invite.js?v=20261010"></script>
 </head>
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="inviteApp()" x-init="initInvite()">
+<body class="bg-white text-ink min-h-screen" x-data="inviteApp()" x-init="initInvite()">
   <div class="min-h-screen flex flex-col items-center justify-center px-4 py-10">
     <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto" />
-    <div class="w-full max-w-md mt-6 bg-white rounded-2xl border border-[#EEEEEE] p-6 sm:p-8">
+    <div class="w-full max-w-md mt-6 bg-white rounded-2xl border border-border p-6 sm:p-8">
       <template x-if="!done">
         <div>
-          <h1 class="text-[24px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Undangan Pengurus</h1>
+          <h1 class="text-[24px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Undangan Pengurus</h1>
           <p class="text-[13px] text-slate-500 mt-1">Anda menerima undangan sebagai <strong>Ketua Murid</strong> atau <strong>PJ Mata Kuliah</strong>. Detail kelas dan mata kuliah mengikuti pesan undangan dari pengirim.</p>
 
           <div x-show="!token" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
@@ -32,28 +33,28 @@
             <div x-show="formError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="formError">-</div>
             <div class="mt-4 space-y-4">
               <div>
-                <label class="block text-[13px] font-medium mb-1">Nama lengkap <span class="text-[#FF6C48]">*</span></label>
+                <label class="block text-[13px] font-medium mb-1">Nama lengkap <span class="text-danger">*</span></label>
                 <input type="text" x-model="nama" placeholder="Nama tampilan di kelas" autocomplete="name"
-                  class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+                  class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label class="block text-[13px] font-medium mb-1">Kata sandi baru (minimal 12 karakter) <span class="text-[#FF6C48]">*</span></label>
+                <label class="block text-[13px] font-medium mb-1">Kata sandi baru (minimal 12 karakter) <span class="text-danger">*</span></label>
                 <div class="relative">
                   <input :type="lihat ? 'text' : 'password'" x-model="sandi" placeholder="••••••••••••" autocomplete="new-password"
-                    class="w-full h-11 px-3 pr-11 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+                    class="w-full h-11 px-3 pr-11 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
                   <button type="button" @click="lihat = !lihat" aria-label="Intip kata sandi" class="absolute right-1 top-1 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
                     <span class="material-symbols-outlined text-[20px]" x-text="lihat ? 'visibility_off' : 'visibility'">-</span>
                   </button>
                 </div>
               </div>
               <div>
-                <label class="block text-[13px] font-medium mb-1">Konfirmasi kata sandi <span class="text-[#FF6C48]">*</span></label>
+                <label class="block text-[13px] font-medium mb-1">Konfirmasi kata sandi <span class="text-danger">*</span></label>
                 <input :type="lihat ? 'text' : 'password'" x-model="konfirmasi" placeholder="Ulangi kata sandi" autocomplete="new-password"
-                  class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+                  class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
             <button type="button" @click="aktifkan()" :disabled="loading"
-              class="mt-5 w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px] flex items-center justify-center gap-2">
+              class="mt-5 w-full h-11 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px] flex items-center justify-center gap-2">
               <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               <span x-text="loading ? 'Mengaktifkan...' : 'Aktifkan Akun & Masuk'">Aktifkan Akun &amp; Masuk</span>
             </button>
@@ -64,14 +65,14 @@
 
       <template x-if="done">
         <div class="text-center">
-          <span class="inline-flex w-14 h-14 rounded-full bg-[#E1FFB7] items-center justify-center"><span class="material-symbols-outlined text-[28px] text-emerald-700">check_circle</span></span>
-          <h1 class="text-[24px] font-bold text-[#1F1F1F] mt-3" style="font-family:'Poppins',sans-serif">Akun aktif</h1>
+          <span class="inline-flex w-14 h-14 rounded-full bg-success items-center justify-center"><span class="material-symbols-outlined text-[28px] text-emerald-700">check_circle</span></span>
+          <h1 class="text-[24px] font-bold text-ink mt-3" style="font-family:'Poppins',sans-serif">Akun aktif</h1>
           <p class="text-[13px] text-slate-500 mt-1">Peran pengurus sudah ditambahkan ke akun Anda. Masuk untuk membuka ruang kerja.</p>
-          <a href="/login.html" class="mt-5 flex w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold items-center justify-center min-h-[44px]">Masuk Pengurus</a>
+          <a href="/login.html" class="mt-5 flex w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold items-center justify-center min-h-[44px]">Masuk Pengurus</a>
         </div>
       </template>
     </div>
-    <p class="text-[12px] text-slate-400 mt-4 text-center">Sudah punya akun sebelumnya? Tautan yang sama menambahkan peran ini ke akun Anda — <a href="/login.html" class="text-[#3965FB] font-medium hover:underline">masuk di sini</a> setelah aktivasi.</p>
+    <p class="text-[12px] text-slate-400 mt-4 text-center">Sudah punya akun sebelumnya? Tautan yang sama menambahkan peran ini ke akun Anda — <a href="/login.html" class="text-primary font-medium hover:underline">masuk di sini</a> setelah aktivasi.</p>
   </div>
 </body>
 </html>

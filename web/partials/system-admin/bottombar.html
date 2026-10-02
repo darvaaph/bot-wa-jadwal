@@ -1,11 +1,11 @@
 <!-- partials/system-admin/bottombar.html - Bottom nav mobile System Admin -->
-<nav aria-label="Navigasi bawah System Admin" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#EEEEEE]">
+<nav aria-label="Navigasi bawah System Admin" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border">
   <div class="grid grid-cols-4 h-[68px]">
     <!-- 1. Ringkasan -->
     <button type="button" @click="go('dashboard')"
-      :class="view === 'dashboard' ? 'text-[#3965FB]' : 'text-slate-500'"
+      :class="view === 'dashboard' ? 'text-primary' : 'text-slate-500'"
       class="flex flex-col items-center justify-center gap-1 min-h-[44px]">
-      <span class="px-4 py-1 rounded-full" :class="view === 'dashboard' ? 'bg-[#E9EAFF]' : ''">
+      <span class="px-4 py-1 rounded-full" :class="view === 'dashboard' ? 'bg-primary-soft' : ''">
         <span class="material-symbols-outlined text-[20px]">dashboard</span>
       </span>
       <span class="text-[11px] font-semibold">Ringkasan</span>
@@ -13,9 +13,9 @@
 
     <!-- 2. Kelas -->
     <button type="button" @click="resetKelasFilter(); go('kelas')"
-      :class="isKelasView() ? 'text-[#3965FB]' : 'text-slate-500'"
+      :class="isKelasView() ? 'text-primary' : 'text-slate-500'"
       class="flex flex-col items-center justify-center gap-1 min-h-[44px]">
-      <span class="px-4 py-1 rounded-full" :class="isKelasView() ? 'bg-[#E9EAFF]' : ''">
+      <span class="px-4 py-1 rounded-full" :class="isKelasView() ? 'bg-primary-soft' : ''">
         <span class="material-symbols-outlined text-[20px]">domain</span>
       </span>
       <span class="text-[11px] font-semibold">Kelas</span>
@@ -23,13 +23,13 @@
 
     <!-- 3. Antrean Notifikasi -->
     <button type="button" @click="go('antrean')"
-      :class="view === 'antrean' ? 'text-[#3965FB]' : 'text-slate-500'"
+      :class="view === 'antrean' ? 'text-primary' : 'text-slate-500'"
       class="relative flex flex-col items-center justify-center gap-1 min-h-[44px]">
-      <span class="px-4 py-1 rounded-full" :class="view === 'antrean' ? 'bg-[#E9EAFF]' : ''">
+      <span class="px-4 py-1 rounded-full" :class="view === 'antrean' ? 'bg-primary-soft' : ''">
         <span class="material-symbols-outlined text-[20px]">forward_to_inbox</span>
       </span>
       <span class="text-[11px] font-semibold">Antrean</span>
-      <span x-show="failedCount > 0" class="absolute top-1 right-1/2 translate-x-5 min-w-[18px] h-4 px-1 rounded-full bg-[#E53935] text-white text-[10px] font-bold flex items-center justify-center" x-text="failedCount > 50 ? '50+' : failedCount">0</span>
+      <span x-show="failedCount > 0" class="absolute top-1 right-1/2 translate-x-5 min-w-[18px] h-4 px-1 rounded-full bg-danger-strong text-white text-[10px] font-bold flex items-center justify-center" x-text="failedCount > 50 ? '50+' : failedCount">0</span>
     </button>
 
     <!-- 4. Menu Lainnya (Drawer) -->

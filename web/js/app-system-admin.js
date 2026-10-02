@@ -225,7 +225,7 @@ function systemAdminApp() {
       const st = (this.botStatusDetails && this.botStatusDetails.bot_connection) || '';
       if (this.botOnline || st === 'connected') return 'bg-emerald-500';
       if (st === 'waiting_qr' || st === 'reconnecting') return 'bg-amber-500';
-      return 'bg-[#FF6C48]';
+      return 'bg-danger';
     },
 
     async kirimUjiPesan() {

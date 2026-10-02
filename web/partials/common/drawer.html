@@ -18,10 +18,10 @@
         <template x-for="item in section.items" :key="item.id">
           <template x-if="item.id !== 'pengaturan' && item.id !== 'akun'">
           <button type="button" @click="go(item.id)" :aria-current="isActive(item) ? 'page' : null"
-            :class="isActive(item) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+            :class="isActive(item) ? 'bg-primary-soft text-primary font-semibold' : 'text-ink'"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
             <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
-            <span x-show="item.id === 'antrean' && antrean.length > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-[#FCD484] text-[#1F1F1F] text-[11px] font-bold" x-text="antrean.length">-</span>
+            <span x-show="item.id === 'antrean' && antrean.length > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-warning-soft text-ink text-[11px] font-bold" x-text="antrean.length">-</span>
             <span x-show="item.id === 'notifikasi' && notifGagal > 0" class="ml-auto px-2 py-0.5 rounded-lg bg-red-700 text-white text-[11px] font-bold" x-text="notifGagal">-</span>
           </button>
           </template>
@@ -30,27 +30,27 @@
     </template>
     <template x-if="pinnedNav('pengaturan')">
       <div class="contents">
-        <div class="mx-1 mt-3 border-t border-[#EEEEEE]"></div>
+        <div class="mx-1 mt-3 border-t border-border"></div>
         <button type="button" @click="go('pengaturan')" :aria-current="isActive(pinnedNav('pengaturan')) ? 'page' : null"
-          :class="isActive(pinnedNav('pengaturan')) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+          :class="isActive(pinnedNav('pengaturan')) ? 'bg-primary-soft text-primary font-semibold' : 'text-ink'"
           class="mt-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
           <img class="w-5 h-5 shrink-0" :src="pinnedNav('pengaturan').img" alt="" /><span x-text="pinnedNav('pengaturan').label">-</span>
         </button>
       </div>
     </template>
   </nav>
-  <div class="mt-auto pt-4 text-[13px] px-2 border-t border-[#EEEEEE]">
+  <div class="mt-auto pt-4 text-[13px] px-2 border-t border-border">
     <label x-show="contextAssignments && contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-slate-500">
       Ruang kerja
       <select :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching"
-        class="mt-1 w-full min-h-[44px] rounded-xl border border-[#EEEEEE] bg-white px-2 text-[12px] text-[#1F1F1F] focus:outline-none focus:ring-2 focus:ring-[#3965FB] disabled:opacity-60">
+        class="mt-1 w-full min-h-[44px] rounded-xl border border-border bg-white px-2 text-[12px] text-ink focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60">
         <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
       </select>
     </label>
     <div class="flex items-center justify-between gap-2">
       <button type="button" @click="go('akun')" :aria-label="'Akun ' + roleLabel" :aria-current="view === 'akun' ? 'page' : null"
         class="min-w-0 flex-1 text-left rounded-xl px-2 py-1.5 hover:bg-slate-50 min-h-[44px]"
-        :class="view === 'akun' ? 'bg-[#E9EAFF] text-[#3965FB]' : ''">
+        :class="view === 'akun' ? 'bg-primary-soft text-primary' : ''">
         <p class="font-semibold truncate"><span x-text="roleLabel">-</span> · <span x-text="selectedClass || '—'">—</span></p>
         <p class="text-[12px] text-slate-500 truncate" x-text="roleSub">-</p>
       </button>

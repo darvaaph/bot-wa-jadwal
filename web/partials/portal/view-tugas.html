@@ -5,7 +5,7 @@
   <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Grup tugas">
     <template x-for="g in [['hari_ini','Hari Ini'],['minggu_ini','Minggu Ini'],['mendatang','Mendatang'],['terlewat','Terlewat']]" :key="g[0]">
       <button type="button" @click="tugasTab = g[0]" role="tab" :aria-selected="tugasTab === g[0]"
-        :class="tugasTab === g[0] ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'bg-slate-50 text-slate-500'"
+        :class="tugasTab === g[0] ? 'bg-primary-soft text-primary font-semibold' : 'bg-slate-50 text-slate-500'"
         class="px-4 py-2 rounded-xl text-[13px] whitespace-nowrap min-h-[44px] flex items-center gap-1.5">
         <span x-text="g[1]">-</span>
         <span class="text-[11px] px-1.5 rounded-md bg-white/70" x-text="(tugasGrup[g[0]] || []).length">0</span>
@@ -16,7 +16,7 @@
       <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
     </select>
   </div>
-  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+  <div class="p-5 rounded-2xl border border-border bg-white mt-4">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] font-semibold">Daftar tugas</h2>
       <span class="text-[12px] text-slate-400">Urutkan: deadline terdekat</span>
@@ -30,15 +30,15 @@
       <p class="text-[15px] font-semibold">Belum ada tugas yang cocok.</p>
       <p class="text-[13px] text-slate-500">Coba grup atau mata kuliah lain.</p>
     </div>
-    <div class="divide-y divide-[#EEEEEE]">
+    <div class="divide-y divide-border">
       <template x-for="t in tugasTabList" :key="t.id">
         <button type="button" @click="bukaDetailTugas(t)" class="w-full py-4 flex items-center gap-3 text-left">
-          <span class="w-9 h-9 rounded-xl bg-[#E9EAFF] flex items-center justify-center shrink-0"><img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5" /></span>
+          <span class="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0"><img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</span>
             <span class="block text-[12px] text-slate-500" x-text="t.matkul + ' • ' + t.deadline">-</span>
           </span>
-          <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484]' : 'bg-[#E1FFB7]')" x-text="t.countdown">-</span>
+          <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-white' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
         </button>
       </template>
     </div>
@@ -46,13 +46,13 @@
 </section>
 
 <section x-show="view === 'detail-tugas'" x-cloak>
-  <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">← Kembali ke daftar</button>
-  <div x-show="detailTugas && detailTugas.memuat" class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-2 text-[13px] text-slate-400 text-center">Memuat detail tugas...</div>
+  <button type="button" @click="go('tugas')" class="text-[13px] text-primary font-medium hover:underline min-h-[44px]">← Kembali ke daftar</button>
+  <div x-show="detailTugas && detailTugas.memuat" class="p-5 rounded-2xl border border-border bg-white mt-2 text-[13px] text-slate-400 text-center">Memuat detail tugas...</div>
   <div x-show="detailTugas && detailTugas.hilang" class="p-5 rounded-2xl border border-amber-300 bg-amber-50 mt-2 text-[13px] text-amber-900">
     Tugas ini sudah tidak terbit. Minta informasi terbaru kepada PJ atau KM kelas bila diperlukan.
   </div>
-  <div x-show="detailTugas && !detailTugas.memuat && !detailTugas.hilang && detailTugas.id" class="p-5 md:p-6 rounded-2xl border border-[#EEEEEE] bg-white mt-2">
-    <p class="text-[12px] font-bold text-[#3965FB] uppercase tracking-wider" x-text="detailTugas.matkul">-</p>
+  <div x-show="detailTugas && !detailTugas.memuat && !detailTugas.hilang && detailTugas.id" class="p-5 md:p-6 rounded-2xl border border-border bg-white mt-2">
+    <p class="text-[12px] font-bold text-primary uppercase tracking-wider" x-text="detailTugas.matkul">-</p>
     <h1 class="text-[22px] font-bold mt-1 leading-snug" x-text="detailTugas.title || detailTugas.deskripsi">-</h1>
     <div class="mt-4 space-y-2 text-[13px]">
       <p><span class="text-slate-500">Tenggat:</span> <span class="font-mono font-semibold" x-text="detailTugas.deadline">-</span></p>
@@ -66,10 +66,10 @@
       <h2 class="text-[15px] font-semibold">Materi terkait</h2>
       <div class="mt-2 space-y-2">
         <template x-for="m in detailMateri" :key="m.id">
-          <div class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px]">
+          <div class="p-3 rounded-xl bg-slate-50 border border-border text-[13px]">
             <p class="font-semibold" x-text="m.title">-</p>
             <p x-show="m.description" class="text-slate-600 mt-0.5" x-text="m.description">-</p>
-            <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer" class="text-[#3965FB] font-medium hover:underline break-all" x-text="m.url">-</a>
+            <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer" class="text-primary font-medium hover:underline break-all" x-text="m.url">-</a>
           </div>
         </template>
       </div>

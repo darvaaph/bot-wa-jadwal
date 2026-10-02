@@ -2,16 +2,16 @@
 <section x-show="view === 'status'" x-cloak>
   <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Status Pemeriksaan</h1>
   <p class="text-[14px] text-slate-500 mt-1">Hasil pemeriksaan KM atas tugas <span x-text="pjMatkul || 'yang ditugaskan'">-</span>.</p>
-  <div x-show="tugasSaya.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada tugas untuk diperiksa.</div>
+  <div x-show="tugasSaya.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center text-[13px] text-slate-400">Belum ada tugas untuk diperiksa.</div>
   <div class="mt-4 space-y-3">
     <template x-for="t in tugasSaya" :key="t.id">
-      <button type="button" @click="bukaDetailTugas(t.id)" class="w-full p-4 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col md:flex-row md:items-center gap-3 text-left">
+      <button type="button" @click="bukaDetailTugas(t.id)" class="w-full p-4 rounded-2xl border border-border bg-white flex flex-col md:flex-row md:items-center gap-3 text-left">
         <div class="flex-1 min-w-0">
           <p class="text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</p>
           <p class="text-[12px] text-slate-500" x-text="'Tenggat ' + t.deadline">-</p>
         </div>
         <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold shrink-0"
-          :class="String(t.review_state).toUpperCase() === 'APPROVED' ? 'bg-[#E1FFB7] text-green-800' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'bg-[#FCD484] text-amber-900' : 'bg-slate-100 text-slate-600')">
+          :class="String(t.review_state).toUpperCase() === 'APPROVED' ? 'bg-success text-green-800' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'bg-warning-soft text-amber-900' : 'bg-slate-100 text-slate-600')">
           <span class="material-symbols-outlined text-[16px]" x-text="String(t.review_state).toUpperCase() === 'APPROVED' ? 'check_circle' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'warning' : 'pending')">-</span>
           <span x-text="reviewLabel(t.review_state) + ' · versi ' + t.version">-</span>
         </span>
@@ -27,23 +27,23 @@
       <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Repositori Materi</h1>
       <p class="text-[14px] text-slate-500 mt-1">Materi <span x-text="pjMatkul || 'mata kuliah yang ditugaskan'">-</span>.</p>
     </div>
-    <button type="button" @click="materiFormOpen = !materiFormOpen" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px] inline-flex items-center gap-2">
+    <button type="button" @click="materiFormOpen = !materiFormOpen" class="h-11 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold self-start min-h-[44px] inline-flex items-center gap-2">
       <span class="material-symbols-outlined text-[18px]" x-text="materiFormOpen ? 'close' : 'add'">-</span><span x-text="materiFormOpen ? 'Tutup form' : 'Tambah materi'">-</span>
     </button>
   </div>
 
-  <div x-show="materiFormOpen" class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+  <div x-show="materiFormOpen" class="mt-5 p-5 rounded-2xl border border-border bg-white">
     <h2 class="text-[18px] font-semibold" x-text="editMateriId ? 'Ubah materi' : 'Tambah materi'">-</h2>
     <p class="text-[12px] text-slate-500 mt-0.5">Tersimpan untuk <span class="font-semibold" x-text="pjMatkul || 'mata kuliah penugasan'">-</span>.</p>
     <div x-show="materiFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="materiFormError">-</div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
       <div class="sm:col-span-2">
-        <label class="block text-[13px] font-medium mb-1">Judul <span class="text-[#FF6C48]">*</span></label>
-        <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide pekan 1" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+        <label class="block text-[13px] font-medium mb-1">Judul <span class="text-danger">*</span></label>
+        <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide pekan 1" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Jenis</label>
-        <select x-model="materiForm.material_type" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+        <select x-model="materiForm.material_type" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] bg-white">
           <option value="DOCUMENT">Dokumen</option>
           <option value="MEETING">Tautan rapat</option>
           <option value="REPOSITORY">Repositori</option>
@@ -53,26 +53,26 @@
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Tautan</label>
-        <input type="text" x-model="materiForm.url" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+        <input type="text" x-model="materiForm.url" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
       </div>
       <div class="sm:col-span-2">
         <label class="block text-[13px] font-medium mb-1">Deskripsi</label>
-        <textarea x-model="materiForm.description" rows="2" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
+        <textarea x-model="materiForm.description" rows="2" class="w-full p-3 rounded-xl border border-border text-[14px] resize-none"></textarea>
       </div>
     </div>
-    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan perubahan' : 'Simpan materi')">Simpan materi</button>
-    <button type="button" @click="batalUbahMateri()" x-show="editMateriId" class="mt-4 ml-2 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium min-h-[44px]">Batal</button>
+    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="mt-4 h-11 px-5 rounded-xl bg-primary text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60" x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan perubahan' : 'Simpan materi')">Simpan materi</button>
+    <button type="button" @click="batalUbahMateri()" x-show="editMateriId" class="mt-4 ml-2 h-11 px-5 rounded-xl border border-border text-[14px] font-medium min-h-[44px]">Batal</button>
   </div>
 
-  <div class="mt-5 p-4 sm:p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+  <div class="mt-5 p-4 sm:p-5 rounded-2xl border border-border bg-white">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-[15px] font-semibold" x-text="'Materi · ' + (materiSort === 'terlama' ? 'Terlama' : 'Terbaru')">-</h2>
       <div class="flex items-center gap-2">
-        <button type="button" @click="loadMateri()" aria-label="Muat ulang materi" title="Muat ulang" class="w-11 h-11 rounded-xl border border-[#EEEEEE] flex items-center justify-center hover:bg-slate-50 shrink-0">
+        <button type="button" @click="loadMateri()" aria-label="Muat ulang materi" title="Muat ulang" class="w-11 h-11 rounded-xl border border-border flex items-center justify-center hover:bg-slate-50 shrink-0">
           <span class="material-symbols-outlined text-[20px]">refresh</span>
         </button>
         <button type="button" @click="materiSort = materiSort === 'terlama' ? 'terbaru' : 'terlama'" :aria-label="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')" :title="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')"
-          class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-1.5">
+          class="h-11 px-4 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-1.5">
           <span class="material-symbols-outlined text-[18px]">filter_list</span><span x-text="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')">-</span>
         </button>
       </div>
@@ -87,27 +87,27 @@
       <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
       <p class="text-[13px] text-slate-500">Materi mata kuliah yang ditugaskan tampil di sini.</p>
     </div>
-    <div x-show="!materiLoading && materiTampil.length > 0" class="divide-y divide-[#EEEEEE]">
+    <div x-show="!materiLoading && materiTampil.length > 0" class="divide-y divide-border">
       <template x-for="m in materiTampil" :key="m.id">
         <div class="py-4 flex items-center gap-3">
-          <span class="w-11 h-11 rounded-xl bg-[#E9EAFF] flex items-center justify-center shrink-0">
-            <span class="material-symbols-outlined text-[22px] text-[#3965FB]">folder</span>
+          <span class="w-11 h-11 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[22px] text-primary">folder</span>
           </span>
           <div class="flex-1 min-w-0">
             <template x-if="m.url">
-              <a :href="m.url" target="_blank" rel="noopener" class="block text-[15px] font-medium text-[#1F1F1F] line-clamp-1 hover:text-[#3965FB] hover:underline" x-text="m.title">-</a>
+              <a :href="m.url" target="_blank" rel="noopener" class="block text-[15px] font-medium text-ink line-clamp-1 hover:text-primary hover:underline" x-text="m.title">-</a>
             </template>
             <template x-if="!m.url">
-              <p class="text-[15px] font-medium text-[#1F1F1F] line-clamp-1" x-text="m.title">-</p>
+              <p class="text-[15px] font-medium text-ink line-clamp-1" x-text="m.title">-</p>
             </template>
             <p class="text-[12px] text-slate-500 mt-0.5 truncate" x-text="(pjMatkul || 'Mata kuliah') + ' · ' + sumberMateri(m)">-</p>
           </div>
           <div class="shrink-0 text-right">
-            <p class="text-[13px] font-medium text-[#3965FB]" x-text="materiTipeLabel(m.material_type)">-</p>
+            <p class="text-[13px] font-medium text-primary" x-text="materiTipeLabel(m.material_type)">-</p>
             <p class="text-[12px] text-slate-400 mt-0.5" x-text="fmtTanggalSingkat(m.created_at)">-</p>
             <div class="flex gap-1.5 mt-1.5 justify-end">
-              <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah" class="w-11 h-11 rounded-xl border border-[#EEEEEE] inline-flex items-center justify-center hover:bg-slate-50 text-slate-600"><span class="material-symbols-outlined text-[18px]">edit</span></button>
-              <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan" class="w-11 h-11 rounded-xl border border-[#EEEEEE] inline-flex items-center justify-center hover:bg-red-50 text-slate-600 hover:text-red-600"><span class="material-symbols-outlined text-[18px]">archive</span></button>
+              <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah" class="w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-slate-50 text-slate-600"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+              <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan" class="w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-red-50 text-slate-600 hover:text-red-600"><span class="material-symbols-outlined text-[18px]">archive</span></button>
             </div>
           </div>
         </div>

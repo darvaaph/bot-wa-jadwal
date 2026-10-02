@@ -2,26 +2,26 @@
 <section x-show="view === 'dashboard'" x-cloak>
   <div id="pj-skeleton"></div>
   <div x-show="!dashboardLoading">
-  <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
+  <div class="p-4 rounded-2xl border border-border bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
     <div class="min-w-0">
       <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
       <p class="text-[14px] font-semibold truncate"><span x-text="selectedClass || '—'">-</span> · PJ Mata Kuliah · <span x-text="offeringName() || pjMatkul || '—'">-</span></p>
     </div>
-    <button type="button" @click="go('akun')" class="sm:ml-auto h-11 px-4 rounded-xl border border-[#EEEEEE] bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
+    <button type="button" @click="go('akun')" class="sm:ml-auto h-11 px-4 rounded-xl border border-border bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
   </div>
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
+      <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
       <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
     </div>
-    <button type="button" @click="mulaiTambah()" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
+    <button type="button" @click="mulaiTambah()" class="h-11 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
       <img src="/assets/icons/plus.svg" alt="" class="w-4 h-4" /><span>Tambah tugas</span>
     </button>
   </div>
 
-  <div class="p-4 rounded-2xl border border-[#3965FB]/40 bg-[#E9EAFF]/50 mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+  <div class="p-4 rounded-2xl border border-primary/40 bg-primary-soft/50 mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
     <p class="text-[13px] font-semibold shrink-0">Mata kuliah yang ditugaskan</p>
-    <select x-model="offeringId" @change="simpanOffering()" class="flex-1 h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+    <select x-model="offeringId" @change="simpanOffering()" class="flex-1 h-11 px-3 rounded-xl border border-border text-[14px] bg-white focus:outline-none focus:ring-2 focus:ring-primary">
       <option value="">-- Pilih mata kuliah --</option>
       <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
     </select>
@@ -33,17 +33,17 @@
   </p>
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="p-5 rounded-2xl border border-border bg-white">
       <p class="text-[13px] text-slate-500">Tugas saya</p>
       <p class="text-[32px] font-bold leading-tight" x-text="tugasSaya.length">0</p>
-      <p class="text-[12px] text-[#3965FB]" x-text="nearSaya + ' mendekati deadline'">-</p>
+      <p class="text-[12px] text-primary" x-text="nearSaya + ' mendekati deadline'">-</p>
     </div>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="p-5 rounded-2xl border border-border bg-white">
       <p class="text-[13px] text-slate-500">Jadwal hari ini</p>
       <p class="text-[32px] font-bold leading-tight" x-text="todayList.length">0</p>
-      <p class="text-[12px] text-[#3965FB]">sesi kuliah</p>
+      <p class="text-[12px] text-primary">sesi kuliah</p>
     </div>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="p-5 rounded-2xl border border-border bg-white">
       <p class="text-[13px] text-slate-500">Perlu perhatian</p>
       <p class="text-[32px] font-bold leading-tight" x-text="perluCount">0</p>
       <p class="text-[12px] text-slate-400">koreksi + terlewat</p>
@@ -51,38 +51,38 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="lg:col-span-3 p-5 rounded-2xl border border-border bg-white">
       <div class="flex items-center justify-between">
         <h2 class="text-[18px] font-semibold">Tugas mendekati deadline</h2>
-        <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semua</button>
+        <button type="button" @click="go('tugas')" class="text-[13px] text-primary font-medium hover:underline min-h-[44px]">Lihat semua</button>
       </div>
       <div x-show="urgentSaya.length === 0" class="py-8 text-center">
         <p class="text-[13px] text-slate-400">Tidak ada tugas mendesak.</p>
-        <button type="button" @click="go('tugas')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat semua tugas</button>
+        <button type="button" @click="go('tugas')" class="mt-3 h-10 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Lihat semua tugas</button>
       </div>
-      <div class="divide-y divide-[#EEEEEE]">
+      <div class="divide-y divide-border">
         <template x-for="t in urgentSaya" :key="t.id">
           <div class="py-4 flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="text-[15px] font-medium line-clamp-1" x-text="t.deskripsi">-</p>
               <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul">-</p>
             </div>
-            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484]' : 'bg-[#E1FFB7]')" x-text="t.countdown">-</span>
+            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-white' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
           </div>
         </template>
       </div>
     </div>
-    <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="lg:col-span-2 p-5 rounded-2xl border border-border bg-white">
       <h2 class="text-[18px] font-semibold">Jadwal hari ini</h2>
       <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
       <div x-show="todayList.length === 0" class="py-6 text-center">
         <p class="text-[13px] text-slate-400">Tidak ada jadwal hari ini.</p>
-        <button type="button" @click="go('jadwal')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat jadwal minggu ini</button>
+        <button type="button" @click="go('jadwal')" class="mt-3 h-10 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Lihat jadwal minggu ini</button>
       </div>
-      <div class="mt-2 divide-y divide-[#EEEEEE]">
+      <div class="mt-2 divide-y divide-border">
         <template x-for="s in todayList" :key="s.id">
           <div class="py-3 flex gap-3">
-            <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-24" x-text="s.timeEnd ? s.timeStart + '–' + s.timeEnd : s.timeStart">-</span>
+            <span class="font-mono text-[13px] font-semibold text-primary whitespace-nowrap w-24" x-text="s.timeEnd ? s.timeStart + '–' + s.timeEnd : s.timeStart">-</span>
             <div class="min-w-0"><p class="text-[14px] font-medium line-clamp-1" x-text="s.matkul">-</p><p class="text-[12px] text-slate-500" x-text="s.ruang">-</p></div>
           </div>
         </template>
@@ -90,7 +90,7 @@
     </div>
   </div>
 
-  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+  <div class="p-5 rounded-2xl border border-border bg-white mt-4">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] font-semibold">Riwayat Perubahan</h2>
       <span class="text-[13px] text-slate-400">Butuh endpoint audit</span>

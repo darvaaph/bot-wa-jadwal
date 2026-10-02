@@ -1,11 +1,11 @@
 <!-- partials/common/bottombar.html — Bottom nav mobile pengelola: Ringkasan, Jadwal, Tugas, Lainnya -->
-<nav aria-label="Navigasi bawah" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#EEEEEE]">
+<nav aria-label="Navigasi bawah" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border">
   <div class="grid grid-cols-4 h-[68px]">
     <template x-for="bid in ['dashboard','jadwal','tugas']" :key="bid">
       <button type="button" @click="go(bid)"
-        :class="(bid === 'dashboard' && view === 'dashboard') || (bid !== 'dashboard' && nav.find(n => n.id === bid) && isActive(nav.find(n => n.id === bid))) ? 'text-[#3965FB]' : 'text-slate-500'"
+        :class="(bid === 'dashboard' && view === 'dashboard') || (bid !== 'dashboard' && nav.find(n => n.id === bid) && isActive(nav.find(n => n.id === bid))) ? 'text-primary' : 'text-slate-500'"
         class="flex flex-col items-center justify-center gap-1 min-h-[44px]">
-        <span class="px-4 py-1 rounded-full" :class="(bid === 'dashboard' && view === 'dashboard') || (bid !== 'dashboard' && nav.find(n => n.id === bid) && isActive(nav.find(n => n.id === bid))) ? 'bg-[#E9EAFF]' : ''">
+        <span class="px-4 py-1 rounded-full" :class="(bid === 'dashboard' && view === 'dashboard') || (bid !== 'dashboard' && nav.find(n => n.id === bid) && isActive(nav.find(n => n.id === bid))) ? 'bg-primary-soft' : ''">
           <img class="w-5 h-5" :src="(nav.find(n => n.id === bid) || {}).img" alt="" />
         </span>
         <span class="text-[11px] font-semibold" x-text="(nav.find(n => n.id === bid) || {}).label || bid">-</span>
@@ -17,7 +17,7 @@
         <span class="material-symbols-outlined text-[22px]">more_horiz</span>
       </span>
       <span class="text-[11px] font-semibold">Lainnya</span>
-      <span x-show="attentionCount > 0" class="absolute top-1 right-1/2 translate-x-6 min-w-[16px] h-4 px-1 rounded-full bg-[#FF6C48] text-white text-[10px] font-bold flex items-center justify-center" x-text="attentionCount > 9 ? '9+' : attentionCount">-</span>
+      <span x-show="attentionCount > 0" class="absolute top-1 right-1/2 translate-x-6 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center" x-text="attentionCount > 9 ? '9+' : attentionCount">-</span>
     </button>
   </div>
 </nav>

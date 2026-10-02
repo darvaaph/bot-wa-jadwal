@@ -2,28 +2,28 @@
 
 <!-- 1. FORM UNDANG KM -->
 <section x-show="view === 'undang'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Undang Ketua Murid</h1>
-    <div class="mt-2 space-y-0.5 text-[14px] text-[#667085]">
-      <p><span class="font-semibold text-[#1F1F1F]" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</span> · <span x-text="kelasAktifObj ? kelasAktifObj.prodi : '-'">-</span></p>
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Undang Ketua Murid</h1>
+    <div class="mt-2 space-y-0.5 text-[14px] text-muted">
+      <p><span class="font-semibold text-ink" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</span> · <span x-text="kelasAktifObj ? kelasAktifObj.prodi : '-'">-</span></p>
       <p>Kelas ditetapkan oleh System Admin dan tidak dapat diubah oleh pengurus.</p>
     </div>
 
     <div x-show="undangError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undangError"></div>
 
     <form @submit.prevent="buatUndangKM()" class="mt-6 max-w-2xl">
-      <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Nomor WhatsApp calon KM *</label>
+      <label class="block text-[14px] font-bold text-ink mb-2">Nomor WhatsApp calon KM *</label>
       <input type="text" x-model="undangNomor" placeholder="081234567890" required
-        class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-      <p class="text-[12px] text-[#667085] mt-1">Masukkan nomor WhatsApp aktif dengan awalan 08 atau +62.</p>
+        class="w-full h-12 px-4 rounded-xl border border-border text-[14px] text-ink font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
+      <p class="text-[12px] text-muted mt-1">Masukkan nomor WhatsApp aktif dengan awalan 08 atau +62.</p>
 
       <div class="flex items-center gap-4 mt-6">
         <button type="submit" :disabled="undangLoading"
-          class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px] flex items-center justify-center gap-2">
+          class="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px] flex items-center justify-center gap-2">
           <span x-show="!undangLoading">Buat tautan undangan</span>
           <span x-show="undangLoading">Membuat undangan...</span>
         </button>
-        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px]">Batal</button>
+        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-primary text-primary hover:bg-primary-soft text-[14px] font-medium min-h-[44px]">Batal</button>
       </div>
     </form>
   </div>
@@ -31,27 +31,27 @@
 
 <!-- 2. UNDANGAN KM SIAP -->
 <section x-show="view === 'undang-siap'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Undangan KM siap dibagikan</h1>
-    <div class="mt-2 space-y-0.5 text-[14px] text-[#667085]">
-      <p><span class="font-semibold text-[#1F1F1F]" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</span> · <span x-text="undangNomor">-</span></p>
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Undangan KM siap dibagikan</h1>
+    <div class="mt-2 space-y-0.5 text-[14px] text-muted">
+      <p><span class="font-semibold text-ink" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</span> · <span x-text="undangNomor">-</span></p>
       <p>Tautan berlaku 7 hari dan hanya dapat digunakan satu kali untuk aktivasi.</p>
     </div>
 
     <div class="mt-6 max-w-2xl">
-      <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Tautan undangan</label>
-      <div class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] bg-slate-50 text-[14px] font-mono text-[#1F1F1F] flex items-center select-all overflow-x-auto" x-text="undangLink"></div>
+      <label class="block text-[14px] font-bold text-ink mb-2">Tautan undangan</label>
+      <div class="w-full h-12 px-4 rounded-xl border border-border bg-slate-50 text-[14px] font-mono text-ink flex items-center select-all overflow-x-auto" x-text="undangLink"></div>
 
       <div class="flex flex-wrap items-center gap-4 mt-6">
-        <button type="button" @click="copyText(undangLink, 'Tautan undangan berhasil disalin.')" class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">
+        <button type="button" @click="copyText(undangLink, 'Tautan undangan berhasil disalin.')" class="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-medium min-h-[44px]">
           Salin tautan
         </button>
         <a :href="'https://wa.me/' + (undangNomor || '').replace(/\D/g, '').replace(/^0/, '62') + '?text=' + encodeURIComponent('Halo! Ini tautan undangan aktivasi akun Ketua Murid (KM) untuk kelas ' + (kelasAktifObj ? kelasAktifObj.nama : '') + ': ' + undangLink)"
           target="_blank" rel="noopener noreferrer"
-          class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px] flex items-center justify-center">
+          class="h-11 px-8 rounded-xl border border-primary text-primary hover:bg-primary-soft text-[14px] font-medium min-h-[44px] flex items-center justify-center">
           Kirim ke WhatsApp
         </a>
-        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[14px] font-medium min-h-[44px]">
+        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-border hover:bg-slate-50 text-[14px] font-medium min-h-[44px]">
           Selesai
         </button>
       </div>

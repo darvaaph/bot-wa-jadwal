@@ -6,7 +6,7 @@
     <!-- 1. Header & Status Sistem Global -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
       <div class="min-w-0">
-        <h1 class="text-[24px] md:text-[28px] font-bold text-[#1F1F1F] tracking-tight" style="font-family:'Poppins',sans-serif">
+        <h1 class="text-[24px] md:text-[28px] font-bold text-ink tracking-tight" style="font-family:'Poppins',sans-serif">
           Ringkasan Sistem
         </h1>
         <div class="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 mt-1">
@@ -32,7 +32,7 @@
           <span class="material-symbols-outlined text-[18px] text-slate-500">send</span>
           <span>Uji Pesan WA</span>
         </button>
-        <button type="button" @click="go('buat')" class="h-10 px-4 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold inline-flex items-center gap-1.5 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <button type="button" @click="go('buat')" class="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold inline-flex items-center gap-1.5 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
           <span class="material-symbols-outlined text-[18px]">add_circle</span>
           <span>Buat kelas baru</span>
         </button>
@@ -42,17 +42,17 @@
     <!-- 2. Zona Mission-Critical: Gateway WhatsApp & Antrean Pesan (Grid 2 Kolom) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Card Gateway WhatsApp -->
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col justify-between">
+      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px] text-[#3965FB]">cell_tower</span>
+              <span class="material-symbols-outlined text-[18px] text-primary">cell_tower</span>
               <span>Gateway Bot WhatsApp</span>
             </span>
             <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getBotStatusColor()"></span>
           </div>
           <div class="mt-3">
-            <h2 class="text-[18px] font-bold text-[#1F1F1F]" x-text="getBotStatusLabel()">Terhubung</h2>
+            <h2 class="text-[18px] font-bold text-ink" x-text="getBotStatusLabel()">Terhubung</h2>
             <p class="text-[13px] text-slate-500 mt-1" x-text="botOnline ? 'Koneksi sesi whatsmeow aktif dan siap menyiarkan pesan ke grup kelas.' : 'Koneksi WhatsApp bot kampus tidak aktif atau sedang menunggu penyambungan.'"></p>
           </div>
         </div>
@@ -65,7 +65,7 @@
             <span class="material-symbols-outlined text-[16px]">terminal</span>
             <span>Detail sistem</span>
           </button>
-          <button type="button" @click="go('kanal')" class="h-10 px-3.5 rounded-lg bg-blue-50 text-[#3965FB] hover:bg-blue-100 text-[12px] font-semibold min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+          <button type="button" @click="go('kanal')" class="h-10 px-3.5 rounded-lg bg-blue-50 text-primary hover:bg-blue-100 text-[12px] font-semibold min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px]">link</span>
             <span>Kanal & Sesi</span>
           </button>
@@ -74,13 +74,13 @@
 
       <!-- Card Antrean Siaran & Pesan Gagal -->
       <div class="p-5 rounded-2xl border flex flex-col justify-between transition-colors"
-           :class="failedCount > 0 ? 'border-rose-300 bg-rose-50/60' : 'border-[#EEEEEE] bg-white'">
+           :class="failedCount > 0 ? 'border-rose-300 bg-rose-50/60' : 'border-border bg-white'">
         <div>
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-semibold flex items-center gap-2"
                   :class="failedCount > 0 ? 'text-rose-900' : 'text-slate-700'">
               <span class="material-symbols-outlined text-[18px]"
-                    :class="failedCount > 0 ? 'text-rose-700' : 'text-[#3965FB]'">forward_to_inbox</span>
+                    :class="failedCount > 0 ? 'text-rose-700' : 'text-primary'">forward_to_inbox</span>
               <span>Antrean Pesan Siaran</span>
             </span>
             <template x-if="failedCount > 0">
@@ -102,7 +102,7 @@
               <div>
                 <div class="flex items-center gap-2 mt-1">
                   <span class="material-symbols-outlined text-[24px] text-emerald-600">check_circle</span>
-                  <p class="text-[18px] font-bold text-[#1F1F1F]">Semua Pesan Siaran Lancar</p>
+                  <p class="text-[18px] font-bold text-ink">Semua Pesan Siaran Lancar</p>
                 </div>
                 <p class="text-[13px] text-slate-500 mt-1">Tidak ada kegagalan pengiriman pesan pada pemantauan antrean notifikasi terakhir.</p>
               </div>
@@ -129,10 +129,10 @@
     <!-- 3. Zona Metrik Tata Kelola Kampus (3 Kolom Bersih Tanpa Warna Permen) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <!-- Metrik 1: Total Kelas Terdaftar -->
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col justify-between">
+      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
         <div>
           <span class="text-[13px] font-medium text-slate-500">Total Kelas</span>
-          <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight mt-1" x-text="totalKelas">0</p>
+          <p class="text-[32px] font-bold text-ink leading-tight mt-1" x-text="totalKelas">0</p>
           <p class="text-[12px] text-slate-500 mt-1">
             <span class="font-semibold text-emerald-700" x-text="activeKelasCount">0</span> aktif · <span x-text="Math.max(0, totalKelas - activeKelasCount)">0</span> arsip / nonaktif
           </p>
@@ -145,7 +145,7 @@
 
       <!-- Metrik 2: Cakupan KM (Actionable Filter) -->
       <div class="p-5 rounded-2xl border flex flex-col justify-between"
-           :class="kelasTanpaKMCount > 0 ? 'border-amber-300 bg-amber-50/50' : 'border-[#EEEEEE] bg-white'">
+           :class="kelasTanpaKMCount > 0 ? 'border-amber-300 bg-amber-50/50' : 'border-border bg-white'">
         <div>
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-medium" :class="kelasTanpaKMCount > 0 ? 'text-amber-900' : 'text-slate-500'">Cakupan Ketua Murid</span>
@@ -153,7 +153,7 @@
               <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">Perlu Tindakan</span>
             </template>
           </div>
-          <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight mt-1">
+          <p class="text-[32px] font-bold text-ink leading-tight mt-1">
             <span x-text="kmAktifCount">0</span>
             <span class="text-[16px] font-normal text-slate-500">/ <span x-text="totalKelas">0</span> Kelas</span>
           </p>
@@ -184,10 +184,10 @@
       </div>
 
       <!-- Metrik 3: Undangan Pending -->
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col justify-between">
+      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
         <div>
           <span class="text-[13px] font-medium text-slate-500">Undangan Pengurus</span>
-          <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight mt-1" x-text="undanganMenungguCount">0</p>
+          <p class="text-[32px] font-bold text-ink leading-tight mt-1" x-text="undanganMenungguCount">0</p>
           <p class="text-[12px] text-slate-500 mt-1">Undangan KM pending · berlaku 7 hari sekali pakai</p>
         </div>
         <button type="button" @click="penggunaTab = 'undangan'; go('pengguna')" class="mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
@@ -198,47 +198,47 @@
     </div>
 
     <!-- 4. Pusat Alat Operasional Administrator (Quick Utilities Grid) -->
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+    <div class="p-5 rounded-2xl border border-border bg-white">
+      <div class="flex items-center justify-between pb-3 border-b border-border">
         <div>
-          <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Peralatan Cepat Administrator</h2>
+          <h2 class="text-[17px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Peralatan Cepat Administrator</h2>
           <p class="text-[12px] text-slate-500 mt-0.5">Akses instan ke manajemen data master, cadangan sistem, dan peran</p>
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-4">
         <!-- Tool 1: Buat Kelas -->
-        <button type="button" @click="go('buat')" class="p-4 rounded-xl border border-slate-200 hover:border-[#3965FB]/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 text-[#3965FB] flex items-center justify-center group-hover:bg-[#3965FB] group-hover:text-white transition-colors">
+        <button type="button" @click="go('buat')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">add_business</span>
           </div>
-          <p class="text-[14px] font-bold text-[#1F1F1F] mt-3">Buat Kelas Baru</p>
+          <p class="text-[14px] font-bold text-ink mt-3">Buat Kelas Baru</p>
           <p class="text-[12px] text-slate-500 mt-1">Daftarkan rombel baru dan siapkan semester awal.</p>
         </button>
 
         <!-- Tool 2: Kelola Pengguna -->
-        <button type="button" @click="penggunaTab = 'akun'; go('pengguna')" class="p-4 rounded-xl border border-slate-200 hover:border-[#3965FB]/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 text-[#3965FB] flex items-center justify-center group-hover:bg-[#3965FB] group-hover:text-white transition-colors">
+        <button type="button" @click="penggunaTab = 'akun'; go('pengguna')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">badge</span>
           </div>
-          <p class="text-[14px] font-bold text-[#1F1F1F] mt-3">Pengguna & Peran</p>
+          <p class="text-[14px] font-bold text-ink mt-3">Pengguna & Peran</p>
           <p class="text-[12px] text-slate-500 mt-1">Inspeksi akun pengurus, penugasan PJ, dan status.</p>
         </button>
 
         <!-- Tool 3: Cadangan & Pulih -->
-        <button type="button" @click="go('backup')" class="p-4 rounded-xl border border-slate-200 hover:border-[#3965FB]/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 text-[#3965FB] flex items-center justify-center group-hover:bg-[#3965FB] group-hover:text-white transition-colors">
+        <button type="button" @click="go('backup')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">cloud_download</span>
           </div>
-          <p class="text-[14px] font-bold text-[#1F1F1F] mt-3">Cadangan Sistem</p>
+          <p class="text-[14px] font-bold text-ink mt-3">Cadangan Sistem</p>
           <p class="text-[12px] text-slate-500 mt-1">Buat paket cadangan database SQLite atau pulihkan kelas.</p>
         </button>
 
         <!-- Tool 4: Master Ruangan & Matkul -->
-        <button type="button" @click="go('master-ruangan')" class="p-4 rounded-xl border border-slate-200 hover:border-[#3965FB]/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 text-[#3965FB] flex items-center justify-center group-hover:bg-[#3965FB] group-hover:text-white transition-colors">
+        <button type="button" @click="go('master-ruangan')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">meeting_room</span>
           </div>
-          <p class="text-[14px] font-bold text-[#1F1F1F] mt-3">Master Ruangan</p>
+          <p class="text-[14px] font-bold text-ink mt-3">Master Ruangan</p>
           <p class="text-[12px] text-slate-500 mt-1">Kelola direktori ruangan dan gedung kampus lintas kelas.</p>
         </button>
       </div>

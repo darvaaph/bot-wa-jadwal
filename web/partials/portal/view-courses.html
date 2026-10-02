@@ -6,8 +6,8 @@
   <p x-show="!coursesLoading && !coursesError && courses.length === 0" class="mt-5 rounded-xl border border-dashed border-slate-300 p-5 text-[13px] text-slate-500">Belum ada mata kuliah aktif pada semester ini.</p>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
     <template x-for="course in courses" :key="course.id">
-      <button type="button" @click="bukaCourse(course)" class="text-left rounded-2xl border border-[#EEEEEE] bg-white p-5 min-h-[96px] hover:border-[#3965FB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
-        <p class="text-[11px] font-semibold text-[#3965FB]" x-text="course.course_code + ' · ' + course.activity_type"></p>
+      <button type="button" @click="bukaCourse(course)" class="text-left rounded-2xl border border-border bg-white p-5 min-h-[96px] hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+        <p class="text-[11px] font-semibold text-primary" x-text="course.course_code + ' · ' + course.activity_type"></p>
         <p class="text-[17px] font-semibold mt-1" x-text="course.display_name"></p>
         <p class="text-[12px] text-slate-500 mt-1" x-text="(course.lecturers || []).join(', ') || 'Dosen belum ditetapkan'"></p>
       </button>
@@ -16,27 +16,27 @@
 </section>
 
 <section x-show="view === 'course-detail'" x-cloak>
-  <button type="button" @click="go('courses')" class="h-11 text-[13px] font-semibold text-[#3965FB]">← Semua mata kuliah</button>
+  <button type="button" @click="go('courses')" class="h-11 text-[13px] font-semibold text-primary">← Semua mata kuliah</button>
   <template x-if="selectedCourse">
     <div>
       <h1 class="text-[26px] font-bold" x-text="selectedCourse.display_name"></h1>
       <p class="text-[13px] text-slate-500" x-text="selectedCourse.course_code + ' · ' + selectedCourse.activity_type"></p>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
-        <div class="rounded-2xl border border-[#EEEEEE] bg-white p-5">
+        <div class="rounded-2xl border border-border bg-white p-5">
           <h2 class="font-semibold">Dosen dan jadwal</h2>
           <p class="text-[13px] text-slate-600 mt-2" x-text="(selectedCourse.lecturers || []).join(', ') || 'Dosen belum ditetapkan'"></p>
           <p x-show="!selectedCourse.schedule.length" class="text-[13px] text-slate-500 mt-3">Belum ada jadwal reguler.</p>
           <template x-for="(s, index) in selectedCourse.schedule" :key="index"><p class="mt-3 text-[13px]" x-text="['','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'][s.day_of_week] + ' · ' + s.start_time + '–' + s.end_time + (s.room ? ' · ' + s.room : '')"></p></template>
         </div>
-        <div class="rounded-2xl border border-[#EEEEEE] bg-white p-5">
+        <div class="rounded-2xl border border-border bg-white p-5">
           <h2 class="font-semibold">Tugas</h2>
           <p x-show="!selectedCourse.tasks.length" class="text-[13px] text-slate-500 mt-3">Belum ada tugas terbit.</p>
-          <template x-for="task in selectedCourse.tasks" :key="task.id"><button type="button" @click="go('tugas')" class="block w-full text-left py-3 border-b border-[#EEEEEE] text-[13px] text-[#3965FB]" x-text="task.title + ' · ' + fmtDeadlineID(task.deadline_at)"></button></template>
+          <template x-for="task in selectedCourse.tasks" :key="task.id"><button type="button" @click="go('tugas')" class="block w-full text-left py-3 border-b border-border text-[13px] text-primary" x-text="task.title + ' · ' + fmtDeadlineID(task.deadline_at)"></button></template>
         </div>
-        <div class="rounded-2xl border border-[#EEEEEE] bg-white p-5 lg:col-span-2">
+        <div class="rounded-2xl border border-border bg-white p-5 lg:col-span-2">
           <h2 class="font-semibold">Materi</h2>
           <p x-show="!selectedCourse.materials.length" class="text-[13px] text-slate-500 mt-3">Belum ada materi untuk mata kuliah ini.</p>
-          <template x-for="material in selectedCourse.materials" :key="material.id"><a :href="material.url" target="_blank" rel="noopener noreferrer" class="block py-3 border-b border-[#EEEEEE] text-[13px] text-[#3965FB] underline" x-text="material.title + ' · ' + material.material_type"></a></template>
+          <template x-for="material in selectedCourse.materials" :key="material.id"><a :href="material.url" target="_blank" rel="noopener noreferrer" class="block py-3 border-b border-border text-[13px] text-primary underline" x-text="material.title + ' · ' + material.material_type"></a></template>
         </div>
       </div>
     </div>

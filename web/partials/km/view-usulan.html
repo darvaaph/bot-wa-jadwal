@@ -1,23 +1,23 @@
 <!-- partials/km/view-usulan.html - KM: Usulan koreksi master -->
 <section x-show="view === 'usulan'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Usulan Master</h1>
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Usulan Master</h1>
     <p class="text-[14px] text-slate-500 mt-1">Usulkan koreksi ruangan atau mata kuliah. System Admin meninjau dan menerapkan. Kode tidak dapat diubah untuk data yang sudah ada.</p>
 
-    <div class="mt-6 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50/60">
-      <h2 class="text-[16px] font-bold text-[#1F1F1F]">Usulan baru</h2>
+    <div class="mt-6 p-5 rounded-2xl border border-border bg-slate-50/60">
+      <h2 class="text-[16px] font-bold text-ink">Usulan baru</h2>
       <div x-show="usulanFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="usulanFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
         <div>
-          <label for="km-usulan-kind" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Jenis *</label>
-          <select id="km-usulan-kind" x-model="usulanForm.kind" @change="usulanForm.targetId = ''" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full">
+          <label for="km-usulan-kind" class="block text-[12px] font-semibold text-ink mb-1">Jenis *</label>
+          <select id="km-usulan-kind" x-model="usulanForm.kind" @change="usulanForm.targetId = ''" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full">
             <option value="ROOM">Ruangan</option>
             <option value="COURSE">Mata kuliah</option>
           </select>
         </div>
         <div>
-          <label for="km-usulan-target" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Target (kosongkan untuk data baru)</label>
-          <select id="km-usulan-target" x-model="usulanForm.targetId" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full">
+          <label for="km-usulan-target" class="block text-[12px] font-semibold text-ink mb-1">Target (kosongkan untuk data baru)</label>
+          <select id="km-usulan-target" x-model="usulanForm.targetId" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full">
             <option value="">— Data baru —</option>
             <template x-for="t in usulanTargetList()" :key="t.id">
               <option :value="t.id" x-text="t.label">-</option>
@@ -25,74 +25,74 @@
           </select>
         </div>
         <div>
-          <label for="km-usulan-kode" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kode <span x-show="!usulanForm.targetId">*</span><span x-show="usulanForm.targetId" class="font-normal text-slate-400">(tak dapat diubah)</span></label>
-          <input id="km-usulan-kode" type="text" x-model="usulanForm.kode" :disabled="!!usulanForm.targetId" placeholder="Kode" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white font-mono w-full disabled:bg-slate-100" />
+          <label for="km-usulan-kode" class="block text-[12px] font-semibold text-ink mb-1">Kode <span x-show="!usulanForm.targetId">*</span><span x-show="usulanForm.targetId" class="font-normal text-slate-400">(tak dapat diubah)</span></label>
+          <input id="km-usulan-kode" type="text" x-model="usulanForm.kode" :disabled="!!usulanForm.targetId" placeholder="Kode" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white font-mono w-full disabled:bg-slate-100" />
         </div>
         <div>
-          <label for="km-usulan-nama" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Nama <span x-show="usulanForm.kind === 'COURSE'">*</span></label>
-          <input id="km-usulan-nama" type="text" x-model="usulanForm.nama" placeholder="Nama" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+          <label for="km-usulan-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama <span x-show="usulanForm.kind === 'COURSE'">*</span></label>
+          <input id="km-usulan-nama" type="text" x-model="usulanForm.nama" placeholder="Nama" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full" />
         </div>
         <template x-if="usulanForm.kind === 'ROOM'">
           <div>
-            <label for="km-usulan-gedung" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Gedung</label>
-            <input id="km-usulan-gedung" type="text" x-model="usulanForm.gedung" placeholder="Gedung" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+            <label for="km-usulan-gedung" class="block text-[12px] font-semibold text-ink mb-1">Gedung</label>
+            <input id="km-usulan-gedung" type="text" x-model="usulanForm.gedung" placeholder="Gedung" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full" />
           </div>
         </template>
         <template x-if="usulanForm.kind === 'ROOM'">
           <div>
-            <label for="km-usulan-tipe" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Tipe</label>
-            <input id="km-usulan-tipe" type="text" x-model="usulanForm.tipe" placeholder="Lab/Teori" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+            <label for="km-usulan-tipe" class="block text-[12px] font-semibold text-ink mb-1">Tipe</label>
+            <input id="km-usulan-tipe" type="text" x-model="usulanForm.tipe" placeholder="Lab/Teori" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full" />
           </div>
         </template>
         <template x-if="usulanForm.kind === 'ROOM'">
           <div>
-            <label for="km-usulan-kapasitas" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Kapasitas</label>
-            <input id="km-usulan-kapasitas" type="number" x-model="usulanForm.kapasitas" placeholder="0" min="0" step="1" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+            <label for="km-usulan-kapasitas" class="block text-[12px] font-semibold text-ink mb-1">Kapasitas</label>
+            <input id="km-usulan-kapasitas" type="number" x-model="usulanForm.kapasitas" placeholder="0" min="0" step="1" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full" />
           </div>
         </template>
         <div class="sm:col-span-2">
-          <label for="km-usulan-catatan" class="block text-[12px] font-semibold text-[#1F1F1F] mb-1">Catatan untuk peninjau</label>
-          <input id="km-usulan-catatan" type="text" x-model="usulanForm.catatan" placeholder="Contoh: Nama resmi dari TU" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white w-full" />
+          <label for="km-usulan-catatan" class="block text-[12px] font-semibold text-ink mb-1">Catatan untuk peninjau</label>
+          <input id="km-usulan-catatan" type="text" x-model="usulanForm.catatan" placeholder="Contoh: Nama resmi dari TU" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white w-full" />
         </div>
       </div>
-      <button type="button" @click="kirimUsulan()" :disabled="usulanSaving" class="mt-3 h-11 px-6 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60">Kirim usulan</button>
+      <button type="button" @click="kirimUsulan()" :disabled="usulanSaving" class="mt-3 h-11 px-6 rounded-xl bg-primary text-white text-[14px] font-semibold min-h-[44px] disabled:opacity-60">Kirim usulan</button>
     </div>
 
     <!-- Daftar usulan kelas -->
     <div class="mt-8">
       <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-        <h2 class="text-[16px] font-bold text-[#1F1F1F] flex-1">Usulan kelas ini</h2>
-        <select x-model="usulanFilterKind" @change="loadUsulanSaya()" aria-label="Filter jenis usulan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+        <h2 class="text-[16px] font-bold text-ink flex-1">Usulan kelas ini</h2>
+        <select x-model="usulanFilterKind" @change="loadUsulanSaya()" aria-label="Filter jenis usulan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white">
           <option value="">Semua jenis</option>
           <option value="ROOM">Ruangan</option>
           <option value="COURSE">Mata kuliah</option>
         </select>
-        <select x-model="usulanFilterStatus" @change="loadUsulanSaya()" aria-label="Filter status usulan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+        <select x-model="usulanFilterStatus" @change="loadUsulanSaya()" aria-label="Filter status usulan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white">
           <option value="">Semua status</option>
           <option value="PENDING">Menunggu</option>
           <option value="APPROVED">Disetujui</option>
           <option value="REJECTED">Ditolak</option>
         </select>
-        <button type="button" @click="loadUsulanSaya()" class="h-10 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+        <button type="button" @click="loadUsulanSaya()" class="h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
       </div>
       <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
       <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="usulanError">-</span>
         <button type="button" @click="loadUsulanSaya()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
-      <div x-show="!usulanLoading && !usulanError && usulanList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">
+      <div x-show="!usulanLoading && !usulanError && usulanList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">
         <span x-text="(usulanFilterKind || usulanFilterStatus) ? 'Tidak ada usulan dengan filter yang dipilih.' : 'Belum ada usulan dari kelas ini.'">-</span>
         <div x-show="usulanFilterKind || usulanFilterStatus" class="mt-3">
-          <button type="button" @click="usulanFilterKind = ''; usulanFilterStatus = ''; loadUsulanSaya()" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Atur ulang filter</button>
+          <button type="button" @click="usulanFilterKind = ''; usulanFilterStatus = ''; loadUsulanSaya()" class="h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Atur ulang filter</button>
         </div>
       </div>
       <div x-show="!usulanLoading && usulanList.length > 0" class="mt-3 space-y-3">
         <template x-for="u in usulanList" :key="u.id">
-          <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+          <div class="p-4 rounded-2xl border border-border bg-white">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-[14px] font-semibold text-[#1F1F1F]"><span class="font-mono" x-text="u.target_code || (u.kind === 'ROOM' ? 'Ruangan baru' : 'Mata kuliah baru')">-</span></p>
+              <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="u.target_code || (u.kind === 'ROOM' ? 'Ruangan baru' : 'Mata kuliah baru')">-</span></p>
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
-                :class="u.status === 'PENDING' ? 'bg-amber-50 text-amber-900' : (u.status === 'APPROVED' ? 'bg-[#E1FFB7] text-green-800' : 'bg-slate-100 text-slate-500')">
+                :class="u.status === 'PENDING' ? 'bg-amber-50 text-amber-900' : (u.status === 'APPROVED' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500')">
                 <span class="material-symbols-outlined text-[12px]" x-text="u.status === 'PENDING' ? 'pending' : (u.status === 'APPROVED' ? 'check_circle' : 'block')">-</span>
                 <span x-text="labelStatusUsulan(u.status)">-</span>
               </span>
@@ -100,7 +100,7 @@
             <p class="text-[12px] text-slate-500 mt-1">Oleh <span x-text="u.proposed_by">-</span><span x-show="u.note" x-text="' · ' + u.note"></span></p>
             <details class="mt-1 text-[11px] text-slate-500">
               <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[12px]">Isi yang diusulkan</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-slate-50 border border-[#EEEEEE] overflow-x-auto font-mono text-[11px]" x-text="u.payload_json">-</pre>
+              <pre class="mt-1 p-2 rounded-lg bg-slate-50 border border-border overflow-x-auto font-mono text-[11px]" x-text="u.payload_json">-</pre>
             </details>
             <p x-show="u.status === 'REJECTED' && u.review_note" class="text-[12px] text-red-700 mt-1">Catatan penolakan: <span x-text="u.review_note"></span></p>
           </div>

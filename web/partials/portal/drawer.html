@@ -14,14 +14,14 @@
   <nav aria-label="Navigasi mobile portal" class="mt-6 flex flex-col gap-0.5 text-[14px]">
     <template x-for="item in portalNav" :key="item.id">
       <button type="button" @click="go(item.id)"
-        :class="view === item.id ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F]'"
+        :class="view === item.id ? 'bg-primary-soft text-primary font-semibold' : 'text-ink'"
         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
         <img class="w-5 h-5 shrink-0" :src="item.img" alt="" /><span x-text="item.label">-</span>
       </button>
     </template>
   </nav>
   <div class="mt-auto pt-4 text-[13px] px-2">
-    <p class="font-semibold text-[#1F1F1F]">User · <span x-text="selectedClass || '—'">—</span></p>
+    <p class="font-semibold text-ink">User · <span x-text="selectedClass || '—'">—</span></p>
     <p class="text-[12px] text-slate-500">Hanya lihat · tanpa akun</p>
     <button type="button" @click="drawer = false; kunciPortal()" class="mt-2 text-[12px] text-red-600 hover:underline min-h-[44px] block">Kunci portal / Ganti kelas</button>
   </div>

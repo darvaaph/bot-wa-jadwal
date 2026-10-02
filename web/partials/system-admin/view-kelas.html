@@ -2,15 +2,15 @@
 
 <!-- 1. DAFTAR KELAS -->
 <section x-show="view === 'kelas'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Daftar Kelas</h1>
-        <p class="text-[14px] text-[#667085] mt-1">Saring berdasar program, angkatan, rombel, dan status. Pengurus ditetapkan melalui undangan.</p>
+        <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Daftar Kelas</h1>
+        <p class="text-[14px] text-muted mt-1">Saring berdasar program, angkatan, rombel, dan status. Pengurus ditetapkan melalui undangan.</p>
       </div>
 
       <!-- Tombol Buat Kelas Baru -->
-      <button type="button" @click="go('buat')" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px] inline-flex items-center gap-2 shrink-0 self-start sm:self-auto">
+      <button type="button" @click="go('buat')" class="h-11 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-medium min-h-[44px] inline-flex items-center gap-2 shrink-0 self-start sm:self-auto">
         <img src="/assets/icons/plus.svg" alt="" class="w-5 h-5 shrink-0" />
         <span>Buat kelas baru</span>
       </button>
@@ -18,44 +18,44 @@
 
     <!-- Filter -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
-      <input type="text" x-model="kelasFilter.prodi" placeholder="Prodi" aria-label="Filter program studi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
-      <input type="text" x-model="kelasFilter.angkatan" placeholder="Angkatan" inputmode="numeric" aria-label="Filter angkatan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white" />
-      <input type="text" x-model="kelasFilter.rombel" placeholder="Rombel" aria-label="Filter rombel" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white uppercase" />
-      <select x-model="kelasFilter.status" aria-label="Filter status kelas" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+      <input type="text" x-model="kelasFilter.prodi" placeholder="Prodi" aria-label="Filter program studi" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
+      <input type="text" x-model="kelasFilter.angkatan" placeholder="Angkatan" inputmode="numeric" aria-label="Filter angkatan" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
+      <input type="text" x-model="kelasFilter.rombel" placeholder="Rombel" aria-label="Filter rombel" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white uppercase" />
+      <select x-model="kelasFilter.status" aria-label="Filter status kelas" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white">
         <option value="">Semua status</option>
         <option value="ACTIVE">Aktif</option>
         <option value="INACTIVE">Nonaktif</option>
         <option value="ARCHIVED">Arsip</option>
       </select>
-      <button type="button" @click="resetKelasFilter()" class="h-11 px-3 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset</button>
+      <button type="button" @click="resetKelasFilter()" class="h-11 px-3 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset</button>
     </div>
 
     <!-- Loading State -->
-    <div x-show="kelasLoading" class="p-12 text-center text-[#667085]">
-      <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+    <div x-show="kelasLoading" class="p-12 text-center text-muted">
+      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
       <p class="mt-3 text-[14px]">Memuat daftar kelas...</p>
     </div>
 
     <!-- Empty State -->
-    <div x-show="!kelasLoading && filteredKelas().length === 0" class="p-12 text-center text-[#667085] mt-6 border border-dashed border-[#EEEEEE] rounded-2xl">
+    <div x-show="!kelasLoading && filteredKelas().length === 0" class="p-12 text-center text-muted mt-6 border border-dashed border-border rounded-2xl">
       <span class="material-symbols-outlined text-[36px] text-slate-300">school</span>
-      <p class="mt-2 text-[15px] font-semibold text-[#1F1F1F]">Tidak ada kelas ditemukan</p>
-      <p class="text-[13px] text-[#667085] mt-0.5">Coba ubah filter atau kata kunci pencarian, atau buat kelas baru.</p>
-      <button type="button" @click="resetKelasFilter()" class="mt-3 h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+      <p class="mt-2 text-[15px] font-semibold text-ink">Tidak ada kelas ditemukan</p>
+      <p class="text-[13px] text-muted mt-0.5">Coba ubah filter atau kata kunci pencarian, atau buat kelas baru.</p>
+      <button type="button" @click="resetKelasFilter()" class="mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
     </div>
 
     <!-- Grid Kartu Kelas -->
     <div x-show="!kelasLoading && filteredKelas().length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
       <template x-for="k in filteredKelas()" :key="k.id || k.nama">
-        <div class="rounded-2xl border border-[#EEEEEE] overflow-hidden bg-white flex flex-col hover:border-[#3965FB]/40 transition-colors">
+        <div class="rounded-2xl border border-border overflow-hidden bg-white flex flex-col hover:border-primary/40 transition-colors">
           <!-- Card Header (Lavender Subtle) -->
-          <div class="bg-[#E9EAFF] p-6 flex items-start justify-between gap-3">
+          <div class="bg-primary-soft p-6 flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <h2 class="text-[20px] font-bold text-[#1F1F1F]" x-text="k.nama">-</h2>
-              <p class="text-[13px] text-[#667085] mt-1">
+              <h2 class="text-[20px] font-bold text-ink" x-text="k.nama">-</h2>
+              <p class="text-[13px] text-muted mt-1">
                 <span x-text="k.prodi">Teknik Informatika</span> · Angkatan <span x-text="k.angkatan">2024</span> · Rombel <span x-text="k.group || 'A'">A</span>
               </p>
-              <p class="text-[11px] text-[#667085] font-mono mt-0.5 truncate" x-text="k.slug">-</p>
+              <p class="text-[11px] text-muted font-mono mt-0.5 truncate" x-text="k.slug">-</p>
             </div>
             <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0"
               :class="{
@@ -70,18 +70,18 @@
           <div class="p-6 flex-1 flex flex-col justify-between min-h-[140px] bg-white">
             <div>
               <template x-if="k.statusKM === 'none'">
-                <p class="text-[14px] text-[#667085]">Ketua Murid (KM) belum ditetapkan</p>
+                <p class="text-[14px] text-muted">Ketua Murid (KM) belum ditetapkan</p>
               </template>
               <template x-if="k.statusKM === 'active'">
                 <div>
-                  <p class="text-[14px] text-[#1F1F1F] font-semibold">KM: <span x-text="k.kmName || 'Ketua Murid'">-</span></p>
-                  <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="k.kmPhone || '-'"></p>
+                  <p class="text-[14px] text-ink font-semibold">KM: <span x-text="k.kmName || 'Ketua Murid'">-</span></p>
+                  <p class="text-[12px] text-muted font-mono mt-0.5" x-text="k.kmPhone || '-'"></p>
                 </div>
               </template>
               <template x-if="k.statusKM === 'pending'">
                 <div>
                   <p class="text-[14px] text-amber-700 font-medium">Undangan KM menunggu (7 hari, sekali pakai)</p>
-                  <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="k.kmPhone || '-'"></p>
+                  <p class="text-[12px] text-muted font-mono mt-0.5" x-text="k.kmPhone || '-'"></p>
                 </div>
               </template>
             </div>
@@ -89,21 +89,21 @@
             <!-- Card Actions -->
             <div class="mt-6 flex gap-2">
               <template x-if="k.statusKM === 'none'">
-                <button type="button" @click="bukaUndang(k)" class="w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">
+                <button type="button" @click="bukaUndang(k)" class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-medium min-h-[44px]">
                   Undang KM
                 </button>
               </template>
               <template x-if="k.statusKM === 'active'">
-                <button type="button" @click="bukaDetail(k)" class="w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">
+                <button type="button" @click="bukaDetail(k)" class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-medium min-h-[44px]">
                   Lihat detail
                 </button>
               </template>
               <template x-if="k.statusKM === 'pending'">
                 <div class="w-full flex gap-2">
-                  <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-medium min-h-[44px]">
+                  <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-medium min-h-[44px]">
                     Kirim ulang
                   </button>
-                  <button type="button" @click="bukaDetail(k)" class="px-4 h-11 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[14px] font-medium min-h-[44px]">
+                  <button type="button" @click="bukaDetail(k)" class="px-4 h-11 rounded-xl border border-border hover:bg-slate-50 text-[14px] font-medium min-h-[44px]">
                     Detail
                   </button>
                 </div>
@@ -118,57 +118,57 @@
 
 <!-- 2. BUAT KELAS BARU -->
 <section x-show="view === 'buat'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Buat kelas baru</h1>
-    <p class="text-[14px] text-[#667085] mt-1">Kelas dapat dibuat sebelum Ketua Murid (KM) diundang. Slug kosong = otomatis dari nama.</p>
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
+    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Buat kelas baru</h1>
+    <p class="text-[14px] text-muted mt-1">Kelas dapat dibuat sebelum Ketua Murid (KM) diundang. Slug kosong = otomatis dari nama.</p>
 
     <div x-show="kelasError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kelasError"></div>
 
     <form @submit.prevent="simpanKelas()" class="space-y-6 mt-6 max-w-2xl">
       <div>
-        <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2" for="sa-kelas-nama">Nama kelas *</label>
+        <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-nama">Nama kelas *</label>
         <input id="sa-kelas-nama" type="text" x-model="kelasForm.nama" placeholder="D4 TI 2025 B" required
-          class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-        <p class="text-[12px] text-[#667085] mt-1">Gunakan format standar seperti: D4 TI 2025 B atau D3 TI 2024 A</p>
+          class="w-full h-12 px-4 rounded-xl border border-border text-[14px] text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
+        <p class="text-[12px] text-muted mt-1">Gunakan format standar seperti: D4 TI 2025 B atau D3 TI 2024 A</p>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2" for="sa-kelas-prodi">Program studi *</label>
+          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-prodi">Program studi *</label>
           <input id="sa-kelas-prodi" type="text" x-model="kelasForm.prodi" placeholder="Teknik Informatika" required
-            class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            class="w-full h-12 px-4 rounded-xl border border-border text-[14px] text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
-          <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2" for="sa-kelas-angkatan">Angkatan *</label>
+          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-angkatan">Angkatan *</label>
           <input id="sa-kelas-angkatan" type="number" x-model="kelasForm.angkatan" placeholder="2025" min="2000" max="2100" required
-            class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            class="w-full h-12 px-4 rounded-xl border border-border text-[14px] text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2" for="sa-kelas-rombel">Rombel *</label>
+          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-rombel">Rombel *</label>
           <input id="sa-kelas-rombel" type="text" x-model="kelasForm.rombel" placeholder="A" maxlength="4" required
-            class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] text-[#1F1F1F] uppercase placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            class="w-full h-12 px-4 rounded-xl border border-border text-[14px] text-ink uppercase placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div>
-          <label class="block text-[14px] font-bold text-[#1F1F1F] mb-2" for="sa-kelas-slug">Slug (opsional)</label>
+          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-slug">Slug (opsional)</label>
           <input id="sa-kelas-slug" type="text" x-model="kelasForm.slug" placeholder="otomatis, mis. d4-ti-2025-b"
-            class="w-full h-12 px-4 rounded-xl border border-[#EEEEEE] text-[14px] font-mono text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            class="w-full h-12 px-4 rounded-xl border border-border text-[14px] font-mono text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
       </div>
 
-      <div class="p-4 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-[#667085]">
-        <p><span class="font-semibold text-[#1F1F1F]">Mode Portal Kelas:</span> LINK (default server) · <span class="font-semibold text-[#1F1F1F]">Zona waktu:</span> Asia/Jakarta. Perubahan mode portal menyusul setelah endpoint tersedia.</p>
+      <div class="p-4 rounded-xl bg-slate-50 border border-border text-[13px] text-muted">
+        <p><span class="font-semibold text-ink">Mode Portal Kelas:</span> LINK (default server) · <span class="font-semibold text-ink">Zona waktu:</span> Asia/Jakarta. Perubahan mode portal menyusul setelah endpoint tersedia.</p>
       </div>
 
       <div class="flex items-center gap-4 pt-2">
         <button type="submit" :disabled="kelasSaving"
-          class="h-11 px-8 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px]">
+          class="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-[14px] font-medium min-h-[44px]">
           <span x-show="!kelasSaving">Simpan kelas</span>
           <span x-show="kelasSaving">Menyimpan...</span>
         </button>
-        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[14px] font-medium min-h-[44px]">Batal</button>
+        <button type="button" @click="go('kelas')" class="h-11 px-8 rounded-xl border border-primary text-primary hover:bg-primary-soft text-[14px] font-medium min-h-[44px]">Batal</button>
       </div>
     </form>
   </div>
@@ -176,18 +176,18 @@
 
 <!-- 3. DETAIL KELAS -->
 <section x-show="view === 'detail'" x-cloak>
-  <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
+  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
     <div x-show="isDukunganUntuk(kelasAktifObj ? kelasAktifObj.slug : '')" class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
       <p class="font-bold">Mode Dukungan aktif untuk kelas ini.</p>
       <p class="mt-0.5">Alasan: <span x-text="dukunganAktif ? dukunganAktif.alasan : ''"></span>. Perubahan dicatat sebagai akses dukungan.</p>
     </div>
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div class="min-w-0">
-        <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</h1>
-        <p class="text-[#667085] text-[14px] mt-1">
+        <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',sans-serif" x-text="kelasAktifObj ? kelasAktifObj.nama : '-'">-</h1>
+        <p class="text-muted text-[14px] mt-1">
           <span x-text="kelasAktifObj ? kelasAktifObj.prodi : '-'">-</span> · Angkatan <span x-text="kelasAktifObj ? kelasAktifObj.angkatan : '-'">-</span> · Rombel <span x-text="kelasAktifObj ? (kelasAktifObj.group || 'A') : '-'">-</span>
         </p>
-        <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="kelasAktifObj ? kelasAktifObj.slug : ''"></p>
+        <p class="text-[12px] text-muted font-mono mt-0.5" x-text="kelasAktifObj ? kelasAktifObj.slug : ''"></p>
       </div>
 
       <!-- Badge Status -->
@@ -201,38 +201,38 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-      <div class="p-6 rounded-2xl bg-slate-50 border border-[#EEEEEE] space-y-3">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Informasi Pengurus Kelas (KM)</h3>
+      <div class="p-6 rounded-2xl bg-slate-50 border border-border space-y-3">
+        <h3 class="text-[16px] font-bold text-ink">Informasi Pengurus Kelas (KM)</h3>
         <div class="text-[14px] space-y-1.5">
-          <p class="text-[#667085]">Status KM: <span class="font-semibold text-[#1F1F1F]" x-text="kelasAktifObj ? (kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan')) : '-'">-</span></p>
-          <p class="text-[#667085]">Nama KM: <span class="font-semibold text-[#1F1F1F]" x-text="kelasAktifObj && kelasAktifObj.kmName ? kelasAktifObj.kmName : 'Belum ditetapkan'">-</span></p>
-          <p class="text-[#667085]">Nomor WhatsApp: <span class="font-mono text-[#1F1F1F]" x-text="kelasAktifObj && kelasAktifObj.kmPhone ? kelasAktifObj.kmPhone : '-'">-</span></p>
+          <p class="text-muted">Status KM: <span class="font-semibold text-ink" x-text="kelasAktifObj ? (kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan')) : '-'">-</span></p>
+          <p class="text-muted">Nama KM: <span class="font-semibold text-ink" x-text="kelasAktifObj && kelasAktifObj.kmName ? kelasAktifObj.kmName : 'Belum ditetapkan'">-</span></p>
+          <p class="text-muted">Nomor WhatsApp: <span class="font-mono text-ink" x-text="kelasAktifObj && kelasAktifObj.kmPhone ? kelasAktifObj.kmPhone : '-'">-</span></p>
         </div>
         <div class="pt-2">
-          <button type="button" @click="bukaUndang(kelasAktifObj)" class="h-10 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-medium min-h-[44px]">
+          <button type="button" @click="bukaUndang(kelasAktifObj)" class="h-10 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[13px] font-medium min-h-[44px]">
             <span x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Ganti / Undang Ulang KM' : 'Undang KM'">Undang KM</span>
           </button>
         </div>
-        <p class="text-[11px] text-[#667085]">Bila hanya 1 KM aktif, undang pengganti dulu sebelum mencabut — kecuali insiden keamanan beralasan.</p>
+        <p class="text-[11px] text-muted">Bila hanya 1 KM aktif, undang pengganti dulu sebelum mencabut — kecuali insiden keamanan beralasan.</p>
       </div>
 
-      <div class="p-6 rounded-2xl bg-slate-50 border border-[#EEEEEE] space-y-3">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Keamanan &amp; Akses Portal</h3>
+      <div class="p-6 rounded-2xl bg-slate-50 border border-border space-y-3">
+        <h3 class="text-[16px] font-bold text-ink">Keamanan &amp; Akses Portal</h3>
         <div x-show="detailSettingsError" class="text-[13px] text-amber-800" x-text="detailSettingsError"></div>
         <div x-show="detailSettings" class="text-[14px] space-y-1.5">
-          <p class="text-[#667085]">Mode Portal Kelas: <span class="font-semibold text-[#1F1F1F]" x-text="detailSettings.portal_access_mode === 'CODE' ? 'Kode' : 'Tautan'">-</span></p>
-          <p class="text-[#667085]">Zona waktu: <span class="font-mono text-[#1F1F1F]" x-text="detailSettings.timezone || 'Asia/Jakarta'">-</span></p>
-          <p class="text-[#667085]">Versi kode: <span class="font-mono text-[#1F1F1F]" x-text="detailSettings.portal_code_version">-</span></p>
+          <p class="text-muted">Mode Portal Kelas: <span class="font-semibold text-ink" x-text="detailSettings.portal_access_mode === 'CODE' ? 'Kode' : 'Tautan'">-</span></p>
+          <p class="text-muted">Zona waktu: <span class="font-mono text-ink" x-text="detailSettings.timezone || 'Asia/Jakarta'">-</span></p>
+          <p class="text-muted">Versi kode: <span class="font-mono text-ink" x-text="detailSettings.portal_code_version">-</span></p>
         </div>
-        <p class="text-[13px] text-[#667085]">Mode kode butuh kode aktif (putar dulu). Kembali ke tautan mencabut kode. Rotasi kode mengaktifkan mode kode.</p>
+        <p class="text-[13px] text-muted">Mode kode butuh kode aktif (putar dulu). Kembali ke tautan mencabut kode. Rotasi kode mengaktifkan mode kode.</p>
         <div class="pt-2 flex flex-wrap gap-3">
-          <button type="button" @click="mintaKonfirmasiModePortal('LINK')" class="h-10 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+          <button type="button" @click="mintaKonfirmasiModePortal('LINK')" class="h-10 px-5 rounded-xl border border-primary text-primary hover:bg-primary-soft text-[13px] font-medium min-h-[44px]">
             Mode tautan
           </button>
-          <button type="button" @click="mintaKonfirmasiModePortal('CODE')" class="h-10 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-[#E9EAFF] text-[13px] font-medium min-h-[44px]">
+          <button type="button" @click="mintaKonfirmasiModePortal('CODE')" class="h-10 px-5 rounded-xl border border-primary text-primary hover:bg-primary-soft text-[13px] font-medium min-h-[44px]">
             Mode kode
           </button>
-          <button type="button" @click="rotasiKodePortal()" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-white text-[13px] font-medium min-h-[44px]">
+          <button type="button" @click="rotasiKodePortal()" class="h-10 px-5 rounded-xl border border-border hover:bg-white text-[13px] font-medium min-h-[44px]">
             Rotasi Kode Portal
           </button>
         </div>
@@ -242,13 +242,13 @@
     <!-- Dialog konfirmasi mode portal -->
     <div x-show="portalModeConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiModePortal()"></div>
-      <div class="relative bg-white rounded-2xl border border-[#EEEEEE] max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi mode portal">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Ubah mode Portal Kelas?</h3>
-        <p class="text-[13px] text-[#667085] mt-1">Kelas <span class="font-semibold text-[#1F1F1F]" x-text="portalModeConfirm ? portalModeConfirm.nama : ''"></span> dari <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.dari : ''"></span> ke <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.ke : ''"></span>.</p>
+      <div class="relative bg-white rounded-2xl border border-border max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi mode portal">
+        <h3 class="text-[16px] font-bold text-ink">Ubah mode Portal Kelas?</h3>
+        <p class="text-[13px] text-muted mt-1">Kelas <span class="font-semibold text-ink" x-text="portalModeConfirm ? portalModeConfirm.nama : ''"></span> dari <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.dari : ''"></span> ke <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.ke : ''"></span>.</p>
         <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Mode tautan mencabut kode aktif: sesi portal versi lama tak berlaku. Mode kode butuh kode aktif — putar kode dulu bila belum ada.</p>
         <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahModePortal()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiModePortal()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+          <button type="button" @click="jalankanUbahModePortal()" class="flex-1 h-11 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiModePortal()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
     </div>
@@ -256,21 +256,21 @@
     <!-- Semester Kelas -->
     <div class="mt-8">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Semester Kelas</h3>
-        <button type="button" @click="kelasAktifObj && loadDetailSemester(kelasAktifObj.slug)" class="h-10 px-4 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+        <h3 class="text-[16px] font-bold text-ink">Semester Kelas</h3>
+        <button type="button" @click="kelasAktifObj && loadDetailSemester(kelasAktifObj.slug)" class="h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
       </div>
       <div x-show="detailSemesterLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat semester...</div>
       <div x-show="detailSemesterError" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900" x-text="detailSemesterError"></div>
-      <div x-show="!detailSemesterLoading && !detailSemesterError && detailSemesterList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-[#EEEEEE] text-center text-[13px] text-slate-400">Belum ada semester terdaftar untuk kelas ini.</div>
-      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="mt-3 divide-y divide-[#EEEEEE] border-t border-b border-[#EEEEEE]">
+      <div x-show="!detailSemesterLoading && !detailSemesterError && detailSemesterList.length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Belum ada semester terdaftar untuk kelas ini.</div>
+      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
         <template x-for="s in detailSemesterList" :key="s.id">
           <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
             <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-[#1F1F1F]" x-text="(s.name || s.label || ('Semester #' + s.id))">-</p>
+              <p class="text-[14px] font-semibold text-ink" x-text="(s.name || s.label || ('Semester #' + s.id))">-</p>
               <p class="text-[12px] text-slate-500 font-mono" x-text="[(s.starts_at || s.start_date || ''), (s.ends_at || s.end_date || '')].filter(Boolean).join(' → ') || ('ID ' + s.id)">-</p>
             </div>
             <span class="inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(s.status || '').toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-green-800' : (String(s.status || '').toUpperCase() === 'DRAFT' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-500')"
+              :class="String(s.status || '').toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : (String(s.status || '').toUpperCase() === 'DRAFT' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-500')"
               x-text="s.status || '-'">-</span>
           </div>
         </template>
@@ -279,12 +279,12 @@
 
     <!-- Kesehatan + tautan -->
     <div class="mt-8 flex flex-wrap gap-3">
-      <button type="button" @click="kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Lihat Riwayat Perubahan kelas</button>
-      <button type="button" @click="notifFilter = ''; notifKelas = ''; go('antrean')" class="h-10 px-5 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Lihat Antrean Notifikasi</button>
+      <button type="button" @click="kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)" class="h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Lihat Riwayat Perubahan kelas</button>
+      <button type="button" @click="notifFilter = ''; notifKelas = ''; go('antrean')" class="h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Lihat Antrean Notifikasi</button>
     </div>
 
     <!-- Manajemen Lifecycle Status -->
-    <div class="mt-8 pt-6 border-t border-[#EEEEEE] flex flex-wrap items-center justify-between gap-4">
+    <div class="mt-8 pt-6 border-t border-border flex flex-wrap items-center justify-between gap-4">
       <div class="flex flex-wrap items-center gap-3">
         <template x-if="kelasAktifObj && kelasAktifObj.status === 'ACTIVE'">
           <button type="button" @click="mintaKonfirmasiStatus('INACTIVE')" class="h-10 px-5 rounded-xl border border-amber-300 text-amber-800 hover:bg-amber-50 text-[13px] font-medium min-h-[44px]">
@@ -303,7 +303,7 @@
         </template>
       </div>
 
-      <button type="button" @click="go('kelas')" class="h-10 px-6 rounded-xl border border-[#EEEEEE] hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">
+      <button type="button" @click="go('kelas')" class="h-10 px-6 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">
         Kembali ke daftar kelas
       </button>
     </div>
@@ -311,13 +311,13 @@
     <!-- Dialog konfirmasi status -->
     <div x-show="kelasStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiStatus()"></div>
-      <div class="relative bg-white rounded-2xl border border-[#EEEEEE] max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status kelas">
-        <h3 class="text-[16px] font-bold text-[#1F1F1F]">Ubah status kelas?</h3>
-        <p class="text-[13px] text-[#667085] mt-1">Kelas <span class="font-semibold text-[#1F1F1F]" x-text="kelasStatusConfirm ? kelasStatusConfirm.nama : ''"></span> dari <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.ke : ''"></span>.</p>
+      <div class="relative bg-white rounded-2xl border border-border max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status kelas">
+        <h3 class="text-[16px] font-bold text-ink">Ubah status kelas?</h3>
+        <p class="text-[13px] text-muted mt-1">Kelas <span class="font-semibold text-ink" x-text="kelasStatusConfirm ? kelasStatusConfirm.nama : ''"></span> dari <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.ke : ''"></span>.</p>
         <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif/arsip menyembunyikan kelas dari daftar aktif. Arsip bersifat administratif dan tercatat di Riwayat Perubahan.</p>
         <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatus()" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatus()" class="h-11 px-5 rounded-xl border border-[#EEEEEE] text-[13px] min-h-[44px]">Batal</button>
+          <button type="button" @click="jalankanUbahStatus()" class="flex-1 h-11 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiStatus()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
     </div>

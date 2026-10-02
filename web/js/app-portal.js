@@ -158,10 +158,10 @@ function portalApp() {
     badgeJadwal(kind) {
       const k = String(kind || '').toUpperCase();
       if (k === 'PENGGANTI') return { label: 'Kelas Pengganti', cls: 'bg-amber-50 text-amber-900 border-amber-300', icon: 'swap_horiz' };
-      if (k === 'TAMBAHAN') return { label: 'Kelas Tambahan', cls: 'bg-[#E9EAFF] text-[#3965FB] border-[#3965FB]/30', icon: 'add_circle' };
+      if (k === 'TAMBAHAN') return { label: 'Kelas Tambahan', cls: 'bg-primary-soft text-primary border-primary/30', icon: 'add_circle' };
       if (k === 'LIBUR') return { label: 'Diliburkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'event_busy' };
       if (k === 'DIBATALKAN') return { label: 'Sesi Dibatalkan', cls: 'bg-red-50 text-red-700 border-red-200', icon: 'cancel' };
-      return { label: 'Pola Jadwal', cls: 'bg-[#E1FFB7] text-green-800 border-green-200', icon: 'event' };
+      return { label: 'Pola Jadwal', cls: 'bg-success text-green-800 border-green-200', icon: 'event' };
     },
 
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },

@@ -1,5 +1,5 @@
 <!-- partials/portal/gate.html — Gerbang Portal Mahasiswa (Asterisk) -->
-<div class="min-h-screen flex flex-col bg-[#F6F7FB]">
+<div class="min-h-screen flex flex-col bg-surface-subtle">
   <!-- Top Navigation Bar (Slim h-14) -->
   <header class="w-full border-b border-slate-200/80 bg-white sticky top-0 z-30">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -11,7 +11,7 @@
       </div>
       <div class="flex items-center gap-2">
         <a href="/login.html"
-           class="h-8 sm:h-9 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#3965FB] text-[12px] font-semibold flex items-center gap-1.5 transition">
+           class="h-8 sm:h-9 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-primary text-[12px] font-semibold flex items-center gap-1.5 transition">
           <span class="material-symbols-outlined text-[16px]">badge</span>
           <span class="hidden sm:inline">Masuk Pengurus</span>
           <span class="sm:hidden">Pengurus</span>
@@ -23,11 +23,11 @@
   <!-- Main Hero & Gateway Container (Fits 1 screen on desktop) -->
   <main class="flex-1 flex items-center justify-center px-4 sm:px-6 py-4 sm:py-6">
     <div class="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
-      
+
       <!-- Left Hero Column (Desktop & Tablet) -->
       <div class="lg:col-span-6 space-y-4 text-center lg:text-left">
         <div>
-          <h1 class="text-[22px] sm:text-[28px] lg:text-[32px] font-bold text-[#1D1B3A] leading-snug font-display">
+          <h1 class="text-[22px] sm:text-[28px] lg:text-[32px] font-bold text-deep-ink leading-snug font-display">
             Pantau jadwal dan tugas kuliah tanpa ribet.
           </h1>
           <p class="text-[13px] sm:text-[14px] text-slate-600 mt-2 leading-relaxed max-w-lg mx-auto lg:mx-0">
@@ -38,26 +38,26 @@
         <!-- Compact Horizontal Feature Badges -->
         <div class="grid grid-cols-3 gap-2.5 max-w-lg mx-auto lg:mx-0 text-left">
           <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
-            <span class="w-7 h-7 rounded-lg bg-[#EEF2FF] text-[#3965FB] flex items-center justify-center">
+            <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">calendar_today</span>
             </span>
-            <span class="text-[12px] font-bold text-[#1D1B3A]">Jadwal Kuliah</span>
+            <span class="text-[12px] font-bold text-deep-ink">Jadwal Kuliah</span>
             <span class="text-[10px] text-slate-500 leading-tight">Jam harian & ruang kelas.</span>
           </div>
 
           <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
-            <span class="w-7 h-7 rounded-lg bg-[#EEF2FF] text-[#3965FB] flex items-center justify-center">
+            <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">assignment</span>
             </span>
-            <span class="text-[12px] font-bold text-[#1D1B3A]">Tenggat Tugas</span>
+            <span class="text-[12px] font-bold text-deep-ink">Tenggat Tugas</span>
             <span class="text-[10px] text-slate-500 leading-tight">Prioritas mendesak & aman.</span>
           </div>
 
           <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
-            <span class="w-7 h-7 rounded-lg bg-[#EEF2FF] text-[#3965FB] flex items-center justify-center">
+            <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">bolt</span>
             </span>
-            <span class="text-[12px] font-bold text-[#1D1B3A]">Akses Cepat</span>
+            <span class="text-[12px] font-bold text-deep-ink">Akses Cepat</span>
             <span class="text-[10px] text-slate-500 leading-tight">3 ketuk langsung masuk.</span>
           </div>
         </div>
@@ -70,15 +70,15 @@
       <!-- Right Interactive Gateway Card -->
       <div class="lg:col-span-6 w-full max-w-md mx-auto">
         <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5">
-          
+
           <!-- STEP 1: PILIH KELAS (Segmented 3-Tap Picker) -->
           <div x-show="gateStep === 'select'">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h2 class="text-[16px] sm:text-[17px] font-bold text-[#1D1B3A]">Pilih Kelas Perkuliahan</h2>
+                <h2 class="text-[16px] sm:text-[17px] font-bold text-deep-ink">Pilih Kelas Perkuliahan</h2>
                 <p class="text-[12px] text-slate-500 mt-0.5">Tentukan jenjang, semester, dan rombel Anda</p>
               </div>
-              <span class="w-8 h-8 rounded-xl bg-[#EEF2FF] text-[#3965FB] flex items-center justify-center shrink-0">
+              <span class="w-8 h-8 rounded-xl bg-primary-faint text-primary flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-[18px]">school</span>
               </span>
             </div>
@@ -90,33 +90,33 @@
                   <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     1. Program Studi
                   </label>
-                  <span class="text-[11px] font-semibold text-[#3965FB]" x-text="selectedProdi === 'D4' ? 'Sarjana Terapan' : 'Diploma Tiga'"></span>
+                  <span class="text-[11px] font-semibold text-primary" x-text="selectedProdi === 'D4' ? 'Sarjana Terapan' : 'Diploma Tiga'"></span>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                   <button type="button"
                           @click="setProdi('D4')"
-                          :class="selectedProdi === 'D4' 
-                            ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-bold ring-1 ring-[#3965FB]' 
+                          :class="selectedProdi === 'D4'
+                            ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
                     <div>
                       <span class="text-[13px] block leading-tight">D4 Teknik Inf.</span>
-                      <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D4' ? 'text-[#3965FB]/80' : ''">4 Tahun</span>
+                      <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D4' ? 'text-primary/80' : ''">4 Tahun</span>
                     </div>
-                    <span x-show="selectedProdi === 'D4'" class="material-symbols-outlined text-[16px] text-[#3965FB]">check_circle</span>
+                    <span x-show="selectedProdi === 'D4'" class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
                   </button>
 
                   <button type="button"
                           @click="setProdi('D3')"
-                          :class="selectedProdi === 'D3' 
-                            ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-bold ring-1 ring-[#3965FB]' 
+                          :class="selectedProdi === 'D3'
+                            ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
                     <div>
                       <span class="text-[13px] block leading-tight">D3 Teknik Inf.</span>
-                      <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D3' ? 'text-[#3965FB]/80' : ''">3 Tahun</span>
+                      <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D3' ? 'text-primary/80' : ''">3 Tahun</span>
                     </div>
-                    <span x-show="selectedProdi === 'D3'" class="material-symbols-outlined text-[16px] text-[#3965FB]">check_circle</span>
+                    <span x-show="selectedProdi === 'D3'" class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
                   </button>
                 </div>
               </div>
@@ -133,8 +133,8 @@
                   <!-- Smt 1 -->
                   <button type="button"
                           @click="setSemester('1')"
-                          :class="selectedSemester === '1' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedSemester === '1'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 1
@@ -143,8 +143,8 @@
                   <!-- Smt 3 -->
                   <button type="button"
                           @click="setSemester('3')"
-                          :class="selectedSemester === '3' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedSemester === '3'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 3
@@ -153,8 +153,8 @@
                   <!-- Smt 5 -->
                   <button type="button"
                           @click="setSemester('5')"
-                          :class="selectedSemester === '5' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedSemester === '5'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 5
@@ -164,8 +164,8 @@
                   <button type="button"
                           x-show="availableSemesters.includes('7')"
                           @click="setSemester('7')"
-                          :class="selectedSemester === '7' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedSemester === '7'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 7
@@ -185,8 +185,8 @@
                   <!-- Kelas A -->
                   <button type="button"
                           @click="setAbjad('A')"
-                          :class="selectedAbjad === 'A' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedAbjad === 'A'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas A
@@ -195,8 +195,8 @@
                   <!-- Kelas B -->
                   <button type="button"
                           @click="setAbjad('B')"
-                          :class="selectedAbjad === 'B' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedAbjad === 'B'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas B
@@ -206,8 +206,8 @@
                   <button type="button"
                           x-show="availableAbjads.includes('C')"
                           @click="setAbjad('C')"
-                          :class="selectedAbjad === 'C' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedAbjad === 'C'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas C
@@ -217,8 +217,8 @@
                   <button type="button"
                           x-show="availableAbjads.includes('D')"
                           @click="setAbjad('D')"
-                          :class="selectedAbjad === 'D' 
-                            ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs' 
+                          :class="selectedAbjad === 'D'
+                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
                           class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas D
@@ -227,24 +227,24 @@
               </div>
 
               <!-- RINGKASAN PILIHAN (Compact Pill) -->
-              <div class="p-2.5 rounded-xl bg-[#EEF2FF] border border-[#3965FB]/25 flex items-center justify-between">
+              <div class="p-2.5 rounded-xl bg-primary-faint border border-primary/25 flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="w-7 h-7 rounded-lg bg-white text-[#3965FB] flex items-center justify-center shadow-xs shrink-0">
+                  <span class="w-7 h-7 rounded-lg bg-white text-primary flex items-center justify-center shadow-xs shrink-0">
                     <span class="material-symbols-outlined text-[16px]">verified</span>
                   </span>
                   <div class="min-w-0">
                     <span class="text-[10px] font-medium text-slate-500 block leading-none">Kelas Terpilih</span>
-                    <span class="text-[13px] font-bold text-[#1D1B3A] truncate block mt-0.5" x-text="selectedClass || 'Belum dipilih'"></span>
+                    <span class="text-[13px] font-bold text-deep-ink truncate block mt-0.5" x-text="selectedClass || 'Belum dipilih'"></span>
                   </div>
                 </div>
-                <span class="text-[11px] font-semibold text-[#3965FB] shrink-0" x-text="selectedProdi + ' · Smt ' + selectedSemester + ' · ' + selectedAbjad"></span>
+                <span class="text-[11px] font-semibold text-primary shrink-0" x-text="selectedProdi + ' · Smt ' + selectedSemester + ' · ' + selectedAbjad"></span>
               </div>
 
               <!-- CTA BUTTON -->
               <button type="button"
                       @click="masukKelas()"
                       :disabled="checkingAccess || !selectedClass"
-                      class="w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
+                      class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
                 <span x-show="checkingAccess" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 <span x-text="checkingAccess ? 'Menyiapkan portal...' : 'Buka Portal ' + (selectedClass ? selectedClass : '')">Buka Portal Kelas</span>
                 <span x-show="!checkingAccess" class="material-symbols-outlined text-[17px]">arrow_forward</span>
@@ -253,7 +253,7 @@
               <!-- FOOTNOTE LINK -->
               <div class="pt-2 border-t border-slate-100 text-center">
                 <a href="/login.html"
-                   class="inline-block text-[11px] sm:text-[12px] font-medium text-slate-500 hover:text-[#3965FB] transition">
+                   class="inline-block text-[11px] sm:text-[12px] font-medium text-slate-500 hover:text-primary transition">
                   <span>Pengurus Kelas (KM / PJ Matkul)? Masuk di sini</span>
                 </a>
               </div>
@@ -263,7 +263,7 @@
           <!-- STEP 2: MASUKKAN PIN (Hanya tampil jika kelas butuh kode akses) -->
           <div x-show="gateStep === 'pin'" x-cloak>
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-              <button type="button" @click="kembaliKePilihKelas()" 
+              <button type="button" @click="kembaliKePilihKelas()"
                       class="inline-flex items-center gap-1 text-[12px] font-semibold text-slate-500 hover:text-slate-800 transition">
                 <span class="material-symbols-outlined text-[16px]">arrow_back</span>
                 <span>Ganti Kelas</span>
@@ -275,14 +275,14 @@
             </div>
 
             <div class="mt-3">
-              <h2 class="text-[17px] font-bold text-[#1D1B3A]">Kode Akses Diperlukan</h2>
+              <h2 class="text-[17px] font-bold text-deep-ink">Kode Akses Diperlukan</h2>
               <p class="text-[12px] text-slate-500 mt-1 leading-relaxed">
                 Kelas <span class="font-semibold text-slate-800" x-text="selectedClass"></span> dilindungi kode akses. Masukkan kode yang dibagikan KM di grup kelas. Kode otomatis terdiri dari 8 digit; kode khusus dapat lebih panjang.
               </p>
             </div>
 
             <!-- Error message if wrong code -->
-            <div x-show="pinError" 
+            <div x-show="pinError"
                  x-cloak
                  class="mt-3 p-2.5 rounded-xl bg-red-50 border border-red-200/80 text-[12px] text-red-700 flex items-start gap-1.5">
               <span class="material-symbols-outlined text-[16px] shrink-0 text-red-500 mt-0.5">error</span>
@@ -292,34 +292,34 @@
             <!-- PIN Input -->
             <div class="mt-4">
               <label for="gate-pin-input-compact" class="block text-[12px] font-semibold text-slate-700 mb-1">
-                Kode Akses <span class="text-[#FF6C48]">*</span>
+                Kode Akses <span class="text-danger">*</span>
               </label>
               <input id="gate-pin-input-compact"
-                     type="text" 
-                     x-model="pin" 
+                     type="text"
+                     x-model="pin"
                      @keydown.enter="bukaPortal()"
                      inputmode="text"
                      minlength="6"
                      maxlength="128"
                      autocomplete="one-time-code"
                      placeholder="Masukkan kode dari KM"
-                     class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[16px] font-mono text-center text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#3965FB] transition" />
+                     class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[16px] font-mono text-center text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary transition" />
               <p class="text-[10px] text-slate-400 mt-1 text-center">
                 Akses tersimpan otomatis selama 30 hari di peramban ini.
               </p>
             </div>
 
             <!-- Submit PIN Button -->
-            <button type="button" 
-                    @click="bukaPortal()" 
+            <button type="button"
+                    @click="bukaPortal()"
                     :disabled="loadingPin || pin.trim().length < 6 || pin.trim().length > 128"
-                    class="mt-4 w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
+                    class="mt-4 w-full h-11 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
               <span x-show="loadingPin" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               <span x-text="loadingPin ? 'Memverifikasi...' : 'Verifikasi & Buka Portal'">Verifikasi & Buka Portal</span>
               <span x-show="!loadingPin" class="material-symbols-outlined text-[17px]">check_circle</span>
             </button>
 
-            <button type="button" @click="kembaliKePilihKelas()" 
+            <button type="button" @click="kembaliKePilihKelas()"
                     class="mt-2.5 w-full h-9 rounded-xl hover:bg-slate-100 text-slate-600 text-[12px] font-medium transition flex items-center justify-center gap-1 cursor-pointer">
               <span>Kembali ke pilihan kelas</span>
             </button>

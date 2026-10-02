@@ -2,7 +2,7 @@
 <header class="sticky top-0 z-30 bg-white border-b border-slate-200">
   <div class="flex items-center justify-between gap-4 px-4 md:px-8 h-16 max-w-[1280px] mx-auto w-full">
     <!-- Hamburger button on mobile -->
-    <button type="button" @click="drawer = true" aria-label="Buka menu navigasi" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#1F1F1F]">
+    <button type="button" @click="drawer = true" aria-label="Buka menu navigasi" class="md:hidden p-2 -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-ink">
       <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
@@ -13,15 +13,15 @@
       <img src="/assets/icons/search.svg" alt="" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none opacity-60" />
       <input type="text" x-model="q" @keydown.enter="go('tugas')" placeholder="Cari tugas, jadwal, materi..."
              aria-label="Cari tugas, jadwal, atau materi"
-             class="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-[14px] text-[#1F1F1F] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3965FB] transition-all" />
+             class="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-[14px] text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all" />
     </div>
 
     <!-- Right Controls: Notifikasi, Status Bot, Avatar KM & Logout -->
     <div class="flex items-center gap-2.5 shrink-0">
       <!-- Bell notification with badge -->
-      <button type="button" @click="go('notifikasi')" aria-label="Buka Notifikasi" title="Notifikasi Kelas" class="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50 text-[#1F1F1F] focus:outline-none transition-colors">
+      <button type="button" @click="go('notifikasi')" aria-label="Buka Notifikasi" title="Notifikasi Kelas" class="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50 text-ink focus:outline-none transition-colors">
         <img src="/assets/icons/bell.svg" alt="Notifikasi" class="w-5 h-5" />
-        <span x-show="attentionCount > 0" class="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF6C48] text-white text-[10px] font-bold flex items-center justify-center" x-text="attentionCount > 9 ? '9+' : attentionCount">0</span>
+        <span x-show="attentionCount > 0" class="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center" x-text="attentionCount > 9 ? '9+' : attentionCount">0</span>
       </button>
 
       <!-- Status dot bot WhatsApp -->
@@ -31,7 +31,7 @@
       </div>
 
       <!-- Account Badge KM -->
-      <div class="w-9 h-9 rounded-xl bg-[#E9EAFF] text-[#3965FB] font-bold text-[13px] flex items-center justify-center shrink-0" title="Ketua Murid">
+      <div class="w-9 h-9 rounded-xl bg-primary-soft text-primary font-bold text-[13px] flex items-center justify-center shrink-0" title="Ketua Murid">
         KM
       </div>
 

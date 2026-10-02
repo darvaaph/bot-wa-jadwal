@@ -3,12 +3,12 @@
   <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Perubahan Terbaru</h1>
   <p class="text-[14px] text-slate-500 mt-1">Pengumuman jadwal yang sudah terbit untuk kelas ini.</p>
   <div x-show="perubahanLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat perubahan...</div>
-  <div x-show="!perubahanLoading && perubahanList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-[#EEEEEE] bg-white text-center text-[13px] text-slate-400">Belum ada pengumuman perubahan.</div>
+  <div x-show="!perubahanLoading && perubahanList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center text-[13px] text-slate-400">Belum ada pengumuman perubahan.</div>
   <div class="mt-4 space-y-3">
     <template x-for="c in perubahanList" :key="c.id">
-      <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="p-4 rounded-2xl border border-border bg-white">
         <p class="text-[14px] font-semibold flex items-center gap-1.5 flex-wrap">
-          <span class="material-symbols-outlined text-[18px] text-[#3965FB]">event</span>
+          <span class="material-symbols-outlined text-[18px] text-primary">event</span>
           <span x-text="labelJenisUbah(c.event_kind)">-</span>
           <span class="text-slate-400 font-normal">·</span>
           <span class="font-normal text-slate-600" x-text="c.offering || ''">-</span>

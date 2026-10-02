@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261002" />
   <script defer src="/js/vendor/alpine.cdn.min.js"></script>
   <script src="/js/api.js?v=20261010"></script>
   <script src="/js/app-login.js?v=20261010"></script>
@@ -19,17 +20,17 @@
   MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
   Login dan pemulihan kata sandi diverifikasi oleh backend.
 -->
-<body class="bg-white text-[#1F1F1F] min-h-screen" x-data="loginApp()" x-init="initLogin()">
+<body class="bg-white text-ink min-h-screen" x-data="loginApp()" x-init="initLogin()">
   <div class="min-h-screen grid grid-cols-1 md:grid-cols-2">
-    <div class="hidden md:flex flex-col justify-between bg-[#E9EAFF] px-12 py-10">
+    <div class="hidden md:flex flex-col justify-between bg-primary-soft px-12 py-10">
       <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-9 w-auto self-start" />
       <div>
-        <h1 class="text-[40px] leading-tight font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Satu tempat untuk kelas yang lebih teratur.</h1>
+        <h1 class="text-[40px] leading-tight font-bold text-ink" style="font-family:'Poppins',sans-serif">Satu tempat untuk kelas yang lebih teratur.</h1>
         <p class="text-[15px] text-slate-500 mt-3 max-w-md">Tugas, jadwal, materi, dan pengumuman WhatsApp tersusun dalam alur yang mudah diikuti.</p>
         <div class="mt-8 space-y-5 text-[14px]">
-          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">01</span><span>Pantau tenggat tugas tanpa terlewat</span></div>
-          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">02</span><span>Publikasikan informasi ke WhatsApp</span></div>
-          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center shrink-0">03</span><span>Kelola materi dan event kelas</span></div>
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-primary-soft text-primary text-[12px] font-bold flex items-center justify-center shrink-0">01</span><span>Pantau tenggat tugas tanpa terlewat</span></div>
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-primary-soft text-primary text-[12px] font-bold flex items-center justify-center shrink-0">02</span><span>Publikasikan informasi ke WhatsApp</span></div>
+          <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full bg-primary-soft text-primary text-[12px] font-bold flex items-center justify-center shrink-0">03</span><span>Kelola materi dan event kelas</span></div>
         </div>
       </div>
       <p class="text-[12px] text-slate-400">Asterisk · asisten kelas terhubung WhatsApp</p>
@@ -45,30 +46,30 @@
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
 
           <div class="mt-5">
-            <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp <span class="text-[#FF6C48]">*</span></label>
+            <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp <span class="text-danger">*</span></label>
             <input type="text" x-model="nomor" inputmode="tel" placeholder="0812 3456 7890"
-                   class="w-full h-12 px-3 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
-                   :class="fieldError === 'nomor' ? 'border-red-400' : 'border-[#EEEEEE]'" />
+                   class="w-full h-12 px-3 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                   :class="fieldError === 'nomor' ? 'border-red-400' : 'border-border'" />
           </div>
           <div class="mt-4">
-            <label class="block text-[14px] font-bold mb-1">Kata sandi <span class="text-[#FF6C48]">*</span></label>
+            <label class="block text-[14px] font-bold mb-1">Kata sandi <span class="text-danger">*</span></label>
             <div class="relative">
               <input :type="lihat ? 'text' : 'password'" x-model="sandi" placeholder="••••••••••"
-                     class="w-full h-12 px-3 pr-11 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
-                     :class="fieldError === 'sandi' ? 'border-red-400' : 'border-[#EEEEEE]'" />
-              <button type="button" @click="lihat = !lihat" aria-label="Tampilkan kata sandi" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 min-w-[44px] min-h-[44px] text-[#3965FB]">
+                     class="w-full h-12 px-3 pr-11 rounded-xl border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary"
+                     :class="fieldError === 'sandi' ? 'border-red-400' : 'border-border'" />
+              <button type="button" @click="lihat = !lihat" aria-label="Tampilkan kata sandi" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 min-w-[44px] min-h-[44px] text-primary">
                 <span class="material-symbols-outlined" x-text="lihat ? 'visibility_off' : 'visibility'">-</span>
               </button>
             </div>
           </div>
-          <button type="button" @click="masuk()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[15px] font-medium min-h-[44px] flex items-center justify-center gap-2">
+          <button type="button" @click="masuk()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-[15px] font-medium min-h-[44px] flex items-center justify-center gap-2">
             <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             <span x-text="loading ? 'Memeriksa...' : 'Masuk'">Masuk</span>
           </button>
-          <button type="button" @click="mode = 'lupa'" class="mt-3 w-full h-12 rounded-xl border border-[#3965FB] text-[#3965FB] text-[15px] font-medium min-h-[44px]">Lupa kata sandi?</button>
+          <button type="button" @click="mode = 'lupa'" class="mt-3 w-full h-12 rounded-xl border border-primary text-primary text-[15px] font-medium min-h-[44px]">Lupa kata sandi?</button>
           <p class="text-[13px] text-slate-500 mt-5">Akun pengurus dibuat melalui undangan WhatsApp dari System Admin atau Ketua Murid.</p>
           <p class="text-[13px] text-slate-500 mt-2">Mahasiswa tidak perlu login. Buka tautan portal kelas dari grup WhatsApp.</p>
-          <a :href="areaUrl" class="mt-4 inline-block text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">Lanjut tanpa masuk (pratinjau area)</a>
+          <a :href="areaUrl" class="mt-4 inline-block text-[13px] text-primary font-semibold hover:underline min-h-[44px]">Lanjut tanpa masuk (pratinjau area)</a>
         </div>
       </template>
 
@@ -79,10 +80,10 @@
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
           <div class="mt-5 space-y-3">
             <template x-for="a in ruangKerja" :key="a.id">
-              <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-white">
+              <div class="p-4 rounded-2xl border border-border bg-white">
                 <p class="text-[15px] font-bold" x-text="labelPeran(a.role)">-</p>
                 <p class="text-[13px] text-slate-500 mt-0.5" x-text="deskripsiPenugasan(a)">-</p>
-                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading" class="mt-3 w-full h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px]">Buka Ruang Kerja</button>
+                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading" class="mt-3 w-full h-11 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-60 text-white text-[14px] font-semibold min-h-[44px]">Buka Ruang Kerja</button>
               </div>
             </template>
           </div>
@@ -96,14 +97,14 @@
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
           <div x-show="!recoverySent" class="mt-5">
             <label for="recovery-identity" class="block text-[14px] font-bold mb-1">Nomor WhatsApp</label>
-            <input id="recovery-identity" type="text" x-model="nomor" inputmode="tel" autocomplete="tel" placeholder="0812 3456 7890" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-            <button type="button" @click="mintaPemulihan()" :disabled="loading" class="mt-4 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Mengirim...' : 'Kirim tautan pemulihan'"></span></button>
+            <input id="recovery-identity" type="text" x-model="nomor" inputmode="tel" autocomplete="tel" placeholder="0812 3456 7890" class="w-full h-12 px-3 rounded-xl border border-border text-[16px] focus:outline-none focus:ring-2 focus:ring-primary" />
+            <button type="button" @click="mintaPemulihan()" :disabled="loading" class="mt-4 w-full h-12 rounded-xl bg-primary text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Mengirim...' : 'Kirim tautan pemulihan'"></span></button>
           </div>
-          <div x-show="recoverySent" class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-slate-50 text-[13px] text-slate-600" role="status">
-            <p class="font-semibold text-[#1F1F1F]">Periksa WhatsApp Anda</p>
+          <div x-show="recoverySent" class="mt-5 p-5 rounded-2xl border border-border bg-slate-50 text-[13px] text-slate-600" role="status">
+            <p class="font-semibold text-ink">Periksa WhatsApp Anda</p>
             <p class="mt-1">Jika akun ditemukan dan bot terhubung, tautan pemulihan telah dikirim. Jika tidak masuk, hubungi System Admin untuk pemulihan manual.</p>
           </div>
-          <button type="button" @click="mode = 'masuk'; formError = ''; recoverySent = false" class="mt-4 w-full h-11 rounded-xl border border-[#EEEEEE] bg-white text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
+          <button type="button" @click="mode = 'masuk'; formError = ''; recoverySent = false" class="mt-4 w-full h-11 rounded-xl border border-border bg-white text-[15px] font-medium min-h-[44px]">Kembali masuk</button>
         </div>
       </template>
 
@@ -113,10 +114,10 @@
           <p class="text-[13px] text-slate-500 mt-1">Buat kata sandi baru minimal 12 karakter. Semua sesi lama akan dicabut.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" role="alert" x-text="formError">-</p>
           <label for="recovery-password" class="block text-[14px] font-bold mt-5 mb-1">Kata sandi baru</label>
-          <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+          <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password" class="w-full h-12 px-3 rounded-xl border border-border text-[16px] focus:outline-none focus:ring-2 focus:ring-primary" />
           <label for="recovery-confirm" class="block text-[14px] font-bold mt-4 mb-1">Ulangi kata sandi</label>
-          <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password" @keydown.enter="aturUlangSandi()" class="w-full h-12 px-3 rounded-xl border border-[#EEEEEE] text-[16px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-          <button type="button" @click="aturUlangSandi()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Menyimpan...' : 'Simpan kata sandi baru'"></span></button>
+          <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password" @keydown.enter="aturUlangSandi()" class="w-full h-12 px-3 rounded-xl border border-border text-[16px] focus:outline-none focus:ring-2 focus:ring-primary" />
+          <button type="button" @click="aturUlangSandi()" :disabled="loading" class="mt-5 w-full h-12 rounded-xl bg-primary text-white text-[15px] font-medium disabled:opacity-60"><span x-text="loading ? 'Menyimpan...' : 'Simpan kata sandi baru'"></span></button>
         </div>
       </template>
 
@@ -124,13 +125,13 @@
         <div class="w-full max-w-md mx-auto md:mx-0 mt-8 md:mt-0" role="status">
           <h1 class="text-[28px] font-bold" style="font-family:'Poppins',sans-serif">Kata sandi diperbarui</h1>
           <p class="text-[13px] text-slate-500 mt-2">Silakan masuk kembali menggunakan kata sandi baru.</p>
-          <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-5 w-full h-12 rounded-xl bg-[#3965FB] text-white text-[15px] font-medium">Kembali ke halaman masuk</button>
+          <button type="button" @click="mode = 'masuk'; formError = ''" class="mt-5 w-full h-12 rounded-xl bg-primary text-white text-[15px] font-medium">Kembali ke halaman masuk</button>
         </div>
       </template>
     </div>
   </div>
 
-  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-[#1F1F1F] text-white px-4 py-3 rounded-xl shadow-xl text-[13px] max-w-[calc(100vw-2rem)]">
+  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-ink text-white px-4 py-3 rounded-xl shadow-xl text-[13px] max-w-[calc(100vw-2rem)]">
     <span x-text="toast.message">-</span>
   </div>
 </body>
