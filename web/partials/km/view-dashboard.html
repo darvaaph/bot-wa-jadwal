@@ -1,150 +1,427 @@
 <!-- partials/km/view-dashboard.html — KM / D+ M / Dashboard -->
 <section x-show="view === 'dashboard'" x-cloak>
   <div id="km-skeleton"></div>
-  <div x-show="!dashboardLoading">
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-1">
-    <div class="min-w-0">
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Selamat datang di Asterisk</h1>
-      <p class="text-[14px] text-slate-500 mt-1"><span class="font-semibold text-[#1F1F1F]" x-text="selectedClass || '—'">-</span> · Ketua Murid<span x-show="activeSemesterLabel" x-text="' · ' + activeSemesterLabel">-</span></p>
-    </div>
-    <div class="flex flex-wrap gap-2 self-start">
-      <button type="button" @click="go('akun')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
-      <button type="button" @click="go('tugas-tambah')" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center gap-2 min-h-[44px]">
-        <img src="/assets/icons/plus.svg" alt="" class="w-4 h-4" /><span>Tambah tugas</span>
-      </button>
-    </div>
-  </div>
+  <div x-show="!dashboardLoading" class="space-y-6">
 
-  <div x-show="attentionCount > 0" class="mt-5">
-    <h2 class="text-[16px] font-semibold text-[#1F1F1F]">Perlu perhatian</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-      <div x-show="antrean.length > 0" class="p-5 rounded-2xl border border-amber-300 bg-amber-50/60">
-        <p class="text-[13px] text-amber-900">Perlu Review</p>
-        <p class="text-[32px] font-bold leading-tight text-[#1F1F1F]" x-text="antrean.length" aria-live="polite">0</p>
-        <p class="text-[12px] text-amber-900">tugas terbit menunggu keputusan KM.</p>
-        <button type="button" @click="go('antrean')" class="mt-2 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Periksa sekarang</button>
+    <!-- 1. Header & Konteks Pengurus -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
+      <div class="min-w-0">
+        <h1 class="text-[24px] md:text-[28px] font-bold text-[#1F1F1F] tracking-tight" style="font-family:'Poppins',sans-serif">
+          <span x-text="sapaanWaktu + ', Ketua Murid'">Selamat datang, Ketua Murid</span>
+        </h1>
+        <div class="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 mt-1">
+          <span class="inline-flex items-center gap-1 font-semibold text-[#1F1F1F] bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200" x-text="selectedClass || 'Kelas —'">-</span>
+          <span class="text-slate-300">•</span>
+          <span>Ketua Murid</span>
+          <template x-if="activeSemesterLabel">
+            <span class="flex items-center gap-2">
+              <span class="text-slate-300">•</span>
+              <span class="text-slate-600" x-text="activeSemesterLabel"></span>
+            </span>
+          </template>
+          <span class="text-slate-300">•</span>
+          <span class="font-mono text-slate-400" x-text="currentTime"></span>
+        </div>
       </div>
-      <div x-show="notifGagal > 0" class="p-5 rounded-2xl border border-red-200 bg-red-50/60">
-        <p class="text-[13px] text-red-800">Pesan gagal</p>
-        <p class="text-[32px] font-bold leading-tight text-red-700" x-text="notifGagal" aria-live="polite">0</p>
-        <p class="text-[12px] text-red-800">pesan WhatsApp perlu dijadwalkan ulang. Publikasi web tidak terdampak.</p>
-        <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="mt-2 h-11 px-5 rounded-xl border border-red-700 text-red-700 text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
+      <div class="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+        <button type="button" @click="go('akun')" class="h-10 px-3.5 rounded-lg border border-[#EEEEEE] bg-white hover:bg-slate-50 text-[13px] font-medium text-slate-700 min-h-[44px] shrink-0 transition-colors">
+          Pindah kelas atau peran
+        </button>
+        <template x-if="antrean.length > 0">
+          <button type="button" @click="go('antrean')" class="h-10 px-3.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[13px] font-semibold flex items-center gap-2 min-h-[44px] transition-colors">
+            <span class="material-symbols-outlined text-[18px] text-amber-700">fact_check</span>
+            <span>Periksa Tugas</span>
+            <span class="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500 text-white" x-text="antrean.length"></span>
+          </button>
+        </template>
+        <button type="button" @click="go('tugas-tambah')" class="h-10 px-4 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center gap-2 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          <span>Tambah tugas</span>
+        </button>
       </div>
-      <div x-show="undanganMenunggu > 0" class="p-5 rounded-2xl border border-[#9AB7FD] bg-[#E9EAFF]/50">
-        <p class="text-[13px] text-[#3965FB]">Undangan menunggu</p>
-        <p class="text-[32px] font-bold leading-tight text-[#1F1F1F]" x-text="undanganMenunggu" aria-live="polite">0</p>
-        <p class="text-[12px] text-slate-600">undangan peran belum dipakai atau kedaluwarsa.</p>
-        <button type="button" @click="anggotaSub = 'list'; go('anggota')" class="mt-2 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Lihat undangan</button>
+    </div>
+
+    <!-- 2. Alert Bar: Perlu Perhatian (Tindakan Tertunda KM) -->
+    <div x-show="attentionCount > 0" class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[15px] font-bold text-[#1F1F1F] flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px] text-amber-600">warning</span>
+          <span>Perlu perhatian segera</span>
+          <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900" x-text="attentionCount"></span>
+        </h2>
       </div>
-      <div x-show="drafPerubahan.length > 0" class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[13px] text-slate-500">Draf perubahan</p>
-        <p class="text-[32px] font-bold leading-tight text-[#1F1F1F]" x-text="drafPerubahan.length" aria-live="polite">0</p>
-        <p class="text-[12px] text-slate-500">draf jadwal menunggu ditinjau dan diterbitkan.</p>
-        <button type="button" @click="go('jadwal')" class="mt-2 h-11 px-5 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Tinjau draf</button>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <!-- Antrean Tugas Review -->
+        <div x-show="antrean.length > 0" class="p-4 rounded-xl border border-amber-300 bg-amber-50/70 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[13px] font-semibold text-amber-900">Perlu review</span>
+              <span class="material-symbols-outlined text-[20px] text-amber-700">rate_review</span>
+            </div>
+            <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="antrean.length">0</p>
+            <p class="text-[12px] text-amber-900 mt-0.5">Tugas terbit menunggu persetujuan KM.</p>
+          </div>
+          <button type="button" @click="go('antrean')" class="mt-3 w-full h-10 px-3 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+            Periksa sekarang
+          </button>
+        </div>
+
+        <!-- Notifikasi Gagal -->
+        <div x-show="notifGagal > 0" class="p-4 rounded-xl border border-rose-300 bg-rose-50/70 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[13px] font-semibold text-rose-800">Pesan gagal</span>
+              <span class="material-symbols-outlined text-[20px] text-rose-600">sms_failed</span>
+            </div>
+            <p class="text-[28px] font-bold text-rose-700 mt-1" x-text="notifGagal">0</p>
+            <p class="text-[12px] text-rose-800 mt-0.5">Pesan WhatsApp perlu dijadwalkan ulang.</p>
+          </div>
+          <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="mt-3 w-full h-10 px-3 rounded-lg border border-rose-700 hover:bg-rose-100 text-rose-700 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+            Jadwalkan ulang
+          </button>
+        </div>
+
+        <!-- Draf Perubahan Jadwal -->
+        <div x-show="drafPerubahan.length > 0" class="p-4 rounded-xl border border-slate-300 bg-white flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[13px] font-semibold text-slate-700">Draf jadwal</span>
+              <span class="material-symbols-outlined text-[20px] text-slate-500">edit_calendar</span>
+            </div>
+            <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="drafPerubahan.length">0</p>
+            <p class="text-[12px] text-slate-500 mt-0.5">Perubahan jadwal menunggu ditinjau dan terbit.</p>
+          </div>
+          <button type="button" @click="go('jadwal')" class="mt-3 w-full h-10 px-3 rounded-lg border border-[#3965FB] text-[#3965FB] hover:bg-blue-50 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+            Tinjau draf
+          </button>
+        </div>
+
+        <!-- Undangan Menunggu -->
+        <div x-show="undanganMenunggu > 0" class="p-4 rounded-xl border border-blue-200 bg-blue-50/50 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[13px] font-semibold text-[#3965FB]">Undangan peran</span>
+              <span class="material-symbols-outlined text-[20px] text-[#3965FB]">mail</span>
+            </div>
+            <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="undanganMenunggu">0</p>
+            <p class="text-[12px] text-slate-600 mt-0.5">Undangan peran belum dipakai atau kedaluwarsa.</p>
+          </div>
+          <button type="button" @click="anggotaSub = 'list'; go('anggota')" class="mt-3 w-full h-10 px-3 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+            Lihat undangan
+          </button>
+        </div>
       </div>
-      <div x-show="publikasiTerbaru.length > 0" class="p-5 rounded-2xl border border-[#EEEEEE] bg-white sm:col-span-2">
-        <p class="text-[13px] text-slate-500">Publikasi terbaru</p>
-        <div class="mt-2 divide-y divide-[#EEEEEE]">
-          <template x-for="a in publikasiTerbaru" :key="a.id">
-            <div class="py-2 flex items-center gap-3">
-              <div class="min-w-0 flex-1">
-                <p class="text-[14px] font-medium line-clamp-1" x-text="labelAksiAudit(a.action)">-</p>
-                <p class="text-[11px] text-slate-400 font-mono" x-text="fmtWaktuID(a.created_at)">-</p>
+    </div>
+
+    <!-- 3. Hub Status Operasional (Hero Perkuliahan Hari Ini + Metrik Cepat Asimetris) -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
+      <!-- Live Perkuliahan Card (3 Cols) -->
+      <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col justify-between relative overflow-hidden">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <!-- State 1: Ada kuliah sedang berlangsung -->
+            <template x-if="currentSession">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Sedang Berlangsung</span>
+              </span>
+            </template>
+            <!-- State 2: Belum ada kuliah berlangsung, tapi ada jadwal berikutnya -->
+            <template x-if="!currentSession && nextSession">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold bg-blue-50 text-[#3965FB] border border-blue-200">
+                <span class="material-symbols-outlined text-[15px]">schedule</span>
+                <span>Sesi Kuliah Berikutnya</span>
+              </span>
+            </template>
+            <!-- State 3: Hari libur atau semua sesi selesai -->
+            <template x-if="!currentSession && !nextSession">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold bg-slate-100 text-slate-700">
+                <span class="material-symbols-outlined text-[15px]">event_available</span>
+                <span x-text="todayList.length === 0 ? 'Tidak Ada Jadwal Hari Ini' : 'Perkuliahan Hari Ini Selesai'"></span>
+              </span>
+            </template>
+          </div>
+          <span class="font-mono text-[12px] text-slate-400" x-text="todayFull"></span>
+        </div>
+
+        <!-- Detail Sesi Aktif -->
+        <div class="my-4">
+          <template x-if="currentSession">
+            <div>
+              <div class="flex items-start justify-between gap-3">
+                <h3 class="text-[19px] md:text-[22px] font-bold text-[#1F1F1F] leading-tight" x-text="currentSession.matkul">-</h3>
+                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-md bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="currentSession.jam">-</span>
               </div>
-              <button type="button" @click="go('log')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px] shrink-0">Riwayat</button>
+              <div class="flex flex-wrap items-center gap-3 md:gap-5 text-[13px] text-slate-600 mt-2.5">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-slate-400">meeting_room</span>
+                  <span>Ruangan: <strong class="text-slate-800" x-text="currentSession.ruang || 'Menunggu konfirmasi'">-</strong></span>
+                </span>
+                <span class="text-slate-300 hidden sm:inline">•</span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-slate-400">person</span>
+                  <span>Dosen: <span class="text-slate-700 font-medium" x-text="currentSession.dosen || '—'">-</span></span>
+                </span>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="!currentSession && nextSession">
+            <div>
+              <div class="flex items-start justify-between gap-3">
+                <h3 class="text-[18px] md:text-[20px] font-bold text-[#1F1F1F] leading-tight" x-text="nextSession.matkul">-</h3>
+                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-md bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="nextSession.jam">-</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 text-[13px] text-slate-600 mt-2">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-slate-400">meeting_room</span>
+                  <span>Ruang: <strong class="text-slate-800" x-text="nextSession.ruang || '—'">-</strong></span>
+                </span>
+                <span class="text-slate-300">•</span>
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-slate-400">person</span>
+                  <span class="text-slate-700 font-medium" x-text="nextSession.dosen || '—'">-</span>
+                </span>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="!currentSession && !nextSession">
+            <div class="py-2">
+              <h3 class="text-[17px] font-semibold text-[#1F1F1F]" x-text="todayList.length === 0 ? 'Hari ini bebas perkuliahan' : 'Semua mata kuliah hari ini sudah selesai'"></h3>
+              <p class="text-[13px] text-slate-500 mt-1" x-text="todayList.length === 0 ? 'Tidak ada jadwal terdaftar untuk hari ini. Gunakan waktu untuk koordinasi tugas atau memeriksa antrean.' : 'Total ' + todayList.length + ' sesi perkuliahan telah berjalan sesuai rencana.'"></p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Footer Card Perkuliahan -->
+        <div class="pt-3 border-t border-[#EEEEEE] flex items-center justify-between text-[12px]">
+          <template x-if="currentSession && nextSession">
+            <div class="flex items-center gap-2 text-slate-600">
+              <span class="text-slate-400">Berikutnya:</span>
+              <span class="font-medium text-[#1F1F1F]" x-text="nextSession.matkul"></span>
+              <span class="font-mono text-[#3965FB]" x-text="'(' + nextSession.timeStart + ')'"></span>
+            </div>
+          </template>
+          <template x-if="!currentSession || !nextSession">
+            <div class="text-slate-500">
+              <span x-text="todayList.length + ' sesi terjadwal hari ini'"></span>
+            </div>
+          </template>
+          <button type="button" @click="go('jadwal')" class="text-[#3965FB] hover:underline font-semibold min-h-[36px]">
+            Lihat jadwal lengkap
+          </button>
+        </div>
+      </div>
+
+      <!-- Metrik Cepat Operasional KM (2 Cols) -->
+      <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5">
+        <!-- Kartu 1: Status Tugas Aktif & Review -->
+        <div class="p-4 rounded-xl border border-[#EEEEEE] bg-white flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[12px] font-medium text-slate-500">Tugas Aktif Kelas</p>
+            <p class="text-[26px] font-bold text-[#1F1F1F] leading-tight mt-0.5" x-text="tugasAktif.length">0</p>
+            <p class="text-[12px] text-slate-500 mt-0.5">
+              <span class="font-medium text-[#3965FB]" x-text="nearCount">0</span> mendekati batas waktu
+            </p>
+          </div>
+          <button type="button" @click="go('tugas')" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
+            Kelola
+          </button>
+        </div>
+
+        <!-- Kartu 2: Status Bot WhatsApp -->
+        <div class="p-4 rounded-xl border border-[#EEEEEE] bg-white flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="text-[12px] font-medium text-slate-500">Status Bot WhatsApp</p>
+              <span class="w-2 h-2 rounded-full" :class="botOnline ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+            </div>
+            <p class="text-[17px] font-bold leading-tight mt-1" :class="botOnline ? 'text-emerald-700' : 'text-rose-600'" x-text="botOnline ? 'Terhubung & Aktif' : 'Terputus'">-</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              <span x-text="botOnline ? 'Siaran & pengingat otomatis berjalan.' : 'Publikasi web tetap berjalan normal.'"></span>
+            </p>
+          </div>
+          <button type="button" @click="go('notifikasi')" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
+            Log Pesan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Area Operasional Utama (Dual-Column: Jadwal Hari Ini 60% vs Radar Tugas 40%) -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+      <!-- Kolom Kiri: Jadwal Hari Ini (lg:col-span-3) -->
+      <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+          <div>
+            <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Jadwal Kuliah Hari Ini</h2>
+            <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
+          </div>
+          <button type="button" @click="go('jadwal')" class="text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">
+            Jadwal sepekan
+          </button>
+        </div>
+
+        <!-- Empty state jika tidak ada jadwal hari ini -->
+        <div x-show="todayList.length === 0" class="py-10 text-center">
+          <span class="material-symbols-outlined text-[36px] text-slate-300">event_busy</span>
+          <p class="text-[14px] font-medium text-slate-600 mt-2">Tidak ada jadwal perkuliahan hari ini.</p>
+          <p class="text-[12px] text-slate-400 mt-0.5">Semua sesi kuliah pekan ini dapat dilihat di halaman jadwal.</p>
+          <button type="button" @click="go('jadwal')" class="mt-3.5 h-10 px-4 rounded-lg border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold hover:bg-blue-50 min-h-[44px] transition-colors">
+            Buka Jadwal Pekanan
+          </button>
+        </div>
+
+        <!-- Timeline perkuliahan hari ini -->
+        <div x-show="todayList.length > 0" class="mt-3 divide-y divide-slate-100">
+          <template x-for="s in todayList" :key="s.id">
+            <div class="py-3.5 flex items-center justify-between gap-3 group transition-colors rounded-xl px-2.5"
+                 :class="isSessionCurrent(s) ? 'bg-blue-50/60 border border-blue-200' : (isSessionPassed(s) ? 'opacity-60' : 'hover:bg-slate-50')">
+              <div class="flex items-center gap-3.5 min-w-0">
+                <!-- Waktu -->
+                <div class="w-24 shrink-0">
+                  <span class="font-mono text-[13px] font-bold"
+                        :class="isSessionCurrent(s) ? 'text-[#3965FB]' : 'text-slate-800'"
+                        x-text="s.timeEnd ? s.timeStart + '–' + s.timeEnd : s.timeStart">-</span>
+                  <div class="text-[11px] text-slate-400 font-medium">
+                    <span x-show="isSessionCurrent(s)" class="text-emerald-600 font-semibold">Sedang Aktif</span>
+                    <span x-show="isSessionPassed(s)">Selesai</span>
+                    <span x-show="!isSessionCurrent(s) && !isSessionPassed(s)">Akan Datang</span>
+                  </div>
+                </div>
+
+                <!-- Info Matkul & Dosen -->
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-[14px] font-semibold text-[#1F1F1F] line-clamp-1" x-text="s.matkul">-</p>
+                    <template x-if="slotKind(s.matkul)">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wide"
+                            :class="slotKind(s.matkul) === 'Praktikum' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'"
+                            x-text="slotKind(s.matkul)"></span>
+                    </template>
+                  </div>
+                  <div class="flex items-center gap-2 text-[12px] text-slate-500 mt-0.5">
+                    <span class="inline-flex items-center gap-1">
+                      <span class="material-symbols-outlined text-[14px] text-slate-400">meeting_room</span>
+                      <span class="font-medium text-slate-700" x-text="s.ruang || 'Ruang belum ditentukan'">-</span>
+                    </span>
+                    <template x-if="s.dosen">
+                      <span class="flex items-center gap-2">
+                        <span class="text-slate-300">•</span>
+                        <span class="truncate" x-text="s.dosen"></span>
+                      </span>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Badge Kanan -->
+              <div class="shrink-0">
+                <template x-if="isSessionCurrent(s)">
+                  <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                    Live
+                  </span>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Kolom Kanan: Radar Tugas & Deadline (lg:col-span-2) -->
+      <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+        <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+          <div>
+            <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Tugas Prioritas</h2>
+            <p class="text-[12px] text-slate-500 mt-0.5">Mendekati deadline dan perlu tindakan</p>
+          </div>
+          <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">
+            Lihat semua
+          </button>
+        </div>
+
+        <!-- Empty state jika tidak ada tugas mendesak -->
+        <div x-show="urgent3.length === 0" class="py-8 text-center">
+          <span class="material-symbols-outlined text-[32px] text-emerald-500">task_alt</span>
+          <p class="text-[14px] font-medium text-slate-700 mt-2">Semua tugas dalam kendali.</p>
+          <p class="text-[12px] text-slate-400 mt-0.5">Tidak ada tugas mendesak atau terlewat saat ini.</p>
+          <button type="button" @click="go('tugas-tambah')" class="mt-3 h-10 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#1F1F1F] text-[12px] font-semibold min-h-[44px] transition-colors">
+            + Tambah tugas baru
+          </button>
+        </div>
+
+        <!-- Daftar tugas prioritas -->
+        <div x-show="urgent3.length > 0" class="mt-2 divide-y divide-slate-100">
+          <template x-for="t in urgent3" :key="t.id">
+            <div class="py-3 flex flex-col gap-1.5 group">
+              <div class="flex items-start justify-between gap-2">
+                <button type="button" @click="bukaDetailTugas(t.id)" class="text-left font-medium text-[14px] text-[#1F1F1F] group-hover:text-[#3965FB] line-clamp-1 transition-colors">
+                  <span x-text="t.title || t.deskripsi">-</span>
+                </button>
+                <!-- Urgency Pill (Design Token Standar) -->
+                <span class="px-2 py-0.5 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0"
+                      :class="t.countdown === 'Terlewat' ? 'bg-rose-50 text-rose-700 border border-rose-200' : (t.urgency === 'mendesak' ? 'bg-amber-50 text-amber-900 border border-amber-300' : (t.urgency === 'mendekati' ? 'bg-amber-50/60 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200'))"
+                      x-text="t.countdown">-</span>
+              </div>
+              <div class="flex items-center justify-between text-[12px] text-slate-500">
+                <span class="line-clamp-1 text-slate-600" x-text="t.matkul">-</span>
+                <span class="font-mono text-[11px] text-slate-400 shrink-0" x-text="t.deadline">-</span>
+              </div>
             </div>
           </template>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="mt-5">
-    <h2 class="text-[16px] font-semibold text-[#1F1F1F]">Ringkasan</h2>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[13px] text-slate-500">Tugas</p>
-        <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight" x-text="tasks.length" aria-live="polite">0</p>
-        <button type="button" @click="go('tugas')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]" x-text="nearCount + ' mendekati deadline'">-</button>
-      </div>
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[13px] text-slate-500">Jadwal hari ini</p>
-        <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight" x-text="todayList.length" aria-live="polite">0</p>
-        <button type="button" @click="go('jadwal')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">sesi kuliah</button>
-      </div>
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[13px] text-slate-500">Materi tersimpan</p>
-        <p class="text-[32px] font-bold text-[#1F1F1F] leading-tight" x-text="materiList.length" aria-live="polite">0</p>
-        <button type="button" @click="go('materi')" class="text-[12px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Kelola materi</button>
-      </div>
-      <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <p class="text-[13px] text-slate-500">Status bot</p>
-        <p class="text-[20px] font-bold mt-1" :class="botOnline ? 'text-emerald-600' : 'text-[#FF6C48]'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
-        <p class="text-[11px] text-slate-400 mt-1">Publikasi web tetap berjalan.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <div class="flex items-center justify-between">
-        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Tugas mendekati deadline</h2>
-        <button type="button" @click="go('tugas')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semua</button>
-      </div>
-      <div x-show="urgent3.length === 0" class="py-8 text-center">
-        <p class="text-[13px] text-slate-400">Tidak ada tugas mendesak.</p>
-        <button type="button" @click="go('tugas')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat semua tugas</button>
-      </div>
-      <div class="divide-y divide-[#EEEEEE]">
-        <template x-for="t in urgent3" :key="t.id">
-          <div class="py-4 flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-[15px] font-medium text-[#1F1F1F] line-clamp-1" x-text="t.deskripsi">-</p>
-              <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul">-</p>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-[12px] text-slate-500 hidden sm:inline" x-text="t.deadline">-</span>
-              <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold" :class="t.urgency === 'mendesak' ? 'bg-[#FF6C48] text-white' : (t.urgency === 'mendekati' ? 'bg-[#FCD484] text-[#1F1F1F]' : 'bg-[#E1FFB7] text-[#1F1F1F]')" x-text="t.countdown">-</span>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-    <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Jadwal hari ini</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
-      <div x-show="todayList.length === 0" class="py-6 text-center">
-        <p class="text-[13px] text-slate-400">Tidak ada jadwal hari ini.</p>
-        <button type="button" @click="go('jadwal')" class="mt-3 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lihat jadwal minggu ini</button>
-      </div>
-      <div class="mt-2 divide-y divide-[#EEEEEE]">
-        <template x-for="s in todayList" :key="s.id">
-          <div class="py-3 flex gap-3">
-            <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-24" x-text="s.timeEnd ? s.timeStart + '–' + s.timeEnd : s.timeStart">-</span>
-            <div class="min-w-0"><p class="text-[14px] font-medium text-[#1F1F1F] line-clamp-1" x-text="s.matkul">-</p><p class="text-[12px] text-slate-500" x-text="s.ruang">-</p></div>
-          </div>
-        </template>
-      </div>
-    </div>
-  </div>
-
-  <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Riwayat Perubahan</h2>
-      <button type="button" @click="go('log')" class="text-[13px] text-[#3965FB] font-medium hover:underline min-h-[44px]">Lihat semuanya</button>
-    </div>
-    <div x-show="auditLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
-    <div x-show="!auditLoading && auditPreview.length === 0" class="py-4 text-center text-[13px] text-slate-400">Belum ada riwayat tercatat.</div>
-    <div x-show="!auditLoading && auditPreview.length > 0" class="mt-2 divide-y divide-[#EEEEEE]">
-      <template x-for="a in auditPreview" :key="a.id">
-        <div class="py-2.5 flex items-center gap-3">
-          <div class="min-w-0 flex-1">
-            <p class="text-[14px] font-medium line-clamp-1" x-text="labelAksiAudit(a.action)">-</p>
-            <p class="text-[11px] text-slate-400 font-mono" x-text="fmtWaktuID(a.created_at)">-</p>
-          </div>
+    <!-- 5. Aktivitas Kelas Terkini (Riwayat Perubahan) -->
+    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+      <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+        <div>
+          <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Aktivitas Kelas Terkini</h2>
+          <p class="text-[12px] text-slate-500 mt-0.5">Catatan audit perubahan jadwal, tugas, dan pengaturan kelas</p>
         </div>
-      </template>
+        <button type="button" @click="go('log')" class="text-[13px] text-[#3965FB] font-semibold hover:underline min-h-[44px]">
+          Lihat semua log
+        </button>
+      </div>
+
+      <div x-show="auditLoading" class="py-6 text-center text-[13px] text-slate-400">
+        Memuat aktivitas terbaru...
+      </div>
+
+      <!-- Empty state yang informatif -->
+      <div x-show="!auditLoading && auditPreview.length === 0" class="py-8 text-center">
+        <span class="material-symbols-outlined text-[32px] text-slate-300">manage_history</span>
+        <p class="text-[13px] font-medium text-slate-600 mt-1.5">Belum ada aktivitas perubahan hari ini.</p>
+        <p class="text-[12px] text-slate-400 mt-0.5">Catatan audit akan tercatat otomatis saat ada tugas dibuat, jadwal diubah, atau peran diperbarui.</p>
+        <button type="button" @click="go('log')" class="mt-3 h-10 px-4 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors">
+          Buka Semua Riwayat
+        </button>
+      </div>
+
+      <div x-show="!auditLoading && auditPreview.length > 0" class="mt-2 divide-y divide-slate-100">
+        <template x-for="a in auditPreview" :key="a.id">
+          <div class="py-2.5 flex items-center justify-between gap-3 text-[13px]">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-[16px]">history</span>
+              </span>
+              <div class="min-w-0">
+                <p class="font-medium text-[#1F1F1F] line-clamp-1" x-text="labelAksiAudit(a.action)">-</p>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5">
+                  <span x-text="a.actor_name || a.actor || 'Pengurus'"></span>
+                  <template x-if="a.reason">
+                    <span x-text="' · ' + a.reason"></span>
+                  </template>
+                </p>
+              </div>
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono shrink-0" x-text="fmtWaktuID(a.created_at)">-</span>
+          </div>
+        </template>
+      </div>
     </div>
-  </div>
+
   </div>
 </section>

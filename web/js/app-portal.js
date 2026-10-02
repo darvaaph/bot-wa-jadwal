@@ -169,13 +169,11 @@ function portalApp() {
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
     deadlineBadge(iso) { return API.deadlineBadge(iso); },
 
-    async initPortal() {
-      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
-      window.addEventListener('offline', () => { this.showPageError('offline'); });
-      window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
-      await this.loadClasses();
+    dashboardPartialsLoaded: false,
+
+    async ensureDashboardPartials() {
+      if (this.dashboardPartialsLoaded) return;
       await this.loadPartials([
-        ['portal-gate', '/partials/portal/gate.html'],
         ['portal-sidebar', '/partials/portal/sidebar.html'],
         ['portal-state', '/partials/common/state-error.html'],
         ['portal-topbar', '/partials/portal/topbar.html'],
@@ -187,23 +185,41 @@ function portalApp() {
         ['portal-arsip', '/partials/portal/view-arsip.html'],
         ['portal-notif', '/partials/portal/view-notif.html'],
         ['portal-drawer', '/partials/portal/drawer.html'],
-        ['portal-bottombar', '/partials/portal/bottombar.html'],
+        ['portal-bottombar', '/partials/portal/bottombar.html']
+      ]);
+      await this.loadPartials([
+        ['portal-skeleton', '/partials/common/skeleton-dashboard.html']
+      ]);
+      this.dashboardPartialsLoaded = true;
+    },
+
+    async initPortal() {
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      window.addEventListener('offline', () => { this.showPageError('offline'); });
+      window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
+      await this.loadClasses();
+      await this.loadPartials([
+        ['portal-gate', '/partials/portal/gate.html'],
         ['portal-toast', '/partials/portal/toast.html']
       ]);
-      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
-      await this.loadPartials([
-        ['portal-skeleton', '/partials/common/skeleton-dashboard.html'],
-      ]);
+
+      if (!this.unlocked) {
+        return;
+      }
+
+      await this.ensureDashboardPartials();
       this.updateClock();
       const wd = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const today = wd[new Date().getDay()];
       this.hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'].includes(today) ? today : 'Senin';
-      await this.loadSchedule();
-      await this.loadJadwalEfektif();
-      await this.loadTugasPortal();
-      await this.loadMateri();
-      await this.loadPerubahan();
-      await this.loadSemester();
+      await Promise.all([
+        this.loadSchedule(),
+        this.loadJadwalEfektif(),
+        this.loadTugasPortal(),
+        this.loadMateri(),
+        this.loadPerubahan(),
+        this.loadSemester()
+      ]);
       this.dashboardLoading = false;
     },
 
@@ -273,7 +289,10 @@ function portalApp() {
           this.unlocked = true;
           this.gateStep = 'select';
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
+          await this.ensureDashboardPartials();
+          this.updateClock();
           await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+          this.dashboardLoading = false;
           return;
         }
 
@@ -328,7 +347,10 @@ function portalApp() {
         this.gateStep = 'select';
         this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
 
+        await this.ensureDashboardPartials();
+        this.updateClock();
         await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+        this.dashboardLoading = false;
       } catch (err) {
         this.pinError = err.message || 'Kode akses tidak valid. Periksa kembali kode dari grup kelas.';
         this.showToast(this.pinError);
@@ -362,7 +384,7 @@ function portalApp() {
       window.scrollTo({ top: 0 });
     },
 
-    pilihKelas(kelas) {
+    async pilihKelas(kelas) {
       if (!kelas || kelas === this.selectedClass) return;
       this.selectedClass = kelas;
       this.syncSegmentsFromClass();
@@ -374,6 +396,7 @@ function portalApp() {
         const savedClass = localStorage.getItem('portal_class');
         this.unlocked = (savedClass === this.selectedClassSlug && localStorage.getItem('portal_pin_ok') === '1');
         if (this.unlocked) {
+          await this.ensureDashboardPartials();
           this.loadSchedule();
           this.loadJadwalEfektif();
           this.loadTugasPortal();

@@ -1,0 +1,131 @@
+<!-- partials/km/sidebar.html — Sidebar KM Desktop (Pola System Admin) -->
+<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-6 z-40 overflow-y-auto transition-[width,padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi Ketua Murid">
+  <!-- Brand Logo -->
+  <div class="flex items-center px-3" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+    <button type="button" @click="toggleSidebar()" :aria-expanded="!sidebarCollapsed ? 'true' : 'false'" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="rounded-xl p-1 hover:bg-slate-50 transition-colors cursor-pointer">
+      <span class="block overflow-hidden transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'w-[32px]' : 'w-[140px]'">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" class="h-8 w-auto max-w-none object-left" />
+      </span>
+    </button>
+  </div>
+
+  <!-- Navigation -->
+  <nav aria-label="Navigasi Ketua Murid" class="mt-8 flex flex-col gap-1 text-[14px]">
+    <!-- Section KETUA MURID -->
+    <p class="sidebar-section px-3 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">KETUA MURID</p>
+    <button type="button" @click="go('dashboard')" :title="sidebarCollapsed ? 'Ringkasan Kelas' : ''"
+      :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'dashboard' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Ringkasan Kelas</span>
+    </button>
+
+    <!-- Section AKADEMIK -->
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">AKADEMIK</p>
+    <button type="button" @click="go('tugas')" :title="sidebarCollapsed ? 'Daftar Tugas' : ''"
+      :class="['tugas', 'tugas-tambah'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="['tugas', 'tugas-tambah'].includes(view) ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Daftar Tugas</span>
+    </button>
+    <button type="button" @click="go('antrean')" :title="sidebarCollapsed ? 'Perlu Review' : ''"
+      :class="view === 'antrean' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/ext-check.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'antrean' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Perlu Review</span>
+      <span x-show="antrean && antrean.length > 0" class="sidebar-badge ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800" x-text="antrean.length"></span>
+    </button>
+    <button type="button" @click="go('jadwal')" :title="sidebarCollapsed ? 'Jadwal Kuliah' : ''"
+      :class="view === 'jadwal' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'jadwal' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Jadwal Kuliah</span>
+    </button>
+    <button type="button" @click="go('materi')" :title="sidebarCollapsed ? 'Materi Kuliah' : ''"
+      :class="view === 'materi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'materi' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Materi Kuliah</span>
+    </button>
+
+    <!-- Section KELOLA KELAS -->
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">KELOLA KELAS</p>
+    <button type="button" @click="go('semester')" :title="sidebarCollapsed ? 'Kelola Semester' : ''"
+      :class="view === 'semester' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/event.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'semester' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Kelola Semester</span>
+    </button>
+    <button type="button" @click="go('anggota')" :title="sidebarCollapsed ? 'Penugasan Peran' : ''"
+      :class="view === 'anggota' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/people.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'anggota' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Penugasan Peran</span>
+    </button>
+    <button type="button" @click="go('pengaturan')" :title="sidebarCollapsed ? 'Pengaturan Kelas' : ''"
+      :class="view === 'pengaturan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/settings.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'pengaturan' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Pengaturan Kelas</span>
+    </button>
+    <button type="button" @click="go('usulan')" :title="sidebarCollapsed ? 'Usulan Master' : ''"
+      :class="view === 'usulan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/book.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'usulan' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Usulan Master</span>
+    </button>
+
+    <!-- Section OPERASIONAL -->
+    <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-[#667085]">OPERASIONAL</p>
+    <button type="button" @click="go('monitoring')" :title="sidebarCollapsed ? 'Monitoring Sistem' : ''"
+      :class="view === 'monitoring' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'monitoring' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Monitoring Sistem</span>
+    </button>
+    <button type="button" @click="go('log')" :title="sidebarCollapsed ? 'Riwayat Perubahan' : ''"
+      :class="view === 'log' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/message-queue.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'log' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Riwayat Perubahan</span>
+    </button>
+    <button type="button" @click="go('notifikasi')" :title="sidebarCollapsed ? 'Notifikasi Kelas' : ''"
+      :class="view === 'notifikasi' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+      class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px] transition-colors">
+      <img src="/assets/icons/bell.svg" alt="" class="w-5 h-5 shrink-0 transition-all"
+        :style="view === 'notifikasi' ? 'filter: invert(36%) sepia(82%) saturate(2329%) hue-rotate(222deg) brightness(99%) contrast(98%);' : ''" />
+      <span class="sidebar-label">Notifikasi Kelas</span>
+      <span x-show="unreadCount > 0" class="sidebar-badge ml-auto inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700" x-text="unreadCount"></span>
+    </button>
+  </nav>
+
+  <!-- Role Identity Footer -->
+  <div class="mt-auto pt-6 text-[13px] px-3 border-t border-[#EEEEEE]">
+    <label x-show="!sidebarCollapsed && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-[#667085]">
+      Ruang kerja
+      <select :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="mt-1 w-full min-h-[44px] rounded-xl border border-[#EEEEEE] bg-white px-2 text-[12px] text-[#1F1F1F] focus:outline-none focus:ring-2 focus:ring-[#3965FB] disabled:opacity-60">
+        <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+      </select>
+    </label>
+    <div class="sidebar-footer flex items-center justify-between gap-2" :class="sidebarCollapsed ? 'justify-center' : 'justify-between'">
+      <div class="sidebar-footer-text truncate" x-show="!sidebarCollapsed">
+        <p class="font-semibold text-[#1F1F1F] truncate" x-text="currentUser ? currentUser.display_name : 'Ketua Murid'">Ketua Murid</p>
+        <p class="text-[12px] text-[#667085] mt-0.5 font-mono truncate" x-text="selectedClass ? ('Kelas ' + selectedClass) : (currentUser ? currentUser.identity_key : 'Pengelola kelas')">Pengelola kelas</p>
+      </div>
+      <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+      </button>
+    </div>
+  </div>
+</aside>

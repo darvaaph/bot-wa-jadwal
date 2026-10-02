@@ -248,11 +248,13 @@ function systemAdminApp() {
       const fa = (f.angkatan || '').trim();
       const fr = (f.rombel || '').trim().toUpperCase();
       const fs = (f.status || '').trim().toUpperCase();
+      const fkm = (f.statusKM || '').trim();
       return (this.kelasList || []).filter(k => {
         if (fp && !String(k.prodi || '').toLowerCase().includes(fp)) return false;
         if (fa && !String(k.angkatan || '').toLowerCase().includes(fa.toLowerCase())) return false;
         if (fr && String(k.group || '').toUpperCase() !== fr) return false;
         if (fs && String(k.status || '').toUpperCase() !== fs) return false;
+        if (fkm && String(k.statusKM || '') !== fkm) return false;
         if (!query) return true;
         return (
           (k.nama && k.nama.toLowerCase().includes(query)) ||
@@ -268,7 +270,13 @@ function systemAdminApp() {
 
     resetKelasFilter() {
       this.q = '';
-      this.kelasFilter = { prodi: '', angkatan: '', rombel: '', status: '' };
+      this.kelasFilter = { prodi: '', angkatan: '', rombel: '', status: '', statusKM: '' };
+    },
+
+    filterKelasTanpaKM() {
+      this.resetKelasFilter();
+      this.kelasFilter.statusKM = 'none';
+      this.go('kelas');
     },
 
     filteredNotif() {
@@ -339,6 +347,7 @@ function systemAdminApp() {
         ['sa-matkul', '/partials/system-admin/view-master-matkul.html'],
         ['sa-soon', '/partials/system-admin/view-soon.html'],
         ['sa-drawer', '/partials/system-admin/drawer.html'],
+        ['sa-bottombar', '/partials/system-admin/bottombar.html'],
         ['sa-toast', '/partials/system-admin/toast.html'],
         ['sa-auth', '/partials/system-admin/auth-modal.html']
       ]);
@@ -1424,10 +1433,14 @@ function systemAdminApp() {
 
     lihatKelasBermasalah(jenis) {
       this.resetKelasFilter();
+      if (jenis === 'tanpa-km') {
+        this.kelasFilter.statusKM = 'none';
+      } else if (jenis === 'undangan-pending') {
+        this.kelasFilter.statusKM = 'pending';
+      }
       this.view = 'kelas';
       this.drawer = false;
       window.scrollTo({ top: 0 });
-      void jenis;
     },
 
     soon(fitur) {

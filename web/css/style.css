@@ -55,7 +55,7 @@ nav button { min-height: 44px; }
   opacity: 1; transition: opacity 150ms ease-out, max-width 250ms ease;
 }
 .sidebar-collapsed .sidebar-label { flex: none; max-width: 0; opacity: 0; }
-.sidebar-collapsed .sidebar-section,
+.sidebar-collapsed .sidebar-section, .sidebar-collapsed .sidebar-badge,
 .sidebar-collapsed .sidebar-footer-text { display: none !important; }
 .sidebar-collapsed nav button {
   justify-content: center !important;

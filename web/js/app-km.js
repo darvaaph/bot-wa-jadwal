@@ -31,7 +31,7 @@ function kmApp() {
       ] },
       { title: 'KELOLA KELAS', items: [
         { id: 'semester', label: 'Semester', img: '/assets/icons/event.svg' },
-        { id: 'anggota', label: 'Penugasan Peran', img: '/assets/icons/ext-settings-edit.svg' },
+        { id: 'anggota', label: 'Penugasan Peran', img: '/assets/icons/people.svg' },
         { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
         { id: 'usulan', label: 'Usulan Master', img: '/assets/icons/book.svg' },
       ] },
@@ -199,6 +199,51 @@ function kmApp() {
 
     get todayList() {
       return this.fullSchedule.filter(s => s.hari === this.todayName);
+    },
+
+    get sapaanWaktu() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const h = now.getHours();
+      if (h < 11) return 'Selamat pagi';
+      if (h < 15) return 'Selamat siang';
+      if (h < 18) return 'Selamat sore';
+      return 'Selamat malam';
+    },
+
+    get currentSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.todayList || []).find(s => {
+        if (!s.timeStart || !s.timeEnd) return false;
+        return nowHM >= s.timeStart && nowHM <= s.timeEnd;
+      }) || null;
+    },
+
+    get nextSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.todayList || [])
+        .filter(s => s.timeStart && s.timeStart > nowHM)
+        .slice()
+        .sort((a, b) => a.timeStart.localeCompare(b.timeStart))[0] || null;
+    },
+
+    isSessionCurrent(s) {
+      if (!s || !s.timeStart || !s.timeEnd) return false;
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return nowHM >= s.timeStart && nowHM <= s.timeEnd;
+    },
+
+    isSessionPassed(s) {
+      if (!s || !s.timeEnd) return false;
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return nowHM > s.timeEnd;
     },
 
     get withUrgency() {
@@ -848,7 +893,7 @@ function kmApp() {
       }
 
       await this.loadPartials([
-        ['km-sidebar', '/partials/common/sidebar.html'],
+        ['km-sidebar', '/partials/km/sidebar.html'],
         ['km-state', '/partials/common/state-error.html'],
         ['km-topbar', '/partials/common/topbar.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
@@ -1445,13 +1490,32 @@ function kmApp() {
     labelAksiAudit(action) {
       const a = String(action || '').toUpperCase();
       const map = {
-        CREATE_TASK: 'Tugas dibuat', REVIEW_TASK: 'Tugas diperiksa',
-        COMPLETE_TASK: 'Tugas selesai', ARCHIVE_TASK: 'Tugas diarsipkan', RESTORE_TASK: 'Tugas dipulihkan',
-        CREATE_PATTERN: 'Jadwal ditambahkan', CREATE_TEACHING_EVENT: 'Perubahan dibuat',
-        PUBLISH_EVENT: 'Perubahan diterbitkan', REVOKE_EVENT: 'Publikasi dicabut',
-        CREATE_BACKUP: 'Cadangan dibuat', ASSIGN_ROLE: 'Peran ditetapkan'
+        UPDATE_PORTAL_MODE: 'Mode portal diperbarui',
+        UPDATE_CLASS_SETTINGS: 'Pengaturan kelas diperbarui',
+        ROTATE_PORTAL_CODE: 'Kode portal diputar',
+        CREATE_TASK: 'Tugas dibuat',
+        UPDATE_TASK: 'Tugas diperbarui',
+        REVIEW_TASK: 'Tugas diperiksa',
+        COMPLETE_TASK: 'Tugas diselesaikan',
+        ARCHIVE_TASK: 'Tugas diarsipkan',
+        RESTORE_TASK: 'Tugas dipulihkan',
+        CREATE_PATTERN: 'Jadwal ditambahkan',
+        UPDATE_PATTERN: 'Jadwal diperbarui',
+        DELETE_PATTERN: 'Jadwal dihapus',
+        CREATE_TEACHING_EVENT: 'Perubahan jadwal dibuat',
+        PUBLISH_EVENT: 'Perubahan diterbitkan',
+        REVOKE_EVENT: 'Publikasi dicabut',
+        CREATE_BACKUP: 'Cadangan data dibuat',
+        ASSIGN_ROLE: 'Peran ditetapkan',
+        SUSPEND_ASSIGNMENT: 'Peran ditangguhkan',
+        REVOKE_INVITATION: 'Undangan dibatalkan',
+        LINK_CHANNEL: 'Kanal WhatsApp terhubung',
+        REVOKE_CHANNEL: 'Kanal WhatsApp dilepas',
+        BOT_TEST_MESSAGE: 'Uji kirim pesan bot'
       };
-      return map[a] || action || '-';
+      if (map[a]) return map[a];
+      if (!action) return '-';
+      return String(action).replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase());
     },
 
     async loadAuditLog(more) {
