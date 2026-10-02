@@ -127,7 +127,7 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 		FROM schedule_patterns sp JOIN course_offerings co ON co.id = sp.course_offering_id
 		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN rooms r ON r.id = sp.room_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND sp.status = 'ACTIVE'
 		AND sp.day_of_week = ? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)

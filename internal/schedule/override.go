@@ -553,7 +553,7 @@ func (om *OverrideManager) GetOverridesForDateContext(ctx context.Context, scope
 		LEFT JOIN rooms r ON r.id = te.room_id
 		LEFT JOIN users u ON u.id = te.published_by_user_id
 		LEFT JOIN schedule_patterns sp ON sp.id = te.origin_schedule_pattern_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
@@ -689,7 +689,7 @@ func (om *OverrideManager) GetActiveOverridesContext(ctx context.Context, scopeJ
 		LEFT JOIN rooms r ON r.id = te.room_id
 		LEFT JOIN users u ON u.id = te.published_by_user_id
 		LEFT JOIN schedule_patterns sp ON sp.id = te.origin_schedule_pattern_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'

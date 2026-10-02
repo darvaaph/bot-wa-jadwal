@@ -1,0 +1,26 @@
+<section x-show="view === 'ruangan'" x-cloak>
+  <h1 class="text-[26px] font-bold">Ruangan</h1>
+  <p class="mt-1 text-[13px] text-slate-500">Lihat kandidat ruang untuk waktu kuliah dan riwayat konfirmasi TU.</p>
+  <div class="mt-5 rounded-2xl border border-[#EEEEEE] bg-white p-5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <label class="text-[13px] font-semibold">Tanggal<input type="date" x-model="roomSearch.date" class="mt-1 w-full h-11 rounded-xl border border-[#EEEEEE] px-3" /></label>
+      <label class="text-[13px] font-semibold">Mulai<input type="time" x-model="roomSearch.start" class="mt-1 w-full h-11 rounded-xl border border-[#EEEEEE] px-3" /></label>
+      <label class="text-[13px] font-semibold">Selesai<input type="time" x-model="roomSearch.end" class="mt-1 w-full h-11 rounded-xl border border-[#EEEEEE] px-3" /></label>
+    </div>
+    <button type="button" @click="loadRoomCandidates()" :disabled="roomCandidatesLoading" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white font-semibold disabled:opacity-60">Cari kandidat</button>
+    <p x-show="roomCandidatesLoading" class="mt-3 text-[13px] text-slate-500" role="status">Memeriksa ketersediaan...</p>
+    <p x-show="roomCandidatesError" class="mt-3 text-[13px] text-red-700" role="alert" x-text="roomCandidatesError"></p>
+    <div x-show="roomCandidates !== null && !roomCandidatesLoading && !roomCandidatesError" class="mt-4">
+      <p x-show="roomCandidates && roomCandidates.length === 0" class="text-[13px] text-slate-500">Tidak ada ruang tersedia pada waktu ini.</p>
+      <template x-for="room in (roomCandidates || [])" :key="room.id"><div class="py-3 border-t border-[#EEEEEE] text-[13px]"><span class="font-semibold" x-text="room.code + ' · ' + room.name"></span><span class="text-slate-500 ml-2" x-text="room.capacity ? 'Kapasitas ' + room.capacity : ''"></span></div></template>
+      <p class="mt-3 text-[12px] text-slate-500">Kandidat belum menjadi konfirmasi. Hubungi TU, lalu catat konfirmasi pada detail perubahan jadwal.</p>
+    </div>
+  </div>
+  <div class="mt-5 rounded-2xl border border-[#EEEEEE] bg-white p-5">
+    <div class="flex items-center justify-between gap-2"><h2 class="text-[18px] font-semibold">Riwayat konfirmasi TU</h2><button type="button" @click="loadRoomHistory()" class="h-11 px-3 text-[13px] text-[#3965FB]">Muat ulang</button></div>
+    <p x-show="roomHistoryLoading" class="mt-3 text-[13px] text-slate-500">Memuat riwayat...</p>
+    <p x-show="roomHistoryError" class="mt-3 text-[13px] text-red-700" x-text="roomHistoryError"></p>
+    <p x-show="!roomHistoryLoading && !roomHistoryError && roomHistory.length === 0" class="mt-3 text-[13px] text-slate-500">Belum ada konfirmasi ruangan.</p>
+    <template x-for="item in roomHistory" :key="item.id"><div class="py-3 border-b border-[#EEEEEE] text-[13px]"><p class="font-semibold" x-text="item.offering + ' · ' + item.room"></p><p class="text-slate-600" x-text="item.confirmation_status + (item.superseded_at ? ' · Riwayat sebelum pemulihan' : '') + (item.external_contact ? ' · ' + item.external_contact : '')"></p><p x-show="item.note" class="text-slate-500" x-text="item.note"></p></div></template>
+  </div>
+</section>

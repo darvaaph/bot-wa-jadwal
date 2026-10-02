@@ -19,6 +19,7 @@ import (
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/backup"
 	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/ratelimit"
@@ -160,9 +161,8 @@ type AuditLogResponseItem struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
-// BackupRequest merepresentasikan payload pembuatan backup on-demand.
-// SemesterID opsional: bila diisi, dicatat sebagai cakupan dan diverifikasi
-// saat verifikasi (BE-010/BE-011). Snapshot berkas tetap per kelas.
+// BackupRequest merepresentasikan pembuatan paket akademik oleh Admin.
+// SemesterID opsional membatasi isi paket ke satu semester.
 type BackupRequest struct {
 	ClassSlug  *string `json:"class_slug,omitempty"`
 	SemesterID *int64  `json:"semester_id,omitempty"`
@@ -171,9 +171,10 @@ type BackupRequest struct {
 
 // BackupResponseItem merepresentasikan catatan cadangan basis data.
 // artifact_ref tidak dikembalikan ke client (jalur internal).
-// Status v1: CREATING, READY, VERIFIED, FAILED (tanpa RESTORING per ADR-0008).
+// Paket v2 dapat dipulihkan; arsip SQLite v1 hanya dapat diverifikasi.
 type BackupResponseItem struct {
 	ID         int64   `json:"id"`
+	Restorable bool    `json:"restorable"`
 	ClassID    *int64  `json:"class_id,omitempty"`
 	ClassSlug  *string `json:"class_slug,omitempty"`
 	SemesterID *int64  `json:"semester_id,omitempty"`
@@ -764,8 +765,8 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang memicu pencadangan database")
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang membuat cadangan")
 		return
 	}
 
@@ -826,111 +827,29 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trustedProxies, ratelimit.PolicyBackupRestore, backupSubject) {
 		return
 	}
-
-	backupDir := filepath.Join(c.getStorageDir(), "backups")
-	_ = os.MkdirAll(backupDir, 0755)
-
-	timestamp := time.Now().Format("20060102_150405")
-	backupFileName := fmt.Sprintf("backup_v1_%s_%d.db", timestamp, time.Now().UnixNano())
-	backupFilePath := filepath.Join(backupDir, backupFileName)
-
-	// Lakukan VACUUM INTO untuk membuat snapshot SQLite secara aman tanpa mengunci penulisan
-	_, err := c.db.Exec(fmt.Sprintf("VACUUM INTO '%s';", filepath.ToSlash(backupFilePath)))
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", fmt.Sprintf("Gagal membuat snapshot database: %v", err))
-		return
-	}
-
-	// Hitung checksum berkas hasil backup
-	f, err := os.Open(backupFilePath)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal membaca berkas hasil cadangan")
-		return
-	}
-	defer f.Close()
-
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, f); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal menghitung checksum cadangan")
-		return
-	}
-	checksum := hex.EncodeToString(hasher.Sum(nil))
-
-	tx, err := c.db.Begin()
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi backup")
-		return
-	}
-	defer tx.Rollback()
-	reasonStr := "Backup on-demand"
-	if req.Reason != nil && strings.TrimSpace(*req.Reason) != "" {
-		reasonStr = strings.TrimSpace(*req.Reason)
-	}
-	res, err := tx.Exec(`
-		INSERT INTO backup_records (
-			class_id, semester_id, artifact_ref, checksum, status, created_by_user_id, reason, created_at
-		) VALUES (?, ?, ?, ?, 'READY', ?, ?, CURRENT_TIMESTAMP);
-	`, classID, semesterID, backupFilePath, checksum, u.UserID, reasonStr)
-
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan rekam cadangan: %v", err))
-		return
-	}
-
-	backupID, _ := res.LastInsertId()
-
-	var createdAt string
-	_ = tx.QueryRow(`SELECT created_at FROM backup_records WHERE id = ?;`, backupID).Scan(&createdAt)
-	var outSemesterID *int64
+	var scopedSemester *int64
 	if semesterID.Valid {
-		outSemesterID = &semesterID.Int64
+		scopedSemester = &semesterID.Int64
 	}
-
-	// Catat audit_logs
-	{
-		uid := u.UserID
-		var raid *int64
-		if u.ActiveAssignmentID != 0 {
-			v := u.ActiveAssignmentID
-			raid = &v
-		}
-		afterJSON := fmt.Sprintf(`{"checksum":%q,"semester_id":%v}`, checksum, nullableInt(semesterID))
-		correlationID := fmt.Sprintf("create-backup-%d-%d", backupID, time.Now().UnixNano())
-		createEntry := audit.Entry{
-			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
-			ClassID:       &classID,
-			Action:        "CREATE_BACKUP",
-			EntityType:    "BACKUP_RECORD",
-			EntityID:      &backupID,
-			AfterJSON:     &afterJSON,
-			Reason:        reasonStr,
-			CorrelationID: correlationID,
-		}
-		if semesterID.Valid {
-			createEntry.SemesterID = &semesterID.Int64
-		}
-		if err := audit.Write(r.Context(), tx, createEntry); err != nil {
-			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit backup")
-			return
-		}
+	reason := "Backup on-demand"
+	if req.Reason != nil && strings.TrimSpace(*req.Reason) != "" {
+		reason = strings.TrimSpace(*req.Reason)
 	}
-	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit backup")
+	svc := backup.NewService(c.db, filepath.Join(c.getStorageDir(), "backups"))
+	record, err := svc.Create(r.Context(), classID, scopedSemester, u.UserID, reason)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal membuat cadangan akademik")
 		return
 	}
 	if c.rlManager != nil {
 		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyBackupRestore, backupSubject, backupSource, "SUCCESS")
 	}
-
 	common.WriteV1Success(w, http.StatusCreated, BackupResponseItem{
-		ID:         backupID,
-		ClassID:    &classID,
-		SemesterID: outSemesterID,
-		Checksum:   checksum,
-		Status:     "READY",
-		Reason:     &reasonStr,
-		CreatedAt:  createdAt,
+		ID: record.ID, ClassID: &classID, SemesterID: scopedSemester,
+		Checksum: record.Checksum, Status: record.Status, Reason: &reason, CreatedAt: record.CreatedAt,
 	})
+	return
+
 }
 
 // nullableInt memformat sql.NullInt64 untuk audit JSON (null bila invalid).
@@ -1046,7 +965,17 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 	// BE-011: verifikasi format SQLite, kompatibilitas schema, scope metadata,
 	// cakupan semester bila dicatat, dan integritas relasi — tanpa memodifikasi
 	// database aktif (ADR-0008 verify-only).
-	if err := verifyBackupArtifact(absTarget, classID, semesterID); err != nil {
+	var formatErr error
+	if strings.EqualFold(filepath.Ext(absTarget), ".json") {
+		_, formatErr = backup.NewService(c.db, backupDir).Preview(r.Context(), req.BackupID)
+	} else {
+		formatErr = verifyBackupArtifact(absTarget, classID, semesterID)
+	}
+	if err := formatErr; err != nil {
+		if errors.Is(err, backup.ErrMismatch) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "cakupan kelas atau semester backup tidak cocok")
+			return
+		}
 		if err == errBackupScope || err == errBackupSchema || err == errBackupSemester || err == errBackupRelations {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, err.Error())
 			return

@@ -75,6 +75,15 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		return nil, fmt.Errorf("interval tidak valid")
 	}
 	var out []Conflict
+	ownerLocation := time.UTC
+	if c.OwnerClassID > 0 {
+		var timezone string
+		if err := db.QueryRowContext(ctx, `SELECT timezone FROM class_settings WHERE class_id=?`, c.OwnerClassID).Scan(&timezone); err == nil {
+			if location, err := time.LoadLocation(timezone); err == nil {
+				ownerLocation = location
+			}
+		}
+	}
 
 	// 1. Batas semester owner (hanya mode event bertanggal konkret).
 	// Mode pola (PatternDay != 0) bersifat rekuren mingguan tanpa tanggal
@@ -158,7 +167,7 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at
 			FROM teaching_events te JOIN teaching_event_offerings teo ON teo.teaching_event_id=te.id AND teo.participation_role='OWNER'
 			JOIN course_offerings co ON co.id=teo.course_offering_id JOIN semesters sem ON sem.id=co.semester_id
-			WHERE te.lifecycle_status='PUBLISHED' AND date(te.starts_at)=date(?)`, date)
+			WHERE te.lifecycle_status='PUBLISHED' AND date(te.starts_at) BETWEEN date(?, '-1 day') AND date(?, '+1 day')`, date, date)
 		if err == nil {
 			defer rows2.Close()
 			for rows2.Next() {
@@ -183,8 +192,8 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 					continue
 				}
 				day, _ := time.Parse("2006-01-02", date)
-				cs := time.Date(day.Year(), day.Month(), day.Day(), ch, cm, 0, 0, time.UTC)
-				ce := time.Date(day.Year(), day.Month(), day.Day(), eh, em, 0, 0, time.UTC)
+				cs := time.Date(day.Year(), day.Month(), day.Day(), ch, cm, 0, 0, ownerLocation)
+				ce := time.Date(day.Year(), day.Month(), day.Day(), eh, em, 0, 0, ownerLocation)
 				if !overlaps(cs, ce, st, en) {
 					continue
 				}
@@ -200,8 +209,9 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		}
 	} else {
 		// Mode event: pola efektif pada tanggal candidate + event overlap.
-		date := c.StartsAt.Format("2006-01-02")
-		dow := weekdayNum(c.StartsAt)
+		localStart := c.StartsAt.In(ownerLocation)
+		date := localStart.Format("2006-01-02")
+		dow := weekdayNum(localStart)
 		rows, err := db.QueryContext(ctx, `SELECT sp.id, sp.course_offering_id, sem.class_id, sp.room_id,
 			sp.start_time, sp.end_time FROM schedule_patterns sp
 			JOIN course_offerings co ON co.id = sp.course_offering_id
@@ -224,8 +234,8 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 				if !ok1 || !ok2 {
 					continue
 				}
-				ps := time.Date(c.StartsAt.Year(), c.StartsAt.Month(), c.StartsAt.Day(), ch, cm, 0, 0, time.UTC)
-				pe := time.Date(c.StartsAt.Year(), c.StartsAt.Month(), c.StartsAt.Day(), eh, em, 0, 0, time.UTC)
+				ps := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), ch, cm, 0, 0, ownerLocation)
+				pe := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), eh, em, 0, 0, ownerLocation)
 				if !overlaps(c.StartsAt, c.EndsAt, ps, pe) {
 					continue
 				}
@@ -326,7 +336,7 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 }
 
 func lecturersForOffering(ctx context.Context, db *sql.DB, offeringID int64) []int64 {
-	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, offeringID)
+	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, offeringID)
 	if err != nil {
 		return nil
 	}

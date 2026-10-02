@@ -622,8 +622,8 @@ const BotApi = {
       headers: authHeaders(),
       credentials: 'same-origin'
     });
-    if (!res.ok) return [];
     const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Jadwal tetap gagal dimuat.');
     return (json && json.data) || [];
   },
 
@@ -636,6 +636,15 @@ const BotApi = {
       const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyimpan pola jadwal.');
       err.code = 'SAVE_FAILED'; err.payload = json; throw err;
     }
+    return json.data;
+  },
+
+  async previewCreatePattern(payload) {
+    const res = await fetch('/api/v1/schedule/patterns/preview', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Gagal meninjau jadwal reguler.');
     return json.data;
   },
 
@@ -652,6 +661,15 @@ const BotApi = {
       const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah pola jadwal.');
       err.code = 'SAVE_FAILED'; err.payload = json; throw err;
     }
+    return json.data;
+  },
+
+  async previewPattern(patternId, payload) {
+    const res = await fetch('/api/v1/schedule/patterns/' + encodeURIComponent(patternId) + '/preview', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Gagal memuat pratinjau jadwal tetap.');
     return json.data;
   },
 
@@ -696,8 +714,9 @@ const BotApi = {
       url += '?status=' + encodeURIComponent(filters.status || filters.lifecycle);
     }
     const res = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
-    if (!res.ok) return null;
-    return (await res.json()).data || [];
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Perubahan jadwal gagal dimuat.');
+    return (json && json.data) || [];
   },
 
 
@@ -924,6 +943,20 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async getRoomConfirmations() {
+    const res = await fetch('/api/v1/rooms/confirmations', { headers: authHeaders(), credentials: 'same-origin' });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Riwayat konfirmasi gagal dimuat.');
+    return json.data || [];
+  },
+
+  async getPublicationDelivery(kind, id) {
+    const res = await fetch('/api/v1/publications/' + encodeURIComponent(kind) + '/' + encodeURIComponent(id) + '/delivery', { headers: authHeaders(), credentials: 'same-origin' });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Status pengiriman gagal dimuat.');
+    return json.data || [];
+  },
+
   async getAudit(params) {
     const qs = new URLSearchParams(params || {}).toString();
     const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), {
@@ -1128,6 +1161,50 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async createBackupRequest(payload) {
+    const res = await fetch('/api/v1/backup-requests', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Gagal mengirim permintaan cadangan.');
+    return json.data;
+  },
+
+  async getBackupRequests() {
+    const res = await fetch('/api/v1/backup-requests', { credentials: 'same-origin', headers: authHeaders() });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Gagal memuat permintaan cadangan.');
+    return (json && json.data) || [];
+  },
+
+  async executeBackupRequest(id) {
+    const res = await fetch('/api/v1/backup-requests/' + encodeURIComponent(id) + '/execute', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Gagal membuat cadangan permintaan.');
+    return json.data;
+  },
+
+  async previewScopedRestore(id) {
+    const res = await fetch('/api/v1/backups/' + encodeURIComponent(id) + '/restore-preview', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: '{}'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Pratinjau pemulihan gagal.');
+    return json.data;
+  },
+
+  async executeScopedRestore(id, reason, previewToken) {
+    const res = await fetch('/api/v1/backups/' + encodeURIComponent(id) + '/restore-execute', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
+      body: JSON.stringify({ reason, preview_token: previewToken })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Pemulihan gagal.');
+    return json.data;
+  },
+
   async getBackups(classSlug, status) {
     let url = '/api/v1/backups';
     const qs = new URLSearchParams();
@@ -1229,6 +1306,14 @@ const BotApi = {
     }
     const json = await res.json();
     return json.data || null;
+  },
+
+  async getPortalCourses(slug, semesterId) {
+    const qs = semesterId ? '?semester_id=' + encodeURIComponent(semesterId) : '';
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/courses' + qs, { credentials: 'same-origin', headers: authHeaders() });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Mata kuliah gagal dimuat.');
+    return json.data || [];
   },
 
   async getPortalMaterials(slug, semesterId) {

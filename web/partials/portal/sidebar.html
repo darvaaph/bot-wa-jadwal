@@ -9,10 +9,10 @@
   </div>
   <nav aria-label="Navigasi portal" class="mt-8 flex flex-col gap-0.5 text-[14px]">
     <p class="sidebar-section px-3 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">PORTAL MAHASISWA</p>
-    <button type="button" @click="go('dashboard')" :title="sidebarCollapsed ? 'Dashboard' : ''"
+    <button type="button" @click="go('dashboard')" :title="sidebarCollapsed ? 'Ringkasan' : ''"
       :class="view === 'dashboard' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Dashboard</span>
+      <img src="/assets/icons/home.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Ringkasan</span>
     </button>
     <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-widest text-slate-400">AKADEMIK</p>
     <button type="button" @click="go('tugas')" :title="sidebarCollapsed ? 'Tugas' : ''"
@@ -25,20 +25,10 @@
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
       <img src="/assets/icons/calendar.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Jadwal</span>
     </button>
-    <button type="button" @click="go('materi')" :title="sidebarCollapsed ? 'Materi' : ''"
-      :class="['materi','detail-materi'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
+    <button type="button" @click="go('courses')" :title="sidebarCollapsed ? 'Mata Kuliah' : ''"
+      :class="['courses','course-detail'].includes(view) ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
       class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Materi</span>
-    </button>
-    <button type="button" @click="go('perubahan')" :title="sidebarCollapsed ? 'Perubahan' : ''"
-      :class="view === 'perubahan' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
-      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/activity.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Perubahan</span>
-    </button>
-    <button type="button" @click="go('arsip')" :title="sidebarCollapsed ? 'Arsip' : ''"
-      :class="view === 'arsip' ? 'bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'text-[#1F1F1F] hover:bg-slate-50'"
-      class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Arsip</span>
+      <img src="/assets/icons/folder.svg" alt="" class="w-5 h-5 shrink-0" /><span class="sidebar-label">Mata Kuliah</span>
     </button>
   </nav>
   <div class="mt-auto pt-4 text-[13px]">

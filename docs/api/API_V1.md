@@ -63,8 +63,10 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | Method & Path | Body penting | Aturan |
 |---|---|---|
 | `GET /api/v1/schedule/patterns?offering_id=&day=` | — | Filter offering sesuai scope PJ |
-| `POST /api/v1/schedule/patterns` | `{offering_id, day_of_week:1-7, start_time, duration_min, room_id?, lecturer_ids[]}` | Server hitung `end_time`; cek konflik |
-| `PATCH /api/v1/schedule/patterns/:id` | `{..., version}` | Permanen via versi baru (pola lama `effective_until`=hari ini inklusif, pola baru `effective_from`=besok; response `{id, replaces_pattern_id, version, effective_from, effective_until:null}`; BE-007) |
+| `POST /api/v1/schedule/patterns` | `{offering_id, day_of_week:1-7, start_time, duration_min, room_id?, lecturer_ids[]}` | Server hitung `end_time`; hanya semester aktif; cek konflik seluruh pertemuan dari hari ini sampai akhir semester dalam zona kelas |
+| `POST /api/v1/schedule/patterns/preview` | Sama dengan create | Pratinjau read-only jam selesai, rentang berlaku, dan konflik seluruh sisa semester. `can_publish=false` jika konflik pemblokir |
+| `POST /api/v1/schedule/patterns/:id/preview` | `{version, effective_from, reason, day_of_week?, start_time?, duration_min?, room_id?}` | Tanggal dari hari ini hingga akhir semester aktif; tampilkan sesi terdampak dan konflik tanpa mutasi |
+| `PATCH /api/v1/schedule/patterns/:id` | Payload pratinjau versi pola | Perubahan permanen atomik: tutup pola lama sehari sebelum `effective_from`, buat versi baru, audit dan satu outbox. Versi lama/stale ditolak `409`; tanggal lampau atau luar semester ditolak `422` |
 | `POST /api/v1/teaching-events` | `{owner_offering_id, event_kind, starts_at, ends_at, origin_pattern_id?, origin_date?, participant_offering_ids[], room_id?, reason?}` | Buat `DRAFT`; `REPLACEMENT/SESSION_CANCELLED` wajib `origin_*`; tanggal dalam semester owner |
 | `GET /api/v1/teaching-events?scope=mine&status=draft\|published\|revoked&from=&to=` | — | Tab Draf/Terbit/Dicabut |
 | `POST /api/v1/teaching-events/:id/preview` | `{}` | `{old, new, kind, conflicts:[{type, message, blocking}], room_note:"perlu konfirmasi TU"}`; blocking → tolak publish |
@@ -93,13 +95,20 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | Method & Path | Body penting / Query | Aturan & Akses |
 |---|---|---|
 | `GET /api/v1/rooms/candidates` | `?starts_at=&ends_at=` | Auth; Cari ruangan yang tidak bentrok dengan jadwal lain |
+| `GET /api/v1/rooms/confirmations` | — | KM kelasnya, PJ offering-nya, Admin; riwayat konfirmasi TU |
+| `GET /api/v1/publications/:entityType/:id/delivery` | `TASK`, `SCHEDULE_PATTERN`, atau `TEACHING_EVENT` | KM/PJ sesuai cakupan, Admin; status outbox pada publikasi terkait |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
 | `GET /api/v1/notifications` | `?status=&class_id=&event_type=&since=&until=&limit=` | KM (kelasnya, asing 404) / Admin; Antrean siaran + penerima, idempotensi, galat terakhir. `since/until` RFC3339/YYYY-MM-DD (naive = UTC; FE kirim UTC dari zona lokal). `event_type` tak peka huruf besar; `class_id`/`since` invalid 422 |
 | `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING`. Response `{id, status:"PENDING", scheduled_at, retry_scheduled:true}` tanpa `attempt_number`; attempt hanya dibuat worker saat delivery (BE-010) |
 | `GET /api/v1/audit` | `?entity_type=&action=&entity_id=&actor=&since=&until=&class_slug=&limit=` | KM (kelasnya) / Admin; Rekam jejak audit trail perubahan sistem. `since/until` RFC3339 atau YYYY-MM-DD (presisi detik, UTC); `actor` = ID numerik atau identity_key; `entity_id` numerik |
-| `POST /api/v1/backups` | `{class_slug?, semester_id?, reason?}` | KM (kelasnya) / Admin; Snapshot basis data aman via `VACUUM INTO`. `semester_id` opsional, wajib milik kelas; nama berkas unik |
-| `GET /api/v1/backups` | `?class_slug=&status=&limit=` | KM (kelasnya) / Admin; Daftar cadangan tanpa path internal (`artifact_ref` tak dikembalikan) |
-| `POST /api/v1/restores` | `{backup_id, reason!}` | Admin; Verify-only (ADR-0008): verifikasi path dalam storage backup, checksum (`422 CHECKSUM_MISMATCH`), format SQLite, schema, scope kelas + semester + relasi (`foreign_key_check`); tandai `VERIFIED`; response `{backup_id, class_id, semester_id?, status:"VERIFIED", checksum, restore_performed:false}` tanpa path internal. Database aktif tidak diganti |
+| `POST /api/v1/backup-requests` | `{class_slug, semester_id?, reason}` | KM kelasnya meminta backup; status awal `PENDING` |
+| `GET /api/v1/backup-requests` | — | KM melihat permintaan kelasnya; Admin semua kelas |
+| `POST /api/v1/backup-requests/:id/execute` | — | Admin mengeksekusi permintaan dan menghasilkan backup v2 |
+| `POST /api/v1/backups` | `{class_slug, semester_id?, reason?}` | Admin saja; paket JSON v2 data akademik kelas/semester, checksum SHA-256; akun, izin, master global, audit, kanal, dan pesan tidak dicadangkan untuk restore |
+| `GET /api/v1/backups` | `?class_slug=&status=&limit=` | KM kelasnya / Admin; tanpa path internal, `restorable=true` hanya paket v2 |
+| `POST /api/v1/backups/:id/restore-preview` | `{}` | Admin; verifikasi checksum/versi/cakupan, tampilkan jumlah data aktif vs paket, daftar event lintas kelas, serta `preview_token` |
+| `POST /api/v1/backups/:id/restore-execute` | `{reason, preview_token}` | Admin; token usang `409`, paket tak cocok `422`, keterkaitan lintas kelas `409`; jeda tulis dan worker, titik pemulihan baru, transaksi akademik, audit, pembatalan pesan tertunda yang usang, satu koreksi bila informasi terbit berubah. Response `pre_restore_backup_id` |
+| `POST /api/v1/restores` | `{backup_id, reason}` | Admin; **verifikasi saja** untuk arsip v1 SQLite dan paket v2. Response `restore_performed:false`; tidak mengubah data aktif |
 | `GET /api/v1/admin/status` | — | Admin; Telemetri runtime, koneksi bot, dan status migrasi |
 | `GET /api/v1/admin/assignments` | `?status=&role=&class_slug=&limit=` | Admin; Daftar Penugasan Peran + scope |
 | `POST /api/v1/admin/assignments/:id/suspend` | `{reason!, force?}` | Admin (+KM untuk PJ kelasnya); cabut sesi penugasan; guard KM-terakhir (`409` kecuali `force`) |

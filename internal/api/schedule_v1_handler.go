@@ -30,12 +30,28 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 	v1.NewScheduleController(s.v1DB).CreatePattern(w, r)
 }
 
+func (s *Server) handlePreviewCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.PreviewCreatePattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).PreviewCreatePattern(w, r)
+}
+
 func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	if s.scheduleController != nil {
 		s.scheduleController.PatchPattern(w, r)
 		return
 	}
 	v1.NewScheduleController(s.v1DB).PatchPattern(w, r)
+}
+
+func (s *Server) handlePreviewV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.PreviewPattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).PreviewPattern(w, r)
 }
 
 func (s *Server) handleCreateV1TeachingEvent(w http.ResponseWriter, r *http.Request) {

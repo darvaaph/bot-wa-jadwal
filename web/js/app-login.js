@@ -1,7 +1,7 @@
 /**
  * web/js/app-login.js — Masuk Pengurus: Nomor WhatsApp + Kata sandi (tanpa email).
- * Verifikasi butuh endpoint backend — form tervalidasi lokal lalu jujur toast.
- * ?role=km|pj|sa menentukan label + area tujuan pratinjau.
+ * Login dan pemulihan kata sandi memakai API backend.
+ * ?role=km|pj|sa menentukan label dan tujuan setelah autentikasi.
  */
 function loginApp() {
   return {
@@ -19,32 +19,12 @@ function loginApp() {
     ruangKerja: [],
     toast: { show: false, message: '', timer: null },
 
-    selectedDemoRole: '',
-    showDemo: false,
-    demoAccounts: {
-      sa: { nomor: '081111111111', label: 'System Admin (Semua Akses)', role: 'sa' },
-      km: { nomor: '081234567890', label: 'Ketua Murid (KM)', role: 'km' },
-      pj: { nomor: '081298765432', label: 'PJ Mata Kuliah (PJ)', role: 'pj' }
-    },
-
     get roleLabel() {
       return { km: 'Ketua Murid', pj: 'PJ Mata Kuliah', sa: 'System Admin' }[this.role] || 'Pengurus';
     },
 
     get areaUrl() {
       return { km: '/km.html', pj: '/pj.html', sa: '/system-admin.html' }[this.role] || '/km.html';
-    },
-
-    pilihDemo(roleKey) {
-      const acc = this.demoAccounts[roleKey];
-      if (!acc) return;
-      this.selectedDemoRole = roleKey;
-      this.nomor = acc.nomor;
-      this.sandi = '';
-      this.role = acc.role;
-      this.formError = '';
-      this.fieldError = '';
-      this.showToast(`Nomor demo ${acc.label} terisi. Ketik kata sandi manual.`);
     },
 
     initLogin() {
@@ -54,8 +34,6 @@ function loginApp() {
         if (['km', 'pj', 'sa'].includes(r)) this.role = r;
         this.recoveryToken = params.get('recovery_token') || params.get('token') || '';
         if (this.recoveryToken && (params.get('mode') === 'recovery' || params.has('recovery_token') || params.has('token'))) this.mode = 'reset';
-        const host = (window.location.hostname || '').toLowerCase();
-        this.showDemo = host === 'localhost' || host === '127.0.0.1' || host === '::1' || params.get('demo') === '1';
       } catch (e) { /* default km */ }
     },
 

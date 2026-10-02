@@ -168,6 +168,7 @@ function systemAdminApp() {
     backupHasil: null,
     backupLoading: false,
     backupList: [],
+    backupRequests: [], backupRequestsLoading: false, backupRequestsError: '', backupRequestExecuting: 0,
     backupListLoading: false,
     backupListError: '',
     backupSemesterList: [],
@@ -175,6 +176,10 @@ function systemAdminApp() {
     restoreError: '',
     restoreHasil: null,
     restoreLoading: false,
+    scopedRestorePreview: null,
+    scopedRestoreResult: null,
+    scopedRestoreLoading: false,
+    selectedBackupRestorable: false,
 
     auditList: [],
     auditLoading: false,
@@ -1370,11 +1375,53 @@ function systemAdminApp() {
       }
     },
 
+    async loadBackupRequests() {
+      this.backupRequestsLoading = true; this.backupRequestsError = '';
+      try { this.backupRequests = await API.getBackupRequests(); }
+      catch (e) { this.backupRequests = []; this.backupRequestsError = e.message || 'Permintaan cadangan gagal dimuat.'; }
+      finally { this.backupRequestsLoading = false; }
+    },
+
+    async executeBackupRequest(item) {
+      this.backupRequestExecuting = item.id;
+      try {
+        await API.executeBackupRequest(item.id);
+        this.showToast('Cadangan permintaan berhasil dibuat.');
+        await Promise.all([this.loadBackupRequests(), this.loadBackupList()]);
+      } catch (e) { this.backupRequestsError = e.message || 'Gagal mengeksekusi permintaan.'; }
+      finally { this.backupRequestExecuting = 0; }
+    },
+
     pilihCadanganUntukVerifikasi(b) {
       this.restoreForm.id = String(b.id || '');
+      this.selectedBackupRestorable = Boolean(b.restorable);
       this.restoreError = '';
       this.restoreHasil = null;
-      window.scrollTo({ top: document.body.scrollHeight });
+      this.scopedRestorePreview = null;
+      this.scopedRestoreResult = null;
+      if (b.restorable) this.previewRestore(b.id);
+    },
+
+    async previewRestore(id) {
+      this.scopedRestoreLoading = true; this.restoreError = ''; this.scopedRestorePreview = null;
+      try { this.scopedRestorePreview = await API.previewScopedRestore(id); }
+      catch (e) { this.restoreError = e.message || 'Pratinjau pemulihan gagal.'; }
+      finally { this.scopedRestoreLoading = false; }
+    },
+
+    async executeRestore() {
+      const f = this.restoreForm;
+      const preview = this.scopedRestorePreview;
+      if (!preview || !preview.can_restore) { this.restoreError = 'Selesaikan keterkaitan lintas kelas lalu muat ulang pratinjau.'; return; }
+      if (!f.alasan.trim() || !f.paham) { this.restoreError = 'Isi alasan dan konfirmasi dampak pemulihan.'; return; }
+      this.scopedRestoreLoading = true; this.restoreError = '';
+      try {
+        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, f.alasan.trim(), preview.preview_token);
+        this.scopedRestorePreview = null;
+        this.showToast('Data akademik berhasil dipulihkan.');
+        await this.loadBackupList();
+      } catch (e) { this.restoreError = e.message || 'Pemulihan gagal.'; }
+      finally { this.scopedRestoreLoading = false; }
     },
 
     async pulihkanBackup() {
@@ -1415,7 +1462,7 @@ function systemAdminApp() {
       this.drawer = false;
       if (v === 'antrean') this.loadAntrean();
       if (v === 'kanal') this.loadKanal();
-      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); }
+      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
         await this.loadPengguna();

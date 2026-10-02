@@ -538,7 +538,7 @@ func (c *AcademicController) CreateSemesterOffering(w http.ResponseWriter, r *ht
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, fmt.Sprintf("Kode dosen tidak dikenal: %s", lc))
 			return
 		}
-		if _, err := tx.Exec(`INSERT INTO offering_lecturers (course_offering_id, lecturer_id) VALUES (?, ?) ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING;`, offeringID, lectID); err != nil {
+		if _, err := tx.Exec(`INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility) VALUES (?, ?, 'PRIMARY') ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET superseded_at=NULL;`, offeringID, lectID); err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menautkan dosen")
 			return
 		}
@@ -1083,7 +1083,7 @@ func (c *AcademicController) SemesterImportApply(w http.ResponseWriter, r *http.
 				_, _ = tx.Exec(`
 					INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
 					VALUES (?, ?, 'PRIMARY')
-					ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING;
+					ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET responsibility='PRIMARY', superseded_at=NULL;
 				`, offID, lid)
 			}
 		}

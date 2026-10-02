@@ -744,6 +744,20 @@ CREATE INDEX idx_backup_records_class_status ON backup_records(class_id, status)
 CREATE INDEX idx_backup_records_semester_status ON backup_records(semester_id, status);
 CREATE INDEX idx_backup_records_created_by ON backup_records(created_by_user_id);
 
+CREATE TABLE backup_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL REFERENCES classes(id),
+    semester_id INTEGER REFERENCES semesters(id),
+    requested_by_user_id INTEGER NOT NULL REFERENCES users(id),
+    executed_by_user_id INTEGER REFERENCES users(id),
+    backup_id INTEGER REFERENCES backup_records(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5),
+    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PROCESSING', 'EXECUTED', 'FAILED', 'REJECTED')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    decided_at TEXT
+);
+CREATE INDEX idx_backup_requests_class_status ON backup_requests(class_id, status);
+
 -- Hibah dukungan break-glass System Admin (BE-004): konteks sementara per kelas
 -- dengan alasan tercatat dan kedaluwarsa. Satu hibah aktif per pengguna.
 CREATE TABLE support_grants (

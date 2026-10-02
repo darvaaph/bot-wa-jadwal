@@ -1,6 +1,6 @@
 /**
  * web/js/app-portal.js — Portal mahasiswa (REVISI Figma): hanya-baca, tanpa akun.
- * Gerbang PIN disimpan lokal 30 hari sebagai pratinjau; verifikasi butuh endpoint backend.
+ * Akses kelas diverifikasi ulang oleh backend saat portal dibuka.
  */
 function portalApp() {
   return {
@@ -18,13 +18,10 @@ function portalApp() {
     tugasMatkul: 'Semua',
 
     portalNav: [
-      { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
-      { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
+      { id: 'dashboard', label: 'Ringkasan', img: '/assets/icons/home.svg' },
       { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-      { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
-      { id: 'perubahan', label: 'Perubahan', img: '/assets/icons/activity.svg' },
-      { id: 'arsip', label: 'Arsip', img: '/assets/icons/folder.svg' },
-      { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' }
+      { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
+      { id: 'courses', label: 'Mata Kuliah', img: '/assets/icons/folder.svg' }
     ],
 
     todayName: 'Senin',
@@ -53,6 +50,7 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
+    courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
     archiveSelected: null,
@@ -181,9 +179,9 @@ function portalApp() {
         ['portal-tugas', '/partials/portal/view-tugas.html'],
         ['portal-jadwal', '/partials/portal/view-jadwal.html'],
         ['portal-materi', '/partials/portal/view-materi.html'],
+        ['portal-courses', '/partials/portal/view-courses.html'],
         ['portal-perubahan', '/partials/portal/view-perubahan.html'],
         ['portal-arsip', '/partials/portal/view-arsip.html'],
-        ['portal-notif', '/partials/portal/view-notif.html'],
         ['portal-drawer', '/partials/portal/drawer.html'],
         ['portal-bottombar', '/partials/portal/bottombar.html']
       ]);
@@ -204,6 +202,25 @@ function portalApp() {
       ]);
 
       if (!this.unlocked) {
+        return;
+      }
+
+      const slug = this.selectedClassSlug;
+      const token = localStorage.getItem('portal_class') === slug ? localStorage.getItem('portal_token') : '';
+      try {
+        const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/summary', {
+          credentials: 'same-origin',
+          headers: token ? { 'X-Portal-Token': token } : {}
+        });
+        if (!res.ok) {
+          localStorage.removeItem('portal_pin_ok');
+          this.unlocked = false;
+          this.gateStep = res.status === 401 ? 'pin' : 'select';
+          return;
+        }
+      } catch (err) {
+        this.unlocked = false;
+        this.showPageError('offline');
         return;
       }
 
@@ -375,7 +392,7 @@ function portalApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'tugas', 'detail-tugas', 'jadwal', 'materi', 'detail-materi', 'perubahan', 'arsip', 'notifikasi'],
+    knownViews: ['dashboard', 'tugas', 'detail-tugas', 'jadwal', 'courses', 'course-detail', 'materi', 'detail-materi', 'perubahan', 'arsip'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -565,11 +582,21 @@ function portalApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'jadwal') this.loadJadwalEfektif();
+      if (v === 'courses') this.loadCourses();
       if (v === 'arsip') this.loadSemester();
       window.scrollTo({ top: 0 });
     },
 
     soon(fitur) { this.showToast(`${fitur}: fitur belum tersedia.`); },
+
+    async loadCourses() {
+      this.coursesLoading = true; this.coursesError = '';
+      try { this.courses = await API.getPortalCourses(this.selectedClassSlug); }
+      catch (e) { this.courses = []; this.coursesError = e.message || 'Mata kuliah gagal dimuat.'; }
+      finally { this.coursesLoading = false; }
+    },
+
+    bukaCourse(course) { this.selectedCourse = course; this.go('course-detail'); },
 
     async loadClasses() {
       const pathMatch = window.location.pathname.match(/\/c\/([^/]+)/);

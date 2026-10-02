@@ -398,6 +398,7 @@ flowchart LR
 
 1. Pengguna memilih jadwal reguler dan jenis `Permanen`.
 2. Pengguna mengisi data baru serta tanggal mulai berlaku.
+   Tanggal dapat dipilih mulai hari ini sampai akhir semester aktif; tanggal lampau ditolak.
 3. Sistem menampilkan dampak terhadap sesi berikutnya.
 4. Pengguna memeriksa preview dan memublikasikan.
 5. Sistem menutup versi jadwal reguler lama tanpa menghapus riwayat.
@@ -597,18 +598,21 @@ flowchart LR
 
 **Alur utama:**
 
-1. System Admin memilih kelas dan semester.
-2. Sistem menampilkan cakupan data yang akan dicadangkan atau dipulihkan.
-3. System Admin memasukkan alasan dan mengonfirmasi.
-4. Sistem membuat backup atau menjalankan validasi paket pemulihan.
+1. KM mengirim permintaan backup kelas atau semester dengan alasan; System Admin meninjau dan mengeksekusinya. Admin juga dapat membuat paket langsung.
+2. System Admin memilih paket data akademik dan memuat pratinjau cakupan, jumlah data, dan keterkaitan lintas kelas.
+3. System Admin memasukkan alasan dan mengonfirmasi token pratinjau yang masih berlaku.
+4. Sistem memeriksa checksum, versi paket, dan cakupan lalu menjeda operasi tulis dan worker pesan.
 5. Sebelum pemulihan, sistem membuat titik pemulihan saat ini.
 6. Sistem menjalankan pemulihan secara konsisten.
 7. Sistem memverifikasi jumlah data, relasi, dan kelas tujuan.
 8. Sistem mencatat tindakan serta hasilnya.
+9. Pesan lama tetap tersimpan; pesan tertunda yang usang dibatalkan dan satu koreksi dibuat jika informasi terbit berubah.
 
 **Alternatif dan kegagalan:**
 
 - Paket dengan kelas atau semester yang tidak cocok ditolak.
+- Teaching event lintas kelas yang terdampak harus diselesaikan sebelum restore.
+- Paket SQLite v1 hanya dapat diverifikasi sebagai arsip, bukan sumber restore.
 - Kegagalan pemulihan mengembalikan sistem ke keadaan sebelum proses.
 - Pemulihan sesi WhatsApp tidak mengubah data akademik.
 

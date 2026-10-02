@@ -2,7 +2,29 @@
 <section x-show="view === 'backup'" x-cloak>
   <div class="rounded-[24px] border border-[#EEEEEE] bg-white p-6 md:p-10 shadow-sm">
     <h1 class="text-[28px] md:text-[32px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Backup dan Pemulihan</h1>
-    <p class="text-[14px] text-[#667085] mt-1">Snapshot per kelas dengan alasan tercatat. API belum menyediakan pilihan semester/paket dan daftar cadangan.</p>
+    <p class="text-[14px] text-[#667085] mt-1">Cadangkan data akademik kelas atau semester, lalu periksa paket sebelum pemulihan.</p>
+
+    <section class="mt-7 border-t border-[#EEEEEE] pt-5" aria-labelledby="backup-requests-title">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="backup-requests-title" class="text-[18px] font-semibold">Permintaan KM</h2>
+        <button type="button" @click="loadBackupRequests()" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium">Muat ulang</button>
+      </div>
+      <p x-show="backupRequestsLoading" class="mt-3 text-[13px] text-slate-500">Memuat permintaan...</p>
+      <p x-show="backupRequestsError" class="mt-3 rounded-xl bg-red-50 p-3 text-[13px] text-red-700" x-text="backupRequestsError">-</p>
+      <p x-show="!backupRequestsLoading && !backupRequestsError && backupRequests.length === 0" class="mt-3 text-[13px] text-slate-500">Belum ada permintaan cadangan.</p>
+      <div class="mt-3 space-y-2">
+        <template x-for="item in backupRequests" :key="item.id">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-[#EEEEEE] p-3">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-[14px]" x-text="item.class_slug + (item.semester_id ? ' · Semester #' + item.semester_id : ' · Seluruh kelas')">-</p>
+              <p class="text-[12px] text-slate-600" x-text="item.reason + ' · ' + item.status">-</p>
+            </div>
+            <button x-show="item.status === 'PENDING'" type="button" @click="executeBackupRequest(item)" :disabled="backupRequestExecuting !== 0" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold disabled:opacity-60" x-text="backupRequestExecuting === item.id ? 'Membuat...' : 'Buat cadangan'">Buat cadangan</button>
+            <span x-show="item.backup_id" class="text-[12px] text-slate-600" x-text="'Cadangan #' + item.backup_id">-</span>
+          </div>
+        </template>
+      </div>
+    </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 items-start">
       <div class="p-6 rounded-2xl border border-[#EEEEEE]">
@@ -22,7 +44,7 @@
               <option value="">Seluruh kelas</option>
               <template x-for="s in backupSemesterList" :key="s.id"><option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + ' · ' + (s.status || '')">-</option></template>
             </select>
-            <p class="text-[11px] text-slate-400 mt-1">Semester dicatat sebagai cakupan dan diverifikasi saat verifikasi. Berkas snapshot tetap per kelas.</p>
+            <p class="text-[11px] text-slate-500 mt-1">Pilih satu semester atau seluruh data akademik kelas.</p>
           </div>
           <div>
             <label for="sa-backup-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan <span class="text-[#FF6C48]">*</span></label>
@@ -46,27 +68,38 @@
       </div>
 
       <div class="p-6 rounded-2xl border border-red-200 bg-red-50/40">
-        <h2 class="text-[18px] font-bold text-red-700 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Verifikasi cadangan</h2>
-        <p class="text-[13px] text-red-800 mt-1">Memeriksa checksum, format, schema, dan scope berkas. Database aktif tidak diubah.</p>
+        <h2 class="text-[18px] font-bold text-red-700 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Pemulihan data akademik</h2>
+        <p class="text-[13px] text-red-800 mt-1">Pilih paket v2, periksa cakupan dan selisih, lalu konfirmasi pemulihan. Arsip v1 hanya bisa diverifikasi.</p>
         <div x-show="restoreError" class="mt-3 p-3 rounded-xl bg-white border border-red-300 text-[13px] text-red-700" x-text="restoreError">-</div>
         <div class="mt-4 space-y-4">
           <div>
             <label for="sa-restore-id" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">ID cadangan <span class="text-[#FF6C48]">*</span></label>
-            <input id="sa-restore-id" type="text" x-model="restoreForm.id" placeholder="Contoh: 12" inputmode="numeric" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white" />
+            <input id="sa-restore-id" type="text" x-model="restoreForm.id" @input="selectedBackupRestorable=false; scopedRestorePreview=null" placeholder="Contoh: 12" inputmode="numeric" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono bg-white" />
           </div>
           <div>
-            <label for="sa-restore-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan verifikasi <span class="text-[#FF6C48]">*</span></label>
-            <textarea id="sa-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan mengapa berkas diverifikasi" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white resize-none"></textarea>
+            <label for="sa-restore-alasan" class="block text-[14px] font-bold text-[#1F1F1F] mb-2">Alasan <span class="text-[#FF6C48]">*</span></label>
+            <textarea id="sa-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan alasan pemulihan atau verifikasi" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white resize-none"></textarea>
           </div>
           <label class="flex items-start gap-2 text-[13px] text-[#1F1F1F] select-none" for="sa-restore-paham">
             <input id="sa-restore-paham" type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
-            Saya memahami verifikasi ini hanya memeriksa berkas cadangan tanpa mengubah database aktif.
+            Saya memahami pemulihan v2 mengganti data akademik pada cakupan terpilih dan membuat titik pemulihan terlebih dahulu.
           </label>
-          <button type="button" @click="pulihkanBackup()" :disabled="restoreLoading" class="h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">
+          <button type="button" @click="previewRestore(restoreForm.id)" :disabled="scopedRestoreLoading || !restoreForm.id" class="h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">Pratinjau paket v2</button>
+          <div x-show="scopedRestorePreview" class="rounded-xl bg-white border border-red-200 p-4 text-[13px]">
+            <p class="font-semibold" x-text="'Kelas #' + scopedRestorePreview.class_id + (scopedRestorePreview.semester_id ? ' · Semester #' + scopedRestorePreview.semester_id : ' · Seluruh kelas')"></p>
+            <p class="mt-2">Data paket → data aktif</p>
+            <template x-for="key in Object.keys(scopedRestorePreview.source_counts || {})" :key="key">
+              <p x-text="key + ': ' + scopedRestorePreview.source_counts[key] + ' → ' + (scopedRestorePreview.current_counts[key] || 0)"></p>
+            </template>
+            <p x-show="!scopedRestorePreview.can_restore" class="mt-2 text-red-700 font-semibold" x-text="'Tertahan oleh teaching event lintas kelas: ' + (scopedRestorePreview.cross_class_event_ids || []).join(', ')"></p>
+          </div>
+          <button x-show="scopedRestorePreview" type="button" @click="executeRestore()" :disabled="scopedRestoreLoading || !scopedRestorePreview.can_restore" class="h-11 px-8 rounded-xl bg-red-700 text-white disabled:opacity-60 text-[14px] font-semibold">Pulihkan paket v2</button>
+          <button x-show="!selectedBackupRestorable" type="button" @click="pulihkanBackup()" :disabled="restoreLoading" class="h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">
             <span x-show="restoreLoading" class="w-4 h-4 border-2 border-red-200 border-t-transparent rounded-full animate-spin"></span>
-            <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi cadangan'">Verifikasi cadangan</span>
+            <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi arsip v1'">Verifikasi arsip v1</span>
           </button>
         </div>
+        <p x-show="scopedRestoreResult" class="mt-3 text-[13px] text-green-800 font-semibold" x-text="'Pemulihan berhasil. Titik pemulihan #' + scopedRestoreResult.pre_restore_backup_id"></p>
         <div x-show="restoreHasil" class="mt-4 p-4 rounded-xl bg-white border border-green-300 text-[13px] text-green-800">
           <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">verified</span>Terverifikasi</p>
           <dl class="mt-2 space-y-1">
@@ -104,7 +137,7 @@
               <span class="material-symbols-outlined text-[14px]" x-text="String(b.status).toUpperCase() === 'VERIFIED' ? 'verified' : 'inventory_2'">-</span>
               <span x-text="labelStatusBackup(b.status)">-</span>
             </span>
-            <button type="button" @click="pilihCadanganUntukVerifikasi(b)" class="h-10 px-4 rounded-lg border border-[#EEEEEE] hover:bg-slate-50 text-[12px] font-medium min-h-[44px]">Verifikasi</button>
+            <button type="button" @click="pilihCadanganUntukVerifikasi(b)" class="h-10 px-4 rounded-lg border border-[#EEEEEE] hover:bg-slate-50 text-[12px] font-medium min-h-[44px]" x-text="b.restorable ? 'Pratinjau restore' : 'Verifikasi v1'">Pilih</button>
           </div>
         </template>
       </div>

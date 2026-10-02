@@ -176,7 +176,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		}
 
 		lrows, err := tx.QueryContext(ctx, `
-			SELECT lecturer_id, responsibility FROM offering_lecturers WHERE course_offering_id = ?
+			SELECT lecturer_id, responsibility FROM offering_lecturers WHERE course_offering_id = ? AND superseded_at IS NULL
 		`, o.oldID)
 		if err != nil {
 			return err
@@ -190,7 +190,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 			}
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
-				VALUES (?, ?, ?) ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING
+				VALUES (?, ?, ?) ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET responsibility=excluded.responsibility, superseded_at=NULL
 			`, newOfferingID, lid, resp); err != nil {
 				lrows.Close()
 				return err
@@ -376,7 +376,7 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 	var lecturers, rooms int
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT ol.lecturer_id) FROM offering_lecturers ol
-		JOIN course_offerings co ON co.id = ol.course_offering_id WHERE co.semester_id = ?
+		JOIN course_offerings co ON co.id = ol.course_offering_id WHERE co.semester_id = ? AND ol.superseded_at IS NULL
 	`, semesterID).Scan(&lecturers)
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT sp.room_id) FROM schedule_patterns sp
@@ -445,7 +445,7 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 	var noLect int
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM course_offerings co WHERE co.semester_id = ?
-		AND NOT EXISTS (SELECT 1 FROM offering_lecturers ol WHERE ol.course_offering_id = co.id)
+		AND NOT EXISTS (SELECT 1 FROM offering_lecturers ol WHERE ol.course_offering_id = co.id AND ol.superseded_at IS NULL)
 	`, semesterID).Scan(&noLect)
 	if noLect > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d mata kuliah belum memiliki dosen", noLect))

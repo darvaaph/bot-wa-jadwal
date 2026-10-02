@@ -28,3 +28,23 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+func (s *Server) handleCreateBackupRequest(w http.ResponseWriter, r *http.Request) {
+	s.adminController.CreateBackupRequest(w, r)
+}
+
+func (s *Server) handleListBackupRequests(w http.ResponseWriter, r *http.Request) {
+	s.adminController.ListBackupRequests(w, r)
+}
+
+func (s *Server) handleExecuteBackupRequest(w http.ResponseWriter, r *http.Request) {
+	s.adminController.ExecuteBackupRequest(w, r)
+}
+
+func (s *Server) handleScopedRestorePreview(w http.ResponseWriter, r *http.Request) {
+	s.adminController.PreviewScopedRestore(w, r)
+}
+
+func (s *Server) handleScopedRestoreExecute(w http.ResponseWriter, r *http.Request) {
+	s.adminController.ExecuteScopedRestore(w, r)
+}

@@ -17,7 +17,7 @@
 </head>
 <!--
   MASUK PENGURUS (REVISI Figma): Nomor WhatsApp + Kata sandi (tanpa email).
-  Verifikasi butuh endpoint backend — form tervalidasi lokal lalu jujur toast.
+  Login dan pemulihan kata sandi diverifikasi oleh backend.
 -->
 <body class="bg-white text-[#1F1F1F] min-h-screen" x-data="loginApp()" x-init="initLogin()">
   <div class="min-h-screen grid grid-cols-1 md:grid-cols-2">
@@ -44,59 +44,6 @@
           <p class="text-[13px] text-slate-500 mt-1">Sebagai <strong x-text="roleLabel">-</strong> · Nomor WhatsApp + kata sandi.</p>
           <p x-show="formError" class="mt-3 text-[13px] text-red-600" x-text="formError">-</p>
 
-          <!-- Quick Demo Selector (hanya localhost / ?demo=1, isi nomor saja) -->
-          <div x-show="showDemo" x-cloak class="mt-4 p-3.5 rounded-2xl bg-[#E9EAFF]/70 border border-[#3965FB]/20">
-            <div class="flex items-center justify-between mb-1.5">
-              <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#3965FB] uppercase tracking-wider">
-                <span class="material-symbols-outlined text-[15px]">developer_mode</span>
-                <span>Akun Demo (Dev Quick Access)</span>
-              </div>
-              <span class="text-[10px] px-2 py-0.5 rounded-md bg-white border border-[#3965FB]/20 text-[#3965FB] font-semibold">1-Klik Isi</span>
-            </div>
-            <p class="text-[11px] text-slate-500 mb-2.5">Pilih role untuk mengisi nomor WhatsApp (kata sandi ketik manual):</p>
-            <div class="grid grid-cols-3 gap-2">
-              <!-- System Admin -->
-              <button type="button" @click="pilihDemo('sa')"
-                      :class="selectedDemoRole === 'sa' 
-                        ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs ring-2 ring-[#3965FB]/30' 
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                      class="p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between">
-                <div>
-                  <span class="text-[12px] block leading-tight">System Admin</span>
-                  <span class="text-[10px] block mt-0.5" :class="selectedDemoRole === 'sa' ? 'text-white/80' : 'text-slate-400'">Semua Akses</span>
-                </div>
-              </button>
-
-              <!-- KM -->
-              <button type="button" @click="pilihDemo('km')"
-                      :class="selectedDemoRole === 'km' 
-                        ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs ring-2 ring-[#3965FB]/30' 
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                      class="p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between">
-                <div>
-                  <span class="text-[12px] block leading-tight">Ketua Murid</span>
-                  <span class="text-[10px] block mt-0.5" :class="selectedDemoRole === 'km' ? 'text-white/80' : 'text-slate-400'">D4 TI 24 A</span>
-                </div>
-              </button>
-
-              <!-- PJ -->
-              <button type="button" @click="pilihDemo('pj')"
-                      :class="selectedDemoRole === 'pj' 
-                        ? 'border-[#3965FB] bg-[#3965FB] text-white font-bold shadow-xs ring-2 ring-[#3965FB]/30' 
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                      class="p-2 sm:p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between">
-                <div>
-                  <span class="text-[12px] block leading-tight">PJ Matkul</span>
-                  <span class="text-[10px] block mt-0.5" :class="selectedDemoRole === 'pj' ? 'text-white/80' : 'text-slate-400'">Basis Data</span>
-                </div>
-              </button>
-            </div>
-
-            <!-- Terisi -->
-            <div x-show="selectedDemoRole" class="mt-2.5 pt-2 border-t border-[#3965FB]/15 text-[11px] text-slate-600">
-              Terisi: <strong class="text-[#1F1F1F]" x-text="demoAccounts[selectedDemoRole]?.label"></strong> — lanjut ketik kata sandi lalu tekan Masuk.
-            </div>
-          </div>
           <div class="mt-5">
             <label class="block text-[14px] font-bold mb-1">Nomor WhatsApp <span class="text-[#FF6C48]">*</span></label>
             <input type="text" x-model="nomor" inputmode="tel" placeholder="0812 3456 7890"

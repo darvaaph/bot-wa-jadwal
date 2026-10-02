@@ -230,10 +230,11 @@
         </div>
       </div>
       <div x-show="tugasDetailTab === 'notif'" class="mt-4">
-        <div class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
-          <span class="material-symbols-outlined shrink-0">notifications</span>
-          <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis — pantau di menu Notifikasi.</p>
-        </div>
+        <button type="button" @click="loadDelivery('TASK', tugasDetail.id)" class="h-11 text-[13px] text-[#3965FB] font-semibold">Muat ulang status pengiriman</button>
+        <p x-show="deliveryLoading" class="text-[13px] text-slate-500">Memuat status...</p>
+        <p x-show="deliveryError" class="text-[13px] text-red-700" x-text="deliveryError"></p>
+        <p x-show="!deliveryLoading && !deliveryError && taskDelivery.length === 0" class="text-[13px] text-slate-500">Belum ada pesan pengiriman untuk publikasi ini.</p>
+        <template x-for="message in taskDelivery" :key="message.id"><p class="p-3 rounded-xl border border-[#EEEEEE] text-[13px]" x-text="message.event_type + ' · ' + message.status + (message.sent_at ? ' · terkirim ' + fmtWaktuID(message.sent_at) : '')"></p></template>
       </div>
     </div>
   </div>

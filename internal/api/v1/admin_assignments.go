@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -668,7 +669,7 @@ func (c *AdminController) GetBackups(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT br.id, br.class_id, c.slug, br.semester_id, br.checksum, br.status,
-		       br.reason, u.display_name, br.created_at, br.verified_at
+		       br.reason, u.display_name, br.created_at, br.verified_at, br.artifact_ref
 		FROM backup_records br
 		LEFT JOIN classes c ON c.id = br.class_id
 		LEFT JOIN users u ON u.id = br.created_by_user_id
@@ -713,13 +714,15 @@ func (c *AdminController) GetBackups(w http.ResponseWriter, r *http.Request) {
 		var it BackupResponseItem
 		var classID sql.NullInt64
 		var classSlug, reason, createdBy, verifiedAt sql.NullString
+		var artifactRef string
 		var semesterID sql.NullInt64
 		if err := rows.Scan(
 			&it.ID, &classID, &classSlug, &semesterID, &it.Checksum, &it.Status,
-			&reason, &createdBy, &it.CreatedAt, &verifiedAt,
+			&reason, &createdBy, &it.CreatedAt, &verifiedAt, &artifactRef,
 		); err != nil {
 			continue
 		}
+		it.Restorable = strings.EqualFold(filepath.Ext(artifactRef), ".json")
 		if classID.Valid {
 			it.ClassID = &classID.Int64
 		}

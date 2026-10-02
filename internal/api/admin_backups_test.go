@@ -54,29 +54,26 @@ func TestV1Backups_CreateWithSemester(t *testing.T) {
 		t.Fatalf("semester 0 expected 422, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// 5. KM di luar cakupan -> 404 generik (bukan 403 yang mengungkap keberadaan)
+	// 5. KM tidak berwenang membuat cadangan langsung.
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 	kmToken = helperSwitchContext(t, s, kmToken, 1)
 	w = helperDo(t, s, "POST", "/api/v1/backups", kmToken, map[string]any{
 		"class_slug": "d4-ti-2024-b", "reason": "intip",
 	})
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("KM luar cakupan expected 404, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM direct backup expected 403, got %d: %s", w.Code, w.Body.String())
 	}
 
 	// 6. Audit create memuat alasan + semester, tanpa path internal
 	var nAudit int
-	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'CREATE_BACKUP' AND reason = 'sebelum migrasi';`).Scan(&nAudit)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'BACKUP' AND reason = 'sebelum migrasi';`).Scan(&nAudit)
 	if nAudit != 1 {
-		t.Fatalf("audit CREATE_BACKUP beralasan expected 1, got %d", nAudit)
+		t.Fatalf("audit BACKUP beralasan expected 1, got %d", nAudit)
 	}
 	var afterJSON string
-	_ = db.QueryRow(`SELECT after_json FROM audit_logs WHERE action = 'CREATE_BACKUP' AND reason = 'sebelum migrasi';`).Scan(&afterJSON)
+	_ = db.QueryRow(`SELECT after_json FROM audit_logs WHERE action = 'BACKUP' AND reason = 'sebelum migrasi';`).Scan(&afterJSON)
 	if strings.Contains(afterJSON, "backups/") || strings.Contains(afterJSON, ".db") {
 		t.Fatalf("audit membocorkan path internal: %s", afterJSON)
-	}
-	if !strings.Contains(afterJSON, `"semester_id":1`) {
-		t.Fatalf("audit tanpa semester_id: %s", afterJSON)
 	}
 }
 

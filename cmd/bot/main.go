@@ -15,6 +15,7 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
@@ -251,6 +252,10 @@ func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
+		release, allowed := maintenance.EnterMutation()
+		if !allowed {
+			continue
+		}
 		now := time.Now().UTC()
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		_, _ = svc.EnsureDailySummaries(ctx, now)
@@ -260,5 +265,6 @@ func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
 			_, _, _ = svc.ProcessDue(ctx, sender, 20, now)
 		}
 		cancel()
+		release()
 	}
 }

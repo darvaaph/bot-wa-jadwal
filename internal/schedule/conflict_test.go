@@ -72,12 +72,16 @@ func TestConflict_RoomLecturerClassOffering(t *testing.T) {
 	db := seedConflictDB(t)
 	ctx := context.Background()
 	room1 := int64(1)
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Candidate Senin 2024-10-07 08:30-09:00 offering 2, room 1, dosen 1:
 	// bentrok pola offering 1 (kelas sama, room sama, dosen sama).
 	cs, err := CheckConflicts(ctx, db, Candidate{
 		OwnerClassID: 1, OwnerOfferingID: 2, RoomID: &room1, LecturerIDs: []int64{1},
-		StartsAt: time.Date(2024, 10, 7, 8, 30, 0, 0, time.UTC),
-		EndsAt:   time.Date(2024, 10, 7, 9, 0, 0, 0, time.UTC),
+		StartsAt: time.Date(2024, 10, 7, 8, 30, 0, 0, loc),
+		EndsAt:   time.Date(2024, 10, 7, 9, 0, 0, 0, loc),
 	})
 	if err != nil {
 		t.Fatal(err)

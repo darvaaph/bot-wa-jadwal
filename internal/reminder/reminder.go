@@ -3,6 +3,7 @@ package reminder
 import (
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/internal/util"
@@ -237,56 +238,63 @@ func (rm *ReminderManager) StartScheduler(
 
 			todayStr := now.Format("2006-01-02")
 			if now.Hour() == targetHour && now.Minute() == targetMinute && rm.lastRunDate != todayStr {
-				rm.lastRunDate = todayStr
+				func() {
+					release, allowed := maintenance.EnterMutation()
+					if !allowed {
+						return
+					}
+					defer release()
+					rm.lastRunDate = todayStr
 
-				if len(groups) == 0 {
-					continue
-				}
+					if len(groups) == 0 {
+						return
+					}
 
-				fmt.Printf("[Scheduler] Mengirim pengingat jadwal pagi (%s) ke %d grup...\n", todayStr, len(groups))
+					fmt.Printf("[Scheduler] Mengirim pengingat jadwal pagi (%s) ke %d grup...\n", todayStr, len(groups))
 
-				for _, g := range groups {
-					var classConfig *schedule.JadwalConfig
-					if settingsMgr != nil && classMgr != nil {
-						classID := settingsMgr.GetClass(g.JID)
-						if classID == "" {
-							fmt.Printf("[Scheduler] Grup %s (%s) belum memilih kelas, mengirim peringatan onboarding...\n", g.Name, g.JID)
-							pesanWarning := "⏰ *PENGINGAT PAGI OTOMATIS GAGAL DIKIRIM*\n──────────\nGrup ini belum menentukan kelas perkuliahan aktif.\nSilakan tentukan kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
-							targetJID, err := types.ParseJID(g.JID)
-							if err == nil {
-								_, _ = client.SendMessage(context.Background(), targetJID, &waE2E.Message{
-									Conversation: proto.String(pesanWarning),
-								})
+					for _, g := range groups {
+						var classConfig *schedule.JadwalConfig
+						if settingsMgr != nil && classMgr != nil {
+							classID := settingsMgr.GetClass(g.JID)
+							if classID == "" {
+								fmt.Printf("[Scheduler] Grup %s (%s) belum memilih kelas, mengirim peringatan onboarding...\n", g.Name, g.JID)
+								pesanWarning := "⏰ *PENGINGAT PAGI OTOMATIS GAGAL DIKIRIM*\n──────────\nGrup ini belum menentukan kelas perkuliahan aktif.\nSilakan tentukan kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
+								targetJID, err := types.ParseJID(g.JID)
+								if err == nil {
+									_, _ = client.SendMessage(context.Background(), targetJID, &waE2E.Message{
+										Conversation: proto.String(pesanWarning),
+									})
+								}
+								continue
 							}
+							classConfig = classMgr.GetClassOrDefault(classID)
+						} else if classMgr != nil {
+							classConfig = classMgr.GetDefaultClass()
+						}
+						if classConfig == nil {
 							continue
 						}
-						classConfig = classMgr.GetClassOrDefault(classID)
-					} else if classMgr != nil {
-						classConfig = classMgr.GetDefaultClass()
-					}
-					if classConfig == nil {
-						continue
-					}
 
-					pesanGrup := BuildMorningReminder(g.JID, classConfig, taskManager, now, lm)
+						pesanGrup := BuildMorningReminder(g.JID, classConfig, taskManager, now, lm)
 
-					targetJID, err := types.ParseJID(g.JID)
-					if err != nil {
-						fmt.Printf("[Scheduler] Error parse JID %s: %v\n", g.JID, err)
-						continue
-					}
+						targetJID, err := types.ParseJID(g.JID)
+						if err != nil {
+							fmt.Printf("[Scheduler] Error parse JID %s: %v\n", g.JID, err)
+							continue
+						}
 
-					_, err = client.SendMessage(context.Background(), targetJID, &waE2E.Message{
-						Conversation: proto.String(pesanGrup),
-					})
-					if err != nil {
-						fmt.Printf("[Scheduler] Gagal kirim ke grup %s (%s): %v\n", g.Name, g.JID, err)
-					} else {
-						fmt.Printf("[Scheduler] Sukses kirim pengingat ke grup %s\n", g.Name)
+						_, err = client.SendMessage(context.Background(), targetJID, &waE2E.Message{
+							Conversation: proto.String(pesanGrup),
+						})
+						if err != nil {
+							fmt.Printf("[Scheduler] Gagal kirim ke grup %s (%s): %v\n", g.Name, g.JID, err)
+						} else {
+							fmt.Printf("[Scheduler] Sukses kirim pengingat ke grup %s\n", g.Name)
+						}
+						// Jeda singkat antar grup untuk menghindari rate limit WA
+						time.Sleep(1 * time.Second)
 					}
-					// Jeda singkat antar grup untuk menghindari rate limit WA
-					time.Sleep(1 * time.Second)
-				}
+				}()
 			}
 		}
 	}()

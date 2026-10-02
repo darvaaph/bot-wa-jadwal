@@ -562,6 +562,14 @@ func TestV1Portal_Endpoints(t *testing.T) {
 		t.Errorf("Portal materials expected 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
 
+	// 5b. Detail mata kuliah menggabungkan jadwal, tugas, dan materi terbit.
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/courses", nil)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Struktur Data") || !strings.Contains(w.Body.String(), "Slide Pertemuan 1") {
+		t.Errorf("Portal courses expected 200 with academic detail, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
 	// 6. Kelas tidak ada -> 404
 	req = httptest.NewRequest("GET", "/api/v1/portal/kelas-fiktif/summary", nil)
 	w = httptest.NewRecorder()
@@ -1646,15 +1654,23 @@ func TestV1Backups_CreateAndVerifyRestore(t *testing.T) {
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 	adminToken := helperLogin(t, s, "+6281111111111", "password123")
 
-	// 1. Buat backup (KM)
-	body, _ := json.Marshal(map[string]string{"reason": "Uji cadangan berkala"})
-	req := httptest.NewRequest("POST", "/api/v1/backups", bytes.NewReader(body))
+	// 1. KM meminta backup; Admin mengeksekusi permintaan.
+	kmToken = helperSwitchContext(t, s, kmToken, 1)
+	body, _ := json.Marshal(map[string]string{"class_slug": "d4-ti-2024-a", "reason": "Uji cadangan berkala"})
+	req := httptest.NewRequest("POST", "/api/v1/backup-requests", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w := httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
 	if w.Code != http.StatusCreated {
-		t.Fatalf("POST backups expected 201, got %d, body: %s", w.Code, w.Body.String())
+		t.Fatalf("POST backup-requests expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+	req = httptest.NewRequest("POST", "/api/v1/backup-requests/1/execute", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("execute backup request: %d %s", w.Code, w.Body.String())
 	}
 
 	var backupResp struct {

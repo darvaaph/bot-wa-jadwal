@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestV1MeetingLink_PatternAndEvent(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
+	setPatternSemesterCurrent(t, db)
 
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 
@@ -37,9 +39,10 @@ func TestV1MeetingLink_PatternAndEvent(t *testing.T) {
 	}
 
 	// 3. Buat draf perubahan dengan tautan
+	eventDay := time.Now().AddDate(0, 0, 2).Format("2006-01-02")
 	ebody, _ := json.Marshal(map[string]any{
 		"owner_offering_id": 1, "event_kind": "EXTRA",
-		"starts_at": "2024-10-05T09:00:00+07:00", "ends_at": "2024-10-05T11:00:00+07:00",
+		"starts_at": eventDay + "T12:00:00+07:00", "ends_at": eventDay + "T14:00:00+07:00",
 		"reason": "Kelas tambahan", "meeting_link": "https://meet.example.com/tambahan",
 	})
 	req = httptest.NewRequest("POST", "/api/v1/teaching-events", bytes.NewReader(ebody))

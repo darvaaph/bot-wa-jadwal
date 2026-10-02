@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"bot-jadwal/internal/maintenance"
+
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -107,6 +109,11 @@ type PendingNotificationItem struct {
 
 // ProcessPending memproses hingga N pesan notifikasi dengan status PENDING
 func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
+	release, allowed := maintenance.EnterMutation()
+	if !allowed {
+		return 0, nil
+	}
+	defer release()
 	if w.db == nil {
 		return 0, fmt.Errorf("database nil")
 	}
@@ -264,6 +271,8 @@ func FormatNotificationText(eventType, payloadJSON string) string {
 	}
 
 	switch strings.ToUpper(eventType) {
+	case "ACADEMIC_RESTORE_CORRECTION":
+		return "📌 *KOREKSI INFORMASI AKADEMIK*\nData akademik kelas telah dipulihkan. Jadwal, tugas, dan materi yang berlaku dapat dilihat kembali di Portal Mahasiswa.\n\nAlasan: " + getString("reason")
 	case "TASK_PUBLISHED":
 		course := getString("course")
 		if course == "" {

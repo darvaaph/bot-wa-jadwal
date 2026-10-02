@@ -57,14 +57,16 @@ type RevokeEventRequest struct {
 
 // PatchPatternRequest adalah payload pembaruan pola jadwal
 type PatchPatternRequest struct {
-	OfferingID  *int64  `json:"offering_id,omitempty"`
-	DayOfWeek   int     `json:"day_of_week"`
-	StartTime   string  `json:"start_time"`
-	DurationMin int     `json:"duration_min"`
-	RoomID      *int64  `json:"room_id,omitempty"`
-	LecturerIDs []int64 `json:"lecturer_ids,omitempty"`
-	MeetingLink *string `json:"meeting_link,omitempty"`
-	Version     int     `json:"version"`
+	OfferingID    *int64  `json:"offering_id,omitempty"`
+	DayOfWeek     int     `json:"day_of_week"`
+	StartTime     string  `json:"start_time"`
+	DurationMin   int     `json:"duration_min"`
+	RoomID        *int64  `json:"room_id,omitempty"`
+	LecturerIDs   []int64 `json:"lecturer_ids,omitempty"`
+	MeetingLink   *string `json:"meeting_link,omitempty"`
+	Version       int     `json:"version"`
+	EffectiveFrom string  `json:"effective_from,omitempty"`
+	Reason        string  `json:"reason,omitempty"`
 }
 
 // ParticipationRequest merepresentasikan payload persetujuan keikutsertaan kelas gabungan
@@ -206,7 +208,7 @@ func (c *ScheduleController) GetTeachingEventDetail(w http.ResponseWriter, r *ht
 		FROM room_confirmations rc
 		JOIN rooms r ON r.id = rc.room_id
 		JOIN users u ON u.id = rc.recorded_by_user_id
-		WHERE rc.teaching_event_id = ?
+		WHERE rc.teaching_event_id = ? AND rc.superseded_at IS NULL
 		ORDER BY rc.recorded_at DESC, rc.id DESC`, eventID)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat riwayat konfirmasi ruangan")
@@ -370,7 +372,7 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if req.DayOfWeek < 1 || req.DayOfWeek > 7 || req.DurationMin <= 0 || strings.TrimSpace(req.StartTime) == "" {
+	if req.DayOfWeek < 1 || req.DayOfWeek > 7 || req.DurationMin <= 0 || req.DurationMin >= 24*60 || strings.TrimSpace(req.StartTime) == "" {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "day_of_week (1-7), start_time (HH:MM), dan duration_min wajib valid")
 		return
 	}
@@ -380,14 +382,19 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format start_time harus HH:MM")
 		return
 	}
+	if startT.Hour()*60+startT.Minute()+req.DurationMin >= 24*60 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Jadwal harus selesai pada hari yang sama")
+		return
+	}
 	endT := startT.Add(time.Duration(req.DurationMin) * time.Minute)
 	endTime := endT.Format("15:04")
 	var classID int64
+	var semesterStart, semesterEnd, semesterStatus string
 	if err := c.db.QueryRow(`
-		SELECT sem.class_id FROM course_offerings co
+		SELECT sem.class_id, sem.starts_on, sem.ends_on, sem.status FROM course_offerings co
 		JOIN semesters sem ON sem.id = co.semester_id
 		WHERE co.id = ? AND co.status = 'ACTIVE';
-	`, req.OfferingID).Scan(&classID); err != nil {
+	`, req.OfferingID).Scan(&classID, &semesterStart, &semesterEnd, &semesterStatus); err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Course offering tidak ditemukan atau tidak aktif")
 		return
 	}
@@ -401,7 +408,7 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 	}
 	for _, lecturerID := range req.LecturerIDs {
 		var assigned int
-		if err := c.db.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ?;`, req.OfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
+		if err := c.db.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ? AND superseded_at IS NULL;`, req.OfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "lecturer_ids harus terdaftar pada offering")
 			return
 		}
@@ -409,7 +416,7 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 
 	lectIDs := req.LecturerIDs
 	if lectIDs == nil {
-		rows, _ := c.db.Query(`SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, req.OfferingID)
+		rows, _ := c.db.Query(`SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, req.OfferingID)
 		if rows != nil {
 			for rows.Next() {
 				var lid int64
@@ -420,7 +427,17 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 			rows.Close()
 		}
 	}
-	if conflicts, err := schedule.CheckConflicts(r.Context(), c.db, schedule.Candidate{
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.Local
+	}
+	effectiveFrom := time.Now().In(loc).Format("2006-01-02")
+	semesterStart, semesterEnd = semesterStart[:10], semesterEnd[:10]
+	if semesterStatus != "ACTIVE" || effectiveFrom < semesterStart || effectiveFrom > semesterEnd {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester aktif")
+		return
+	}
+	conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
 		OwnerClassID:    classID,
 		OwnerOfferingID: req.OfferingID,
 		RoomID:          req.RoomID,
@@ -428,8 +445,12 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 		PatternDay:      req.DayOfWeek,
 		PatternStart:    req.StartTime,
 		PatternEnd:      endTime,
-		PatternDate:     time.Now().Format("2006-01-02"),
-	}); err == nil && schedule.HasBlocking(conflicts) {
+	}, effectiveFrom, semesterEnd)
+	if conflictErr != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik jadwal")
+		return
+	}
+	if schedule.HasBlocking(conflicts) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
 		return
 	}
@@ -441,7 +462,6 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 	}
 	defer tx.Rollback()
 
-	effectiveFrom := time.Now().Format("2006-01-02")
 	var patternID int64
 	var meetingLink any
 	if req.MeetingLink != nil && strings.TrimSpace(*req.MeetingLink) != "" {
@@ -850,7 +870,6 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 		})
 		return
 	}
-
 	{
 		var candRoom *int64
 		if roomID.Valid {
@@ -1159,23 +1178,29 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	}
 
 	var (
-		curOfferingID int64
-		curRoomID     sql.NullInt64
-		curDayOfWeek  int
-		curStartTime  string
-		curEndTime    string
-		curClassID    int64
-		curVersion    int
-		curLink       sql.NullString
+		curOfferingID    int64
+		curRoomID        sql.NullInt64
+		curDayOfWeek     int
+		curStartTime     string
+		curEndTime       string
+		curClassID       int64
+		curVersion       int
+		curLink          sql.NullString
+		curEffectiveFrom string
+		semesterStart    string
+		semesterEnd      string
+		semesterStatus   string
 	)
 
 	err = c.db.QueryRow(`
-		SELECT sp.course_offering_id, sp.room_id, sp.day_of_week, sp.start_time, sp.end_time, s.class_id, sp.version, sp.meeting_link
+		SELECT sp.course_offering_id, sp.room_id, sp.day_of_week, sp.start_time, sp.end_time, s.class_id, sp.version, sp.meeting_link,
+		       sp.effective_from, s.starts_on, s.ends_on, s.status
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN semesters s ON co.semester_id = s.id
-		WHERE sp.id = ? AND sp.effective_until IS NULL;
-	`, patternID).Scan(&curOfferingID, &curRoomID, &curDayOfWeek, &curStartTime, &curEndTime, &curClassID, &curVersion, &curLink)
+		WHERE sp.id = ? AND sp.status='ACTIVE' AND sp.effective_until IS NULL;
+	`, patternID).Scan(&curOfferingID, &curRoomID, &curDayOfWeek, &curStartTime, &curEndTime, &curClassID, &curVersion, &curLink,
+		&curEffectiveFrom, &semesterStart, &semesterEnd, &semesterStatus)
 
 	if err == sql.ErrNoRows {
 		var closedVersion int
@@ -1197,6 +1222,9 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi pola jadwal berubah", map[string]any{"current_version": curVersion})
 		return
 	}
+	curEffectiveFrom = curEffectiveFrom[:10]
+	semesterStart = semesterStart[:10]
+	semesterEnd = semesterEnd[:10]
 
 	if u.ActiveRole == "PJ" {
 		if !u.ActiveCourseOfferingID.Valid || u.ActiveCourseOfferingID.Int64 != curOfferingID {
@@ -1212,19 +1240,8 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 
 	newOfferingID := curOfferingID
 	if req.OfferingID != nil && *req.OfferingID != curOfferingID {
-		if u.ActiveRole == "PJ" {
-			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "PJ tidak dapat memindahkan pola ke offering lain")
-			return
-		}
-		var targetClassID int64
-		if err := c.db.QueryRow(`
-			SELECT sem.class_id FROM course_offerings co JOIN semesters sem ON sem.id = co.semester_id
-			WHERE co.id = ? AND co.status = 'ACTIVE';
-		`, *req.OfferingID).Scan(&targetClassID); err != nil || targetClassID != curClassID {
-			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "offering_id pengganti harus aktif dan berada pada kelas yang sama")
-			return
-		}
-		newOfferingID = *req.OfferingID
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Perubahan permanen harus tetap pada mata kuliah asal")
+		return
 	}
 
 	newStartTime := curStartTime
@@ -1260,7 +1277,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	}
 	for _, lecturerID := range req.LecturerIDs {
 		var assigned int
-		if err := c.db.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ?;`, newOfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
+		if err := c.db.QueryRow(`SELECT COUNT(*) FROM offering_lecturers WHERE course_offering_id = ? AND lecturer_id = ? AND superseded_at IS NULL;`, newOfferingID, lecturerID).Scan(&assigned); err != nil || assigned != 1 {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "lecturer_ids harus terdaftar pada offering")
 			return
 		}
@@ -1273,7 +1290,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	}
 	lectIDs := req.LecturerIDs
 	if lectIDs == nil {
-		rows, _ := c.db.Query(`SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, newOfferingID)
+		rows, _ := c.db.Query(`SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, newOfferingID)
 		if rows != nil {
 			for rows.Next() {
 				var lid int64
@@ -1284,7 +1301,29 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 			rows.Close()
 		}
 	}
-	if conflicts, err := schedule.CheckConflicts(r.Context(), c.db, schedule.Candidate{
+	location, _ := time.LoadLocation("Asia/Jakarta")
+	if location == nil {
+		location = time.Local
+	}
+	today := time.Now().In(location)
+	effectiveDate := today.AddDate(0, 0, 1).Format("2006-01-02")
+	if req.EffectiveFrom != "" {
+		effectiveDate = strings.TrimSpace(req.EffectiveFrom)
+	}
+	parsedDate, dateErr := time.ParseInLocation("2006-01-02", effectiveDate, location)
+	if dateErr != nil || parsedDate.Format("2006-01-02") != effectiveDate || effectiveDate < today.Format("2006-01-02") || effectiveDate < semesterStart || effectiveDate > semesterEnd || semesterStatus != "ACTIVE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tanggal berlaku harus dari hari ini sampai akhir semester aktif")
+		return
+	}
+	if strings.TrimSpace(req.Reason) == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Alasan perubahan permanen wajib diisi")
+		return
+	}
+	if effectiveDate < curEffectiveFrom {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tanggal berlaku mendahului pola jadwal asal")
+		return
+	}
+	conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
 		OwnerClassID:     curClassID,
 		OwnerOfferingID:  newOfferingID,
 		RoomID:           patchRoom,
@@ -1292,16 +1331,23 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		PatternDay:       newDayOfWeek,
 		PatternStart:     newStartTime,
 		PatternEnd:       newEndTime,
-		PatternDate:      time.Now().Format("2006-01-02"),
 		ExcludePatternID: &patternID,
-	}); err == nil && schedule.HasBlocking(conflicts) {
+	}, effectiveDate, semesterEnd)
+	if conflictErr != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik jadwal")
+		return
+	}
+	if schedule.HasBlocking(conflicts) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
 		return
 	}
 
-	today := time.Now()
-	todayStr := today.Format("2006-01-02")
-	tomorrowStr := today.AddDate(0, 0, 1).Format("2006-01-02")
+	previousDate := parsedDate.AddDate(0, 0, -1).Format("2006-01-02")
+	oldStatus := "ACTIVE"
+	if effectiveDate == curEffectiveFrom {
+		previousDate = curEffectiveFrom
+		oldStatus = "SUPERSEDED"
+	}
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
@@ -1310,9 +1356,9 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE schedule_patterns
-		SET effective_until = ?
-		WHERE id = ? AND version = ? AND effective_until IS NULL;
-	`, todayStr, patternID, curVersion)
+		SET effective_until = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND version = ? AND status='ACTIVE' AND effective_until IS NULL;
+	`, previousDate, oldStatus, patternID, curVersion)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui pola jadwal lama")
 		return
@@ -1332,7 +1378,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		INSERT INTO schedule_patterns (
 			course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, version, meeting_link
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id;
-	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, tomorrowStr, curVersion+1, newLink).Scan(&newPatternID)
+	`, newOfferingID, newRoomID, newDayOfWeek, newStartTime, newEndTime, effectiveDate, curVersion+1, newLink).Scan(&newPatternID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pola jadwal baru")
@@ -1348,7 +1394,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 			raid = &v
 		}
 		beforeJSON := fmt.Sprintf(`{"old_id":%d,"day":%d,"start":%q}`, patternID, curDayOfWeek, curStartTime)
-		afterJSON := fmt.Sprintf(`{"new_id":%d,"day":%d,"start":%q}`, newPatternID, newDayOfWeek, newStartTime)
+		afterJSON := fmt.Sprintf(`{"new_id":%d,"day":%d,"start":%q,"effective_from":%q}`, newPatternID, newDayOfWeek, newStartTime, effectiveDate)
 		if err := audit.Write(r.Context(), tx, audit.Entry{
 			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
 			ClassID:       &curClassID,
@@ -1357,11 +1403,28 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 			EntityID:      &newPatternID,
 			BeforeJSON:    &beforeJSON,
 			AfterJSON:     &afterJSON,
+			Reason:        strings.TrimSpace(req.Reason),
 			CorrelationID: correlationID,
 		}); err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
 			return
 		}
+	}
+	var channelID any
+	var scheduledAt any
+	var activeChannel int64
+	if err := tx.QueryRow(`SELECT id FROM whatsapp_channels WHERE class_id = ? AND status = 'ACTIVE' ORDER BY id LIMIT 1`, curClassID).Scan(&activeChannel); err == nil {
+		channelID = activeChannel
+		scheduledAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	message, _ := json.Marshal(map[string]string{"text": fmt.Sprintf("Jadwal tetap berubah mulai %s. %s", effectiveDate, strings.TrimSpace(req.Reason))})
+	if _, err := tx.Exec(`INSERT INTO notification_messages
+		(class_id, whatsapp_channel_id, event_type, entity_type, entity_id, idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id)
+		VALUES (?, ?, 'SCHEDULE_CHANGE', 'SCHEDULE_PATTERN', ?, ?, ?, 'PENDING', ?, ?)
+		ON CONFLICT(idempotency_key) DO NOTHING`, curClassID, channelID, newPatternID,
+		fmt.Sprintf("pattern-version:%d:%d", patternID, curVersion+1), string(message), scheduledAt, u.UserID); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengantrekan notifikasi perubahan pola")
+		return
 	}
 	if err := tx.Commit(); err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pola jadwal")
@@ -1374,7 +1437,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		"day_of_week":         newDayOfWeek,
 		"start_time":          newStartTime,
 		"end_time":            newEndTime,
-		"effective_from":      tomorrowStr,
+		"effective_from":      effectiveDate,
 		"effective_until":     nil,
 		"version":             curVersion + 1,
 	})
@@ -1613,7 +1676,7 @@ func conflictMaps(conflicts []schedule.Conflict) []map[string]any {
 }
 
 func lecturersForOfferingCtx(ctx context.Context, db *sql.DB, offeringID int64) []int64 {
-	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=?`, offeringID)
+	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, offeringID)
 	if err != nil {
 		return nil
 	}

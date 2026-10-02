@@ -1400,7 +1400,7 @@ func GetOfferingLecturers(db *sql.DB, offeringID int64) []string {
 		SELECT l.full_name
 		FROM offering_lecturers ol
 		JOIN lecturers l ON ol.lecturer_id = l.id
-		WHERE ol.course_offering_id = ?;
+		WHERE ol.course_offering_id = ? AND ol.superseded_at IS NULL;
 	`, offeringID)
 	if err == nil {
 		defer rows.Close()

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"bot-jadwal/internal/maintenance"
 )
 
 // V1ClassInfo menyimpan metadata kelas v1
@@ -80,6 +82,11 @@ func (s *V1BotService) FindClass(ctx context.Context, identifier string) (*V1Cla
 // Liang pembatas: JID yang sudah tertaut ke kelas LAIN tidak dipindahkan
 // (kembalikan galat; pemindahan = lepas + taut ulang via dashboard beraudit).
 func (s *V1BotService) BindChannel(ctx context.Context, classID int64, jid, groupName string) error {
+	release, allowed := maintenance.EnterMutation()
+	if !allowed {
+		return fmt.Errorf("pemulihan data sedang berlangsung; coba lagi setelah selesai")
+	}
+	defer release()
 	if s.db == nil {
 		return fmt.Errorf("database v1 belum siap")
 	}
@@ -225,7 +232,7 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
-		LEFT JOIN offering_lecturers ol ON co.id = ol.course_offering_id
+		LEFT JOIN offering_lecturers ol ON co.id = ol.course_offering_id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON ol.lecturer_id = l.id
 		WHERE co.semester_id = ?
 		  AND sp.day_of_week = ?
@@ -400,6 +407,11 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 
 // CompleteTask menandai tugas selesai pada database v1
 func (s *V1BotService) CompleteTask(ctx context.Context, classID, taskID int64) (string, error) {
+	release, allowed := maintenance.EnterMutation()
+	if !allowed {
+		return "", fmt.Errorf("pemulihan data sedang berlangsung; coba lagi setelah selesai")
+	}
+	defer release()
 	if s.db == nil {
 		return "", fmt.Errorf("database v1 belum siap")
 	}
@@ -532,7 +544,7 @@ func (s *V1BotService) GetWeeklySchedule(ctx context.Context, classID int64) (st
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
-		LEFT JOIN offering_lecturers ol ON co.id = ol.course_offering_id
+		LEFT JOIN offering_lecturers ol ON co.id = ol.course_offering_id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON ol.lecturer_id = l.id
 		WHERE co.semester_id = ? AND sp.status = 'ACTIVE'
 		GROUP BY sp.id
