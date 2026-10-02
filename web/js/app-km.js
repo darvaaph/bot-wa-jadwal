@@ -14,6 +14,7 @@ function kmApp() {
     unreadCount: 0,
     weekOffset: 0,
     hideEmpty: false,
+    activeScheduleDay: '',
 
     roleLabel: 'KM',
     contextAssignments: [],
@@ -355,8 +356,19 @@ function kmApp() {
       return names.map((n, i) => {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
-        return { name: n, dateNum: d.getDate(), full: d };
+        const dateShort = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
+        return { name: n, dateNum: d.getDate(), dateShort, full: d };
       });
+    },
+
+    get currentScheduleDay() {
+      if (this.activeScheduleDay) return this.activeScheduleDay;
+      return ['Sabtu', 'Minggu'].includes(this.todayName) ? 'Senin' : this.todayName;
+    },
+
+    getActiveDayDate() {
+      const found = this.weekDays.find(d => d.name === this.currentScheduleDay);
+      return found ? found.dateShort : '';
     },
 
     get weekLabel() {
@@ -406,8 +418,8 @@ function kmApp() {
       return sessions;
     },
 
-    goPindah(dayName, slotHH) {
-      this.mulaiUbah({ dayName: dayName, slotHH: slotHH });
+    goPindah(dayName, slotHH, session) {
+      this.mulaiUbah({ dayName: dayName, slotHH: slotHH, session: session });
     },
 
     // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
@@ -513,7 +525,17 @@ function kmApp() {
       f.scope = 'sementara';
       f.originPatternId = ''; f.originDate = ''; f.date = ''; f.start = ''; f.end = '';
       f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
-      if (prefill && prefill.dayName) {
+      if (prefill && prefill.session) {
+        const s = prefill.session;
+        const pat = (this.patternsList || []).find(p =>
+          String(p.display_name || p.course_name || p.offering || '') === String(s.matkul));
+        if (pat) {
+          f.originPatternId = String(pat.id);
+          if (pat.course_offering_id) f.offeringId = String(pat.course_offering_id);
+        }
+        if (s.timeStart) f.start = s.timeStart.slice(0, 5);
+        if (s.timeEnd) f.end = s.timeEnd.slice(0, 5);
+      } else if (prefill && prefill.dayName) {
         const hit = this.slotAt(prefill.dayName, prefill.slotHH || '');
         if (hit) {
           const pat = (this.patternsList || []).find(p =>
@@ -547,14 +569,14 @@ function kmApp() {
 
     async hapusPola(p) {
       if (!p.id || !p.version) { this.showToast('Data pola tidak lengkap.'); return; }
-      const ok = window.confirm('Hapus pola jadwal ini? Pola tidak aktif mulai hari ini. Versi lama tetap tersimpan.');
+      const ok = window.confirm('Hapus jadwal tetap ini? Jadwal tidak aktif mulai hari ini. Versi lama tetap tersimpan.');
       if (!ok) return;
       try {
         await API.deletePattern(p.id, p.version);
-        this.showToast('Pola jadwal dihapus (tidak aktif mulai hari ini).');
+        this.showToast('Jadwal tetap dihapus (tidak aktif mulai hari ini).');
         this.patternsList = await API.getPatterns().catch(() => []);
       } catch (e) {
-        this.showToast(e.message || 'Gagal menghapus pola jadwal.');
+        this.showToast(e.message || 'Gagal menghapus jadwal tetap.');
       }
     },
 
@@ -592,18 +614,18 @@ function kmApp() {
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           if (f.effectiveDate) payload.effective_from = f.effectiveDate;
           await API.patchPattern(f.id, payload);
-          this.showToast('Pola jadwal diperbarui.');
+          this.showToast('Jadwal tetap diperbarui.');
         } else {
           const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           await API.createPattern(payload);
-          this.showToast('Pola jadwal ditambahkan.');
+          this.showToast('Jadwal tetap ditambahkan.');
         }
         this.patternsList = await API.getPatterns().catch(() => []);
         this.jadwalSub = 'daftar';
       } catch (err) {
-        this.polaFormError = err.message || 'Gagal menyimpan pola jadwal.';
+        this.polaFormError = err.message || 'Gagal menyimpan jadwal tetap.';
       }
     },
 
@@ -612,7 +634,7 @@ function kmApp() {
       try {
         this.patternsList = await API.getPatterns().catch(() => []) || [];
       } catch (e) {
-        this.patternsList = []; this.polaError = 'Pola jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.patternsList = []; this.polaError = 'Jadwal tetap belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.polaLoading = false;
       }
@@ -964,10 +986,14 @@ function kmApp() {
         let day = get('weekday') || 'Senin';
         day = day.charAt(0).toUpperCase() + day.slice(1);
         this.todayName = day;
+        if (!this.activeScheduleDay) {
+          this.activeScheduleDay = ['Sabtu', 'Minggu'].includes(day) ? 'Senin' : day;
+        }
         this.todayFull = `${day}, ${get('day')} ${get('month')} ${get('year')}`;
         this.currentTime = `${get('hour')}:${get('minute')}:${get('second')} WIB`;
       } catch (e) {
         this.todayName = 'Senin';
+        if (!this.activeScheduleDay) this.activeScheduleDay = 'Senin';
         this.todayFull = 'Senin';
       }
     },

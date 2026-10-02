@@ -452,18 +452,18 @@ function pjApp() {
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           if (f.effectiveDate) payload.effective_from = f.effectiveDate;
           await API.patchPattern(f.id, payload);
-          this.showToast('Pola jadwal diperbarui.');
+          this.showToast('Jadwal tetap diperbarui.');
         } else {
           const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: dur };
           if (f.roomId) payload.room_id = Number(f.roomId);
           if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
           await API.createPattern(payload);
-          this.showToast('Pola jadwal ditambahkan.');
+          this.showToast('Jadwal tetap ditambahkan.');
         }
         this.patternsList = await API.getPatterns().catch(() => []);
         this.jadwalSub = 'daftar';
       } catch (err) {
-        this.polaFormError = err.message || 'Gagal menyimpan pola jadwal.';
+        this.polaFormError = err.message || 'Gagal menyimpan jadwal tetap.';
       }
     },
 

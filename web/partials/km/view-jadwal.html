@@ -1,127 +1,235 @@
-<!-- partials/km/view-jadwal.html — Hub Jadwal KM: daftar, form, tinjau, detail, partisipasi.
-     Mengikuti docs/design/flows/SCHEDULE_MANAGEMENT.md (SCR-SCH-001..005). -->
+<!-- partials/km/view-jadwal.html — Hub Jadwal KM: daftar, form, tinjau, detail, partisipasi. -->
 <section x-show="view === 'jadwal'" x-cloak>
-  <div class="p-4 rounded-2xl border border-[#EEEEEE] bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
-    <div class="min-w-0">
-      <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
-      <p class="text-[14px] font-semibold truncate"><span x-text="selectedClass || '—'">-</span> · Ketua Murid</p>
-    </div>
-    <button type="button" @click="go('akun')" class="sm:ml-auto h-11 px-4 rounded-xl border border-[#EEEEEE] bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
-  </div>
-
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-1">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Manajemen Jadwal</h1>
-      <p class="text-[14px] text-slate-500 mt-1">Kalender kelas, ruangan, dan perubahan terkini</p>
+      <h1 class="text-[24px] md:text-[28px] font-bold text-[#1F1F1F] tracking-tight" style="font-family:'Poppins',sans-serif">Manajemen Jadwal</h1>
+      <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan dan penyesuaian sesi kelas <span class="font-medium text-slate-700" x-text="selectedClass || '—'">-</span></p>
     </div>
-    <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Buat perubahan</button>
+    <div class="flex items-center gap-2.5 self-start md:self-auto">
+      <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="h-10 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold self-start min-h-[44px] flex items-center gap-2 shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <span class="material-symbols-outlined text-[18px]">edit_calendar</span>
+        <span>Buat perubahan</span>
+      </button>
+    </div>
   </div>
 
   <!-- ============ SUB: DAFTAR ============ -->
   <div x-show="jadwalSub === 'daftar'">
-    <div class="flex flex-wrap items-center gap-3 mt-5">
-      <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_left</span></button>
-      <span class="text-[14px] font-medium" x-text="weekLabel">-</span>
-      <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_right</span></button>
-      <button type="button" @click="weekOffset = 0" class="h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium text-slate-600 hover:bg-slate-50">Hari ini</button>
-      <label class="ml-auto flex items-center gap-2 text-[13px] text-slate-600 select-none">
-        <input type="checkbox" x-model="hideEmpty" class="w-4 h-4 accent-[#3965FB]" />
-        Sembunyikan slot kosong
-      </label>
+    <!-- Week Navigation Toolbar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mt-5 p-3 rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+      <div class="flex items-center gap-2">
+        <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+        </button>
+        <span class="text-[14px] md:text-[15px] font-bold text-[#1F1F1F] px-1" x-text="weekLabel">-</span>
+        <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+        </button>
+        <button type="button" @click="weekOffset = 0; if (['Sabtu','Minggu'].includes(todayName)) { activeScheduleDay = 'Senin'; } else { activeScheduleDay = todayName; }"
+                class="h-10 px-3.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors ml-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          Minggu ini
+        </button>
+      </div>
+
+      <!-- Legend -->
+      <div class="hidden sm:flex items-center gap-4 text-[12px] text-slate-600 font-medium">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#3965FB]"></span>Teori</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span>Praktikum</span>
+      </div>
     </div>
 
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <p x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</p>
-      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert"><span x-text="eventDetailError"></span><button type="button" @click="bukaDetail(selectedEvent)" class="ml-2 underline font-semibold">Coba lagi</button></div>
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Kalender mingguan</h2>
-        <div class="flex items-center gap-3 text-[12px] text-slate-500">
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-[#E9EAFF] border border-[#3965FB]/30 inline-block"></span>Terisi</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-slate-50 border border-dashed border-slate-300 inline-block"></span>Kosong</span>
-          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-[#3965FB] inline-block"></span>Hari ini</span>
+    <!-- Calendar Container Card -->
+    <div class="p-4 md:p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
+      <div x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</div>
+      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert">
+        <span x-text="eventDetailError"></span>
+        <button type="button" @click="bukaDetail(selectedEvent)" class="ml-2 underline font-semibold">Coba lagi</button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="text-[17px] md:text-[18px] font-bold text-[#1F1F1F]">Kalender Mingguan</h2>
+          <p class="text-[12px] text-slate-500 mt-0.5">Jadwal perkuliahan tetap dan penyesuaian kelas dalam minggu ini.</p>
         </div>
       </div>
-      <p class="text-[12px] text-slate-500 mt-1">Data pola jadwal dari API. Slot kosong = tidak ada sesi tercatat.</p>
-      <div class="hidden md:block overflow-x-auto">
-        <div class="grid grid-cols-5 gap-2 mt-4 min-w-[640px]">
-          <template x-for="d in weekDays" :key="'h-' + d.name">
-            <div class="text-center text-[12px] font-medium rounded-lg py-2 border" :class="isToday(d.name) ? 'bg-[#3965FB] text-white border-[#3965FB]' : 'bg-slate-50 border-transparent'">
-              <span x-text="d.name">-</span> <span :class="isToday(d.name) ? 'text-white/80' : 'text-slate-400'" x-text="d.dateNum">-</span>
+
+      <!-- DESKTOP VIEW: 5-Column Weekly Board (md:grid) -->
+      <div class="hidden md:grid md:grid-cols-5 gap-3.5 mt-4 items-start">
+        <template x-for="d in weekDays" :key="'col-' + d.name">
+          <div class="flex flex-col rounded-xl border transition-all"
+               :class="isToday(d.name) ? 'border-[#3965FB] bg-[#F8FAFF] shadow-sm ring-1 ring-[#3965FB]/30' : 'border-slate-200/80 bg-slate-50/50'">
+            
+            <!-- Day Column Header -->
+            <div class="p-3 border-b flex items-center justify-between"
+                 :class="isToday(d.name) ? 'border-[#3965FB]/20 bg-[#3965FB] text-white rounded-t-[11px]' : 'border-slate-200/80 bg-white rounded-t-[11px] text-slate-700'">
+              <div>
+                <span class="text-[13px] font-bold block leading-tight" x-text="d.name">-</span>
+                <span class="text-[11px] font-medium leading-none" :class="isToday(d.name) ? 'text-white/80' : 'text-slate-400'" x-text="d.dateShort || (d.dateNum + ' ' + weekLabel.split(' ')[1])">-</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span x-show="isToday(d.name)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-[#3965FB] tracking-wider">HARI INI</span>
+                <span x-show="!isToday(d.name)" class="text-[11px] font-semibold text-slate-400" x-text="daySessions(d.name).length + ' sesi'"></span>
+              </div>
             </div>
-          </template>
-          <template x-for="c in calendarCells" :key="c.key">
-            <div>
-              <template x-if="slotAt(c.day, c.slot)">
-                <button type="button" @click="goPindah(c.day, c.slot)" :aria-label="'Buat perubahan untuk ' + c.day + ' ' + c.slot"
-                  class="w-full text-left rounded-lg p-2 min-h-[86px] text-[12px] leading-snug bg-[#E9EAFF] border hover:border-[#3965FB] transition"
-                  :class="isToday(c.day) ? 'border-[#3965FB] ring-1 ring-[#3965FB]/40' : 'border-transparent'">
-                  <p class="font-mono font-semibold text-[#3965FB] text-[12px]" x-text="slotRange(slotAt(c.day, c.slot), c.slot)">-</p>
-                  <p class="font-medium line-clamp-2 mt-0.5" x-text="slotAt(c.day, c.slot).matkul">-</p>
-                  <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5" x-text="(slotAt(c.day, c.slot).ruang || '') + (slotAt(c.day, c.slot).dosen ? ' • ' + slotAt(c.day, c.slot).dosen : '')">-</p>
-                  <span x-show="slotKind(slotAt(c.day, c.slot).matkul)" class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white text-[#3965FB] border border-[#3965FB]/20" x-text="slotKind(slotAt(c.day, c.slot).matkul)"></span>
-                </button>
-              </template>
-              <template x-if="!slotAt(c.day, c.slot)">
-                <template x-if="!hideEmpty">
-                  <div class="rounded-lg p-2 min-h-[86px] text-[12px] leading-snug bg-slate-50 border border-dashed border-slate-200 text-slate-400">
-                    <p class="font-mono font-semibold text-[12px]" x-text="c.slot + '.00'">-</p>
-                    <p class="mt-0.5">Kosong</p>
-                  </div>
-                </template>
-              </template>
-            </div>
-          </template>
-        </div>
-      </div>
-      <div class="md:hidden mt-4 space-y-3">
-        <template x-for="d in weekDays" :key="'m-' + d.name">
-          <template x-if="daySessions(d.name).length > 0 || !hideEmpty">
-          <div class="rounded-xl border p-3" :class="isToday(d.name) ? 'border-[#3965FB] bg-[#E9EAFF]/30' : 'border-[#EEEEEE]'">
-            <div class="flex items-center justify-between">
-              <p class="text-[14px] font-semibold"><span x-text="d.name">-</span> <span class="text-slate-400 font-normal" x-text="d.dateNum">-</span></p>
-              <span x-show="isToday(d.name)" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3965FB] text-white">HARI INI</span>
-            </div>
-            <template x-if="daySessions(d.name).length === 0 && !hideEmpty">
-              <p class="text-[13px] text-slate-400 mt-2">Tidak ada sesi.</p>
-            </template>
-            <div class="mt-2 divide-y divide-[#EEEEEE]">
+
+            <!-- Column Sessions -->
+            <div class="p-2.5 space-y-2.5 min-h-[140px] flex flex-col">
+              <!-- Session Cards -->
               <template x-for="s in daySessions(d.name)" :key="s.id">
-                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0])" class="w-full text-left py-2 flex gap-3 items-start min-h-[44px]">
-                  <span class="font-mono text-[13px] font-semibold text-[#3965FB] whitespace-nowrap w-14" x-text="s.timeStart">-</span>
-                  <span class="min-w-0">
-                    <span class="block text-[14px] font-medium line-clamp-1" x-text="s.matkul">-</span>
-                    <span class="block text-[12px] text-slate-500" x-text="(s.ruang || '') + (s.dosen ? ' • ' + s.dosen : '')">-</span>
-                  </span>
+                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
+                        :aria-label="'Ubah sesi ' + s.matkul + ' hari ' + s.hari"
+                        class="w-full text-left rounded-xl p-3 bg-white border border-slate-200/90 hover:border-[#3965FB] hover:shadow-md transition-all group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  <!-- Top line: Time badge + Type badge -->
+                  <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                    <span class="font-mono text-[11px] font-bold text-[#3965FB] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '')">-</span>
+                    <template x-if="slotKind(s.matkul) === 'Praktikum'">
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
+                    </template>
+                    <template x-if="slotKind(s.matkul) === 'Teori'">
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#3965FB] border border-blue-200/60">Teori</span>
+                    </template>
+                  </div>
+                  
+                  <!-- Subject Name -->
+                  <p class="font-bold text-[13px] text-[#1F1F1F] leading-snug line-clamp-2 group-hover:text-[#3965FB] transition-colors" x-text="s.matkul">-</p>
+                  
+                  <!-- Room & Lecturer -->
+                  <div class="mt-2 pt-2 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">meeting_room</span>
+                      <span class="truncate font-medium text-slate-600" x-text="s.ruang || 'Tanpa ruangan'">-</span>
+                    </div>
+                    <template x-if="s.dosen">
+                      <div class="flex items-center gap-1.5 truncate">
+                        <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">person</span>
+                        <span class="truncate" x-text="s.dosen">-</span>
+                      </div>
+                    </template>
+                  </div>
                 </button>
               </template>
+
+              <!-- Empty state for day -->
+              <template x-if="daySessions(d.name).length === 0">
+                <div class="my-auto py-8 text-center flex flex-col items-center justify-center text-slate-400">
+                  <span class="material-symbols-outlined text-[24px] text-slate-300 mb-1">event_available</span>
+                  <span class="text-[12px] font-medium">Tidak ada jadwal</span>
+                </div>
+              </template>
             </div>
+
           </div>
         </template>
-          </template>
       </div>
+
+      <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden) -->
+      <div class="md:hidden mt-3">
+        <!-- Horizontal Day Pill Selector -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
+          <template x-for="d in weekDays" :key="'tab-' + d.name">
+            <button type="button" role="tab"
+                    :aria-selected="currentScheduleDay === d.name"
+                    @click="activeScheduleDay = d.name"
+                    class="flex-1 min-w-[62px] py-2 px-1 rounded-xl text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]"
+                    :class="currentScheduleDay === d.name ? 'bg-[#3965FB] text-white border-[#3965FB] shadow-sm font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/90 font-medium'">
+              <span class="text-[11px] uppercase tracking-wide leading-tight" x-text="d.name.slice(0, 3)">-</span>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span class="text-[14px] leading-tight" x-text="d.dateNum">-</span>
+                <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="currentScheduleDay === d.name ? 'bg-white' : 'bg-[#3965FB]'"></span>
+              </div>
+            </button>
+          </template>
+        </div>
+
+        <!-- Active Day Header -->
+        <div class="flex items-center justify-between mt-3 mb-2 px-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-[15px] font-bold text-[#1F1F1F]">
+              <span x-text="currentScheduleDay"></span>
+              <span class="text-[13px] font-normal text-slate-500" x-text="getActiveDayDate() ? '· ' + getActiveDayDate() : ''"></span>
+            </h3>
+            <span x-show="isToday(currentScheduleDay)" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#3965FB] border border-blue-200/60">Hari Ini</span>
+          </div>
+          <span class="text-[12px] font-semibold text-slate-500" x-text="daySessions(currentScheduleDay).length + ' Sesi'"></span>
+        </div>
+
+        <!-- Active Day Sessions List -->
+        <div class="space-y-3 mt-2">
+          <!-- Session Cards -->
+          <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-' + s.id">
+            <div class="p-3.5 rounded-xl border border-slate-200/90 bg-white shadow-sm">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="font-mono text-[12px] font-bold text-[#3965FB] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
+                <template x-if="slotKind(s.matkul) === 'Praktikum'">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
+                </template>
+                <template x-if="slotKind(s.matkul) === 'Teori'">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-[#3965FB] border border-blue-200/60">Teori</span>
+                </template>
+              </div>
+
+              <h4 class="font-bold text-[15px] text-[#1F1F1F] leading-snug" x-text="s.matkul">-</h4>
+
+              <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5 text-[12px] text-slate-600">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">meeting_room</span>
+                  <span class="font-medium text-slate-700" x-text="s.ruang ? 'Ruang: ' + s.ruang : 'Tanpa ruangan'">-</span>
+                </div>
+                <template x-if="s.dosen">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">person</span>
+                    <span x-text="'Dosen: ' + s.dosen">-</span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="mt-3 pt-2 flex justify-end">
+                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
+                        class="h-10 px-3.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 flex items-center gap-1.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  <span class="material-symbols-outlined text-[16px] text-slate-500">tune</span>
+                  <span>Ajukan Penyesuaian</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Empty State for Active Day -->
+          <template x-if="daySessions(currentScheduleDay).length === 0">
+            <div class="py-10 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center flex flex-col items-center justify-center">
+              <span class="material-symbols-outlined text-[32px] text-slate-300 mb-2">event_available</span>
+              <p class="text-[14px] font-bold text-[#1F1F1F]">Tidak ada jadwal perkuliahan</p>
+              <p class="text-[12px] text-slate-500 mt-1 max-w-xs">Tidak ada sesi kelas yang tercatat pada hari <span x-text="currentScheduleDay"></span>.</p>
+              <button type="button" @click="go('tugas')" class="mt-4 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shadow-sm transition-colors">
+                Lihat Daftar Tugas
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
     </div>
 
     <!-- SCR-SCH-001: Pola jadwal -->
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Pola Jadwal</h2>
-        <button type="button" @click="mulaiTambahPola()" class="h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px] flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal</button>
+        <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Jadwal Tetap</h2>
+        <button type="button" @click="mulaiTambahPola()" class="h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px] flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
       </div>
-      <p class="text-[12px] text-slate-500 mt-1">Pola mingguan yang berulang. Perubahan sementara tidak mengubah pola ini.</p>
+      <p class="text-[12px] text-slate-500 mt-1">Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-        <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-        <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
-        <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="h-11 px-3 rounded-xl border border-slate-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="h-11 px-3 rounded-xl border border-slate-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+        <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="h-11 px-3 rounded-xl border border-slate-200 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
       </div>
-      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pola jadwal...</div>
+      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat jadwal tetap...</div>
       <div x-show="polaError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="polaError">-</span>
         <button type="button" @click="polaError=''; loadPatterns()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
       <div x-show="!polaLoading && !polaError && scopePatterns.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#EEEEEE] text-center">
-        <p class="text-[15px] font-semibold">Pola jadwal belum dibuat</p>
-        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal agar mahasiswa dapat melihat jadwal mingguannya.</p>
-        <button type="button" @click="mulaiTambahPola()" class="mt-3 h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px]">Tambah Jadwal</button>
+        <p class="text-[15px] font-semibold">Jadwal tetap belum dibuat</p>
+        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal tetap agar mahasiswa dapat melihat perkuliahan rutin mingguannya.</p>
+        <button type="button" @click="mulaiTambahPola()" class="mt-3 h-11 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold min-h-[44px]">Tambah Jadwal Tetap</button>
       </div>
       <div x-show="!polaLoading && !polaError && scopePatterns.length > 0 && filteredPola.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#EEEEEE] text-center">
         <p class="text-[15px] font-semibold">Tidak ada jadwal yang cocok</p>
@@ -136,7 +244,7 @@
               <p class="text-[12px] text-slate-500 font-mono" x-text="polaHariName(p.day_of_week) + ' · ' + (p.start_time || '') + '–' + (p.end_time || '') + (p.room ? ' · ' + p.room : '')">-</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" @click="editPola(p)" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
+              <button type="button" @click="editPola(p)" class="h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
               <button type="button" @click="hapusPola(p)" class="h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
             </div>
           </div>
@@ -145,10 +253,10 @@
     </div>
 
     <!-- Daftar perubahan jadwal -->
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Perubahan jadwal</h2>
-        <select x-model="eventFilter" aria-label="Filter status publikasi" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[13px] bg-white">
+        <select x-model="eventFilter" aria-label="Filter status publikasi" class="h-11 px-3 rounded-xl border border-slate-200 text-[13px] bg-white">
           <option value="semua">Semua status</option>
           <option value="DRAFT">Draf</option>
           <option value="PUBLISHED">Terbit</option>
@@ -180,7 +288,7 @@
               <span x-text="statusLabel(ev.lifecycle_status)">-</span>
             </span>
             <div class="flex gap-2">
-              <button type="button" @click="bukaDetail(ev)" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Buka</button>
+              <button type="button" @click="bukaDetail(ev)" class="h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Buka</button>
               <button type="button" @click="lanjutkanDraf(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="h-11 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold min-h-[44px]">Lanjutkan</button>
               <button type="button" @click="hapusDrafPerubahan(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
             </div>
@@ -189,7 +297,7 @@
       </div>
     </div>
 
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <h2 class="text-[18px] font-semibold text-center">Ruangan Kandidat</h2>
       <p class="text-[11px] text-slate-400 text-center mt-1">Hasil pencarian internal — wajib konfirmasi TU sebelum publish.</p>
       <div class="divide-y divide-[#EEEEEE] mt-2">
@@ -203,15 +311,15 @@
 
   <!-- ============ SUB: POLA ============ -->
   <div x-show="jadwalSub === 'pola'">
-    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold text-[#1F1F1F]" x-text="polaForm.id ? 'Ubah Pola Jadwal' : 'Tambah Pola Jadwal'">-</h2>
-      <p class="text-[13px] text-slate-500 mt-1">Pola mingguan yang berulang dalam semester aktif.</p>
+    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
+      <h2 class="text-[18px] font-semibold text-[#1F1F1F]" x-text="polaForm.id ? 'Ubah Jadwal Tetap' : 'Tambah Jadwal Tetap'">-</h2>
+      <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan yang berlaku rutin dalam semester aktif.</p>
       <div x-show="polaFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="polaFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Mata kuliah di kelas ini <span class="text-red-600">*</span></label>
-          <select x-model="polaForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <select x-model="polaForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
             <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
@@ -222,38 +330,38 @@
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Hari <span class="text-red-600">*</span></label>
-          <select x-model="polaForm.day" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <select x-model="polaForm.day" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
             <option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option>
             <option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option><option value="7">Minggu</option>
           </select>
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Ruangan</label>
-          <select x-model="polaForm.roomId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <select x-model="polaForm.roomId" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
             <option value="">Tanpa ruangan khusus</option>
             <template x-for="r in polaRooms" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
           </select>
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Jam mulai <span class="text-red-600">*</span></label>
-          <input type="time" x-model="polaForm.start" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+          <input type="time" x-model="polaForm.start" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] font-mono" />
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Jam selesai <span class="text-red-600">*</span></label>
-          <input type="time" x-model="polaForm.end" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+          <input type="time" x-model="polaForm.end" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] font-mono" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
-          <input type="text" x-model="polaForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+          <input type="text" x-model="polaForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
         </div>
         <div x-show="polaForm.id" class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku (perubahan permanen)</label>
-          <input type="date" x-model="polaForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+          <input type="date" x-model="polaForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
           <p class="text-[12px] text-slate-500 mt-1">Sesi sebelum tanggal berlaku tetap memakai versi lama. Tanggal harus berada dalam semester aktif.</p>
         </div>
       </div>
       <div class="flex flex-col sm:flex-row gap-3 mt-5">
-        <button type="button" @click="bukaDaftar()" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] font-medium min-h-[44px]">Batal</button>
+        <button type="button" @click="bukaDaftar()" class="flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Batal</button>
         <button type="button" @click="simpanPola()" class="flex-1 h-11 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white font-semibold min-h-[44px]">Simpan</button>
       </div>
     </div>
@@ -261,8 +369,8 @@
 
   <!-- ============ SUB: UBAH (SCR-SCH-002) ============ -->
   <div x-show="jadwalSub === 'ubah'">
-    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Buat Perubahan Jadwal</h2>
       <p class="text-[13px] text-slate-500 mt-1">Waktu memakai zona waktu kelas (WIB) dan harus berada dalam rentang semester.</p>
       <div x-show="ubahFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ubahFormError">-</div>
@@ -270,7 +378,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Mata kuliah penyelenggara <span class="text-red-600">*</span></label>
-          <select x-model="ubahForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+          <select x-model="ubahForm.offeringId" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
             <option value="">-- Pilih mata kuliah --</option>
             <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
           </select>
@@ -296,21 +404,21 @@
         <button type="button" @click="ubahForm.scope = 'sementara'" :class="ubahForm.scope === 'sementara' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE]'" class="min-h-[44px] rounded-xl border text-[13px]">Sementara</button>
         <button type="button" @click="ubahForm.scope = 'permanen'" :class="ubahForm.scope === 'permanen' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE]'" class="min-h-[44px] rounded-xl border text-[13px]">Permanen</button>
       </div>
-      <p x-show="ubahForm.scope === 'permanen'" class="text-[12px] text-slate-500 mt-2">Perubahan permanen membuat versi pola baru sejak tanggal berlaku. Sesi sebelum tanggal berlaku tetap memakai versi lama.</p>
+      <p x-show="ubahForm.scope === 'permanen'" class="text-[12px] text-slate-500 mt-2">Perubahan permanen membuat versi jadwal tetap baru sejak tanggal berlaku. Sesi sebelum tanggal berlaku tetap memakai versi lama.</p>
 
       <div x-show="ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
         <h3 class="text-[14px] font-semibold mt-5">Jadwal Semula</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
           <div>
-            <label class="block text-[13px] font-medium mb-1">Pola asal <span class="text-red-600">*</span></label>
-            <select x-model="ubahForm.originPatternId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
-              <option value="">-- Pilih jadwal semula --</option>
+            <label class="block text-[13px] font-medium mb-1">Jadwal tetap semula <span class="text-red-600">*</span></label>
+            <select x-model="ubahForm.originPatternId" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
+              <option value="">-- Pilih jadwal tetap semula --</option>
               <template x-for="p in scopePatterns" :key="p.id"><option :value="p.id" x-text="(p.display_name || p.offering || '') + ' · ' + polaHariName(p.day_of_week) + ' ' + (p.start_time || '') + '–' + (p.end_time || '')">-</option></template>
             </select>
           </div>
           <div>
             <label class="block text-[13px] font-medium mb-1">Tanggal kejadian asal <span class="text-red-600">*</span></label>
-            <input type="date" x-model="ubahForm.originDate" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+            <input type="date" x-model="ubahForm.originDate" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
           </div>
         </div>
       </div>
@@ -320,21 +428,21 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
           <div>
             <label class="block text-[13px] font-medium mb-1">Tanggal <span class="text-red-600">*</span></label>
-            <input type="date" x-model="ubahForm.date" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+            <input type="date" x-model="ubahForm.date" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
           </div>
           <div>
             <label class="block text-[13px] font-medium mb-1">Jam mulai <span class="text-red-600">*</span></label>
-            <input type="time" x-model="ubahForm.start" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+            <input type="time" x-model="ubahForm.start" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] font-mono" />
           </div>
           <div>
             <label class="block text-[13px] font-medium mb-1">Jam selesai <span class="text-red-600">*</span></label>
-            <input type="time" x-model="ubahForm.end" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+            <input type="time" x-model="ubahForm.end" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] font-mono" />
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
             <label class="block text-[13px] font-medium mb-1">Ruangan</label>
-            <select x-model="ubahForm.roomId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+            <select x-model="ubahForm.roomId" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
               <option value="">Belum memilih</option>
               <template x-for="r in polaRooms" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
             </select>
@@ -342,16 +450,16 @@
           </div>
           <div>
             <label class="block text-[13px] font-medium mb-1">Kelas peserta (ID, pisahkan koma — opsional)</label>
-            <input type="text" x-model="ubahForm.participantIds" placeholder="Contoh: 12, 15" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono" />
+            <input type="text" x-model="ubahForm.participantIds" placeholder="Contoh: 12, 15" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] font-mono" />
             <p class="text-[12px] text-slate-500 mt-1">Perubahan tampil di kelas peserta setelah KM kelas tersebut menerima.</p>
           </div>
           <div x-show="ubahForm.scope === 'permanen'" class="sm:col-span-2">
             <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
-            <input type="date" x-model="ubahForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+            <input type="date" x-model="ubahForm.effectiveDate" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
           </div>
           <div class="sm:col-span-2">
             <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
-            <input type="text" x-model="ubahForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+            <input type="text" x-model="ubahForm.link" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
           </div>
         </div>
       </div>
@@ -359,7 +467,7 @@
       <h3 class="text-[14px] font-semibold mt-5">Keterangan</h3>
       <div class="mt-2">
         <label class="block text-[13px] font-medium mb-1">Alasan perubahan <span class="text-red-600">*</span></label>
-        <textarea x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="w-full px-3 py-2.5 rounded-xl border border-[#EEEEEE] text-[14px]"></textarea>
+        <textarea x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-[14px]"></textarea>
       </div>
 
       <div class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
@@ -376,8 +484,8 @@
 
   <!-- ============ SUB: TINJAU (SCR-SCH-003) ============ -->
   <div x-show="jadwalSub === 'tinjau'">
-    <button type="button" @click="ubahLagi()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <button type="button" @click="ubahLagi()" class="mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Tinjau Perubahan</h2>
       <p class="text-[13px] text-slate-500 mt-1">Periksa dampak sebelum menerbitkan. Tidak ada konfirmasi tambahan setelah ini.</p>
       <div x-show="previewLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pratinjau perubahan...</div>
@@ -387,7 +495,7 @@
       </div>
       <div x-show="!previewLoading && !previewError && previewData">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-[#EEEEEE]">
+          <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-slate-200">
             <p class="text-[11px] font-bold tracking-widest text-slate-400 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">lock</span>SEBELUM</p>
             <p class="text-[14px] font-semibold mt-1" x-text="previewData.old ? previewData.old.offering : ''">-</p>
             <p class="text-[13px] text-slate-600 font-mono" x-text="previewData.old ? ('Hari ' + previewData.old.day_of_week + ' · ' + previewData.old.start_time + '–' + previewData.old.end_time + (previewData.old.room ? ' · ' + previewData.old.room : '')) : ''">-</p>
@@ -440,7 +548,7 @@
           <span class="material-symbols-outlined">check_circle</span>Tidak ada konflik tercatat untuk jadwal ini.
         </div>
         <div class="flex flex-col sm:flex-row gap-3 mt-5">
-          <button type="button" @click="ubahLagi()" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] font-medium min-h-[44px]">Ubah Lagi</button>
+          <button type="button" @click="ubahLagi()" class="flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Ubah Lagi</button>
           <button type="button" @click="terbitkanPerubahan()" :disabled="blockingConflicts.length > 0" :class="blockingConflicts.length > 0 ? 'bg-slate-200 text-slate-400' : 'bg-[#3965FB] hover:bg-[#2f54d6] text-white'" class="flex-1 h-11 rounded-xl font-semibold min-h-[44px]">Terbitkan Perubahan</button>
         </div>
       </div>
@@ -449,8 +557,8 @@
 
   <!-- ============ SUB: DETAIL (SCR-SCH-004 + SCR-SCH-005) ============ -->
   <div x-show="jadwalSub === 'detail' && selectedEvent">
-    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
+    <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm mt-4">
       <div class="flex flex-wrap items-center gap-2">
         <h2 class="text-[18px] font-semibold text-[#1F1F1F]">Detail Perubahan Jadwal</h2>
         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold"
@@ -473,17 +581,17 @@
         <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Versi</dt><dd class="font-mono" x-text="selectedEvent.version || '—'">-</dd></div>
       </dl>
       <h3 class="text-[14px] font-semibold mt-4">Partisipasi kelas</h3>
-      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600">
+      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-600">
         <p x-show="!(selectedEvent.participants && selectedEvent.participants.length)">Perubahan ini hanya berlaku di kelas pemilik. Jika ada kelas peserta, status persetujuan (menunggu, diterima, ditolak, dilepas) tampil di sini setelah server mengirim datanya.</p>
         <template x-if="selectedEvent.participants && selectedEvent.participants.length">
           <div class="space-y-2">
             <template x-for="pt in selectedEvent.participants" :key="pt.offering_id || pt.course_offering_id || pt.id">
-              <div class="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-white border border-[#EEEEEE]">
+              <div class="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-white border border-slate-200">
                 <span class="text-[13px] font-medium flex-1" x-text="pt.display_name || pt.offering || '—'">-</span>
                 <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="pt.participation_status || '—'">-</span>
                 <button type="button" @click="aksiPartisipasi(selectedEvent, 'accept')" class="h-10 px-3 rounded-lg border border-green-600 text-green-700 text-[12px] font-semibold min-h-[44px]">Terima</button>
                 <button type="button" @click="aksiPartisipasi(selectedEvent, 'decline')" class="h-10 px-3 rounded-lg border border-red-600 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
-                <button type="button" @click="aksiPartisipasi(selectedEvent, 'leave')" class="h-10 px-3 rounded-lg border border-[#EEEEEE] text-[12px] min-h-[44px]">Lepas Kelas</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'leave')" class="h-10 px-3 rounded-lg border border-slate-200 text-[12px] min-h-[44px]">Lepas Kelas</button>
               </div>
             </template>
           </div>
@@ -491,11 +599,11 @@
       </div>
       <h3 class="text-[14px] font-semibold mt-4">Riwayat konfirmasi ruangan</h3>
       <div class="mt-2 space-y-2">
-        <p x-show="!(selectedEvent.confirmations && selectedEvent.confirmations.length)" class="p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-500">Belum ada konfirmasi TU yang dicatat.</p>
-        <template x-for="c in (selectedEvent.confirmations || [])" :key="c.id"><div class="p-3 rounded-xl border border-[#EEEEEE] text-[13px]"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold" x-text="c.room || 'Ruangan'"></p><span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="c.confirmation_status"></span></div><p class="text-slate-500 mt-1" x-text="(c.external_contact || 'Kontak TU tidak dicatat') + (c.note ? ' · ' + c.note : '')"></p><p class="text-[11px] text-slate-400 mt-1" x-text="fmtWaktuID(c.recorded_at)"></p></div></template>
+        <p x-show="!(selectedEvent.confirmations && selectedEvent.confirmations.length)" class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-500">Belum ada konfirmasi TU yang dicatat.</p>
+        <template x-for="c in (selectedEvent.confirmations || [])" :key="c.id"><div class="p-3 rounded-xl border border-slate-200 text-[13px]"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold" x-text="c.room || 'Ruangan'"></p><span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="c.confirmation_status"></span></div><p class="text-slate-500 mt-1" x-text="(c.external_contact || 'Kontak TU tidak dicatat') + (c.note ? ' · ' + c.note : '')"></p><p class="text-[11px] text-slate-400 mt-1" x-text="fmtWaktuID(c.recorded_at)"></p></div></template>
       </div>
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
-      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-[#EEEEEE] text-[13px] text-slate-600 flex gap-2">
+      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-600 flex gap-2">
         <span class="material-symbols-outlined shrink-0">notifications</span>
         <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis.</p>
       </div>
@@ -531,7 +639,7 @@
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Status konfirmasi <span class="text-red-600">*</span></label>
-      <select x-model="tuConfirm.form.status" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
+      <select x-model="tuConfirm.form.status" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px] bg-white">
         <option value="PENDING">Menunggu TU (PENDING)</option>
         <option value="CONFIRMED">Disetujui (CONFIRMED)</option>
         <option value="REJECTED">Ditolak (REJECTED)</option>
@@ -539,17 +647,17 @@
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Nama petugas TU <span class="text-red-600">*</span></label>
-      <input type="text" x-model="tuConfirm.form.name" placeholder="Contoh: Bpk. Ahmad" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px]" />
+      <input type="text" x-model="tuConfirm.form.name" placeholder="Contoh: Bpk. Ahmad" class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[14px]" />
     </div>
     <div>
       <label class="block text-[13px] font-medium mb-1">Catatan (opsional)</label>
-      <textarea x-model="tuConfirm.form.note" rows="2" placeholder="Contoh: Ruangan dikunci jam 07:00, kunci di TU" class="w-full p-3 rounded-xl border border-[#EEEEEE] text-[14px] resize-none"></textarea>
+      <textarea x-model="tuConfirm.form.note" rows="2" placeholder="Contoh: Ruangan dikunci jam 07:00, kunci di TU" class="w-full p-3 rounded-xl border border-slate-200 text-[14px] resize-none"></textarea>
     </div>
   </div>
   <div x-show="tuConfirm.saving" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">Menyimpan konfirmasi...</div>
   <div x-show="tuConfirm.error" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tuConfirm.error">-</div>
   <div class="flex gap-3 mt-5">
-    <button type="button" @click="tutupKonfirmasiTU()" class="flex-1 h-11 rounded-xl border border-[#EEEEEE] font-medium min-h-[44px]">Batal</button>
+    <button type="button" @click="tutupKonfirmasiTU()" class="flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Batal</button>
     <button type="button" @click="simpanKonfirmasiTU()" :disabled="tuConfirm.saving" class="flex-1 h-11 rounded-xl bg-[#3965FB] text-white font-semibold min-h-[44px] disabled:opacity-60">Simpan Konfirmasi</button>
   </div>
 </div>

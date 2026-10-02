@@ -102,23 +102,23 @@
     <!-- SCR-SCH-001: Pola jadwal -->
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold">Pola Jadwal</h2>
-        <button type="button" @click="mulaiTambahPola()" x-show="offeringId" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal</button>
+        <h2 class="text-[18px] font-semibold">Jadwal Tetap</h2>
+        <button type="button" @click="mulaiTambahPola()" x-show="offeringId" class="h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px] flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
       </div>
-      <p class="text-[12px] text-slate-500 mt-1">Pola mingguan yang berulang. Perubahan sementara tidak mengubah pola ini.</p>
+      <p class="text-[12px] text-slate-500 mt-1">Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
         <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
         <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
         <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
       </div>
-      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pola jadwal...</div>
+      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat jadwal tetap...</div>
       <div x-show="polaError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="polaError">-</span>
         <button type="button" @click="polaError=''; patternsList = []; $nextTick(() => loadSchedule())" class="ml-2 font-semibold underline">Coba Lagi</button>
       </div>
       <div x-show="!polaLoading && !polaError && scopePatterns.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#EEEEEE] text-center">
-        <p class="text-[15px] font-semibold">Pola jadwal belum dibuat</p>
-        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal agar mahasiswa dapat melihat jadwal mingguannya.</p>
+        <p class="text-[15px] font-semibold">Jadwal tetap belum dibuat</p>
+        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal tetap agar mahasiswa dapat melihat perkuliahan rutin mingguannya.</p>
         <button type="button" @click="mulaiTambahPola()" x-show="offeringId" class="mt-3 h-11 px-4 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold min-h-[44px]">Tambah Jadwal</button>
       </div>
       <div x-show="!polaLoading && !polaError && scopePatterns.length > 0 && filteredPola.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#EEEEEE] text-center">
@@ -190,7 +190,7 @@
   <div x-show="jadwalSub === 'pola'">
     <button type="button" @click="bukaDaftar()" class="mt-5 h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white mt-4">
-      <h2 class="text-[18px] font-semibold" x-text="polaForm.id ? 'Ubah Pola Jadwal' : 'Tambah Pola Jadwal'">-</h2>
+      <h2 class="text-[18px] font-semibold" x-text="polaForm.id ? 'Ubah Jadwal Tetap' : 'Tambah Jadwal Tetap'">-</h2>
       <p class="text-[13px] text-slate-500 mt-1">Mata kuliah di kelas ini: <strong x-text="offeringName() || pjMatkul || '—'">-</strong></p>
       <div x-show="polaFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="polaFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -256,15 +256,15 @@
         <button type="button" @click="ubahForm.scope = 'sementara'" :class="ubahForm.scope === 'sementara' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE]'" class="min-h-[44px] rounded-xl border text-[13px]">Sementara</button>
         <button type="button" @click="ubahForm.scope = 'permanen'" :class="ubahForm.scope === 'permanen' ? 'border-[#3965FB] bg-[#E9EAFF] text-[#3965FB] font-semibold' : 'border-[#EEEEEE]'" class="min-h-[44px] rounded-xl border text-[13px]">Permanen</button>
       </div>
-      <p x-show="ubahForm.scope === 'permanen'" class="text-[12px] text-slate-500 mt-2">Perubahan permanen membuat versi pola baru sejak tanggal berlaku. Sesi sebelum tanggal berlaku tetap memakai versi lama.</p>
+      <p x-show="ubahForm.scope === 'permanen'" class="text-[12px] text-slate-500 mt-2">Perubahan permanen membuat versi jadwal tetap baru sejak tanggal berlaku. Sesi sebelum tanggal berlaku tetap memakai versi lama.</p>
 
       <div x-show="ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
         <h3 class="text-[14px] font-semibold mt-5">Jadwal Semula</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
           <div>
-            <label class="block text-[13px] font-medium mb-1">Pola asal <span class="text-red-600">*</span></label>
+            <label class="block text-[13px] font-medium mb-1">Jadwal tetap semula <span class="text-red-600">*</span></label>
             <select x-model="ubahForm.originPatternId" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] bg-white">
-              <option value="">-- Pilih jadwal semula --</option>
+              <option value="">-- Pilih jadwal tetap semula --</option>
               <template x-for="p in scopePatterns" :key="p.id"><option :value="p.id" x-text="(p.display_name || p.offering || '') + ' · ' + polaHariName(p.day_of_week) + ' ' + (p.start_time || '') + '–' + (p.end_time || '')">-</option></template>
             </select>
           </div>
