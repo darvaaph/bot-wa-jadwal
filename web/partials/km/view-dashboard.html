@@ -7,12 +7,15 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
       <div class="min-w-0">
         <h1 class="text-[24px] md:text-[28px] font-bold text-[#1F1F1F] tracking-tight" style="font-family:'Poppins',sans-serif">
-          <span x-text="sapaanWaktu + ', Ketua Murid'">Selamat datang, Ketua Murid</span>
+          <span x-text="sapaanWaktu + ', Ketua Murid'">Selamat siang, Ketua Murid</span>
         </h1>
-        <div class="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 mt-1">
-          <span class="inline-flex items-center gap-1 font-semibold text-[#1F1F1F] bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200" x-text="selectedClass || 'Kelas —'">-</span>
+        <div class="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 mt-1.5">
+          <span class="inline-flex items-center gap-1.5 font-semibold text-[#1F1F1F] bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-[#3965FB]"></span>
+            <span x-text="selectedClass || 'Kelas —'">-</span>
+          </span>
           <span class="text-slate-300">•</span>
-          <span>Ketua Murid</span>
+          <span class="font-medium text-slate-700">Ketua Murid</span>
           <template x-if="activeSemesterLabel">
             <span class="flex items-center gap-2">
               <span class="text-slate-300">•</span>
@@ -20,21 +23,21 @@
             </span>
           </template>
           <span class="text-slate-300">•</span>
-          <span class="font-mono text-slate-400" x-text="currentTime"></span>
+          <span class="font-mono text-slate-400 text-[12px]" x-text="currentTime"></span>
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
-        <button type="button" @click="go('akun')" class="h-10 px-3.5 rounded-lg border border-[#EEEEEE] bg-white hover:bg-slate-50 text-[13px] font-medium text-slate-700 min-h-[44px] shrink-0 transition-colors">
+        <button type="button" @click="go('akun')" class="h-10 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[13px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-all shadow-sm">
           Pindah kelas atau peran
         </button>
         <template x-if="antrean.length > 0">
-          <button type="button" @click="go('antrean')" class="h-10 px-3.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[13px] font-semibold flex items-center gap-2 min-h-[44px] transition-colors">
+          <button type="button" @click="go('antrean')" class="h-10 px-3.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[13px] font-semibold flex items-center gap-2 min-h-[44px] transition-all shadow-sm">
             <span class="material-symbols-outlined text-[18px] text-amber-700">fact_check</span>
             <span>Periksa Tugas</span>
             <span class="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500 text-white" x-text="antrean.length"></span>
           </button>
         </template>
-        <button type="button" @click="go('tugas-tambah')" class="h-10 px-4 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center gap-2 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <button type="button" @click="go('tugas-tambah')" class="h-10 px-4 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center gap-2 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
           <span class="material-symbols-outlined text-[18px]">add</span>
           <span>Tambah tugas</span>
         </button>
@@ -52,7 +55,7 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <!-- Antrean Tugas Review -->
-        <div x-show="antrean.length > 0" class="p-4 rounded-xl border border-amber-300 bg-amber-50/70 flex flex-col justify-between">
+        <div x-show="antrean.length > 0" class="p-5 rounded-2xl border border-amber-300/80 bg-white shadow-sm flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between">
               <span class="text-[13px] font-semibold text-amber-900">Perlu review</span>
@@ -61,13 +64,13 @@
             <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="antrean.length">0</p>
             <p class="text-[12px] text-amber-900 mt-0.5">Tugas terbit menunggu persetujuan KM.</p>
           </div>
-          <button type="button" @click="go('antrean')" class="mt-3 w-full h-10 px-3 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+          <button type="button" @click="go('antrean')" class="mt-3.5 w-full h-10 px-3 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
             Periksa sekarang
           </button>
         </div>
 
         <!-- Notifikasi Gagal -->
-        <div x-show="notifGagal > 0" class="p-4 rounded-xl border border-rose-300 bg-rose-50/70 flex flex-col justify-between">
+        <div x-show="notifGagal > 0" class="p-5 rounded-2xl border border-rose-300/80 bg-white shadow-sm flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between">
               <span class="text-[13px] font-semibold text-rose-800">Pesan gagal</span>
@@ -76,13 +79,13 @@
             <p class="text-[28px] font-bold text-rose-700 mt-1" x-text="notifGagal">0</p>
             <p class="text-[12px] text-rose-800 mt-0.5">Pesan WhatsApp perlu dijadwalkan ulang.</p>
           </div>
-          <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="mt-3 w-full h-10 px-3 rounded-lg border border-rose-700 hover:bg-rose-100 text-rose-700 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+          <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="mt-3.5 w-full h-10 px-3 rounded-xl border border-rose-600 hover:bg-rose-50 text-rose-700 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
             Jadwalkan ulang
           </button>
         </div>
 
         <!-- Draf Perubahan Jadwal -->
-        <div x-show="drafPerubahan.length > 0" class="p-4 rounded-xl border border-slate-300 bg-white flex flex-col justify-between">
+        <div x-show="drafPerubahan.length > 0" class="p-5 rounded-2xl border border-slate-300/80 bg-white shadow-sm flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between">
               <span class="text-[13px] font-semibold text-slate-700">Draf jadwal</span>
@@ -91,13 +94,13 @@
             <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="drafPerubahan.length">0</p>
             <p class="text-[12px] text-slate-500 mt-0.5">Perubahan jadwal menunggu ditinjau dan terbit.</p>
           </div>
-          <button type="button" @click="go('jadwal')" class="mt-3 w-full h-10 px-3 rounded-lg border border-[#3965FB] text-[#3965FB] hover:bg-blue-50 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+          <button type="button" @click="go('jadwal')" class="mt-3.5 w-full h-10 px-3 rounded-xl border border-[#3965FB] text-[#3965FB] hover:bg-blue-50 text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
             Tinjau draf
           </button>
         </div>
 
         <!-- Undangan Menunggu -->
-        <div x-show="undanganMenunggu > 0" class="p-4 rounded-xl border border-blue-200 bg-blue-50/50 flex flex-col justify-between">
+        <div x-show="undanganMenunggu > 0" class="p-5 rounded-2xl border border-blue-200 bg-white shadow-sm flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between">
               <span class="text-[13px] font-semibold text-[#3965FB]">Undangan peran</span>
@@ -106,7 +109,7 @@
             <p class="text-[28px] font-bold text-[#1F1F1F] mt-1" x-text="undanganMenunggu">0</p>
             <p class="text-[12px] text-slate-600 mt-0.5">Undangan peran belum dipakai atau kedaluwarsa.</p>
           </div>
-          <button type="button" @click="anggotaSub = 'list'; go('anggota')" class="mt-3 w-full h-10 px-3 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
+          <button type="button" @click="anggotaSub = 'list'; go('anggota')" class="mt-3.5 w-full h-10 px-3 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center transition-colors">
             Lihat undangan
           </button>
         </div>
@@ -116,7 +119,8 @@
     <!-- 3. Hub Status Operasional (Hero Perkuliahan Hari Ini + Metrik Cepat Asimetris) -->
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
       <!-- Live Perkuliahan Card (3 Cols) -->
-      <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white flex flex-col justify-between relative overflow-hidden">
+      <div class="lg:col-span-3 p-5 md:p-6 rounded-2xl border border-slate-200/90 bg-white shadow-sm flex flex-col justify-between relative overflow-hidden transition-all"
+           :class="currentSession ? 'border-l-4 border-l-emerald-500' : (nextSession ? 'border-l-4 border-l-[#3965FB]' : '')">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
             <!-- State 1: Ada kuliah sedang berlangsung -->
@@ -145,12 +149,12 @@
         </div>
 
         <!-- Detail Sesi Aktif -->
-        <div class="my-4">
+        <div class="my-5">
           <template x-if="currentSession">
             <div>
               <div class="flex items-start justify-between gap-3">
                 <h3 class="text-[19px] md:text-[22px] font-bold text-[#1F1F1F] leading-tight" x-text="currentSession.matkul">-</h3>
-                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-md bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="currentSession.jam">-</span>
+                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="currentSession.jam">-</span>
               </div>
               <div class="flex flex-wrap items-center gap-3 md:gap-5 text-[13px] text-slate-600 mt-2.5">
                 <span class="inline-flex items-center gap-1.5">
@@ -170,7 +174,7 @@
             <div>
               <div class="flex items-start justify-between gap-3">
                 <h3 class="text-[18px] md:text-[20px] font-bold text-[#1F1F1F] leading-tight" x-text="nextSession.matkul">-</h3>
-                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-md bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="nextSession.jam">-</span>
+                <span class="font-mono text-[14px] font-bold text-[#3965FB] px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 whitespace-nowrap" x-text="nextSession.jam">-</span>
               </div>
               <div class="flex flex-wrap items-center gap-3 text-[13px] text-slate-600 mt-2">
                 <span class="inline-flex items-center gap-1.5">
@@ -195,7 +199,7 @@
         </div>
 
         <!-- Footer Card Perkuliahan -->
-        <div class="pt-3 border-t border-[#EEEEEE] flex items-center justify-between text-[12px]">
+        <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-[12px]">
           <template x-if="currentSession && nextSession">
             <div class="flex items-center gap-2 text-slate-600">
               <span class="text-slate-400">Berikutnya:</span>
@@ -217,32 +221,32 @@
       <!-- Metrik Cepat Operasional KM (2 Cols) -->
       <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5">
         <!-- Kartu 1: Status Tugas Aktif & Review -->
-        <div class="p-4 rounded-xl border border-[#EEEEEE] bg-white flex items-center justify-between gap-3">
+        <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm flex items-center justify-between gap-4 transition-all hover:border-slate-300">
           <div class="min-w-0">
-            <p class="text-[12px] font-medium text-slate-500">Tugas Aktif Kelas</p>
-            <p class="text-[26px] font-bold text-[#1F1F1F] leading-tight mt-0.5" x-text="tugasAktif.length">0</p>
-            <p class="text-[12px] text-slate-500 mt-0.5">
-              <span class="font-medium text-[#3965FB]" x-text="nearCount">0</span> mendekati batas waktu
+            <p class="text-[12px] font-semibold tracking-wide uppercase text-slate-500">Tugas Aktif Kelas</p>
+            <p class="text-[28px] font-bold text-[#1F1F1F] leading-tight mt-1" x-text="tugasAktif.length">0</p>
+            <p class="text-[12px] text-slate-500 mt-1">
+              <span class="font-semibold text-[#3965FB]" x-text="nearCount">0</span> mendekati batas waktu
             </p>
           </div>
-          <button type="button" @click="go('tugas')" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
+          <button type="button" @click="go('tugas')" class="h-10 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
             Kelola
           </button>
         </div>
 
         <!-- Kartu 2: Status Bot WhatsApp -->
-        <div class="p-4 rounded-xl border border-[#EEEEEE] bg-white flex items-center justify-between gap-3">
+        <div class="p-5 rounded-2xl border border-slate-200/90 bg-white shadow-sm flex items-center justify-between gap-4 transition-all hover:border-slate-300">
           <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <p class="text-[12px] font-medium text-slate-500">Status Bot WhatsApp</p>
+              <p class="text-[12px] font-semibold tracking-wide uppercase text-slate-500">Status Bot WhatsApp</p>
               <span class="w-2 h-2 rounded-full" :class="botOnline ? 'bg-emerald-500' : 'bg-rose-500'"></span>
             </div>
-            <p class="text-[17px] font-bold leading-tight mt-1" :class="botOnline ? 'text-emerald-700' : 'text-rose-600'" x-text="botOnline ? 'Terhubung & Aktif' : 'Terputus'">-</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">
-              <span x-text="botOnline ? 'Siaran & pengingat otomatis berjalan.' : 'Publikasi web tetap berjalan normal.'"></span>
+            <p class="text-[18px] font-bold leading-tight mt-1" :class="botOnline ? 'text-emerald-700' : 'text-rose-600'" x-text="botOnline ? 'Terhubung & Aktif' : 'Terputus'">-</p>
+            <p class="text-[11px] text-slate-500 mt-1">
+              <span x-text="botOnline ? 'Siaran & pengingat otomatis berjalan normal.' : 'Publikasi web tetap berjalan lancar.'"></span>
             </p>
           </div>
-          <button type="button" @click="go('notifikasi')" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
+          <button type="button" @click="go('notifikasi')" class="h-10 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 min-h-[44px] shrink-0 transition-colors">
             Log Pesan
           </button>
         </div>
@@ -252,8 +256,8 @@
     <!-- 4. Area Operasional Utama (Dual-Column: Jadwal Hari Ini 60% vs Radar Tugas 40%) -->
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
       <!-- Kolom Kiri: Jadwal Hari Ini (lg:col-span-3) -->
-      <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+      <div class="lg:col-span-3 p-5 md:p-6 rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
             <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Jadwal Kuliah Hari Ini</h2>
             <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
@@ -268,7 +272,7 @@
           <span class="material-symbols-outlined text-[36px] text-slate-300">event_busy</span>
           <p class="text-[14px] font-medium text-slate-600 mt-2">Tidak ada jadwal perkuliahan hari ini.</p>
           <p class="text-[12px] text-slate-400 mt-0.5">Semua sesi kuliah pekan ini dapat dilihat di halaman jadwal.</p>
-          <button type="button" @click="go('jadwal')" class="mt-3.5 h-10 px-4 rounded-lg border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold hover:bg-blue-50 min-h-[44px] transition-colors">
+          <button type="button" @click="go('jadwal')" class="mt-3.5 h-10 px-4 rounded-xl border border-[#3965FB] text-[#3965FB] text-[13px] font-semibold hover:bg-blue-50 min-h-[44px] transition-colors">
             Buka Jadwal Pekanan
           </button>
         </div>
@@ -330,8 +334,8 @@
       </div>
 
       <!-- Kolom Kanan: Radar Tugas & Deadline (lg:col-span-2) -->
-      <div class="lg:col-span-2 p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-        <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+      <div class="lg:col-span-2 p-5 md:p-6 rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
             <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Tugas Prioritas</h2>
             <p class="text-[12px] text-slate-500 mt-0.5">Mendekati deadline dan perlu tindakan</p>
@@ -346,7 +350,7 @@
           <span class="material-symbols-outlined text-[32px] text-emerald-500">task_alt</span>
           <p class="text-[14px] font-medium text-slate-700 mt-2">Semua tugas dalam kendali.</p>
           <p class="text-[12px] text-slate-400 mt-0.5">Tidak ada tugas mendesak atau terlewat saat ini.</p>
-          <button type="button" @click="go('tugas-tambah')" class="mt-3 h-10 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#1F1F1F] text-[12px] font-semibold min-h-[44px] transition-colors">
+          <button type="button" @click="go('tugas-tambah')" class="mt-3.5 h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#1F1F1F] text-[12px] font-semibold min-h-[44px] transition-colors">
             + Tambah tugas baru
           </button>
         </div>
@@ -375,8 +379,8 @@
     </div>
 
     <!-- 5. Aktivitas Kelas Terkini (Riwayat Perubahan) -->
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <div class="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+    <div class="p-5 md:p-6 rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
         <div>
           <h2 class="text-[17px] font-bold text-[#1F1F1F]" style="font-family:'Poppins',sans-serif">Aktivitas Kelas Terkini</h2>
           <p class="text-[12px] text-slate-500 mt-0.5">Catatan audit perubahan jadwal, tugas, dan pengaturan kelas</p>
@@ -395,7 +399,7 @@
         <span class="material-symbols-outlined text-[32px] text-slate-300">manage_history</span>
         <p class="text-[13px] font-medium text-slate-600 mt-1.5">Belum ada aktivitas perubahan hari ini.</p>
         <p class="text-[12px] text-slate-400 mt-0.5">Catatan audit akan tercatat otomatis saat ada tugas dibuat, jadwal diubah, atau peran diperbarui.</p>
-        <button type="button" @click="go('log')" class="mt-3 h-10 px-4 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors">
+        <button type="button" @click="go('log')" class="mt-3.5 h-10 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors">
           Buka Semua Riwayat
         </button>
       </div>

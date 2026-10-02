@@ -895,7 +895,7 @@ function kmApp() {
       await this.loadPartials([
         ['km-sidebar', '/partials/km/sidebar.html'],
         ['km-state', '/partials/common/state-error.html'],
-        ['km-topbar', '/partials/common/topbar.html'],
+        ['km-topbar', '/partials/km/topbar.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
         ['km-jadwal', '/partials/km/view-jadwal.html'],
