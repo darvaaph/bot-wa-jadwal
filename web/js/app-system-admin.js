@@ -32,7 +32,7 @@ function systemAdminApp() {
       ] }
     ],
 
-    kelasViews: ['kelas', 'buat', 'detail', 'undang', 'undang-siap'],
+    kelasViews: ['kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap'],
 
     currentUser: null,
     meCache: null,
@@ -95,6 +95,26 @@ function systemAdminApp() {
     smHapusError: '',
     smMenu: null,
     smArsipTerbuka: null,
+
+    jadwalKelasSlug: '',
+    jadwalSemesterId: '',
+    jadwalSemester: null,
+    jadwalSemesterOptions: [],
+    jadwalOfferings: [],
+    jadwalPatterns: [],
+    jadwalPreviewSem: null,
+    jadwalLoading: false,
+    jadwalError: '',
+    jadwalHari: 0,
+    jadwalQ: '',
+    jadwalModal: false,
+    jadwalForm: { id: '', version: 0, offeringId: '', day: '1', start: '', duration: 100, end: '', roomId: '', link: '', reason: '', effectiveDate: '' },
+    jadwalFormError: '',
+    jadwalFormSaving: false,
+    jadwalPreview: null,
+    jadwalPreviewLoading: false,
+    jadwalHapus: null,
+    jadwalHapusError: '',
 
     undangNomor: '',
     undangError: '',
@@ -468,13 +488,14 @@ function systemAdminApp() {
     },
 
     saCrumb() {
-      if (this.view === 'detail' && this.kelasAktifObj) {
+      if ((this.view === 'detail' || this.view === 'jadwal') && this.kelasAktifObj) {
         const nama = this.kelasAktifObj.nama || this.kelasAktifObj.slug || 'Detail';
+        if (this.view === 'jadwal') return nama + ' / Jadwal Mingguan';
         return nama + (this.isDukunganUntuk(this.kelasAktifObj.slug) ? ' (Mode Dukungan)' : '');
       }
       const map = {
         dashboard: 'Ringkasan',
-        kelas: 'Kelas & Semester', buat: 'Tambah kelas', detail: 'Kelas & Semester',
+        kelas: 'Kelas & Semester', buat: 'Tambah kelas', detail: 'Kelas & Semester', jadwal: 'Jadwal Mingguan',
         undang: 'Undang KM', 'undang-siap': 'Undangan siap',
         pengguna: 'Pengguna & Peran',
         'master-matkul': 'Mata Kuliah', 'master-ruangan': 'Ruangan', 'master-dosen': 'Dosen',
@@ -568,7 +589,7 @@ function systemAdminApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'antrean', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap', 'pengguna', 'antrean', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -587,10 +608,11 @@ function systemAdminApp() {
         return;
       }
 
-      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','backup','pengguna','ruangan','matkul','dosen']);
+      await AsteriskShell.mount('sa', ['dashboard','kelas','jadwal','undang','dukungan','antrean','backup','pengguna','ruangan','matkul','dosen']);
       await this.loadPartials([
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
+        ['sa-jadwal', '/partials/system-admin/view-jadwal.html'],
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-antrean', '/partials/system-admin/view-antrean.html'],
@@ -2274,6 +2296,281 @@ function systemAdminApp() {
       this.muatKMPenugasan(obj.slug);
     },
 
+    kembaliKeDetail() {
+      const slug = this.jadwalKelasSlug || (this.kelasAktifObj && this.kelasAktifObj.slug) || '';
+      const target = (this.kelasList || []).find(x => x.slug === slug);
+      if (target) this.bukaDetail(target);
+      else this.go('kelas');
+    },
+
+    jadwalHariNama(n) {
+      const m = { 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat', 6: 'Sabtu', 7: 'Minggu' };
+      return m[Number(n)] || '-';
+    },
+
+    isJadwalDraft() {
+      return String((this.jadwalSemester && this.jadwalSemester.status) || '').toUpperCase() === 'DRAFT';
+    },
+
+    jadwalOfferingMap() {
+      const m = {};
+      (this.jadwalOfferings || []).forEach(o => { m[String(o.id)] = o; });
+      return m;
+    },
+
+    jadwalRow(o) {
+      const map = this.jadwalOfferingMap();
+      const off = map[String(o.course_offering_id || o.offering_id || '')] || {};
+      const lect = Array.isArray(off.lecturers) ? off.lecturers.filter(Boolean).join(', ') : '';
+      return {
+        id: o.id,
+        version: o.version,
+        day: o.day_of_week,
+        start: o.start_time,
+        end: o.end_time,
+        room: o.room || '',
+        room_id: o.room_id,
+        offering: o.offering || o.display_name || off.display_name || '—',
+        activity: String(off.activity_type || '').toUpperCase(),
+        dosen: lect,
+        offering_id: o.course_offering_id || o.offering_id,
+        meeting_link: o.meeting_link || '',
+      };
+    },
+
+    jadwalCountHari(n) {
+      return (this.jadwalPatterns || []).filter(p => Number(p.day_of_week) === Number(n)).length;
+    },
+
+    jadwalRuanganUnik() {
+      const s = new Map();
+      (this.jadwalPatterns || []).forEach(p => {
+        const code = String(p.room || '').trim();
+        if (code && !s.has(code)) s.set(code, code);
+      });
+      return Array.from(s.values());
+    },
+
+    jadwalKesiapan() {
+      const p = this.jadwalPreviewSem;
+      const conflicts = (p && (p.conflicts || p.Conflicts)) || [];
+      const blockers = (p && (p.blockers || p.Blockers)) || [];
+      const n = conflicts.length + blockers.length;
+      if (n === 0) return { text: 'Kesiapan: 0 Bentrok (Siap Terbit)', tone: 'ok' };
+      return { text: `Kesiapan: ${n} masalah (Perlu Tinjau)`, tone: 'warn' };
+    },
+
+    jadwalFiltered() {
+      const q = (this.jadwalQ || '').trim().toLowerCase();
+      const hari = Number(this.jadwalHari || 0);
+      const map = this.jadwalOfferingMap();
+      return (this.jadwalPatterns || [])
+        .filter(p => !hari || Number(p.day_of_week) === hari)
+        .filter(p => {
+          if (!q) return true;
+          const off = map[String(p.course_offering_id || '')] || {};
+          const hay = [p.offering || off.display_name, (off.lecturers || []).join(' '), p.room].filter(Boolean).join(' ').toLowerCase();
+          return hay.includes(q);
+        })
+        .map(p => this.jadwalRow(p))
+        .sort((a, b) => (a.day - b.day) || String(a.start).localeCompare(String(b.start)));
+    },
+
+    jadwalHariList() {
+      const groups = {};
+      this.jadwalFiltered().forEach(r => {
+        (groups[r.day] = groups[r.day] || []).push(r);
+      });
+      return [1, 2, 3, 4, 5, 6, 7]
+        .filter(d => groups[d] && groups[d].length)
+        .map(d => ({ day: d, nama: this.jadwalHariNama(d), rows: groups[d] }));
+    },
+
+    async bukaJadwal(kelasSlug, semesterId) {
+      const slug = kelasSlug || (this.kelasAktifObj && this.kelasAktifObj.slug) || this.kelasAktif;
+      if (!slug) { this.showToast('Pilih kelas dulu.'); return; }
+      this.jadwalKelasSlug = slug;
+      if (!this.kelasAktifObj || this.kelasAktifObj.slug !== slug) {
+        this.kelasAktifObj = (this.kelasList || []).find(x => x.slug === slug) || { slug, nama: slug };
+        this.kelasAktif = slug;
+      }
+      this.view = 'jadwal';
+      this.jadwalHari = 0;
+      this.jadwalQ = '';
+      this.jadwalModal = false;
+      this.jadwalHapus = null;
+      window.scrollTo({ top: 0 });
+      await this.muatJadwal(semesterId);
+    },
+
+    async pilihJadwalSemester(id) {
+      if (!id || String(id) === String(this.jadwalSemesterId)) return;
+      await this.muatJadwal(id);
+    },
+
+    async muatJadwal(semesterId) {
+      const slug = this.jadwalKelasSlug;
+      if (!slug) return;
+      this.jadwalLoading = true;
+      this.jadwalError = '';
+      try {
+        const res = await API.getSemestersResult(slug);
+        const list = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
+        if (!list.length) throw new Error('Belum ada semester untuk kelas ini.');
+        this.jadwalSemesterOptions = list;
+        const picked = list.find(s => String(s.id) === String(semesterId))
+          || list.find(s => String(s.status || '').toUpperCase() === 'ACTIVE')
+          || list.find(s => String(s.status || '').toUpperCase() === 'DRAFT')
+          || list[0];
+        this.jadwalSemesterId = String(picked.id);
+        this.jadwalSemester = picked;
+        const [offerings, patterns, preview] = await Promise.all([
+          API.getSemesterOfferings(picked.id).catch(() => null),
+          API.getPatterns().catch(() => []),
+          API.previewSemester(slug, picked.id).catch(() => null),
+        ]);
+        if (offerings === null) throw new Error('Daftar mata kuliah gagal dimuat.');
+        this.jadwalOfferings = Array.isArray(offerings) ? offerings : [];
+        const ids = new Set(this.jadwalOfferings.map(o => String(o.id)));
+        this.jadwalPatterns = (Array.isArray(patterns) ? patterns : []).filter(p => ids.has(String(p.course_offering_id || '')));
+        this.jadwalPreviewSem = preview;
+      } catch (e) {
+        this.jadwalOfferings = [];
+        this.jadwalPatterns = [];
+        this.jadwalPreviewSem = null;
+        this.jadwalError = e.message || 'Jadwal gagal dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.jadwalLoading = false;
+      }
+    },
+
+    jadwalDurasi() {
+      const f = this.jadwalForm;
+      const m = String(f.start || '').match(/^(\d{2}):(\d{2})$/);
+      if (!m) return 0;
+      if (f.end) {
+        const n = String(f.end).match(/^(\d{2}):(\d{2})$/);
+        if (!n) return 0;
+        return (Number(n[1]) * 60 + Number(n[2])) - (Number(m[1]) * 60 + Number(m[2]));
+      }
+      return Number(f.duration || 0);
+    },
+
+    bukaTambahSesi() {
+      this.jadwalForm = { id: '', version: 0, offeringId: '', day: '1', start: '', duration: 100, end: '', roomId: '', link: '', reason: '', effectiveDate: '' };
+      this.jadwalFormError = '';
+      this.jadwalPreview = null;
+      this.jadwalModal = true;
+    },
+
+    bukaUbahSesi(r) {
+      this.jadwalForm = { id: String(r.id), version: r.version || 0, offeringId: String(r.offering_id || ''), day: String(r.day || '1'), start: String(r.start || '').slice(0, 5), duration: 0, end: String(r.end || '').slice(0, 5), roomId: r.room_id ? String(r.room_id) : '', link: r.meeting_link || '', reason: '', effectiveDate: '' };
+      this.jadwalFormError = '';
+      this.jadwalPreview = null;
+      this.jadwalModal = true;
+    },
+
+    hitungJadwalAkhir() {
+      const f = this.jadwalForm;
+      if (f.id) return;
+      const m = String(f.start || '').match(/^(\d{2}):(\d{2})$/);
+      const total = m ? Number(m[1]) * 60 + Number(m[2]) + Number(f.duration || 0) : 0;
+      f.end = total > 0 && total < 1440 ? String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0') : '';
+      this.jadwalPreview = null;
+    },
+
+    rakitJadwalPayload() {
+      const f = this.jadwalForm;
+      if (f.id) {
+        const p = (this.jadwalPatterns || []).find(x => String(x.id) === String(f.id));
+        if (!p) throw new Error('Pola asal belum termuat. Muat ulang daftar.');
+        const payload = { version: Number(p.version), day_of_week: Number(f.day), start_time: f.start, duration_min: (() => {
+          const a = String(f.start).match(/^(\d{2}):(\d{2})$/);
+          const b = String(f.end).match(/^(\d{2}):(\d{2})$/);
+          if (!a || !b) return 0;
+          return (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
+        })() };
+        if (f.roomId) payload.room_id = Number(f.roomId);
+        if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
+        if (!this.isJadwalDraft()) {
+          payload.effective_from = f.effectiveDate;
+          payload.reason = (f.reason || '').trim();
+        } else if ((f.reason || '').trim()) {
+          payload.reason = f.reason.trim();
+        }
+        return payload;
+      }
+      const payload = { offering_id: Number(f.offeringId), day_of_week: Number(f.day), start_time: f.start, duration_min: Number(f.duration) };
+      if (f.roomId) payload.room_id = Number(f.roomId);
+      if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
+      return payload;
+    },
+
+    async pratinjauJadwal() {
+      const f = this.jadwalForm;
+      if (!f.id && !f.offeringId) { this.jadwalFormError = 'Pilih mata kuliah dulu.'; return; }
+      if (!f.start) { this.jadwalFormError = 'Isi jam mulai yang valid.'; return; }
+      if (f.id) {
+        if (this.jadwalDurasi() <= 0) { this.jadwalFormError = 'Jam selesai harus setelah jam mulai.'; return; }
+        if (!this.isJadwalDraft()) {
+          if (!f.effectiveDate) { this.jadwalFormError = 'Isi tanggal mulai berlaku.'; return; }
+          if ((f.reason || '').trim().length < 5) { this.jadwalFormError = 'Keterangan minimal 5 karakter.'; return; }
+        }
+      } else if (!(Number(f.duration) > 0)) { this.jadwalFormError = 'Durasi harus lebih dari 0 menit.'; return; }
+      this.jadwalFormError = '';
+      this.jadwalPreviewLoading = true;
+      try {
+        this.jadwalPreview = f.id
+          ? await API.previewPattern(f.id, this.rakitJadwalPayload())
+          : await API.previewCreatePattern(this.rakitJadwalPayload());
+        if (this.jadwalPreview && this.jadwalPreview.can_publish === false) {
+          this.jadwalFormError = 'Ada konflik yang menghalangi penyimpanan.';
+        }
+      } catch (e) {
+        this.jadwalFormError = e.message || 'Gagal meninjau jadwal.';
+      } finally {
+        this.jadwalPreviewLoading = false;
+      }
+    },
+
+    async simpanJadwal() {
+      if (!this.jadwalPreview) { await this.pratinjauJadwal(); if (!this.jadwalPreview) return; }
+      if (this.jadwalPreview.can_publish === false) return;
+      const f = this.jadwalForm;
+      this.jadwalFormSaving = true;
+      this.jadwalFormError = '';
+      try {
+        if (f.id) await API.patchPattern(f.id, this.rakitJadwalPayload());
+        else await API.createPattern(this.rakitJadwalPayload());
+        this.showToast(f.id ? (this.isJadwalDraft() ? 'Jadwal draf diperbarui.' : 'Jadwal diperbarui.') : 'Sesi perkuliahan ditambahkan.');
+        this.jadwalModal = false;
+        this.jadwalPreview = null;
+        await this.muatJadwal(this.jadwalSemesterId);
+      } catch (e) {
+        this.jadwalFormError = e.message || 'Gagal menyimpan jadwal.';
+      } finally {
+        this.jadwalFormSaving = false;
+      }
+    },
+
+    mintaHapusSesi(r) {
+      this.jadwalHapus = { id: r.id, version: r.version, nama: r.offering };
+      this.jadwalHapusError = '';
+    },
+
+    async jalankanHapusSesi() {
+      const h = this.jadwalHapus;
+      if (!h) return;
+      try {
+        await API.deletePattern(h.id, h.version);
+        this.showToast(this.isJadwalDraft() ? 'Jadwal draf dihapus.' : 'Jadwal dihapus (tidak aktif mulai hari ini).');
+        this.jadwalHapus = null;
+        await this.muatJadwal(this.jadwalSemesterId);
+      } catch (e) {
+        this.jadwalHapusError = e.message || 'Gagal menghapus sesi.';
+      }
+    },
+
     async muatKMPenugasan(slug) {
       if (!slug) return;
       this.kmPenugasanLoading = true;
@@ -2336,10 +2633,15 @@ function systemAdminApp() {
 
     bukaTambahSesiSM(s) {
       this.smMenu = null;
+      const slug = this.kelasAktifObj && this.kelasAktifObj.slug ? this.kelasAktifObj.slug : '';
       const offerings = this.smJumlah(s.id, 'offerings');
-      if (!offerings || offerings === 0) {
+      if ((!offerings || offerings === 0) && !s.id) {
         this.bukaImporSemester();
         this.showToast('Semester draf belum memiliki kurikulum. Silakan impor kurikulum terlebih dahulu.');
+        return;
+      }
+      if (slug && s && s.id) {
+        this.bukaJadwal(slug, s.id);
         return;
       }
       this.bukaPratinjauSM(s);
