@@ -185,14 +185,14 @@ Pencil.dev harus menggunakan layout responsif yang konsisten di semua layar:
 Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya:
 
 ### MODUL 1: AUTENTIKASI & AKSES
-1. **SCR-AUTH-001: Halaman Login Pengurus**
+1. **SCR-AUTH-001: Halaman Login Pengurus - [100% AUDITED & APPROVED]**
    - Elemen: Form No. WhatsApp (otomatis normalisasi format Indonesia), Kata Sandi (show/hide toggle), Tombol "Masuk", Link "Lupa Sandi", Info akses mahasiswa ("Mahasiswa? Masuk lewat Portal Kelas tanpa akun").
 2. **SCR-AUTH-002: Pilih Kelas & Peran (Switch Role / Multi-Context Selector)**
    - Muncul jika 1 nomor WA memiliki beberapa penugasan (contoh: KM di D4-1A sekaligus PJ di D4-1B).
    - Elemen: Kartu pilihan peran, badge kelas, status penugasan aktif, tombol "Masuk ke Kelas Ini".
-3. **SCR-AUTH-003: Aktivasi Undangan Pengurus**
+3. **SCR-AUTH-003: Aktivasi Undangan Pengurus - [100% AUDITED & APPROVED]**
    - Form aktivasi saat KM mengundang PJ baru via tautan WhatsApp.
-4. **SCR-PORTAL-AUTH: Masukkan Kode Kelas Mahasiswa**
+4. **SCR-PORTAL-AUTH: Masukkan Kode Kelas Mahasiswa - [100% AUDITED & APPROVED]**
    - Halaman bersih, ramah seluler. Input 6-karakter kode kelas (misal: `IF241A`), tombol "Buka Portal Kelas".
 
 ---
@@ -253,9 +253,17 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
 ---
 
 ### MODUL 5: SYSTEM ADMIN (SUPER ADMINISTRATOR)
-1. **SCR-ADM-001: Ringkasan Sistem (Health & Overview)**
-   - Status bot WhatsApp (QR pairing / Terhubung / Terputus).
-   - Total Kelas Aktif, Total Mahasiswa/Pengguna, Antrean Notifikasi Pending/Gagal.
+1. **SCR-ADM-001: Ringkasan Sistem (Pusat Kendali Sistem / Health & Overview) - [100% AUDITED & APPROVED]**
+   - **Header**: Judul "Pusat kendali sistem", subtitle, tombol aksi `[ ⏱️ Lihat audit ]` dan `[ 🔄 Sinkron semua master (106) ]`.
+   - **Hero Card Gateway WhatsApp**: Latar Dark Navy (`#1D1B3A`), badge `LAYANAN NORMAL`, headline status bot, quick stats perangkat terhubung & antrean pesan.
+   - **4 Stat Cards (KPI Telemetri Global via GET /api/v1/admin/status)**:
+     - Total Kelas: "19" (19 kelas aktif berjalan)
+     - Pengguna & Peran: "24" (19 KM • 4 PJ • 1 Admin)
+     - Tugas Dipantau: "38" (35 diterbitkan • 3 draf)
+     - Jadwal Aktif: "84" (81 reguler • 3 pengganti)
+   - **Grid Bawah (2 Kolom)**:
+     - Kiri (60%): Master Data Berkas Jadwal (41 mata kuliah, 18 ruangan kampus, 47 dosen pengampu, badge Siap Disinkronkan).
+     - Kanan (40%): Perlu Tindakan (Badge 2 Item: Pesan gagal dikirim & Cadangan berkala).
 2. **SCR-ADM-002: Master Mata Kuliah (Updated Pattern)**
    - Header: Count badge, Tombol `[ 🔄 Sinkron Semua Master (106) ]`, `[ ☁️ Impor / Sinkron Matkul ]`, `[ + Tambah Mata Kuliah ]`.
    - Pencarian kode/nama matkul, filter status (Aktif/Nonaktif).
@@ -266,21 +274,19 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
    - Header: Count badge, Tombol `[ 🔄 Sinkron Semua Master (106) ]`, `[ ☁️ Impor / Sinkron Ruangan ]`, `[ + Tambah Ruangan ]`.
    - Kolom: Kode (misal `D102-Lab. MT`), Nama Ruangan, Gedung (`Gedung D`), Tipe (`Laboratorium` / `Ruang Kuliah`), Kapasitas, Status, Aksi.
    - Modal Impor: 1-Click Sync 18 Ruangan Kampus.
-4. **SCR-ADM-004: Master Dosen (Halaman Master Dosen Pengampu)**
-   - **Header**: Judul "Master Dosen", badge jumlah dosen aktif (`47 dosen`), tombol aksi kanan: `[ 🔄 Sinkron Semua Master (106) ]`, `[ ☁️ Impor / Sinkron Dosen ]`, `[ + Tambah Dosen ]`.
-   - **Filter & Search Bar**: Search input berikon kaca pembesar (`Cari inisial atau nama dosen...`), filter dropdown status (`Semua status`, `Aktif`, `Nonaktif`).
+4. **SCR-ADM-004: Master Dosen (Halaman Master Dosen Pengampu) - [100% AUDITED & APPROVED]**
+   - **Header**: Judul "Master Dosen", deskripsi fungsional, tombol aksi kanan: `[ 🔄 Impor / Sinkron ]`, `[ + Tambah dosen ]`.
+   - **Filter & Search Bar**: Search input berikon kaca pembesar (`Cari nama atau kode dosen...`), filter dropdown status (`Semua status`, `Aktif`, `Nonaktif`).
    - **Tabel Desktop**: 
-     - Kolom 1: Inisial/Kode Dosen (font mono, tebal, misal: `MR`, `AD`, `ZA`).
-     - Kolom 2: Nama Lengkap & Gelar Akademik (misal: `Muhammad Rizqi Sholahuddin, S.Si., M.T.`).
+     - Kolom 1: Kode Inisial Dosen (font mono, tebal, misal: `AD`, `BW`, `HA`, `PH`).
+     - Kolom 2: Nama Lengkap & Gelar Akademik (misal: `Dr. Ade Chandra Nugraha, S.Si., M.T.`).
      - Kolom 3: Status Badge Pill (Hijau muda `Aktif` atau Abu-abu `Nonaktif`).
-     - Kolom 4: Aksi (Tombol `Ubah` dan tombol toggle `Nonaktifkan` / `Aktifkan`).
-   - **Tampilan Mobile**: Daftar kartu terpisah per dosen dengan target sentuh min 44px.
-   - **Modal Tambah Dosen**: Input Inisial Dosen (uppercase 2-4 huruf), Input Nama Lengkap beserta Gelar Akademik, Tombol Simpan & Batal.
-   - **Modal Ubah Dosen**: Inisial (read-only/disabled), Input Nama Lengkap & Gelar, Tombol Simpan Perubahan.
-   - **Modal Impor Dosen**: 
-     - Tab 1 (*Sinkron Jadwal POLBAN*): Kartu info 19 berkas jadwal terdeteksi, tombol `[ Sinkronkan 47 Dosen Sekarang ]` dan opsi `[ Sinkron Semua (106) ]`.
-     - Tab 2 (*CSV / Teks Bebas*): Textarea untuk paste teks format `INISIAL, NAMA LENGKAP & GELAR`, live preview baris valid, tombol proses impor.
-   - **Dialog Konfirmasi Status**: Dialog konfirmasi sebelum mengaktifkan atau menonaktifkan status pengajar.
+     - Kolom 4: Aksi (Tombol `···` ghost button).
+   - **Tampilan State**: Lengkap dengan Empty State, Loading State, Error State (dengan tombol Coba lagi), dan Filled State (badge 47 dosen terdaftar & pagination 1-5).
+   - **Modal Tambah Dosen**: Input Kode / Inisial Dosen (wajib, uppercase 2-4 huruf), Input Nama Lengkap & Gelar (wajib), toggle switch Aktifkan dosen.
+   - **Modal Impor / Sinkron Dosen**: 
+     - Pilihan A (*Ekstrak Dosen dari Jadwal POLBAN*): Memindai file kurikulum semester POLBAN, ekstrak 47 dosen unik otomatis (`POST /api/v1/master/lecturers/sync-jadwal`).
+     - Pilihan B (*Sinkron Semua Master Data*): Total 106 entitas master (41 matkul, 18 ruangan, 47 dosen) via `POST /api/v1/master/sync-all`.
 
 5. **SCR-ADM-005: Manajemen Kelas & Semester (Terdiri dari 3 Sub-Layar)**
    - **A. SCR-ADM-005A: Daftar Kelas (Grid Kelas)**
@@ -290,7 +296,7 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
        - Header Kartu (Soft Lavender `#E9EAFF`): Nama Kelas (misal: `D4-1A`), Prodi, Angkatan, Rombel, Slug URL portal, Status Badge Pill.
        - Body Kartu (Putih): Status KM (Nama KM, No WA, atau label "Undangan Menunggu 7 hari" / "Belum Ditetapkan").
        - Footer Kartu: Tombol `[ Lihat detail ]` atau tombol `[ Undang KM ]`.
-   - **B. SCR-ADM-005B: Buat Kelas Baru (Formulir Terstandarisasi)**
+   - **B. SCR-ADM-005B: Buat Kelas Baru (Formulir Terstandarisasi) - [100% AUDITED & APPROVED]**
      - Form Input:
        1. Program Studi (Dropdown datalist rekomendasi prodi POLBAN: D4 TI, D3 MI, dll).
        2. Angkatan (Input number, misal: `2025`).
@@ -298,7 +304,7 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
      - Panel Tinjauan Otomatis: Live preview generate nama kelas (`D4 TI 2025 A`) dan slug URL (`d4-ti-2025-a`), dengan tombol toggle "Sesuaikan manual" bila ingin kustom.
      - Mode Portal Default: `LINK` (akses langsung via tautan) atau `CODE` (butuh 6 digit kode).
      - Tombol `[ Simpan kelas ]` (Primer) dan `[ Batal ]` (Outline).
-   - **C. SCR-ADM-005C: Detail Kelas & Semester (Pusat Kendali Kelas)**
+   - **C. SCR-ADM-005C: Detail Kelas & Semester (Pusat Kendali Kelas) - [100% AUDITED & APPROVED]**
      - *Banner Mode Dukungan*: Muncul oranye di atas jika Admin sedang mengelola kelas dalam mode support.
      - Header: Nama Kelas, Identitas Prodi/Angkatan/Rombel, Slug portal, Status Badge.
      - *Kartu 1: Informasi Pengurus (KM)*: Nama KM, WhatsApp, Status KM, tombol `[ Ganti / Undang Ulang KM ]`.
@@ -309,10 +315,28 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
      - *Aksi Cepat Footer*: Tombol `[ Lihat Riwayat Perubahan kelas ]`, `[ Lihat Antrean Notifikasi ]`, dan tombol bahaya `[ Nonaktifkan Kelas ]` / `[ Arsipkan Kelas ]`.
 6. **SCR-ADM-006: Manajemen Pengguna & Penugasan Peran**
    - Daftar nomor WA pengguna, nama lengkap, role yang diemban, status akun (Aktif / Ditangguhkan), tombol Reset Sandi.
-7. **SCR-ADM-007: Antrean Pesan WhatsApp (Broadcast & Notification Outbox)**
-   - Log pesan: Penerima, Waktu Kirim, Tipe Pesan (Pengingat Tugas / Perubahan Jadwal), Status (Pending, Sent, Failed), Tombol Kirim Ulang.
-8. **SCR-ADM-008: Cadangan Data & Audit Global**
-   - Buat backup database SQLite instan, unduh cadangan, riwayat audit komprehensif seluruh sistem.
+7. **SCR-ADM-007: Antrean Pesan WhatsApp (Broadcast & Notification Outbox) - [100% AUDITED & APPROVED]**
+   - **Header**: Judul "Antrean WhatsApp", deskripsi fungsional, tombol aksi kanan: `[ 🔄 Perbarui antrean ]`.
+   - **3-Tab Navigation**:
+     - `Menunggu` (Status PENDING/PROCESSING)
+     - `Gagal` (Status FAILED/CANCELLED, badge indikator merah angka error, tombol aksi `[ Coba lagi ]` via `POST /api/v1/notifications/{id}/retry`)
+     - `Riwayat` (Status SENT, 128 riwayat pesan terkirim, pagination 1-13)
+   - **Tabel 6 Kolom Konsisten**: `PENERIMA` (Grup WA / Nomor target), `JENIS PESAN` (Pengingat jadwal, tugas baru, kuliah pengganti), `WAKTU` (Dijadwalkan / Terakhir dicoba / Terkirim pada), `PERCOBAAN` (Attempts), `STATUS` (Badge Menunggu / Gagal / Terkirim), `AKSI` (Lihat / Coba lagi).
+   - **Modal Detail Pesan Notifikasi**: Grid metadata 2 kolom, bubble chat WhatsApp preview realistis (#EFEAE2, bubble putih/hijau, markdown WA), accordion raw JSON payload.
+8. **SCR-ADM-008: Cadangan Data & Audit Global - [100% AUDITED & APPROVED]**
+   - **Kartu Atas (Cadangan Data)**:
+     - Header: Judul "Cadangan data", subtitle, tombol `[ ☁️ Buat cadangan ]`.
+     - Daftar File Cadangan: Item dengan icon db/file, nama file timestamp, checksum SHA-256 (format `sha256: 7d2f••••9a1e`), cakupan kampus/kelas, alasan pencadangan, waktu & nama admin, badge hijau `VERIFIED`, tombol aksi `Unduh` & `Pulihkan`.
+   - **Kartu Bawah (Audit Global)**:
+     - Header: Judul "Audit Global", subtitle, filter bar pencarian tindakan/aktor/objek + dropdown `Semua tindakan` + `Semua periode`.
+     - Tabel 5 Kolom: `WAKTU` | `AKTOR` | `TINDAKAN` | `OBJEK` | `ALASAN / RINCIAN`.
+     - Badges Tindakan: Kuning `SUPPORT_ENTER`, Biru `CREATE_BACKUP`, Hijau `ACTIVATE_SEMESTER`, Ungu `INVITE_KM`.
+     - Footer: Pagination log aktivitas.
+   - **Modal Buat Cadangan Data**:
+     - Cakupan: Radio/Dropdown pilihan `Seluruh Kampus (Global Database)` vs kelas tertentu (D4-TI 1A, D3-MI 2B).
+     - Semester: Pilihan semester opsional.
+     - Alasan Cadangan: Wajib min. 5 karakter (sesuai SQLite schema constraint `CHECK (length(trim(reason)) >= 5)`).
+     - Info box keamanan SHA-256 terenkripsi di folder `storage/backups`.
 
 ---
 

@@ -42,9 +42,12 @@ type AdminStatusResponse struct {
 		Archived int `json:"archived"`
 	} `json:"classes_summary"`
 	UsersSummary struct {
-		Total     int `json:"total"`
-		Active    int `json:"active"`
-		Suspended int `json:"suspended"`
+		Total      int `json:"total"`
+		Active     int `json:"active"`
+		Suspended  int `json:"suspended"`
+		KMCount    int `json:"km_count"`
+		PJCount    int `json:"pj_count"`
+		AdminCount int `json:"admin_count"`
 	} `json:"users_summary"`
 	TasksSummary struct {
 		Total     int `json:"total"`
@@ -277,6 +280,13 @@ func (c *AdminController) GetAdminStatus(w http.ResponseWriter, r *http.Request)
 		       COALESCE(SUM(CASE WHEN status = 'SUSPENDED' THEN 1 ELSE 0 END), 0)
 		FROM users;
 	`).Scan(&resp.UsersSummary.Total, &resp.UsersSummary.Active, &resp.UsersSummary.Suspended)
+
+	_ = c.db.QueryRow(`
+		SELECT COALESCE(SUM(CASE WHEN role = 'KM' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN role = 'PJ' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN role = 'SYSTEM_ADMIN' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0)
+		FROM role_assignments;
+	`).Scan(&resp.UsersSummary.KMCount, &resp.UsersSummary.PJCount, &resp.UsersSummary.AdminCount)
 
 	// Hitung Tugas
 	_ = c.db.QueryRow(`

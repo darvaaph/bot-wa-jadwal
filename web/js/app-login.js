@@ -5,6 +5,7 @@
  */
 function loginApp() {
   return {
+    ready: false,
     role: 'km',
     mode: 'masuk',
     nomor: '',
@@ -35,6 +36,7 @@ function loginApp() {
         this.recoveryToken = params.get('recovery_token') || params.get('token') || '';
         if (this.recoveryToken && (params.get('mode') === 'recovery' || params.has('recovery_token') || params.has('token'))) this.mode = 'reset';
       } catch (e) { /* default km */ }
+      this.ready = true;
     },
 
     normalizedIdentity() {

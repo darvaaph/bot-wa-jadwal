@@ -1,239 +1,291 @@
-<!-- partials/system-admin/view-pengguna.html - System Admin: Pengguna dan Penugasan -->
+<!-- partials/system-admin/view-pengguna.html - System Admin: Pengguna dan Peran -->
 <section x-show="view === 'pengguna'" x-cloak>
-  <div class="ui-card p-6 md:p-10 shadow-sm">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Pengguna dan Penugasan</h1>
-        <p class="text-[14px] text-slate-500 mt-1">Akun, Penugasan Peran, dan Undangan. Penangguhan akun mencabut seluruh sesi aktif.</p>
+  <div x-show="penggunaLoading || penugasanLoading || undanganLoading" class="p-12 text-center text-muted" role="status">
+    <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+    <p class="mt-3 text-[14px]">Memuat pengguna dan peran...</p>
+  </div>
+
+  <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading" class="flex flex-col gap-5 md:gap-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
+      <div class="min-w-0">
+        <h1 class="font-display text-[30px] font-bold text-ink tracking-tight">Pengguna & peran</h1>
+        <p class="text-[14px] text-muted mt-1.5">Kelola akses System Admin, Ketua Murid, dan PJ berdasarkan kelas.</p>
       </div>
-      <select x-show="penggunaTab === 'akun'" x-model="penggunaFilter" @change="loadPengguna()" aria-label="Filter status pengguna" class="ui-field text-[13px] self-start">
-        <option value="">Semua status</option>
-        <option value="ACTIVE">Aktif</option>
-        <option value="SUSPENDED">Ditangguhkan</option>
-        <option value="REVOKED">Dicabut</option>
-      </select>
+      <button type="button" @click="undangPenggunaTerbuka = !undangPenggunaTerbuka" :aria-expanded="String(undangPenggunaTerbuka)" class="h-11 px-4 rounded-[10px] bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold min-h-[44px] inline-flex items-center gap-2 self-start md:self-auto transition-colors">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10.64697 6.125l-1.45947 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545l1.45947 0 0-1.45606q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849l0 1.45606 1.45947 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-1.45947 0 0 1.45947q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-1.45947z m-5.39697 0.51611q-0.72119 0-1.2373-0.51269-0.5127-0.51611-0.5127-1.23731 0-0.72119 0.5127-1.23388 0.51611-0.51611 1.2373-0.51612 0.72119 0 1.23389 0.51612 0.51611 0.5127 0.51611 1.23388 0 0.72119-0.51611 1.23731-0.5127 0.5127-1.23389 0.51269z m-4.08447 3.6128l0-0.35547q0-0.3623 0.20849-0.67676 0.21191-0.31445 0.56739-0.48877 0.82715-0.39307 1.65429-0.59131 0.82715-0.19824 1.6543-0.19824 0.82715 0 1.6543 0.19824 0.82715 0.19824 1.65429 0.59131 0.35547 0.17432 0.56397 0.48877 0.21191 0.31445 0.21191 0.67676l0 0.35547q0 0.25635-0.17431 0.43066-0.17432 0.17432-0.43409 0.17432l-6.95214 0q-0.25977 0-0.43409-0.17432-0.17432-0.17432-0.17431-0.43066z"/></svg>
+        <span>Undang pengguna</span>
+      </button>
     </div>
 
-    <!-- Tabs -->
-    <div class="mt-6 flex gap-2 border-b border-border" role="tablist" aria-label="Tab pengguna">
-      <button type="button" role="tab" id="sa-tab-akun" aria-controls="sa-panel-akun" :aria-selected="penggunaTab === 'akun'" @click="penggunaTab = 'akun'; loadPengguna()" @keydown.arrow-right.prevent="$refs.saTabPenugasan && $refs.saTabPenugasan.focus()" :class="penggunaTab === 'akun' ? 'border-primary text-primary' : 'border-transparent text-slate-500'" class="ui-button ui-button--ghost h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Akun</button>
-      <button type="button" role="tab" id="sa-tab-penugasan" x-ref="saTabPenugasan" aria-controls="sa-panel-penugasan" :aria-selected="penggunaTab === 'penugasan'" @click="penggunaTab = 'penugasan'; loadPenugasan()" @keydown.arrow-right.prevent="$refs.saTabUndangan && $refs.saTabUndangan.focus()" @keydown.arrow-left.prevent="$el.previousElementSibling && $el.previousElementSibling.focus()" :class="penggunaTab === 'penugasan' ? 'border-primary text-primary' : 'border-transparent text-slate-500'" class="ui-button ui-button--ghost h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Penugasan</button>
-      <button type="button" role="tab" id="sa-tab-undangan" x-ref="saTabUndangan" aria-controls="sa-panel-undangan" :aria-selected="penggunaTab === 'undangan'" @click="penggunaTab = 'undangan'; loadUndangan()" @keydown.arrow-left.prevent="$refs.saTabPenugasan && $refs.saTabPenugasan.focus()" :class="penggunaTab === 'undangan' ? 'border-primary text-primary' : 'border-transparent text-slate-500'" class="ui-button ui-button--ghost h-11 px-4 border-b-2 text-[14px] font-semibold min-h-[44px]">Undangan</button>
-    </div>
-
-    <!-- Tab Akun -->
-    <div x-show="penggunaTab === 'akun'" id="sa-panel-akun" role="tabpanel" aria-labelledby="sa-tab-akun">
-      <div x-show="penggunaLoading" class="p-12 text-center text-slate-500">
-        <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p class="mt-3 text-[14px]">Memuat daftar pengguna...</p>
+    <!-- Panel undang System Admin -->
+    <div x-show="undangPenggunaTerbuka" class="p-5 rounded-2xl border border-[#D7DDE7] bg-white">
+      <h2 class="text-[15px] font-bold text-ink">Undang System Admin</h2>
+      <p class="text-[12px] text-muted mt-0.5">Tanpa kelas (scope global). Undangan KM dan PJ dibuat dari halaman Kelas.</p>
+      <div x-show="undanganSAError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="undanganSAError"></div>
+      <div class="flex flex-col sm:flex-row gap-2 mt-3">
+        <input type="text" x-model="undanganSANomor" placeholder="Nomor WhatsApp, mis. 081234567890" aria-label="Nomor WhatsApp calon System Admin" class="ui-field flex-1 text-[14px] font-mono" />
+        <button type="button" @click="buatUndanganSA()" :disabled="undanganSALoading" class="h-11 px-4 rounded-[10px] bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60 transition-colors" x-text="undanganSALoading ? 'Membuat...' : 'Buat undangan'"></button>
       </div>
-      <div x-show="penggunaError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="penggunaError">-</span>
-        <button type="button" @click="loadPengguna()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!penggunaLoading && !penggunaError && penggunaList.length === 0" class="ui-empty p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
-        <p class="text-[15px] font-semibold text-ink">Tidak ada pengguna</p>
-        <p class="text-[13px] mt-0.5">Tidak ada pengguna dengan status yang dipilih.</p>
-      </div>
-
-      <div x-show="!penggunaLoading && penggunaList.length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
-        <template x-for="u in penggunaList" :key="u.id">
-          <div class="py-4">
-            <div class="flex flex-col md:flex-row md:items-center gap-2">
-              <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold text-ink truncate" x-text="u.display_name || u.identity_key">-</p>
-                <p class="text-[12px] text-slate-500 font-mono truncate" x-text="u.identity_key">-</p>
-                <p class="text-[11px] text-slate-400 mt-0.5" x-text="(u.roles || []).join(', ') || 'Tanpa peran aktif'">-</p>
-              </div>
-              <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-                :class="String(u.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : (String(u.status).toUpperCase() === 'SUSPENDED' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-500')">
-                <span class="material-symbols-outlined text-[14px]" x-text="String(u.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
-                <span x-text="labelStatusPengguna(u.status)">-</span>
-              </span>
-              <div class="flex items-center gap-2">
-                <span x-show="isAkunSendiri(u)" class="text-[12px] font-semibold text-slate-500">Akun Anda</span>
-                <button type="button" @click="mulaiAksiPengguna(u, 'tangguhkan')" x-show="String(u.status).toUpperCase() === 'ACTIVE' && !isAkunSendiri(u)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
-                <button type="button" @click="mulaiAksiPengguna(u, 'pulihkan')" x-show="String(u.status).toUpperCase() !== 'ACTIVE' && !isAkunSendiri(u)" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Pulihkan</button>
-              </div>
-            </div>
-            <div x-show="penggunaAksi && penggunaAksi.id === u.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
-              <p class="text-[13px] font-semibold" x-text="(penggunaAksi.aksi === 'tangguhkan' ? 'Tangguhkan ' : 'Pulihkan ') + penggunaAksi.nama">-</p>
-              <p x-show="penggunaAksi.aksi === 'tangguhkan'" class="text-[12px] text-red-700 mt-1">Akun ditangguhkan dan seluruh sesi aktif dicabut seketika. Tercatat di Riwayat Perubahan.</p>
-              <label for="sa-pengguna-alasan" class="block text-[13px] font-medium mt-2 mb-1">Alasan tindakan <span class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input id="sa-pengguna-alasan" type="text" x-model="penggunaAlasan" placeholder="Contoh: Pelanggaran kebijakan kelas" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanAksiPengguna()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="penggunaAksi = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-              </div>
-            </div>
-          </div>
-        </template>
+      <div x-show="undanganSAResult" class="mt-3 p-4 rounded-xl bg-success border border-green-200 text-[13px] text-green-800">
+        <p class="font-bold">Undangan siap (berlaku 7 hari, sekali pakai).</p>
+        <p class="mt-1">Berlaku s.d. <span class="font-mono" x-text="undanganSAResult.expires_at ? fmtWaktuID(undanganSAResult.expires_at) : '-'">-</span></p>
+        <button type="button" @click="copyText(undanganSAResult.link, 'Tautan undangan SA disalin.')" x-show="undanganSAResult.link" class="mt-2 h-10 px-4 rounded-lg bg-white border border-green-300 text-[12px] font-semibold min-h-[44px]">Salin tautan</button>
       </div>
     </div>
 
-    <!-- Tab Penugasan -->
-    <div x-show="penggunaTab === 'penugasan'" id="sa-panel-penugasan" role="tabpanel" aria-labelledby="sa-tab-penugasan">
-      <div class="mt-4 flex flex-col sm:flex-row gap-2">
-        <select x-model="penugasanStatus" @change="loadPenugasan()" aria-label="Filter status penugasan" class="ui-field text-[13px]">
+    <!-- Ringkasan -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <div class="flex items-center gap-3 p-[18px] bg-white border border-[#D7DDE7] rounded-[14px] min-h-[112px]">
+        <span class="flex items-center justify-center w-[42px] h-[42px] rounded-[11px] bg-primary-faint text-primary shrink-0" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M1.51416 9.89844q0-0.40674 0.2085-0.69727 0.21191-0.29395 0.56738-0.46826 0.75879-0.3623 1.50732-0.57422 0.74854-0.21533 1.80127-0.21533 1.05273 0 1.79785 0.21533 0.74854 0.21191 1.50733 0.57422 0.35547 0.17432 0.56396 0.46826 0.21191 0.29053 0.21192 0.69727l0 0.35547q0 0.22217-0.17432 0.41357-0.17432 0.19141-0.43066 0.19141l-6.95557 0q-0.25635 0-0.43066-0.17432-0.17432-0.17432-0.17432-0.43066l0-0.35547z m10.3667 0.96045l-1.16211 0q0.0581-0.14014 0.09229-0.29395 0.0376-0.15381 0.03759-0.31103l0-0.38282q0-0.50586-0.20507-0.95703-0.20508-0.45117-0.58448-0.77246 0.43066 0.08887 0.82715 0.2461 0.3999 0.15381 0.78955 0.34521 0.37939 0.19141 0.59473 0.48877 0.21533 0.29736 0.21533 0.64941l0 0.38282q0 0.25635-0.17432 0.43066-0.17432 0.17432-0.43066 0.17432z m-6.28223-4.21778q-0.72119 0-1.2373-0.51269-0.5127-0.51611-0.5127-1.23731 0-0.72119 0.5127-1.23388 0.51611-0.51611 1.2373-0.51612 0.72119 0 1.23389 0.51612 0.51611 0.5127 0.51611 1.23388 0 0.72119-0.51611 1.23731-0.5127 0.5127-1.23389 0.51269z m4.23828-1.75q0 0.72119-0.51269 1.23731-0.5127 0.5127-1.23731 0.51269-0.03418 0-0.09228-0.00683-0.05811-0.01025-0.0957-0.02051 0.29736-0.3623 0.45459-0.80322 0.16064-0.44434 0.16064-0.91944 0-0.47852-0.16748-0.91259-0.16406-0.43408-0.44775-0.81006 0.04785-0.01709 0.0957-0.02051 0.04785-0.00684 0.09228-0.00684 0.72461 0 1.23731 0.51612 0.5127 0.5127 0.51269 1.23388z"/></svg>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[12px] text-muted">Pengguna aktif</p>
+          <p class="text-[20px] font-bold text-deep-ink leading-tight" x-text="penggunaAktifCount() + ' aktif'"></p>
+          <p class="text-[11px] text-muted">Akses tersedia</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-[18px] bg-white border border-[#D7DDE7] rounded-[14px] min-h-[112px]">
+        <span class="flex items-center justify-center w-[42px] h-[42px] rounded-[11px] bg-primary-faint text-primary shrink-0" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M2.69336 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l8.61328 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28222q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-8.61328 0z m8.97217-7.06836l-4.40576 2.88477q-0.06152 0.03076-0.12647 0.05469-0.06152 0.02051-0.1333 0.0205-0.07178 0-0.13672-0.0205-0.06152-0.02393-0.12305-0.05469l-4.40576-2.88477 0 6.125q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912l8.61328 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-6.125z"/></svg>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[12px] text-muted">Undangan tertunda</p>
+          <p class="text-[20px] font-bold text-deep-ink leading-tight" x-text="undanganMenungguCount() + ' menunggu'"></p>
+          <p class="text-[11px] text-muted">Menunggu konfirmasi</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-[18px] bg-white border border-[#D7DDE7] rounded-[14px] min-h-[112px]">
+        <span class="flex items-center justify-center w-[42px] h-[42px] rounded-[11px] bg-primary-faint text-primary shrink-0" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 1.85938q0.08203 0 0.16406 0.01708 0.08545 0.01367 0.16406 0.04444l3.14112 1.16894q0.27344 0.10596 0.44433 0.34864 0.1709 0.23926 0.1709 0.53662l0 2.2832q0 0.12646-0.08545 0.21191-0.08203 0.08203-0.20849 0.08204-0.12305 0-0.2085-0.08204-0.08203-0.08545-0.08203-0.21191l0-2.29004q0-0.11279-0.06152-0.20166-0.06152-0.08887-0.17432-0.1333l-3.14111-1.16894q-0.05469-0.02051-0.12305-0.02051-0.06836 0-0.12305 0.02051l-3.14111 1.16894q-0.11279 0.04443-0.17432 0.1333-0.06152 0.08887-0.06152 0.20166l0 2.50537q0 0.84424 0.24268 1.63379 0.24609 0.78955 0.68017 1.45264 0.43408 0.66309 1.01514 1.15869 0.58447 0.4956 1.25781 0.77588 0.11621 0.05127 0.1709 0.16406 0.05811 0.10938 0.01709 0.22559-0.04785 0.12305-0.16748 0.16748-0.11963 0.04101-0.22559-0.00684-1.63721-0.69385-2.60791-2.2456-0.96729-1.55518-0.96728-3.32569l0-2.49853q0-0.29736 0.1709-0.53662 0.1709-0.24268 0.44433-0.34864l3.14112-1.16894q0.08203-0.0376 0.16406-0.04785 0.08203-0.01367 0.16406-0.01368z m2.91553 10.39062q-0.97412 0-1.6543-0.67676-0.67676-0.68018-0.67676-1.65771 0-0.97412 0.67676-1.65088 0.68018-0.68018 1.6543-0.68018 0.97754 0 1.65429 0.68018 0.68018 0.67676 0.68018 1.65088 0 0.97754-0.68018 1.65771-0.67676 0.67676-1.65429 0.67676z"/></svg>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[12px] text-muted">Peran terkelola</p>
+          <p class="text-[20px] font-bold text-deep-ink leading-tight">3 peran</p>
+          <p class="text-[11px] text-muted">Admin · KM · PJ</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cari + filter -->
+    <div class="flex flex-col md:flex-row gap-3 md:items-center">
+      <label class="relative flex-1 flex items-center min-h-[44px]">
+        <span class="absolute left-3.5 text-muted" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M5.51318 9.41309q-1.62012 0-2.74804-1.12452-1.12451-1.12451-1.12452-2.74804 0-1.62012 1.12452-2.74463 1.12793-1.12451 2.74804-1.12451 1.62012 0 2.74463 1.12451 1.12793 1.12451 1.12793 2.74463 0 0.64941-0.19824 1.21338-0.19482 0.56396-0.5332 0.99463l3.24023 3.24023q0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18799 0.46143-0.18457 0.18457-0.46484 0.18457-0.28027 0-0.46484-0.18457l-3.2334-3.23682q-0.43408 0.33838-1.00147 0.53662-0.56738 0.19482-1.21338 0.19483z m0-1.32618q1.06299 0 1.80469-0.7417 0.7417-0.7417 0.7417-1.80468 0-1.05957-0.7417-1.80127-0.7417-0.7417-1.80469-0.7417-1.06299 0-1.80468 0.7417-0.73828 0.7417-0.73829 1.80127 0 1.06299 0.73829 1.80468 0.7417 0.7417 1.80468 0.7417z"/></svg>
+        </span>
+        <span class="sr-only">Cari nama atau nomor WhatsApp</span>
+        <input type="search" x-model="penggunaQ" placeholder="Cari nama atau nomor WhatsApp..." class="h-11 w-full rounded-[10px] border border-[#CBD5E1] bg-white pl-10 pr-3 text-[13px]" />
+      </label>
+      <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+        <span class="sr-only">Filter peran</span>
+        <select x-model="penugasanRole" @change="undanganRole = penugasanRole; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-deep-ink cursor-pointer">
+          <option value="">Semua peran</option>
+          <option value="SYSTEM_ADMIN">System Admin</option>
+          <option value="KM">Ketua Murid</option>
+          <option value="PJ">PJ</option>
+        </select>
+        <span class="pointer-events-none absolute right-2.5 text-muted" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </label>
+      <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+        <span class="sr-only">Filter status</span>
+        <select x-model="penugasanStatus" @change="undanganStatus = penugasanStatus; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-deep-ink cursor-pointer">
           <option value="">Semua status</option>
           <option value="ACTIVE">Aktif</option>
           <option value="SUSPENDED">Ditangguhkan</option>
           <option value="REVOKED">Dicabut</option>
+          <option value="PENDING">Menunggu</option>
         </select>
-        <select x-model="penugasanRole" @change="loadPenugasan()" aria-label="Filter peran" class="ui-field text-[13px]">
-          <option value="">Semua peran</option>
-          <option value="SYSTEM_ADMIN">System Admin</option>
-          <option value="KM">Ketua Murid</option>
-          <option value="PJ">PJ Mata Kuliah</option>
-        </select>
-        <select x-model="penugasanKelas" @change="loadPenugasan()" aria-label="Filter kelas penugasan" class="ui-field text-[13px] max-w-[220px]">
+        <span class="pointer-events-none absolute right-2.5 text-muted" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </label>
+      <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+        <span class="sr-only">Filter kelas</span>
+        <select x-model="penugasanKelas" @change="undanganKelas = penugasanKelas; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-deep-ink cursor-pointer">
           <option value="">Semua kelas</option>
-          <template x-for="k in kelasList" :key="k.slug">
-            <option :value="k.slug" x-text="k.nama">-</option>
-          </template>
+          <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
         </select>
-      </div>
-      <div x-show="penugasanLoading" class="p-12 text-center text-slate-500">
-        <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p class="mt-3 text-[14px]">Memuat penugasan...</p>
-      </div>
-      <div x-show="penugasanError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="penugasanError">-</span>
-        <button type="button" @click="loadPenugasan()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!penugasanLoading && !penugasanError && penugasanList.length === 0" class="ui-empty p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
-        <p class="text-[15px] font-semibold text-ink">Tidak ada penugasan</p>
-        <p class="text-[13px] mt-0.5">Tidak ada penugasan dengan filter yang dipilih.</p>
-        <button type="button" @click="resetPenugasanFilter(); loadPenugasan()" class="ui-button ui-button--ghost mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
-      </div>
-      <div x-show="!penugasanLoading && penugasanList.length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
-        <template x-for="a in penugasanList" :key="a.id">
-          <div class="py-4">
-            <div class="flex flex-col md:flex-row md:items-center gap-2">
-              <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold text-ink truncate"><span x-text="a.display_name || a.identity_key">-</span> <span class="font-mono font-normal text-slate-500" x-text="'· ' + a.role">-</span></p>
-                <p class="text-[12px] text-slate-500 truncate" x-text="scopePenugasan(a)">-</p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Berlaku <span class="font-mono" x-text="fmtWaktuID(a.valid_from)">-</span><span x-show="a.valid_until" x-text="' → ' + fmtWaktuID(a.valid_until)"></span></p>
-              </div>
-              <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-                :class="String(a.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : (String(a.status).toUpperCase() === 'SUSPENDED' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-500')">
-                <span class="material-symbols-outlined text-[14px]" x-text="String(a.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
-                <span x-text="labelStatusPenugasan(a.status)">-</span>
-              </span>
-              <div class="flex gap-2" x-show="String(a.status).toUpperCase() === 'ACTIVE' && !isPenugasanAktifSendiri(a)">
-                <button type="button" @click="mulaiAksiPenugasan(a, 'tangguhkan')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
-                <button type="button" @click="mulaiAksiPenugasan(a, 'cabut')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Cabut</button>
-              </div>
-              <span x-show="isPenugasanAktifSendiri(a)" class="text-[12px] font-semibold text-slate-500 w-fit">Sesi aktif Anda</span>
-            </div>
-            <div x-show="penugasanAksi && penugasanAksi.id === a.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
-              <p class="text-[13px] font-semibold" x-text="(penugasanAksi.aksi === 'cabut' ? 'Cabut ' : 'Tangguhkan ') + penugasanAksi.nama">-</p>
-              <p class="text-[12px] text-red-700 mt-1">Sesi yang memakai penugasan ini dicabut seketika. Tercatat di Audit Global.</p>
-              <div x-show="penugasanGuard" class="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
-                <p class="font-semibold">Kelas akan kehilangan seluruh KM aktif.</p>
-                <p class="mt-0.5">Undang pengganti dulu, atau centang insiden keamanan untuk memaksa.</p>
-                <div class="flex flex-wrap gap-2 mt-2">
-                  <button type="button" @click="undangPenggantiKM()" class="ui-button ui-button--primary text-[12px] font-semibold">Undang pengganti</button>
-                </div>
-                <label class="flex items-start gap-2 mt-2 select-none">
-                  <input type="checkbox" x-model="penugasanForce" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
-                  Insiden keamanan — cabut paksa KM terakhir.
-                </label>
-              </div>
-              <label :for="'sa-penugasan-alasan-' + a.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan tindakan <span class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input aria-label="Alasan tindakan" :id="'sa-penugasan-alasan-' + a.id" type="text" x-model="penugasanAlasan" placeholder="Contoh: Rotasi PJ semester baru" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanAksiPenugasan()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="penugasanAksi = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
+        <span class="pointer-events-none absolute right-2.5 text-muted" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </label>
     </div>
 
-    <!-- Tab Undangan -->
-    <div x-show="penggunaTab === 'undangan'" id="sa-panel-undangan" role="tabpanel" aria-labelledby="sa-tab-undangan">
-      <div class="mt-4 flex flex-col sm:flex-row gap-2">
-        <select x-model="undanganStatus" @change="loadUndangan()" aria-label="Filter status undangan" class="ui-field text-[13px]">
-          <option value="">Semua status</option>
-          <option value="PENDING">Menunggu</option>
-          <option value="ACCEPTED">Diterima</option>
-          <option value="EXPIRED">Kedaluwarsa</option>
-          <option value="REVOKED">Dicabut</option>
-        </select>
-        <select x-model="undanganRole" @change="loadUndangan()" aria-label="Filter peran undangan" class="ui-field text-[13px]">
-          <option value="">Semua peran</option>
-          <option value="KM">Ketua Murid</option>
-          <option value="PJ">PJ Mata Kuliah</option>
-        </select>
-        <select x-model="undanganKelas" @change="loadUndangan()" aria-label="Filter kelas undangan" class="ui-field text-[13px] max-w-[220px]">
-          <option value="">Semua kelas</option>
-          <template x-for="k in kelasList" :key="k.slug">
-            <option :value="k.slug" x-text="k.nama">-</option>
-          </template>
-        </select>
-        <button type="button" @click="go('kelas')" class="ui-button ui-button--primary text-[13px] font-semibold sm:ml-auto">Buat undangan KM</button>
-      </div>
-      <p class="text-[11px] text-slate-400 mt-2">Undangan berlaku 7 hari, sekali pakai. Tautan hanya tampil sekali saat dibuat; hilang = buat baru (token lama otomatis batal). Penerima tak dapat ubah peran/scope.</p>
-      <div class="mt-4 p-5 rounded-2xl border border-border bg-slate-50/60">
-        <h2 class="text-[15px] font-bold text-ink">Undang System Admin</h2>
-        <p class="text-[12px] text-slate-500 mt-0.5">Tanpa kelas (scope global). Hanya System Admin yang bisa mengundang.</p>
-        <div x-show="undanganSAError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2"><span class="material-symbols-outlined shrink-0">error</span><span x-text="undanganSAError"></span></div>
-        <div class="flex flex-col sm:flex-row gap-2 mt-3">
-          <input type="text" x-model="undanganSANomor" placeholder="Nomor WhatsApp, mis. 081234567890" aria-label="Nomor WhatsApp calon System Admin" class="ui-field flex-1 text-[14px] font-mono" />
-          <button type="button" @click="buatUndanganSA()" :disabled="undanganSALoading" class="ui-button ui-button--primary text-[13px] font-semibold">Buat undangan</button>
+    <div x-show="penggunaError || penugasanError || undanganError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+      <span x-text="penggunaError || penugasanError || undanganError">-</span>
+      <button type="button" @click="muatPenggunaSemua()" class="ml-2 font-semibold underline">Coba lagi</button>
+    </div>
+
+    <!-- Daftar + panduan -->
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+      <div class="flex-1 min-w-0 w-full bg-white border border-[#D7DDE7] rounded-2xl p-5">
+        <div class="flex items-center gap-3">
+          <h2 class="text-[17px] font-bold text-deep-ink">Daftar pengguna</h2>
+          <span class="flex-1"></span>
+          <span class="text-[11px] text-muted" x-text="barisPenggunaCount() + ' hasil'">-</span>
         </div>
-        <div x-show="undanganSAResult" class="mt-3 p-4 rounded-xl bg-success border border-green-200 text-[13px] text-green-800">
-          <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">check_circle</span>Undangan siap</p>
-          <p class="mt-1">ID <span class="font-mono font-semibold" x-text="undanganSAResult.invitation_id">-</span> · Berlaku s.d. <span class="font-mono" x-text="undanganSAResult.expires_at ? fmtWaktuID(undanganSAResult.expires_at) : '-'">-</span></p>
-          <button type="button" @click="copyText(undanganSAResult.link, 'Tautan undangan SA disalin.')" x-show="undanganSAResult.link" class="ui-button ui-button--ghost mt-2 h-10 px-4 rounded-lg bg-white border border-green-300 text-[12px] font-semibold min-h-[44px]">Salin tautan</button>
+        <div x-show="barisPenggunaCount() === 0" class="mt-4 p-12 rounded-[10px] border border-dashed border-[#D7DDE7] text-center text-muted">
+          <p class="text-[15px] font-semibold text-ink">Tidak ada hasil</p>
+          <p class="text-[13px] mt-1">Coba ubah kata kunci atau filter.</p>
+          <button type="button" @click="resetSemuaFilterPengguna()" class="mt-3 h-10 px-5 rounded-xl border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
         </div>
-      </div>
-      <div x-show="undanganLoading" class="p-12 text-center text-slate-500">
-        <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p class="mt-3 text-[14px]">Memuat undangan...</p>
-      </div>
-      <div x-show="undanganError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="undanganError">-</span>
-        <button type="button" @click="loadUndangan()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!undanganLoading && !undanganError && undanganList.length === 0" class="ui-empty p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
-        <p class="text-[15px] font-semibold text-ink">Tidak ada undangan</p>
-        <p class="text-[13px] mt-0.5">Tidak ada undangan dengan filter yang dipilih.</p>
-        <button type="button" @click="resetUndanganFilter(); loadUndangan()" class="ui-button ui-button--ghost mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
-      </div>
-      <div x-show="!undanganLoading && undanganList.length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
-        <template x-for="u in undanganList" :key="u.id">
-          <div class="py-4">
-            <div class="flex flex-col md:flex-row md:items-center gap-2">
-              <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold text-ink font-mono truncate" x-text="u.invited_identity_key">-</p>
-                <p class="text-[12px] text-slate-500 truncate"><span x-text="u.role">-</span><span x-show="u.class_slug" x-text="' · ' + u.class_slug"></span><span x-show="u.invited_by" x-text="' · oleh ' + u.invited_by"></span></p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Berlaku s.d. <span class="font-mono" :title="u.expires_at" x-text="fmtWaktuID(u.expires_at)">-</span><span x-show="undanganSisaWaktu(u.expires_at)" x-text="' (' + undanganSisaWaktu(u.expires_at) + ')'"></span></p>
-              </div>
-              <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-                :class="String(u.status).toUpperCase() === 'PENDING' && !u.is_expired ? 'bg-amber-50 text-amber-900' : (String(u.status).toUpperCase() === 'ACCEPTED' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500')">
-                <span class="material-symbols-outlined text-[14px]" x-text="String(u.status).toUpperCase() === 'ACCEPTED' ? 'check_circle' : (String(u.status).toUpperCase() === 'PENDING' && !u.is_expired ? 'pending' : 'block')">-</span>
-                <span x-text="labelStatusUndangan(u.status, u.is_expired)">-</span>
-              </span>
-              <div class="flex gap-2" x-show="String(u.status).toUpperCase() === 'PENDING'">
-                <button type="button" @click="kirimUlangUndangan(u)" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Buat baru</button>
-                <button type="button" @click="mulaiAksiUndangan(u)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Cabut</button>
-              </div>
+        <div x-show="barisPenggunaCount() > 0" class="mt-4 overflow-x-auto">
+          <div class="min-w-[754px]">
+            <div class="grid grid-cols-[177px_115px_104px_126px_minmax(0,1fr)] gap-3 px-3 h-11 items-center bg-surface-subtle rounded-lg text-[10px] font-bold text-muted" aria-hidden="true">
+              <span>PENGGUNA</span><span>PERAN</span><span>KELAS</span><span>STATUS</span><span class="text-right">AKSI</span>
             </div>
-            <div x-show="undanganAksi && undanganAksi.id === u.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
-              <p class="text-[13px] font-semibold" x-text="'Cabut undangan ' + undanganAksi.nama">-</p>
-              <p class="text-[12px] text-red-700 mt-1">Token undangan batal dan tak bisa dipakai aktivasi. Tercatat di Audit Global.</p>
-              <label :for="'sa-undangan-alasan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan pencabutan <span class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input aria-label="Alasan pencabutan" :id="'sa-undangan-alasan-' + u.id" type="text" x-model="undanganAlasan" placeholder="Contoh: Salah nomor kandidat" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanAksiUndangan()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="undanganAksi = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+            <template x-for="(a, i) in filteredPenugasan()" :key="'a-' + a.id">
+              <div>
+                <div class="grid grid-cols-[177px_115px_104px_126px_minmax(0,1fr)] gap-3 px-3 py-3 items-center border-b border-[#EEEEEE] min-h-[76px]" :class="i % 2 === 1 ? 'bg-surface-subtle' : 'bg-white'">
+                  <div class="min-w-0">
+                    <p class="text-[13px] text-deep-ink truncate">
+                      <span x-text="a.display_name || a.identity_key"></span>
+                      <template x-if="isPenugasanAktifSendiri(a)"><span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-full bg-[#EEF1F5] text-[#475467] text-[10px]">Anda</span></template>
+                    </p>
+                    <p class="text-[11px] text-muted font-mono truncate mt-0.5" x-text="a.identity_key"></p>
+                  </div>
+                  <div>
+                    <span class="inline-flex px-2 py-[5px] rounded-[7px] text-[11px] font-semibold" :class="String(a.role || '').toUpperCase() === 'SYSTEM_ADMIN' ? 'bg-primary-faint text-primary' : 'bg-surface-subtle text-deep-ink'" x-text="labelPeran(a.role)"></span>
+                  </div>
+                  <p class="text-[11px] text-deep-ink truncate" x-text="kelasPenugasan(a)"></p>
+                  <div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-[11px]" :class="String(a.status || '').toUpperCase() === 'ACTIVE' ? 'bg-success text-[#166534]' : (String(a.status || '').toUpperCase() === 'SUSPENDED' ? 'bg-[#FEE4E2] text-[#991B1B] text-[10px] font-bold px-[9px] py-[5px]' : 'bg-slate-100 text-slate-500')" x-text="labelStatusPenugasan(a.status)"></span>
+                  </div>
+                  <div class="flex items-center justify-end gap-2">
+                    <div class="relative" @click.outside="penggunaMenu = null">
+                      <button type="button" @click="togglePenggunaMenu('a-' + a.id)" :aria-expanded="String(penggunaMenu === 'a-' + a.id)" :aria-label="'Menu ' + (a.display_name || a.identity_key)" class="w-11 h-11 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-muted min-w-[44px] min-h-[44px] transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41357 0.1709z"/></svg>
+                      </button>
+                      <div x-show="penggunaMenu === 'a-' + a.id" class="absolute right-0 top-[48px] z-20 w-[216px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-card py-1" role="menu" :aria-label="'Menu ' + (a.display_name || a.identity_key)">
+                        <template x-if="String(a.status).toUpperCase() === 'ACTIVE' && !isPenugasanAktifSendiri(a)">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiPenugasan(a, 'tangguhkan')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Tangguhkan penugasan</button>
+                        </template>
+                        <template x-if="String(a.status).toUpperCase() === 'ACTIVE' && !isPenugasanAktifSendiri(a)">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiPenugasan(a, 'cabut')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Cabut penugasan</button>
+                        </template>
+                        <template x-if="String(a.status).toUpperCase() === 'SUSPENDED' && !isPenugasanAktifSendiri(a)">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiPenugasan(a, 'cabut')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Cabut penugasan</button>
+                        </template>
+                        <template x-if="penggunaUntukPenugasan(a) && !isAkunSendiri(penggunaUntukPenugasan(a)) && String(penggunaUntukPenugasan(a).status).toUpperCase() === 'ACTIVE'">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiPengguna(penggunaUntukPenugasan(a), 'tangguhkan')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Tangguhkan akun</button>
+                        </template>
+                        <template x-if="penggunaUntukPenugasan(a) && !isAkunSendiri(penggunaUntukPenugasan(a)) && String(penggunaUntukPenugasan(a).status).toUpperCase() !== 'ACTIVE'">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiPengguna(penggunaUntukPenugasan(a), 'pulihkan')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Pulihkan akun</button>
+                        </template>
+                        <button type="button" @click="bukaAuditPengguna(a.identity_key)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Lihat aktivitas</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div x-show="penugasanAksi && penugasanAksi.id === a.id" class="mx-3 mb-3 p-4 rounded-xl bg-slate-50 border border-border">
+                  <p class="text-[13px] font-semibold" x-text="(penugasanAksi.aksi === 'cabut' ? 'Cabut ' : 'Tangguhkan ') + penugasanAksi.nama">-</p>
+                  <p class="text-[12px] text-red-700 mt-1">Sesi yang memakai penugasan ini dicabut seketika. Tercatat di Audit Global.</p>
+                  <div x-show="penugasanGuard" class="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
+                    <p class="font-semibold">Kelas akan kehilangan seluruh KM aktif.</p>
+                    <p class="mt-0.5">Undang pengganti dulu, atau centang insiden keamanan untuk memaksa.</p>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                      <button type="button" @click="undangPenggantiKM()" class="h-10 px-4 rounded-lg bg-primary text-white text-[12px] font-semibold min-h-[40px]">Undang pengganti</button>
+                    </div>
+                    <label class="flex items-start gap-2 mt-2 select-none">
+                      <input type="checkbox" x-model="penugasanForce" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
+                      Insiden keamanan — cabut paksa KM terakhir.
+                    </label>
+                  </div>
+                  <label :for="'sa-penugasan-alasan-' + a.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan tindakan <span class="text-red-600">*</span></label>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input aria-label="Alasan tindakan" :id="'sa-penugasan-alasan-' + a.id" type="text" x-model="penugasanAlasan" placeholder="Contoh: Rotasi PJ semester baru" class="ui-field flex-1 text-[14px]" />
+                    <button type="button" @click="jalankanAksiPenugasan()" class="h-11 px-4 rounded-[10px] bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                    <button type="button" @click="penugasanAksi = null" class="h-11 px-4 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+                  </div>
+                </div>
+                <div x-show="penggunaAksi && penggunaUntukPenugasan(a) && penggunaAksi.id === penggunaUntukPenugasan(a).id" class="mx-3 mb-3 p-4 rounded-xl bg-slate-50 border border-border">
+                  <p class="text-[13px] font-semibold" x-text="(penggunaAksi.aksi === 'tangguhkan' ? 'Tangguhkan akun ' : 'Pulihkan akun ') + penggunaAksi.nama">-</p>
+                  <p x-show="penggunaAksi.aksi === 'tangguhkan'" class="text-[12px] text-red-700 mt-1">Akun ditangguhkan dan seluruh sesi aktif dicabut seketika. Tercatat di Riwayat Perubahan.</p>
+                  <label for="sa-pengguna-alasan" class="block text-[13px] font-medium mt-2 mb-1">Alasan tindakan <span class="text-red-600">*</span></label>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="sa-pengguna-alasan" type="text" x-model="penggunaAlasan" placeholder="Contoh: Pelanggaran kebijakan kelas" class="ui-field flex-1 text-[14px]" />
+                    <button type="button" @click="jalankanAksiPengguna()" class="h-11 px-4 rounded-[10px] bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                    <button type="button" @click="penggunaAksi = null" class="h-11 px-4 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+                  </div>
+                </div>
               </div>
-            </div>
+            </template>
+            <template x-for="(u, j) in filteredUndangan()" :key="'u-' + u.id">
+              <div>
+                <div class="grid grid-cols-[177px_115px_104px_126px_minmax(0,1fr)] gap-3 px-3 py-3 items-center border-b border-[#EEEEEE] min-h-[76px]" :class="(filteredPenugasan().length + j) % 2 === 1 ? 'bg-surface-subtle' : 'bg-white'">
+                  <div class="min-w-0">
+                    <p class="text-[13px] text-deep-ink font-mono truncate" x-text="u.invited_identity_key"></p>
+                    <p class="text-[11px] text-muted truncate mt-0.5">Berlaku s.d. <span class="font-mono" x-text="fmtWaktuID(u.expires_at)"></span></p>
+                  </div>
+                  <div>
+                    <span class="inline-flex px-2 py-[5px] rounded-[7px] text-[11px] font-semibold" :class="String(u.role || '').toUpperCase() === 'SYSTEM_ADMIN' ? 'bg-primary-faint text-primary' : 'bg-surface-subtle text-deep-ink'" x-text="labelPeran(u.role)"></span>
+                  </div>
+                  <p class="text-[11px] text-deep-ink truncate" x-text="u.class_slug || 'Semua kelas'"></p>
+                  <div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-[11px]" :class="undanganMenunggu(u) ? 'bg-warning-soft text-[#92400E] text-[10px] font-bold px-[9px] py-[5px]' : 'bg-slate-100 text-slate-500'" x-text="labelStatusUndangan(u.status, u.is_expired)"></span>
+                  </div>
+                  <div class="flex items-center justify-end gap-2">
+                    <template x-if="undanganMenunggu(u) && u.class_slug">
+                      <button type="button" @click="kirimUlangUndangan(u)" class="h-10 px-2.5 rounded-[9px] bg-primary-faint hover:bg-[#DFE4FF] text-primary text-[11px] min-h-[40px] transition-colors">Buat baru</button>
+                    </template>
+                    <div class="relative" @click.outside="penggunaMenu = null">
+                      <button type="button" @click="togglePenggunaMenu('u-' + u.id)" :aria-expanded="String(penggunaMenu === 'u-' + u.id)" :aria-label="'Menu undangan ' + u.invited_identity_key" class="w-11 h-11 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-muted min-w-[44px] min-h-[44px] transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41357 0.1709z"/></svg>
+                      </button>
+                      <div x-show="penggunaMenu === 'u-' + u.id" class="absolute right-0 top-[48px] z-20 w-[216px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-card py-1" role="menu" :aria-label="'Menu undangan ' + u.invited_identity_key">
+                        <template x-if="undanganMenunggu(u) && !u.class_slug">
+                          <button type="button" @click="penggunaMenu = null; kirimUlangUndangan(u)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Buat undangan baru</button>
+                        </template>
+                        <template x-if="String(u.status).toUpperCase() === 'PENDING'">
+                          <button type="button" @click="penggunaMenu = null; mulaiAksiUndangan(u)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Cabut undangan</button>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div x-show="undanganAksi && undanganAksi.id === u.id" class="mx-3 mb-3 p-4 rounded-xl bg-slate-50 border border-border">
+                  <p class="text-[13px] font-semibold" x-text="'Cabut undangan ' + undanganAksi.nama">-</p>
+                  <p class="text-[12px] text-red-700 mt-1">Token undangan batal dan tak bisa dipakai aktivasi. Tercatat di Audit Global.</p>
+                  <label :for="'sa-undangan-alasan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan pencabutan <span class="text-red-600">*</span></label>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input aria-label="Alasan pencabutan" :id="'sa-undangan-alasan-' + u.id" type="text" x-model="undanganAlasan" placeholder="Contoh: Salah nomor kandidat" class="ui-field flex-1 text-[14px]" />
+                    <button type="button" @click="jalankanAksiUndangan()" class="h-11 px-4 rounded-[10px] bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+                    <button type="button" @click="undanganAksi = null" class="h-11 px-4 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
-        </template>
+        </div>
+        <p class="mt-4 text-[11px] text-muted px-1">Akses kelas mengikuti peran yang diberikan.</p>
+      </div>
+      <div class="w-full lg:w-[310px] shrink-0 bg-white border border-[#D7DDE7] rounded-2xl p-5">
+        <h2 class="text-[17px] font-bold text-deep-ink">Cakupan peran</h2>
+        <p class="text-[12px] text-muted mt-1">Periksa cakupan akses sebelum mengundang pengguna.</p>
+        <div class="mt-2 border-t border-[#EEEEEE] pt-3.5">
+          <p class="flex items-center gap-2 text-[13px] text-deep-ink">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false"><path d="M7 1.85938q0.08203 0 0.16406 0.01708 0.08545 0.01367 0.16406 0.04444l3.14112 1.16894q0.27344 0.10596 0.44433 0.34864 0.1709 0.23926 0.1709 0.53662l0 2.2832q0 0.12646-0.08545 0.21191-0.08203 0.08203-0.20849 0.08204-0.12305 0-0.2085-0.08204-0.08203-0.08545-0.08203-0.21191l0-2.29004q0-0.11279-0.06152-0.20166-0.06152-0.08887-0.17432-0.1333l-3.14111-1.16894q-0.05469-0.02051-0.12305-0.02051-0.06836 0-0.12305 0.02051l-3.14111 1.16894q-0.11279 0.04443-0.17432 0.1333-0.06152 0.08887-0.06152 0.20166l0 2.50537q0 0.84424 0.24268 1.63379 0.24609 0.78955 0.68017 1.45264 0.43408 0.66309 1.01514 1.15869 0.58447 0.4956 1.25781 0.77588 0.11621 0.05127 0.1709 0.16406 0.05811 0.10938 0.01709 0.22559-0.04785 0.12305-0.16748 0.16748-0.11963 0.04101-0.22559-0.00684-1.63721-0.69385-2.60791-2.2456-0.96729-1.55518-0.96728-3.32569l0-2.49853q0-0.29736 0.1709-0.53662 0.1709-0.24268 0.44433-0.34864l3.14112-1.16894q0.08203-0.0376 0.16406-0.04785 0.08203-0.01367 0.16406-0.01368z"/></svg>
+            <span>System Admin</span>
+          </p>
+          <p class="text-[11px] text-muted mt-1">Kelola data master dan akses pengguna.</p>
+        </div>
+        <div class="mt-3.5 border-t border-[#EEEEEE] pt-3.5">
+          <p class="flex items-center gap-2 text-[13px] text-deep-ink">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false"><path d="M1.0083 10.25391q-0.18115 0-0.3042-0.12305-0.11963-0.12305-0.11963-0.3042l0-0.07861q0-0.53662 0.57422-0.88867 0.57422-0.35547 1.47656-0.35547 0.1333 0 0.28711 0.01367 0.15381 0.01025 0.32471 0.04101-0.13672 0.23926-0.20166 0.49219-0.06152 0.24951-0.06152 0.50244l0 0.70069-1.97559 0z m3.55127 0q-0.2085 0-0.3418-0.13331-0.1333-0.13672-0.1333-0.33837l0-0.18457q0-0.35205 0.20166-0.64258 0.20508-0.29395 0.60498-0.50928 0.3999-0.21191 0.92969-0.31787 0.5332-0.10596 1.17578-0.10596 0.65283 0 1.18262 0.10596 0.5332 0.10596 0.9331 0.31787 0.3999 0.21533 0.60157 0.50928 0.20166 0.29053 0.20166 0.64258l0 0.18457q0 0.20166-0.13672 0.33837-0.1333 0.1333-0.33496 0.13331l-4.88428 0z m6.45654 0l0-0.70069q0-0.28027-0.06152-0.52295-0.06152-0.24609-0.18457-0.47168 0.18457-0.03076 0.32813-0.04101 0.14697-0.01367 0.27685-0.01367 0.90576 0 1.47315 0.35205 0.56738 0.35205 0.56738 0.89209l0 0.07861q0 0.18115-0.12305 0.3042-0.11963 0.12305-0.30078 0.12305l-1.97559 0z m-6.33349-0.58448l4.63818 0 0-0.12304q-0.03418-0.41357-0.68359-0.67676-0.646-0.2666-1.63721-0.2666-0.99121 0-1.64063 0.2666-0.646 0.26318-0.67675 0.67676l0 0.12304z m-2.05078-1.71582q-0.3418 0-0.58448-0.24267-0.24268-0.24609-0.24267-0.58789 0-0.33838 0.24267-0.57764 0.24609-0.23926 0.58789-0.23926 0.33838 0 0.58448 0.23926 0.24609 0.23926 0.24609 0.58105 0 0.33154-0.23926 0.58106-0.23926 0.24609-0.59472 0.24609z m8.74316 0q-0.33496 0-0.58447-0.24609-0.24609-0.24951-0.2461-0.58106 0-0.3418 0.2461-0.58105 0.24951-0.23926 0.58789-0.23926 0.34521 0 0.58447 0.23926 0.24267 0.23926 0.24268 0.57764 0 0.3418-0.23926 0.58789-0.23926 0.24268-0.59131 0.24267z m-4.37158-0.36914q-0.52979 0-0.90576-0.37256-0.37598-0.37598-0.37598-0.90576 0-0.54688 0.37256-0.9126 0.37256-0.36914 0.90576-0.36914 0.54346 0 0.90918 0.36914 0.36914 0.36572 0.36914 0.90577 0 0.5332-0.36572 0.90918-0.36572 0.37598-0.90918 0.37597z"/></svg>
+            <span>Ketua Murid</span>
+          </p>
+          <p class="text-[11px] text-muted mt-1">Kelola jadwal dan koordinasi kelas.</p>
+        </div>
+        <div class="mt-3.5 border-t border-[#EEEEEE] pt-3.5">
+          <p class="flex items-center gap-2 text-[13px] text-deep-ink">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false"><path d="M3.27441 11.66553q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.66992l0-7.45118q0-0.3999 0.27002-0.66992 0.27002-0.27002 0.66992-0.27002l2.74121 0q-0.06494-0.45801 0.22559-0.81347 0.29395-0.35547 0.75879-0.35547 0.46484 0 0.75537 0.35547 0.29395 0.35547 0.229 0.81347l2.74122 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.66992l0 7.45118q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-7.45118 0z m3.72559-9.07471q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z m0.59082 5.03809q0.73486 0 1.24072-0.50928 0.50928-0.50928 0.50928-1.24072 0-0.73486-0.50928-1.24073-0.50586-0.50928-1.24072-0.50927-0.73486 0-1.24414 0.50927-0.50586 0.50586-0.50586 1.24073 0 0.73145 0.50586 1.24072 0.50928 0.50928 1.24414 0.50928z"/></svg>
+            <span>PJ</span>
+          </p>
+          <p class="text-[11px] text-muted mt-1">Kelola tugas sesuai kelas yang ditugaskan.</p>
+        </div>
       </div>
     </div>
   </div>

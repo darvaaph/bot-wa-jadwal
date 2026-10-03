@@ -1,9 +1,21 @@
-    <div x-show="dukunganAktif" x-cloak class="bg-amber-100 border-b border-amber-300 px-4 md:px-8 py-3" role="status">
-      <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-2 text-[13px] text-amber-900">
-        <p class="flex-1"><span class="font-bold">Mode Dukungan aktif</span> — <span x-text="namaDukungan()"></span> · Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan) : ''"></span><span x-show="dukunganAktif && dukunganAktif.expires_at" x-text="' · s.d. ' + fmtWaktuID(dukunganAktif.expires_at)"></span></p>
-        <div class="flex gap-2">
-          <button type="button" @click="bukaDetail(dukunganAktif.class_slug || dukunganAktif.slug)" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
-          <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="ui-button ui-button--ghost h-10 px-4 rounded-lg bg-amber-600 text-white text-[12px] font-semibold min-h-[44px] disabled:opacity-60">Keluar</button>
-        </div>
+<div x-show="dukunganAktif" x-cloak class="bg-[#FFFBEB] border-b border-[#FCD34D] px-4 md:px-8 py-3" role="status">
+  <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
+    <div class="flex-1 min-w-0 flex items-center gap-3">
+      <svg width="24" height="24" viewBox="0 0 14 14" fill="#B45309" class="shrink-0" aria-hidden="true" focusable="false"><path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z"/></svg>
+      <div class="min-w-0">
+        <p class="text-[14px] font-bold text-[#78350F] truncate">Mode Dukungan aktif — <span x-text="namaDukungan()"></span></p>
+        <p class="text-[12px] font-medium text-[#92400E] truncate">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan || '-') : ''"></span> · Berlaku s.d. <span x-text="dukunganJam()"></span> (<span x-text="dukunganSisa()"></span>)</p>
       </div>
     </div>
+    <div class="flex items-center gap-2.5 shrink-0">
+      <button type="button" @click="bukaAuditKelas(dukunganKelasSlug())" class="h-10 px-3 rounded-lg bg-[#FFFBEB] border border-[#FBBF24] hover:bg-amber-100 text-[#78350F] text-[12px] font-bold min-h-[40px] inline-flex items-center gap-1.5 transition-colors">
+        <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.00342 8.83887q0.88867 0 1.50732-0.62207 0.62207-0.62207 0.62207-1.51075 0-0.88867-0.62549-1.50732-0.62207-0.62207-1.51074-0.62207-0.88867 0-1.51074 0.62207-0.61865 0.62207-0.61865 1.51074 0 0.89209 0.62207 1.51074 0.62549 0.61865 1.51416 0.61866z m-0.00342-0.55713q-0.65625 0-1.11768-0.45801-0.45801-0.45801-0.458-1.11426 0-0.65625 0.458-1.11426 0.46143-0.46143 1.11768-0.46142 0.65625 0 1.11426 0.46142 0.46143 0.45801 0.46143 1.11426 0 0.65625-0.46143 1.11426-0.45801 0.45801-1.11426 0.45801z m0 2.21826q-1.72949 0-3.17529-0.91602-1.44238-0.91602-2.33106-2.39941-0.07178-0.11963-0.10254-0.23584-0.03076-0.11963-0.03076-0.24268 0-0.11963 0.03076-0.23584 0.03076-0.11621 0.10254-0.23583 0.88867-1.48682 2.33106-2.40284 1.4458-0.91602 3.17529-0.91601 1.72949 0 3.17188 0.91601 1.4458 0.91602 2.33447 2.40284 0.07178 0.11963 0.10254 0.23583 0.03076 0.11621 0.03076 0.23926 0 0.12305-0.03076 0.23926-0.03076 0.11621-0.10254 0.23584-0.88867 1.4834-2.33447 2.39941-1.44238 0.91602-3.17188 0.91602z m0-0.58447q1.64746 0 3.0249-0.86475 1.38086-0.86816 2.10889-2.34131-0.72803-1.47314-2.10889-2.34131-1.37744-0.86816-3.0249-0.86816-1.64746 0-3.02832 0.86816-1.37744 0.86816-2.10547 2.34131 0.72803 1.47314 2.10547 2.34131 1.38086 0.86475 3.02832 0.86475z"/></svg>
+        <span>Lihat Log Audit</span>
+      </button>
+      <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="h-10 px-3 rounded-lg bg-[#DC2626] hover:bg-red-700 text-white text-[12px] font-bold min-h-[40px] inline-flex items-center gap-1.5 disabled:opacity-60 transition-colors">
+        <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/></svg>
+        <span x-text="dukunganLoading ? 'Keluar...' : 'Keluar Dukungan'"></span>
+      </button>
+    </div>
+  </div>
+</div>
