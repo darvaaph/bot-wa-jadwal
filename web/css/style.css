@@ -11,9 +11,11 @@ h1, h2, .font-display { font-family: 'Poppins', sans-serif; }
 
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
-  font-weight: normal; font-style: normal; line-height: 1;
+  font-weight: normal; font-style: normal; font-size: 24px; line-height: 1;
   letter-spacing: normal; text-transform: none;
-  display: inline-block; white-space: nowrap; direction: ltr;
+  font-feature-settings: 'liga'; -webkit-font-feature-settings: 'liga';
+  display: inline-block; width: 1em; height: 1em; overflow: hidden;
+  white-space: nowrap; word-wrap: normal; direction: ltr;
   -webkit-font-smoothing: antialiased; vertical-align: middle;
 }
 
@@ -33,19 +35,6 @@ textarea:focus-visible, input:focus-visible {
 .km-assignment-menu summary:focus-visible {
   outline: 2px solid var(--focus); outline-offset: 2px;
 }
-.km-assignment-dialog {
-  width: min(32rem, calc(100% - 2rem));
-  max-height: calc(100dvh - 2rem);
-  margin: auto;
-  padding: 0;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  color: var(--text);
-  background: var(--surface);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
-}
-.km-assignment-dialog::backdrop { background: rgba(15, 23, 42, 0.52); }
 nav button { min-height: 44px; }
 
 /* Sidebar collapsed state driven by Alpine `sidebar-collapsed`. */
@@ -72,6 +61,6 @@ nav button { min-height: 44px; }
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-track { background: var(--surface-subtle); }
+::-webkit-scrollbar-thumb { background: var(--disabled); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }

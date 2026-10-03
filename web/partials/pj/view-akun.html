@@ -1,10 +1,10 @@
 <!-- partials/pj/view-akun.html — PJ Akun + pindah peran ke KM (role switcher) -->
 <section x-show="view === 'akun'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Akun</h1>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold">Akun</h1>
   <p class="text-[14px] text-slate-500 mt-1">Profil dan peran pengelola.</p>
-  <div class="mt-5 p-5 rounded-2xl border border-border bg-white max-w-xl">
+  <div class="ui-card mt-5 p-5 max-w-xl">
     <div class="flex items-center gap-3">
-      <span class="w-12 h-12 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center">PJ</span>
+      <span class="w-12 h-12 rounded-full bg-primary-soft text-primary-hover font-bold flex items-center justify-center">PJ</span>
       <div>
         <p class="font-semibold">PJ Mata Kuliah</p>
         <p class="text-[12px] text-slate-500"><span x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</span> · Kelas <span class="font-mono" x-text="selectedClass">-</span></p>
@@ -13,12 +13,12 @@
     <div x-show="contextAssignments.length > 1" class="mt-4 p-4 rounded-xl bg-primary-soft/50 border border-illustration-blue">
       <label for="pj-context-select" class="text-[13px] font-semibold">Pindah ruang kerja</label>
       <p class="text-[12px] text-slate-500 mt-0.5">Pilih penugasan aktif agar izin dan data mengikuti konteks yang benar.</p>
-      <select id="pj-context-select" :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="mt-2 w-full h-11 px-3 rounded-xl border border-illustration-blue bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60">
+      <select id="pj-context-select" :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-2 w-full text-[14px] disabled:opacity-60">
         <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
       </select>
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
-      <button type="button" @click="logout()" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
+      <button type="button" @click="logout()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
     </div>
   </div>
 </section>

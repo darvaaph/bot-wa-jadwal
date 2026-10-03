@@ -6,15 +6,15 @@
       <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
       <p class="text-[14px] font-semibold truncate"><span x-text="selectedClass || '—'">-</span> · PJ Mata Kuliah · <span x-text="offeringName() || pjMatkul || '—'">-</span></p>
     </div>
-    <button type="button" @click="go('akun')" class="sm:ml-auto h-11 px-4 rounded-xl border border-border bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
+    <button type="button" @click="go('akun')" class="ui-button ui-button--ghost sm:ml-auto h-11 px-4 rounded-xl border border-border bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
   </div>
 
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Tugas</h1>
+      <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Tugas</h1>
       <p class="text-[14px] text-slate-500 mt-1">Kelola tugas <span x-text="offeringName() || 'mata kuliah yang ditugaskan'">-</span> dan pantau pemeriksaan Ketua Murid.</p>
     </div>
-    <button type="button" @click="mulaiTambah()" class="h-11 px-5 rounded-xl bg-primary hover:bg-primary-hover text-white text-[14px] font-semibold flex items-center gap-2 self-start min-h-[44px]">
+    <button type="button" @click="mulaiTambah()" class="ui-button ui-button--primary text-[14px] font-semibold flex items-center gap-2 self-start">
       <img src="/assets/icons/plus.svg" alt="" class="w-4 h-4" /><span>Tambah tugas</span>
     </button>
   </div>
@@ -24,25 +24,25 @@
   <div class="flex items-center gap-2 mt-5 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Tab tugas">
     <template x-for="tb in [['aktif','Aktif'],['draf','Draf'],['selesai','Selesai'],['terlewat','Terlewat'],['arsip','Arsip']]" :key="tb[0]">
       <button type="button" @click="tugasTab = tb[0]" role="tab" :aria-selected="tugasTab === tb[0]"
-        :class="tugasTab === tb[0] ? 'bg-primary-soft text-primary font-semibold' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'"
-        class="px-4 py-2 rounded-xl text-[13px] whitespace-nowrap min-h-[44px] flex items-center gap-1.5">
+        :class="tugasTab === tb[0] ? 'bg-primary-soft text-primary-hover font-semibold' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'"
+        class="ui-button ui-button--ghost px-4 py-2 rounded-xl text-[13px] whitespace-nowrap min-h-[44px] flex items-center gap-1.5">
         <span x-text="tb[1]">-</span>
-        <span class="text-[11px] px-1.5 rounded-md bg-white/70" x-text="tugasTabCounts[tb[0]]">0</span>
+        <span class="ui-badge text-[11px] px-1.5 rounded-md bg-white/70" x-text="tugasTabCounts[tb[0]]">0</span>
       </button>
     </template>
   </div>
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
     <div>
       <label class="block text-[12px] text-slate-500 mb-1">Tenggat dari</label>
-      <input type="date" x-model="tugasDari" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+      <input aria-label="Tenggat dari" type="date" x-model="tugasDari" class="ui-field w-full text-[14px]" />
     </div>
     <div>
       <label class="block text-[12px] text-slate-500 mb-1">Tenggat sampai</label>
-      <input type="date" x-model="tugasSampai" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+      <input aria-label="Tenggat sampai" type="date" x-model="tugasSampai" class="ui-field w-full text-[14px]" />
     </div>
   </div>
 
-  <div class="p-5 rounded-2xl border border-border bg-white mt-4">
+  <div class="ui-card p-5 mt-4">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] font-semibold">Daftar tugas</h2>
       <span class="text-[12px] text-slate-400">Urutkan: deadline terdekat</span>
@@ -50,32 +50,32 @@
     <div x-show="tugasLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat tugas...</div>
     <div x-show="tugasListError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
       <span x-text="tugasListError">-</span>
-      <button type="button" @click="loadTasks()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      <button type="button" @click="loadTasks()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-10 text-center">
+    <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="ui-empty py-10 text-center">
       <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
       <p class="text-[15px] font-semibold mt-3">Belum ada tugas untuk semester ini</p>
       <p class="text-[13px] text-slate-500">Tugas yang diterbitkan akan muncul di sini.</p>
-      <button type="button" @click="mulaiTambah()" class="mt-3 h-11 px-5 rounded-xl bg-primary text-white text-[14px] font-semibold min-h-[44px]">Tambah Tugas</button>
+      <button type="button" @click="mulaiTambah()" class="ui-button ui-button--primary mt-3 text-[14px] font-semibold">Tambah Tugas</button>
     </div>
-    <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0" class="py-10 text-center">
+    <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0" class="ui-empty py-10 text-center">
       <p class="text-[15px] font-semibold">Tidak ada tugas yang cocok</p>
-      <p class="text-[13px] text-slate-500">Tidak ada tugas dengan filter yang dipilih.</p>
-      <button type="button" @click="hapusTugasFilter(); tugasTab = 'aktif'" class="mt-3 h-11 px-5 rounded-xl border border-primary text-primary text-[14px] font-semibold min-h-[44px]">Hapus Semua Filter</button>
+      <p class="text-[13px] text-slate-500" x-text="q.trim() ? 'Tidak ada tugas yang cocok dengan pencarian dan filter ini.' : 'Tidak ada tugas dengan filter yang dipilih.'"></p>
+      <button type="button" @click="q = ''; hapusTugasFilter(); tugasTab = 'aktif'" class="ui-button ui-button--outline mt-3 text-primary text-[14px] font-semibold">Hapus Semua Filter</button>
     </div>
     <div class="divide-y divide-border">
       <template x-for="t in tugasTabList" :key="t.id">
-        <button type="button" @click="bukaDetailTugas(t.id)" class="w-full py-4 flex items-center gap-3 text-left">
+        <button type="button" @click="bukaDetailTugas(t.id)" class="ui-button ui-button--ghost w-full py-4 flex items-center gap-3 text-left">
           <span class="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0"><img src="/assets/icons/tasks.svg" alt="" class="w-5 h-5" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</span>
             <span class="block text-[12px] text-slate-500" x-text="t.matkul + ' • ' + t.deadline">-</span>
             <span class="mt-1 flex flex-wrap gap-1">
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[12px]">publish</span><span x-text="pubLabel(t.publication_status)">-</span></span>
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[12px]">fact_check</span><span x-text="reviewLabel(t.review_state)">-</span></span>
+              <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[12px]">publish</span><span x-text="pubLabel(t.publication_status)">-</span></span>
+              <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[12px]">fact_check</span><span x-text="reviewLabel(t.review_state)">-</span></span>
             </span>
           </span>
-          <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-white' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
+          <span class="ui-badge px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-ink' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
         </button>
       </template>
     </div>
@@ -86,62 +86,62 @@
 <section x-show="view === 'tambah'" x-cloak>
   <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold" style="font-family:'Poppins',sans-serif">Tambah Tugas Baru</h1>
+      <h1 class="font-display text-[26px] md:text-[30px] font-bold">Tambah Tugas Baru</h1>
       <p class="text-[14px] text-slate-500 mt-1">Isi informasi tugas, tinjau, lalu terbitkan</p>
     </div>
-    <button type="button" @click="simpanDrafTugas()" class="h-11 px-5 rounded-xl border border-border text-[14px] font-medium hover:bg-slate-50 self-start min-h-[44px]">Simpan sebagai Draf</button>
+    <button type="button" @click="simpanDrafTugas()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[14px] font-medium hover:bg-slate-50 self-start min-h-[44px]">Simpan sebagai Draf</button>
   </div>
   <p class="mt-4 text-[13px] font-medium"><span class="px-3 py-1.5 rounded-lg bg-success">1. Isi data</span> <span class="text-slate-300 mx-1">—</span> <span class="px-3 py-1.5 rounded-lg bg-warning-soft">2. Tinjau</span> <span class="text-slate-300 mx-1">—</span> <span class="text-slate-400">3. Terbit</span></p>
   <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card lg:col-span-3 p-5">
       <h2 class="text-[18px] font-semibold">Informasi tugas</h2>
       <p class="text-[12px] text-slate-500">Mata kuliah: <strong x-text="offeringName() || '—'">-</strong> (terkunci untuk penugasan ini)</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Judul tugas <span class="text-danger">*</span></label>
-          <input type="text" x-model="tugasForm.judul" placeholder="Contoh: Analisis basis data" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input aria-label="Judul tugas" type="text" x-model="tugasForm.judul" placeholder="Contoh: Analisis basis data" class="ui-field w-full text-[14px]" />
         </div>
       </div>
       <h2 class="text-[18px] font-semibold mt-6">Tenggat</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
         <div>
           <label class="block text-[13px] font-medium mb-1">Tanggal deadline <span class="text-danger">*</span></label>
-          <input type="date" x-model="tugasForm.tanggal" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input aria-label="Tanggal deadline" type="date" x-model="tugasForm.tanggal" class="ui-field w-full text-[14px]" />
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Jam deadline <span class="text-danger">*</span></label>
-          <input type="time" x-model="tugasForm.jam" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input aria-label="Jam deadline" type="time" x-model="tugasForm.jam" class="ui-field w-full text-[14px] font-mono" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Instruksi tugas <span class="text-danger">*</span></label>
-          <textarea x-model="tugasForm.deskripsi" rows="3" placeholder="Jelaskan instruksi dan ketentuan dari dosen..." class="w-full p-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary resize-none"></textarea>
+          <textarea aria-label="Instruksi tugas" x-model="tugasForm.deskripsi" rows="3" placeholder="Jelaskan instruksi dan ketentuan dari dosen..." class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
         </div>
       </div>
       <h2 class="text-[18px] font-semibold mt-6">Pengumpulan <span class="text-danger">*</span></h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
         <div>
           <label class="block text-[13px] font-medium mb-1">Jenis tugas</label>
-          <select x-model="tugasForm.jenis" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] bg-white">
+          <select aria-label="Jenis tugas" x-model="tugasForm.jenis" class="ui-field w-full text-[14px]">
             <option>Individu</option><option>Kelompok</option><option>Kuis</option><option>Proyek</option>
           </select>
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan</label>
-          <input type="text" x-model="tugasForm.kumpul" placeholder="Tautan LMS kelas" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input aria-label="Keterangan pengumpulan" type="text" x-model="tugasForm.kumpul" placeholder="Tautan LMS kelas" class="ui-field w-full text-[14px]" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Tautan pengumpulan</label>
-          <input type="text" x-model="tugasForm.kumpulUrl" placeholder="https://..." class="w-full h-11 px-3 rounded-xl border border-border text-[14px] focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input aria-label="Tautan pengumpulan" type="text" x-model="tugasForm.kumpulUrl" placeholder="https://..." class="ui-field w-full text-[14px]" />
           <p class="text-[12px] text-slate-500 mt-1">Isi minimal salah satu: keterangan atau tautan.</p>
         </div>
       </div>
       <div class="flex flex-col sm:flex-row gap-3 mt-5">
-        <button type="button" @click="view = 'tugas'" class="flex-1 h-11 rounded-xl border border-primary text-primary font-medium min-h-[44px]">Kembali</button>
-        <button type="button" @click="tinjauTugas()" class="flex-1 h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold min-h-[44px]">Tinjau Sebelum Terbit</button>
+        <button type="button" @click="view = 'tugas'" class="ui-button ui-button--outline flex-1 text-primary font-medium">Kembali</button>
+        <button type="button" @click="tinjauTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Tinjau Sebelum Terbit</button>
       </div>
     </div>
-    <div class="lg:col-span-2 p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card lg:col-span-2 p-5">
       <h2 class="text-[18px] font-semibold">Ringkasan dampak</h2>
       <p class="text-[12px] text-slate-500">Tugas terbit langsung tampil di portal mahasiswa dan masuk antrean pemeriksaan KM.</p>
       <div class="mt-3 p-4 rounded-2xl bg-slate-50 border border-border text-[13px] leading-relaxed">
@@ -155,8 +155,8 @@
 
 <!-- Tinjau sebelum terbit -->
 <section x-show="view === 'tinjau-tugas'" x-cloak>
-  <button type="button" @click="view = 'tambah'" class="h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
-  <div class="p-5 md:p-6 rounded-2xl border border-border bg-white mt-4">
+  <button type="button" @click="view = 'tambah'" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
+  <div class="ui-card p-5 md:p-6 mt-4">
     <h1 class="text-[24px] font-bold">Tinjau Sebelum Terbit</h1>
     <p class="text-[13px] text-slate-500 mt-1">Tampilan persis seperti yang dilihat mahasiswa, plus ringkasan dampak.</p>
     <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
@@ -174,34 +174,34 @@
       <p>Tugas terbit langsung tampil di portal dan masuk antrean pemeriksaan KM. Kegagalan pesan WhatsApp tidak membatalkan penerbitan.</p>
     </div>
     <div class="flex flex-col sm:flex-row gap-3 mt-5">
-      <button type="button" @click="view = 'tambah'" class="flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Ubah Lagi</button>
-      <button type="button" @click="terbitTugas()" class="flex-1 h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold min-h-[44px]">Terbitkan Tugas</button>
+      <button type="button" @click="view = 'tambah'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Ubah Lagi</button>
+      <button type="button" @click="terbitTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Terbitkan Tugas</button>
     </div>
   </div>
 </section>
 
 <!-- Detail + Riwayat + Notifikasi -->
 <section x-show="view === 'detail-tugas'" x-cloak>
-  <button type="button" @click="view = 'tugas'; tugasPublishMsg = ''" class="h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+  <button type="button" @click="view = 'tugas'; tugasPublishMsg = ''" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
   <div x-show="tugasDetailLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400">Memuat detail tugas...</div>
   <div x-show="!tugasDetailLoading && tugasDetail">
     <div x-show="tugasPublishMsg" class="mt-4 p-4 rounded-xl bg-green-50 border border-green-200 text-[13px] text-green-800 flex gap-2">
       <span class="material-symbols-outlined shrink-0">check_circle</span><p x-text="tugasPublishMsg">-</p>
     </div>
-    <div class="p-5 md:p-6 rounded-2xl border border-border bg-white mt-4">
+    <div class="ui-card p-5 md:p-6 mt-4">
       <p class="text-[12px] font-bold text-primary uppercase tracking-wider" x-text="tugasDetail.matkul">-</p>
       <h1 class="text-[22px] font-bold mt-1 leading-snug" x-text="tugasDetail.title || tugasDetail.deskripsi">-</h1>
       <div class="mt-2 flex flex-wrap gap-1.5">
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[14px]">publish</span><span x-text="pubLabel(tugasDetail.publication_status)">-</span></span>
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[14px]">fact_check</span><span x-text="reviewLabel(tugasDetail.review_state) + ' · versi ' + tugasDetail.version">-</span></span>
-        <span x-show="tugasDetail.completed_at" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-success text-green-800"><span class="material-symbols-outlined text-[14px]">check_circle</span>Selesai</span>
-        <span x-show="tugasDetail.archived_at" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-200 text-slate-600"><span class="material-symbols-outlined text-[14px]">archive</span>Arsip</span>
+        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[14px]">publish</span><span x-text="pubLabel(tugasDetail.publication_status)">-</span></span>
+        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[14px]">fact_check</span><span x-text="reviewLabel(tugasDetail.review_state) + ' · versi ' + tugasDetail.version">-</span></span>
+        <span x-show="tugasDetail.completed_at" class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-success text-green-800"><span class="material-symbols-outlined text-[14px]">check_circle</span>Selesai</span>
+        <span x-show="tugasDetail.archived_at" class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-200 text-slate-600"><span class="material-symbols-outlined text-[14px]">archive</span>Arsip</span>
       </div>
       <div class="flex gap-2 mt-4 border-b border-border" role="tablist" aria-label="Tab detail tugas">
         <template x-for="tb in [['detail','Detail'],['riwayat','Riwayat'],['notif','Notifikasi']]" :key="tb[0]">
           <button type="button" @click="tugasDetailTab = tb[0]" role="tab" :aria-selected="tugasDetailTab === tb[0]"
-            :class="tugasDetailTab === tb[0] ? 'text-primary border-primary font-semibold' : 'text-slate-500 border-transparent'"
-            class="pb-2 px-1 text-[14px] border-b-2 min-h-[44px]" x-text="tb[1]">-</button>
+            :class="tugasDetailTab === tb[0] ? 'text-primary font-semibold' : 'text-slate-500 border-transparent'"
+            class="ui-button ui-button--ghost pb-2 px-1 text-[14px] border-b-2 min-h-[44px]" x-text="tb[1]">-</button>
         </template>
       </div>
       <div x-show="tugasDetailTab === 'detail'" class="mt-4 space-y-2 text-[13px]">
@@ -211,14 +211,14 @@
         <p class="whitespace-pre-line" x-text="tugasDetail.instructions || tugasDetail.deskripsi">-</p>
         <p><span class="text-slate-500">Tempat pengumpulan:</span> <span x-text="tugasDetail.submission_url || tugasDetail.submission_text || '—'">-</span></p>
         <div class="flex flex-wrap gap-2 pt-2">
-          <button type="button" @click="mulaiUbahTugas()" x-show="!tugasDetail.archived_at" class="h-11 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
-          <button type="button" @click="tandaiSelesai(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.completed_at && !tugasDetail.archived_at" class="h-11 px-4 rounded-xl border border-green-600 text-green-700 text-[13px] font-semibold min-h-[44px]">Tandai Selesai</button>
-          <button type="button" @click="arsipkanTugas(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.archived_at" class="h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">archive</span>Arsipkan</button>
-          <button type="button" @click="pulihkanTugas(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.archived_at" class="h-11 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Pulihkan</button>
+          <button type="button" @click="mulaiUbahTugas()" x-show="!tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
+          <button type="button" @click="tandaiSelesai(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.completed_at && !tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-green-600 text-green-700 text-[13px] font-semibold min-h-[44px]">Tandai Selesai</button>
+          <button type="button" @click="arsipkanTugas(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">archive</span>Arsipkan</button>
+          <button type="button" @click="pulihkanTugas(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Pulihkan</button>
         </div>
       </div>
       <div x-show="tugasDetailTab === 'riwayat'" class="mt-4">
-        <div x-show="tugasReviews.length === 0" class="py-4 text-center text-[13px] text-slate-400">Belum ada riwayat pemeriksaan.</div>
+        <div x-show="tugasReviews.length === 0" class="ui-empty py-4 text-center text-[13px] text-slate-400">Belum ada riwayat pemeriksaan.</div>
         <div class="space-y-2">
           <template x-for="(r, i) in tugasReviews" :key="i">
             <div class="p-3 rounded-xl bg-slate-50 border border-border text-[13px]">
@@ -230,10 +230,10 @@
         </div>
       </div>
       <div x-show="tugasDetailTab === 'notif'" class="mt-4">
-        <button type="button" @click="loadDelivery('TASK', tugasDetail.id)" class="h-11 text-[13px] text-primary font-semibold">Muat ulang status pengiriman</button>
+        <button type="button" @click="loadDelivery('TASK', tugasDetail.id)" class="ui-button ui-button--ghost h-11 text-[13px] text-primary font-semibold">Muat ulang status pengiriman</button>
         <p x-show="deliveryLoading" class="text-[13px] text-slate-500">Memuat status...</p>
         <p x-show="deliveryError" class="text-[13px] text-red-700" x-text="deliveryError"></p>
-        <p x-show="!deliveryLoading && !deliveryError && taskDelivery.length === 0" class="text-[13px] text-slate-500">Belum ada pesan pengiriman untuk publikasi ini.</p>
+        <p x-show="!deliveryLoading && !deliveryError && taskDelivery.length === 0" class="ui-empty text-[13px] text-slate-500">Belum ada pesan pengiriman untuk publikasi ini.</p>
         <template x-for="message in taskDelivery" :key="message.id"><p class="p-3 rounded-xl border border-border text-[13px]" x-text="message.event_type + ' · ' + message.status + (message.sent_at ? ' · terkirim ' + fmtWaktuID(message.sent_at) : '')"></p></template>
       </div>
     </div>
@@ -242,51 +242,51 @@
 
 <!-- Ubah tugas terbit -->
 <section x-show="view === 'ubah-tugas'" x-cloak>
-  <button type="button" @click="bukaDetailTugas(editTugasId)" class="h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke detail</button>
-  <div class="p-5 md:p-6 rounded-2xl border border-border bg-white mt-4">
+  <button type="button" @click="bukaDetailTugas(editTugasId)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke detail</button>
+  <div class="ui-card p-5 md:p-6 mt-4">
     <h1 class="text-[24px] font-bold">Ubah Tugas</h1>
     <p class="text-[13px] text-slate-500 mt-1">Versi bertambah dan mahasiswa mungkin menerima notifikasi pembaruan. Versi baru perlu diperiksa KM.</p>
     <div x-show="tugasConflict" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
       <p class="font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Ada perubahan yang lebih baru</p>
       <p class="mt-1">Data di server sudah berubah. Input Anda dipertahankan.</p>
-      <button type="button" @click="muatUlangVersiTugas()" class="mt-2 h-11 px-4 rounded-xl border border-amber-600 text-amber-900 text-[13px] font-semibold min-h-[44px]">Muat Versi Terbaru</button>
+      <button type="button" @click="muatUlangVersiTugas()" class="ui-button ui-button--ghost mt-2 h-11 px-4 rounded-xl border border-amber-600 text-amber-900 text-[13px] font-semibold min-h-[44px]">Muat Versi Terbaru</button>
     </div>
     <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
       <div class="sm:col-span-2">
         <label class="block text-[13px] font-medium mb-1">Judul tugas <span class="text-danger">*</span></label>
-        <input type="text" x-model="tugasForm.judul" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+        <input aria-label="Judul tugas" type="text" x-model="tugasForm.judul" class="ui-field w-full text-[14px]" />
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Tanggal deadline <span class="text-danger">*</span></label>
-        <input type="date" x-model="tugasForm.tanggal" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+        <input aria-label="Tanggal deadline" type="date" x-model="tugasForm.tanggal" class="ui-field w-full text-[14px]" />
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Jam deadline <span class="text-danger">*</span></label>
-        <input type="time" x-model="tugasForm.jam" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] font-mono" />
+        <input aria-label="Jam deadline" type="time" x-model="tugasForm.jam" class="ui-field w-full text-[14px] font-mono" />
       </div>
       <div class="sm:col-span-2">
         <label class="block text-[13px] font-medium mb-1">Instruksi tugas <span class="text-danger">*</span></label>
-        <textarea x-model="tugasForm.deskripsi" rows="3" class="w-full p-3 rounded-xl border border-border text-[14px] resize-none"></textarea>
+        <textarea aria-label="Instruksi tugas" x-model="tugasForm.deskripsi" rows="3" class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Jenis tugas</label>
-        <select x-model="tugasForm.jenis" class="w-full h-11 px-3 rounded-xl border border-border text-[14px] bg-white">
+        <select aria-label="Jenis tugas" x-model="tugasForm.jenis" class="ui-field w-full text-[14px]">
           <option>Individu</option><option>Kelompok</option><option>Kuis</option><option>Proyek</option>
         </select>
       </div>
       <div>
         <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan</label>
-        <input type="text" x-model="tugasForm.kumpul" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+        <input aria-label="Keterangan pengumpulan" type="text" x-model="tugasForm.kumpul" class="ui-field w-full text-[14px]" />
       </div>
       <div class="sm:col-span-2">
         <label class="block text-[13px] font-medium mb-1">Tautan pengumpulan</label>
-        <input type="text" x-model="tugasForm.kumpulUrl" class="w-full h-11 px-3 rounded-xl border border-border text-[14px]" />
+        <input aria-label="Tautan pengumpulan" type="text" x-model="tugasForm.kumpulUrl" class="ui-field w-full text-[14px]" />
       </div>
     </div>
     <div class="flex flex-col sm:flex-row gap-3 mt-5">
-      <button type="button" @click="bukaDetailTugas(editTugasId)" class="flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Batal</button>
-      <button type="button" @click="simpanUbahTugas()" class="flex-1 h-11 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold min-h-[44px]">Simpan Perubahan</button>
+      <button type="button" @click="bukaDetailTugas(editTugasId)" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Batal</button>
+      <button type="button" @click="simpanUbahTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Simpan Perubahan</button>
     </div>
   </div>
 </section>

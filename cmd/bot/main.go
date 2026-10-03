@@ -15,8 +15,6 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/maintenance"
-	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
@@ -244,27 +242,4 @@ func main() {
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")
-}
-
-// runNotifyScheduler enqueues due reminders every 30s and drains the outbox when a sender exists.
-// Web publish never depends on WA: enqueue always runs, delivery is best-effort.
-func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		release, allowed := maintenance.EnterMutation()
-		if !allowed {
-			continue
-		}
-		now := time.Now().UTC()
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		_, _ = svc.EnsureDailySummaries(ctx, now)
-		_, _ = svc.EnsureTaskReminders(ctx, now)
-		_, _ = svc.EnsureReplacementReminders(ctx, now)
-		if sender != nil {
-			_, _, _ = svc.ProcessDue(ctx, sender, 20, now)
-		}
-		cancel()
-		release()
-	}
 }

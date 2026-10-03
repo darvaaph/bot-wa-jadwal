@@ -213,11 +213,6 @@ func (csm *ChatSettingsManager) GetClass(scopeJID string) string {
 	return csm.cache[scopeJID]
 }
 
-// GetClassContext adalah varian context-aware dari GetClass
-func (csm *ChatSettingsManager) GetClassContext(ctx context.Context, scopeJID string) string {
-	return csm.GetClass(scopeJID)
-}
-
 // SetClassContext menyetel kelas aktif untuk scope chat dengan context-awareness
 func (csm *ChatSettingsManager) SetClassContext(ctx context.Context, scopeJID string, rawClassID string) error {
 	classID := schedule.NormalizeClassID(rawClassID)
@@ -296,16 +291,6 @@ func (csm *ChatSettingsManager) DeleteClass(scopeJID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return csm.DeleteClassContext(ctx, scopeJID)
-}
-
-// ResetClassContext adalah alias untuk DeleteClassContext
-func (csm *ChatSettingsManager) ResetClassContext(ctx context.Context, scopeJID string) error {
-	return csm.DeleteClassContext(ctx, scopeJID)
-}
-
-// ResetClass adalah alias untuk DeleteClass
-func (csm *ChatSettingsManager) ResetClass(scopeJID string) error {
-	return csm.DeleteClass(scopeJID)
 }
 
 func (csm *ChatSettingsManager) CountSettings() int {

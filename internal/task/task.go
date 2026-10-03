@@ -1,7 +1,6 @@
 package task
 
 import (
-	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
 	"database/sql"
@@ -64,15 +63,6 @@ func NewTaskManager(db *sql.DB) (*TaskManager, error) {
 	_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_class ON tasks(class_id, is_done);`)
 
 	return &TaskManager{db: db}, nil
-}
-
-// NewTaskManagerWithPath membuat koneksi baru dari path file dan menginisialisasi TaskManager
-func NewTaskManagerWithPath(dbPath string) (*TaskManager, error) {
-	db, err := database.InitDB(dbPath)
-	if err != nil {
-		return nil, err
-	}
-	return NewTaskManager(db)
 }
 
 func (tm *TaskManager) Close() error {
@@ -203,57 +193,6 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 		return fmt.Sprintf("⚠️ *H-%d* (%d hari lagi)", days, days)
 	}
 	return fmt.Sprintf("⏳ *H-%d* (%d hari lagi)", days, days)
-}
-
-func (tm *TaskManager) CheckDuplicate(scopeJID, matkul, deskripsi string, optClassID ...string) (bool, *TaskItem, error) {
-	classID := ""
-	if len(optClassID) > 0 {
-		classID = strings.TrimSpace(optClassID[0])
-	}
-
-	var rows *sql.Rows
-	var err error
-	if classID != "" {
-		rows, err = tm.db.Query(`
-			SELECT id, matkul, deskripsi, deadline, created_by 
-			FROM tasks 
-			WHERE (scope_jid = ? OR (class_id != '' AND class_id = ?)) AND is_done = 0
-		`, scopeJID, classID)
-	} else {
-		rows, err = tm.db.Query(`
-			SELECT id, matkul, deskripsi, deadline, created_by 
-			FROM tasks 
-			WHERE scope_jid = ? AND is_done = 0
-		`, scopeJID)
-	}
-	if err != nil {
-		return false, nil, err
-	}
-	defer rows.Close()
-
-	cleanMatkul := strings.ToLower(strings.TrimSpace(matkul))
-	cleanDesc := strings.ToLower(strings.TrimSpace(deskripsi))
-
-	for rows.Next() {
-		var item TaskItem
-		err := rows.Scan(&item.ID, &item.Matkul, &item.Deskripsi, &item.Deadline, &item.CreatedBy)
-		if err != nil {
-			continue
-		}
-
-		existingMatkul := strings.ToLower(item.Matkul)
-		existingDesc := strings.ToLower(item.Deskripsi)
-
-		if strings.Contains(existingMatkul, cleanMatkul) || strings.Contains(cleanMatkul, existingMatkul) {
-			if strings.EqualFold(existingDesc, cleanDesc) ||
-				(len(cleanDesc) > 3 && strings.Contains(existingDesc, cleanDesc)) ||
-				(len(existingDesc) > 3 && strings.Contains(cleanDesc, existingDesc)) {
-				return true, &item, nil
-			}
-		}
-	}
-
-	return false, nil, nil
 }
 
 // AddTask menambahkan tugas baru ke dalam database dengan parsing tenggat waktu dan asosiasi kelas opsional
@@ -752,39 +691,6 @@ func (tm *TaskManager) AddWebTask(matkul, deskripsi, rawDeadline, createdBy stri
 	return tm.AddTask(scopeJID, false, matkul, deskripsi, rawDeadline, createdBy, now, classID)
 }
 
-func (tm *TaskManager) CompleteTaskByID(taskID int) (bool, error) {
-	res, err := tm.db.Exec(`
-		UPDATE tasks
-		SET is_done = 1
-		WHERE id = ? AND is_done = 0
-	`, taskID)
-	if err != nil {
-		return false, err
-	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return affected > 0, nil
-}
-
-func (tm *TaskManager) DeleteTaskByID(taskID int) (bool, error) {
-	res, err := tm.db.Exec(`
-		DELETE FROM tasks
-		WHERE id = ?
-	`, taskID)
-	if err != nil {
-		return false, err
-	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return affected > 0, nil
-}
-
 func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, newRawDeadline string, now time.Time, optClassID ...string) (*TaskItem, string, error) {
 	classID := ""
 	if len(optClassID) > 0 {
@@ -850,29 +756,6 @@ func (tm *TaskManager) UpdateTask(scopeJID string, taskID int, newDesc string, n
 	item.DeadlineAt = targetTime
 
 	return &item, oldDeadline, nil
-}
-
-// matchesHint memeriksa apakah teks mengandung salah satu kata kunci hint.
-// Untuk kata kunci pendek (<= 2 karakter, contoh: "pr"), pencocokan dilakukan per kata utuh.
-func matchesHint(text string, keywords []string) bool {
-	lower := strings.ToLower(text)
-	words := strings.Fields(lower)
-	for _, kw := range keywords {
-		kwLower := strings.ToLower(kw)
-		if len(kwLower) <= 2 {
-			for _, w := range words {
-				cleanW := strings.Trim(w, ".,:;()[]*~_\"'!-")
-				if cleanW == kwLower {
-					return true
-				}
-			}
-		} else {
-			if strings.Contains(lower, kwLower) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (tm *TaskManager) FilterTasksByQuery(scopeJID string, query string, cfg *schedule.JadwalConfig, now time.Time, optClassID ...string) ([]TaskItem, string, error) {

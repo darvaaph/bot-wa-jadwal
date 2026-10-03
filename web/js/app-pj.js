@@ -30,6 +30,8 @@ function pjApp() {
     offeringLoading: false,
     offeringState: 'idle',
 
+    ...AsteriskShell.behavior('pj'),
+
     roleLabel: 'PJ',
     contextAssignments: [],
     contextSwitching: false,
@@ -177,6 +179,7 @@ function pjApp() {
           if (dari && d < dari) return false;
           if (sampai && d > sampai) return false;
         }
+        if (!this.shellMatchesSearch('tugas', [t.title, t.deskripsi, t.instructions, t.matkul])) return false;
         return true;
       }).slice().sort((a, b) => String(a.deadline_at || '').localeCompare(String(b.deadline_at || '')));
     },
@@ -278,6 +281,7 @@ function pjApp() {
     daySessions(dayName) {
       return this.scopeList
         .filter(s => s.hari === dayName)
+        .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
     },
@@ -301,7 +305,7 @@ function pjApp() {
     },
 
     slotSaya(dayName, slotHH) {
-      return this.scopeList.find(s => s.hari === dayName && parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
+      return this.daySessions(dayName).find(s => parseInt((s.timeStart || '0').split(':')[0], 10) === parseInt(slotHH, 10));
     },
 
     // ===== Alur Perubahan Jadwal (mengikuti docs/design/flows/SCHEDULE_MANAGEMENT.md) =====
@@ -767,10 +771,8 @@ function pjApp() {
         return;
       }
 
+      await AsteriskShell.mount('pj', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'audit', 'status', 'akun']);
       await this.loadPartials([
-        ['pj-sidebar', '/partials/common/sidebar.html'],
-        ['pj-state', '/partials/common/state-error.html'],
-        ['pj-topbar', '/partials/common/topbar.html'],
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
         ['pj-jadwal', '/partials/pj/view-jadwal.html'],
@@ -780,13 +782,6 @@ function pjApp() {
         ['pj-audit', '/partials/pj/view-audit.html'],
         ['pj-status', '/partials/pj/view-status.html'],
         ['pj-akun', '/partials/pj/view-akun.html'],
-        ['pj-drawer', '/partials/common/drawer.html'],
-        ['pj-bottombar', '/partials/common/bottombar.html'],
-        ['pj-toast', '/partials/common/toast.html']
-      ]);
-      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
-      await this.loadPartials([
-        ['pj-skeleton', '/partials/common/skeleton-dashboard.html'],
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
@@ -807,7 +802,7 @@ function pjApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261013', { cache: 'no-store' });
+          const res = await fetch(url + '?v=' + encodeURIComponent(AsteriskShell.version), { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

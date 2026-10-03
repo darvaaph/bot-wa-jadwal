@@ -17,8 +17,16 @@ func TestV1MeetingLink_PatternAndEvent(t *testing.T) {
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 
 	// 1. Buat pola dengan tautan daring
+	patternDay := time.Now().AddDate(0, 0, 2).Weekday()
+	if patternDay == time.Monday {
+		patternDay = time.Tuesday // fixture sudah memiliki pola Senin pukul 08.00
+	}
+	dayOfWeek := int(patternDay)
+	if patternDay == time.Sunday {
+		dayOfWeek = 7
+	}
 	pbody, _ := json.Marshal(map[string]any{
-		"offering_id": 1, "day_of_week": 6, "start_time": "08:00",
+		"offering_id": 1, "day_of_week": dayOfWeek, "start_time": "08:00",
 		"duration_min": 100, "meeting_link": "https://meet.example.com/kelas-1",
 	})
 	req := httptest.NewRequest("POST", "/api/v1/schedule/patterns", bytes.NewReader(pbody))

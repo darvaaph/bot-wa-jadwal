@@ -1,10 +1,10 @@
 <!-- partials/km/view-notif.html — KM Notifikasi kelas -->
 <section x-show="view === 'notifikasi'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Notifikasi</h1>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Notifikasi</h1>
   <p class="text-[14px] text-slate-500 mt-1">Status pengiriman WhatsApp kelas. Publikasi web tidak menunggu antrean ini.</p>
 
   <div class="mt-4 flex flex-col sm:flex-row gap-2">
-    <select x-model="notifFilter" @change="loadNotifikasi()" aria-label="Filter status pesan" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white min-h-[44px]">
+    <select x-model="notifFilter" @change="loadNotifikasi()" aria-label="Filter status pesan" class="ui-field text-[13px]">
       <option value="">Semua status</option>
       <option value="PENDING">Menunggu</option>
       <option value="PROCESSING">Diproses</option>
@@ -12,15 +12,15 @@
       <option value="FAILED">Gagal</option>
       <option value="CANCELLED">Dibatalkan</option>
     </select>
-    <button type="button" @click="loadNotifikasi()" class="h-11 px-5 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+    <button type="button" @click="loadNotifikasi()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Muat ulang</button>
   </div>
 
   <div x-show="notifLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat notifikasi...</div>
   <div x-show="notifError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="notifError">-</span>
-    <button type="button" @click="loadNotifikasi()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+    <button type="button" @click="loadNotifikasi()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
-  <div x-show="!notifLoading && !notifError && notifList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center">
+  <div x-show="!notifLoading && !notifError && notifList.length === 0" class="ui-card mt-5 p-10 text-center">
     <p class="text-[15px] font-semibold">Belum ada notifikasi</p>
     <p class="text-[13px] text-slate-500">Pesan WhatsApp kelas yang terjadwal tampil di sini.</p>
   </div>
@@ -33,24 +33,24 @@
             <p class="text-[12px] text-slate-500 font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '')">-</p>
             <p x-show="n.last_attempt_error" class="text-[12px] text-red-700 mt-0.5">Galat terakhir: <span x-text="n.last_attempt_error"></span></p>
           </div>
-          <span class="inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+          <span class="ui-badge inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
             :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-success text-green-800' : (notifDapatDiulangKM(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')"
             x-text="statusNotifLabelKM(n.status)">-</span>
           <div class="flex gap-2">
-            <button type="button" @click="toggleNotifDetailKM(n.id)" class="h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup' : 'Detail'">Detail</button>
-            <button type="button" @click="ulangiPesanKM(n.id)" x-show="notifDapatDiulangKM(n.status)" class="h-11 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Jadwalkan ulang</button>
+            <button type="button" @click="toggleNotifDetailKM(n.id)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup' : 'Detail'">Detail</button>
+            <button type="button" @click="ulangiPesanKM(n.id)" x-show="notifDapatDiulangKM(n.status)" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Jadwalkan ulang</button>
           </div>
         </div>
         <div x-show="notifDetailId === n.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border text-[12px] space-y-2">
           <p class="text-slate-500">Data terbit di portal terpisah dari status pesan ini. Kegagalan pesan tidak membatalkan publikasi.</p>
           <div x-show="notifAttemptsLoading" class="py-2 text-center text-slate-400">Memuat riwayat...</div>
           <div x-show="notifAttemptsError" class="text-red-700"><span x-text="notifAttemptsError"></span>
-            <button type="button" @click="loadNotifAttemptsKM(n.id)" class="ml-1 font-semibold underline min-h-[44px] inline-flex items-center">Coba lagi</button>
+            <button type="button" @click="loadNotifAttemptsKM(n.id)" class="ui-button ui-button--ghost ml-1 font-semibold underline min-h-[44px] inline-flex items-center">Coba lagi</button>
           </div>
-          <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="text-slate-400">Belum ada percobaan tercatat.</div>
+          <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="ui-empty text-slate-400">Belum ada percobaan tercatat.</div>
           <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="space-y-1.5">
             <template x-for="t in notifAttempts" :key="t.attempt_number">
-              <div class="p-2.5 rounded-lg bg-white border border-border">
+              <div class="ui-card p-2.5">
                 <p class="font-mono font-semibold" x-text="'#' + t.attempt_number + ' · ' + (t.result || 'berjalan')">-</p>
                 <p class="font-mono text-slate-500 mt-0.5" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')">-</p>
                 <p x-show="t.error_message" class="text-red-700 mt-0.5" x-text="t.error_message">-</p>

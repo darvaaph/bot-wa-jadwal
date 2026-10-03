@@ -4,14 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Asterisk — Area PJ</title>
-  <link rel="stylesheet" href="/css/tailwind.css?v=20261015" />
-  <script src="/js/vendor/tailwindcss.play.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/tokens.css?v=20261002" />
+  <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
+  <link rel="stylesheet" href="/css/style.css?v=20261003" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
+  <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
   <script>
     (function() {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
@@ -20,37 +18,16 @@
       }
     })();
   </script>
-  <script defer src="/js/vendor/alpine.cdn.min.js"></script>
-  <script src="/js/api.js?v=20261012"></script>
-  <script src="/js/app-pj.js?v=20261014"></script>
+  <script defer src="/js/vendor/alpine.cdn.min.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261003"></script>
+  <script src="/js/shell.js?v=20261003"></script>
+  <script src="/js/app-pj.js?v=20261003"></script>
 </head>
 <!--
   AREA PJ (REVISI Figma). Pindah peran KM↔PJ via tautan di layar Akun kedua area.
   Isi per layar: web/partials/pj/*.html dimuat oleh initPJ() di js/app-pj.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="pjApp()" x-init="initPJ()" @keydown.escape.window="drawer = false">
-
-  <div id="pj-sidebar"></div>
-
-  <div class="flex flex-col min-h-screen min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'">
-    <div id="pj-topbar"></div>
-    <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
-      <div id="pj-state"></div>
-      <div id="pj-dashboard"></div>
-      <div id="pj-tugas"></div>
-      <div id="pj-jadwal"></div>
-      <div id="pj-rooms"></div>
-      <div id="pj-materi"></div>
-      <div id="pj-semester"></div>
-      <div id="pj-audit"></div>
-      <div id="pj-status"></div>
-      <div id="pj-akun"></div>
-    </main>
-  </div>
-
-  <div id="pj-drawer"></div>
-  <div id="pj-bottombar"></div>
-  <div id="pj-toast"></div>
-
+<body class="bg-white text-ink min-h-screen" x-data="pjApp()" x-init="initPJ()" @keydown.escape.window="shellCloseDrawer()">
+  <div id="app-shell"></div>
 </body>
 </html>

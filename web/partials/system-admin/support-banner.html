@@ -1,0 +1,9 @@
+    <div x-show="dukunganAktif" x-cloak class="bg-amber-100 border-b border-amber-300 px-4 md:px-8 py-3" role="status">
+      <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-2 text-[13px] text-amber-900">
+        <p class="flex-1"><span class="font-bold">Mode Dukungan aktif</span> — <span x-text="namaDukungan()"></span> · Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan) : ''"></span><span x-show="dukunganAktif && dukunganAktif.expires_at" x-text="' · s.d. ' + fmtWaktuID(dukunganAktif.expires_at)"></span></p>
+        <div class="flex gap-2">
+          <button type="button" @click="bukaDetail(dukunganAktif.class_slug || dukunganAktif.slug)" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat kelas</button>
+          <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="ui-button ui-button--ghost h-10 px-4 rounded-lg bg-amber-600 text-white text-[12px] font-semibold min-h-[44px] disabled:opacity-60">Keluar</button>
+        </div>
+      </div>
+    </div>

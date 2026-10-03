@@ -1,28 +1,27 @@
 <!-- partials/portal/view-dashboard.html — Portal Beranda: kuliah hari ini, tugas mendesak, perubahan terbaru -->
 <section x-show="view === 'dashboard'" x-cloak>
-  <div id="portal-skeleton"></div>
   <div x-show="!dashboardLoading">
   <p class="text-[12px] font-semibold tracking-widest text-slate-400">PORTAL KELAS</p>
-  <h1 class="text-[24px] md:text-[30px] font-bold leading-tight" style="font-family:'Poppins',sans-serif" x-text="selectedClassMeta.label">-</h1>
+  <h1 class="font-display text-[24px] md:text-[30px] font-bold leading-tight" x-text="selectedClassMeta.label">-</h1>
   <p class="text-[13px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
 
-  <div class="p-5 rounded-2xl border border-border bg-white mt-4">
+  <div class="ui-card p-5 mt-4">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] font-semibold">Kuliah Hari Ini</h2>
-      <button type="button" @click="hari = todayName; pilihHari(todayName); go('jadwal')" class="text-[13px] text-primary font-medium hover:underline min-h-[44px]">Jadwal minggu ini</button>
+      <button type="button" @click="hari = todayName; pilihHari(todayName); go('jadwal')" class="ui-button ui-button--ghost text-[13px] text-primary font-medium hover:underline min-h-[44px]">Jadwal minggu ini</button>
     </div>
     <div x-show="jadwalLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat jadwal hari ini...</div>
-    <div x-show="!jadwalLoading && jadwalEfektifHariIni.length === 0" class="py-6 text-center">
+    <div x-show="!jadwalLoading && jadwalEfektifHariIni.length === 0" class="ui-empty py-6 text-center">
       <p class="text-[14px] font-semibold">Tidak ada jadwal kuliah untuk hari ini.</p>
       <p class="text-[13px] text-slate-500 mt-0.5">Waktunya istirahat atau cicil tugas!</p>
-      <button type="button" @click="hari = todayName; pilihHari(todayName); go('jadwal')" class="mt-3 h-10 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Lihat jadwal minggu ini</button>
+      <button type="button" @click="hari = todayName; pilihHari(todayName); go('jadwal')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Lihat jadwal minggu ini</button>
     </div>
     <div class="mt-2 space-y-3">
       <template x-for="s in jadwalEfektifHariIni" :key="s.id">
         <div class="p-4 rounded-2xl border border-border bg-slate-50/60">
           <div class="flex items-center justify-between gap-2">
             <span class="font-mono text-[13px] font-bold text-primary" x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">-</span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border" :class="badgeJadwal(s.kind).cls"><span class="material-symbols-outlined text-[12px]" x-text="badgeJadwal(s.kind).icon">-</span><span x-text="badgeJadwal(s.kind).label">-</span></span>
+            <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border" :class="badgeJadwal(s.kind).cls"><span class="material-symbols-outlined text-[12px]" x-text="badgeJadwal(s.kind).icon">-</span><span x-text="badgeJadwal(s.kind).label">-</span></span>
           </div>
           <p class="text-[16px] font-bold mt-1" x-text="s.matkul">-</p>
           <p class="text-[12px] text-slate-500 mt-0.5" x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang || '')">-</p>
@@ -33,37 +32,37 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card lg:col-span-3 p-5">
       <div class="flex items-center justify-between">
         <h2 class="text-[18px] font-semibold">Tugas Mendesak</h2>
-        <button type="button" @click="go('tugas')" class="text-[13px] text-primary font-medium hover:underline min-h-[44px]">Lihat Semua Tugas</button>
+        <button type="button" @click="go('tugas')" class="ui-button ui-button--ghost text-[13px] text-primary font-medium hover:underline min-h-[44px]">Lihat Semua Tugas</button>
       </div>
       <div x-show="tugasLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat tugas...</div>
-      <div x-show="!tugasLoading && urgent3.length === 0" class="py-8 text-center">
+      <div x-show="!tugasLoading && urgent3.length === 0" class="ui-empty py-8 text-center">
         <p class="text-[13px] text-slate-400">Tidak ada tugas mendesak.</p>
-        <button type="button" @click="go('tugas')" class="mt-3 h-10 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Lihat semua tugas</button>
+        <button type="button" @click="go('tugas')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Lihat semua tugas</button>
       </div>
       <div class="divide-y divide-border">
         <template x-for="t in urgent3" :key="t.id">
-          <button type="button" @click="bukaDetailTugas(t)" class="w-full py-4 flex items-start justify-between gap-3 text-left">
+          <button type="button" @click="bukaDetailTugas(t)" class="ui-button ui-button--ghost w-full py-4 flex items-start justify-between gap-3 text-left">
             <div class="min-w-0">
               <p class="text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</p>
               <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul + ' • ' + t.deadline">-</p>
             </div>
-            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-white' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
+            <span class="ui-badge px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-ink' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
           </button>
         </template>
       </div>
     </div>
-    <div class="lg:col-span-2 p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card lg:col-span-2 p-5">
       <div class="flex items-center justify-between">
         <h2 class="text-[18px] font-semibold">Perubahan Terbaru</h2>
-        <button type="button" @click="go('perubahan')" class="text-[13px] text-primary font-medium hover:underline min-h-[44px]">Semua</button>
+        <button type="button" @click="go('perubahan')" class="ui-button ui-button--ghost text-[13px] text-primary font-medium hover:underline min-h-[44px]">Semua</button>
       </div>
       <div x-show="perubahanLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat perubahan...</div>
-      <div x-show="!perubahanLoading && perubahanTerbaru.length === 0" class="py-6 text-center">
+      <div x-show="!perubahanLoading && perubahanTerbaru.length === 0" class="ui-empty py-6 text-center">
         <p class="text-[13px] text-slate-400">Belum ada pengumuman perubahan.</p>
-        <button type="button" @click="go('perubahan')" class="mt-3 h-10 px-4 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Lihat riwayat perubahan</button>
+        <button type="button" @click="go('perubahan')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Lihat riwayat perubahan</button>
       </div>
       <div class="mt-2 space-y-2">
         <template x-for="c in perubahanTerbaru" :key="c.id">

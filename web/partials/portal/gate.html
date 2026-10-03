@@ -37,7 +37,7 @@
 
         <!-- Compact Horizontal Feature Badges -->
         <div class="grid grid-cols-3 gap-2.5 max-w-lg mx-auto lg:mx-0 text-left">
-          <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
+          <div class="ui-card p-2.5 shadow-xs flex flex-col gap-1">
             <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">calendar_today</span>
             </span>
@@ -45,7 +45,7 @@
             <span class="text-[10px] text-slate-500 leading-tight">Jam harian & ruang kelas.</span>
           </div>
 
-          <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
+          <div class="ui-card p-2.5 shadow-xs flex flex-col gap-1">
             <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">assignment</span>
             </span>
@@ -53,7 +53,7 @@
             <span class="text-[10px] text-slate-500 leading-tight">Prioritas mendesak & aman.</span>
           </div>
 
-          <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 shadow-xs flex flex-col gap-1">
+          <div class="ui-card p-2.5 shadow-xs flex flex-col gap-1">
             <span class="w-7 h-7 rounded-lg bg-primary-faint text-primary flex items-center justify-center">
               <span class="material-symbols-outlined text-[16px]">bolt</span>
             </span>
@@ -69,7 +69,7 @@
 
       <!-- Right Interactive Gateway Card -->
       <div class="lg:col-span-6 w-full max-w-md mx-auto">
-        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5">
+        <div class="ui-card shadow-sm p-4 sm:p-5">
 
           <!-- STEP 1: PILIH KELAS (Segmented 3-Tap Picker) -->
           <div x-show="gateStep === 'select'">
@@ -95,10 +95,8 @@
                 <div class="grid grid-cols-2 gap-2">
                   <button type="button"
                           @click="setProdi('D4')"
-                          :class="selectedProdi === 'D4'
-                            ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
+                          :class="selectedProdi === 'D4' ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
                     <div>
                       <span class="text-[13px] block leading-tight">D4 Teknik Inf.</span>
                       <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D4' ? 'text-primary/80' : ''">4 Tahun</span>
@@ -108,10 +106,8 @@
 
                   <button type="button"
                           @click="setProdi('D3')"
-                          :class="selectedProdi === 'D3'
-                            ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
+                          :class="selectedProdi === 'D3' ? 'border-primary bg-primary-faint text-primary font-bold ring-1 ring-primary' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-10 px-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer">
                     <div>
                       <span class="text-[13px] block leading-tight">D3 Teknik Inf.</span>
                       <span class="text-[10px] text-slate-400 block" :class="selectedProdi === 'D3' ? 'text-primary/80' : ''">3 Tahun</span>
@@ -133,30 +129,24 @@
                   <!-- Smt 1 -->
                   <button type="button"
                           @click="setSemester('1')"
-                          :class="selectedSemester === '1'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedSemester === '1' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 1
                   </button>
 
                   <!-- Smt 3 -->
                   <button type="button"
                           @click="setSemester('3')"
-                          :class="selectedSemester === '3'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedSemester === '3' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 3
                   </button>
 
                   <!-- Smt 5 -->
                   <button type="button"
                           @click="setSemester('5')"
-                          :class="selectedSemester === '5'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedSemester === '5' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 5
                   </button>
 
@@ -164,10 +154,8 @@
                   <button type="button"
                           x-show="availableSemesters.includes('7')"
                           @click="setSemester('7')"
-                          :class="selectedSemester === '7'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedSemester === '7' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Smt 7
                   </button>
                 </div>
@@ -185,20 +173,16 @@
                   <!-- Kelas A -->
                   <button type="button"
                           @click="setAbjad('A')"
-                          :class="selectedAbjad === 'A'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedAbjad === 'A' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas A
                   </button>
 
                   <!-- Kelas B -->
                   <button type="button"
                           @click="setAbjad('B')"
-                          :class="selectedAbjad === 'B'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedAbjad === 'B' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas B
                   </button>
 
@@ -206,10 +190,8 @@
                   <button type="button"
                           x-show="availableAbjads.includes('C')"
                           @click="setAbjad('C')"
-                          :class="selectedAbjad === 'C'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedAbjad === 'C' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas C
                   </button>
 
@@ -217,10 +199,8 @@
                   <button type="button"
                           x-show="availableAbjads.includes('D')"
                           @click="setAbjad('D')"
-                          :class="selectedAbjad === 'D'
-                            ? 'border-primary bg-primary text-white font-bold shadow-xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'"
-                          class="h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
+                          :class="selectedAbjad === 'D' ? 'border-primary font-bold shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-medium'"
+                          class="ui-button ui-button--ghost h-9 rounded-xl border text-[12px] flex items-center justify-center transition cursor-pointer">
                     Kelas D
                   </button>
                 </div>
@@ -244,7 +224,7 @@
               <button type="button"
                       @click="masukKelas()"
                       :disabled="checkingAccess || !selectedClass"
-                      class="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
+                      class="ui-button ui-button--primary w-full active:scale-[0.99] disabled:cursor-not-allowed text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 cursor-pointer">
                 <span x-show="checkingAccess" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 <span x-text="checkingAccess ? 'Menyiapkan portal...' : 'Buka Portal ' + (selectedClass ? selectedClass : '')">Buka Portal Kelas</span>
                 <span x-show="!checkingAccess" class="material-symbols-outlined text-[17px]">arrow_forward</span>
@@ -264,11 +244,11 @@
           <div x-show="gateStep === 'pin'" x-cloak>
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
               <button type="button" @click="kembaliKePilihKelas()"
-                      class="inline-flex items-center gap-1 text-[12px] font-semibold text-slate-500 hover:text-slate-800 transition">
+                      class="ui-button ui-button--ghost inline-flex items-center gap-1 text-[12px] font-semibold text-slate-500 hover:text-slate-800 transition">
                 <span class="material-symbols-outlined text-[16px]">arrow_back</span>
                 <span>Ganti Kelas</span>
               </button>
-              <span class="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <span class="ui-badge px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                 <span class="material-symbols-outlined text-[13px]">lock</span>
                 <span>Diamankan</span>
               </span>
@@ -303,7 +283,7 @@
                      maxlength="128"
                      autocomplete="one-time-code"
                      placeholder="Masukkan kode dari KM"
-                     class="w-full h-11 px-3 rounded-xl border border-slate-200 text-[16px] font-mono text-center text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary transition" />
+                     class="ui-field w-full text-[16px] font-mono text-center text-slate-800 placeholder:text-slate-300 transition" />
               <p class="text-[10px] text-slate-400 mt-1 text-center">
                 Akses tersimpan otomatis selama 30 hari di peramban ini.
               </p>
@@ -313,14 +293,14 @@
             <button type="button"
                     @click="bukaPortal()"
                     :disabled="loadingPin || pin.trim().length < 6 || pin.trim().length > 128"
-                    class="mt-4 w-full h-11 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer">
+                    class="ui-button ui-button--primary mt-4 w-full active:scale-[0.99] disabled:cursor-not-allowed text-[14px] font-semibold shadow-xs flex items-center justify-center gap-2 cursor-pointer">
               <span x-show="loadingPin" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               <span x-text="loadingPin ? 'Memverifikasi...' : 'Verifikasi & Buka Portal'">Verifikasi & Buka Portal</span>
               <span x-show="!loadingPin" class="material-symbols-outlined text-[17px]">check_circle</span>
             </button>
 
             <button type="button" @click="kembaliKePilihKelas()"
-                    class="mt-2.5 w-full h-9 rounded-xl hover:bg-slate-100 text-slate-600 text-[12px] font-medium transition flex items-center justify-center gap-1 cursor-pointer">
+                    class="ui-button ui-button--ghost mt-2.5 w-full h-9 rounded-xl hover:bg-slate-100 text-slate-600 text-[12px] font-medium transition flex items-center justify-center gap-1 cursor-pointer">
               <span>Kembali ke pilihan kelas</span>
             </button>
           </div>

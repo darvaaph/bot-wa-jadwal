@@ -4,14 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Asterisk — Area KM</title>
-  <link rel="stylesheet" href="/css/tailwind.css?v=20261015" />
-  <link rel="stylesheet" href="/css/style.css?v=20261015" />
-  <link rel="stylesheet" href="/css/tokens.css?v=20261002" />
-  <script src="/js/vendor/tailwindcss.play.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <link rel="stylesheet" href="/css/style.css?v=20261003" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
+  <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
+  <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
   <script>
     (function() {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
@@ -20,40 +18,16 @@
       }
     })();
   </script>
-  <script defer src="/js/vendor/alpine.cdn.min.js"></script>
-  <script src="/js/api.js?v=20261012"></script>
-  <script src="/js/app-km.js?v=20261015"></script>
+  <script defer src="/js/vendor/alpine.cdn.min.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261003"></script>
+  <script src="/js/shell.js?v=20261003"></script>
+  <script src="/js/app-km.js?v=20261003-2"></script>
 </head>
 <!--
   AREA KM (REVISI Figma, tanpa role switcher). Entry di /km.html.
   Portal User di /. Isi per layar: web/partials/km/*.html via initKM() di js/app-km.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="drawer = false; kanalLepas = null">
-
-  <div id="km-sidebar"></div>
-
-  <div class="flex flex-col min-h-screen min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] bg-canvas" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'">
-    <div id="km-topbar"></div>
-    <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
-      <div id="km-state"></div>
-      <div id="km-dashboard"></div>
-      <div id="km-tugas"></div>
-      <div id="km-jadwal"></div>
-      <div id="km-rooms"></div>
-      <div id="km-materi"></div>
-      <div id="km-semester"></div>
-      <div id="km-anggota"></div>
-      <div id="km-antrean"></div>
-      <div id="km-monitor"></div>
-      <div id="km-notif"></div>
-      <div id="km-pengaturan"></div>
-      <div id="km-usulan"></div>
-    </main>
-  </div>
-
-  <div id="km-drawer"></div>
-  <div id="km-bottombar"></div>
-  <div id="km-toast"></div>
-
+<body class="bg-white text-ink min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="shellCloseDrawer(); kanalLepas = null">
+  <div id="app-shell"></div>
 </body>
 </html>

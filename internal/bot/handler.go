@@ -112,10 +112,6 @@ func PortalMessage() string {
 	return sb.String()
 }
 
-func GetDefaultCommandLimiter() *RateLimiter {
-	return defaultCommandLimiter
-}
-
 // ResolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA)
 func ResolveSenderAdmin(ctx context.Context, client *whatsmeow.Client, isGroup bool, groupJID, senderJID, senderAltJID types.JID) bool {
 	return defaultGroupAdminResolver.ResolveSenderAdmin(ctx, client, isGroup, groupJID, senderJID, senderAltJID)

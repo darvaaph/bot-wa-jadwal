@@ -4,47 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Asterisk — Portal Kelas</title>
-  <link rel="stylesheet" href="/css/tailwind.css?v=20261014" />
-  <link rel="stylesheet" href="/css/style.css?v=20261014" />
-  <link rel="stylesheet" href="/css/tokens.css?v=20261002" />
-  <script src="/js/vendor/tailwindcss.play.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-  <script defer src="/js/vendor/alpine.cdn.min.js"></script>
-  <script src="/js/api.js?v=20261010"></script>
-  <script src="/js/app-portal.js?v=20261014"></script>
+  <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <link rel="stylesheet" href="/css/style.css?v=20261003" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
+  <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
+  <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
+  <script defer src="/js/vendor/alpine.cdn.min.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261003"></script>
+  <script src="/js/shell.js?v=20261003"></script>
+  <script src="/js/app-portal.js?v=20261003"></script>
 </head>
 <!--
   PORTAL MAHASISWA (REVISI Figma): hanya-baca, tanpa akun. Entry utama di "/".
   Area KM pindah ke /km.html, PJ di /pj.html, System Admin di /system-admin.html (lama: /superadmin.html, tetap dialihkan).
   Gerbang PIN + isi: web/partials/portal/*.html via initPortal() di js/app-portal.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="portalApp()" x-init="initPortal()" @keydown.escape.window="drawer = false">
-
-  <div x-show="!unlocked" id="portal-gate"></div>
-
-  <div x-show="unlocked" x-cloak>
-    <div id="portal-sidebar"></div>
-    <div class="flex flex-col min-h-screen min-w-0 transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'">
-      <div id="portal-topbar"></div>
-      <main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10">
-        <div id="portal-state"></div>
-        <div id="portal-dashboard"></div>
-        <div id="portal-tugas"></div>
-        <div id="portal-jadwal"></div>
-        <div id="portal-materi"></div>
-        <div id="portal-courses"></div>
-        <div id="portal-perubahan"></div>
-        <div id="portal-arsip"></div>
-      </main>
-    </div>
-    <div id="portal-drawer"></div>
-    <div id="portal-bottombar"></div>
-  </div>
-
-  <div id="portal-toast"></div>
-
+<body class="bg-white text-ink min-h-screen" x-data="portalApp()" x-init="initPortal()" @keydown.escape.window="shellCloseDrawer()">
+  <div id="portal-gate" x-show="!unlocked"></div>
+  <div x-show="unlocked" x-cloak><div id="app-shell"></div></div>
 </body>
 </html>

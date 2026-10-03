@@ -33,5 +33,3 @@ func BeginRestore() func() {
 		restoreLock.Unlock()
 	}
 }
-
-func Restoring() bool { return restoring.Load() }

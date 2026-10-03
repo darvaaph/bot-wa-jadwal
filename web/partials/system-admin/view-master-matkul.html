@@ -1,7 +1,7 @@
 <!-- partials/system-admin/view-master-matkul.html - System Admin: Master Mata Kuliah -->
 <section x-show="view === 'master-matkul'" x-cloak>
-  <div class="rounded-[24px] border border-border bg-white p-6 md:p-10 shadow-sm">
-    <h1 class="text-[28px] md:text-[32px] font-bold text-ink" style="font-family:'Poppins',system-ui,sans-serif">Master Mata Kuliah</h1>
+  <div class="ui-card p-6 md:p-10 shadow-sm">
+    <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Master Mata Kuliah</h1>
     <p class="text-[14px] text-slate-500 mt-1">Daftar induk mata kuliah kampus untuk penawaran semester. Kode tidak dapat diubah.</p>
 
     <div class="mt-6 p-5 rounded-2xl border border-border bg-slate-50/60">
@@ -10,20 +10,20 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
         <div>
           <label for="sa-matkul-kode" class="block text-[12px] font-semibold text-ink mb-1">Kode *</label>
-          <input id="sa-matkul-kode" type="text" x-model="matkulForm.kode" placeholder="IF-101" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white font-mono" />
+          <input id="sa-matkul-kode" type="text" x-model="matkulForm.kode" placeholder="IF-101" class="ui-field text-[14px] font-mono" />
         </div>
         <div class="sm:col-span-2">
           <label for="sa-matkul-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama *</label>
-          <input id="sa-matkul-nama" type="text" x-model="matkulForm.nama" placeholder="Nama mata kuliah" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
+          <input id="sa-matkul-nama" type="text" x-model="matkulForm.nama" placeholder="Nama mata kuliah" class="ui-field text-[14px]" />
         </div>
       </div>
-      <button type="button" @click="tambahMatkul()" class="mt-3 h-11 px-6 rounded-xl bg-primary text-white text-[14px] font-semibold min-h-[44px]">Tambah Mata Kuliah</button>
+      <button type="button" @click="tambahMatkul()" class="ui-button ui-button--primary mt-3 text-[14px] font-semibold">Tambah Mata Kuliah</button>
     </div>
 
     <!-- Cari + filter status -->
     <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <input type="text" x-model="matkulQ" placeholder="Cari kode atau nama..." aria-label="Cari mata kuliah" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white sm:col-span-2" />
-      <select x-model="matkulStatusFilter" @change="loadMatkul()" aria-label="Filter status mata kuliah" class="h-11 px-3 rounded-xl border border-border text-[13px] bg-white">
+      <input type="text" x-model="matkulQ" placeholder="Cari kode atau nama..." aria-label="Cari mata kuliah" class="ui-field text-[14px] sm:col-span-2" />
+      <select x-model="matkulStatusFilter" @change="loadMatkul()" aria-label="Filter status mata kuliah" class="ui-field text-[13px]">
         <option value="">Semua status</option>
         <option value="ACTIVE">Aktif</option>
         <option value="INACTIVE">Nonaktif</option>
@@ -36,16 +36,16 @@
     </div>
     <div x-show="matkulError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
       <span x-text="matkulError">-</span>
-      <button type="button" @click="loadMatkul()" class="ml-2 font-semibold underline">Coba Lagi</button>
+      <button type="button" @click="loadMatkul()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
     </div>
-    <div x-show="!matkulLoading && !matkulError && filteredMatkul().length === 0" class="p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
+    <div x-show="!matkulLoading && !matkulError && filteredMatkul().length === 0" class="ui-empty p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
       <p class="text-[15px] font-semibold text-ink">Tidak ada mata kuliah</p>
       <p class="text-[13px] mt-0.5">Ubah pencarian/filter, atau tambahkan mata kuliah pertama di atas.</p>
     </div>
 
     <!-- Desktop: tabel -->
-    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="mt-6 overflow-x-auto hidden md:block">
-      <table class="w-full text-[13px] min-w-[560px]">
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="ui-table-wrap mt-6 hidden md:block">
+      <table class="ui-table min-w-[560px]">
         <thead>
           <tr class="text-left text-slate-500 border-b border-border">
             <th class="py-2 pr-3 font-semibold">Kode</th>
@@ -60,15 +60,15 @@
               <td class="py-3 pr-3 font-mono font-semibold" x-text="m.code">-</td>
               <td class="py-3 pr-3" x-text="m.name">-</td>
               <td class="py-3 pr-3">
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
+                <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
                   :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'">
                   <span class="material-symbols-outlined text-[12px]">book</span>
                   <span x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
                 </span>
               </td>
               <td class="py-3 text-right whitespace-nowrap">
-                <button type="button" @click="mulaiUbahMatkul(m)" class="h-10 px-3 rounded-lg border border-primary text-primary text-[12px] font-semibold min-h-[44px]">Ubah</button>
-                <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="h-10 px-3 rounded-lg border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+                <button type="button" @click="mulaiUbahMatkul(m)" class="ui-button ui-button--outline text-primary text-[12px] font-semibold">Ubah</button>
+                <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
               </td>
             </tr>
           </template>
@@ -79,10 +79,10 @@
     <!-- Mobile: daftar berlabel -->
     <div x-show="!matkulLoading && filteredMatkul().length > 0" class="mt-6 space-y-3 md:hidden">
       <template x-for="m in filteredMatkul()" :key="m.id">
-        <div class="p-4 rounded-2xl border border-border bg-white">
+        <div class="ui-card p-4">
           <div class="flex items-start justify-between gap-2">
             <p class="font-mono font-bold text-[15px]" x-text="m.code">-</p>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
+            <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
               :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
               x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
           </div>
@@ -90,8 +90,8 @@
             <div class="flex gap-2"><dt class="w-14 shrink-0 text-slate-500">Nama</dt><dd class="flex-1 font-medium" x-text="m.name">-</dd></div>
           </dl>
           <div class="mt-3 flex gap-2">
-            <button type="button" @click="mulaiUbahMatkul(m)" class="flex-1 h-11 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Ubah</button>
-            <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="flex-1 h-11 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+            <button type="button" @click="mulaiUbahMatkul(m)" class="ui-button ui-button--outline flex-1 text-primary text-[13px] font-semibold">Ubah</button>
+            <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
           </div>
         </div>
       </template>
@@ -104,11 +104,11 @@
       <div x-show="matkulEditError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulEditError"></div>
       <div class="mt-3">
         <label for="sa-matkul-ubah-nama" class="block text-[12px] font-semibold mb-1">Nama *</label>
-        <input id="sa-matkul-ubah-nama" type="text" x-model="matkulEdit.nama" class="h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
+        <input id="sa-matkul-ubah-nama" type="text" x-model="matkulEdit.nama" class="ui-field text-[14px]" />
       </div>
       <div class="flex gap-2 mt-3">
-        <button type="button" @click="simpanUbahMatkul()" class="h-11 px-6 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Simpan</button>
-        <button type="button" @click="batalUbahMatkul()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+        <button type="button" @click="simpanUbahMatkul()" class="ui-button ui-button--primary text-[13px] font-semibold">Simpan</button>
+        <button type="button" @click="batalUbahMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
       </div>
     </div>
 
@@ -116,14 +116,14 @@
     <div class="mt-8">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-[16px] font-bold text-ink">Usulan KM menunggu</h2>
-        <button type="button" @click="loadUsulan('COURSE')" class="h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+        <button type="button" @click="loadUsulan('COURSE')" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
       </div>
       <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
       <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="usulanError">-</span>
-        <button type="button" @click="loadUsulan('COURSE')" class="ml-2 font-semibold underline">Coba Lagi</button>
+        <button type="button" @click="loadUsulan('COURSE')" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
       </div>
-      <div x-show="!usulanLoading && !usulanError && usulanKindList('COURSE').length === 0" class="mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Tidak ada usulan mata kuliah menunggu.</div>
+      <div x-show="!usulanLoading && !usulanError && usulanKindList('COURSE').length === 0" class="ui-empty mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Tidak ada usulan mata kuliah menunggu.</div>
       <div x-show="!usulanLoading && usulanKindList('COURSE').length > 0" class="mt-3 space-y-3">
         <template x-for="u in usulanKindList('COURSE')" :key="u.id">
           <div class="p-4 rounded-2xl border border-amber-300 bg-amber-50/40">
@@ -134,17 +134,17 @@
               <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(u.payload_json)"></pre>
             </details>
             <div class="flex gap-2 mt-2">
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="h-10 px-4 rounded-lg bg-primary text-white text-[12px] font-semibold min-h-[44px]">Setujui</button>
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'reject')" class="h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
+              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="ui-button ui-button--primary text-[12px] font-semibold">Setujui</button>
+              <button type="button" @click="mulaiKeputusanUsulan(u, 'reject')" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
             </div>
-            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="mt-3 p-4 rounded-xl bg-white border border-border">
+            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="ui-card mt-3 p-4">
               <p class="text-[13px] font-semibold" x-text="(usulanKeputusan.keputusan === 'approve' ? 'Setujui ' : 'Tolak ') + usulanKeputusan.judul">-</p>
               <p x-show="usulanKeputusan.keputusan === 'approve'" class="text-[12px] text-slate-500 mt-1">Diterapkan ke master dan tercatat di Audit Global.</p>
               <label :for="'sa-usulan-catatan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Catatan <span x-show="usulanKeputusan.keputusan === 'reject'" class="text-red-600">*</span></label>
               <div class="flex flex-col sm:flex-row gap-2">
-                <input :id="'sa-usulan-catatan-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="flex-1 h-11 px-3 rounded-xl border border-border text-[14px] bg-white" />
-                <button type="button" @click="jalankanKeputusanUsulan()" class="h-11 px-5 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-                <button type="button" @click="usulanKeputusan = null" class="h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+                <input aria-label="Catatan" :id="'sa-usulan-catatan-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="ui-field flex-1 text-[14px]" />
+                <button type="button" @click="jalankanKeputusanUsulan()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
+                <button type="button" @click="usulanKeputusan = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
               </div>
             </div>
           </div>
@@ -155,13 +155,13 @@
     <!-- Dialog konfirmasi status -->
     <div x-show="matkulStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiStatusMatkul()"></div>
-      <div class="relative bg-white rounded-2xl border border-border max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
         <h3 class="text-[16px] font-bold text-ink">Ubah status mata kuliah?</h3>
         <p class="text-[13px] text-muted mt-1">Mata kuliah <span class="font-mono font-semibold text-ink" x-text="matkulStatusConfirm ? matkulStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="matkulStatusConfirm ? matkulStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="matkulStatusConfirm ? matkulStatusConfirm.ke : ''"></span>.</p>
         <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah pemakaian untuk penawaran baru. Penawaran lama tetap tampil.</p>
         <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatusMatkul()" class="flex-1 h-11 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatusMatkul()" class="h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+          <button type="button" @click="jalankanUbahStatusMatkul()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiStatusMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
     </div>

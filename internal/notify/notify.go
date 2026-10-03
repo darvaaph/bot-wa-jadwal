@@ -108,9 +108,8 @@ func dailyKey(classID int64, date string) string {
 func taskKey(classID int64, date string) string {
 	return fmt.Sprintf("tasks:%d:%s", classID, date)
 }
-func eventPublishKey(eventID int64) string { return fmt.Sprintf("event-publish:%d", eventID) }
-func eventRevokeKey(eventID int64) string  { return fmt.Sprintf("event-revoke:%d", eventID) }
-func replacementKey(eventID int64) string  { return fmt.Sprintf("replacement-reminder:%d", eventID) }
+func eventRevokeKey(eventID int64) string { return fmt.Sprintf("event-revoke:%d", eventID) }
+func replacementKey(eventID int64) string { return fmt.Sprintf("replacement-reminder:%d", eventID) }
 
 // BuildDailyText composes the morning summary per PRD template from effective schedule + urgent tasks.
 func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string, link string) (string, error) {
@@ -341,20 +340,6 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 	return enqueued, rows.Err()
 }
 
-// EnqueueEventPublished creates a change message after schedule publish (idempotent).
-// Durable: tetap tersimpan PENDING tanpa channel ketika kelas belum punya kanal aktif.
-func (s *Service) EnqueueEventPublished(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
-	chID, _, _ := s.ChannelForClass(ctx, classID)
-	var chArg int64
-	if chID > 0 {
-		chArg = chID
-	} else {
-		chArg = 0
-	}
-	id, _, err := s.Enqueue(ctx, classID, chArg, "SCHEDULE_CHANGE", "TEACHING_EVENT", eventID, eventPublishKey(eventID), text, "", time.Now().UTC(), triggeredBy)
-	return id, err
-}
-
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
 // Both writes happen in one transaction so a crash cannot leave duplicates.
 // Durable: tetap tersimpan tanpa channel ketika kelas belum punya kanal aktif.
@@ -518,16 +503,6 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
-}
-
-// GetMessageClass returns the owning class of a notification message.
-func (s *Service) GetMessageClass(ctx context.Context, messageID int64) (int64, error) {
-	var classID int64
-	err := s.db.QueryRowContext(ctx, `SELECT class_id FROM notification_messages WHERE id = ?`, messageID).Scan(&classID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, ErrNotFound
-	}
-	return classID, err
 }
 
 // Retry requeues a FAILED message.

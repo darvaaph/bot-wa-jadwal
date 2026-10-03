@@ -14,14 +14,27 @@ function portalApp() {
     dashboardLoading: true,
     q: '',
     unreadCount: 0,
+    botOnline: false,
+    contextAssignments: [],
+    contextSwitching: false,
+    meCache: null,
     hari: 'Senin',
     tugasMatkul: 'Semua',
 
-    portalNav: [
-      { id: 'dashboard', label: 'Ringkasan', img: '/assets/icons/home.svg' },
-      { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-      { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
-      { id: 'courses', label: 'Mata Kuliah', img: '/assets/icons/folder.svg' }
+    ...AsteriskShell.behavior('portal'),
+
+    navSections: [
+      { title: 'PORTAL KELAS', items: [
+        { id: 'dashboard', label: 'Ringkasan', img: '/assets/icons/home.svg' }
+      ] },
+      { title: 'AKADEMIK', items: [
+        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
+        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg', active: ['tugas', 'detail-tugas'] },
+        { id: 'courses', label: 'Mata Kuliah', img: '/assets/icons/folder.svg', active: ['courses', 'course-detail'] },
+        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
+        { id: 'perubahan', label: 'Perubahan', img: '/assets/icons/activity.svg' },
+        { id: 'arsip', label: 'Arsip', img: '/assets/icons/backup.svg' }
+      ] }
     ],
 
     todayName: 'Senin',
@@ -108,11 +121,12 @@ function portalApp() {
 
     get tugasTabList() {
       const list = this.tugasGrup[this.tugasTab] || [];
-      return list.filter(t => this.tugasMatkul === 'Semua' || t.matkul === this.tugasMatkul);
+      return list.filter(t => (this.tugasMatkul === 'Semua' || t.matkul === this.tugasMatkul)
+        && this.shellMatchesSearch('tugas', [t.title, t.deskripsi, t.instructions, t.matkul]));
     },
 
     get jadwalHari() {
-      return (this.jadwalEfektif || []).slice().sort((a, b) =>
+      return (this.jadwalEfektif || []).filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang])).sort((a, b) =>
         String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
     },
 
@@ -172,21 +186,13 @@ function portalApp() {
     async ensureDashboardPartials() {
       if (this.dashboardPartialsLoaded) return;
       await this.loadPartials([
-        ['portal-sidebar', '/partials/portal/sidebar.html'],
-        ['portal-state', '/partials/common/state-error.html'],
-        ['portal-topbar', '/partials/portal/topbar.html'],
         ['portal-dashboard', '/partials/portal/view-dashboard.html'],
         ['portal-tugas', '/partials/portal/view-tugas.html'],
         ['portal-jadwal', '/partials/portal/view-jadwal.html'],
         ['portal-materi', '/partials/portal/view-materi.html'],
         ['portal-courses', '/partials/portal/view-courses.html'],
         ['portal-perubahan', '/partials/portal/view-perubahan.html'],
-        ['portal-arsip', '/partials/portal/view-arsip.html'],
-        ['portal-drawer', '/partials/portal/drawer.html'],
-        ['portal-bottombar', '/partials/portal/bottombar.html']
-      ]);
-      await this.loadPartials([
-        ['portal-skeleton', '/partials/common/skeleton-dashboard.html']
+        ['portal-arsip', '/partials/portal/view-arsip.html']
       ]);
       this.dashboardPartialsLoaded = true;
     },
@@ -196,10 +202,8 @@ function portalApp() {
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       await this.loadClasses();
-      await this.loadPartials([
-        ['portal-gate', '/partials/portal/gate.html'],
-        ['portal-toast', '/partials/portal/toast.html']
-      ]);
+      await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
+      await AsteriskShell.mount('portal', ['dashboard','tugas','jadwal','materi','courses','perubahan','arsip']);
 
       if (!this.unlocked) {
         return;
@@ -244,7 +248,7 @@ function portalApp() {
       // Alpine v3 auto-init node baru via MutationObserver; jangan initTree manual (render ganda).
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261010', { cache: 'no-store' });
+          const res = await fetch(url + '?v=' + encodeURIComponent(AsteriskShell.version), { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {

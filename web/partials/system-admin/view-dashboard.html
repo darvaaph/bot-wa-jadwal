@@ -1,12 +1,11 @@
 <!-- partials/system-admin/view-dashboard.html - System Admin: Ringkasan Sistem -->
 <section x-show="view === 'dashboard'" x-cloak>
-  <div id="sa-skeleton"></div>
   <div x-show="!dashboardLoading" class="space-y-6">
 
     <!-- 1. Header & Status Sistem Global -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
       <div class="min-w-0">
-        <h1 class="text-[24px] md:text-[28px] font-bold text-ink tracking-tight" style="font-family:'Poppins',sans-serif">
+        <h1 class="font-display text-[24px] md:text-[28px] font-bold text-ink tracking-tight">
           Ringkasan Sistem
         </h1>
         <div class="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 mt-1">
@@ -14,13 +13,13 @@
           <span class="text-slate-300">•</span>
           <!-- Status pill sistem (tanpa emoji, tanpa pulse) -->
           <template x-if="botOnline">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="ui-badge inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>Gateway Aktif</span>
             </span>
           </template>
           <template x-if="!botOnline">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <span class="ui-badge inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
               <span class="w-2 h-2 rounded-full bg-rose-500"></span>
               <span>Gateway Terputus</span>
             </span>
@@ -28,11 +27,11 @@
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
-        <button type="button" @click="go('kanal')" class="h-10 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[13px] font-medium text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+        <button type="button" @click="go('kanal')" class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[13px] font-medium text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
           <span class="material-symbols-outlined text-[18px] text-slate-500">send</span>
           <span>Uji Pesan WA</span>
         </button>
-        <button type="button" @click="go('buat')" class="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold inline-flex items-center gap-1.5 min-h-[44px] shadow-sm transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+        <button type="button" @click="go('buat')" class="ui-button ui-button--primary text-[13px] font-semibold inline-flex items-center gap-1.5">
           <span class="material-symbols-outlined text-[18px]">add_circle</span>
           <span>Buat kelas baru</span>
         </button>
@@ -42,7 +41,7 @@
     <!-- 2. Zona Mission-Critical: Gateway WhatsApp & Antrean Pesan (Grid 2 Kolom) -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Card Gateway WhatsApp -->
-      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
+      <div class="ui-card p-5 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
@@ -57,15 +56,15 @@
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-          <button type="button" @click="checkBot()" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+          <button type="button" @click="checkBot()" class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px]">refresh</span>
             <span>Periksa status</span>
           </button>
-          <button type="button" @click="go('status-bot')" class="h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+          <button type="button" @click="go('status-bot')" class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px]">terminal</span>
             <span>Detail sistem</span>
           </button>
-          <button type="button" @click="go('kanal')" class="h-10 px-3.5 rounded-lg bg-blue-50 text-primary hover:bg-blue-100 text-[12px] font-semibold min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+          <button type="button" @click="go('kanal')" class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg bg-blue-50 text-primary hover:bg-blue-100 text-[12px] font-semibold min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px]">link</span>
             <span>Kanal & Sesi</span>
           </button>
@@ -84,10 +83,10 @@
               <span>Antrean Pesan Siaran</span>
             </span>
             <template x-if="failedCount > 0">
-              <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-200 text-rose-800">Perlu Penanganan</span>
+              <span class="ui-badge px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-200 text-rose-800">Perlu Penanganan</span>
             </template>
             <template x-if="failedCount === 0">
-              <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Lancar</span>
+              <span class="ui-badge px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Lancar</span>
             </template>
           </div>
           <div class="mt-3">
@@ -111,13 +110,13 @@
         </div>
         <div class="mt-4 pt-4 border-t" :class="failedCount > 0 ? 'border-rose-200' : 'border-slate-100'">
           <template x-if="failedCount > 0">
-            <button type="button" @click="notifFilter = 'FAILED'; go('antrean')" class="w-full h-10 px-4 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
+            <button type="button" @click="notifFilter = 'FAILED'; go('antrean')" class="ui-button ui-button--ghost w-full h-10 px-4 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
               <span class="material-symbols-outlined text-[16px]">priority_high</span>
               <span>Buka antrean pesan gagal</span>
             </button>
           </template>
           <template x-if="failedCount === 0">
-            <button type="button" @click="notifFilter = ''; go('antrean')" class="h-10 px-4 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
+            <button type="button" @click="notifFilter = ''; go('antrean')" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] inline-flex items-center gap-1.5 transition-colors">
               <span class="material-symbols-outlined text-[16px]">list_alt</span>
               <span>Buka antrean notifikasi</span>
             </button>
@@ -129,7 +128,7 @@
     <!-- 3. Zona Metrik Tata Kelola Kampus (3 Kolom Bersih Tanpa Warna Permen) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <!-- Metrik 1: Total Kelas Terdaftar -->
-      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
+      <div class="ui-card p-5 flex flex-col justify-between">
         <div>
           <span class="text-[13px] font-medium text-slate-500">Total Kelas</span>
           <p class="text-[32px] font-bold text-ink leading-tight mt-1" x-text="totalKelas">0</p>
@@ -137,7 +136,7 @@
             <span class="font-semibold text-emerald-700" x-text="activeKelasCount">0</span> aktif · <span x-text="Math.max(0, totalKelas - activeKelasCount)">0</span> arsip / nonaktif
           </p>
         </div>
-        <button type="button" @click="resetKelasFilter(); go('kelas')" class="mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
+        <button type="button" @click="resetKelasFilter(); go('kelas')" class="ui-button ui-button--ghost mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
           <span class="material-symbols-outlined text-[16px] text-slate-500">domain</span>
           <span>Daftar kelas</span>
         </button>
@@ -150,7 +149,7 @@
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-medium" :class="kelasTanpaKMCount > 0 ? 'text-amber-900' : 'text-slate-500'">Cakupan Ketua Murid</span>
             <template x-if="kelasTanpaKMCount > 0">
-              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">Perlu Tindakan</span>
+              <span class="ui-badge px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">Perlu Tindakan</span>
             </template>
           </div>
           <p class="text-[32px] font-bold text-ink leading-tight mt-1">
@@ -170,13 +169,13 @@
           </div>
         </div>
         <template x-if="kelasTanpaKMCount > 0">
-          <button type="button" @click="filterKelasTanpaKM()" class="mt-4 w-full h-10 px-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
+          <button type="button" @click="filterKelasTanpaKM()" class="ui-button ui-button--ghost mt-4 w-full h-10 px-3.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-semibold min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px]">person_search</span>
             <span>Tetapkan KM sekarang</span>
           </button>
         </template>
         <template x-if="kelasTanpaKMCount === 0">
-          <button type="button" @click="resetKelasFilter(); go('kelas')" class="mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
+          <button type="button" @click="resetKelasFilter(); go('kelas')" class="ui-button ui-button--ghost mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px] text-slate-500">group</span>
             <span>Lihat semua kelas</span>
           </button>
@@ -184,13 +183,13 @@
       </div>
 
       <!-- Metrik 3: Undangan Pending -->
-      <div class="p-5 rounded-2xl border border-border bg-white flex flex-col justify-between">
+      <div class="ui-card p-5 flex flex-col justify-between">
         <div>
           <span class="text-[13px] font-medium text-slate-500">Undangan Pengurus</span>
           <p class="text-[32px] font-bold text-ink leading-tight mt-1" x-text="undanganMenungguCount">0</p>
           <p class="text-[12px] text-slate-500 mt-1">Undangan KM pending · berlaku 7 hari sekali pakai</p>
         </div>
-        <button type="button" @click="penggunaTab = 'undangan'; go('pengguna')" class="mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
+        <button type="button" @click="penggunaTab = 'undangan'; go('pengguna')" class="ui-button ui-button--ghost mt-4 w-full h-10 px-3.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 transition-colors">
           <span class="material-symbols-outlined text-[16px] text-slate-500">mail</span>
           <span>Kelola undangan</span>
         </button>
@@ -198,16 +197,16 @@
     </div>
 
     <!-- 4. Pusat Alat Operasional Administrator (Quick Utilities Grid) -->
-    <div class="p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card p-5">
       <div class="flex items-center justify-between pb-3 border-b border-border">
         <div>
-          <h2 class="text-[17px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Peralatan Cepat Administrator</h2>
+          <h2 class="font-display text-[17px] font-bold text-ink">Peralatan Cepat Administrator</h2>
           <p class="text-[12px] text-slate-500 mt-0.5">Akses instan ke manajemen data master, cadangan sistem, dan peran</p>
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-4">
         <!-- Tool 1: Buat Kelas -->
-        <button type="button" @click="go('buat')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+        <button type="button" @click="go('buat')" class="ui-button ui-button--stack ui-button--ghost p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
           <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">add_business</span>
           </div>
@@ -216,7 +215,7 @@
         </button>
 
         <!-- Tool 2: Kelola Pengguna -->
-        <button type="button" @click="penggunaTab = 'akun'; go('pengguna')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+        <button type="button" @click="penggunaTab = 'akun'; go('pengguna')" class="ui-button ui-button--stack ui-button--ghost p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
           <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">badge</span>
           </div>
@@ -225,7 +224,7 @@
         </button>
 
         <!-- Tool 3: Cadangan & Pulih -->
-        <button type="button" @click="go('backup')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+        <button type="button" @click="go('backup')" class="ui-button ui-button--stack ui-button--ghost p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
           <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">cloud_download</span>
           </div>
@@ -234,7 +233,7 @@
         </button>
 
         <!-- Tool 4: Master Ruangan & Matkul -->
-        <button type="button" @click="go('master-ruangan')" class="p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
+        <button type="button" @click="go('master-ruangan')" class="ui-button ui-button--stack ui-button--ghost p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-blue-50/30 text-left transition-all group min-h-[44px]">
           <div class="w-9 h-9 rounded-lg bg-blue-50 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
             <span class="material-symbols-outlined text-[20px]">meeting_room</span>
           </div>

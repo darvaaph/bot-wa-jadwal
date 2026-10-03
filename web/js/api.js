@@ -311,24 +311,6 @@ const BotApi = {
     return json.data || null;
   },
 
-  async getTaskReviews(taskId) {
-    // Tidak ada GET /api/v1/tasks/{id}/reviews â€” review ikut di GetTaskDetail.
-    const d = await this.getTaskDetail(taskId).catch(() => null);
-    if (!d) return [];
-    if (Array.isArray(d)) return d;
-    return d.reviews || [];
-  },
-
-  async publishTask(taskId, version) {
-    // Tidak ada POST /api/v1/tasks/{id}/publish â€” publish via PATCH save_as=published.
-    let v = version;
-    if (!v) {
-      const d = await this.getTaskDetail(taskId).catch(() => null);
-      v = d && (d.version || (d.task && d.task.version)) || 0;
-    }
-    return this.updateTask(taskId, { version: v, save_as: 'published' });
-  },
-
   async updateTask(taskId, payload) {
     const res = await fetch('/api/v1/tasks/' + taskId, {
       method: 'PATCH',
@@ -488,11 +470,6 @@ const BotApi = {
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
-  },
-
-  async getSemesters(classSlug) {
-    const r = await this.getSemestersResult(classSlug);
-    return r.ok ? r.data : null;
   },
 
   // Versi mentah agar pemanggil bisa membedakan 404 (kelas belum terdaftar)
@@ -1077,15 +1054,16 @@ const BotApi = {
     return json.data || null;
   },
 
-  async getSystemStatus() {
-    return this.getAdminStatus();
-  },
-
   async getV1Classes() {
     const res = await fetch('/api/v1/classes', {
       headers: authHeaders(),
       credentials: 'same-origin'
     });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir. Silakan masuk kembali.');
+      err.status = 401;
+      throw err;
+    }
     if (!res.ok) return null;
     const json = await res.json();
     return json.data || null;
@@ -1407,7 +1385,7 @@ const BotApi = {
   },
 
   async deleteTask(taskId, version) {
-    // Backend tidak punya DELETE /api/v1/tasks/{id} (410 Gone) — hapus di UI diterjemahkan ke arsip.
+    // Backend tidak punya DELETE /api/v1/tasks/{id} (410 Gone); hapus di UI diterjemahkan ke arsip.
     return this.archiveTask(taskId, false, version);
   },
 

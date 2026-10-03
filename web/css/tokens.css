@@ -8,9 +8,11 @@
   --deep-ink: #1D1B3A;
   --muted: #667085;
   --border: #EEEEEE;
+  --border-card: #D7DDE7;
+  --border-control: #CBD5E1;
   --surface: #FFFFFF;
   --surface-subtle: #F6F7FB;
-  --canvas: #F8FAFC;
+  --canvas: #F2F5FA;
   --canvas-blue: #F8FAFF;
   --danger: #FF6C48;
   --danger-strong: #E53935;
@@ -98,5 +100,6 @@
 .text-ink { color: var(--ink); }
 .text-muted { color: var(--muted); }
 .text-primary { color: var(--primary); }
+.text-primary-hover { color: var(--primary-hover); }
 .text-primary\/80 { color: color-mix(in srgb, var(--primary) 80%, transparent); }
 .text-success { color: var(--success); }

@@ -13,29 +13,35 @@ function systemAdminApp() {
     q: '',
     unreadCount: 0,
 
-    saNav: [
-      { id: 'dashboard', label: 'Ringkasan Sistem', img: '/assets/icons/home.svg' },
-      { id: 'kelas', label: 'Daftar Kelas', img: '/assets/icons/classes.svg' },
-      { id: 'pengguna', label: 'Pengguna dan Penugasan', img: '/assets/icons/people.svg' },
-      { id: 'dukungan', label: 'Mode Dukungan', img: '/assets/icons/settings.svg' },
-      { id: 'antrean', label: 'Antrean Notifikasi', img: '/assets/icons/message-queue.svg' },
-      { id: 'kanal', label: 'Kanal WhatsApp', img: '/assets/icons/bell.svg' },
-      { id: 'audit', label: 'Audit Global', img: '/assets/icons/activity.svg' },
-      { id: 'status-bot', label: 'Status Sistem', img: '/assets/icons/bot.svg' },
-      { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
-      { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
-      { id: 'backup', label: 'Backup dan Pemulihan', img: '/assets/icons/backup.svg' }
+    ...AsteriskShell.behavior('sa'),
+
+    navSections: [
+      { title: 'SISTEM', items: [
+        { id: 'dashboard', label: 'Ringkasan Sistem', img: '/assets/icons/home.svg' },
+        { id: 'kelas', label: 'Daftar Kelas', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','undang','undang-siap'] },
+        { id: 'pengguna', label: 'Pengguna dan Penugasan', img: '/assets/icons/people.svg' },
+        { id: 'dukungan', label: 'Mode Dukungan', img: '/assets/icons/settings.svg' }
+      ] },
+      { title: 'OPERASIONAL', items: [
+        { id: 'antrean', label: 'Antrean Notifikasi', img: '/assets/icons/message-queue.svg' },
+        { id: 'kanal', label: 'Kanal WhatsApp', img: '/assets/icons/bell.svg' },
+        { id: 'audit', label: 'Audit Global', img: '/assets/icons/activity.svg', active: ['audit','pembaruan'] },
+        { id: 'status-bot', label: 'Status Sistem', img: '/assets/icons/bot.svg' }
+      ] },
+      { title: 'DATA & SISTEM', items: [
+        { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
+        { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
+        { id: 'backup', label: 'Backup dan Pemulihan', img: '/assets/icons/backup.svg' }
+      ] }
     ],
+
     kelasViews: ['kelas', 'buat', 'detail', 'undang', 'undang-siap'],
 
     currentUser: null,
     meCache: null,
     contextAssignments: [],
     contextSwitching: false,
-    authModal: false,
-    authForm: { identityKey: '', password: '' },
-    authLoading: false,
-    authError: '',
+    sessionRedirecting: false,
 
     botOnline: false,
     botStatusDetails: null,
@@ -307,7 +313,7 @@ function systemAdminApp() {
     },
 
     saTitle(id) {
-      const item = this.saNav.find(n => n.id === id);
+      const item = this.navSections.flatMap(section => section.items).find(n => n.id === id);
       return item ? item.label : id;
     },
 
@@ -331,15 +337,12 @@ function systemAdminApp() {
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       const isAuthed = await this.checkAuth();
       if (!isAuthed) {
-        localStorage.removeItem('access_token');
-        window.location.replace('/login.html?role=sa');
+        this.redirectToLogin();
         return;
       }
 
+      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','soon']);
       await this.loadPartials([
-        ['sa-sidebar', '/partials/system-admin/sidebar.html'],
-        ['sa-state', '/partials/common/state-error.html'],
-        ['sa-topbar', '/partials/system-admin/topbar.html'],
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
         ['sa-undang', '/partials/system-admin/view-undang.html'],
@@ -351,14 +354,7 @@ function systemAdminApp() {
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
         ['sa-matkul', '/partials/system-admin/view-master-matkul.html'],
         ['sa-soon', '/partials/system-admin/view-soon.html'],
-        ['sa-drawer', '/partials/system-admin/drawer.html'],
-        ['sa-bottombar', '/partials/system-admin/bottombar.html'],
-        ['sa-toast', '/partials/system-admin/toast.html'],
-        ['sa-auth', '/partials/system-admin/auth-modal.html']
-      ]);
-      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
-      await this.loadPartials([
-        ['sa-skeleton', '/partials/common/skeleton-dashboard-sa.html'],
+        ['sa-banner', '/partials/system-admin/support-banner.html']
       ]);
 
       await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
@@ -373,7 +369,7 @@ function systemAdminApp() {
       // Alpine v3 auto-init node baru via MutationObserver; jangan initTree manual (render ganda).
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261011', { cache: 'no-store' });
+          const res = await fetch(url + '?v=' + encodeURIComponent(AsteriskShell.version), { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -423,26 +419,12 @@ function systemAdminApp() {
       } finally { this.contextSwitching = false; }
     },
 
-    async login() {
-      if (!this.authForm.identityKey.trim() || !this.authForm.password.trim()) {
-        this.authError = 'Nomor identitas dan kata sandi wajib diisi.';
-        return;
-      }
-      this.authLoading = true;
-      this.authError = '';
-      try {
-        const res = await API.login(this.authForm.identityKey.trim(), this.authForm.password.trim());
-        if (res && res.token) {
-          this.authModal = false;
-          await this.checkAuth();
-          await Promise.all([this.checkBot(), this.loadKelas(), this.muatDukunganAktif()]);
-          this.showToast('Berhasil masuk sebagai System Admin.');
-        }
-      } catch (err) {
-        this.authError = err.message || 'Gagal masuk. Periksa kembali kredensial Anda.';
-      } finally {
-        this.authLoading = false;
-      }
+    redirectToLogin() {
+      if (this.sessionRedirecting) return;
+      this.sessionRedirecting = true;
+      API.setAuthToken(null);
+      this.currentUser = null;
+      window.location.replace('/login.html?role=sa');
     },
 
     statusNotifLabel(st) {
@@ -1541,9 +1523,7 @@ function systemAdminApp() {
           }
         }
       } catch (err) {
-        if (err.message && err.message.includes('401')) {
-          this.authModal = true;
-        }
+        if (err.status === 401) this.redirectToLogin();
       } finally {
         this.kelasLoading = false;
       }

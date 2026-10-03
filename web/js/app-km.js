@@ -16,6 +16,8 @@ function kmApp() {
     hideEmpty: false,
     activeScheduleDay: '',
 
+    ...AsteriskShell.behavior('km'),
+
     roleLabel: 'KM',
     contextAssignments: [],
     contextSwitching: false,
@@ -126,6 +128,7 @@ function kmApp() {
     semesterError: '',
     semesterForm: { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '', source_semester_id: '' },
     semesterFormError: '',
+    semesterFormErrorField: '',
     semesterSaving: false,
     semesterAktif: null,
     semesterAktifAlasan: '',
@@ -297,6 +300,7 @@ function kmApp() {
           if (dari && d < dari) return false;
           if (sampai && d > sampai) return false;
         }
+        if (!this.shellMatchesSearch('tugas', [t.title, t.deskripsi, t.instructions, t.matkul])) return false;
         return true;
       }).slice().sort((a, b) => this.bandingDeadline(a.deadline_at, b.deadline_at, this.tugasSort === 'dekat'));
     },
@@ -413,6 +417,7 @@ function kmApp() {
     daySessions(dayName) {
       const sessions = this.fullSchedule
         .filter(s => s.hari === dayName)
+        .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
       if (this.hideEmpty) return sessions;
@@ -506,6 +511,15 @@ function kmApp() {
       if (k === 'HOLIDAY') return 'Hari Libur';
       if (k === 'SESSION_CANCELLED') return 'Sesi Dibatalkan';
       return kind || '-';
+    },
+
+    kindDescription(kind) {
+      const k = String(kind || '').toUpperCase();
+      if (k === 'REPLACEMENT') return 'Pindahkan satu sesi ke waktu baru.';
+      if (k === 'EXTRA') return 'Tambahkan sesi di luar jadwal rutin.';
+      if (k === 'HOLIDAY') return 'Tandai waktu libur pada tanggal tertentu.';
+      if (k === 'SESSION_CANCELLED') return 'Batalkan satu sesi yang terjadwal.';
+      return '';
     },
 
     statusLabel(st) {
@@ -990,10 +1004,8 @@ function kmApp() {
         return;
       }
 
+      await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan']);
       await this.loadPartials([
-        ['km-sidebar', '/partials/km/sidebar.html'],
-        ['km-state', '/partials/common/state-error.html'],
-        ['km-topbar', '/partials/km/topbar.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
         ['km-jadwal', '/partials/km/view-jadwal.html'],
@@ -1006,13 +1018,6 @@ function kmApp() {
         ['km-notif', '/partials/km/view-notif.html'],
         ['km-pengaturan', '/partials/km/view-pengaturan.html'],
         ['km-usulan', '/partials/km/view-usulan.html'],
-        ['km-drawer', '/partials/common/drawer.html'],
-        ['km-bottombar', '/partials/common/bottombar.html'],
-        ['km-toast', '/partials/common/toast.html']
-      ]);
-      // Skeleton dimuat susulan: targetnya berada di dalam partial dashboard.
-      await this.loadPartials([
-        ['km-skeleton', '/partials/common/skeleton-dashboard.html'],
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
@@ -1039,7 +1044,7 @@ function kmApp() {
       // Jangan panggil Alpine.initTree manual di sini: menyebabkan x-for ter-render 2x.
       await Promise.all(slots.map(async ([id, url]) => {
         try {
-          const res = await fetch(url + '?v=20261013', { cache: 'no-store' });
+          const res = await fetch(url + '?v=' + encodeURIComponent(AsteriskShell.version), { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const el = document.getElementById(id);
           if (el) {
@@ -1829,8 +1834,9 @@ function kmApp() {
     async buatSemesterDraf() {
       const f = this.semesterForm;
       const slug = this.classSlug || this.selectedClass;
+      this.semesterFormErrorField = '';
       if (!slug) { this.semesterFormError = 'Kelas belum termuat.'; return; }
-      if (!((f.academic_year || '').trim())) { this.semesterFormError = 'Tahun ajaran wajib diisi (contoh 2024/2025).'; return; }
+      if (!((f.academic_year || '').trim())) { this.semesterFormErrorField = 'academic_year'; this.semesterFormError = 'Tahun ajaran wajib diisi (contoh 2024/2025).'; return; }
       if (!((f.term || '').trim())) { this.semesterFormError = 'Semester (Ganjil/Genap) wajib diisi.'; return; }
       if (!f.starts_on || !f.ends_on) { this.semesterFormError = 'Tanggal mulai dan selesai wajib diisi.'; return; }
       if (!(f.ends_on > f.starts_on)) { this.semesterFormError = 'Tanggal selesai harus setelah tanggal mulai.'; return; }

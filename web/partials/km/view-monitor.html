@@ -1,43 +1,43 @@
 <!-- partials/km/view-monitor.html — KM Monitoring + Riwayat Perubahan -->
 <section x-show="view === 'monitoring'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Monitoring</h1>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Monitoring</h1>
   <p class="text-[14px] text-slate-500 mt-1">Kesehatan publikasi dan pengiriman pesan kelas</p>
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
-    <div class="p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card p-5">
       <p class="text-[13px] text-slate-500">Status bot</p>
       <p class="text-[20px] font-bold mt-1" :class="botOnline ? 'text-emerald-600' : 'text-danger'" x-text="botOnline ? 'Terhubung' : 'Terputus'">-</p>
       <p class="text-[11px] text-slate-400 mt-1">Publikasi web tetap berjalan saat bot terputus.</p>
     </div>
-    <div class="p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card p-5">
       <p class="text-[13px] text-slate-500">Pesan menunggu</p>
       <p class="text-[32px] font-bold leading-tight" x-text="notifMenunggu">0</p>
-      <button type="button" @click="go('notifikasi')" class="text-[12px] text-primary font-medium hover:underline min-h-[44px]">Lihat antrean</button>
+      <button type="button" @click="go('notifikasi')" class="ui-button ui-button--ghost text-[12px] text-primary font-medium hover:underline min-h-[44px]">Lihat antrean</button>
     </div>
-    <div class="p-5 rounded-2xl border border-border bg-white">
+    <div class="ui-card p-5">
       <p class="text-[13px] text-slate-500">Pesan gagal</p>
       <p class="text-[32px] font-bold leading-tight" :class="notifGagal > 0 ? 'text-red-700' : ''" x-text="notifGagal">0</p>
-      <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="text-[12px] text-primary font-medium hover:underline min-h-[44px]">Jadwalkan ulang</button>
+      <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="ui-button ui-button--ghost text-[12px] text-primary font-medium hover:underline min-h-[44px]">Jadwalkan ulang</button>
     </div>
   </div>
-  <div class="mt-4 p-4 rounded-2xl border border-border bg-white flex flex-col sm:flex-row sm:items-center gap-2">
+  <div class="ui-card mt-4 p-4 flex flex-col sm:flex-row sm:items-center gap-2">
     <p class="text-[13px] text-slate-600 flex-1">Tugas aktif <span class="font-mono font-semibold" x-text="tugasAktif.length">0</span> · Perlu Review <span class="font-mono font-semibold" x-text="antrean.length">0</span></p>
-    <button type="button" @click="loadNotifikasi()" class="h-11 px-5 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Muat ulang antrean</button>
+    <button type="button" @click="loadNotifikasi()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Muat ulang antrean</button>
   </div>
 </section>
 
 <section x-show="view === 'log'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-ink" style="font-family:'Poppins',sans-serif">Riwayat Perubahan</h1>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Riwayat Perubahan</h1>
   <p class="text-[14px] text-slate-500 mt-1">Riwayat perubahan kelas dalam urutan waktu</p>
 
-  <div class="mt-4 p-4 rounded-2xl border border-border bg-white">
+  <div class="ui-card mt-4 p-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <div>
         <label class="block text-[12px] font-semibold text-slate-500 mb-1">Tindakan</label>
-        <input type="text" x-model="auditFilter.action" @change="loadAuditLog()" placeholder="mis. PUBLISH_TEACHING_EVENT" class="w-full h-11 px-3 rounded-xl border border-border text-[13px] font-mono" />
+        <input aria-label="Tindakan" type="text" x-model="auditFilter.action" @change="loadAuditLog()" placeholder="mis. PUBLISH_TEACHING_EVENT" class="ui-field w-full text-[13px] font-mono" />
       </div>
       <div>
         <label class="block text-[12px] font-semibold text-slate-500 mb-1">Objek</label>
-        <select x-model="auditFilter.entity_type" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-border text-[13px] bg-white">
+        <select aria-label="Objek" x-model="auditFilter.entity_type" @change="loadAuditLog()" class="ui-field w-full text-[13px]">
           <option value="">Semua objek</option>
           <option value="TASK">Tugas</option>
           <option value="TEACHING_EVENT">Kejadian perkuliahan</option>
@@ -50,19 +50,19 @@
       </div>
       <div>
         <label class="block text-[12px] font-semibold text-slate-500 mb-1">Pelaku (nomor WA / ID)</label>
-        <input type="text" x-model="auditFilter.actor" @change="loadAuditLog()" placeholder="mis. +62812..." class="w-full h-11 px-3 rounded-xl border border-border text-[13px] font-mono" />
+        <input aria-label="Pelaku (nomor WA / ID)" type="text" x-model="auditFilter.actor" @change="loadAuditLog()" placeholder="mis. +62812..." class="ui-field w-full text-[13px] font-mono" />
       </div>
       <div>
         <label class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
-        <input type="datetime-local" x-model="auditFilter.since" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-border text-[13px]" />
+        <input aria-label="Sejak" type="datetime-local" x-model="auditFilter.since" @change="loadAuditLog()" class="ui-field w-full text-[13px]" />
       </div>
       <div>
         <label class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
-        <input type="datetime-local" x-model="auditFilter.until" @change="loadAuditLog()" class="w-full h-11 px-3 rounded-xl border border-border text-[13px]" />
+        <input aria-label="Sampai" type="datetime-local" x-model="auditFilter.until" @change="loadAuditLog()" class="ui-field w-full text-[13px]" />
       </div>
       <div class="flex items-end gap-2">
-        <button type="button" @click="loadAuditLog()" class="flex-1 h-11 px-4 rounded-xl bg-primary text-white text-[13px] font-semibold min-h-[44px]">Terapkan</button>
-        <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Reset</button>
+        <button type="button" @click="loadAuditLog()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold">Terapkan</button>
+        <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Reset</button>
       </div>
     </div>
     <p x-show="auditFilterCount() > 0" class="mt-2 text-[12px] text-primary font-medium" x-text="auditFilterCount() + ' filter aktif'">-</p>
@@ -71,17 +71,17 @@
   <div x-show="auditLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat riwayat...</div>
   <div x-show="auditError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
     <span x-text="auditError">-</span>
-    <button type="button" @click="loadAuditLog()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+    <button type="button" @click="loadAuditLog()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
   </div>
-  <div x-show="!auditLoading && !auditError && auditList.length === 0" class="mt-5 p-10 rounded-2xl border border-dashed border-border bg-white text-center">
+  <div x-show="!auditLoading && !auditError && auditList.length === 0" class="ui-card mt-5 p-10 text-center">
     <p class="text-[15px] font-semibold">Belum ada riwayat</p>
     <p class="text-[13px] text-slate-500" x-text="auditFilterCount() > 0 ? 'Tidak ada riwayat dengan filter yang dipilih.' : 'Aktivitas kelas yang tercatat akan muncul di sini.'">-</p>
-    <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="mt-3 h-11 px-5 rounded-xl border border-primary text-primary text-[13px] font-semibold min-h-[44px]">Hapus filter</button>
+    <button type="button" @click="resetAuditFilter(); loadAuditLog()" x-show="auditFilterCount() > 0" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Hapus filter</button>
   </div>
   <div x-show="!auditLoading && auditList.length > 0" class="mt-5 space-y-2">
     <template x-for="a in auditList" :key="a.id">
-      <div class="p-4 rounded-2xl border border-border bg-white">
-        <button type="button" @click="auditDetailId = auditDetailId === a.id ? null : a.id" class="w-full text-left">
+      <div class="ui-card p-4">
+        <button type="button" @click="auditDetailId = auditDetailId === a.id ? null : a.id" class="ui-button ui-button--stack ui-button--ghost w-full text-left">
           <p class="text-[14px] font-semibold text-ink" x-text="labelAksiAudit(a.action)">-</p>
           <p class="text-[12px] text-slate-500 mt-0.5"><span x-text="a.actor_name || 'Sistem'">-</span><span x-show="a.actor_role" x-text="' · ' + a.actor_role">-</span><span x-show="a.entity_type" x-text="' · ' + a.entity_type + (a.entity_id ? ' #' + a.entity_id : '')">-</span></p>
           <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(a.created_at)">-</p>
@@ -101,6 +101,6 @@
     </template>
   </div>
   <div x-show="!auditLoading && !auditError && auditHasMore" class="mt-4 text-center">
-    <button type="button" @click="loadAuditLog(true)" :disabled="auditLoadingMore" class="h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="auditLoadingMore ? 'Memuat...' : 'Muat 50 lagi'">Muat 50 lagi</button>
+    <button type="button" @click="loadAuditLog(true)" :disabled="auditLoadingMore" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="auditLoadingMore ? 'Memuat...' : 'Muat 50 lagi'">Muat 50 lagi</button>
   </div>
 </section>
