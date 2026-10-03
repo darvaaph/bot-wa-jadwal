@@ -26,10 +26,10 @@
 <!--
   AREA SYSTEM ADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
   Isi per layar: web/partials/system-admin/*.html dimuat oleh initSystemAdmin() di js/app-system-admin.js.
-  View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna, dukungan,
-  antrean, audit, status-bot, master-ruangan, master-matkul, backup.
+  View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna,
+  antrean, audit (+pembaruan), master-ruangan, master-matkul, master-dosen, backup.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; matkulEdit = null; matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null">
+<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); kelasMenu = null; kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; matkulEdit = null; matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null">
   <div id="app-shell"></div>
 </body>
 </html>

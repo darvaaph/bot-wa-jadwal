@@ -16,23 +16,19 @@ function systemAdminApp() {
     ...AsteriskShell.behavior('sa'),
 
     navSections: [
-      { title: 'SISTEM', items: [
-        { id: 'dashboard', label: 'Ringkasan Sistem', img: '/assets/icons/home.svg' },
-        { id: 'kelas', label: 'Daftar Kelas', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','undang','undang-siap'] },
-        { id: 'pengguna', label: 'Pengguna dan Penugasan', img: '/assets/icons/people.svg' },
-        { id: 'dukungan', label: 'Mode Dukungan', img: '/assets/icons/settings.svg' }
+      { title: 'UTAMA', items: [
+        { id: 'dashboard', label: 'Ringkasan Sistem', icon: 'sa-grid', img: '/assets/icons/home.svg' },
+        { id: 'kelas', label: 'Kelas & Semester', icon: 'sa-cap', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','undang','undang-siap'] },
+        { id: 'pengguna', label: 'Pengguna & Peran', icon: 'sa-users', img: '/assets/icons/people.svg' }
       ] },
-      { title: 'OPERASIONAL', items: [
-        { id: 'antrean', label: 'Antrean Notifikasi', img: '/assets/icons/message-queue.svg' },
-        { id: 'kanal', label: 'Kanal WhatsApp', img: '/assets/icons/bell.svg' },
-        { id: 'audit', label: 'Audit Global', img: '/assets/icons/activity.svg', active: ['audit','pembaruan'] },
-        { id: 'status-bot', label: 'Status Sistem', img: '/assets/icons/bot.svg' }
+      { title: 'DATA AKADEMIK', items: [
+        { id: 'master-matkul', label: 'Mata Kuliah', icon: 'sa-book', img: '/assets/icons/book.svg' },
+        { id: 'master-ruangan', label: 'Ruangan', icon: 'sa-door', img: '/assets/icons/room.svg' },
+        { id: 'master-dosen', label: 'Dosen', icon: 'sa-badge', img: '/assets/icons/people.svg' }
       ] },
       { title: 'DATA & SISTEM', items: [
-        { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
-        { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
-        { id: 'master-dosen', label: 'Master Dosen', img: '/assets/icons/people.svg' },
-        { id: 'backup', label: 'Backup dan Pemulihan', img: '/assets/icons/backup.svg' }
+        { id: 'antrean', label: 'Antrean WhatsApp', icon: 'sa-plane', img: '/assets/icons/message-queue.svg' },
+        { id: 'backup', label: 'Cadangan & Audit', icon: 'sa-history', img: '/assets/icons/backup.svg', active: ['backup','audit','pembaruan'] }
       ] }
     ],
 
@@ -58,6 +54,10 @@ function systemAdminApp() {
     activeKelasCount: 0,
     kelasLoading: false,
     kelasFilter: { prodi: '', angkatan: '', rombel: '', status: '' },
+    lingkupKelas: '',
+    kelasMenu: null,
+    kelasFilterLanjutan: false,
+    kelasSemesterMap: {},
 
     kelasAktif: '',
     kelasAktifObj: null,
@@ -317,6 +317,95 @@ function systemAdminApp() {
       this.kelasFilter = { prodi: '', angkatan: '', rombel: '', status: '', statusKM: '' };
     },
 
+    lingkupLabel() {
+      const slug = (this.lingkupKelas || '').trim();
+      if (!slug) return 'Seluruh Kampus';
+      const target = (this.kelasList || []).find(k => k.slug === slug);
+      return target ? target.nama : 'Seluruh Kampus';
+    },
+
+    onLingkupChange() {
+      const slug = (this.lingkupKelas || '').trim();
+      if (!slug) {
+        this.resetKelasFilter();
+        this.go('kelas');
+        return;
+      }
+      const target = (this.kelasList || []).find(k => k.slug === slug);
+      if (target) this.bukaDetail(target);
+      else this.go('kelas');
+    },
+
+    toggleKelasMenu(slug) {
+      this.kelasMenu = this.kelasMenu === slug ? null : slug;
+    },
+
+    async muatSemesterSemua() {
+      const slugs = (this.kelasList || []).map(k => k.slug).filter(Boolean);
+      await Promise.all(slugs.map(slug => this.muatSemesterKelas(slug)));
+    },
+
+    async muatSemesterKelas(slug) {
+      if (!slug || this.kelasSemesterMap[slug]) return;
+      this.kelasSemesterMap[slug] = { loading: true, list: [] };
+      try {
+        const res = await API.getSemestersResult(slug);
+        this.kelasSemesterMap[slug] = { loading: false, list: (res && res.ok && Array.isArray(res.data)) ? res.data : [] };
+      } catch (e) {
+        this.kelasSemesterMap[slug] = { loading: false, list: [] };
+      }
+    },
+
+    semesterAktifKelas(slug) {
+      const entry = this.kelasSemesterMap[slug];
+      const list = (entry && entry.list) || [];
+      return list.find(s => String(s.status || '').toUpperCase() === 'ACTIVE') || null;
+    },
+
+    semesterTampilKelas(slug) {
+      return this.semesterAktifKelas(slug) || (((this.kelasSemesterMap[slug] || {}).list || [])[0]) || null;
+    },
+
+    labelSemester(s) {
+      if (!s) return '-';
+      if (s.name || s.label) return s.name || s.label;
+      const t = String(s.term || '');
+      const term = t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : '';
+      return [s.academic_year || '', term].filter(Boolean).join(' ') || ('Semester #' + (s.id ?? ''));
+    },
+
+    jadwalChipKelas(slug) {
+      const entry = this.kelasSemesterMap[slug];
+      if (!entry || entry.loading) return null;
+      const list = entry.list || [];
+      if (!list.length) return { text: 'Belum ada semester', tone: 'none' };
+      const aktif = this.semesterAktifKelas(slug);
+      if (aktif && aktif.published_at) return { text: 'Jadwal Terbit', tone: 'ok' };
+      return { text: 'Draf / Belum Lengkap', tone: 'warn' };
+    },
+
+    bannerSemester() {
+      const hitung = {};
+      const contoh = {};
+      (this.kelasList || []).forEach(k => {
+        if (String(k.status || '').toUpperCase() !== 'ACTIVE') return;
+        const s = this.semesterAktifKelas(k.slug);
+        if (!s) return;
+        const label = this.labelSemester(s);
+        hitung[label] = (hitung[label] || 0) + 1;
+        if (!contoh[label]) contoh[label] = k.slug;
+      });
+      let terbaik = '', jumlah = 0;
+      Object.keys(hitung).forEach(label => { if (hitung[label] > jumlah) { jumlah = hitung[label]; terbaik = label; } });
+      return { label: terbaik, slug: contoh[terbaik] || '', jumlah };
+    },
+
+    kelolaPeriode() {
+      const b = this.bannerSemester();
+      if (b.slug) { this.kelasMenu = null; this.bukaDetail(b.slug); return; }
+      this.showToast('Belum ada semester aktif. Buka detail kelas untuk mengelola periode.');
+    },
+
     filterKelasTanpaKM() {
       this.resetKelasFilter();
       this.kelasFilter.statusKM = 'none';
@@ -350,12 +439,40 @@ function systemAdminApp() {
       return item ? item.label : id;
     },
 
+    saCrumb() {
+      const map = {
+        dashboard: 'Ringkasan',
+        kelas: 'Kelas & Semester', buat: 'Kelas & Semester', detail: 'Kelas & Semester',
+        undang: 'Kelas & Semester', 'undang-siap': 'Kelas & Semester',
+        pengguna: 'Pengguna & Peran',
+        'master-matkul': 'Mata Kuliah', 'master-ruangan': 'Ruangan', 'master-dosen': 'Dosen',
+        antrean: 'Antrean WhatsApp',
+        backup: 'Cadangan & Audit', audit: 'Cadangan & Audit', pembaruan: 'Cadangan & Audit'
+      };
+      return map[this.view] || this.saTitle(this.view);
+    },
+
+    masterTotal() {
+      return (this.matkulList || []).length + (this.ruangList || []).length + (this.dosenList || []).length;
+    },
+
+    backupPendingCount() {
+      return (this.backupRequests || []).filter(r => String(r.status || '').toUpperCase() === 'PENDING').length;
+    },
+
+    perluTindakanCount() {
+      let n = 0;
+      if ((this.failedCount || 0) > 0) n++;
+      if (this.backupPendingCount() > 0) n++;
+      return n;
+    },
+
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'dukungan', 'antrean', 'kanal', 'audit', 'status-bot', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'antrean', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -374,28 +491,26 @@ function systemAdminApp() {
         return;
       }
 
-      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','dosen','soon']);
+      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','backup','pengguna','ruangan','matkul','dosen']);
       await this.loadPartials([
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-antrean', '/partials/system-admin/view-antrean.html'],
-        ['sa-kanal', '/partials/system-admin/view-kanal.html'],
         ['sa-backup', '/partials/system-admin/view-backup.html'],
         ['sa-pengguna', '/partials/system-admin/view-pengguna.html'],
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
         ['sa-matkul', '/partials/system-admin/view-master-matkul.html'],
-        ['sa-dosen', '/partials/system-admin/view-master-dosen.html'],
-        ['sa-soon', '/partials/system-admin/view-soon.html'],
-        ['sa-banner', '/partials/system-admin/support-banner.html']
+        ['sa-dosen', '/partials/system-admin/view-master-dosen.html']
       ]);
 
-      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.muatDukunganAktif()]);
+      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests()]);
+      await this.muatSemesterSemua();
       this.dashboardLoading = false;
 
       setInterval(() => {
-        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
+        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); }
       }, 30000);
     },
 
@@ -1849,7 +1964,6 @@ function systemAdminApp() {
       this.drawer = false;
       if (v === 'buat') { this.kelasError = ''; this.updateAutoKelas(); }
       if (v === 'antrean') this.loadAntrean();
-      if (v === 'kanal') this.loadKanal();
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
@@ -2194,6 +2308,7 @@ function systemAdminApp() {
         this.resetKelasForm();
         this.resetKelasFilter();
         await Promise.all([this.loadKelas(), this.checkBot()]);
+        await this.muatSemesterSemua();
         this.view = 'kelas';
         this.showToast('Kelas baru berhasil ditambahkan.');
       } catch (err) {

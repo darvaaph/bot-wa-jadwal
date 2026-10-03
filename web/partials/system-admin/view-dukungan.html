@@ -1,4 +1,4 @@
-<!-- partials/system-admin/view-dukungan.html - System Admin: Mode Dukungan + Audit Global -->
+<!-- partials/system-admin/view-dukungan.html - System Admin: Audit Global (tab Cadangan dan Audit) -->
 <section x-show="view === 'dukungan'" x-cloak>
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
     <h1 class="font-display text-[24px] font-bold text-ink">Mode Dukungan</h1>
@@ -41,6 +41,10 @@
       <div class="min-w-0">
         <h1 class="font-display text-[20px] sm:text-[22px] md:text-[30px] font-bold text-ink">Audit Global</h1>
         <p class="text-[13px] md:text-[14px] text-slate-500 mt-0.5">Riwayat Perubahan lintas kelas: tindakan keamanan dan dukungan.</p>
+        <div class="mt-3 inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Cadangan dan audit">
+          <button type="button" role="tab" aria-selected="false" @click="go('backup')" class="min-h-[44px] px-4 rounded-lg text-[13px] font-medium text-slate-600 hover:text-ink">Cadangan</button>
+          <button type="button" role="tab" aria-selected="true" class="min-h-[44px] px-4 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-sm">Audit</button>
+        </div>
       </div>
       <p class="text-[11px] text-slate-500 font-mono self-center whitespace-nowrap" x-show="!auditLoading" x-text="'Menampilkan ' + (auditList || []).length + ' hasil · limit ' + auditLimit">-</p>
     </div>

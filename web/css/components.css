@@ -116,6 +116,7 @@ textarea.ui-field { min-height: 7rem; resize: vertical; }
 .ui-dialog::backdrop { background: rgb(15 23 42 / .52); }
 .ui-drawer { width: 18rem; max-width: 85vw; height: 100dvh; overflow-y: auto; background: var(--surface); box-shadow: 0 25px 50px rgb(0 0 0 / .25); }
 .ui-toast { max-width: calc(100vw - 2rem); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--deep-ink); color: white; box-shadow: var(--shadow-card); font-size: var(--type-sm); }
+.font-jbmono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
 
 .ui-empty { max-width: 30rem; margin-inline: auto; padding: var(--space-8) var(--space-4); text-align: center; color: var(--muted); }
 .ui-skeleton { border-radius: var(--radius-md); background: var(--disabled); animation: ui-skeleton-pulse 1.6s ease-in-out infinite; }

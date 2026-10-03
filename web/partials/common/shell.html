@@ -1,37 +1,133 @@
 <aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-border py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-300" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
-  <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-2'">
-    <img src="/assets/icons/logo.svg" alt="Asterisk" :class="sidebarCollapsed ? 'h-8 w-8 object-left object-cover' : 'h-9 w-auto'" />
-  </button>
-  <nav aria-label="Navigasi utama" class="mt-6 flex flex-col gap-1 text-[14px]">
-    <template x-for="section in shellNavSections()" :key="section.title">
-      <div class="contents">
-        <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p>
-        <template x-for="item in section.items" :key="item.id">
-          <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
-            <span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span>
-            <span class="sidebar-label" x-text="item.label"></span>
-          </button>
-        </template>
+  <template x-if="shellRoleKey === 'sa'">
+    <div class="contents">
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center gap-3 w-full rounded-2xl text-left min-h-[44px]" :class="sidebarCollapsed ? 'justify-center' : 'px-1'">
+        <span class="flex items-center justify-center w-11 h-11 rounded-2xl bg-primary text-white shrink-0" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 4v16M5 8l14 8M19 8 5 16"/></svg>
+        </span>
+        <span class="sidebar-label min-w-0">
+          <span class="block text-[17px] font-bold text-ink leading-tight truncate">Bot Jadwal</span>
+          <span class="block text-[13px] font-semibold text-primary leading-tight">System Admin</span>
+        </span>
+      </button>
+      <div class="sidebar-section mt-5 rounded-2xl border border-border px-3 py-3">
+        <p class="text-[11px] font-semibold tracking-wider text-slate-500">LINGKUP KERJA</p>
+        <label class="relative mt-1.5 flex items-center gap-2 min-h-[44px]">
+          <span class="text-primary shrink-0" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5V21"/><path d="M2.5 21h17"/><path d="M16 9.5h2.3a1 1 0 0 1 1 1V21"/><path d="M7.2 7.5h1.6M7.2 11h1.6M7.2 14.5h1.6M11.2 7.5h1.6M11.2 11h1.6M11.2 14.5h1.6"/></svg>
+          </span>
+          <span class="sr-only">Lingkup kerja</span>
+          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[14px] font-bold text-ink truncate cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary rounded-lg">
+            <option value="">Seluruh Kampus</option>
+            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
+          </select>
+          <span class="pointer-events-none absolute right-0 text-slate-500" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </label>
       </div>
-    </template>
-  </nav>
-  <div class="mt-auto pt-4 px-2 border-t border-border">
-    <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-muted">Ruang kerja
-      <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1 text-[12px]">
-        <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-      </select>
-    </label>
-    <p class="sidebar-footer-text text-[13px] font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p>
-    <p class="sidebar-footer-text text-[12px] text-muted truncate" x-text="shellIdentity().sub"></p>
-    <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" :title="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" :aria-label="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" class="mt-2 min-w-[44px] min-h-[44px] flex items-center gap-2 rounded-lg text-muted hover:text-danger">
-      <span class="material-symbols-outlined" x-text="shellRoleKey === 'portal' ? 'lock' : 'logout'"></span><span class="sidebar-footer-text" x-text="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar'"></span>
-    </button>
-  </div>
+      <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px]">
+        <template x-for="section in shellNavSections()" :key="section.title">
+          <div class="contents">
+            <p class="sidebar-section px-3 pt-5 pb-1.5 text-[12px] font-semibold tracking-wider text-slate-500" x-text="section.title"></p>
+            <div class="flex flex-col gap-1">
+              <template x-for="item in section.items" :key="item.id">
+                <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-faint text-primary font-semibold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex items-center gap-3 px-3 rounded-xl text-left min-h-[44px]">
+                  <span x-show="!item.icon" class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span>
+                  <span x-show="item.icon" x-html="saIcon(item)" aria-hidden="true"></span>
+                  <span class="sidebar-label" x-text="item.label"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+      </nav>
+      <div class="mt-auto pt-4 mt-6 border-t border-border">
+        <div class="flex items-center gap-3" :class="sidebarCollapsed ? 'justify-center' : 'px-1'">
+          <span class="flex items-center justify-center w-11 h-11 rounded-full bg-primary-soft text-primary text-[14px] font-bold shrink-0" aria-hidden="true" x-text="saInitials()"></span>
+          <span class="sidebar-footer-text sidebar-label min-w-0 flex-1">
+            <span class="block text-[14px] font-bold text-ink leading-tight truncate" x-text="shellIdentity().detail"></span>
+            <span class="block text-[12px] text-muted leading-tight truncate" x-text="shellIdentity().sub"></span>
+          </span>
+          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="sidebar-footer-text min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-muted hover:text-danger hover:bg-slate-100 shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14"/><path d="M10 12h10M18 8.5 21.5 12 18 15.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+  <template x-if="shellRoleKey !== 'sa'">
+    <div class="contents">
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-2'">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" :class="sidebarCollapsed ? 'h-8 w-8 object-left object-cover' : 'h-9 w-auto'" />
+      </button>
+      <nav aria-label="Navigasi utama" class="mt-6 flex flex-col gap-1 text-[14px]">
+        <template x-for="section in shellNavSections()" :key="section.title">
+          <div class="contents">
+            <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p>
+            <template x-for="item in section.items" :key="item.id">
+              <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+                <span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span>
+                <span class="sidebar-label" x-text="item.label"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+      </nav>
+      <div class="mt-auto pt-4 px-2 border-t border-border">
+        <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-muted">Ruang kerja
+          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1 text-[12px]">
+            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+          </select>
+        </label>
+        <p class="sidebar-footer-text text-[13px] font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p>
+        <p class="sidebar-footer-text text-[12px] text-muted truncate" x-text="shellIdentity().sub"></p>
+        <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" :title="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" :aria-label="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" class="mt-2 min-w-[44px] min-h-[44px] flex items-center gap-2 rounded-lg text-muted hover:text-danger">
+          <span class="material-symbols-outlined" x-text="shellRoleKey === 'portal' ? 'lock' : 'logout'"></span><span class="sidebar-footer-text" x-text="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar'"></span>
+        </button>
+      </div>
+    </div>
+  </template>
 </aside>
 
 <div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-300" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer">
   <header class="sticky top-0 z-30 bg-white border-b border-border">
     <div class="flex items-center gap-2 md:gap-3 px-4 md:px-8 h-16 max-w-[1280px] mx-auto w-full min-w-0">
+      <template x-if="shellRoleKey === 'sa'">
+        <div class="contents">
+          <div class="md:hidden flex items-center gap-2.5 min-w-0">
+            <span class="flex items-center justify-center w-9 h-9 rounded-[10px] bg-primary text-white shrink-0" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 4v16M5 8l14 8M19 8 5 16"/></svg>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[14px] font-bold text-deep-ink leading-tight truncate">Bot Jadwal</span>
+              <span class="block text-[10px] font-medium text-muted leading-tight truncate">System Admin</span>
+            </span>
+          </div>
+          <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" title="Buka tutup sidebar" class="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-deep-ink">
+            <svg width="24" height="24" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M2.29004 10.61963q-0.28027 0-0.47168-0.19141-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.1914l6.31299 0q0.28027 0 0.46826 0.19482 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z m8.69189-1.06983l-2.07129-2.08496q-0.19482-0.19824-0.19482-0.46484 0-0.2666 0.19482-0.46484l2.06788-2.08496q0.18457-0.18799 0.46484-0.18799 0.28027 0 0.46826 0.18799 0.18115 0.18457 0.18115 0.46142 0.00342 0.27344-0.17773 0.45801l-1.61328 1.63037 1.61328 1.63379q0.18115 0.18457 0.17773 0.46142 0 0.27344-0.18457 0.45801-0.18457 0.18457-0.46484 0.18457-0.27685 0-0.46143-0.18799z m-8.69189-1.88671q-0.28027 0-0.47168-0.19141-0.18799-0.19141-0.18799-0.47168 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l4.59033 0q0.28027 0 0.46826 0.19141 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-4.59033 0z m0-2.95655q-0.28027 0-0.47168-0.1914-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l6.31299 0q0.28027 0 0.46826 0.19483 0.19141 0.19141 0.19141 0.47167 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z"/></svg>
+          </button>
+          <nav aria-label="Breadcrumb" class="hidden md:flex items-center gap-2 min-w-0 text-[13px]">
+            <span class="text-muted font-medium truncate">Sistem</span>
+            <span class="text-slate-400 shrink-0" aria-hidden="true">/</span>
+            <span class="text-deep-ink font-semibold truncate" x-text="saCrumb()"></span>
+          </nav>
+          <div class="flex-1"></div>
+          <button type="button" @click="checkBot()" :title="botOnline ? 'WhatsApp terhubung. Klik untuk periksa ulang.' : 'WhatsApp terputus. Klik untuk periksa ulang.'" class="hidden sm:flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold shrink-0 min-h-[32px]" :class="botOnline ? 'bg-success text-[#166534]' : 'bg-red-100 text-red-800'">
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z m0-1.32617q1.94141 0 3.28125-1.33984 1.34326-1.34326 1.34326-3.28467 0-1.94141-1.34326-3.28125-1.33984-1.34326-3.28125-1.34326-1.94141 0-3.28467 1.34326-1.33984 1.33984-1.33984 3.28125 0 1.94141 1.33984 3.28467 1.34326 1.33984 3.28467 1.33984z"/></svg>
+            <span x-text="botOnline ? 'WhatsApp terhubung' : 'WhatsApp terputus'"></span>
+          </button>
+          <button type="button" @click="shellGo({id: shellBellTarget()})" aria-label="Buka antrean notifikasi" class="relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50 shrink-0 text-muted">
+            <svg width="23" height="23" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M2.87793 11.20068q-0.28027 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483l0.46143 0 0-3.96484q0-1.25439 0.74853-2.23877 0.74854-0.98438 1.9585-1.28858l0-0.37939q0-0.39648 0.27685-0.67334 0.28027-0.28027 0.67676-0.28027 0.39648 0 0.67334 0.28027 0.28027 0.27686 0.28027 0.67334l0 0.37939q1.21338 0.3042 1.9585 1.28858 0.74854 0.98096 0.74854 2.23877l0 3.96484 0.46142 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826 0 0.28027-0.19141 0.47168-0.19141 0.19141-0.47168 0.1914l-8.24414 0z m4.12549 1.79102q-0.49902 0-0.85449-0.35547-0.35547-0.35547-0.35547-0.85107l2.4165 0q0 0.49902-0.35547 0.85449-0.35547 0.35205-0.85107 0.35205z m-2.33789-3.11719l4.66894 0 0-3.96484q0-0.96045-0.68701-1.64746-0.68359-0.68701-1.64746-0.68701-0.96387 0-1.65088 0.68701-0.68359 0.68701-0.68359 1.64746l0 3.96484z"/></svg>
+            <span x-show="shellAttentionCount() > 0" class="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-ink text-[10px] font-bold flex items-center justify-center" x-text="shellAttentionCount() > 9 ? '9+' : shellAttentionCount()"></span>
+          </button>
+          <button type="button" @click="shellOpenDrawer($event)" aria-label="Buka menu" :aria-expanded="String(drawer)" class="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-[10px] bg-surface-subtle hover:bg-slate-100 shrink-0 text-deep-ink">
+            <svg width="23" height="23" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M2.29346 10.6709q-0.27686 0-0.47168-0.19141-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.1914l9.41308 0q0.27685 0 0.46826 0.1914 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.19141l-9.41308 0z m0-3.00781q-0.27686 0-0.47168-0.19141-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l9.41308 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.19141l-9.41308 0z m0-3.00782q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l9.41308 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-9.41308 0z"/></svg>
+          </button>
+        </div>
+      </template>
+      <template x-if="shellRoleKey !== 'sa'">
+        <div class="contents">
       <button type="button" @click="shellOpenDrawer($event)" aria-label="Buka menu" :aria-expanded="String(drawer)" class="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">menu</span></button>
       <div class="relative flex-1 min-w-0 max-w-xl">
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" aria-hidden="true">search</span>
@@ -43,6 +139,8 @@
         <span x-show="shellAttentionCount() > 0" class="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-ink text-[10px] font-bold flex items-center justify-center" x-text="shellAttentionCount() > 9 ? '9+' : shellAttentionCount()"></span>
       </button>
       <span class="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl bg-primary-soft text-primary-hover text-[12px] font-bold" :title="shellIdentity().label" x-text="shellIdentity().short"></span>
+        </div>
+      </template>
     </div>
   </header>
   <div id="{{prefix}}-banner"></div>
@@ -60,20 +158,69 @@
 
 <div x-show="drawer" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-40 md:hidden" @click="shellCloseDrawer()" aria-hidden="true"></div>
 <aside x-show="drawer" x-cloak x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" @keydown="shellTrapDrawer($event)" class="ui-drawer scroll-slim fixed left-0 top-0 z-50 md:hidden flex flex-col px-4 py-5" role="dialog" aria-modal="true" :aria-label="'Menu ' + shellIdentity().label">
-  <div class="flex items-center justify-between px-2"><img src="/assets/icons/logo.svg" alt="Asterisk" class="h-7 w-auto" /><button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button></div>
-  <nav aria-label="Navigasi mobile" class="mt-6 flex flex-col gap-1 text-[14px]">
-    <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]"><span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span><span x-text="item.label"></span></button></template></div></template>
-  </nav>
-  <div class="mt-auto pt-4 px-2 border-t border-border text-[13px]">
-    <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-muted">Ruang kerja<select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1"><template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template></select></label>
-    <p class="font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p><p class="text-muted truncate" x-text="shellIdentity().sub"></p>
-    <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" class="mt-2 min-h-[44px] text-danger font-semibold" x-text="shellRoleKey === 'portal' ? 'Kunci portal / Ganti kelas' : 'Keluar dari akun'"></button>
-  </div>
+  <template x-if="shellRoleKey === 'sa'">
+    <div class="contents">
+      <div class="flex items-center gap-3 px-1">
+        <span class="flex items-center justify-center w-11 h-11 rounded-2xl bg-primary text-white shrink-0" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 4v16M5 8l14 8M19 8 5 16"/></svg>
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-[17px] font-bold text-ink leading-tight truncate">Bot Jadwal</span>
+          <span class="block text-[13px] font-semibold text-primary leading-tight">System Admin</span>
+        </span>
+        <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="mt-5 rounded-2xl border border-border px-3 py-3">
+        <p class="text-[11px] font-semibold tracking-wider text-slate-500">LINGKUP KERJA</p>
+        <label class="relative mt-1.5 flex items-center gap-2 min-h-[44px]">
+          <span class="text-primary shrink-0" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5V21"/><path d="M2.5 21h17"/><path d="M16 9.5h2.3a1 1 0 0 1 1 1V21"/><path d="M7.2 7.5h1.6M7.2 11h1.6M7.2 14.5h1.6M11.2 7.5h1.6M11.2 11h1.6M11.2 14.5h1.6"/></svg>
+          </span>
+          <span class="sr-only">Lingkup kerja</span>
+          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[14px] font-bold text-ink truncate cursor-pointer rounded-lg">
+            <option value="">Seluruh Kampus</option>
+            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
+          </select>
+          <span class="pointer-events-none absolute right-0 text-slate-500" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+        </label>
+      </div>
+      <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px]">
+        <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-5 pb-1.5 text-[12px] font-semibold tracking-wider text-slate-500" x-text="section.title"></p><div class="flex flex-col gap-1"><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-faint text-primary font-semibold' : 'text-slate-600 hover:bg-slate-100 font-medium'" class="flex items-center gap-3 px-3 rounded-xl text-left min-h-[44px]"><span x-show="!item.icon" class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span><span x-show="item.icon" x-html="saIcon(item)" aria-hidden="true"></span><span x-text="item.label"></span></button></template></div></div></template>
+      </nav>
+      <div class="mt-auto pt-4 mt-6 border-t border-border">
+        <div class="flex items-center gap-3 px-1">
+          <span class="flex items-center justify-center w-11 h-11 rounded-full bg-primary-soft text-primary text-[14px] font-bold shrink-0" aria-hidden="true" x-text="saInitials()"></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-[14px] font-bold text-ink leading-tight truncate" x-text="shellIdentity().detail"></span>
+            <span class="block text-[12px] text-muted leading-tight truncate" x-text="shellIdentity().sub"></span>
+          </span>
+          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-muted hover:text-danger hover:bg-slate-100 shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14"/><path d="M10 12h10M18 8.5 21.5 12 18 15.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+  <template x-if="shellRoleKey !== 'sa'">
+    <div class="contents">
+      <div class="flex items-center justify-between px-2"><img src="/assets/icons/logo.svg" alt="Asterisk" class="h-7 w-auto" /><button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button></div>
+      <nav aria-label="Navigasi mobile" class="mt-6 flex flex-col gap-1 text-[14px]">
+        <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]"><span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span><span x-text="item.label"></span></button></template></div></template>
+      </nav>
+      <div class="mt-auto pt-4 px-2 border-t border-border text-[13px]">
+        <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-muted">Ruang kerja<select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1"><template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template></select></label>
+        <p class="font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p><p class="text-muted truncate" x-text="shellIdentity().sub"></p>
+        <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" class="mt-2 min-h-[44px] text-danger font-semibold" x-text="shellRoleKey === 'portal' ? 'Kunci portal / Ganti kelas' : 'Keluar dari akun'"></button>
+      </div>
+    </div>
+  </template>
 </aside>
 
 <nav aria-label="Navigasi bawah" :inert="drawer" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
-    <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellBottomIsActive(item) ? 'bg-primary-soft' : ''"><span class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
+    <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
   </div>
 </nav>
 
