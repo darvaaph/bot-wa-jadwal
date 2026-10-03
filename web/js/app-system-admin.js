@@ -2881,6 +2881,21 @@ function systemAdminApp() {
       }
     },
 
+    bukaDialogDukungan(k) {
+      this.dialogDukunganKelas = k;
+      this.kelasAktif = k.slug;
+      this.dukunganAlasan = '';
+    },
+
+    async jalankanMasukDukungan() {
+      if (!this.dialogDukunganKelas) return;
+      this.kelasAktif = this.dialogDukunganKelas.slug;
+      await this.masukDukungan();
+      if (this.dukunganAktif) {
+        this.dialogDukunganKelas = null;
+      }
+    },
+
     async masukDukungan() {
       const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
       if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
