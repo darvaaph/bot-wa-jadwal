@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -881,12 +882,13 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 
 // CreateClassRequest payload pembuatan kelas baru oleh System Admin
 type CreateClassRequest struct {
-	Name         string `json:"name"`
-	Code         string `json:"code"`
-	Slug         string `json:"slug"`
-	StudyProgram string `json:"study_program"`
-	CohortYear   int    `json:"cohort_year"`
-	GroupLabel   string `json:"group_label"`
+	Name             string `json:"name"`
+	Code             string `json:"code"`
+	Slug             string `json:"slug"`
+	StudyProgram     string `json:"study_program"`
+	CohortYear       int    `json:"cohort_year"`
+	GroupLabel       string `json:"group_label"`
+	PortalAccessMode string `json:"portal_access_mode,omitempty"`
 }
 
 // CreateClass menangani POST /api/v1/classes
@@ -944,6 +946,28 @@ func (c *AuthController) CreateClass(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	mode := strings.ToUpper(strings.TrimSpace(req.PortalAccessMode))
+	if mode == "" {
+		mode = "LINK"
+	}
+	if mode != "LINK" && mode != "CODE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "portal_access_mode harus 'LINK' atau 'CODE'")
+		return
+	}
+
+	var portalCode string
+	var portalCodeHash *string
+	if mode == "CODE" {
+		n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Gagal membuat kode portal")
+			return
+		}
+		portalCode = fmt.Sprintf("%06d", n.Int64())
+		h := computeHash(portalCode)
+		portalCodeHash = &h
+	}
+
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi pembuatan kelas")
@@ -963,10 +987,10 @@ func (c *AuthController) CreateClass(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = tx.Exec(`
-		INSERT INTO class_settings (class_id, timezone, portal_access_mode, portal_code_version, replacement_reminder_minutes, version)
-		VALUES (?, 'Asia/Jakarta', 'LINK', 1, 60, 1)
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode, portal_code_hash, portal_code_version, replacement_reminder_minutes, version)
+		VALUES (?, 'Asia/Jakarta', ?, ?, 1, 60, 1)
 		ON CONFLICT(class_id) DO NOTHING;
-	`, classID)
+	`, classID, mode, portalCodeHash)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pengaturan default kelas")
 		return
@@ -978,7 +1002,7 @@ func (c *AuthController) CreateClass(w http.ResponseWriter, r *http.Request) {
 		v := u.ActiveAssignmentID
 		raid = &v
 	}
-	afterJSON := fmt.Sprintf(`{"code":%q,"slug":%q,"study_program":%q,"cohort_year":%d,"group_label":%q,"status":"ACTIVE"}`, code, slug, prog, cohort, group)
+	afterJSON := fmt.Sprintf(`{"code":%q,"slug":%q,"study_program":%q,"cohort_year":%d,"group_label":%q,"status":"ACTIVE","portal_access_mode":%q}`, code, slug, prog, cohort, group, mode)
 	correlationID := fmt.Sprintf("create-class-%d-%d", classID, time.Now().UnixNano())
 	_ = audit.Write(r.Context(), tx, audit.Entry{
 		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
@@ -995,16 +1019,21 @@ func (c *AuthController) CreateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	common.WriteV1Success(w, http.StatusCreated, map[string]any{
-		"id":        classID,
-		"code":      code,
-		"slug":      slug,
-		"program":   prog,
-		"cohort":    cohort,
-		"group":     group,
-		"status":    "ACTIVE",
-		"status_km": "none",
-	})
+	respData := map[string]any{
+		"id":                 classID,
+		"code":               code,
+		"slug":               slug,
+		"program":            prog,
+		"cohort":             cohort,
+		"group":              group,
+		"status":             "ACTIVE",
+		"status_km":          "none",
+		"portal_access_mode": mode,
+	}
+	if portalCode != "" {
+		respData["portal_code"] = portalCode
+	}
+	common.WriteV1Success(w, http.StatusCreated, respData)
 }
 
 // PatchClassStatus menangani PATCH /api/v1/classes/{slug}
@@ -1195,14 +1224,35 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, _ = c.db.Exec(`
-		UPDATE role_invitations
-		SET status = 'REVOKED'
-		WHERE invited_identity_key = ? AND role = ? AND status = 'PENDING'
-		AND COALESCE(class_id,0)=COALESCE(?,0)
-		AND COALESCE(semester_id,0)=COALESCE(?,0)
-		AND COALESCE(course_offering_id,0)=COALESCE(?,0);
-	`, cleanIdentity, role, scopeClassVal, scopeSemVal, scopeOffVal)
+	if role == "KM" && classID.Valid {
+		var existingKMName string
+		_ = c.db.QueryRow(`
+			SELECT COALESCE(u.display_name, u.identity_key)
+			FROM role_assignments ra
+			JOIN users u ON u.id = ra.user_id
+			WHERE ra.class_id = ? AND ra.role = 'KM' AND ra.status = 'ACTIVE'
+			LIMIT 1;
+		`, classID.Int64).Scan(&existingKMName)
+		if existingKMName != "" {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, fmt.Sprintf("Kelas ini sudah memiliki Ketua Murid aktif (%s)", existingKMName))
+			return
+		}
+
+		_, _ = c.db.Exec(`
+			UPDATE role_invitations
+			SET status = 'REVOKED'
+			WHERE role = 'KM' AND class_id = ? AND status = 'PENDING';
+		`, classID.Int64)
+	} else {
+		_, _ = c.db.Exec(`
+			UPDATE role_invitations
+			SET status = 'REVOKED'
+			WHERE invited_identity_key = ? AND role = ? AND status = 'PENDING'
+			AND COALESCE(class_id,0)=COALESCE(?,0)
+			AND COALESCE(semester_id,0)=COALESCE(?,0)
+			AND COALESCE(course_offering_id,0)=COALESCE(?,0);
+		`, cleanIdentity, role, scopeClassVal, scopeSemVal, scopeOffVal)
+	}
 
 	token, err := generateSecureToken()
 	if err != nil {
@@ -1352,6 +1402,20 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if role == "KM" && classID.Valid {
+		var otherKMExists bool
+		_ = tx.QueryRow(`
+			SELECT EXISTS(
+				SELECT 1 FROM role_assignments
+				WHERE class_id = ? AND role = 'KM' AND status = 'ACTIVE' AND user_id != ?
+			);
+		`, classID.Int64, userID).Scan(&otherKMExists)
+		if otherKMExists {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Kelas ini sudah memiliki Ketua Murid (KM) aktif")
+			return
+		}
+	}
+
 	var assignmentID int64
 	err = tx.QueryRow(`
 		INSERT INTO role_assignments (
@@ -1388,6 +1452,14 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 	if affected != 1 {
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Undangan telah digunakan")
 		return
+	}
+
+	if role == "KM" && classID.Valid {
+		_, _ = tx.Exec(`
+			UPDATE role_invitations
+			SET status = 'REVOKED'
+			WHERE role = 'KM' AND class_id = ? AND status = 'PENDING' AND id != ?;
+		`, classID.Int64, invID)
 	}
 	correlationID := fmt.Sprintf("accept-invitation-%d-%d", invID, time.Now().UnixNano())
 	{
