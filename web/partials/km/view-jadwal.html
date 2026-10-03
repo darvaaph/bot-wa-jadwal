@@ -213,9 +213,12 @@
     <div class="ui-card p-5 shadow-sm mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-[18px] font-semibold text-ink">Jadwal Tetap</h2>
-        <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary text-[13px] font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
+        <div class="flex items-center gap-2">
+          <span x-show="isDraftSemester()" class="ui-badge ui-badge--primary">Semester DRAFT — ubah langsung tanpa siaran</span>
+          <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary text-[13px] font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
+        </div>
       </div>
-      <p class="text-[12px] text-slate-500 mt-1">Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.</p>
+      <p class="text-[12px] text-slate-500 mt-1" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester. Ubah dan hapus langsung tanpa alasan dan tanpa siaran WhatsApp.' : 'Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.'">-</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
         <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="ui-field text-[14px]" />
         <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="ui-field text-[14px]" />
@@ -314,7 +317,7 @@
     <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="ui-card p-5 shadow-sm mt-4">
       <h2 class="text-[18px] font-semibold text-ink" x-text="polaForm.id ? 'Ubah Jadwal Tetap' : 'Tambah Jadwal Tetap'">-</h2>
-      <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan yang berlaku rutin dalam semester aktif.</p>
+      <p class="text-[13px] text-slate-500 mt-1" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester.' : 'Jadwal perkuliahan mingguan yang berlaku rutin dalam semester aktif.'">-</p>
       <div x-show="polaFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="polaFormError">-</div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div class="sm:col-span-2">
@@ -356,11 +359,12 @@
           <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
           <input aria-label="Tautan kelas daring (opsional)" type="text" x-model="polaForm.link" placeholder="https://..." class="ui-field w-full text-[14px]" />
         </div>
-        <div x-show="polaForm.id" class="sm:col-span-2">
+        <div x-show="polaForm.id && !isDraftSemester()" class="sm:col-span-2">
           <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku (perubahan permanen)</label>
           <input aria-label="Tanggal mulai berlaku (perubahan permanen)" type="date" x-model="polaForm.effectiveDate" class="ui-field w-full text-[14px]" />
           <p class="text-[12px] text-slate-500 mt-1">Sesi sebelum tanggal berlaku tetap memakai versi lama. Tanggal harus berada dalam semester aktif.</p>
         </div>
+        <p x-show="polaForm.id && isDraftSemester()" class="sm:col-span-2 text-[13px] text-slate-600">DRAFT: ubah langsung tanpa tanggal berlaku dan tanpa alasan.</p>
       </div>
       <div class="flex flex-col sm:flex-row gap-3 mt-5">
         <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Batal</button>
@@ -433,7 +437,8 @@
           </div>
         </fieldset>
 
-        <p x-show="ubahForm.scope === 'permanen'" class="text-[13px] text-slate-600 mt-4">Sesi sebelum tanggal berlaku tetap memakai jadwal lama.</p>
+        <p x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Sesi sebelum tanggal berlaku tetap memakai jadwal lama.</p>
+        <p x-show="ubahForm.scope === 'permanen' && isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Semester masih DRAFT: ubah langsung baris yang sama sejak tanggal mulai semester, tanpa siaran WhatsApp.</p>
 
         <div class="mt-7 border-t border-border pt-5">
           <h3 class="text-[15px] font-semibold text-ink">Detail jadwal</h3>
@@ -491,7 +496,7 @@
             <input aria-label="Kelas peserta (ID, pisahkan koma — opsional)" type="text" x-model="ubahForm.participantIds" placeholder="Contoh: 12, 15" class="ui-field w-full text-[14px] font-mono" />
             <p class="text-[12px] text-slate-500 mt-1">Perubahan tampil di kelas peserta setelah KM kelas tersebut menerima.</p>
           </div>
-          <div x-show="ubahForm.scope === 'permanen'" class="sm:col-span-2">
+          <div x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="sm:col-span-2">
             <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
             <input aria-label="Tanggal mulai berlaku" type="date" x-model="ubahForm.effectiveDate" class="ui-field w-full text-[14px]" />
           </div>
@@ -503,12 +508,13 @@
       </div>
 
       <h3 class="text-[14px] font-semibold mt-5">Keterangan</h3>
-      <div class="mt-2">
+      <div class="mt-2" x-show="!isDraftSemester() || ubahForm.scope === 'sementara'">
         <label class="block text-[13px] font-medium mb-1">Alasan perubahan <span class="text-red-600">*</span></label>
         <textarea aria-label="Alasan perubahan" x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="ui-field w-full text-[14px]"></textarea>
       </div>
+      <p x-show="isDraftSemester() && ubahForm.scope === 'permanen'" class="text-[13px] text-slate-500 mt-2">DRAFT: alasan opsional, tidak disiarkan.</p>
 
-      <div class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
+      <div x-show="!isDraftSemester()" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
         <span class="material-symbols-outlined text-[20px] shrink-0">campaign</span>
         <p>Perubahan yang terbit akan disiarkan ke grup kelas melalui WhatsApp. Kegagalan pengiriman pesan tidak membatalkan penerbitan di web.</p>
       </div>

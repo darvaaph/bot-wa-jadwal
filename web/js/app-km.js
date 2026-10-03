@@ -102,6 +102,7 @@ function kmApp() {
     offeringLoading: false,
     offeringState: 'idle',
     semesterId: '',
+    semesterStatus: '',
     portalCodeReveal: '',
 
     tugasSub: 'list',
@@ -532,6 +533,8 @@ function kmApp() {
 
     canEditPattern(p) { return true; },
 
+    isDraftSemester() { return String(this.semesterStatus || '').toUpperCase() === 'DRAFT'; },
+
     hapusPolaFilter() { this.filtMatkul = ''; this.filtDosen = ''; this.filtRuang = ''; },
 
     bukaDaftar() { this.jadwalSub = 'daftar'; window.scrollTo({ top: 0 }); },
@@ -588,11 +591,14 @@ function kmApp() {
 
     async hapusPola(p) {
       if (!p.id || !p.version) { this.showToast('Data pola tidak lengkap.'); return; }
-      const ok = window.confirm('Hapus jadwal tetap ini? Jadwal tidak aktif mulai hari ini. Versi lama tetap tersimpan.');
+      const isDraf = this.isDraftSemester();
+      const ok = window.confirm(isDraf
+        ? 'Hapus jadwal draf ini? Baris dihapus sungguhan dan tidak dapat dikembalikan.'
+        : 'Hapus jadwal tetap ini? Jadwal tidak aktif mulai hari ini. Versi lama tetap tersimpan.');
       if (!ok) return;
       try {
         await API.deletePattern(p.id, p.version);
-        this.showToast('Jadwal tetap dihapus (tidak aktif mulai hari ini).');
+        this.showToast(isDraf ? 'Jadwal draf dihapus.' : 'Jadwal tetap dihapus (tidak aktif mulai hari ini).');
         this.patternsList = await API.getPatterns().catch(() => []);
       } catch (e) {
         this.showToast(e.message || 'Gagal menghapus jadwal tetap.');
@@ -698,8 +704,9 @@ function kmApp() {
       if (!f.offeringId) return 'Pilih mata kuliah di kelas ini dulu.';
       if (f.scope === 'permanen') {
         if (!f.originPatternId) return 'Pilih jadwal tetap yang akan diganti.';
-        if (!f.effectiveDate) return 'Isi tanggal mulai berlaku.';
         if (!f.start || !f.end || this.durasiMenit(f.start, f.end) <= 0) return 'Isi jam mulai dan selesai yang valid.';
+        if (this.isDraftSemester()) return '';
+        if (!f.effectiveDate) return 'Isi tanggal mulai berlaku.';
         if (!f.reason || f.reason.trim().length < 5) return 'Keterangan minimal 5 karakter.';
         return '';
       }
@@ -717,7 +724,13 @@ function kmApp() {
       const pattern = (this.patternsList || []).find(p => String(p.id) === String(f.originPatternId));
       if (!pattern) throw new Error('Jadwal tetap asal belum termuat. Muat ulang daftar jadwal.');
       const payload = { version: Number(pattern.version), day_of_week: Number(f.day), start_time: f.start,
-        duration_min: this.durasiMenit(f.start, f.end), effective_from: f.effectiveDate, reason: f.reason.trim() };
+        duration_min: this.durasiMenit(f.start, f.end) };
+      if (!this.isDraftSemester()) {
+        payload.effective_from = f.effectiveDate;
+        payload.reason = f.reason.trim();
+      } else if ((f.reason || '').trim()) {
+        payload.reason = f.reason.trim();
+      }
       if (f.roomId) payload.room_id = Number(f.roomId);
       if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
       return payload;
@@ -824,7 +837,7 @@ function kmApp() {
         try {
           await API.patchPattern(this.draftEvent.id, this.rakitPayloadPermanen());
           this.patternsList = await API.getPatterns();
-          this.showToast('Jadwal tetap baru berlaku sesuai tanggal pilihan.');
+          this.showToast(this.isDraftSemester() ? 'Jadwal draf diperbarui.' : 'Jadwal tetap baru berlaku sesuai tanggal pilihan.');
           this.jadwalSub = 'daftar';
         } catch (e) { this.showToast(e.message || 'Gagal menerbitkan perubahan permanen.'); }
         return;
@@ -1202,16 +1215,17 @@ function kmApp() {
         const hasil = await API.getSemestersResult(slug).catch(() => ({ ok: false, status: 0, data: [] }));
         const list = Array.isArray(hasil.data) ? hasil.data : [];
         if (!hasil.ok && hasil.status === 404) {
-          this.offeringState = 'no-v1-class'; this.offeringList = []; this.semesterId = ''; return;
+          this.offeringState = 'no-v1-class'; this.offeringList = []; this.semesterId = ''; this.semesterStatus = ''; return;
         }
         if (!hasil.ok) {
-          this.offeringState = 'error'; this.offeringList = []; this.semesterId = ''; return;
+          this.offeringState = 'error'; this.offeringList = []; this.semesterId = ''; this.semesterStatus = ''; return;
         }
-        const active = list.find(s => s.status === 'ACTIVE') || list[0];
+        const active = list.find(s => s.status === 'ACTIVE') || list.find(s => String(s.status || '').toUpperCase() === 'DRAFT') || list[0];
         if (!active) {
-          this.offeringState = 'empty-semester'; this.offeringList = []; this.semesterId = ''; return;
+          this.offeringState = 'empty-semester'; this.offeringList = []; this.semesterId = ''; this.semesterStatus = ''; return;
         }
         this.semesterId = String(active.id);
+        this.semesterStatus = String(active.status || '').toUpperCase();
         const offerings = await API.getSemesterOfferings(active.id).catch(() => null);
         if (offerings === null) {
           this.offeringState = 'error'; this.offeringList = []; return;
