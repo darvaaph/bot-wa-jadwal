@@ -27,11 +27,16 @@
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           <span>Kembali ke Detail Kelas</span>
         </button>
-        <button type="button" @click="bukaTambahSesi()" class="ui-button ui-button--primary text-[13px]">
+        <button type="button" @click="bukaTambahSesi()" :disabled="(jadwalOfferings || []).length === 0" :aria-disabled="(jadwalOfferings || []).length === 0" class="ui-button ui-button--primary text-[13px] disabled:opacity-50" :title="(jadwalOfferings || []).length === 0 ? 'Impor kurikulum dulu' : ''">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
           <span>Tambah Sesi Perkuliahan</span>
         </button>
       </div>
+    </div>
+
+    <div x-show="!jadwalLoading && !jadwalError && (jadwalOfferings || []).length === 0" class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex flex-col sm:flex-row sm:items-center gap-3" role="alert">
+      <p class="flex-1">Semester draf belum memiliki mata kuliah. Impor kurikulum atau tambah mata kuliah dulu sebelum membuat sesi.</p>
+      <button type="button" @click="kembaliKeDetail()" class="ui-button ui-button--secondary text-[13px] whitespace-nowrap">Kelola Semester</button>
     </div>
 
     <div x-show="jadwalError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" role="alert">
@@ -75,9 +80,9 @@
     </div>
 
     <div x-show="!jadwalError && jadwalFiltered().length === 0" class="ui-empty p-8 rounded-xl border border-dashed border-border text-center">
-      <p class="text-[15px] font-semibold text-ink" x-text="(jadwalPatterns || []).length === 0 ? 'Belum ada sesi perkuliahan' : 'Tidak ada hasil pencarian'">-</p>
-      <p class="text-[13px] text-muted mt-1" x-text="(jadwalPatterns || []).length === 0 ? 'Tambahkan sesi pertama untuk semester ini.' : 'Coba kata kunci atau hari lain.'">-</p>
-      <button x-show="(jadwalPatterns || []).length === 0" type="button" @click="bukaTambahSesi()" class="ui-button ui-button--primary mt-3 text-[13px]">Tambah Sesi Perkuliahan</button>
+      <p class="text-[15px] font-semibold text-ink" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Belum bisa tambah sesi' : 'Belum ada sesi perkuliahan') : 'Tidak ada hasil pencarian'">-</p>
+      <p class="text-[13px] text-muted mt-1" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Semester ini belum punya mata kuliah. Kelola semester untuk impor kurikulum dulu.' : 'Tambahkan sesi pertama untuk semester ini.') : 'Coba kata kunci atau hari lain.'">-</p>
+      <button x-show="(jadwalPatterns || []).length === 0 && (jadwalOfferings || []).length > 0" type="button" @click="bukaTambahSesi()" class="ui-button ui-button--primary mt-3 text-[13px]">Tambah Sesi Perkuliahan</button>
     </div>
 
     <template x-for="g in jadwalHariList()" :key="g.day">

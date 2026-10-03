@@ -2457,6 +2457,10 @@ function systemAdminApp() {
     },
 
     bukaTambahSesi() {
+      if ((this.jadwalOfferings || []).length === 0) {
+        this.showToast('Semester ini belum punya mata kuliah. Impor kurikulum dulu.');
+        return;
+      }
       this.jadwalForm = { id: '', version: 0, offeringId: '', day: '1', start: '', duration: 100, end: '', roomId: '', link: '', reason: '', effectiveDate: '' };
       this.jadwalFormError = '';
       this.jadwalPreview = null;
@@ -2634,12 +2638,6 @@ function systemAdminApp() {
     bukaTambahSesiSM(s) {
       this.smMenu = null;
       const slug = this.kelasAktifObj && this.kelasAktifObj.slug ? this.kelasAktifObj.slug : '';
-      const offerings = this.smJumlah(s.id, 'offerings');
-      if ((!offerings || offerings === 0) && !s.id) {
-        this.bukaImporSemester();
-        this.showToast('Semester draf belum memiliki kurikulum. Silakan impor kurikulum terlebih dahulu.');
-        return;
-      }
       if (slug && s && s.id) {
         this.bukaJadwal(slug, s.id);
         return;
