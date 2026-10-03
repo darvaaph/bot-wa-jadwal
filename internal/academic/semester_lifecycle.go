@@ -108,7 +108,10 @@ func (s *SemesterService) CreateDraft(ctx context.Context, actor Actor, classID 
 		VALUES (?, ?, ?, ?, ?, 'DRAFT') RETURNING id
 	`, classID, year, term, starts, ends).Scan(&newID)
 	if err != nil {
-		return 0, ErrConflict
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, fmt.Errorf("%w: semester %s %s sudah ada di kelas ini (cek daftar semester, termasuk arsip)", ErrConflict, year, term)
+		}
+		return 0, err
 	}
 	if in.SourceSemesterID != nil {
 		if err := copySemesterStructure(ctx, tx, classID, *in.SourceSemesterID, newID); err != nil {
@@ -456,4 +459,80 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 		p.Blockers = append(p.Blockers, "hanya semester DRAFT yang dapat diaktifkan")
 	}
 	return p, nil
+}
+
+// DeleteDraft menghapus semester draf beserta offerings, lecturers, schedule patterns, dan batch import terkait jika belum aktif/arsip.
+func (s *SemesterService) DeleteDraft(ctx context.Context, actor Actor, classID, semesterID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var curClassID int64
+	var status, year, term string
+	err = tx.QueryRowContext(ctx, `
+		SELECT class_id, status, academic_year, term FROM semesters WHERE id = ?
+	`, semesterID).Scan(&curClassID, &status, &year, &term)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if curClassID != classID {
+		return ErrInvalidInput
+	}
+	if status != "DRAFT" {
+		return ErrInvalidState
+	}
+
+	// Hapus pola jadwal terkait offering semester ini
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM schedule_patterns WHERE course_offering_id IN (
+			SELECT id FROM course_offerings WHERE semester_id = ?
+		)
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus dosen offering
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM offering_lecturers WHERE course_offering_id IN (
+			SELECT id FROM course_offerings WHERE semester_id = ?
+		)
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus offerings
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM course_offerings WHERE semester_id = ?
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus import errors dan import batches jika ada
+	_, _ = tx.ExecContext(ctx, `
+		DELETE FROM import_errors WHERE batch_id IN (
+			SELECT id FROM curriculum_import_batches WHERE semester_id = ?
+		)
+	`, semesterID)
+	_, _ = tx.ExecContext(ctx, `
+		DELETE FROM curriculum_import_batches WHERE semester_id = ?
+	`, semesterID)
+
+	// Hapus semester
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM semesters WHERE id = ?
+	`, semesterID); err != nil {
+		return err
+	}
+
+	before := fmt.Sprintf(`{"academic_year":%q,"term":%q,"status":%q}`, year, term, status)
+	if err := WriteAuditLog(ctx, tx, actor, &classID, &semesterID, "DELETE", "SEMESTER", &semesterID, &before, nil, "Hapus draf semester"); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

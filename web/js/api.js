@@ -411,7 +411,7 @@ const BotApi = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal menyimpan materi.');
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal menyimpan materi.');
       err.code = 'SAVE_FAILED';
       throw err;
     }
@@ -466,7 +466,7 @@ const BotApi = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal membuat kelas.');
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal membuat kelas.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
@@ -494,7 +494,7 @@ const BotApi = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal membuat semester draf.');
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal membuat semester draf.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;
@@ -540,8 +540,20 @@ const BotApi = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal mengaktifkan semester.');
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal mengaktifkan semester.');
       err.code = res.status === 409 ? 'NOT_READY' : 'SAVE_FAILED'; throw err;
+    }
+    return true;
+  },
+
+  async deleteSemesterDraft(classSlug, semesterId) {
+    const res = await fetch('/api/v1/classes/' + encodeURIComponent(classSlug) + '/semesters/' + encodeURIComponent(semesterId), {
+      method: 'DELETE', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal menghapus semester draf.');
+      err.code = 'DELETE_FAILED'; throw err;
     }
     return true;
   },
@@ -780,7 +792,7 @@ const BotApi = {
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      const err = new Error((body && body.error) || 'Gagal mencabut publikasi.');
+      const err = new Error((body && body.error && body.error.message) || (body && typeof body.error === 'string' && body.error) || 'Gagal mencabut publikasi.');
       err.code = 'SAVE_FAILED'; throw err;
     }
     return (await res.json()).data;

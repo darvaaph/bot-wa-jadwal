@@ -86,9 +86,13 @@ function systemAdminApp() {
     smImporHasil: null,
     smImporError: '',
     smImporSaving: false,
+    smImporDragOver: false,
     smPreviewMap: {},
     smPratinjau: null,
     smAktifkan: null,
+    smHapusKonfirmasi: null,
+    smHapusSaving: false,
+    smHapusError: '',
     smMenu: null,
     smArsipTerbuka: null,
 
@@ -2330,6 +2334,18 @@ function systemAdminApp() {
       return typeof v === 'number' ? v : null;
     },
 
+    bukaTambahSesiSM(s) {
+      this.smMenu = null;
+      const offerings = this.smJumlah(s.id, 'offerings');
+      if (!offerings || offerings === 0) {
+        this.bukaImporSemester();
+        this.showToast('Semester draf belum memiliki kurikulum. Silakan impor kurikulum terlebih dahulu.');
+        return;
+      }
+      this.bukaPratinjauSM(s);
+      this.showToast('Kelola rincian sesi jadwal melalui pratinjau kesiapan semester.');
+    },
+
     bukaPratinjauSM(s) {
       this.smMenu = null;
       const entry = this.smPreviewMap[s.id] || {};
@@ -2361,6 +2377,33 @@ function systemAdminApp() {
         await this.muatSemesterSemua();
       } catch (err) {
         this.showToast(err.message || 'Gagal mengaktifkan semester.');
+      }
+    },
+
+    konfirmasiHapusDraf(s) {
+      this.smMenu = null;
+      this.smHapusKonfirmasi = { id: s.id, nama: this.labelSemester(s) };
+      this.smHapusSaving = false;
+      this.smHapusError = '';
+    },
+
+    async eksekusiHapusDraf() {
+      const h = this.smHapusKonfirmasi;
+      const slug = this.kelasAktifObj && this.kelasAktifObj.slug ? this.kelasAktifObj.slug : '';
+      if (!h || !slug) return;
+      this.smHapusSaving = true;
+      this.smHapusError = '';
+      try {
+        await API.deleteSemesterDraft(slug, h.id);
+        this.showToast('Semester draf berhasil dihapus.');
+        this.smHapusKonfirmasi = null;
+        this.smPreviewMap = {};
+        await this.loadDetailSemester(slug);
+        await this.muatSemesterSemua();
+      } catch (err) {
+        this.smHapusError = err.message || 'Gagal menghapus semester draf.';
+      } finally {
+        this.smHapusSaving = false;
       }
     },
 
@@ -2409,8 +2452,18 @@ function systemAdminApp() {
       const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
       if (!target) { this.showToast('Buat semester draf dulu sebelum mengimpor kurikulum.'); return; }
       this.smImporTerbuka = true;
+      this.smImporFile = null;
       this.smImporHasil = null;
       this.smImporError = '';
+      this.smImporDragOver = false;
+    },
+
+    fmtFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     },
 
     pilihFileImporSM(ev) {
@@ -2418,31 +2471,194 @@ function systemAdminApp() {
       this.smImporFile = files && files[0] ? files[0] : null;
       this.smImporHasil = null;
       this.smImporError = '';
+      this.smImporDragOver = false;
+    },
+
+    dropFileImporSM(ev) {
+      this.smImporDragOver = false;
+      const files = ev && ev.dataTransfer && ev.dataTransfer.files;
+      if (files && files[0]) {
+        const file = files[0];
+        if (file.name.endsWith('.json') || file.type === 'application/json') {
+          this.smImporFile = file;
+          this.smImporHasil = null;
+          this.smImporError = '';
+        } else {
+          this.smImporError = 'Hanya berkas format .json yang didukung.';
+        }
+      }
+    },
+
+    resetImporSM() {
+      this.smImporFile = null;
+      this.smImporHasil = null;
+      this.smImporError = '';
+      this.smImporDragOver = false;
+      if (this.$refs.smImporInput) this.$refs.smImporInput.value = '';
+    },
+
+    convertPolbanToCurriculum(doc) {
+      if (!doc || typeof doc !== 'object') return null;
+      if (Array.isArray(doc.courses) || Array.isArray(doc.offerings) || Array.isArray(doc.schedule_patterns)) {
+        return doc;
+      }
+      if (doc.mata_kuliah && typeof doc.mata_kuliah === 'object') {
+        const courses = [];
+        for (const [code, name] of Object.entries(doc.mata_kuliah)) {
+          courses.push({ code: String(code).trim(), name: String(name).trim() });
+        }
+        const lecturers = [];
+        if (doc.dosen && typeof doc.dosen === 'object') {
+          for (const [code, fullName] of Object.entries(doc.dosen)) {
+            lecturers.push({ code: String(code).trim(), full_name: String(fullName).trim() });
+          }
+        }
+        const offeringsMap = {};
+        const patterns = [];
+        const validDays = { senin: 1, selasa: 2, rabu: 3, kamis: 4, jumat: 5, sabtu: 6, minggu: 7 };
+
+        if (Array.isArray(doc.jadwal)) {
+          doc.jadwal.forEach(j => {
+            const cCode = String(j.kode_matkul || '').trim();
+            if (!cCode) return;
+            const actType = (j.nama_matkul && /praktikum|lab/i.test(j.nama_matkul)) ? 'PRAKTIKUM' : 'TEORI';
+            const key = cCode + '|' + actType;
+            if (!offeringsMap[key]) {
+              offeringsMap[key] = {
+                course_code: cCode,
+                activity_type: actType,
+                display_name: String(j.nama_matkul || doc.mata_kuliah[cCode] || cCode).trim(),
+                lecturer_codes: []
+              };
+            }
+            const lCode = String(j.inisial_dosen || '').trim();
+            if (lCode && !offeringsMap[key].lecturer_codes.includes(lCode)) {
+              offeringsMap[key].lecturer_codes.push(lCode);
+            }
+
+            const dayStr = String(j.hari || '').toLowerCase().trim();
+            const dow = validDays[dayStr] || 1;
+            const jamParts = String(j.jam || '').split('-');
+            if (jamParts.length === 2) {
+              const start = jamParts[0].trim();
+              const end = jamParts[1].trim();
+              const [sh, sm] = start.split(':').map(Number);
+              const [eh, em] = end.split(':').map(Number);
+              const startMin = (sh || 0) * 60 + (sm || 0);
+              const endMin = (eh || 0) * 60 + (em || 0);
+              const dur = Math.max(endMin - startMin, 50);
+
+              patterns.push({
+                course_code: cCode,
+                activity_type: actType,
+                day_of_week: dow,
+                start_time: start,
+                duration_min: dur,
+                room_code: j.ruang ? String(j.ruang).trim() : null
+              });
+            }
+          });
+        }
+
+        return {
+          source_type: 'JSON',
+          courses: courses,
+          lecturers: lecturers,
+          offerings: Object.values(offeringsMap),
+          schedule_patterns: patterns
+        };
+      }
+      return doc;
+    },
+
+    unduhTemplateKurikulum() {
+      const template = {
+        source_type: "JSON",
+        courses: [
+          { code: "25TI1101", name: "Dasar-Dasar Pemrograman" },
+          { code: "25TI1102", name: "Komputasi Kognitif" }
+        ],
+        lecturers: [
+          { code: "AB", full_name: "Akhmad Bakhrun, S.Kom, M.T." },
+          { code: "AD", full_name: "Dr. Ade Chandra Nugraha, S.Si., M.T." }
+        ],
+        offerings: [
+          {
+            course_code: "25TI1101",
+            activity_type: "TEORI",
+            display_name: "Dasar-Dasar Pemrograman (Teori)",
+            lecturer_codes: ["AB"]
+          },
+          {
+            course_code: "25TI1102",
+            activity_type: "TEORI",
+            display_name: "Komputasi Kognitif (Teori)",
+            lecturer_codes: ["AD"]
+          }
+        ],
+        schedule_patterns: [
+          {
+            course_code: "25TI1101",
+            activity_type: "TEORI",
+            day_of_week: 1,
+            start_time: "07:00",
+            duration_min: 100,
+            room_code: "D101"
+          },
+          {
+            course_code: "25TI1102",
+            activity_type: "TEORI",
+            day_of_week: 2,
+            start_time: "08:40",
+            duration_min: 100,
+            room_code: "D102"
+          }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'template_kurikulum.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     },
 
     async validasiImporSM() {
       const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
-      if (!target) { this.smImporError = 'Tidak ada semester draf tujuan.'; return; }
-      if (!this.smImporFile) { this.smImporError = 'Pilih file JSON kurikulum dulu.'; return; }
-      let payload = null;
+      if (!target) { this.smImporError = 'Tidak ada semester draf tujuan pada kelas ini.'; return; }
+      if (!this.smImporFile) { this.smImporError = 'Pilih berkas JSON kurikulum terlebih dahulu.'; return; }
+      let rawObj = null;
       try {
-        payload = JSON.parse(await this.smImporFile.text());
+        rawObj = JSON.parse(await this.smImporFile.text());
       } catch (e) {
-        this.smImporError = 'File bukan JSON valid.';
+        this.smImporError = 'Format berkas tidak valid atau bukan JSON standar.';
         return;
       }
+      const payload = this.convertPolbanToCurriculum(rawObj) || rawObj;
       this.smImporError = '';
       this.smImporSaving = true;
       try {
         this.smImporHasil = await API.importSemester(target.id, payload);
         if (this.smImporHasil && this.smImporHasil.has_fatal_errors) {
-          this.smImporError = 'Impor ditolak: perbaiki baris bertanda GALAT lalu validasi ulang.';
+          this.smImporError = 'Validasi ditolak karena ditemukan galat.';
         } else {
-          this.showToast('Validasi lolos. Terapkan untuk menyimpan.');
+          this.showToast('Validasi berkas berhasil. Siap diterapkan ke draf.');
         }
       } catch (err) {
-        this.smImporHasil = null;
-        this.smImporError = err.message || 'Gagal memvalidasi impor.';
+        if (err.errors && Array.isArray(err.errors)) {
+          this.smImporHasil = {
+            has_fatal_errors: true,
+            status: 'INVALID',
+            errors: err.errors
+          };
+          this.smImporError = err.message || 'Validasi ditolak karena ditemukan galat.';
+        } else {
+          this.smImporHasil = null;
+          this.smImporError = err.message || 'Gagal memvalidasi berkas impor.';
+        }
       } finally {
         this.smImporSaving = false;
       }
@@ -2451,20 +2667,20 @@ function systemAdminApp() {
     async terapkanImporSM() {
       const hasil = this.smImporHasil;
       const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
-      if (!hasil || !hasil.batch_id) { this.smImporError = 'Validasi dulu sebelum menerapkan.'; return; }
-      if (hasil.has_fatal_errors) { this.smImporError = 'Masih ada GALAT. Perbaiki dulu sebelum menerapkan.'; return; }
-      if (!target) return;
+      if (!hasil || !hasil.batch_id) { this.smImporError = 'Validasi berkas terlebih dahulu sebelum menerapkan.'; return; }
+      if (hasil.has_fatal_errors) { this.smImporError = 'Masih ada galat fatal. Perbaiki berkas terlebih dahulu.'; return; }
+      if (!target) { this.smImporError = 'Tidak ada semester draf tujuan.'; return; }
       this.smImporSaving = true;
       try {
         await API.applySemesterImport(target.id, hasil.batch_id);
-        this.showToast('Impor diterapkan ke semester draf.');
+        this.showToast('Kurikulum berhasil diterapkan ke semester draf.');
         this.smImporTerbuka = false;
         this.smImporHasil = null;
         this.smImporFile = null;
         this.smPreviewMap = {};
         await this.loadDetailSemester(this.kelasAktifObj.slug);
       } catch (err) {
-        this.smImporError = err.message || 'Gagal menerapkan impor.';
+        this.smImporError = err.message || 'Gagal menerapkan impor ke semester draf.';
       } finally {
         this.smImporSaving = false;
       }

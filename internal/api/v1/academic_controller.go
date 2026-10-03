@@ -452,6 +452,56 @@ func (c *AcademicController) PreviewSemester(w http.ResponseWriter, r *http.Requ
 	common.WriteV1Success(w, http.StatusOK, p)
 }
 
+// DeleteDraftSemester menangani DELETE /api/v1/classes/{slug}/semesters/{id}
+func (c *AcademicController) DeleteDraftSemester(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menghapus draf semester")
+		return
+	}
+	slug := r.PathValue("slug")
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if semID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester tidak valid")
+		return
+	}
+	var classID int64
+	if err := c.db.QueryRowContext(r.Context(), `SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang menghapus draf semester kelas penugasannya")
+		return
+	}
+	svc := academic.NewSemesterService(c.db)
+	err := svc.DeleteDraft(r.Context(), academic.Actor{
+		UserID:           u.UserID,
+		RoleAssignmentID: u.ActiveAssignmentID,
+	}, classID, semID)
+	if err != nil {
+		switch {
+		case errors.Is(err, academic.ErrNotFound):
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester draf tidak ditemukan")
+		case errors.Is(err, academic.ErrInvalidState):
+			common.WriteV1Error(w, http.StatusConflict, common.CodeValidation, "Hanya semester berstatus DRAFT yang dapat dihapus")
+		case errors.Is(err, academic.ErrInvalidInput):
+			common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Semester tidak sesuai dengan kelas yang dipilih")
+		default:
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menghapus semester draf: %v", err))
+		}
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"deleted": true,
+		"id":      semID,
+	})
+}
+
 // CreateSemesterOfferingRequest adalah payload tambah offering manual ke semester DRAFT
 type CreateSemesterOfferingRequest struct {
 	CourseCode    string   `json:"course_code"`

@@ -313,6 +313,22 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
        - Tabel/List Semester: Nama Semester (misal: `2024/2025 Ganjil`), Rentang Tanggal (`2024-09-01 → 2025-01-31`), Badge Status (`ACTIVE` hijau, `DRAFT` kuning, `ARCHIVED` abu-abu).
        - Tombol muat ulang semester.
      - *Aksi Cepat Footer*: Tombol `[ Lihat Riwayat Perubahan kelas ]`, `[ Lihat Antrean Notifikasi ]`, dan tombol bahaya `[ Nonaktifkan Kelas ]` / `[ Arsipkan Kelas ]`.
+   - **D. SCR-ADM-005D: Modal Impor Kurikulum Semester (3 States) - [100% AUDITED & APPROVED]**
+     - Komponen modal pop-up tengah (max-w-md 480px, rounded-2xl, p-6, shadow-2xl).
+     - Header: Judul "Impor Kurikulum", tombol close "✕", subtitle deskripsi tujuan impor draf semester.
+     - *State 1 (Awal / Pilih Berkas)*: Dropzone dashed dengan ikon dokumen, helper text format JSON POLBAN di kiri, tautan `[ 📥 Unduh Contoh Template ]` di kanan, tombol Validasi & Terapkan disabled.
+     - *State 2 (Validasi Berhasil / READY)*: Box berkas terpilih (nama berkas .json, ukuran KB, tombol ganti), box hijau status `READY` (jumlah matkul, dosen, pola jadwal tanpa bentrok ruangan), tombol `[ 🔄 Validasi Ulang ]` (outline) dan `[ 🚀 Terapkan ke Draf ]` (primer biru aktif).
+     - *State 3 (Validasi Ditolak / Galat)*: Box berkas terpilih, box merah peringatan fatal galat (nomor baris bentrok ruangan/dosen tidak terdaftar), tombol `[ Periksa Berkas ]` aktif, tombol `[ Terapkan ke Draf ]` terkunci disabled.
+   - **E. SCR-ADM-005E: Modal Tambah Sesi Perkuliahan (Master Data Picker) - [100% AUDITED & APPROVED]**
+     - Komponen modal pop-up tengah (max-w-lg 540px, rounded-2xl, p-6, shadow-2xl).
+     - Header: Judul "Tambah Sesi Perkuliahan", tombol close "✕", subtitle integrasi Master Data.
+     - Field 1: Combobox Mata Kuliah Kurikulum + Segmented Control Jenis Sesi (Teori / Praktikum / Praktik).
+     - Field 2: Combobox Dosen Pengampu (terhubung Master Dosen POLBAN).
+     - Field 3: Grid 3 kolom (Dropdown Hari, Input Jam Mulai, Input Jam Selesai).
+     - Field 4: Combobox Ruangan Kuliah + Live Availability Checker:
+       * State A (Tersedia): Box hijau mint status ketersediaan ruangan & dosen.
+       * State B (Bentrok): Box amber peringatan jadwal bentrok dengan kelas lain di jam yang sama (tombol simpan terkunci/disabled).
+     - Footer: Tombol Batal & Tombol [ + Simpan ke Jadwal ].
 6. **SCR-ADM-006: Manajemen Pengguna & Penugasan Peran**
    - Daftar nomor WA pengguna, nama lengkap, role yang diemban, status akun (Aktif / Ditangguhkan), tombol Reset Sandi.
 7. **SCR-ADM-007: Antrean Pesan WhatsApp (Broadcast & Notification Outbox) - [100% AUDITED & APPROVED]**
