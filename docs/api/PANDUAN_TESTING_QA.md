@@ -113,7 +113,7 @@ Gunakan matriks berikut sebagai daftar periksa (*checklist*) pengujian formal:
 |---|---|---|---|---|
 | `TC-ADM-01`| Telemetri Sistem Global | Total kelas, user, tugas, dan status bot runtime | Dijalankan memakai token KM atau PJ | `200` vs `403` |
 | `TC-ADM-02`| Penangguhan Akun (Suspend) | Status user SUSPENDED & seluruh token sesi dicabut | Admin mencoba men-suspend akunnya sendiri | `200` vs `400`/`422` |
-| `TC-ADM-03`| Pemulihan Akun (Recover) | Status user ACTIVE kembali & password baru aktif | Password baru kurang dari 8 karakter | `200` vs `422` |
+| `TC-ADM-03`| Pemulihan Akun (Recover) | Status user ACTIVE kembali & password baru aktif | Password baru kurang dari 12 karakter | `200` vs `422` |
 | `TC-ADM-04`| Rekomendasi Ruang Global | Cek ruangan kosong lintas seluruh gedung kampus | Format parameter waktu salah | `200` vs `422` |
 | `TC-ADM-05`| Antrean WhatsApp Global | Memantau seluruh antrean pesan broadcast sistem | Akses oleh akun non-admin/KM | `200` vs `403` |
 | `TC-ADM-06`| Retry Notifikasi Siaran | Mengulang pengiriman pesan yang FAILED/CANCELLED | Me-retry pesan yang sudah sukses terkirim (SENT) | `200` vs `400`/`409` |

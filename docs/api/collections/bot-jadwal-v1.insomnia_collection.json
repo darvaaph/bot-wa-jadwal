@@ -1437,7 +1437,7 @@
       "created": 1790603391806,
       "url": "{{ _.baseUrl }}/api/v1/admin/users/2/recover",
       "name": "[Admin] Pemulihan Akun Pengguna (Recover)",
-      "description": "### Tujuan Pengujian\nAdmin memulihkan akun yang disuspend dan mereset kata sandi baru yang aman.\n\n### Aktor dan Prasyarat\n- **Aktor:** System Administrator (Scope GLOBAL)\n- **Otentikasi:** `Bearer {{tokenAdmin}}`\n- **Prasyarat:** User target berstatus SUSPENDED.\n\n### Parameter Kunci\n- `new_password`: Kata sandi baru\n- `reason`: Catatan pemulihan\n\n### Kriteria Kelulusan\n- [x] Status HTTP 200 OK\n- [x] Status user kembali ACTIVE dan password ter-hash bcrypt dengan aman\n\n### Skenario Uji Negatif\n- Password baru kurang dari 8 karakter -> HTTP 422 (VALIDATION)",
+      "description": "### Tujuan Pengujian\nAdmin memulihkan akun yang disuspend dan mereset kata sandi baru yang aman.\n\n### Aktor dan Prasyarat\n- **Aktor:** System Administrator (Scope GLOBAL)\n- **Otentikasi:** `Bearer {{tokenAdmin}}`\n- **Prasyarat:** User target berstatus SUSPENDED.\n\n### Parameter Kunci\n- `new_password`: Kata sandi baru\n- `reason`: Catatan pemulihan\n\n### Kriteria Kelulusan\n- [x] Status HTTP 200 OK\n- [x] Status user kembali ACTIVE dan password ter-hash bcrypt dengan aman\n\n### Skenario Uji Negatif\n- Password baru kurang dari 12 karakter -> HTTP 422 (VALIDATION)",
       "method": "POST",
       "body": {
         "mimeType": "application/json",

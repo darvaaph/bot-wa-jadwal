@@ -93,9 +93,9 @@ function loginApp() {
         this.formError = 'Nomor WhatsApp tidak valid (minimal 9 digit).';
         return;
       }
-      if (!this.sandi || this.sandi.length < 8) {
+      if (!this.sandi || !this.sandi.trim()) {
         this.fieldError = 'sandi';
-        this.formError = 'Kata sandi minimal 8 karakter.';
+        this.formError = 'Kata sandi wajib diisi.';
         return;
       }
 

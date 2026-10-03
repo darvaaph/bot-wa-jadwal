@@ -120,41 +120,74 @@
 <section x-show="view === 'buat'" x-cloak>
   <div class="ui-card p-6 md:p-10 shadow-sm">
     <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Buat kelas baru</h1>
-    <p class="text-[14px] text-muted mt-1">Kelas dapat dibuat sebelum Ketua Murid (KM) diundang. Slug kosong = otomatis dari nama.</p>
+    <p class="text-[14px] text-muted mt-1">Kelas dapat dibuat sebelum Ketua Murid (KM) diundang. Nama dan slug URL portal dibuat otomatis dari identitas kelas.</p>
 
     <div x-show="kelasError" class="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kelasError"></div>
 
     <form @submit.prevent="simpanKelas()" class="space-y-6 mt-6 max-w-2xl">
+      <!-- 1. Program Studi -->
       <div>
-        <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-nama">Nama kelas *</label>
-        <input id="sa-kelas-nama" type="text" x-model="kelasForm.nama" placeholder="D4 TI 2025 B" required
+        <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-prodi">Program studi *</label>
+        <input id="sa-kelas-prodi" list="sa-prodi-list" type="text" x-model="kelasForm.prodi" @input="updateAutoKelas()" placeholder="D4 Teknik Informatika" required
           class="ui-field w-full text-[14px] text-ink" />
-        <p class="text-[12px] text-muted mt-1">Gunakan format standar seperti: D4 TI 2025 B atau D3 TI 2024 A</p>
+        <datalist id="sa-prodi-list">
+          <template x-for="p in daftarProdi()" :key="p">
+            <option :value="p"></option>
+          </template>
+        </datalist>
+        <p class="text-[12px] text-muted mt-1">Pilih rekomendasi dari daftar atau ketik nama program studi.</p>
       </div>
 
+      <!-- 2. Angkatan & Rombel -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-prodi">Program studi *</label>
-          <input id="sa-kelas-prodi" type="text" x-model="kelasForm.prodi" placeholder="Teknik Informatika" required
-            class="ui-field w-full text-[14px] text-ink" />
-        </div>
         <div>
           <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-angkatan">Angkatan *</label>
-          <input id="sa-kelas-angkatan" type="number" x-model="kelasForm.angkatan" placeholder="2025" min="2000" max="2100" required
+          <input id="sa-kelas-angkatan" type="number" x-model="kelasForm.angkatan" @input="updateAutoKelas()" placeholder="2025" min="2000" max="2100" required
             class="ui-field w-full text-[14px] text-ink" />
+        </div>
+        <div>
+          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-rombel">Rombel / Kelas *</label>
+          <input id="sa-kelas-rombel" type="text" x-model="kelasForm.rombel" @input="kelasForm.rombel = (kelasForm.rombel || '').toUpperCase(); updateAutoKelas()" placeholder="A" maxlength="4" required
+            class="ui-field w-full text-[14px] text-ink uppercase" />
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-rombel">Rombel *</label>
-          <input id="sa-kelas-rombel" type="text" x-model="kelasForm.rombel" placeholder="A" maxlength="4" required
-            class="ui-field w-full text-[14px] text-ink uppercase" />
+      <!-- 3. Tinjauan Nama & Slug Otomatis -->
+      <div class="p-4 rounded-xl bg-slate-50 border border-border">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[12px] font-bold text-muted uppercase tracking-wider">Hasil Generate Otomatis</span>
+          <button type="button" @click="toggleKustomKelas()" class="text-[12px] font-semibold text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded">
+            <span x-show="!kelasForm.kustom">Sesuaikan manual</span>
+            <span x-show="kelasForm.kustom">Kembalikan ke otomatis</span>
+          </button>
         </div>
-        <div>
-          <label class="block text-[14px] font-bold text-ink mb-2" for="sa-kelas-slug">Slug (opsional)</label>
-          <input id="sa-kelas-slug" type="text" x-model="kelasForm.slug" placeholder="otomatis, mis. d4-ti-2025-b"
-            class="ui-field w-full text-[14px] font-mono text-ink" />
+
+        <!-- Mode Otomatis (Live Preview) -->
+        <div x-show="!kelasForm.kustom" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <span class="text-[12px] text-muted block">Nama kelas</span>
+            <span class="text-[15px] font-bold text-ink block mt-0.5" x-text="kelasForm.nama || '-'"></span>
+          </div>
+          <div>
+            <span class="text-[12px] text-muted block">Slug portal URL</span>
+            <span class="text-[13px] font-mono text-muted bg-white px-2.5 py-1 rounded border border-border inline-block mt-0.5" x-text="kelasForm.slug || '-'"></span>
+          </div>
+        </div>
+
+        <!-- Mode Kustom (Input Manual) -->
+        <div x-show="kelasForm.kustom" class="mt-4 pt-4 border-t border-border space-y-4">
+          <div>
+            <label class="block text-[13px] font-semibold text-ink mb-1" for="sa-kelas-nama">Nama kelas khusus *</label>
+            <input id="sa-kelas-nama" type="text" x-model="kelasForm.nama" placeholder="D4 TI 2025 B"
+              class="ui-field w-full text-[14px] text-ink" />
+            <p class="text-[12px] text-muted mt-1">Gunakan bila format penamaan kelas membutuhkan teks non-standar.</p>
+          </div>
+          <div>
+            <label class="block text-[13px] font-semibold text-ink mb-1" for="sa-kelas-slug">Slug portal kustom</label>
+            <input id="sa-kelas-slug" type="text" x-model="kelasForm.slug" placeholder="d4-ti-2025-b"
+              class="ui-field w-full text-[14px] font-mono text-ink" />
+            <p class="text-[12px] text-muted mt-1">Identifier URL (huruf kecil, angka, dan tanda hubung).</p>
+          </div>
         </div>
       </div>
 
@@ -164,11 +197,11 @@
 
       <div class="flex items-center gap-4 pt-2">
         <button type="submit" :disabled="kelasSaving"
-          class="ui-button ui-button--primary text-[14px] font-medium">
+          class="ui-button ui-button--primary text-[14px] font-medium min-h-[44px]">
           <span x-show="!kelasSaving">Simpan kelas</span>
           <span x-show="kelasSaving">Menyimpan...</span>
         </button>
-        <button type="button" @click="go('kelas')" class="ui-button ui-button--outline text-primary text-[14px] font-medium">Batal</button>
+        <button type="button" @click="go('kelas')" class="ui-button ui-button--outline text-primary text-[14px] font-medium min-h-[44px]">Batal</button>
       </div>
     </form>
   </div>

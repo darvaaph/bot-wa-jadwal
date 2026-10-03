@@ -134,9 +134,18 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/master/rooms", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterRooms)))
 	mux.HandleFunc("POST /api/v1/master/rooms", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterRoom)))
 	mux.HandleFunc("PATCH /api/v1/master/rooms/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterRoom)))
+	mux.HandleFunc("POST /api/v1/master/rooms/sync-jadwal", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleSyncMasterRooms)))
 	mux.HandleFunc("GET /api/v1/master/courses", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterCourses)))
 	mux.HandleFunc("POST /api/v1/master/courses", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterCourse)))
+	mux.HandleFunc("POST /api/v1/master/courses/sync-jadwal", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleSyncMasterCourses)))
+	mux.HandleFunc("POST /api/v1/master/courses/bulk", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleBulkCreateMasterCourses)))
 	mux.HandleFunc("PATCH /api/v1/master/courses/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterCourse)))
+	mux.HandleFunc("GET /api/v1/master/lecturers", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterLecturers)))
+	mux.HandleFunc("POST /api/v1/master/lecturers", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterLecturer)))
+	mux.HandleFunc("POST /api/v1/master/lecturers/sync-jadwal", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleSyncMasterLecturers)))
+	mux.HandleFunc("POST /api/v1/master/lecturers/bulk", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleBulkCreateMasterLecturers)))
+	mux.HandleFunc("PATCH /api/v1/master/lecturers/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterLecturer)))
+	mux.HandleFunc("POST /api/v1/master/sync-all", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleSyncAllMaster)))
 
 	// Fallback untuk route API v1 yang belum diimplementasikan
 	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) {

@@ -31,6 +31,7 @@ function systemAdminApp() {
       { title: 'DATA & SISTEM', items: [
         { id: 'master-ruangan', label: 'Master Ruangan', img: '/assets/icons/room.svg' },
         { id: 'master-matkul', label: 'Master Mata Kuliah', img: '/assets/icons/book.svg' },
+        { id: 'master-dosen', label: 'Master Dosen', img: '/assets/icons/people.svg' },
         { id: 'backup', label: 'Backup dan Pemulihan', img: '/assets/icons/backup.svg' }
       ] }
     ],
@@ -60,7 +61,7 @@ function systemAdminApp() {
 
     kelasAktif: '',
     kelasAktifObj: null,
-    kelasForm: { nama: '', prodi: 'Teknik Informatika', angkatan: '2025', rombel: 'A', slug: '' },
+    kelasForm: { prodi: 'D4 Teknik Informatika', angkatan: '2025', rombel: 'A', nama: 'D4 TI 2025 A', slug: 'd4-ti-2025-a', kustom: false },
     kelasError: '',
     kelasSaving: false,
     kelasStatusConfirm: null,
@@ -122,6 +123,13 @@ function systemAdminApp() {
     ruangEdit: null,
     ruangEditError: '',
     ruangStatusConfirm: null,
+    modalTambahRuang: false,
+    modalImportRuang: false,
+    importRuangTab: 'jadwal',
+    importRuangCsvText: '',
+    importRuangLoading: false,
+    importRuangError: '',
+    importRuangSuccess: '',
 
     matkulList: [],
     matkulLoading: false,
@@ -133,6 +141,31 @@ function systemAdminApp() {
     matkulEdit: null,
     matkulEditError: '',
     matkulStatusConfirm: null,
+    modalTambahMatkul: false,
+    modalImportMatkul: false,
+    importTab: 'jadwal',
+    importCsvText: '',
+    importLoading: false,
+    importError: '',
+    importSuccess: '',
+    dosenList: [],
+    dosenLoading: false,
+    dosenError: '',
+    dosenForm: { kode: '', nama: '' },
+    dosenFormError: '',
+    dosenQ: '',
+    dosenStatusFilter: '',
+    dosenEdit: null,
+    dosenEditError: '',
+    dosenStatusConfirm: null,
+    modalTambahDosen: false,
+    modalImportDosen: false,
+    importDosenTab: 'jadwal',
+    importDosenCsvText: '',
+    importDosenLoading: false,
+    importDosenError: '',
+    importDosenSuccess: '',
+    syncAllLoading: false,
 
     usulanList: [],
     usulanLoading: false,
@@ -322,7 +355,7 @@ function systemAdminApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'dukungan', 'antrean', 'kanal', 'audit', 'status-bot', 'master-ruangan', 'master-matkul', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'undang', 'undang-siap', 'pengguna', 'dukungan', 'antrean', 'kanal', 'audit', 'status-bot', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -341,7 +374,7 @@ function systemAdminApp() {
         return;
       }
 
-      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','soon']);
+      await AsteriskShell.mount('sa', ['dashboard','kelas','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','dosen','soon']);
       await this.loadPartials([
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
@@ -353,6 +386,7 @@ function systemAdminApp() {
         ['sa-pengguna', '/partials/system-admin/view-pengguna.html'],
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
         ['sa-matkul', '/partials/system-admin/view-master-matkul.html'],
+        ['sa-dosen', '/partials/system-admin/view-master-dosen.html'],
         ['sa-soon', '/partials/system-admin/view-soon.html'],
         ['sa-banner', '/partials/system-admin/support-banner.html']
       ]);
@@ -627,6 +661,10 @@ function systemAdminApp() {
     },
 
     mulaiAksiPengguna(u, aksi) {
+      if (aksi === 'tangguhkan' && this.isAkunSendiri(u)) {
+        this.showToast('Tidak dapat menangguhkan akun Anda sendiri.');
+        return;
+      }
       this.penggunaAksi = { id: u.id, nama: u.display_name || u.identity_key, aksi: aksi };
       this.penggunaAlasan = '';
     },
@@ -651,6 +689,15 @@ function systemAdminApp() {
       } catch (err) {
         this.showToast(err.message || 'Gagal memproses tindakan.');
       }
+    },
+
+    isAkunSendiri(u) {
+      return !!(this.currentUser && u && String(u.id) === String(this.currentUser.id));
+    },
+
+    isPenugasanAktifSendiri(a) {
+      const aktif = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.id;
+      return !!(aktif && a && String(a.id) === String(aktif));
     },
 
     labelStatusPengguna(st) {
@@ -732,6 +779,10 @@ function systemAdminApp() {
     },
 
     mulaiAksiPenugasan(a, aksi) {
+      if (this.isPenugasanAktifSendiri(a)) {
+        this.showToast('Tidak dapat mengubah penugasan aktif Anda sendiri.');
+        return;
+      }
       this.penugasanAksi = {
         id: a.id,
         nama: (a.display_name || a.identity_key) + ' · ' + a.role,
@@ -893,6 +944,49 @@ function systemAdminApp() {
       }
     },
 
+    bukaModalTambahRuang() {
+      this.ruangForm = { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' };
+      this.ruangFormError = '';
+      this.modalTambahRuang = true;
+    },
+
+    tutupModalTambahRuang() {
+      this.modalTambahRuang = false;
+      this.ruangFormError = '';
+    },
+
+    bukaModalImportRuang() {
+      this.modalImportRuang = true;
+      this.importRuangTab = 'jadwal';
+      this.importRuangCsvText = '';
+      this.importRuangLoading = false;
+      this.importRuangError = '';
+      this.importRuangSuccess = '';
+    },
+
+    tutupModalImportRuang() {
+      this.modalImportRuang = false;
+      this.importRuangLoading = false;
+      this.importRuangError = '';
+      this.importRuangSuccess = '';
+    },
+
+    async sinkronRuangDariJadwal() {
+      this.importRuangLoading = true;
+      this.importRuangError = '';
+      this.importRuangSuccess = '';
+      try {
+        const res = await API.syncMasterRoomsJadwal();
+        this.importRuangSuccess = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} ruangan dari berkas jadwal.`;
+        await this.loadRuang();
+        this.showToast(`Berhasil menyinkronkan ${res.total_synced || 0} ruangan.`);
+      } catch (err) {
+        this.importRuangError = err.message || 'Gagal menyinkronkan ruangan dari jadwal.';
+      } finally {
+        this.importRuangLoading = false;
+      }
+    },
+
     async tambahRuang() {
       const f = this.ruangForm;
       if (!((f.kode || '').trim())) { this.ruangFormError = 'Kode ruangan wajib diisi.'; return; }
@@ -907,6 +1001,7 @@ function systemAdminApp() {
         await API.createMasterRoom(payload);
         this.ruangForm = { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' };
         await this.loadRuang();
+        this.modalTambahRuang = false;
         this.showToast('Ruangan ditambahkan.');
       } catch (err) {
         this.ruangFormError = err.message || 'Gagal menambah ruangan.';
@@ -987,6 +1082,108 @@ function systemAdminApp() {
       }
     },
 
+    bukaModalTambahMatkul() {
+      this.matkulForm = { kode: '', nama: '' };
+      this.matkulFormError = '';
+      this.modalTambahMatkul = true;
+    },
+
+    tutupModalTambahMatkul() {
+      this.modalTambahMatkul = false;
+      this.matkulFormError = '';
+    },
+
+    bukaModalImportMatkul() {
+      this.modalImportMatkul = true;
+      this.importTab = 'jadwal';
+      this.importCsvText = '';
+      this.importLoading = false;
+      this.importError = '';
+      this.importSuccess = '';
+    },
+
+    tutupModalImportMatkul() {
+      this.modalImportMatkul = false;
+      this.importLoading = false;
+      this.importError = '';
+      this.importSuccess = '';
+    },
+
+    parsedImportCourses() {
+      const text = (this.importCsvText || '').trim();
+      if (!text) return [];
+      if (text.startsWith('[') || text.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(text);
+          const list = Array.isArray(parsed) ? parsed : (parsed.courses || []);
+          return list.map(item => ({
+            code: (item.code || item.kode || '').trim(),
+            name: (item.name || item.nama || item.matkul || '').trim()
+          })).filter(item => item.code && item.name);
+        } catch (_) {}
+      }
+      const lines = text.split(/\r?\n/);
+      const out = [];
+      const seen = new Set();
+      for (let rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+        let delimiter = ',';
+        if (line.includes('\t')) delimiter = '\t';
+        else if (line.includes(';') && !line.includes(',')) delimiter = ';';
+        else if (line.includes('|')) delimiter = '|';
+
+        const parts = line.split(delimiter);
+        if (parts.length >= 2) {
+          const code = parts[0].trim();
+          const name = parts.slice(1).join(delimiter).trim();
+          if (code && name && !seen.has(code.toUpperCase())) {
+            seen.add(code.toUpperCase());
+            out.push({ code, name });
+          }
+        }
+      }
+      return out;
+    },
+
+    async sinkronMatkulDariJadwal() {
+      this.importLoading = true;
+      this.importError = '';
+      this.importSuccess = '';
+      try {
+        const res = await API.syncMasterCoursesJadwal();
+        this.importSuccess = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} mata kuliah dari berkas jadwal.`;
+        await this.loadMatkul();
+        this.showToast(`Berhasil menyinkronkan ${res.total_synced || 0} mata kuliah.`);
+      } catch (err) {
+        this.importError = err.message || 'Gagal menyinkronkan mata kuliah dari jadwal.';
+      } finally {
+        this.importLoading = false;
+      }
+    },
+
+    async prosesImportCsvMatkul() {
+      const courses = this.parsedImportCourses();
+      if (!courses.length) {
+        this.importError = 'Tidak ada baris data mata kuliah yang valid. Pastikan format: KODE, NAMA MATA KULIAH';
+        return;
+      }
+      this.importLoading = true;
+      this.importError = '';
+      this.importSuccess = '';
+      try {
+        const res = await API.bulkCreateMasterCourses(courses);
+        this.importSuccess = res.message || `Berhasil mengimpor ${res.total_imported || 0} mata kuliah.`;
+        this.importCsvText = '';
+        await this.loadMatkul();
+        this.showToast(`Berhasil mengimpor ${res.total_imported || 0} mata kuliah.`);
+      } catch (err) {
+        this.importError = err.message || 'Gagal mengimpor mata kuliah.';
+      } finally {
+        this.importLoading = false;
+      }
+    },
+
     async tambahMatkul() {
       const f = this.matkulForm;
       if (!((f.kode || '').trim()) || !((f.nama || '').trim())) {
@@ -998,6 +1195,7 @@ function systemAdminApp() {
         await API.createMasterCourse({ code: f.kode.trim(), name: f.nama.trim() });
         this.matkulForm = { kode: '', nama: '' };
         await this.loadMatkul();
+        this.modalTambahMatkul = false;
         this.showToast('Mata kuliah ditambahkan.');
       } catch (err) {
         this.matkulFormError = err.message || 'Gagal menambah mata kuliah.';
@@ -1047,6 +1245,213 @@ function systemAdminApp() {
         this.showToast(c.ke === 'ACTIVE' ? 'Mata kuliah diaktifkan.' : 'Mata kuliah dinonaktifkan. Penawaran lama tetap tampil; nonaktif tak dipakai untuk penawaran baru.');
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status.');
+      }
+    },
+
+    filteredDosen() {
+      const q = (this.dosenQ || '').trim().toLowerCase();
+      if (!q) return this.dosenList || [];
+      return (this.dosenList || []).filter(d =>
+        (d.code && d.code.toLowerCase().includes(q)) ||
+        (d.full_name && d.full_name.toLowerCase().includes(q)) ||
+        (d.name && d.name.toLowerCase().includes(q))
+      );
+    },
+
+    async loadDosen() {
+      this.dosenLoading = true; this.dosenError = '';
+      try {
+        this.dosenList = await API.getMasterLecturers(this.dosenStatusFilter || '');
+      } catch (e) {
+        this.dosenList = [];
+        this.dosenError = 'Daftar dosen belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.dosenLoading = false;
+      }
+    },
+
+    bukaModalTambahDosen() {
+      this.dosenForm = { kode: '', nama: '' };
+      this.dosenFormError = '';
+      this.modalTambahDosen = true;
+    },
+
+    tutupModalTambahDosen() {
+      this.modalTambahDosen = false;
+      this.dosenFormError = '';
+    },
+
+    async tambahDosen() {
+      const f = this.dosenForm;
+      if (!((f.kode || '').trim()) || !((f.nama || '').trim())) {
+        this.dosenFormError = 'Inisial dan nama dosen wajib diisi.';
+        return;
+      }
+      this.dosenFormError = '';
+      try {
+        await API.createMasterLecturer({ code: f.kode.trim(), full_name: f.nama.trim() });
+        this.dosenForm = { kode: '', nama: '' };
+        this.modalTambahDosen = false;
+        await this.loadDosen();
+        this.showToast('Dosen ditambahkan.');
+      } catch (err) {
+        this.dosenFormError = err.message || 'Gagal menambah dosen.';
+      }
+    },
+
+    mulaiUbahDosen(d) {
+      this.dosenEdit = { id: d.id, kode: d.code, nama: d.full_name || d.name || '' };
+      this.dosenEditError = '';
+    },
+
+    batalUbahDosen() {
+      this.dosenEdit = null;
+      this.dosenEditError = '';
+    },
+
+    async simpanUbahDosen() {
+      const f = this.dosenEdit;
+      if (!f) return;
+      if (!((f.nama || '').trim())) { this.dosenEditError = 'Nama dosen wajib diisi.'; return; }
+      this.dosenEditError = '';
+      try {
+        await API.patchMasterLecturer(f.id, { full_name: f.nama.trim() });
+        this.showToast(`Data dosen ${f.kode} diubah.`);
+        this.dosenEdit = null;
+        await this.loadDosen();
+      } catch (err) {
+        this.dosenEditError = err.message || 'Gagal mengubah data dosen.';
+      }
+    },
+
+    mintaKonfirmasiStatusDosen(d) {
+      this.dosenStatusConfirm = {
+        id: d.id,
+        kode: d.code,
+        nama: d.full_name || d.name,
+        dari: String(d.status || '').toUpperCase(),
+        ke: String(d.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+      };
+    },
+
+    batalKonfirmasiStatusDosen() {
+      this.dosenStatusConfirm = null;
+    },
+
+    async jalankanUbahStatusDosen() {
+      const c = this.dosenStatusConfirm;
+      if (!c) return;
+      try {
+        await API.patchMasterLecturer(c.id, { status: c.ke });
+        this.dosenStatusConfirm = null;
+        await this.loadDosen();
+        this.showToast(c.ke === 'ACTIVE' ? 'Dosen diaktifkan.' : 'Dosen dinonaktifkan.');
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengubah status dosen.');
+      }
+    },
+
+    bukaModalImportDosen() {
+      this.modalImportDosen = true;
+      this.importDosenTab = 'jadwal';
+      this.importDosenCsvText = '';
+      this.importDosenLoading = false;
+      this.importDosenError = '';
+      this.importDosenSuccess = '';
+    },
+
+    tutupModalImportDosen() {
+      this.modalImportDosen = false;
+      this.importDosenLoading = false;
+      this.importDosenError = '';
+      this.importDosenSuccess = '';
+    },
+
+    parsedImportDosen() {
+      const text = (this.importDosenCsvText || '').trim();
+      if (!text) return [];
+      if (text.startsWith('[') || text.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(text);
+          const list = Array.isArray(parsed) ? parsed : (parsed.lecturers || parsed.dosen || []);
+          return list.map(item => ({
+            code: (item.code || item.kode || item.inisial || '').trim(),
+            full_name: (item.full_name || item.name || item.nama || '').trim()
+          })).filter(item => item.code && item.full_name);
+        } catch (_) {}
+      }
+      const lines = text.split(/\r?\n/);
+      const out = [];
+      const seen = new Set();
+      for (let rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+        let delimiter = ',';
+        if (line.includes('\t')) delimiter = '\t';
+        else if (line.includes(';') && !line.includes(',')) delimiter = ';';
+        else if (line.includes('|')) delimiter = '|';
+
+        const parts = line.split(delimiter);
+        if (parts.length >= 2) {
+          const code = parts[0].trim();
+          const fullName = parts.slice(1).join(delimiter).trim();
+          if (code && fullName && !seen.has(code.toUpperCase())) {
+            seen.add(code.toUpperCase());
+            out.push({ code, full_name: fullName });
+          }
+        }
+      }
+      return out;
+    },
+
+    async sinkronDosenDariJadwal() {
+      this.importDosenLoading = true;
+      this.importDosenError = '';
+      this.importDosenSuccess = '';
+      try {
+        const res = await API.syncMasterLecturersJadwal();
+        this.importDosenSuccess = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} dosen dari berkas jadwal.`;
+        await this.loadDosen();
+        this.showToast(`Berhasil menyinkronkan ${res.total_synced || 0} dosen.`);
+      } catch (err) {
+        this.importDosenError = err.message || 'Gagal menyinkronkan dosen dari jadwal.';
+      } finally {
+        this.importDosenLoading = false;
+      }
+    },
+
+    async prosesImportCsvDosen() {
+      const lecturers = this.parsedImportDosen();
+      if (!lecturers.length) {
+        this.importDosenError = 'Tidak ada baris data dosen yang valid. Format: INISIAL, NAMA LENGKAP & GELAR';
+        return;
+      }
+      this.importDosenLoading = true;
+      this.importDosenError = '';
+      this.importDosenSuccess = '';
+      try {
+        const res = await API.bulkCreateMasterLecturers(lecturers);
+        this.importDosenSuccess = res.message || `Berhasil mengimpor ${res.total_imported || 0} dosen.`;
+        this.importDosenCsvText = '';
+        await this.loadDosen();
+        this.showToast(`Berhasil mengimpor ${res.total_imported || 0} dosen.`);
+      } catch (err) {
+        this.importDosenError = err.message || 'Gagal mengimpor dosen.';
+      } finally {
+        this.importDosenLoading = false;
+      }
+    },
+
+    async sinkronSemuaMaster() {
+      this.syncAllLoading = true;
+      try {
+        const res = await API.syncMasterAllJadwal();
+        await Promise.all([this.loadMatkul(), this.loadRuang(), this.loadDosen()]);
+        this.showToast(res.message || `Berhasil menyinkronkan ${res.total_synced || 0} master data kampus.`);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyinkronkan master data kampus.');
+      } finally {
+        this.syncAllLoading = false;
       }
     },
 
@@ -1442,6 +1847,7 @@ function systemAdminApp() {
       if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
+      if (v === 'buat') { this.kelasError = ''; this.updateAutoKelas(); }
       if (v === 'antrean') this.loadAntrean();
       if (v === 'kanal') this.loadKanal();
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
@@ -1453,6 +1859,7 @@ function systemAdminApp() {
       }
       if (v === 'master-ruangan') { this.loadRuang(); this.loadUsulan('ROOM'); }
       if (v === 'master-matkul') { this.loadMatkul(); this.loadUsulan('COURSE'); }
+      if (v === 'master-dosen') { this.loadDosen(); }
       window.scrollTo({ top: 0 });
     },
 
@@ -1597,13 +2004,177 @@ function systemAdminApp() {
         .slice(0, 80);
     },
 
+    daftarProdi() {
+      const defaults = [
+        // Jurusan Teknik Komputer dan Informatika
+        'D4 Teknik Informatika',
+        'D3 Teknik Informatika',
+
+        // Jurusan Teknik Elektro
+        'D4 Teknik Elektronika',
+        'D4 Teknik Otomasi Industri',
+        'D4 Teknik Telekomunikasi',
+        'D3 Teknik Elektronika',
+        'D3 Teknik Listrik',
+        'D3 Teknik Telekomunikasi',
+
+        // Jurusan Teknik Mesin
+        'D4 Teknik Perancangan dan Konstruksi Mesin',
+        'D4 Proses Manufaktur',
+        'D3 Teknik Mesin',
+        'D3 Teknik Aeronautika',
+
+        // Jurusan Teknik Sipil
+        'D4 Teknik Perancangan Jalan dan Jembatan',
+        'D4 Teknik Perawatan dan Perbaikan Gedung',
+        'D3 Teknik Konstruksi Sipil',
+        'D3 Teknik Konstruksi Gedung',
+        'S2 Terapan Rekayasa Infrastruktur',
+
+        // Jurusan Teknik Refrigerasi dan Tata Udara
+        'D4 Teknik Pendingin dan Tata Udara',
+        'D3 Teknik Pendingin dan Tata Udara',
+
+        // Jurusan Teknik Konversi Energi
+        'D4 Teknologi Pembangkit Tenaga Listrik',
+        'D4 Teknik Konservasi Energi',
+        'D3 Teknik Konversi Energi',
+
+        // Jurusan Teknik Kimia
+        'D4 Teknik Kimia Produksi Bersih',
+        'D3 Teknik Kimia',
+        'D3 Analis Kimia',
+
+        // Jurusan Akuntansi
+        'D4 Akuntansi',
+        'D4 Keuangan Syariah',
+        'D4 Akuntansi Manajemen Pemerintahan',
+        'D3 Akuntansi',
+        'D3 Keuangan dan Perbankan',
+        'S2 Terapan Keuangan dan Perbankan Syariah',
+
+        // Jurusan Administrasi Niaga
+        'D4 Administrasi Bisnis',
+        'D4 Manajemen Pemasaran',
+        'D4 Manajemen Aset',
+        'D4 Destinasi Pariwisata',
+        'D3 Administrasi Bisnis',
+        'D3 Manajemen Pemasaran',
+        'D3 Usaha Perjalanan Wisata',
+        'S2 Terapan Pemasaran, Inovasi, dan Teknologi',
+
+        // Jurusan Bahasa Inggris
+        'D4 Bahasa Inggris untuk Komunikasi Bisnis dan Profesional',
+        'D3 Bahasa Inggris'
+      ];
+      const fromList = (this.kelasList || []).map(k => k.prodi).filter(Boolean);
+      return Array.from(new Set([...defaults, ...fromList]));
+    },
+
+    deriveKelasName(prodi, angkatan, rombel) {
+      const p = (prodi || '').trim();
+      const a = (angkatan || '').trim();
+      const r = (rombel || '').trim().toUpperCase();
+      if (!p && !a && !r) return '';
+
+      const pLower = p.toLowerCase();
+      const mapKhusus = {
+        'd4 teknik informatika': 'D4 TI',
+        'd3 teknik informatika': 'D3 TI',
+        'd4 akuntansi': 'D4 AK',
+        'd3 akuntansi': 'D3 AK',
+        'd4 keuangan syariah': 'D4 KS',
+        'd3 keuangan dan perbankan': 'D3 KP',
+        'd4 administrasi bisnis': 'D4 AB',
+        'd3 administrasi bisnis': 'D3 AB',
+        'd4 manajemen pemasaran': 'D4 MP',
+        'd3 manajemen pemasaran': 'D3 MP',
+        'd4 manajemen aset': 'D4 MA',
+        'd4 destinasi pariwisata': 'D4 DP',
+        'd3 usaha perjalanan wisata': 'D3 UPW',
+        'd4 bahasa inggris untuk komunikasi bisnis dan profesional': 'D4 BIKBP',
+        'd3 bahasa inggris': 'D3 BI',
+        'd4 teknik elektronika': 'D4 TE',
+        'd3 teknik elektronika': 'D3 TE',
+        'd4 teknik otomasi industri': 'D4 TOI',
+        'd4 teknik telekomunikasi': 'D4 TT',
+        'd3 teknik telekomunikasi': 'D3 TT',
+        'd3 teknik listrik': 'D3 TL',
+        'd4 teknologi pembangkit tenaga listrik': 'D4 TPTL',
+        'd4 teknik konservasi energi': 'D4 TKE',
+        'd3 teknik konversi energi': 'D3 TKE',
+        'd4 teknik pendingin dan tata udara': 'D4 TPTU',
+        'd3 teknik pendingin dan tata udara': 'D3 TPTU',
+        'd4 teknik perancangan jalan dan jembatan': 'D4 TPJJ',
+        'd4 teknik perawatan dan perbaikan gedung': 'D4 TPPG',
+        'd3 teknik konstruksi sipil': 'D3 TKS',
+        'd3 teknik konstruksi gedung': 'D3 TKG',
+        'd4 teknik perancangan dan konstruksi mesin': 'D4 TPKM',
+        'd4 proses manufaktur': 'D4 PM',
+        'd3 teknik mesin': 'D3 TM',
+        'd3 teknik aeronautika': 'D3 TA',
+        'd4 teknik kimia produksi bersih': 'D4 TKPB',
+        'd3 teknik kimia': 'D3 TK',
+        'd3 analis kimia': 'D3 AKM'
+      };
+
+      let shortProdi = mapKhusus[pLower];
+      if (!shortProdi) {
+        shortProdi = p;
+        const matchJenjang = p.match(/^(D[1-4]|S[1-3])\s+(.+)$/i);
+        if (matchJenjang) {
+          const jenjang = matchJenjang[1].toUpperCase();
+          const sisa = matchJenjang[2].trim();
+          const words = sisa.split(/\s+/).filter(w => !['dan', 'untuk', 'atau', 'di', 'ke', 'dari'].includes(w.toLowerCase()));
+          const inisial = words.map(w => w[0] ? w[0].toUpperCase() : '').join('');
+          shortProdi = `${jenjang} ${inisial || sisa.slice(0, 3).toUpperCase()}`;
+        } else if (/^[a-zA-Z\s]+$/.test(p) && p.split(/\s+/).length > 1) {
+          const words = p.split(/\s+/).filter(w => !['dan', 'untuk', 'atau', 'di', 'ke', 'dari'].includes(w.toLowerCase()));
+          shortProdi = words.map(w => w[0] ? w[0].toUpperCase() : '').join('');
+        }
+      }
+
+      const parts = [];
+      if (shortProdi) parts.push(shortProdi);
+      if (a) parts.push(a);
+      if (r) parts.push(r);
+      return parts.join(' ');
+    },
+
+    updateAutoKelas() {
+      if (this.kelasForm.kustom) return;
+      const nama = this.deriveKelasName(this.kelasForm.prodi, this.kelasForm.angkatan, this.kelasForm.rombel);
+      this.kelasForm.nama = nama;
+      this.kelasForm.slug = this.slugifyKelas(nama);
+    },
+
+    toggleKustomKelas() {
+      this.kelasForm.kustom = !this.kelasForm.kustom;
+      if (!this.kelasForm.kustom) {
+        this.updateAutoKelas();
+      }
+    },
+
+    resetKelasForm() {
+      this.kelasForm = {
+        prodi: 'D4 Teknik Informatika',
+        angkatan: '2025',
+        rombel: 'A',
+        nama: 'D4 TI 2025 A',
+        slug: 'd4-ti-2025-a',
+        kustom: false
+      };
+      this.updateAutoKelas();
+    },
+
     async simpanKelas() {
       const f = this.kelasForm;
-      if (!((f.nama || '').trim())) { this.kelasError = 'Nama kelas wajib diisi.'; return; }
+      if (!f.kustom || !((f.nama || '').trim())) { this.updateAutoKelas(); }
       if (!((f.prodi || '').trim())) { this.kelasError = 'Program studi wajib diisi.'; return; }
       if (!((f.angkatan || '').trim())) { this.kelasError = 'Angkatan wajib diisi.'; return; }
       const rombel = ((f.rombel || '').trim() || 'A').toUpperCase();
       if (!/^[A-Z0-9]{1,4}$/.test(rombel)) { this.kelasError = 'Rombel wajib 1–4 karakter huruf/angka (contoh: A).'; return; }
+      if (!((f.nama || '').trim())) { this.kelasError = 'Nama kelas wajib diisi.'; return; }
 
       this.kelasError = '';
       this.kelasSaving = true;
@@ -1620,7 +2191,7 @@ function systemAdminApp() {
         if (slugManual) payload.slug = this.slugifyKelas(slugManual);
         await API.createClass(payload);
 
-        this.kelasForm = { nama: '', prodi: 'Teknik Informatika', angkatan: '2025', rombel: 'A', slug: '' };
+        this.resetKelasForm();
         this.resetKelasFilter();
         await Promise.all([this.loadKelas(), this.checkBot()]);
         this.view = 'kelas';

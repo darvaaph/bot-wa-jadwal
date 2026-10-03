@@ -1598,6 +1598,33 @@ const BotApi = {
     return json.data;
   },
 
+  async syncMasterCoursesJadwal() {
+    const res = await fetch('/api/v1/master/courses/sync-jadwal', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyinkronkan mata kuliah dari jadwal.');
+      err.code = 'SYNC_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async bulkCreateMasterCourses(courses) {
+    const res = await fetch('/api/v1/master/courses/bulk', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ courses })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengimpor mata kuliah.');
+      err.code = 'IMPORT_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+
   async patchMasterCourse(id, payload) {
     const res = await fetch('/api/v1/master/courses/' + encodeURIComponent(id), {
       method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
@@ -1609,6 +1636,93 @@ const BotApi = {
       throw err;
     }
     return true;
+  },
+
+  async syncMasterRoomsJadwal() {
+    const res = await fetch('/api/v1/master/rooms/sync-jadwal', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyinkronkan ruangan dari jadwal.');
+      err.code = 'SYNC_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async getMasterLecturers(status) {
+    let url = '/api/v1/master/lecturers';
+    if (status) url += '?status=' + encodeURIComponent(status);
+    const res = await fetch(url, { headers: authHeaders(), credentials: 'same-origin' });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || [];
+  },
+
+  async createMasterLecturer(payload) {
+    const res = await fetch('/api/v1/master/lecturers', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menambah dosen.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async patchMasterLecturer(id, payload) {
+    const res = await fetch('/api/v1/master/lecturers/' + encodeURIComponent(id), {
+      method: 'PATCH', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah data dosen.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
+  },
+
+  async bulkCreateMasterLecturers(lecturers) {
+    const res = await fetch('/api/v1/master/lecturers/bulk', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ lecturers })
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal mengimpor data dosen.');
+      err.code = 'IMPORT_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async syncMasterLecturersJadwal() {
+    const res = await fetch('/api/v1/master/lecturers/sync-jadwal', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyinkronkan data dosen dari jadwal.');
+      err.code = 'SYNC_FAILED';
+      throw err;
+    }
+    return json.data;
+  },
+
+  async syncMasterAllJadwal() {
+    const res = await fetch('/api/v1/master/sync-all', {
+      method: 'POST', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menyinkronkan seluruh master kampus.');
+      err.code = 'SYNC_FAILED';
+      throw err;
+    }
+    return json.data;
   },
 
   async getAdminAssignments(status, role, classSlug) {

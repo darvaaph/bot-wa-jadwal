@@ -50,9 +50,10 @@
                 <span class="material-symbols-outlined text-[14px]" x-text="String(u.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
                 <span x-text="labelStatusPengguna(u.status)">-</span>
               </span>
-              <div class="flex gap-2">
-                <button type="button" @click="mulaiAksiPengguna(u, 'tangguhkan')" x-show="String(u.status).toUpperCase() === 'ACTIVE'" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
-                <button type="button" @click="mulaiAksiPengguna(u, 'pulihkan')" x-show="String(u.status).toUpperCase() !== 'ACTIVE'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Pulihkan</button>
+              <div class="flex items-center gap-2">
+                <span x-show="isAkunSendiri(u)" class="text-[12px] font-semibold text-slate-500">Akun Anda</span>
+                <button type="button" @click="mulaiAksiPengguna(u, 'tangguhkan')" x-show="String(u.status).toUpperCase() === 'ACTIVE' && !isAkunSendiri(u)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
+                <button type="button" @click="mulaiAksiPengguna(u, 'pulihkan')" x-show="String(u.status).toUpperCase() !== 'ACTIVE' && !isAkunSendiri(u)" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Pulihkan</button>
               </div>
             </div>
             <div x-show="penggunaAksi && penggunaAksi.id === u.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
@@ -119,10 +120,11 @@
                 <span class="material-symbols-outlined text-[14px]" x-text="String(a.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
                 <span x-text="labelStatusPenugasan(a.status)">-</span>
               </span>
-              <div class="flex gap-2" x-show="String(a.status).toUpperCase() === 'ACTIVE'">
+              <div class="flex gap-2" x-show="String(a.status).toUpperCase() === 'ACTIVE' && !isPenugasanAktifSendiri(a)">
                 <button type="button" @click="mulaiAksiPenugasan(a, 'tangguhkan')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Tangguhkan</button>
                 <button type="button" @click="mulaiAksiPenugasan(a, 'cabut')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Cabut</button>
               </div>
+              <span x-show="isPenugasanAktifSendiri(a)" class="text-[12px] font-semibold text-slate-500 w-fit">Sesi aktif Anda</span>
             </div>
             <div x-show="penugasanAksi && penugasanAksi.id === a.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
               <p class="text-[13px] font-semibold" x-text="(penugasanAksi.aksi === 'cabut' ? 'Cabut ' : 'Tangguhkan ') + penugasanAksi.nama">-</p>
