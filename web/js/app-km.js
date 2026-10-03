@@ -125,6 +125,7 @@ function kmApp() {
 
     // Semester (draf manual/salin, impor JSON, preview, aktivasi, arsip).
     semesterList: [],
+    semesterOptions: [],
     semesterLoading: false,
     semesterError: '',
     semesterForm: { academic_year: '', term: 'Ganjil', starts_on: '', ends_on: '', source_semester_id: '' },
@@ -478,7 +479,28 @@ function kmApp() {
       return Array.from(map.values());
     },
 
-    get scopePatterns() { return this.patternsList || []; },
+    get scopePatterns() {
+      const ids = new Set((this.offeringList || []).map(o => String(o.id)));
+      if (ids.size === 0) return this.patternsList || [];
+      return (this.patternsList || []).filter(p => ids.has(String(p.course_offering_id || '')));
+    },
+
+    async pilihSemesterJadwal(id) {
+      const sid = String(id || '');
+      if (!sid || sid === String(this.semesterId)) return;
+      this.semesterId = sid;
+      const opt = (this.semesterOptions || []).find(s => String(s.id) === sid);
+      this.semesterStatus = opt ? String(opt.status || '').toUpperCase() : '';
+      this.offeringLoading = true;
+      try {
+        const offerings = await API.getSemesterOfferings(sid).catch(() => null);
+        if (offerings === null) { this.offeringState = 'error'; this.offeringList = []; return; }
+        this.offeringList = Array.isArray(offerings) ? offerings : [];
+        this.offeringState = this.offeringList.length > 0 ? 'ok' : 'empty-offering';
+      } finally {
+        this.offeringLoading = false;
+      }
+    },
 
     get filteredPola() {
       const qm = this.filtMatkul.toLowerCase(), qd = this.filtDosen.toLowerCase(), qr = this.filtRuang.toLowerCase();
@@ -1224,6 +1246,7 @@ function kmApp() {
         if (!active) {
           this.offeringState = 'empty-semester'; this.offeringList = []; this.semesterId = ''; this.semesterStatus = ''; return;
         }
+        this.semesterOptions = list;
         this.semesterId = String(active.id);
         this.semesterStatus = String(active.status || '').toUpperCase();
         const offerings = await API.getSemesterOfferings(active.id).catch(() => null);

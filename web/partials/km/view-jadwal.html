@@ -4,6 +4,12 @@
     <div>
       <h1 class="font-display text-[24px] md:text-[28px] font-bold text-ink tracking-tight">Manajemen Jadwal</h1>
       <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan dan penyesuaian sesi kelas <span class="font-medium text-slate-700" x-text="selectedClass || '—'">-</span></p>
+      <div x-show="(semesterOptions || []).length > 1" class="mt-2 flex items-center gap-2">
+        <label class="text-[12px] font-semibold text-slate-600" for="km-jadwal-semester">Semester</label>
+        <select id="km-jadwal-semester" x-model="semesterId" @change="pilihSemesterJadwal(semesterId)" class="ui-field w-auto min-w-[220px] text-[13px]">
+          <template x-for="s in (semesterOptions || [])" :key="s.id"><option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option></template>
+        </select>
+      </div>
     </div>
     <div class="flex items-center gap-2.5 self-start md:self-auto">
       <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="ui-button ui-button--primary text-[13px] font-semibold self-start flex items-center gap-2">

@@ -29,6 +29,7 @@ function pjApp() {
     editMateriId: null, editMateriVersion: 0,
     offeringLoading: false,
     offeringState: 'idle',
+    semesterStatus: '',
 
     ...AsteriskShell.behavior('pj'),
 
@@ -366,6 +367,8 @@ function pjApp() {
     get blockingConflicts() { return (this.previewData && this.previewData.conflicts || []).filter(c => c.blocking); },
     get overrideConflicts() { return (this.previewData && this.previewData.conflicts || []).filter(c => !c.blocking); },
 
+    isDraftSemester() { return String(this.semesterStatus || '').toUpperCase() === 'DRAFT'; },
+
     polaHariName(num) {
       const names = { 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat', 6: 'Sabtu', 7: 'Minggu' };
       return names[Number(num)] || '-';
@@ -517,8 +520,9 @@ function pjApp() {
       if (!this.offeringId) return 'Pilih mata kuliah di kelas ini di Dashboard dulu.';
       if (f.scope === 'permanen') {
         if (!f.originPatternId) return 'Pilih jadwal tetap yang akan diganti.';
-        if (!f.effectiveDate) return 'Isi tanggal mulai berlaku.';
         if (!f.start || !f.end || this.durasiMenit(f.start, f.end) <= 0) return 'Isi jam mulai dan selesai yang valid.';
+        if (this.isDraftSemester()) return '';
+        if (!f.effectiveDate) return 'Isi tanggal mulai berlaku.';
         if (!f.reason || f.reason.trim().length < 5) return 'Keterangan minimal 5 karakter.';
         return '';
       }
@@ -536,7 +540,13 @@ function pjApp() {
       const pattern = (this.patternsList || []).find(p => String(p.id) === String(f.originPatternId));
       if (!pattern) throw new Error('Jadwal tetap asal belum termuat. Muat ulang daftar jadwal.');
       const payload = { version: Number(pattern.version), day_of_week: Number(f.day), start_time: f.start,
-        duration_min: this.durasiMenit(f.start, f.end), effective_from: f.effectiveDate, reason: f.reason.trim() };
+        duration_min: this.durasiMenit(f.start, f.end) };
+      if (!this.isDraftSemester()) {
+        payload.effective_from = f.effectiveDate;
+        payload.reason = f.reason.trim();
+      } else if ((f.reason || '').trim()) {
+        payload.reason = f.reason.trim();
+      }
       if (f.roomId) payload.room_id = Number(f.roomId);
       if ((f.link || '').trim()) payload.meeting_link = f.link.trim();
       return payload;
@@ -904,18 +914,19 @@ function pjApp() {
       this.offeringLoading = true;
       this.offeringState = 'loading';
       try {
-        if (!this.selectedClass) { this.offeringState = 'no-class'; this.offeringList = []; return; }
+        if (!this.selectedClass) { this.offeringState = 'no-class'; this.offeringList = []; this.semesterStatus = ''; return; }
         const slug = this.classSlug || this.selectedClass;
         const hasil = await API.getSemestersResult(slug).catch(() => ({ ok: false, status: 0, data: [] }));
         const list = Array.isArray(hasil.data) ? hasil.data : [];
         if (!hasil.ok && hasil.status === 404) {
-          this.offeringState = 'no-v1-class'; this.offeringList = []; return;
+          this.offeringState = 'no-v1-class'; this.offeringList = []; this.semesterStatus = ''; return;
         }
         if (!hasil.ok) {
-          this.offeringState = 'error'; this.offeringList = []; return;
+          this.offeringState = 'error'; this.offeringList = []; this.semesterStatus = ''; return;
         }
-        const active = list.find(s => s.status === 'ACTIVE') || list[0];
-        if (!active) { this.offeringState = 'empty-semester'; this.offeringList = []; return; }
+        const active = list.find(s => s.status === 'ACTIVE') || list.find(s => String(s.status || '').toUpperCase() === 'DRAFT') || list[0];
+        if (!active) { this.offeringState = 'empty-semester'; this.offeringList = []; this.semesterStatus = ''; return; }
+        this.semesterStatus = String(active.status || '').toUpperCase();
         const offerings = await API.getSemesterOfferings(active.id).catch(() => null);
         if (offerings === null) { this.offeringState = 'error'; this.offeringList = []; return; }
         const assignedOffering = this.meCache && this.meCache.active_assignment && this.meCache.active_assignment.offering_id;
