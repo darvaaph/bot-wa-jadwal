@@ -129,6 +129,7 @@ func (s *SemesterService) CreateDraft(ctx context.Context, actor Actor, classID 
 }
 
 // copySemesterStructure menyalin offerings, dosen, dan pola jadwal aktif tanpa tugas/review/PJ.
+// Pola salinan memakai effective_from = starts_on semester tujuan agar konsisten dengan aturan DRAFT.
 func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID, targetSemID int64) error {
 	var sourceClass int64
 	if err := tx.QueryRowContext(ctx, `SELECT class_id FROM semesters WHERE id = ?`, sourceSemID).Scan(&sourceClass); err != nil {
@@ -139,6 +140,13 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 	}
 	if sourceClass != classID {
 		return ErrInvalidInput
+	}
+	var targetStart string
+	if err := tx.QueryRowContext(ctx, `SELECT starts_on FROM semesters WHERE id = ?`, targetSemID).Scan(&targetStart); err != nil {
+		return err
+	}
+	if len(targetStart) >= 10 {
+		targetStart = targetStart[:10]
 	}
 
 	type offering struct {
@@ -202,7 +210,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		lrows.Close()
 
 		prows, err := tx.QueryContext(ctx, `
-			SELECT room_id, day_of_week, start_time, end_time, effective_from FROM schedule_patterns
+			SELECT room_id, day_of_week, start_time, end_time FROM schedule_patterns
 			WHERE course_offering_id = ? AND status = 'ACTIVE'
 		`, o.oldID)
 		if err != nil {
@@ -211,8 +219,8 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		for prows.Next() {
 			var roomID sql.NullInt64
 			var dow int
-			var start, end, effFrom string
-			if err := prows.Scan(&roomID, &dow, &start, &end, &effFrom); err != nil {
+			var start, end string
+			if err := prows.Scan(&roomID, &dow, &start, &end); err != nil {
 				prows.Close()
 				return err
 			}
@@ -223,7 +231,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO schedule_patterns (course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status)
 				VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
-			`, newOfferingID, roomArg, dow, start, end, effFrom); err != nil {
+			`, newOfferingID, roomArg, dow, start, end, targetStart); err != nil {
 				prows.Close()
 				return err
 			}

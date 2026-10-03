@@ -55,10 +55,19 @@ func (c *ScheduleController) PreviewCreatePattern(w http.ResponseWriter, r *http
 	if loc == nil {
 		loc = time.Local
 	}
-	effectiveFrom := time.Now().In(loc).Format("2006-01-02")
 	semesterStart, semesterEnd = semesterStart[:10], semesterEnd[:10]
-	if semesterStatus != "ACTIVE" || effectiveFrom < semesterStart || effectiveFrom > semesterEnd {
-		common.WriteV1Error(w, 422, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester aktif")
+	var effectiveFrom string
+	switch semesterStatus {
+	case "DRAFT":
+		effectiveFrom = semesterStart
+	case "ACTIVE":
+		effectiveFrom = time.Now().In(loc).Format("2006-01-02")
+		if effectiveFrom < semesterStart || effectiveFrom > semesterEnd {
+			common.WriteV1Error(w, 422, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester aktif")
+			return
+		}
+	default:
+		common.WriteV1Error(w, 422, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester draf atau aktif")
 		return
 	}
 	end := start.Add(time.Duration(req.DurationMin) * time.Minute).Format("15:04")

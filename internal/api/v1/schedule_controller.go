@@ -431,10 +431,19 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 	if loc == nil {
 		loc = time.Local
 	}
-	effectiveFrom := time.Now().In(loc).Format("2006-01-02")
 	semesterStart, semesterEnd = semesterStart[:10], semesterEnd[:10]
-	if semesterStatus != "ACTIVE" || effectiveFrom < semesterStart || effectiveFrom > semesterEnd {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester aktif")
+	var effectiveFrom string
+	switch semesterStatus {
+	case "DRAFT":
+		effectiveFrom = semesterStart
+	case "ACTIVE":
+		effectiveFrom = time.Now().In(loc).Format("2006-01-02")
+		if effectiveFrom < semesterStart || effectiveFrom > semesterEnd {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester aktif")
+			return
+		}
+	default:
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester draf atau aktif")
 		return
 	}
 	conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
@@ -509,11 +518,12 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 	}
 
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{
-		"id":          patternID,
-		"day_of_week": req.DayOfWeek,
-		"start_time":  req.StartTime,
-		"end_time":    endTime,
-		"version":     1,
+		"id":             patternID,
+		"day_of_week":    req.DayOfWeek,
+		"start_time":     req.StartTime,
+		"end_time":       endTime,
+		"version":        1,
+		"effective_from": effectiveFrom,
 	})
 }
 
@@ -1305,6 +1315,102 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	if location == nil {
 		location = time.Local
 	}
+	if semesterStatus == "DRAFT" {
+		effectiveDate := semesterStart
+		conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
+			OwnerClassID:     curClassID,
+			OwnerOfferingID:  newOfferingID,
+			RoomID:           patchRoom,
+			LecturerIDs:      lectIDs,
+			PatternDay:       newDayOfWeek,
+			PatternStart:     newStartTime,
+			PatternEnd:       newEndTime,
+			ExcludePatternID: &patternID,
+		}, effectiveDate, semesterEnd)
+		if conflictErr != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa konflik jadwal")
+			return
+		}
+		if schedule.HasBlocking(conflicts) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
+			return
+		}
+		newLink := curLink.String
+		if req.MeetingLink != nil {
+			newLink = strings.TrimSpace(*req.MeetingLink)
+		}
+		var newLinkArg any
+		if newLink != "" {
+			newLinkArg = newLink
+		}
+		tx, err := c.db.Begin()
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+			return
+		}
+		defer tx.Rollback()
+		res, err := tx.Exec(`
+			UPDATE schedule_patterns
+			SET day_of_week = ?, start_time = ?, end_time = ?, room_id = ?, meeting_link = ?,
+			    effective_from = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ? AND version = ? AND status='ACTIVE' AND effective_until IS NULL;
+		`, newDayOfWeek, newStartTime, newEndTime, newRoomID, newLinkArg, effectiveDate, patternID, curVersion)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui pola jadwal draf")
+			return
+		}
+		rowsAffected, _ := res.RowsAffected()
+		if rowsAffected == 0 {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi pola jadwal berubah", map[string]any{"current_version": curVersion})
+			return
+		}
+		correlationID := fmt.Sprintf("update-pattern-draft-%d-%d", patternID, time.Now().UnixNano())
+		{
+			uid := u.UserID
+			var raid *int64
+			if u.ActiveAssignmentID != 0 {
+				v := u.ActiveAssignmentID
+				raid = &v
+			}
+			beforeJSON := fmt.Sprintf(`{"old_id":%d,"day":%d,"start":%q}`, patternID, curDayOfWeek, curStartTime)
+			afterJSON := fmt.Sprintf(`{"id":%d,"day":%d,"start":%q,"effective_from":%q}`, patternID, newDayOfWeek, newStartTime, effectiveDate)
+			reason := strings.TrimSpace(req.Reason)
+			var reasonPtr string
+			if reason != "" {
+				reasonPtr = reason
+			}
+			_ = reasonPtr
+			if err := audit.Write(r.Context(), tx, audit.Entry{
+				Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+				ClassID:       &curClassID,
+				Action:        "UPDATE_PATTERN",
+				EntityType:    "SCHEDULE_PATTERN",
+				EntityID:      &patternID,
+				BeforeJSON:    &beforeJSON,
+				AfterJSON:     &afterJSON,
+				Reason:        reason,
+				CorrelationID: correlationID,
+			}); err != nil {
+				common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
+				return
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit pola jadwal")
+			return
+		}
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"id":                  patternID,
+			"replaces_pattern_id": patternID,
+			"day_of_week":         newDayOfWeek,
+			"start_time":          newStartTime,
+			"end_time":            newEndTime,
+			"effective_from":      effectiveDate,
+			"effective_until":     nil,
+			"version":             curVersion + 1,
+		})
+		return
+	}
 	today := time.Now().In(location)
 	effectiveDate := today.AddDate(0, 0, 1).Format("2006-01-02")
 	if req.EffectiveFrom != "" {
@@ -1732,13 +1838,14 @@ func (c *ScheduleController) DeletePattern(w http.ResponseWriter, r *http.Reques
 	var curVersion int
 	var curOfferingID int64
 	var curClassID int64
+	var semesterStatus string
 	err = c.db.QueryRow(`
-		SELECT sp.version, sp.course_offering_id, s.class_id
+		SELECT sp.version, sp.course_offering_id, s.class_id, s.status
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN semesters s ON co.semester_id = s.id
 		WHERE sp.id = ? AND sp.effective_until IS NULL;
-	`, patternID).Scan(&curVersion, &curOfferingID, &curClassID)
+	`, patternID).Scan(&curVersion, &curOfferingID, &curClassID, &semesterStatus)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pola jadwal aktif tidak ditemukan")
 		return
@@ -1773,6 +1880,60 @@ func (c *ScheduleController) DeletePattern(w http.ResponseWriter, r *http.Reques
 	if ver != curVersion {
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{
 			"current_version": curVersion,
+		})
+		return
+	}
+
+	// DRAFT: hapus baris sungguhan. ACTIVE: soft delete agar riwayat portal tetap utuh.
+	if semesterStatus == "DRAFT" {
+		tx, err := c.db.Begin()
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+			return
+		}
+		defer tx.Rollback()
+		res, err := tx.Exec(`DELETE FROM schedule_patterns WHERE id = ? AND version = ? AND effective_until IS NULL;`, patternID, curVersion)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "foreign key") || strings.Contains(strings.ToLower(err.Error()), "constraint") {
+				common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Pola dipakai perubahan jadwal draf. Hapus atau ubah event terkait dulu sebelum menghapus pola ini.")
+				return
+			}
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus pola jadwal")
+			return
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+			return
+		}
+		correlationID := fmt.Sprintf("delete-pattern-draft-%d-%d", patternID, time.Now().UnixNano())
+		{
+			uid := u.UserID
+			var raid *int64
+			if u.ActiveAssignmentID != 0 {
+				v := u.ActiveAssignmentID
+				raid = &v
+			}
+			beforeJSON := fmt.Sprintf(`{"id":%d,"version":%d}`, patternID, curVersion)
+			if err := audit.Write(r.Context(), tx, audit.Entry{
+				Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+				ClassID:       &curClassID,
+				Action:        "DELETE_PATTERN",
+				EntityType:    "SCHEDULE_PATTERN",
+				EntityID:      &patternID,
+				BeforeJSON:    &beforeJSON,
+				CorrelationID: correlationID,
+			}); err != nil {
+				common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit pola jadwal")
+				return
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit hapus pola")
+			return
+		}
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"id": patternID, "deleted": true,
 		})
 		return
 	}

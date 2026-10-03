@@ -63,16 +63,29 @@ func (c *ScheduleController) PreviewPattern(w http.ResponseWriter, r *http.Reque
 	if loc == nil {
 		loc = time.Local
 	}
-	today := time.Now().In(loc).Format("2006-01-02")
-	date := strings.TrimSpace(req.EffectiveFrom)
-	parsed, dateErr := time.ParseInLocation("2006-01-02", date, loc)
-	if dateErr != nil || parsed.Format("2006-01-02") != date || date < today || date < effectiveOld || date < semesterStart || date > semesterEnd || semesterStatus != "ACTIVE" {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tanggal berlaku harus dari hari ini sampai akhir semester aktif")
-		return
-	}
-	if strings.TrimSpace(req.Reason) == "" {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Alasan perubahan wajib diisi")
-		return
+	var date string
+	var parsed time.Time
+	if semesterStatus == "DRAFT" {
+		date = semesterStart
+		var err error
+		parsed, err = time.ParseInLocation("2006-01-02", date, loc)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Tanggal semester tidak valid")
+			return
+		}
+	} else {
+		today := time.Now().In(loc).Format("2006-01-02")
+		date = strings.TrimSpace(req.EffectiveFrom)
+		var dateErr error
+		parsed, dateErr = time.ParseInLocation("2006-01-02", date, loc)
+		if dateErr != nil || parsed.Format("2006-01-02") != date || date < today || date < effectiveOld || date < semesterStart || date > semesterEnd || semesterStatus != "ACTIVE" {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tanggal berlaku harus dari hari ini sampai akhir semester aktif")
+			return
+		}
+		if strings.TrimSpace(req.Reason) == "" {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Alasan perubahan wajib diisi")
+			return
+		}
 	}
 	if req.OfferingID != nil && *req.OfferingID != offID {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Perubahan permanen harus tetap pada mata kuliah asal")
