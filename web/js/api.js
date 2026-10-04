@@ -1553,10 +1553,14 @@ const BotApi = {
     return json.data;
   },
 
-  async recoverUser(userId, reason) {
+  async recoverUser(userId, reason, newPassword) {
+    const payload = { reason: reason || '' };
+    if (newPassword && newPassword.trim()) {
+      payload.new_password = newPassword.trim();
+    }
     const res = await fetch('/api/v1/admin/users/' + encodeURIComponent(userId) + '/recover', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
-      body: JSON.stringify({ reason: reason || '' })
+      body: JSON.stringify(payload)
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {

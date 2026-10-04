@@ -143,6 +143,8 @@ function systemAdminApp() {
 
     penggunaTab: 'akun',
     penggunaQ: '',
+    penggunaPage: 1,
+    penggunaPerPage: 10,
     undangPenggunaTerbuka: false,
     penggunaMenu: null,
     penggunaList: [],
@@ -170,11 +172,34 @@ function systemAdminApp() {
     undanganRole: '',
     undanganKelas: '',
     undanganAksi: null,
-    undanganAlasan: '',
     undanganSANomor: '',
     undanganSAError: '',
     undanganSALoading: false,
     undanganSAResult: null,
+
+    modalUndangPengguna: false,
+    modalUndangPeran: 'SYSTEM_ADMIN',
+    modalUndangKelas: '',
+    modalUndangNomor: '',
+    modalUndangLoading: false,
+    modalUndangError: '',
+    modalUndangResult: null,
+
+    modalResetPassword: false,
+    resetPasswordTarget: null,
+    resetPasswordIsSelf: false,
+    resetPasswordForm: { password: '', confirm: '', reason: '', show: false },
+    resetPasswordLoading: false,
+    resetPasswordError: '',
+
+    modalProfil: false,
+    profilTarget: null,
+
+    modalUbahPeran: false,
+    ubahPeranTarget: null,
+    ubahPeranForm: { role: '', class_slug: '', reason: '' },
+    ubahPeranLoading: false,
+    ubahPeranError: '',
 
     ruangList: [],
     ruangLoading: false,
@@ -997,7 +1022,77 @@ function systemAdminApp() {
     },
 
     barisPenggunaCount() {
-      return this.filteredPenugasan().length + this.filteredUndangan().length;
+      return this.totalBarisPengguna();
+    },
+
+    semuaBarisPengguna() {
+      const rows = [];
+      (this.filteredPenugasan() || []).forEach(a => {
+        rows.push({ id: 'a-' + a.id, kind: 'assignment', data: a });
+      });
+      (this.filteredUndangan() || []).forEach(u => {
+        rows.push({ id: 'u-' + u.id, kind: 'invitation', data: u });
+      });
+      return rows;
+    },
+
+    totalBarisPengguna() {
+      return this.semuaBarisPengguna().length;
+    },
+
+    totalHalamanPengguna() {
+      return Math.max(1, Math.ceil(this.totalBarisPengguna() / (this.penggunaPerPage || 10)));
+    },
+
+    barisPenggunaPaginated() {
+      const perPage = this.penggunaPerPage || 10;
+      const totalHalaman = this.totalHalamanPengguna();
+      const page = Math.max(1, Math.min(this.penggunaPage || 1, totalHalaman));
+      const start = (page - 1) * perPage;
+      return this.semuaBarisPengguna().slice(start, start + perPage);
+    },
+
+    mulaiItemPengguna() {
+      const total = this.totalBarisPengguna();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanPengguna();
+      const page = Math.max(1, Math.min(this.penggunaPage || 1, totalHalaman));
+      return (page - 1) * (this.penggunaPerPage || 10) + 1;
+    },
+
+    akhirItemPengguna() {
+      const total = this.totalBarisPengguna();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanPengguna();
+      const page = Math.max(1, Math.min(this.penggunaPage || 1, totalHalaman));
+      return Math.min(page * (this.penggunaPerPage || 10), total);
+    },
+
+    keHalamanPengguna(p) {
+      const target = Math.max(1, Math.min(p, this.totalHalamanPengguna()));
+      this.penggunaPage = target;
+      this.penggunaMenu = null;
+    },
+
+    halamanArrayPengguna() {
+      const total = this.totalHalamanPengguna();
+      const curr = this.penggunaPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
     },
 
     cocokCariPengguna(teks) {
@@ -1013,9 +1108,11 @@ function systemAdminApp() {
     },
 
     filteredUndangan() {
-      const list = (this.undanganList || []).filter(u =>
-        this.cocokCariPengguna([u.invited_identity_key, u.role, u.class_slug].filter(Boolean).join(' '))
-      );
+      const list = (this.undanganList || []).filter(u => {
+        // Undangan yang sudah diterima (ACCEPTED) sudah terdaftar sebagai penugasan aktif di atas
+        if (String(u.status || '').toUpperCase() === 'ACCEPTED') return false;
+        return this.cocokCariPengguna([u.invited_identity_key, u.role, u.class_slug].filter(Boolean).join(' '));
+      });
       const bobot = (u) => this.undanganMenunggu(u) ? 0 : 1;
       return list.slice().sort((x, y) => bobot(x) - bobot(y));
     },
@@ -1049,6 +1146,7 @@ function systemAdminApp() {
       this.undanganStatus = '';
       this.undanganRole = '';
       this.undanganKelas = '';
+      this.penggunaPage = 1;
       this.muatPenggunaSemua();
     },
 
@@ -1253,6 +1351,241 @@ function systemAdminApp() {
       this.bukaUndang(target);
       this.undangNomor = u.invited_identity_key || '';
       this.showToast('Nomor terisi dari undangan lama. Buat tautan baru untuk membatalkan token lama.');
+    },
+
+    bukaModalUndangPengguna() {
+      this.modalUndangPengguna = true;
+      this.modalUndangPeran = 'SYSTEM_ADMIN';
+      this.modalUndangKelas = (this.kelasList && this.kelasList.length) ? this.kelasList[0].slug : '';
+      this.modalUndangNomor = '';
+      this.modalUndangLoading = false;
+      this.modalUndangError = '';
+      this.modalUndangResult = null;
+    },
+
+    tutupModalUndangPengguna() {
+      this.modalUndangPengguna = false;
+      this.modalUndangError = '';
+      this.modalUndangResult = null;
+    },
+
+    async kirimModalUndangPengguna() {
+      const nomor = (this.modalUndangNomor || '').trim();
+      const cleanPhone = nomor.replace(/\D/g, '');
+      if (cleanPhone.length < 9) {
+        this.modalUndangError = 'Nomor WhatsApp tidak valid (minimal 9 digit).';
+        return;
+      }
+      const role = this.modalUndangPeran;
+      if ((role === 'KM' || role === 'PJ') && !this.modalUndangKelas) {
+        this.modalUndangError = 'Pilih kelas tujuan untuk peran ' + (role === 'KM' ? 'Ketua Murid' : 'PJ') + '.';
+        return;
+      }
+
+      this.modalUndangError = '';
+      this.modalUndangLoading = true;
+      try {
+        const payload = {
+          role: role,
+          invited_identity_key: nomor
+        };
+        if (role !== 'SYSTEM_ADMIN') {
+          payload.class_slug = this.modalUndangKelas;
+        }
+        const res = await API.createInvitation(payload);
+        const token = (res && res.token) ? res.token : '';
+        const link = token ? `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}` : '';
+        this.modalUndangResult = {
+          id: res && res.invitation_id,
+          expires_at: res && res.expires_at,
+          link: link
+        };
+        await this.loadUndangan();
+        if (link) {
+          this.copyText(link, 'Tautan undangan disalin ke clipboard.');
+        }
+      } catch (err) {
+        this.modalUndangError = err.message || 'Gagal membuat undangan.';
+      } finally {
+        this.modalUndangLoading = false;
+      }
+    },
+
+    async salinLinkAtauBuatBaru(u) {
+      if (u._link) {
+        this.copyText(u._link, 'Tautan undangan disalin ke clipboard.');
+        return;
+      }
+      try {
+        const payload = {
+          role: u.role,
+          invited_identity_key: u.invited_identity_key
+        };
+        if (u.class_slug) payload.class_slug = u.class_slug;
+        const res = await API.createInvitation(payload);
+        const token = (res && res.token) ? res.token : '';
+        const link = token ? `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}` : '';
+        if (link) {
+          u._link = link;
+          this.copyText(link, 'Tautan baru dibuat dan disalin ke clipboard.');
+          await this.loadUndangan();
+        } else {
+          this.showToast('Undangan dibuat ulang.');
+          await this.loadUndangan();
+        }
+      } catch (err) {
+        this.showToast(err.message || 'Gagal memperbarui tautan undangan.');
+      }
+    },
+
+    async aktifkanCepatPengguna(a) {
+      const u = this.penggunaUntukPenugasan(a);
+      if (u) {
+        try {
+          await API.recoverUser(u.id, 'Diaktifkan kembali oleh Administrator');
+          this.showToast('Akun ' + (u.display_name || u.identity_key) + ' berhasil diaktifkan kembali.');
+          await this.muatPenggunaSemua();
+        } catch (err) {
+          this.showToast(err.message || 'Gagal mengaktifkan akun.');
+        }
+      } else {
+        this.mulaiAksiPenugasan(a, 'cabut');
+      }
+    },
+
+    bukaModalResetPassword(target, isSelf = false) {
+      this.penggunaMenu = null;
+      this.resetPasswordTarget = target;
+      this.resetPasswordIsSelf = isSelf;
+      this.resetPasswordForm = {
+        password: '',
+        confirm: '',
+        reason: isSelf ? 'Perubahan kata sandi akun mandiri' : '',
+        show: false
+      };
+      this.resetPasswordLoading = false;
+      this.resetPasswordError = '';
+      this.modalResetPassword = true;
+    },
+
+    tutupModalResetPassword() {
+      this.modalResetPassword = false;
+      this.resetPasswordTarget = null;
+      this.resetPasswordError = '';
+    },
+
+    async simpanResetPassword() {
+      const f = this.resetPasswordForm;
+      const pwd = (f.password || '').trim();
+      if (pwd.length < 12) {
+        this.resetPasswordError = 'Kata sandi minimal 12 karakter.';
+        return;
+      }
+      if (this.resetPasswordIsSelf && pwd !== (f.confirm || '').trim()) {
+        this.resetPasswordError = 'Konfirmasi kata sandi tidak cocok.';
+        return;
+      }
+      if (!this.resetPasswordIsSelf && !((f.reason || '').trim())) {
+        this.resetPasswordError = 'Alasan tindakan wajib diisi untuk catatan audit sistem.';
+        return;
+      }
+
+      this.resetPasswordLoading = true;
+      this.resetPasswordError = '';
+      try {
+        let targetId = null;
+        if (this.resetPasswordIsSelf) {
+          targetId = this.currentUser ? this.currentUser.id : null;
+        } else if (this.resetPasswordTarget) {
+          const u = this.resetPasswordTarget.identity_key ? this.penggunaUntukPenugasan(this.resetPasswordTarget) : this.resetPasswordTarget;
+          targetId = u ? u.id : this.resetPasswordTarget.id;
+        }
+
+        if (!targetId) {
+          throw new Error('ID pengguna target tidak ditemukan.');
+        }
+
+        const reason = (f.reason || '').trim() || (this.resetPasswordIsSelf ? 'Pembaruan kata sandi akun administrator' : 'Reset kata sandi oleh System Admin');
+        await API.recoverUser(targetId, reason, pwd);
+
+        if (this.resetPasswordIsSelf) {
+          this.showToast('Kata sandi berhasil diubah! Sesi aktif diperbarui. Mengalihkan ke login...', 4000);
+          this.modalResetPassword = false;
+          setTimeout(() => {
+            this.logout();
+          }, 1500);
+        } else {
+          this.showToast('Kata sandi berhasil di-reset. Sesi lama pengguna telah dicabut.');
+          this.modalResetPassword = false;
+          await this.muatPenggunaSemua();
+        }
+      } catch (err) {
+        this.resetPasswordError = err.message || 'Gagal mengubah kata sandi.';
+      } finally {
+        this.resetPasswordLoading = false;
+      }
+    },
+
+    bukaModalProfil(target) {
+      this.penggunaMenu = null;
+      this.profilTarget = target || this.currentUser || {};
+      this.modalProfil = true;
+    },
+
+    tutupModalProfil() {
+      this.modalProfil = false;
+      this.profilTarget = null;
+    },
+
+    bukaModalUbahPeran(a) {
+      this.penggunaMenu = null;
+      this.ubahPeranTarget = a;
+      this.ubahPeranForm = {
+        role: a.role || 'KM',
+        class_slug: a.class_slug || (this.kelasList && this.kelasList.length ? this.kelasList[0].slug : ''),
+        reason: ''
+      };
+      this.ubahPeranLoading = false;
+      this.ubahPeranError = '';
+      this.modalUbahPeran = true;
+    },
+
+    tutupModalUbahPeran() {
+      this.modalUbahPeran = false;
+      this.ubahPeranTarget = null;
+      this.ubahPeranError = '';
+    },
+
+    async simpanUbahPeran() {
+      const a = this.ubahPeranTarget;
+      if (!a) return;
+      const f = this.ubahPeranForm;
+      if (!((f.reason || '').trim())) {
+        this.ubahPeranError = 'Alasan perubahan peran wajib diisi untuk catatan audit.';
+        return;
+      }
+      this.ubahPeranLoading = true;
+      this.ubahPeranError = '';
+      try {
+        // Cabut penugasan lama terlebih dahulu
+        await API.changeAssignmentStatus(a.id, 'cabut', f.reason.trim(), false);
+        // Buat undangan / penugasan baru dengan peran dan kelas baru
+        const payload = {
+          role: f.role,
+          invited_identity_key: a.identity_key
+        };
+        if (f.role !== 'SYSTEM_ADMIN') {
+          payload.class_slug = f.class_slug;
+        }
+        await API.createInvitation(payload);
+        this.showToast(`Penugasan ${a.display_name || a.identity_key} dirotasi ke ${this.labelPeran(f.role)}.`);
+        this.modalUbahPeran = false;
+        await this.muatPenggunaSemua();
+      } catch (err) {
+        this.ubahPeranError = err.message || 'Gagal merotasi peran pengguna.';
+      } finally {
+        this.ubahPeranLoading = false;
+      }
     },
 
     labelStatusKelas(st) {
