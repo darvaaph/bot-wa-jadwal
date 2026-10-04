@@ -120,10 +120,19 @@
             <svg width="24" height="24" viewBox="0 0 14 14" fill="currentColor" class="w-6 h-6 shrink-0 transition-transform duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'rotate-180' : ''" aria-hidden="true" focusable="false"><path d="M2.29004 10.61963q-0.28027 0-0.47168-0.19141-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.1914l6.31299 0q0.28027 0 0.46826 0.19482 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z m8.69189-1.06983l-2.07129-2.08496q-0.19482-0.19824-0.19482-0.46484 0-0.2666 0.19482-0.46484l2.06788-2.08496q0.18457-0.18799 0.46484-0.18799 0.28027 0 0.46826 0.18799 0.18115 0.18457 0.18115 0.46142 0.00342 0.27344-0.17773 0.45801l-1.61328 1.63037 1.61328 1.63379q0.18115 0.18457 0.17773 0.46142 0 0.27344-0.18457 0.45801-0.18457 0.18457-0.46484 0.18457-0.27685 0-0.46143-0.18799z m-8.69189-1.88671q-0.28027 0-0.47168-0.19141-0.18799-0.19141-0.18799-0.47168 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l4.59033 0q0.28027 0 0.46826 0.19141 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-4.59033 0z m0-2.95655q-0.28027 0-0.47168-0.1914-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l6.31299 0q0.28027 0 0.46826 0.19483 0.19141 0.19141 0.19141 0.47167 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z"/></svg>
           </button>
           <nav aria-label="Breadcrumb" class="hidden md:flex items-center gap-2 min-w-0 text-[13px]">
-            <span class="text-[#667085] font-medium truncate">Sistem</span>
+            <button type="button" @click="go('dashboard')" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Sistem</button>
             <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
-            <template x-if="['detail','buat','undang','undang-siap'].includes(view)">
-              <span class="contents"><button type="button" @click="go('kelas')" class="text-[#667085] font-medium hover:text-[#1D1B3A] truncate">Kelas & Semester</button><span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span></span>
+            <template x-if="['detail','buat','undang','undang-siap','jadwal'].includes(view)">
+              <span class="contents">
+                <button type="button" @click="go('kelas')" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Kelas & Semester</button>
+                <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
+              </span>
+            </template>
+            <template x-if="view === 'jadwal' && (kelasAktifObj || jadwalKelasSlug)">
+              <span class="contents">
+                <button type="button" @click="kembaliKeDetail()" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors" x-text="(kelasAktifObj && kelasAktifObj.nama) || jadwalKelasSlug"></button>
+                <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
+              </span>
             </template>
             <span class="text-[#1D1B3A] font-semibold truncate" x-text="saCrumb()"></span>
           </nav>

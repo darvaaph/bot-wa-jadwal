@@ -60,6 +60,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/classes/{slug}/semesters/{id}/preview", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handlePreviewSemester)))
 	mux.HandleFunc("GET /api/v1/semesters/{id}/offerings", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetSemesterOfferings)))
 	mux.HandleFunc("POST /api/v1/semesters/{id}/offerings", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleCreateSemesterOffering)))
+	mux.HandleFunc("DELETE /api/v1/semesters/{id}/offerings/{offering_id}", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleDeleteSemesterOffering)))
 	mux.HandleFunc("POST /api/v1/semesters/{id}/import-validate", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportValidate)))
 	mux.HandleFunc("POST /api/v1/semesters/{id}/import-apply", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleSemesterImportApply)))
 

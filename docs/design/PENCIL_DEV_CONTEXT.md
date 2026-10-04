@@ -1,4 +1,4 @@
-# PENCIL.DEV DESIGN SYSTEM BLUEPRINT & CONTEXT
+﻿# PENCIL.DEV DESIGN SYSTEM BLUEPRINT & CONTEXT
 > **Panduan Konteks & Spesifikasi Desain untuk Pencil.dev (Redesign Bot Jadwal v2.0)**  
 > *Gunakan dokumen ini sebagai Master Context Prompt di Pencil.dev agar desain baru konsisten, rapi, tetap mempertahankan identitas warna asli, dan bebas halusinasi fitur.*
 
@@ -49,10 +49,10 @@ Pencil.dev **WAJIB** menggunakan palet warna dan nilai token yang sudah ada, TID
 ### C. Spacing, Radius & Elevation
 - **Border Radius**: 
   - Kartu & Modal: `rounded-2xl` (16px) atau `rounded-xl` (12px).
-  - Tombol & Field Input: `rounded-xl` (10px–12px).
+  - Tombol & Field Input: `rounded-xl` (10pxâ€“12px).
   - Badge Status: `rounded-full` (9999px pill).
 - **Shadow**: Subtil dan halus (`shadow-sm`, `0 8px 24px rgb(15 23 42 / 0.08)`), tidak kotor atau gelap berlebihan.
-- **Target Sentuh Minimum (Accessibility)**: Minimal **44 × 44 px** untuk semua tombol aksi, icon button, dan item menu navigasi bawah.
+- **Target Sentuh Minimum (Accessibility)**: Minimal **44 Ã— 44 px** untuk semua tombol aksi, icon button, dan item menu navigasi bawah.
 
 ---
 
@@ -61,33 +61,33 @@ Pencil.dev **WAJIB** menggunakan palet warna dan nilai token yang sudah ada, TID
 Aplikasi memiliki **4 Aktor / Role** dengan cakupan kerja yang sangat spesifik:
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        STRUKTUR ROLE APLIKASI                          │
-├───────────────────┬────────────────────────────────────────────────────┤
-│ 1. MAHASISWA      │ • Portal Publik / Mahasiswa umum kelas             │
-│    (Portal Read)  │ • Tanpa login password! Hanya input Kode Kelas 6-kar│
-│                   │ • Akses: Lihat jadwal hari ini/minggu ini, tugas,  │
-│                   │   unduh materi, riwayat perubahan jadwal.          │
-├───────────────────┼────────────────────────────────────────────────────┤
-│ 2. KETUA MURID    │ • Pemimpin & Pengelola Administrasi Kelas          │
-│    (KM)           │ • Login via No. WA + Kata Sandi                   │
-│                   │ • Akses: Review & Approve draf tugas dari PJ,      │
-│                   │   buat/terbitkan tugas, kelola jadwal pengganti,   │
-│                   │   rotasi kode portal kelas, kelola anggota PJ.     │
-├───────────────────┼────────────────────────────────────────────────────┤
-│ 3. PJ MATA KULIAH │ • Penanggung Jawab Matkul Spesifik di Kelas       │
-│    (PJ)           │ • Login via No. WA + Kata Sandi                   │
-│                   │ • Akses: Buat draf tugas untuk matkulnya, ajukan  │
-│                   │   review ke KM, usulkan perubahan jadwal matkul,   │
-│                   │   konfirmasi ruangan kuliah dengan dosen.          │
-├───────────────────┼────────────────────────────────────────────────────┤
-│ 4. SYSTEM ADMIN   │ • Administrator Kampus / Seluruh Sistem            │
-│    (Super Admin)  │ • Login via No. WA / Admin + Kata Sandi            │
-│                   │ • Akses: Kelola seluruh kelas kampus, pengguna &   │
-│                   │   penugasan peran, Master Matkul, Master Ruangan,  │
-│                   │   Master Dosen (1-Click Sync 106 data POLBAN),     │
-│                   │   antrean notifikasi bot WA, backup & audit log.   │
-└───────────────────┴────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                        STRUKTUR ROLE APLIKASI                          â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ 1. MAHASISWA      â”‚ â€¢ Portal Publik / Mahasiswa umum kelas             â”‚
+â”‚    (Portal Read)  â”‚ â€¢ Tanpa login password! Hanya input Kode Kelas 6-karâ”‚
+â”‚                   â”‚ â€¢ Akses: Lihat jadwal hari ini/minggu ini, tugas,  â”‚
+â”‚                   â”‚   unduh materi, riwayat perubahan jadwal.          â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ 2. KETUA MURID    â”‚ â€¢ Pemimpin & Pengelola Administrasi Kelas          â”‚
+â”‚    (KM)           â”‚ â€¢ Login via No. WA + Kata Sandi                   â”‚
+â”‚                   â”‚ â€¢ Akses: Review & Approve draf tugas dari PJ,      â”‚
+â”‚                   â”‚   buat/terbitkan tugas, kelola jadwal pengganti,   â”‚
+â”‚                   â”‚   rotasi kode portal kelas, kelola anggota PJ.     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ 3. PJ MATA KULIAH â”‚ â€¢ Penanggung Jawab Matkul Spesifik di Kelas       â”‚
+â”‚    (PJ)           â”‚ â€¢ Login via No. WA + Kata Sandi                   â”‚
+â”‚                   â”‚ â€¢ Akses: Buat draf tugas untuk matkulnya, ajukan  â”‚
+â”‚                   â”‚   review ke KM, usulkan perubahan jadwal matkul,   â”‚
+â”‚                   â”‚   konfirmasi ruangan kuliah dengan dosen.          â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ 4. SYSTEM ADMIN   â”‚ â€¢ Administrator Kampus / Seluruh Sistem            â”‚
+â”‚    (Super Admin)  â”‚ â€¢ Login via No. WA / Admin + Kata Sandi            â”‚
+â”‚                   â”‚ â€¢ Akses: Kelola seluruh kelas kampus, pengguna &   â”‚
+â”‚                   â”‚   penugasan peran, Master Matkul, Master Ruangan,  â”‚
+â”‚                   â”‚   Master Dosen (1-Click Sync 106 data POLBAN),     â”‚
+â”‚                   â”‚   antrean notifikasi bot WA, backup & audit log.   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -134,7 +134,7 @@ Berikut adalah daftar seluruh fitur nyata dan logika alur yang ada di dalam sist
     - **41 Mata Kuliah Unik**
     - **18 Ruangan Kuliah Unik**
     - **47 Dosen Pengampu Unik**
-  - Tombol terpadu `[ 🔄 Sinkron Semua Master (106) ]` untuk menyinkronkan seluruhnya dalam 1 kali klik.
+  - Tombol terpadu `[ ðŸ”„ Sinkron Semua Master (106) ]` untuk menyinkronkan seluruhnya dalam 1 kali klik.
 
 ### 5. FITUR OTOMASI WHATSAPP BOT
 - **WhatsApp Web Gateway**: Integrasi bot WA tanpa ketergantungan pihak ketiga berbayar (status QR pairing, Terhubung, atau Terputus).
@@ -203,7 +203,7 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
    - Banner jadwal hari ini (matkul sedang berlangsung, ruang, dosen, jam).
    - Kartu tugas deadline terdekat (hitung mundur hari).
 2. **SCR-PORTAL-002: Jadwal Kuliah Lengkap**
-   - Toggle view: Tampilan Mingguan (Senin–Jumat) & Tampilan Harian.
+   - Toggle view: Tampilan Mingguan (Seninâ€“Jumat) & Tampilan Harian.
    - Badge sesi: "Reguler", "Kuliah Pengganti", "Ditiadakan / Libur".
 3. **SCR-PORTAL-003: Daftar Tugas & Deadline Mahasiswa**
    - Filter tab: "Semua", "Minggu Ini", "Mendatang", "Selesai".
@@ -254,34 +254,34 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
 
 ### MODUL 5: SYSTEM ADMIN (SUPER ADMINISTRATOR)
 1. **SCR-ADM-001: Ringkasan Sistem (Pusat Kendali Sistem / Health & Overview) - [100% AUDITED & APPROVED]**
-   - **Header**: Judul "Pusat kendali sistem", subtitle, tombol aksi `[ ⏱️ Lihat audit ]` dan `[ 🔄 Sinkron semua master (106) ]`.
+   - **Header**: Judul "Pusat kendali sistem", subtitle, tombol aksi `[ â±ï¸ Lihat audit ]` dan `[ ðŸ”„ Sinkron semua master (106) ]`.
    - **Hero Card Gateway WhatsApp**: Latar Dark Navy (`#1D1B3A`), badge `LAYANAN NORMAL`, headline status bot, quick stats perangkat terhubung & antrean pesan.
    - **4 Stat Cards (KPI Telemetri Global via GET /api/v1/admin/status)**:
      - Total Kelas: "19" (19 kelas aktif berjalan)
-     - Pengguna & Peran: "24" (19 KM • 4 PJ • 1 Admin)
-     - Tugas Dipantau: "38" (35 diterbitkan • 3 draf)
-     - Jadwal Aktif: "84" (81 reguler • 3 pengganti)
+     - Pengguna & Peran: "24" (19 KM â€¢ 4 PJ â€¢ 1 Admin)
+     - Tugas Dipantau: "38" (35 diterbitkan â€¢ 3 draf)
+     - Jadwal Aktif: "84" (81 reguler â€¢ 3 pengganti)
    - **Grid Bawah (2 Kolom)**:
      - Kiri (60%): Master Data Berkas Jadwal (41 mata kuliah, 18 ruangan kampus, 47 dosen pengampu, badge Siap Disinkronkan).
      - Kanan (40%): Perlu Tindakan (Badge 2 Item: Pesan gagal dikirim & Cadangan berkala).
 2. **SCR-ADM-002: Master Mata Kuliah (Updated Pattern)**
-   - Header: Count badge, Tombol `[ 🔄 Sinkron Semua Master (106) ]`, `[ ☁️ Impor / Sinkron Matkul ]`, `[ + Tambah Mata Kuliah ]`.
+   - Header: Count badge, Tombol `[ ðŸ”„ Sinkron Semua Master (106) ]`, `[ â˜ï¸ Impor / Sinkron Matkul ]`, `[ + Tambah Mata Kuliah ]`.
    - Pencarian kode/nama matkul, filter status (Aktif/Nonaktif).
    - Tabel Desktop: Kolom Kode (font mono), Nama Mata Kuliah, Status Pill, Aksi (Ubah, Nonaktifkan).
    - Mobile View: Kartu ringkas dengan target sentuh 44px.
    - **Modal Impor**: Tab 1 (1-Click Sync dari 19 berkas jadwal kurikulum POLBAN - 41 matkul), Tab 2 (Impor CSV/Teks Bebas).
 3. **SCR-ADM-003: Master Ruangan (Updated Pattern)**
-   - Header: Count badge, Tombol `[ 🔄 Sinkron Semua Master (106) ]`, `[ ☁️ Impor / Sinkron Ruangan ]`, `[ + Tambah Ruangan ]`.
+   - Header: Count badge, Tombol `[ ðŸ”„ Sinkron Semua Master (106) ]`, `[ â˜ï¸ Impor / Sinkron Ruangan ]`, `[ + Tambah Ruangan ]`.
    - Kolom: Kode (misal `D102-Lab. MT`), Nama Ruangan, Gedung (`Gedung D`), Tipe (`Laboratorium` / `Ruang Kuliah`), Kapasitas, Status, Aksi.
    - Modal Impor: 1-Click Sync 18 Ruangan Kampus.
 4. **SCR-ADM-004: Master Dosen (Halaman Master Dosen Pengampu) - [100% AUDITED & APPROVED]**
-   - **Header**: Judul "Master Dosen", deskripsi fungsional, tombol aksi kanan: `[ 🔄 Impor / Sinkron ]`, `[ + Tambah dosen ]`.
+   - **Header**: Judul "Master Dosen", deskripsi fungsional, tombol aksi kanan: `[ ðŸ”„ Impor / Sinkron ]`, `[ + Tambah dosen ]`.
    - **Filter & Search Bar**: Search input berikon kaca pembesar (`Cari nama atau kode dosen...`), filter dropdown status (`Semua status`, `Aktif`, `Nonaktif`).
    - **Tabel Desktop**: 
      - Kolom 1: Kode Inisial Dosen (font mono, tebal, misal: `AD`, `BW`, `HA`, `PH`).
      - Kolom 2: Nama Lengkap & Gelar Akademik (misal: `Dr. Ade Chandra Nugraha, S.Si., M.T.`).
      - Kolom 3: Status Badge Pill (Hijau muda `Aktif` atau Abu-abu `Nonaktif`).
-     - Kolom 4: Aksi (Tombol `···` ghost button).
+     - Kolom 4: Aksi (Tombol `Â·Â·Â·` ghost button).
    - **Tampilan State**: Lengkap dengan Empty State, Loading State, Error State (dengan tombol Coba lagi), dan Filled State (badge 47 dosen terdaftar & pagination 1-5).
    - **Modal Tambah Dosen**: Input Kode / Inisial Dosen (wajib, uppercase 2-4 huruf), Input Nama Lengkap & Gelar (wajib), toggle switch Aktifkan dosen.
    - **Modal Impor / Sinkron Dosen**: 
@@ -310,18 +310,18 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
      - *Kartu 1: Informasi Pengurus (KM)*: Nama KM, WhatsApp, Status KM, tombol `[ Ganti / Undang Ulang KM ]`.
      - *Kartu 2: Keamanan & Akses Portal*: Mode Portal aktif (`Tautan` / `Kode`), Versi kode portal, tombol `[ Mode Tautan ]`, `[ Mode Kode ]`, dan `[ Rotasi Kode Portal ]`.
      - *Bagian 3: Daftar Semester Kelas*:
-       - Tabel/List Semester: Nama Semester (misal: `2024/2025 Ganjil`), Rentang Tanggal (`2024-09-01 → 2025-01-31`), Badge Status (`ACTIVE` hijau, `DRAFT` kuning, `ARCHIVED` abu-abu).
+       - Tabel/List Semester: Nama Semester (misal: `2024/2025 Ganjil`), Rentang Tanggal (`2024-09-01 â†’ 2025-01-31`), Badge Status (`ACTIVE` hijau, `DRAFT` kuning, `ARCHIVED` abu-abu).
        - Tombol muat ulang semester.
      - *Aksi Cepat Footer*: Tombol `[ Lihat Riwayat Perubahan kelas ]`, `[ Lihat Antrean Notifikasi ]`, dan tombol bahaya `[ Nonaktifkan Kelas ]` / `[ Arsipkan Kelas ]`.
    - **D. SCR-ADM-005D: Modal Impor Kurikulum Semester (3 States) - [100% AUDITED & APPROVED]**
      - Komponen modal pop-up tengah (max-w-md 480px, rounded-2xl, p-6, shadow-2xl).
-     - Header: Judul "Impor Kurikulum", tombol close "✕", subtitle deskripsi tujuan impor draf semester.
-     - *State 1 (Awal / Pilih Berkas)*: Dropzone dashed dengan ikon dokumen, helper text format JSON POLBAN di kiri, tautan `[ 📥 Unduh Contoh Template ]` di kanan, tombol Validasi & Terapkan disabled.
-     - *State 2 (Validasi Berhasil / READY)*: Box berkas terpilih (nama berkas .json, ukuran KB, tombol ganti), box hijau status `READY` (jumlah matkul, dosen, pola jadwal tanpa bentrok ruangan), tombol `[ 🔄 Validasi Ulang ]` (outline) dan `[ 🚀 Terapkan ke Draf ]` (primer biru aktif).
+     - Header: Judul "Impor Kurikulum", tombol close "âœ•", subtitle deskripsi tujuan impor draf semester.
+     - *State 1 (Awal / Pilih Berkas)*: Dropzone dashed dengan ikon dokumen, helper text format JSON POLBAN di kiri, tautan `[ ðŸ“¥ Unduh Contoh Template ]` di kanan, tombol Validasi & Terapkan disabled.
+     - *State 2 (Validasi Berhasil / READY)*: Box berkas terpilih (nama berkas .json, ukuran KB, tombol ganti), box hijau status `READY` (jumlah matkul, dosen, pola jadwal tanpa bentrok ruangan), tombol `[ ðŸ”„ Validasi Ulang ]` (outline) dan `[ ðŸš€ Terapkan ke Draf ]` (primer biru aktif).
      - *State 3 (Validasi Ditolak / Galat)*: Box berkas terpilih, box merah peringatan fatal galat (nomor baris bentrok ruangan/dosen tidak terdaftar), tombol `[ Periksa Berkas ]` aktif, tombol `[ Terapkan ke Draf ]` terkunci disabled.
    - **E. SCR-ADM-005E: Modal Tambah Sesi Perkuliahan (Master Data Picker) - [100% AUDITED & APPROVED]**
      - Komponen modal pop-up tengah (max-w-lg 540px, rounded-2xl, p-6, shadow-2xl).
-     - Header: Judul "Tambah Sesi Perkuliahan", tombol close "✕", subtitle integrasi Master Data.
+     - Header: Judul "Tambah Sesi Perkuliahan", tombol close "âœ•", subtitle integrasi Master Data.
      - Field 1: Combobox Mata Kuliah Kurikulum + Segmented Control Jenis Sesi (Teori / Praktikum / Praktik).
      - Field 2: Combobox Dosen Pengampu (terhubung Master Dosen POLBAN).
      - Field 3: Grid 3 kolom (Dropdown Hari, Input Jam Mulai, Input Jam Selesai).
@@ -329,10 +329,17 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
        * State A (Tersedia): Box hijau mint status ketersediaan ruangan & dosen.
        * State B (Bentrok): Box amber peringatan jadwal bentrok dengan kelas lain di jam yang sama (tombol simpan terkunci/disabled).
      - Footer: Tombol Batal & Tombol [ + Simpan ke Jadwal ].
+    - **F. SCR-SCH-001: Rincian Jadwal Tetap Mingguan (Pola Jadwal Kelas - Active & Draft States) - [100% AUDITED & APPROVED]**
+      - Breadcrumb: Sistem / Kelas & Semester / D4-TI 1A / Jadwal Mingguan.
+      - Header & Metrik: 8 Matkul Kurikulum | 12 Sesi Mingguan | 4 Ruangan Digunakan | Badge Kesiapan (0 Bentrok).
+      - Toolbar: Segmented tab filter hari (Semua Hari, Senin, Selasa, dst.) + Pencarian cepat / Tambah Sesi.
+      - Konten Jadwal Harian: Kartu per hari (Senin, Selasa, dst.) dengan jam (JetBrains Mono), badge Teori/Praktikum, dosen pengampu, ruangan, tombol Ubah & Hapus.
+      - State 1 (Semester Aktif): Tombol utama header [+ Tambah Sesi Perkuliahan].
+      - State 2 (Semester Draf): Badge DRAFT (Persiapan), banner amber peringatan draf, tombol utama header [🚀 Terbitkan & Aktifkan], tombol [+ Tambah Sesi] di toolbar hari.
 6. **SCR-ADM-006: Manajemen Pengguna & Penugasan Peran**
    - Daftar nomor WA pengguna, nama lengkap, role yang diemban, status akun (Aktif / Ditangguhkan), tombol Reset Sandi.
 7. **SCR-ADM-007: Antrean Pesan WhatsApp (Broadcast & Notification Outbox) - [100% AUDITED & APPROVED]**
-   - **Header**: Judul "Antrean WhatsApp", deskripsi fungsional, tombol aksi kanan: `[ 🔄 Perbarui antrean ]`.
+   - **Header**: Judul "Antrean WhatsApp", deskripsi fungsional, tombol aksi kanan: `[ ðŸ”„ Perbarui antrean ]`.
    - **3-Tab Navigation**:
      - `Menunggu` (Status PENDING/PROCESSING)
      - `Gagal` (Status FAILED/CANCELLED, badge indikator merah angka error, tombol aksi `[ Coba lagi ]` via `POST /api/v1/notifications/{id}/retry`)
@@ -341,8 +348,8 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
    - **Modal Detail Pesan Notifikasi**: Grid metadata 2 kolom, bubble chat WhatsApp preview realistis (#EFEAE2, bubble putih/hijau, markdown WA), accordion raw JSON payload.
 8. **SCR-ADM-008: Cadangan Data & Audit Global - [100% AUDITED & APPROVED]**
    - **Kartu Atas (Cadangan Data)**:
-     - Header: Judul "Cadangan data", subtitle, tombol `[ ☁️ Buat cadangan ]`.
-     - Daftar File Cadangan: Item dengan icon db/file, nama file timestamp, checksum SHA-256 (format `sha256: 7d2f••••9a1e`), cakupan kampus/kelas, alasan pencadangan, waktu & nama admin, badge hijau `VERIFIED`, tombol aksi `Unduh` & `Pulihkan`.
+     - Header: Judul "Cadangan data", subtitle, tombol `[ â˜ï¸ Buat cadangan ]`.
+     - Daftar File Cadangan: Item dengan icon db/file, nama file timestamp, checksum SHA-256 (format `sha256: 7d2fâ€¢â€¢â€¢â€¢9a1e`), cakupan kampus/kelas, alasan pencadangan, waktu & nama admin, badge hijau `VERIFIED`, tombol aksi `Unduh` & `Pulihkan`.
    - **Kartu Bawah (Audit Global)**:
      - Header: Judul "Audit Global", subtitle, filter bar pencarian tindakan/aktor/objek + dropdown `Semua tindakan` + `Semua periode`.
      - Tabel 5 Kolom: `WAKTU` | `AKTOR` | `TINDAKAN` | `OBJEK` | `ALASAN / RINCIAN`.

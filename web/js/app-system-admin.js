@@ -95,6 +95,22 @@ function systemAdminApp() {
     smHapusError: '',
     smMenu: null,
     smArsipTerbuka: null,
+    smImporSemester: null,
+
+    modalTambahOffering: false,
+    modalDaftarOffering: false,
+    offeringSemesterTarget: null,
+    offeringForm: { course_code: '', activity_type: 'TEORI', display_name: '', lecturer_codes: [] },
+    offeringFormError: '',
+    offeringFormSaving: false,
+    offeringQuickMatkulOpen: false,
+    offeringQuickMatkul: { kode: '', nama: '' },
+    offeringQuickMatkulSaving: false,
+    offeringQuickMatkulError: '',
+    offeringQuickDosenOpen: false,
+    offeringQuickDosen: { kode: '', nama: '' },
+    offeringQuickDosenSaving: false,
+    offeringQuickDosenError: '',
 
     jadwalKelasSlug: '',
     jadwalSemesterId: '',
@@ -488,9 +504,11 @@ function systemAdminApp() {
     },
 
     saCrumb() {
-      if ((this.view === 'detail' || this.view === 'jadwal') && this.kelasAktifObj) {
+      if (this.view === 'jadwal') {
+        return (this.isJadwalDraft && this.isJadwalDraft()) ? 'Jadwal Semester Draf' : 'Jadwal Mingguan';
+      }
+      if (this.view === 'detail' && this.kelasAktifObj) {
         const nama = this.kelasAktifObj.nama || this.kelasAktifObj.slug || 'Detail';
-        if (this.view === 'jadwal') return nama + ' / Jadwal Mingguan';
         return nama + (this.isDukunganUntuk(this.kelasAktifObj.slug) ? ' (Mode Dukungan)' : '');
       }
       const map = {
@@ -2355,9 +2373,10 @@ function systemAdminApp() {
       const p = this.jadwalPreviewSem;
       const conflicts = (p && (p.conflicts || p.Conflicts)) || [];
       const blockers = (p && (p.blockers || p.Blockers)) || [];
-      const n = conflicts.length + blockers.length;
-      if (n === 0) return { text: 'Kesiapan: 0 Bentrok (Siap Terbit)', tone: 'ok' };
-      return { text: `Kesiapan: ${n} masalah (Perlu Tinjau)`, tone: 'warn' };
+      const allIssues = [...blockers, ...conflicts];
+      const n = allIssues.length;
+      if (n === 0) return { text: 'Kesiapan: 0 Bentrok (Siap Terbit)', tone: 'ok', detail: '' };
+      return { text: `Kesiapan: ${n} masalah (Perlu Tinjau)`, tone: 'warn', detail: allIssues.join(' • ') };
     },
 
     jadwalFiltered() {
@@ -2747,10 +2766,186 @@ function systemAdminApp() {
       }
     },
 
-    bukaImporSemester() {
+    bukaTambahOffering(sem) {
+      if (!sem || !sem.id) {
+        sem = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT') || this.jadwalSemester;
+      }
+      if (!sem || !sem.id) {
+        this.showToast('Pilih semester draf terlebih dahulu.');
+        return;
+      }
+      this.offeringSemesterTarget = sem;
+      this.offeringForm = {
+        course_code: '',
+        activity_type: 'TEORI',
+        display_name: '',
+        lecturer_codes: []
+      };
+      this.offeringFormError = '';
+      this.offeringFormSaving = false;
+      this.offeringQuickMatkulOpen = false;
+      this.offeringQuickMatkul = { kode: '', nama: '' };
+      this.offeringQuickMatkulSaving = false;
+      this.offeringQuickMatkulError = '';
+      this.offeringQuickDosenOpen = false;
+      this.offeringQuickDosen = { kode: '', nama: '' };
+      this.offeringQuickDosenSaving = false;
+      this.offeringQuickDosenError = '';
+      if (!this.matkulList || !this.matkulList.length) this.loadMatkul();
+      if (!this.dosenList || !this.dosenList.length) this.loadDosen();
+      this.modalTambahOffering = true;
+    },
+
+    async simpanQuickMatkul() {
+      const q = this.offeringQuickMatkul;
+      const kode = (q.kode || '').trim().toUpperCase();
+      const nama = (q.nama || '').trim();
+      if (!kode || !nama) {
+        this.offeringQuickMatkulError = 'Kode dan nama mata kuliah wajib diisi.';
+        return;
+      }
+      this.offeringQuickMatkulSaving = true;
+      this.offeringQuickMatkulError = '';
+      try {
+        await API.createMasterCourse({ code: kode, name: nama });
+        await this.loadMatkul();
+        this.offeringForm.course_code = kode;
+        this.onOfferingCourseSelect();
+        this.offeringQuickMatkul = { kode: '', nama: '' };
+        this.offeringQuickMatkulOpen = false;
+        this.showToast(`Mata kuliah ${kode} berhasil didaftarkan ke Master Data.`);
+      } catch (err) {
+        this.offeringQuickMatkulError = err.message || 'Gagal mendaftarkan mata kuliah baru ke Master Data.';
+      } finally {
+        this.offeringQuickMatkulSaving = false;
+      }
+    },
+
+    async simpanQuickDosen() {
+      const q = this.offeringQuickDosen;
+      const kode = (q.kode || '').trim().toUpperCase();
+      const nama = (q.nama || '').trim();
+      if (!kode || !nama) {
+        this.offeringQuickDosenError = 'Kode/inisial dan nama dosen wajib diisi.';
+        return;
+      }
+      this.offeringQuickDosenSaving = true;
+      this.offeringQuickDosenError = '';
+      try {
+        await API.createMasterLecturer({ code: kode, full_name: nama });
+        await this.loadDosen();
+        if (!this.offeringForm.lecturer_codes.includes(kode)) {
+          this.offeringForm.lecturer_codes.push(kode);
+        }
+        this.offeringQuickDosen = { kode: '', nama: '' };
+        this.offeringQuickDosenOpen = false;
+        this.showToast(`Dosen ${nama} (${kode}) berhasil didaftarkan ke Master Data.`);
+      } catch (err) {
+        this.offeringQuickDosenError = err.message || 'Gagal mendaftarkan dosen baru ke Master Data.';
+      } finally {
+        this.offeringQuickDosenSaving = false;
+      }
+    },
+
+    onOfferingCourseSelect() {
+      const code = this.offeringForm.course_code;
+      const m = (this.matkulList || []).find(x => x.code === code);
+      if (m) {
+        const act = this.offeringForm.activity_type === 'PRAKTIKUM' ? ' (Praktikum)' : ' (Teori)';
+        this.offeringForm.display_name = (m.name || m.code) + act;
+      }
+    },
+
+    onOfferingActivityChange() {
+      this.onOfferingCourseSelect();
+    },
+
+    toggleOfferingLecturer(code) {
+      const idx = this.offeringForm.lecturer_codes.indexOf(code);
+      if (idx >= 0) this.offeringForm.lecturer_codes.splice(idx, 1);
+      else this.offeringForm.lecturer_codes.push(code);
+    },
+
+    async simpanOffering() {
+      const f = this.offeringForm;
+      const sem = this.offeringSemesterTarget;
+      if (!sem || !sem.id) {
+        this.offeringFormError = 'Semester target tidak ditemukan.';
+        return;
+      }
+      if (!f.course_code) {
+        this.offeringFormError = 'Pilih mata kuliah dari Master Data terlebih dahulu.';
+        return;
+      }
+      if (!f.display_name) {
+        this.offeringFormError = 'Nama tampilan mata kuliah wajib diisi.';
+        return;
+      }
+      this.offeringFormSaving = true;
+      this.offeringFormError = '';
+      try {
+        await API.createSemesterOffering(sem.id, {
+          course_code: f.course_code,
+          activity_type: f.activity_type,
+          display_name: f.display_name,
+          lecturer_codes: f.lecturer_codes
+        });
+        this.showToast('Mata kuliah berhasil ditambahkan ke semester.');
+        this.modalTambahOffering = false;
+        if (this.view === 'detail' && this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatDetailKelas(this.kelasAktifObj.slug);
+        } else if (this.view === 'jadwal' && this.jadwalSemesterId) {
+          await this.muatJadwal(this.jadwalSemesterId);
+        }
+      } catch (e) {
+        this.offeringFormError = (e && e.message) || 'Gagal menambahkan mata kuliah.';
+      } finally {
+        this.offeringFormSaving = false;
+      }
+    },
+
+    bukaDaftarOffering() {
+      this.modalDaftarOffering = true;
+    },
+
+    offeringPatternsCount(offeringId) {
+      if (!offeringId) return 0;
+      return (this.jadwalPatterns || []).filter(p => String(p.course_offering_id || '') === String(offeringId)).length;
+    },
+
+    async hapusOffering(off) {
+      if (!off || !off.id) return;
+      const count = this.offeringPatternsCount(off.id);
+      if (count > 0) {
+        this.showToast('Mata kuliah ini masih memiliki ' + count + ' sesi jadwal. Hapus sesinya terlebih dahulu.');
+        return;
+      }
+      if (!confirm('Hapus mata kuliah "' + (off.display_name || off.course_code) + '" dari semester ini?')) {
+        return;
+      }
+      const semId = (this.jadwalSemester && this.jadwalSemester.id) || (this.offeringSemesterTarget && this.offeringSemesterTarget.id);
+      if (!semId) {
+        this.showToast('ID semester tidak ditemukan.');
+        return;
+      }
+      try {
+        await API.deleteSemesterOffering(semId, off.id);
+        this.showToast('Mata kuliah dihapus dari semester.');
+        if (this.view === 'jadwal' && this.jadwalSemesterId) {
+          await this.muatJadwal(this.jadwalSemesterId);
+        } else if (this.view === 'detail' && this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatDetailKelas(this.kelasAktifObj.slug);
+        }
+      } catch (e) {
+        this.showToast((e && e.message) || 'Gagal menghapus mata kuliah.');
+      }
+    },
+
+    bukaImporSemester(sem) {
       if (!this.kelasAktifObj || !this.kelasAktifObj.slug) { this.showToast('Pilih kelas dulu.'); return; }
-      const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
+      const target = sem || (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
       if (!target) { this.showToast('Buat semester draf dulu sebelum mengimpor kurikulum.'); return; }
+      this.smImporSemester = target;
       this.smImporTerbuka = true;
       this.smImporFile = null;
       this.smImporHasil = null;
@@ -2927,7 +3122,7 @@ function systemAdminApp() {
     },
 
     async validasiImporSM() {
-      const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
+      const target = this.smImporSemester || (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
       if (!target) { this.smImporError = 'Tidak ada semester draf tujuan pada kelas ini.'; return; }
       if (!this.smImporFile) { this.smImporError = 'Pilih berkas JSON kurikulum terlebih dahulu.'; return; }
       let rawObj = null;
@@ -2966,7 +3161,7 @@ function systemAdminApp() {
 
     async terapkanImporSM() {
       const hasil = this.smImporHasil;
-      const target = (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
+      const target = this.smImporSemester || (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'DRAFT');
       if (!hasil || !hasil.batch_id) { this.smImporError = 'Validasi berkas terlebih dahulu sebelum menerapkan.'; return; }
       if (hasil.has_fatal_errors) { this.smImporError = 'Masih ada galat fatal. Perbaiki berkas terlebih dahulu.'; return; }
       if (!target) { this.smImporError = 'Tidak ada semester draf tujuan.'; return; }

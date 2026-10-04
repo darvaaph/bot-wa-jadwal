@@ -71,3 +71,12 @@ func (s *Server) handleDeleteDraftSemester(w http.ResponseWriter, r *http.Reques
 	}
 	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handleDeleteSemesterOffering menangani DELETE /api/v1/semesters/{id}/offerings/{offering_id}
+func (s *Server) handleDeleteSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.DeleteSemesterOffering(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}

@@ -1097,30 +1097,6 @@
         >
           <button
             type="button"
-            @click="bukaImporSemester()"
-            data-pencil-name="Impor Kurikulum"
-            class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[9px] hover:bg-slate-50 transition-colors cursor-pointer text-[#1D1B3A] text-[12px] font-semibold font-[Geist,system-ui,sans-serif]"
-          >
-            <svg
-              data-pencil-name="Ikon Impor Kurikulum"
-              viewBox="0 0 14.000015258789062 14"
-              preserveAspectRatio="xMidYMid meet"
-              xmlns="http://www.w3.org/2000/svg"
-              class="box-border w-[17px] shrink-0 h-[17px]"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M7 8.89355q-0.0957 0-0.17432-0.03076-0.07861-0.03076-0.1538-0.10595l-1.53126-1.52784q-0.08203-0.08545-0.08886-0.20166-0.00342-0.11621 0.08887-0.21191 0.09912-0.0957 0.20849-0.0957 0.11279-0.00342 0.2085 0.09228l1.15185 1.15186 0-4.7544q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849l0 4.7544 1.15185-1.15186q0.08545-0.08545 0.20166-0.08887 0.11621-0.00342 0.21533 0.09229 0.09229 0.0957 0.09229 0.2085 0.00342 0.10938-0.09228 0.20507l-1.53126 1.52784q-0.0752 0.0752-0.1538 0.10595-0.07861 0.03076-0.17432 0.03076z m-3.14111 2.19092q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.21191-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.2461 0.11279l6.28222 0q0.1333 0 0.2461-0.11279 0.11279-0.11279 0.11279-0.2461l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-6.28222 0z"
-                fill="#1D1B3A"
-              ></path>
-            </svg>
-            <span class="text-[12px]/[normal] box-border text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-semibold text-left whitespace-nowrap">
-              Impor Kurikulum
-            </span>
-          </button>
-          <button
-            type="button"
             @click="bukaBuatSemester()"
             data-pencil-name="Buat Semester Baru"
             class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#3965FB] [outline:1px_solid_#3965FB] [outline-offset:-0.5px] rounded-[9px] hover:bg-blue-600 transition-colors cursor-pointer text-[#FFFFFF] text-[12px] font-semibold font-[Geist,system-ui,sans-serif]"
@@ -1306,13 +1282,14 @@
                   <!-- DRAFT -->
                   <template x-if="String(s.status || '').toUpperCase() === 'DRAFT'">
                     <div class="flex flex-row gap-[8px] items-center">
-                      <!-- + Tambah Sesi -->
+                      <!-- Kelola Jadwal -->
                       <button
                         type="button"
                         @click="bukaTambahSesiSM(s)"
-                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-0 px-[12px] justify-center items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer text-[11px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap"
+                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-[6px] px-[12px] justify-center items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer text-[11px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-medium whitespace-nowrap"
+                        title="Atur mata kuliah dan jadwal mingguan semester ini"
                       >
-                        + Tambah Sesi
+                        <span>Kelola Jadwal</span>
                       </button>
 
                       <!-- Terbitkan & Aktifkan -->
@@ -1346,11 +1323,11 @@
                           class="box-border w-[32px] shrink-0 h-[32px] flex flex-row gap-0 justify-center items-center bg-[#F1F5F9] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] text-[#1D1B3A] hover:bg-slate-200 transition-colors cursor-pointer"
                         >
                           <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0 text-[#1D1B3A]" aria-hidden="true" focusable="false">
-                            <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                            <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.1709 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
                           </svg>
                         </button>
 
-                        <!-- 4-item DRAFT dropdown menu from Figma -->
+                        <!-- DRAFT dropdown menu -->
                         <div
                           x-show="smMenu === s.id"
                           x-cloak
@@ -1358,33 +1335,20 @@
                           :class="(detailSemesterList.length >= 3 && i >= detailSemesterList.length - 1) ? 'bottom-[38px]' : 'top-[38px]'"
                           role="menu"
                         >
-                          <!-- Item 1: Tambah sesi manual -->
+                          <!-- Item 1: Impor berkas JSON (Opsional) -->
                           <button
                             type="button"
-                            @click="smMenu = null; bukaTambahSesiSM(s)"
-                            role="menuitem"
-                            class="box-border w-full h-[36px] shrink-0 flex flex-row gap-[9px] px-[12px] justify-start items-center hover:bg-slate-50 transition-colors cursor-pointer text-left"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 14 14" fill="#1D1B3A" class="w-[16px] h-[16px] shrink-0" aria-hidden="true" focusable="false">
-                              <path d="M6.90088 2.35156q-0.0957 0.01367-0.17432 0.05127-0.0752 0.03418-0.15381 0.12647-0.0752 0.08887-0.11279 0.16748-0.03418 0.0752-0.03418 0.32812l0 3.40088-3.66748 0-0.08545 0.04102q-0.22217 0.11279-0.30078 0.33838-0.0752 0.22217 0.00684 0.43408 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.33838 0.03418l3.40088 0 0 3.40088q0 0.25293 0.03418 0.33838 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.11963-0.16748 0.0376-0.08545 0.0376-0.33838l0-3.40088 3.40088 0q0.25293 0 0.33496-0.03418 0.08545-0.0376 0.16748-0.11963 0.08545-0.08545 0.1333-0.18799 0.05127-0.10596 0.05127-0.23242 0-0.12646-0.04102-0.23926-0.09912-0.19482-0.29394-0.29394l-0.08545-0.04102-3.66748 0 0-3.38721q0-0.2666-0.02734-0.32128-0.07178-0.19824-0.25293-0.30079-0.18115-0.10596-0.39307-0.06494z"/>
-                            </svg>
-                            <span class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Tambah sesi manual</span>
-                          </button>
-
-                          <!-- Item 2: Impor kurikulum JSON -->
-                          <button
-                            type="button"
-                            @click="smMenu = null; bukaImporSemester()"
+                            @click="smMenu = null; bukaImporSemester(s)"
                             role="menuitem"
                             class="box-border w-full h-[36px] shrink-0 flex flex-row gap-[9px] px-[12px] justify-start items-center hover:bg-slate-50 transition-colors cursor-pointer text-left"
                           >
                             <svg width="16" height="16" viewBox="0 0 14 14" fill="#1D1B3A" class="w-[16px] h-[16px] shrink-0" aria-hidden="true" focusable="false">
                               <path d="M3.33252 0.60156q-0.58789 0.04102-1.02197 0.44776-0.43408 0.40674-0.53321 0.99463-0.02734 0.16748-0.02734 4.95605 0 4.78857 0.02734 4.95605 0.09912 0.5332 0.46827 0.92627 0.37256 0.38965 0.90576 0.50245 0.10938 0.01367 0.66992 0.02734l3.17871 0 3.17871 0q0.56055-0.01367 0.66992-0.02734 0.5332-0.11279 0.90235-0.50245 0.37256-0.39307 0.47168-0.92627 0.02734-0.16748 0.02734-3.80078 0-3.6333-0.02734-3.80078-0.08545-0.51953-0.40674-0.92285-0.11279-0.14014-1.24756-1.2749-0.89551-0.88184-1.10742-1.06983-0.2085-0.19141-0.41699-0.29052-0.30762-0.15381-0.67334-0.19483-0.14014-0.02734-2.4917-0.02734-2.35156 0-2.54639 0.02734z m4.25537 2.42334l0 1.27149 0.04102 0.14013q0.08545 0.22559 0.24609 0.40674 0.16064 0.18115 0.35547 0.28028 0.14014 0.07178 0.22558 0.08544 0.12646 0.02734 0.40674 0.04102l2.21143 0 0 6.11816q0 0.43408-0.0376 0.51954-0.03418 0.08203-0.11963 0.17431-0.08203 0.08887-0.16406 0.1333l-0.09912 0.04102-7.30762 0-0.09912-0.04102q-0.08203-0.04443-0.16748-0.1333-0.08203-0.09228-0.11963-0.17431-0.03418-0.08545-0.03418-0.70069l0-4.18701 0-4.18701q0-0.61523 0.02734-0.6836 0.05811-0.12646 0.16749-0.23242 0.11279-0.10596 0.23925-0.1333 0.08545-0.01367 2.14307-0.01367l2.07129 0 0.01367 1.2749z"/>
                             </svg>
-                            <span class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Impor kurikulum JSON</span>
+                            <span class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Impor berkas JSON</span>
                           </button>
 
-                          <!-- Item 3: Pratinjau kesiapan -->
+                          <!-- Item 2: Pratinjau kesiapan -->
                           <button
                             type="button"
                             @click="smMenu = null; bukaPratinjauSM(s)"
@@ -1400,7 +1364,7 @@
                           <!-- Pemisah -->
                           <div class="box-border w-full h-[1px] shrink-0 bg-[#EEEEEE] my-1"></div>
 
-                          <!-- Item 4: Hapus draf semester (Red) -->
+                          <!-- Item 3: Hapus draf semester (Red) -->
                           <button
                             type="button"
                             @click="konfirmasiHapusDraf(s)"
@@ -1940,6 +1904,125 @@
         <div class="flex gap-2 mt-4">
           <button type="button" @click="jalankanAktifkanSM()" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
           <button type="button" @click="smAktifkan = null" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Tambah Mata Kuliah ke Semester dari Master Data -->
+    <div x-show="modalTambahOffering" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="if (!offeringFormSaving) modalTambahOffering = false"></div>
+      <div class="relative w-full max-w-lg bg-white rounded-[16px] border border-[#CBD5E1] p-6 shadow-2xl flex flex-col gap-4" @click.stop role="dialog" aria-modal="true" aria-label="Tambah Mata Kuliah ke Semester">
+        <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
+          <div>
+            <h3 class="text-[17px] font-bold text-[#1D1B3A]">Tambah Mata Kuliah ke Semester</h3>
+            <p class="text-[12px] text-[#667085] mt-0.5">
+              Pilih langsung dari Master Data Mata Kuliah &amp; Dosen tanpa perlu berkas JSON.
+            </p>
+          </div>
+          <button type="button" @click="if (!offeringFormSaving) modalTambahOffering = false" class="p-1 rounded text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer" aria-label="Tutup modal">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-3.5">
+          <!-- 1. Pilih Mata Kuliah dari Master -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Mata Kuliah (Master Data) <span class="text-red-500">*</span>
+            </label>
+            <select
+              x-model="offeringForm.course_code"
+              @change="onOfferingCourseSelect()"
+              class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            >
+              <option value="">-- Pilih Mata Kuliah --</option>
+              <template x-for="m in matkulList" :key="m.code">
+                <option :value="m.code" x-text="m.code + ' · ' + m.name"></option>
+              </template>
+            </select>
+            <p x-show="!matkulList || matkulList.length === 0" class="text-[11px] text-amber-600 mt-1">
+              Master Data mata kuliah kosong. Anda dapat mengisinya terlebih dahulu di menu Mata Kuliah.
+            </p>
+          </div>
+
+          <!-- 2. Jenis Aktivitas -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Jenis Aktivitas <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+                :class="offeringForm.activity_type === 'TEORI' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+                <input type="radio" value="TEORI" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+                <span class="text-[12px]">Teori (Kelas)</span>
+              </label>
+              <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+                :class="offeringForm.activity_type === 'PRAKTIKUM' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+                <input type="radio" value="PRAKTIKUM" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+                <span class="text-[12px]">Praktikum (Lab)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 3. Nama Tampilan pada Jadwal -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Nama Tampilan pada Jadwal <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              x-model="offeringForm.display_name"
+              placeholder="Contoh: Pemrograman Web (Teori)"
+              class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            />
+            <p class="text-[11px] text-[#667085] mt-1">Nama yang akan tampil pada kalender dan jadwal mahasiswa.</p>
+          </div>
+
+          <!-- 4. Dosen Pengampu (Opsional / Multiple) -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Dosen Pengampu (Master Data)
+            </label>
+            <div class="max-h-[140px] overflow-y-auto border border-[#CBD5E1] rounded-[8px] p-2 flex flex-col gap-1 bg-white">
+              <template x-for="d in dosenList" :key="d.code">
+                <label class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer text-[12px] text-[#1D1B3A]">
+                  <input
+                    type="checkbox"
+                    :value="d.code"
+                    :checked="offeringForm.lecturer_codes.includes(d.code)"
+                    @change="toggleOfferingLecturer(d.code)"
+                    class="rounded text-[#3965FB] focus:ring-[#3965FB]"
+                  />
+                  <span class="font-mono text-[#667085]" x-text="d.code"></span>
+                  <span class="truncate" x-text="d.name"></span>
+                </label>
+              </template>
+              <div x-show="!dosenList || dosenList.length === 0" class="text-[11px] text-slate-400 p-2 text-center">
+                Belum ada master dosen terdaftar.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div x-show="offeringFormError" class="p-2.5 rounded-[8px] bg-red-50 border border-red-200 text-red-700 text-[12px]" x-text="offeringFormError"></div>
+
+        <div class="flex gap-2.5 mt-2 pt-3 border-t border-[#F1F5F9]">
+          <button
+            type="button"
+            @click="simpanOffering()"
+            :disabled="offeringFormSaving || !offeringForm.course_code"
+            class="flex-1 h-[40px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[13px] font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            <span x-show="!offeringFormSaving">Simpan Mata Kuliah</span>
+            <span x-show="offeringFormSaving">Menyimpan...</span>
+          </button>
+          <button
+            type="button"
+            @click="if (!offeringFormSaving) modalTambahOffering = false"
+            class="h-[40px] px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#475467] transition-colors cursor-pointer"
+          >
+            Batal
+          </button>
         </div>
       </div>
     </div>

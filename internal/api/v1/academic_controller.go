@@ -600,6 +600,79 @@ func (c *AcademicController) CreateSemesterOffering(w http.ResponseWriter, r *ht
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": offeringID, "status": "ACTIVE"})
 }
 
+// DeleteSemesterOffering menangani DELETE /api/v1/semesters/{id}/offerings/{offering_id}
+func (c *AcademicController) DeleteSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menghapus mata kuliah")
+		return
+	}
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	offeringID, _ := strconv.ParseInt(r.PathValue("offering_id"), 10, 64)
+	if semID <= 0 || offeringID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester atau offering tidak valid")
+		return
+	}
+	var classID int64
+	var status string
+	if err := c.db.QueryRow(`SELECT class_id, status FROM semesters WHERE id = ?;`, semID).Scan(&classID, &status); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca semester")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang menghapus mata kuliah kelas penugasannya")
+		return
+	}
+	if status != "DRAFT" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya mata kuliah di semester DRAFT yang dapat dihapus")
+		return
+	}
+
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	// Cek apakah ada jadwal atau tugas yang terhubung
+	var patCount, taskCount int
+	_ = tx.QueryRow(`SELECT COUNT(*) FROM schedule_patterns WHERE course_offering_id = ?;`, offeringID).Scan(&patCount)
+	_ = tx.QueryRow(`SELECT COUNT(*) FROM tasks WHERE course_offering_id = ?;`, offeringID).Scan(&taskCount)
+	if patCount > 0 || taskCount > 0 {
+		common.WriteV1Error(w, http.StatusConflict, "CONFLICT", fmt.Sprintf("Mata kuliah memiliki %d sesi jadwal dan %d tugas. Hapus sesi terlebih dahulu sebelum menghapus mata kuliah ini.", patCount, taskCount))
+		return
+	}
+
+	if _, err := tx.Exec(`DELETE FROM offering_lecturers WHERE course_offering_id = ?;`, offeringID); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus dosen penugasan")
+		return
+	}
+	res, err := tx.Exec(`DELETE FROM course_offerings WHERE id = ? AND semester_id = ?;`, offeringID, semID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus mata kuliah")
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Mata kuliah tidak ditemukan pada semester ini")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyelesaikan transaksi")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"deleted": true, "id": offeringID})
+}
+
 // SemesterImportValidate menangani POST /api/v1/semesters/{id}/import-validate
 func (c *AcademicController) SemesterImportValidate(w http.ResponseWriter, r *http.Request) {
 	if c.db == nil {
@@ -912,17 +985,26 @@ func (c *AcademicController) SemesterImportValidate(w http.ResponseWriter, r *ht
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`
+	var batchID int64
+	err = tx.QueryRow(`
 		INSERT INTO import_batches (
-			class_id, semester_id, source_type, source_checksum, status, created_by_user_id, summary_json, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-	`, classID, semID, sourceType, checksum, batchStatus, u.UserID, string(summaryJSONBytes))
+			class_id, semester_id, source_type, source_checksum, status, created_by_user_id, summary_json, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(class_id, semester_id, source_checksum) DO UPDATE SET
+			source_type = excluded.source_type,
+			status = excluded.status,
+			created_by_user_id = excluded.created_by_user_id,
+			summary_json = excluded.summary_json,
+			updated_at = CURRENT_TIMESTAMP
+		RETURNING id;
+	`, classID, semID, sourceType, checksum, batchStatus, u.UserID, string(summaryJSONBytes)).Scan(&batchID)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan rekam batch impor: %v", err))
 		return
 	}
 
-	batchID, _ := res.LastInsertId()
+	// Hapus catatan error sebelumnya jika batch ini divalidasi ulang
+	_, _ = tx.Exec(`DELETE FROM import_errors WHERE batch_id = ?;`, batchID)
 
 	useNewImportErrCols := hasImportErrNewCols(tx)
 	for _, e := range errorsList {

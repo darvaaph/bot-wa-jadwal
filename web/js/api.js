@@ -521,6 +521,18 @@ const BotApi = {
     return json.data;
   },
 
+  async deleteSemesterOffering(semesterId, offeringId) {
+    const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/offerings/' + encodeURIComponent(offeringId), {
+      method: 'DELETE', credentials: 'same-origin', headers: mutationHeaders()
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error((json && json.error && json.error.message) || (json && json.error) || 'Gagal menghapus mata kuliah.');
+      err.code = 'DELETE_FAILED'; throw err;
+    }
+    return json && json.data;
+  },
+
   async applySemesterImport(semesterId, batchId) {
     const res = await fetch('/api/v1/semesters/' + encodeURIComponent(semesterId) + '/import-apply', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify({ batch_id: batchId })
@@ -579,11 +591,13 @@ const BotApi = {
     });
     const json = await res.json().catch(() => null);
     if (res.status === 422) {
-      const err = new Error((json && json.error) || 'Impor ditolak.');
+      const msg = (json && json.error && json.error.message) || (json && typeof json.error === 'string' && json.error) || 'Impor ditolak.';
+      const err = new Error(msg);
       err.code = 'IMPORT_INVALID'; err.errors = json && json.errors ? json.errors : []; throw err;
     }
     if (!res.ok) {
-      const err = new Error((json && json.error) || 'Gagal mengimpor semester.');
+      const msg = (json && json.error && json.error.message) || (json && typeof json.error === 'string' && json.error) || 'Gagal mengimpor semester.';
+      const err = new Error(msg);
       err.code = 'SAVE_FAILED'; throw err;
     }
     return json.data;

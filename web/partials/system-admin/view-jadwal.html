@@ -1,109 +1,244 @@
 <!-- partials/system-admin/view-jadwal.html - System Admin: Pola Jadwal Mingguan per kelas -->
 <section x-show="view === 'jadwal'" x-cloak>
+  <!-- Loading State -->
   <div x-show="jadwalLoading" class="p-12 text-center text-muted" role="status">
-    <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" aria-hidden="true"></div>
-    <p class="mt-3 text-[14px]">Memuat pola jadwal...</p>
+    <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin" aria-hidden="true"></div>
+    <p class="mt-3 text-[14px] text-[#667085] font-medium">Memuat pola jadwal...</p>
   </div>
 
-  <div x-show="!jadwalLoading" class="flex flex-col gap-4">
-    <p class="text-[12px] text-muted">Sistem / Kelas &amp; Semester / <span x-text="jadwalKelasSlug || '—'">-</span> / Jadwal Mingguan</p>
+  <div x-show="!jadwalLoading" class="flex flex-col gap-5">
 
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <!-- Header: Title, Badges, Semester Picker & Actions -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
       <div class="min-w-0">
-        <h1 class="font-display text-[24px] md:text-[28px] font-bold text-ink tracking-tight">Pola Jadwal Mingguan · <span x-text="(kelasAktifObj && kelasAktifObj.nama) || jadwalKelasSlug">-</span></h1>
-        <p class="text-[13px] text-muted mt-1">
-          <span x-text="jadwalSemester ? ((jadwalSemester.academic_year || '') + ' · ' + (jadwalSemester.term || '') + ' (' + (jadwalSemester.status || '') + ')') : '—'">-</span>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="font-[Poppins,system-ui,sans-serif] text-[22px] md:text-[24px] font-bold text-[#1D1B3A] tracking-tight">
+            Pola Jadwal Mingguan · <span x-text="(kelasAktifObj && kelasAktifObj.nama) || jadwalKelasSlug">-</span>
+          </h1>
+          <!-- DRAFT Status Badge -->
+          <div x-show="isJadwalDraft()" class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 px-2.5 py-1 justify-start items-center bg-[#FEF3C7] rounded-full">
+            <span class="text-[11px] text-[#92400E] font-bold whitespace-nowrap">• DRAFT (Persiapan)</span>
+          </div>
+        </div>
+        <p class="text-[13px] text-[#667085] mt-1">
+          <span x-text="jadwalSemester ? ((jadwalSemester.academic_year || '') + ' · ' + (jadwalSemester.term || '')) : '—'">-</span>
+          <span x-show="!isJadwalDraft()" class="font-semibold text-[#1D1B3A]"> (ACTIVE)</span>
           <span> · Acuan perkuliahan rutin mingguan kelas.</span>
         </p>
-        <div x-show="(jadwalSemesterOptions || []).length > 1" class="mt-2 flex items-center gap-2">
-          <label class="text-[12px] font-semibold text-muted" for="sa-jadwal-semester">Semester</label>
-          <select id="sa-jadwal-semester" x-model="jadwalSemesterId" @change="pilihJadwalSemester(jadwalSemesterId)" class="ui-field w-auto min-w-[220px] text-[13px]">
-            <template x-for="s in (jadwalSemesterOptions || [])" :key="s.id"><option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option></template>
+
+        <!-- Semester Switcher if Multiple -->
+        <div x-show="(jadwalSemesterOptions || []).length > 1" class="mt-2.5 flex items-center gap-2">
+          <label class="text-[12px] font-semibold text-[#667085]" for="sa-jadwal-semester">Pilih Semester:</label>
+          <select id="sa-jadwal-semester" x-model="jadwalSemesterId" @change="pilihJadwalSemester(jadwalSemesterId)" class="h-[34px] px-2.5 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]">
+            <template x-for="s in (jadwalSemesterOptions || [])" :key="s.id">
+              <option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option>
+            </template>
           </select>
         </div>
       </div>
+
+      <!-- Header Actions -->
       <div class="flex items-center gap-2 flex-wrap">
-        <button type="button" @click="kembaliKeDetail()" class="ui-button ui-button--secondary text-[13px]">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+        <!-- Kembali ke Detail Kelas -->
+        <button type="button" @click="kembaliKeDetail()" class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[7px] px-3.5 justify-start items-center bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+          <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
           <span>Kembali ke Detail Kelas</span>
         </button>
-        <button type="button" @click="bukaTambahSesi()" :disabled="(jadwalOfferings || []).length === 0" :aria-disabled="(jadwalOfferings || []).length === 0" class="ui-button ui-button--primary text-[13px] disabled:opacity-50" :title="(jadwalOfferings || []).length === 0 ? 'Impor kurikulum dulu' : ''">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+
+        <!-- DRAFT State Action: Terbitkan & Aktifkan -->
+        <button x-show="isJadwalDraft()" type="button" @click="mulaiAktifkanSM(jadwalSemester)" class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[7px] px-4 justify-start items-center bg-[#3965FB] hover:bg-blue-600 text-white rounded-[10px] text-[12px] font-bold shadow-sm transition-colors">
+          <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <span>Terbitkan &amp; Aktifkan</span>
+        </button>
+
+        <!-- ACTIVE State Action: Tambah Sesi Perkuliahan -->
+        <button x-show="!isJadwalDraft()" type="button" @click="bukaTambahSesi()" :disabled="(jadwalOfferings || []).length === 0" :aria-disabled="(jadwalOfferings || []).length === 0" class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[6px] px-4 justify-start items-center bg-[#3965FB] hover:bg-blue-600 text-white rounded-[10px] text-[12px] font-bold shadow-sm disabled:opacity-50 transition-colors" :title="(jadwalOfferings || []).length === 0 ? 'Impor kurikulum dulu' : ''">
+          <svg class="w-[16px] h-[16px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span>Tambah Sesi Perkuliahan</span>
         </button>
       </div>
     </div>
 
-    <div x-show="!jadwalLoading && !jadwalError && (jadwalOfferings || []).length === 0" class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex flex-col sm:flex-row sm:items-center gap-3" role="alert">
-      <p class="flex-1">Semester draf belum memiliki mata kuliah. Impor kurikulum atau tambah mata kuliah dulu sebelum membuat sesi.</p>
-      <button type="button" @click="kembaliKeDetail()" class="ui-button ui-button--secondary text-[13px] whitespace-nowrap">Kelola Semester</button>
+    <!-- Alert Banner: Peringatan Semester Draf -->
+    <div x-show="isJadwalDraft()" class="box-border w-full flex flex-row gap-2.5 p-3.5 items-center bg-[#FEF3C7] border border-[#FCD34D] rounded-[12px] text-[13px] text-[#92400E]" role="alert">
+      <svg class="w-[18px] h-[18px] shrink-0 text-[#B45309]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <p class="flex-1 font-normal leading-relaxed">
+        <span class="font-bold">Semester Draf:</span> Perubahan jadwal di sini belum terlihat oleh mahasiswa di portal. Selesaikan pengisian dan pastikan tidak ada bentrok sebelum diterbitkan.
+      </p>
     </div>
 
-    <div x-show="jadwalError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" role="alert">
-      <span x-text="jadwalError">-</span>
-      <button type="button" @click="muatJadwal(jadwalSemesterId)" class="underline font-semibold ml-2 min-h-[44px]">Coba Lagi</button>
-    </div>
-
-    <div class="ui-card flex flex-col md:flex-row md:items-center gap-4">
-      <div class="flex-1 min-w-0">
-        <p class="text-[20px] font-bold text-ink" x-text="(jadwalOfferings || []).length">-</p>
-        <p class="text-[12px] text-muted">Mata Kuliah Kurikulum</p>
+    <!-- Alert Banner: Belum Ada Mata Kuliah (Kurikulum Kosong) -->
+    <div x-show="!jadwalLoading && !jadwalError && (jadwalOfferings || []).length === 0" class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3" role="alert">
+      <div class="flex items-center gap-2">
+        <svg class="w-[18px] h-[18px] shrink-0 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p class="flex-1" x-text="isJadwalDraft() ? 'Semester draf ini belum memiliki mata kuliah. Tambahkan mata kuliah dari Master Data atau impor berkas JSON untuk mulai menyusun sesi.' : 'Semester aktif ini belum memiliki mata kuliah. Penambahan mata kuliah hanya dapat dilakukan saat semester berstatus DRAFT.'"></p>
       </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[20px] font-bold text-primary" x-text="(jadwalPatterns || []).length">-</p>
-        <p class="text-[12px] text-muted">Sesi Kuliah Mingguan</p>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[16px] font-bold text-ink" x-text="jadwalRuanganUnik().length + ' Ruangan'">-</p>
-        <p class="text-[12px] text-muted truncate" x-text="jadwalRuanganUnik().join(', ') || 'Belum ada ruangan'">-</p>
-      </div>
-      <div class="flex-1 min-w-0">
-        <span class="ui-badge" :class="jadwalKesiapan().tone === 'ok' ? 'ui-badge--success' : 'bg-warning-soft text-amber-900'">
-          <span class="material-symbols-outlined text-[16px]" aria-hidden="true" x-text="jadwalKesiapan().tone === 'ok' ? 'check_circle' : 'warning'">-</span>
-          <span x-text="jadwalKesiapan().text">-</span>
-        </span>
-        <p x-show="isJadwalDraft()" class="text-[12px] text-muted mt-1">DRAFT: ubah/hapus langsung tanpa siaran.</p>
+      <div class="flex items-center gap-2 shrink-0">
+        <button x-show="isJadwalDraft()" type="button" @click="bukaTambahOffering(jadwalSemester)" class="box-border w-fit shrink-0 h-[36px] px-3.5 flex items-center justify-center bg-[#3965FB] hover:bg-blue-600 rounded-[8px] text-[12px] font-bold text-white shadow-sm whitespace-nowrap transition-colors">
+          + Tambah Matkul Master
+        </button>
+        <button type="button" @click="kembaliKeDetail()" class="box-border w-fit shrink-0 h-[36px] px-3.5 flex items-center justify-center bg-white border border-amber-300 rounded-[8px] text-[12px] font-semibold text-amber-900 hover:bg-amber-100/50 whitespace-nowrap transition-colors">
+          Kelola Semester
+        </button>
       </div>
     </div>
 
-    <div class="flex flex-col md:flex-row gap-3 md:items-center justify-between">
-      <div class="flex items-center gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter hari">
-        <button type="button" role="tab" :aria-selected="jadwalHari === 0" @click="jadwalHari = 0" class="ui-button min-h-[44px] px-3 rounded-xl border text-[12px] font-semibold whitespace-nowrap" :class="jadwalHari === 0 ? 'ui-button--primary' : 'ui-button--secondary'">Semua Hari (<span x-text="(jadwalPatterns || []).length">-</span>)</button>
+    <!-- Alert Banner: Error Backend -->
+    <div x-show="jadwalError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between gap-3" role="alert">
+      <div class="flex items-center gap-2">
+        <svg class="w-[18px] h-[18px] shrink-0 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span x-text="jadwalError">-</span>
+      </div>
+      <button type="button" @click="muatJadwal(jadwalSemesterId)" class="underline font-semibold ml-2 min-h-[36px] hover:text-red-900 transition-colors">Coba Lagi</button>
+    </div>
+
+    <!-- Ringkasan Data Jadwal / Checklist Kesiapan Aktivasi (4 Kolom Card) -->
+    <div class="box-border w-full shrink-0 shadow-sm flex flex-col md:flex-row md:items-center justify-between p-4 md:p-[16px_20px] bg-white border border-[#EEEEEE] rounded-[16px] gap-4 md:gap-0">
+      <!-- 1. Matkul Kurikulum -->
+      <div class="flex-1 min-w-0 md:pr-4 group cursor-pointer" @click="bukaDaftarOffering()" title="Klik untuk mengelola & melihat rincian mata kuliah semester ini">
+        <div class="flex items-center justify-between">
+          <p class="text-[20px] font-bold text-[#1D1B3A] group-hover:text-[#3965FB] transition-colors" x-text="(jadwalOfferings || []).length">-</p>
+          <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#3965FB] bg-[#EEF2FF] group-hover:bg-[#DFE4FF] px-2 py-0.5 rounded-[6px] transition-colors">
+            <span>Kelola</span>
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+        <p class="text-[12px] text-[#667085] mt-0.5 group-hover:text-[#1D1B3A] transition-colors">Matkul Kurikulum</p>
+      </div>
+
+      <div class="hidden md:block w-[1px] h-[40px] bg-[#EEEEEE] shrink-0"></div>
+
+      <!-- 2. Sesi Kuliah Mingguan -->
+      <div class="flex-1 min-w-0 md:px-6">
+        <p class="text-[20px] font-bold text-[#3965FB]" x-text="(jadwalPatterns || []).length">-</p>
+        <p class="text-[12px] text-[#667085] mt-0.5">Sesi Kuliah Mingguan</p>
+      </div>
+
+      <div class="hidden md:block w-[1px] h-[40px] bg-[#EEEEEE] shrink-0"></div>
+
+      <!-- 3. Ruangan Digunakan -->
+      <div class="flex-1 min-w-0 md:px-6">
+        <p class="text-[16px] font-bold text-[#1D1B3A]" x-text="jadwalRuanganUnik().length > 0 ? (jadwalRuanganUnik().length + ' Ruangan') : '0 Ruangan'">-</p>
+        <p class="text-[12px] text-[#667085] mt-0.5 truncate" :title="jadwalRuanganUnik().join(', ') || 'Belum ada ruangan'" x-text="jadwalRuanganUnik().join(', ') || 'Belum ada ruangan'">-</p>
+      </div>
+
+      <div class="hidden md:block w-[1px] h-[40px] bg-[#EEEEEE] shrink-0"></div>
+
+      <!-- 4. Kesiapan Aktivasi / Bentrok -->
+      <div class="flex-1 min-w-0 md:pl-6 flex flex-col justify-center">
+        <div>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold"
+            :class="jadwalKesiapan().tone === 'ok' ? 'bg-[#DCFCE7] text-[#16A34A]' : 'bg-[#FEF3C7] text-[#92400E]'"
+            :title="jadwalKesiapan().detail || 'Tidak ada bentrok'">
+            <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" x-show="jadwalKesiapan().tone === 'ok'"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" x-show="jadwalKesiapan().tone !== 'ok'"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span x-text="jadwalKesiapan().text">-</span>
+          </span>
+        </div>
+        <p x-show="jadwalKesiapan().detail" class="text-[11px] text-[#92400E] font-medium mt-1 truncate capitalize" :title="jadwalKesiapan().detail" x-text="'• ' + jadwalKesiapan().detail"></p>
+        <p x-show="!jadwalKesiapan().detail && isJadwalDraft()" class="text-[11px] text-[#667085] mt-1">DRAFT: ubah &amp; hapus langsung tanpa siaran.</p>
+      </div>
+    </div>
+
+    <!-- Toolbar: Filter Hari & Pencarian / Tambah Sesi -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+      <!-- Tabs Filter Hari -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Filter hari">
+        <button type="button" role="tab" :aria-selected="jadwalHari === 0" @click="jadwalHari = 0"
+          class="box-border w-fit shrink-0 h-[36px] px-3.5 flex flex-row items-center justify-center rounded-[10px] text-[12px] font-semibold whitespace-nowrap transition-colors"
+          :class="jadwalHari === 0 ? 'bg-[#3965FB] text-white shadow-sm' : 'bg-white text-[#667085] hover:text-[#1D1B3A] border border-[#E2E8F0] hover:bg-slate-50'">
+          Semua Hari (<span x-text="(jadwalPatterns || []).length">-</span>)
+        </button>
         <template x-for="d in [1,2,3,4,5]" :key="d">
-          <button type="button" role="tab" :aria-selected="jadwalHari === d" @click="jadwalHari = (jadwalHari === d ? 0 : d)" class="ui-button min-h-[44px] px-3 rounded-xl border text-[12px] font-semibold whitespace-nowrap" :class="jadwalHari === d ? 'ui-button--primary' : 'ui-button--secondary'" x-text="jadwalHariNama(d) + ' (' + jadwalCountHari(d) + ')'">-</button>
+          <button type="button" role="tab" :aria-selected="jadwalHari === d" @click="jadwalHari = (jadwalHari === d ? 0 : d)"
+            class="box-border w-fit shrink-0 h-[36px] px-3.5 flex flex-row items-center justify-center rounded-[10px] text-[12px] font-semibold whitespace-nowrap transition-colors"
+            :class="jadwalHari === d ? 'bg-[#3965FB] text-white shadow-sm' : 'bg-white text-[#667085] hover:text-[#1D1B3A] border border-[#E2E8F0] hover:bg-slate-50'"
+            x-text="jadwalHariNama(d) + ' (' + jadwalCountHari(d) + ')'">
+            -
+          </button>
         </template>
       </div>
-      <div class="w-full md:w-[260px]">
-        <label class="sr-only" for="sa-jadwal-q">Cari matkul, dosen, ruangan</label>
-        <input id="sa-jadwal-q" type="search" x-model="jadwalQ" placeholder="Cari matkul, dosen, ruangan..." class="ui-field text-[13px]" />
+
+      <!-- Right Toolbar Controls -->
+      <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+        <!-- Search Input -->
+        <div class="relative w-full sm:w-[220px] md:w-[260px] shrink-0">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#667085]">
+            <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input id="sa-jadwal-q" type="search" x-model="jadwalQ" placeholder="Cari matkul, dosen, ruangan..." class="w-full pl-9 pr-3 h-[36px] text-[12px] bg-white border border-[#E2E8F0] rounded-[10px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors" />
+        </div>
+
+        <!-- Tombol Tambah Sesi Perkuliahan (Primary Action) -->
+        <button x-show="isJadwalDraft()" type="button" @click="bukaTambahSesi()" :disabled="(jadwalOfferings || []).length === 0" :aria-disabled="(jadwalOfferings || []).length === 0"
+          class="box-border w-fit shrink-0 h-[36px] flex flex-row gap-[6px] px-3.5 justify-start items-center bg-[#3965FB] hover:bg-blue-600 text-white rounded-[10px] text-[12px] font-bold shadow-sm disabled:opacity-50 transition-colors whitespace-nowrap"
+          :title="(jadwalOfferings || []).length === 0 ? 'Tambahkan mata kuliah terlebih dahulu' : ''">
+          <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Tambah Sesi</span>
+        </button>
       </div>
     </div>
 
-    <div x-show="!jadwalError && jadwalFiltered().length === 0" class="ui-empty p-8 rounded-xl border border-dashed border-border text-center">
-      <p class="text-[15px] font-semibold text-ink" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Belum bisa tambah sesi' : 'Belum ada sesi perkuliahan') : 'Tidak ada hasil pencarian'">-</p>
-      <p class="text-[13px] text-muted mt-1" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Semester ini belum punya mata kuliah. Kelola semester untuk impor kurikulum dulu.' : 'Tambahkan sesi pertama untuk semester ini.') : 'Coba kata kunci atau hari lain.'">-</p>
-      <button x-show="(jadwalPatterns || []).length === 0 && (jadwalOfferings || []).length > 0" type="button" @click="bukaTambahSesi()" class="ui-button ui-button--primary mt-3 text-[13px]">Tambah Sesi Perkuliahan</button>
+    <!-- Empty State: Belum ada jadwal atau Pencarian Kosong -->
+    <div x-show="!jadwalError && jadwalFiltered().length === 0" class="p-8 rounded-[16px] border border-dashed border-[#CBD5E1] bg-white text-center">
+      <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <p class="text-[15px] font-bold text-[#1D1B3A]" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Belum ada mata kuliah' : 'Belum ada sesi perkuliahan') : 'Tidak ada hasil pencarian'">-</p>
+      <p class="text-[13px] text-[#667085] mt-1 max-w-md mx-auto" x-text="(jadwalPatterns || []).length === 0 ? ((jadwalOfferings || []).length === 0 ? 'Semester ini belum memiliki mata kuliah. Tambahkan mata kuliah dari Master Data terlebih dahulu agar dapat membuat sesi perkuliahan.' : 'Tambahkan sesi perkuliahan pertama untuk melengkapi jadwal semester ini.') : 'Coba gunakan kata kunci pencarian lain atau pilih tab hari yang berbeda.'">-</p>
+      <div class="mt-4 flex items-center justify-center gap-2.5 flex-wrap">
+        <button x-show="isJadwalDraft() && (jadwalPatterns || []).length === 0 && (jadwalOfferings || []).length === 0" type="button" @click="bukaTambahOffering(jadwalSemester)" class="box-border inline-flex h-[38px] px-4 items-center justify-center bg-[#3965FB] hover:bg-blue-600 text-white rounded-[10px] text-[12px] font-bold shadow-sm transition-colors">
+          + Tambah Matkul Master
+        </button>
+        <button x-show="!isJadwalDraft() && (jadwalOfferings || []).length === 0" type="button" @click="kembaliKeDetail()" class="box-border inline-flex h-[38px] px-4 items-center justify-center bg-white border border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50 rounded-[10px] text-[12px] font-semibold transition-colors">
+          Kembali ke Kelola Semester
+        </button>
+        <button x-show="(jadwalPatterns || []).length === 0 && (jadwalOfferings || []).length > 0" type="button" @click="bukaTambahSesi()" class="box-border inline-flex h-[38px] px-4 items-center justify-center bg-[#3965FB] hover:bg-blue-600 text-white rounded-[10px] text-[12px] font-bold shadow-sm transition-colors">
+          Tambah Sesi Perkuliahan
+        </button>
+      </div>
     </div>
 
+    <!-- Day Group Cards -->
     <template x-for="g in jadwalHariList()" :key="g.day">
-      <div class="ui-card">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">calendar_month</span>
-          <h2 class="text-[16px] font-bold text-ink" x-text="g.nama">-</h2>
-          <span class="ui-badge" x-text="g.rows.length + ' Sesi Perkuliahan'">-</span>
+      <div class="box-border w-full h-fit shrink-0 shadow-sm flex flex-col p-5 bg-white border border-[#EEEEEE] rounded-[16px]">
+        <!-- Header Hari -->
+        <div class="flex items-center gap-2.5 flex-wrap pb-3 border-b border-[#F1F5F9]">
+          <svg class="w-[18px] h-[18px] shrink-0 text-[#3965FB]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <h2 class="font-[Poppins,system-ui,sans-serif] text-[16px] font-bold text-[#1D1B3A]" x-text="g.nama">-</h2>
+          <span class="box-border w-fit shrink-0 h-fit px-2.5 py-0.5 rounded-[6px] bg-[#F1F5F9] text-[11px] font-medium text-[#667085]" x-text="g.rows.length + ' Sesi Perkuliahan'">-</span>
         </div>
-        <div class="mt-2 divide-y divide-border">
+
+        <!-- Session Rows -->
+        <div class="divide-y divide-[#F1F5F9]">
           <template x-for="r in g.rows" :key="r.id">
-            <div class="py-3 flex flex-col md:flex-row md:items-center gap-2">
-              <p class="font-jbmono text-[13px] font-bold text-primary w-full md:w-[175px] shrink-0" x-text="r.start + ' - ' + r.end + ' WIB'">-</p>
-              <span class="ui-badge w-fit" :class="r.activity === 'PRAKTIKUM' || r.activity === 'PRAKTIK' ? 'bg-warning-soft text-amber-900' : 'ui-badge--primary'" x-text="r.activity || 'TEORI'">-</span>
-              <div class="flex-1 min-w-0">
-                <p class="text-[15px] font-bold text-ink leading-snug" x-text="r.offering">-</p>
-                <p class="text-[12px] text-muted truncate" x-text="(r.dosen ? r.dosen + ' • ' : '') + (r.room || 'Tanpa ruangan')">-</p>
+            <div class="py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+              <!-- Waktu Pelaksanaan -->
+              <p class="font-mono text-[13px] font-bold text-[#3965FB] w-full sm:w-[175px] shrink-0" x-text="r.start + ' - ' + r.end + ' WIB'">-</p>
+
+              <!-- Jenis Sesi Tag -->
+              <div class="w-[92px] shrink-0">
+                <span class="inline-flex px-2 py-0.5 rounded-[6px] text-[10px] font-bold uppercase tracking-wider"
+                  :class="r.activity === 'PRAKTIKUM' || r.activity === 'PRAKTIK' ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#EFF6FF] text-[#3965FB]'"
+                  x-text="r.activity || 'TEORI'">
+                  -
+                </span>
               </div>
-              <div class="flex gap-2 shrink-0">
-                <button type="button" @click="bukaUbahSesi(r)" class="ui-button ui-button--secondary h-11 px-4 text-[12px]">Ubah</button>
-                <button type="button" @click="mintaHapusSesi(r)" class="ui-button ui-button--danger h-11 px-4 text-[12px]">Hapus</button>
+
+              <!-- Detail Mata Kuliah & Dosen / Ruangan -->
+              <div class="flex-1 min-w-0">
+                <p class="text-[15px] font-bold text-[#1D1B3A] leading-snug truncate" x-text="r.offering">-</p>
+                <p class="text-[12px] text-[#667085] mt-0.5 truncate" x-text="(r.dosen ? r.dosen + ' • ' : '') + (r.room || 'Tanpa ruangan')">-</p>
+              </div>
+
+              <!-- Tombol Aksi (Ubah & Hapus) -->
+              <div class="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                <button type="button" @click="bukaUbahSesi(r)" class="box-border w-fit shrink-0 h-[32px] px-3 flex flex-row items-center justify-center bg-white border border-[#CBD5E1] rounded-[8px] text-[11px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+                  Ubah
+                </button>
+                <button type="button" @click="mintaHapusSesi(r)" class="box-border w-fit shrink-0 h-[32px] px-3 flex flex-row items-center justify-center bg-white border border-[#FECACA] rounded-[8px] text-[11px] font-medium text-[#B91C1C] hover:bg-red-50 transition-colors">
+                  Hapus
+                </button>
               </div>
             </div>
           </template>
@@ -112,87 +247,440 @@
     </template>
   </div>
 
-  <!-- Modal tambah/ubah sesi -->
+  <!-- Modal Tambah / Ubah Sesi Perkuliahan -->
   <div x-show="jadwalModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Form sesi perkuliahan">
-    <div class="absolute inset-0 bg-black/50" @click="if (!jadwalFormSaving) jadwalModal = false" aria-hidden="true"></div>
-    <div class="relative w-full max-w-[540px] max-h-[90vh] overflow-y-auto bg-white rounded-2xl border border-border p-6 shadow-2xl" @click.stop>
-      <h3 class="text-[16px] font-bold text-ink" x-text="jadwalForm.id ? 'Ubah Sesi Perkuliahan' : 'Tambah Sesi Perkuliahan'">-</h3>
-      <p class="text-[12px] text-muted mt-1" x-text="isJadwalDraft() ? 'DRAFT: berlaku sejak tanggal mulai semester, tanpa alasan, tanpa siaran.' : 'ACTIVE: perubahan permanen butuh tanggal berlaku dan alasan, disiarkan WhatsApp.'">-</p>
-      <div x-show="jadwalFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="jadwalFormError" role="alert">-</div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="if (!jadwalFormSaving) jadwalModal = false" aria-hidden="true"></div>
+    <div class="relative w-full max-w-[540px] max-h-[90vh] overflow-y-auto bg-white rounded-[16px] border border-[#E2E8F0] p-6 shadow-2xl" @click.stop>
+      <div class="flex items-center justify-between border-b border-[#F1F5F9] pb-3 mb-4">
+        <div>
+          <h3 class="font-[Poppins,system-ui,sans-serif] text-[16px] font-bold text-[#1D1B3A]" x-text="jadwalForm.id ? 'Ubah Sesi Perkuliahan' : 'Tambah Sesi Perkuliahan'">-</h3>
+          <p class="text-[12px] text-[#667085] mt-0.5" x-text="isJadwalDraft() ? 'DRAFT: berlaku sejak tanggal mulai semester, tanpa alasan, tanpa siaran.' : 'ACTIVE: perubahan permanen butuh tanggal berlaku dan alasan, disiarkan WhatsApp.'">-</p>
+        </div>
+        <button type="button" @click="if (!jadwalFormSaving) jadwalModal = false" class="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition-colors" aria-label="Tutup modal">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div x-show="jadwalFormError" class="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2" role="alert">
+        <svg class="w-[16px] h-[16px] shrink-0 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span x-text="jadwalFormError">-</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Pilihan Mata Kuliah (hanya saat tambah baru) -->
         <div class="sm:col-span-2" x-show="!jadwalForm.id">
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-offering">Mata kuliah <span class="text-red-600">*</span></label>
-          <select id="sa-jadwal-offering" x-model="jadwalForm.offeringId" class="ui-field text-[14px]">
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-offering">Mata kuliah <span class="text-red-500">*</span></label>
+          <select id="sa-jadwal-offering" x-model="jadwalForm.offeringId" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]">
             <option value="">-- Pilih mata kuliah --</option>
-            <template x-for="o in (jadwalOfferings || [])" :key="o.id"><option :value="o.id" x-text="(o.display_name || o.course_code) + (o.activity_type ? ' · ' + o.activity_type : '')">-</option></template>
+            <template x-for="o in (jadwalOfferings || [])" :key="o.id">
+              <option :value="o.id" x-text="(o.display_name || o.course_code) + (o.activity_type ? ' · ' + o.activity_type : '')">-</option>
+            </template>
           </select>
         </div>
+
+        <!-- Hari Pelaksanaan -->
         <div>
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-day">Hari <span class="text-red-600">*</span></label>
-          <select id="sa-jadwal-day" x-model="jadwalForm.day" class="ui-field text-[14px]">
-            <option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option><option value="7">Minggu</option>
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-day">Hari <span class="text-red-500">*</span></label>
+          <select id="sa-jadwal-day" x-model="jadwalForm.day" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]">
+            <option value="1">Senin</option>
+            <option value="2">Selasa</option>
+            <option value="3">Rabu</option>
+            <option value="4">Kamis</option>
+            <option value="5">Jumat</option>
+            <option value="6">Sabtu</option>
+            <option value="7">Minggu</option>
           </select>
         </div>
+
+        <!-- Ruangan -->
         <div>
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-room">Ruangan</label>
-          <select id="sa-jadwal-room" x-model="jadwalForm.roomId" class="ui-field text-[14px]">
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-room">Ruangan</label>
+          <select id="sa-jadwal-room" x-model="jadwalForm.roomId" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]">
             <option value="">Tanpa ruangan khusus</option>
-            <template x-for="r in (ruangList || [])" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
+            <template x-for="r in (ruangList || [])" :key="r.id">
+              <option :value="r.id" x-text="r.code">-</option>
+            </template>
           </select>
         </div>
+
+        <!-- Jam Mulai -->
         <div>
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-start">Jam mulai <span class="text-red-600">*</span></label>
-          <input id="sa-jadwal-start" type="time" x-model="jadwalForm.start" @change="hitungJadwalAkhir()" class="ui-field font-jbmono text-[14px]" />
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-start">Jam mulai <span class="text-red-500">*</span></label>
+          <input id="sa-jadwal-start" type="time" x-model="jadwalForm.start" @change="hitungJadwalAkhir()" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white font-mono text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
         </div>
+
+        <!-- Durasi Menit (hanya tambah baru) -->
         <div x-show="!jadwalForm.id">
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-dur">Durasi (menit) <span class="text-red-600">*</span></label>
-          <input id="sa-jadwal-dur" type="number" min="1" max="1439" x-model.number="jadwalForm.duration" @input="hitungJadwalAkhir()" class="ui-field text-[14px]" />
-          <p x-show="jadwalForm.end" class="text-[12px] text-muted mt-1" x-text="'Selesai ' + jadwalForm.end">-</p>
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-dur">Durasi (menit) <span class="text-red-500">*</span></label>
+          <input id="sa-jadwal-dur" type="number" min="1" max="1439" x-model.number="jadwalForm.duration" @input="hitungJadwalAkhir()" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
+          <p x-show="jadwalForm.end" class="text-[11px] text-[#667085] mt-1" x-text="'Selesai: ' + jadwalForm.end + ' WIB'">-</p>
         </div>
+
+        <!-- Jam Selesai (saat ubah sesi) -->
         <div x-show="jadwalForm.id">
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-end">Jam selesai <span class="text-red-600">*</span></label>
-          <input id="sa-jadwal-end" type="time" x-model="jadwalForm.end" class="ui-field font-jbmono text-[14px]" />
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-end">Jam selesai <span class="text-red-500">*</span></label>
+          <input id="sa-jadwal-end" type="time" x-model="jadwalForm.end" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white font-mono text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
         </div>
+
+        <!-- Tautan Pertemuan Daring -->
         <div class="sm:col-span-2">
-          <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-link">Tautan kelas daring (opsional)</label>
-          <input id="sa-jadwal-link" type="url" x-model="jadwalForm.link" placeholder="https://..." class="ui-field text-[14px]" />
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-link">Tautan kelas daring (opsional)</label>
+          <input id="sa-jadwal-link" type="url" x-model="jadwalForm.link" placeholder="https://..." class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
         </div>
+
+        <!-- Field Khusus Semester ACTIVE saat ubah sesi -->
         <template x-if="jadwalForm.id && !isJadwalDraft()">
-          <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F1F5F9]">
             <div>
-              <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-eff">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
-              <input id="sa-jadwal-eff" type="date" x-model="jadwalForm.effectiveDate" class="ui-field text-[14px]" />
+              <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-eff">Tanggal mulai berlaku <span class="text-red-500">*</span></label>
+              <input id="sa-jadwal-eff" type="date" x-model="jadwalForm.effectiveDate" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
             </div>
             <div>
-              <label class="block text-[13px] font-medium mb-1" for="sa-jadwal-reason">Alasan <span class="text-red-600">*</span></label>
-              <input id="sa-jadwal-reason" type="text" x-model="jadwalForm.reason" placeholder="Min 5 karakter" class="ui-field text-[14px]" />
+              <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1" for="sa-jadwal-reason">Alasan perubahan <span class="text-red-500">*</span></label>
+              <input id="sa-jadwal-reason" type="text" x-model="jadwalForm.reason" placeholder="Min 5 karakter" class="w-full h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
             </div>
           </div>
         </template>
       </div>
-      <div x-show="jadwalPreview" class="mt-4 p-3 rounded-xl bg-slate-50 border border-border text-[13px]">
-        <p class="font-semibold">Pratinjau</p>
-        <p x-text="jadwalPreview ? (jadwalPreview.day_of_week ? jadwalHariNama(jadwalPreview.day_of_week) + ' · ' + jadwalPreview.start_time + '–' + jadwalPreview.end_time : '') : ''">-</p>
-        <p x-show="jadwalPreview && jadwalPreview.can_publish === false" class="text-red-700 mt-1">Ada konflik yang menghalangi penyimpanan.</p>
+
+      <!-- Pratinjau Deteksi Bentrok Jadwal -->
+      <div x-show="jadwalPreview" class="mt-4 p-3 rounded-xl bg-slate-50 border border-[#E2E8F0] text-[13px]">
+        <p class="font-bold text-[#1D1B3A]">Pratinjau Jadwal:</p>
+        <p class="text-[#667085] mt-0.5" x-text="jadwalPreview ? (jadwalPreview.day_of_week ? jadwalHariNama(jadwalPreview.day_of_week) + ' · ' + jadwalPreview.start_time + '–' + jadwalPreview.end_time + ' WIB' : '') : ''">-</p>
+        <p x-show="jadwalPreview && jadwalPreview.can_publish === false" class="text-red-700 font-semibold mt-1">Ada konflik / bentrok ruangan atau jam yang menghalangi penyimpanan.</p>
       </div>
-      <div class="flex gap-2.5 mt-5">
-        <button type="button" @click="pratinjauJadwal()" :disabled="jadwalPreviewLoading" class="ui-button ui-button--secondary flex-1" x-text="jadwalPreviewLoading ? 'Meninjau...' : 'Pratinjau'">-</button>
-        <button type="button" @click="simpanJadwal()" :disabled="jadwalFormSaving || !jadwalPreview || jadwalPreview.can_publish === false" class="ui-button ui-button--primary flex-1" x-text="jadwalFormSaving ? 'Menyimpan...' : 'Simpan'">-</button>
-        <button type="button" @click="if (!jadwalFormSaving) jadwalModal = false" class="ui-button ui-button--secondary px-5">Batal</button>
+
+      <!-- Action Buttons Modal -->
+      <div class="flex gap-2.5 mt-6 pt-4 border-t border-[#F1F5F9]">
+        <button type="button" @click="pratinjauJadwal()" :disabled="jadwalPreviewLoading" class="box-border flex-1 h-[38px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[12px] font-semibold text-[#1D1B3A] hover:bg-slate-50 disabled:opacity-50 transition-colors" x-text="jadwalPreviewLoading ? 'Meninjau...' : 'Pratinjau'">
+          Pratinjau
+        </button>
+        <button type="button" @click="simpanJadwal()" :disabled="jadwalFormSaving || !jadwalPreview || jadwalPreview.can_publish === false" class="box-border flex-1 h-[38px] px-3 rounded-[8px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-bold shadow-sm disabled:opacity-50 transition-colors" x-text="jadwalFormSaving ? 'Menyimpan...' : 'Simpan'">
+          Simpan
+        </button>
+        <button type="button" @click="if (!jadwalFormSaving) jadwalModal = false" class="box-border h-[38px] px-4 rounded-[8px] border border-[#CBD5E1] bg-white text-[12px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+          Batal
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Konfirmasi hapus -->
+  <!-- Modal Konfirmasi Hapus Sesi Perkuliahan -->
   <div x-show="jadwalHapus" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Konfirmasi hapus sesi">
-    <div class="absolute inset-0 bg-black/50" @click="jadwalHapus = null" aria-hidden="true"></div>
-    <div class="relative w-full max-w-md bg-white rounded-2xl border border-border p-6 shadow-2xl">
-      <h3 class="text-[16px] font-bold text-ink">Hapus sesi?</h3>
-      <p class="text-[13px] text-muted mt-1" x-text="(jadwalHapus ? jadwalHapus.nama : '') + (isJadwalDraft() ? ' — baris dihapus sungguhan.' : ' — tidak aktif mulai hari ini, riwayat tersimpan.')">-</p>
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="jadwalHapus = null" aria-hidden="true"></div>
+    <div class="relative w-full max-w-md bg-white rounded-[16px] border border-[#E2E8F0] p-6 shadow-2xl" @click.stop>
+      <div class="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      </div>
+      <h3 class="font-[Poppins,system-ui,sans-serif] text-[16px] font-bold text-[#1D1B3A]">Hapus Sesi Perkuliahan?</h3>
+      <p class="text-[13px] text-[#667085] mt-1.5 leading-relaxed" x-text="(jadwalHapus ? jadwalHapus.nama : '') + (isJadwalDraft() ? ' — sesi akan langsung dihapus dari acuan semester draf ini.' : ' — sesi tidak lagi aktif mulai hari ini, riwayat historis tetap tersimpan.')">-</p>
       <p x-show="jadwalHapusError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="jadwalHapusError" role="alert">-</p>
-      <div class="flex gap-2.5 mt-5">
-        <button type="button" @click="jalankanHapusSesi()" class="ui-button ui-button--danger flex-1">Hapus</button>
-        <button type="button" @click="jadwalHapus = null" class="ui-button ui-button--secondary px-5">Batal</button>
+      <div class="flex gap-2.5 mt-6">
+        <button type="button" @click="jalankanHapusSesi()" class="box-border flex-1 h-[38px] px-3 rounded-[8px] bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold shadow-sm transition-colors">
+          Hapus Sesi
+        </button>
+        <button type="button" @click="jadwalHapus = null" class="box-border h-[38px] px-4 rounded-[8px] border border-[#CBD5E1] bg-white text-[12px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+          Batal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tambah Mata Kuliah ke Semester dari Master Data -->
+  <div x-show="modalTambahOffering" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50" @click="if (!offeringFormSaving) modalTambahOffering = false"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-[16px] border border-[#CBD5E1] p-6 shadow-2xl flex flex-col gap-4" @click.stop role="dialog" aria-modal="true" aria-label="Tambah Mata Kuliah ke Semester">
+      <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
+        <div>
+          <h3 class="text-[17px] font-bold text-[#1D1B3A]">Tambah Mata Kuliah ke Semester</h3>
+          <p class="text-[12px] text-[#667085] mt-0.5">
+            Pilih langsung dari Master Data Mata Kuliah &amp; Dosen tanpa perlu berkas JSON.
+          </p>
+        </div>
+        <button type="button" @click="if (!offeringFormSaving) modalTambahOffering = false" class="p-1 rounded text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer" aria-label="Tutup modal">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-3.5">
+        <!-- 1. Pilih Mata Kuliah dari Master (dengan Pintasan Buat Baru) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[12px] font-semibold text-[#1D1B3A]">
+              Mata Kuliah (Master Data) <span class="text-red-500">*</span>
+            </label>
+            <button
+              type="button"
+              @click="offeringQuickMatkulOpen = !offeringQuickMatkulOpen; offeringQuickMatkulError = ''"
+              class="text-[11px] font-semibold text-[#3965FB] hover:underline cursor-pointer inline-flex items-center gap-1"
+            >
+              <span x-text="offeringQuickMatkulOpen ? 'Batal Buat Baru' : '+ Buat Matkul Baru'"></span>
+            </button>
+          </div>
+
+          <!-- Form Pintasan Buat Matkul Baru di Master -->
+          <div x-show="offeringQuickMatkulOpen" class="mb-2 p-3 bg-blue-50/60 border border-blue-200 rounded-[10px] flex flex-col gap-2">
+            <p class="text-[11px] text-[#3965FB] font-semibold">Pintasan: Daftarkan Mata Kuliah Baru ke Master Data</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input
+                type="text"
+                x-model="offeringQuickMatkul.kode"
+                placeholder="Kode (contoh: IF210)"
+                class="h-[34px] px-2.5 rounded-[6px] border border-blue-200 bg-white text-[12px] uppercase focus:outline-none focus:border-[#3965FB]"
+              />
+              <input
+                type="text"
+                x-model="offeringQuickMatkul.nama"
+                placeholder="Nama Mata Kuliah Lengkap"
+                class="sm:col-span-2 h-[34px] px-2.5 rounded-[6px] border border-blue-200 bg-white text-[12px] focus:outline-none focus:border-[#3965FB]"
+              />
+            </div>
+            <div x-show="offeringQuickMatkulError" class="text-[11px] text-red-600 font-medium" x-text="offeringQuickMatkulError"></div>
+            <div class="flex items-center justify-end gap-2 mt-0.5">
+              <button
+                type="button"
+                @click="simpanQuickMatkul()"
+                :disabled="offeringQuickMatkulSaving || !offeringQuickMatkul.kode || !offeringQuickMatkul.nama"
+                class="h-[30px] px-3 rounded-[6px] bg-[#3965FB] hover:bg-blue-600 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                <span x-text="offeringQuickMatkulSaving ? 'Menyimpan...' : 'Simpan ke Master & Pilih'"></span>
+              </button>
+            </div>
+          </div>
+
+          <select
+            x-model="offeringForm.course_code"
+            @change="onOfferingCourseSelect()"
+            class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+          >
+            <option value="">-- Pilih Mata Kuliah --</option>
+            <template x-for="m in matkulList" :key="m.code">
+              <option :value="m.code" x-text="m.code + ' · ' + m.name"></option>
+            </template>
+          </select>
+          <p x-show="!matkulList || matkulList.length === 0" class="text-[11px] text-amber-600 mt-1">
+            Master Data mata kuliah kosong. Anda dapat membuatnya langsung via tombol di atas.
+          </p>
+        </div>
+
+        <!-- 2. Jenis Aktivitas -->
+        <div>
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Jenis Aktivitas <span class="text-red-500">*</span>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+              :class="offeringForm.activity_type === 'TEORI' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+              <input type="radio" value="TEORI" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+              <span class="text-[12px]">Teori (Kelas)</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+              :class="offeringForm.activity_type === 'PRAKTIKUM' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+              <input type="radio" value="PRAKTIKUM" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+              <span class="text-[12px]">Praktikum (Lab)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. Nama Tampilan pada Jadwal -->
+        <div>
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Nama Tampilan pada Jadwal <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            x-model="offeringForm.display_name"
+            placeholder="Contoh: Pemrograman Web (Teori)"
+            class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+          />
+          <p class="text-[11px] text-[#667085] mt-1">Nama yang akan tampil pada kalender dan jadwal mahasiswa.</p>
+        </div>
+
+        <!-- 4. Dosen Pengampu (Opsional / Multiple) (dengan Pintasan Buat Baru) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[12px] font-semibold text-[#1D1B3A]">
+              Dosen Pengampu (Master Data)
+            </label>
+            <button
+              type="button"
+              @click="offeringQuickDosenOpen = !offeringQuickDosenOpen; offeringQuickDosenError = ''"
+              class="text-[11px] font-semibold text-[#3965FB] hover:underline cursor-pointer inline-flex items-center gap-1"
+            >
+              <span x-text="offeringQuickDosenOpen ? 'Batal Buat Baru' : '+ Buat Dosen Baru'"></span>
+            </button>
+          </div>
+
+          <!-- Form Pintasan Buat Dosen Baru di Master -->
+          <div x-show="offeringQuickDosenOpen" class="mb-2 p-3 bg-blue-50/60 border border-blue-200 rounded-[10px] flex flex-col gap-2">
+            <p class="text-[11px] text-[#3965FB] font-semibold">Pintasan: Daftarkan Dosen Baru ke Master Data</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input
+                type="text"
+                x-model="offeringQuickDosen.kode"
+                placeholder="Inisial/Kode (cth: AB)"
+                class="h-[34px] px-2.5 rounded-[6px] border border-blue-200 bg-white text-[12px] uppercase focus:outline-none focus:border-[#3965FB]"
+              />
+              <input
+                type="text"
+                x-model="offeringQuickDosen.nama"
+                placeholder="Nama Lengkap & Gelar Dosen"
+                class="sm:col-span-2 h-[34px] px-2.5 rounded-[6px] border border-blue-200 bg-white text-[12px] focus:outline-none focus:border-[#3965FB]"
+              />
+            </div>
+            <div x-show="offeringQuickDosenError" class="text-[11px] text-red-600 font-medium" x-text="offeringQuickDosenError"></div>
+            <div class="flex items-center justify-end gap-2 mt-0.5">
+              <button
+                type="button"
+                @click="simpanQuickDosen()"
+                :disabled="offeringQuickDosenSaving || !offeringQuickDosen.kode || !offeringQuickDosen.nama"
+                class="h-[30px] px-3 rounded-[6px] bg-[#3965FB] hover:bg-blue-600 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                <span x-text="offeringQuickDosenSaving ? 'Menyimpan...' : 'Simpan ke Master & Centang'"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="max-h-[140px] overflow-y-auto border border-[#CBD5E1] rounded-[8px] p-2 flex flex-col gap-1 bg-white">
+            <template x-for="d in dosenList" :key="d.code">
+              <label class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer text-[12px] text-[#1D1B3A]">
+                <input
+                  type="checkbox"
+                  :value="d.code"
+                  :checked="offeringForm.lecturer_codes.includes(d.code)"
+                  @change="toggleOfferingLecturer(d.code)"
+                  class="rounded text-[#3965FB] focus:ring-[#3965FB]"
+                />
+                <span class="font-mono text-[#667085]" x-text="d.code"></span>
+                <span class="truncate" x-text="d.name"></span>
+              </label>
+            </template>
+            <div x-show="!dosenList || dosenList.length === 0" class="text-[11px] text-slate-400 p-2 text-center">
+              Belum ada master dosen terdaftar.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="offeringFormError" class="p-2.5 rounded-[8px] bg-red-50 border border-red-200 text-red-700 text-[12px]" x-text="offeringFormError"></div>
+
+      <div class="flex gap-2.5 mt-2 pt-3 border-t border-[#F1F5F9]">
+        <button
+          type="button"
+          @click="simpanOffering()"
+          :disabled="offeringFormSaving || !offeringForm.course_code"
+          class="flex-1 h-[40px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[13px] font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+        >
+          <span x-show="!offeringFormSaving">Simpan Mata Kuliah</span>
+          <span x-show="offeringFormSaving">Menyimpan...</span>
+        </button>
+        <button
+          type="button"
+          @click="if (!offeringFormSaving) modalTambahOffering = false"
+          class="h-[40px] px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#475467] transition-colors cursor-pointer"
+        >
+          Batal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Daftar Mata Kuliah Semester -->
+  <div x-show="modalDaftarOffering" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50" @click="modalDaftarOffering = false"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-[16px] border border-[#CBD5E1] p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" @click.stop role="dialog" aria-modal="true" aria-label="Daftar Mata Kuliah Semester">
+      <!-- Header Modal -->
+      <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9] shrink-0">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-[17px] font-bold text-[#1D1B3A]">Mata Kuliah Semester</h3>
+            <span class="px-2.5 py-0.5 rounded-full bg-[#EEF2FF] text-[#3965FB] text-[11px] font-bold" x-text="(jadwalOfferings || []).length + ' Matkul'">0 Matkul</span>
+          </div>
+          <p class="text-[12px] text-[#667085] mt-0.5">
+            Mata kuliah terdaftar pada semester ini (hasil tambah manual maupun impor berkas).
+          </p>
+        </div>
+        <button type="button" @click="modalDaftarOffering = false" class="p-1 rounded text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer" aria-label="Tutup modal">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Body: List Offerings -->
+      <div class="flex-1 overflow-y-auto py-3 space-y-2.5">
+        <!-- Empty State jika belum ada matkul sama sekali -->
+        <div x-show="!jadwalOfferings || jadwalOfferings.length === 0" class="p-8 text-center border border-dashed border-[#CBD5E1] rounded-[12px] bg-slate-50">
+          <p class="text-[13px] font-semibold text-[#1D1B3A]">Belum ada mata kuliah terdaftar</p>
+          <p class="text-[12px] text-[#667085] mt-1">Tambahkan mata kuliah dari Master Data untuk mulai menyusun jadwal perkuliahan.</p>
+          <button type="button" @click="modalDaftarOffering = false; bukaTambahOffering(jadwalSemester)" class="mt-3 h-[36px] px-4 rounded-[8px] bg-[#3965FB] text-white text-[12px] font-bold inline-flex items-center gap-1.5 shadow-sm">
+            <span>+ Tambah Mata Kuliah</span>
+          </button>
+        </div>
+
+        <!-- Daftar Kartu Mata Kuliah -->
+        <template x-for="off in (jadwalOfferings || [])" :key="off.id">
+          <div class="p-3.5 rounded-[12px] border border-[#E2E8F0] bg-white hover:border-[#BFDBFE] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2 py-0.5 rounded-[6px] text-[10px] font-bold uppercase tracking-wider"
+                  :class="off.activity_type === 'PRAKTIKUM' || off.activity_type === 'PRAKTIK' ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#EEF2FF] text-[#3965FB]'"
+                  x-text="off.activity_type || 'TEORI'">
+                </span>
+                <span class="font-mono text-[11px] font-semibold text-[#667085]" x-text="off.course_code || '-'"></span>
+                <p class="text-[14px] font-bold text-[#1D1B3A] truncate" x-text="off.display_name || '-'"></p>
+              </div>
+
+              <!-- Dosen Pengampu & Status Sesi -->
+              <div class="mt-1 flex items-center gap-3 text-[11px] text-[#667085] flex-wrap">
+                <span class="truncate" :title="(off.lecturers || []).join(', ')" x-text="(off.lecturers && off.lecturers.length > 0) ? ('Dosen: ' + off.lecturers.join(', ')) : 'Dosen: Belum ditentukan'"></span>
+                <span>•</span>
+                <span :class="offeringPatternsCount(off.id) > 0 ? 'text-[#16A34A] font-semibold' : 'text-amber-700'"
+                  x-text="offeringPatternsCount(off.id) > 0 ? (offeringPatternsCount(off.id) + ' sesi perkuliahan aktif') : 'Belum ada sesi di jadwal'">
+                </span>
+              </div>
+            </div>
+
+            <!-- Tombol Aksi untuk Matkul ini (Khusus DRAFT) -->
+            <div class="shrink-0 flex items-center gap-2" x-show="isJadwalDraft()">
+              <button
+                type="button"
+                @click="modalDaftarOffering = false; bukaTambahSesi(); jadwalForm.offeringId = String(off.id)"
+                class="h-[32px] px-3 rounded-[8px] bg-[#EEF2FF] hover:bg-[#DFE4FF] text-[#3965FB] text-[11px] font-semibold transition-colors cursor-pointer"
+                title="Buat sesi jadwal untuk mata kuliah ini"
+              >
+                Buat Sesi
+              </button>
+              <button
+                type="button"
+                @click="hapusOffering(off)"
+                class="h-[32px] px-2.5 rounded-[8px] border border-red-200 text-red-600 hover:bg-red-50 text-[11px] font-semibold transition-colors cursor-pointer"
+                :title="offeringPatternsCount(off.id) > 0 ? 'Hapus semua sesi jadwal terlebih dahulu' : 'Hapus mata kuliah dari semester ini'"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Footer Modal -->
+      <div class="pt-3 border-t border-[#F1F5F9] flex items-center justify-between gap-3 shrink-0">
+        <button
+          type="button"
+          x-show="isJadwalDraft()"
+          @click="modalDaftarOffering = false; bukaTambahOffering(jadwalSemester)"
+          class="h-[38px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+        >
+          <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Tambah Matkul Baru</span>
+        </button>
+        <span x-show="!isJadwalDraft()"></span>
+        <button
+          type="button"
+          @click="modalDaftarOffering = false"
+          class="h-[38px] px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#475467] transition-colors cursor-pointer"
+        >
+          Tutup
+        </button>
       </div>
     </div>
   </div>
