@@ -67,6 +67,7 @@ nav button { min-height: 44px; }
 }
 
 .sidebar-section {
+  flex-shrink: 0;
   max-height: 160px;
   opacity: 1;
   transform: translateY(0) scale(1);
@@ -79,6 +80,8 @@ nav button { min-height: 44px; }
 }
 
 .sidebar-collapsed .sidebar-section {
+  flex-shrink: 0;
+  min-height: 0 !important;
   max-height: 0 !important;
   opacity: 0 !important;
   margin-top: 0 !important;

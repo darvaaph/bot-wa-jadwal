@@ -1,7 +1,7 @@
 <aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px]" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] shrink-0" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
         <div class="box-border w-[42px] h-[42px] shrink-0 flex flex-row justify-center items-center bg-[#3965FB] rounded-[12px]">
           <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
             <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
@@ -12,7 +12,7 @@
           <span class="block text-[11px] font-semibold text-[#667085] leading-tight">System Admin</span>
         </div>
       </button>
-      <div class="sidebar-section mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="sidebar-section shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -36,7 +36,7 @@
         </label>
         </template>
       </div>
-      <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px]">
+      <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
           <div class="contents">
             <p class="sidebar-section px-3 pt-4 pb-1 text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase" x-text="section.title"></p>
@@ -52,7 +52,7 @@
           </div>
         </template>
       </nav>
-      <div class="mt-auto pt-3 border-t border-[#EEEEEE]">
+      <div class="mt-auto pt-3 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
           <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0" :title="sidebarCollapsed ? shellIdentity().detail + ' (' + shellIdentity().sub + ')' : ''" aria-hidden="true" x-text="saInitials()"></div>
           <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
@@ -70,10 +70,10 @@
   </template>
   <template x-if="shellRoleKey !== 'sa'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-2'">
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-2'">
         <img src="/assets/icons/logo.svg" alt="Asterisk" :class="sidebarCollapsed ? 'h-8 w-8 object-left object-cover' : 'h-9 w-auto'" />
       </button>
-      <nav aria-label="Navigasi utama" class="mt-6 flex flex-col gap-1 text-[14px]">
+      <nav aria-label="Navigasi utama" class="mt-6 flex flex-col gap-1 text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
           <div class="contents">
             <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p>
@@ -86,7 +86,7 @@
           </div>
         </template>
       </nav>
-      <div class="mt-auto pt-4 px-2 border-t border-border">
+      <div class="mt-auto pt-4 px-2 border-t border-border shrink-0">
         <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-muted">Ruang kerja
           <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1 text-[12px]">
             <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
@@ -196,7 +196,7 @@
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -220,7 +220,7 @@
         </label>
         </template>
       </div>
-      <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px]">
+      <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
           <div class="contents">
             <p class="px-3 pt-4 pb-1 text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase" x-text="section.title"></p>
@@ -236,7 +236,7 @@
           </div>
         </template>
       </nav>
-      <div class="mt-auto pt-3 mt-6 border-t border-[#EEEEEE]">
+      <div class="mt-auto pt-3 mt-6 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center gap-[10px] p-[8px]">
           <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0" aria-hidden="true" x-text="saInitials()"></div>
           <div class="min-w-0 flex-1 flex flex-col gap-[2px]">

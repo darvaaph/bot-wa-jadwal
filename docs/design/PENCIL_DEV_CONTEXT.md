@@ -1,4 +1,4 @@
-﻿# PENCIL.DEV DESIGN SYSTEM BLUEPRINT & CONTEXT
+# PENCIL.DEV DESIGN SYSTEM BLUEPRINT & CONTEXT
 > **Panduan Konteks & Spesifikasi Desain untuk Pencil.dev (Redesign Bot Jadwal v2.0)**  
 > *Gunakan dokumen ini sebagai Master Context Prompt di Pencil.dev agar desain baru konsisten, rapi, tetap mempertahankan identitas warna asli, dan bebas halusinasi fitur.*
 
@@ -264,29 +264,141 @@ Pencil.dev harus merancang layar-layar berikut tanpa menambah atau menguranginya
    - **Grid Bawah (2 Kolom)**:
      - Kiri (60%): Master Data Berkas Jadwal (41 mata kuliah, 18 ruangan kampus, 47 dosen pengampu, badge Siap Disinkronkan).
      - Kanan (40%): Perlu Tindakan (Badge 2 Item: Pesan gagal dikirim & Cadangan berkala).
-2. **SCR-ADM-002: Master Mata Kuliah (Updated Pattern)**
-   - Header: Count badge, Tombol `[ ðŸ”„ Sinkron Semua Master (106) ]`, `[ â˜ï¸ Impor / Sinkron Matkul ]`, `[ + Tambah Mata Kuliah ]`.
-   - Pencarian kode/nama matkul, filter status (Aktif/Nonaktif).
-   - Tabel Desktop: Kolom Kode (font mono), Nama Mata Kuliah, Status Pill, Aksi (Ubah, Nonaktifkan).
-   - Mobile View: Kartu ringkas dengan target sentuh 44px.
-   - **Modal Impor**: Tab 1 (1-Click Sync dari 19 berkas jadwal kurikulum POLBAN - 41 matkul), Tab 2 (Impor CSV/Teks Bebas).
-3. **SCR-ADM-003: Master Ruangan (Updated Pattern)**
-   - Header: Count badge, Tombol `[ ðŸ”„ Sinkron Semua Master (106) ]`, `[ â˜ï¸ Impor / Sinkron Ruangan ]`, `[ + Tambah Ruangan ]`.
-   - Kolom: Kode (misal `D102-Lab. MT`), Nama Ruangan, Gedung (`Gedung D`), Tipe (`Laboratorium` / `Ruang Kuliah`), Kapasitas, Status, Aksi.
-   - Modal Impor: 1-Click Sync 18 Ruangan Kampus.
-4. **SCR-ADM-004: Master Dosen (Halaman Master Dosen Pengampu) - [100% AUDITED & APPROVED]**
-   - **Header**: Judul "Master Dosen", deskripsi fungsional, tombol aksi kanan: `[ ðŸ”„ Impor / Sinkron ]`, `[ + Tambah dosen ]`.
-   - **Filter & Search Bar**: Search input berikon kaca pembesar (`Cari nama atau kode dosen...`), filter dropdown status (`Semua status`, `Aktif`, `Nonaktif`).
-   - **Tabel Desktop**: 
-     - Kolom 1: Kode Inisial Dosen (font mono, tebal, misal: `AD`, `BW`, `HA`, `PH`).
-     - Kolom 2: Nama Lengkap & Gelar Akademik (misal: `Dr. Ade Chandra Nugraha, S.Si., M.T.`).
-     - Kolom 3: Status Badge Pill (Hijau muda `Aktif` atau Abu-abu `Nonaktif`).
-     - Kolom 4: Aksi (Tombol `Â·Â·Â·` ghost button).
-   - **Tampilan State**: Lengkap dengan Empty State, Loading State, Error State (dengan tombol Coba lagi), dan Filled State (badge 47 dosen terdaftar & pagination 1-5).
-   - **Modal Tambah Dosen**: Input Kode / Inisial Dosen (wajib, uppercase 2-4 huruf), Input Nama Lengkap & Gelar (wajib), toggle switch Aktifkan dosen.
-   - **Modal Impor / Sinkron Dosen**: 
-     - Pilihan A (*Ekstrak Dosen dari Jadwal POLBAN*): Memindai file kurikulum semester POLBAN, ekstrak 47 dosen unik otomatis (`POST /api/v1/master/lecturers/sync-jadwal`).
-     - Pilihan B (*Sinkron Semua Master Data*): Total 106 entitas master (41 matkul, 18 ruangan, 47 dosen) via `POST /api/v1/master/sync-all`.
+2. **SCR-ADM-002: Master Mata Kuliah (Daftar & Tata Kelola Kurikulum) - [100% AUDITED & APPROVED]**
+   - **A. SCR-ADM-002A: Layar Utama & Tabel Master Matkul**:
+     - *Header*: Judul "Master Mata Kuliah", badge count total terdaftar (`41 Mata Kuliah`), subtitle deskripsi kurikulum POLBAN, tombol aksi kanan: `[ ☁️ Impor / Sinkron ]` (outline) dan `[ + Tambah Mata Kuliah ]` (primer biru `#3965FB`).
+     - *Panel Perhatian Usulan KM*: Card berlatar `#E9EAFF` (border `#3965FB`/20, p-4, rounded-xl) jika ada usulan baru dari KM (`GET /api/v1/master/proposals?kind=COURSE&status=PENDING`): info nama matkul usulan, kelas KM pengusul, tombol `[ Setujui ]` (hijau) dan `[ Tolak... ]` (coral/merah).
+     - *Filter & Search Toolbar*: Field cari kode/nama matkul (ikon kaca pembesar), filter dropdown status (`Semua Status`, `Aktif`, `Nonaktif`).
+     - *Tabel Desktop (5 Kolom Konsisten)*:
+       1. `KODE`: Font JetBrains Mono bold (`25IF1101`, `25TI1101`).
+       2. `NAMA MATA KULIAH`: Teks nama lengkap matkul (Poppins/Inter semibold).
+       3. `STATUS`: Badge pill (`Aktif` mint green `#E1FFB7` teks `#166534` vs `Nonaktif` abu-abu).
+       4. `TERAKHIR DIUBAH`: Timestamp tanggal pembaruan data.
+       5. `AKSI`: Tombol trigger menu `···` (ghost button 44px).
+     - *Mobile Responsive*: Card list per matkul dengan layout vertikal, target tap min 44px.
+   - **B. SCR-ADM-002-MENU: Dropdown Aksi Baris `···`**:
+     - Popover card (rounded-xl, shadow-lg, border `#D7DDE7`, w-48):
+       - Item 1: `✏️ Ubah Mata Kuliah` (membuka modal ubah).
+       - Item 2: `🚫 Nonaktifkan / Aktifkan` (toggle soft status via modal konfirmasi).
+       - Item 3: `🕒 Lihat Riwayat Audit` (melihat snapshot sebelum/sesudah perubahan).
+   - **C. SCR-ADM-002C: Modal Tambah Mata Kuliah Baru**:
+     - Modal pop-up tengah (max-w-md 480px, rounded-2xl, p-6).
+     - Field:
+       1. `Kode Mata Kuliah`: Input text uppercase (misal: `25IF1101`, font mono, validasi unik).
+       2. `Nama Mata Kuliah`: Input text nama resmi matkul.
+       3. `Status Default`: Toggle pill Aktif (default ON).
+     - Footer: Tombol `[ Batal ]` & `[ Simpan Mata Kuliah ]`.
+   - **D. SCR-ADM-002D: Modal Ubah Mata Kuliah (Kode Immutable 🔒)**:
+     - Modal pop-up tengah (max-w-md 480px, rounded-2xl, p-6).
+     - Field:
+       1. `Kode Mata Kuliah`: Readonly / disabled box dengan ikon 🔒 gembok dan hint text abu-abu: *"Kode mata kuliah bersifat permanen untuk menjaga integritas riwayat jadwal semester."*
+       2. `Nama Mata Kuliah`: Editable input text nama matkul.
+       3. `Status Mata Kuliah`: Segmented control pilihan `Aktif` vs `Nonaktif`.
+     - Footer: Tombol `[ Batal ]` & `[ Simpan Perubahan ]`.
+   - **E. SCR-ADM-002E: Modal Tolak Usulan KM (Review Rejection)**:
+     - Modal pop-up tengah (max-w-md 480px, rounded-2xl, p-6).
+     - Header: Judul "Tolak Usulan Mata Kuliah", icon peringatan merah.
+     - Ringkasan Usulan: Box preview kode matkul, nama matkul usulan, pengusul (KM D4-1A), dan catatan KM.
+     - Field Wajib: Textarea `Alasan Penolakan (Catatan Review)` minimal 5 karakter (*"Tuliskan alasan penolakan agar Ketua Murid memahami penyesuaian kurikulum..."*).
+     - Footer: Tombol `[ Batal ]` & `[ Konfirmasi Tolak Usulan ]` (coral red).
+   - **F. SCR-ADM-002F: Modal Konfirmasi Nonaktifkan Mata Kuliah**:
+     - Modal dialog konfirmasi (max-w-md, rounded-2xl, p-6).
+     - Header: Judul "Nonaktifkan Mata Kuliah?", icon tanda seru amber.
+     - Body: Teks konfirmasi bahwa matkul tidak akan muncul pada penawaran kelas semester baru, namun riwayat jadwal kelas yang sudah berjalan tetap utuh dan aman.
+     - Footer: Tombol `[ Batal ]` & `[ Nonaktifkan ]` (amber/merah).
+   - **G. SCR-ADM-002G: Modal Impor & Sinkronisasi (Dual Tabs)**:
+     - Modal pop-up tengah (max-w-lg 540px, rounded-2xl, p-6).
+     - Tab Navigation: `Impor Teks Bebas / JSON` | `Sinkron Otomatis Jadwal POLBAN`.
+     - *Tab 1 (Impor Bebas / JSON)*:
+       - Dropzone / Textarea JSON masal format array: `[{"code":"25IF1101","name":"..."},...]`.
+       - Tombol `[ 📥 Unduh Contoh Format JSON ]` di pojok kanan atas.
+       - Tombol aksi: `[ Validasi & Impor ]`.
+     - *Tab 2 (Sinkronisasi Otomatis Jadwal POLBAN)*:
+       - Opsi 1: `[ 🔄 Ekstrak Matkul dari Berkas Jadwal (41) ]` (Memindai 19 berkas jadwal POLBAN).
+       - Opsi 2: `[ ⚡ Sinkronkan Semua Master Kampus (106) ]` (Sinkron terpadu 41 Matkul + 18 Ruangan + 47 Dosen).
+       - *Box Jaminan Integritas & Keamanan Data*: Card berlatar `#EEF2FF` dengan ikon perisai biru:
+         *"Sinkronisasi bersifat aman & idempotent (merge-upsert). Data yang ditambahkan secara manual tidak akan terhapus, data tidak akan menduplikasi jika dijalankan berulang kali, dan status nonaktif yang Anda tentukan tetap terlindungi."*
+
+3. **SCR-ADM-003: Master Ruangan (Manajemen Ruangan Perkuliahan Kampus) - [100% AUDITED & APPROVED]**
+   - **A. Layar Utama Master Ruangan (SCR-ADM-003A)**:
+     - Header: Judul "Master Ruangan", count badge pill "18 ruangan", deskripsi fungsional, tombol aksi kanan: `[ 🔄 Impor / Sinkron ]` (outline) & `[ + Tambah Ruangan ]` (primary `#3965FB`).
+     - Banner Konteks: Biru muda `#EEF2FF`, border `#C7D7FE`: *"Data ruangan menjadi rujukan saat menyusun jadwal kelas dan memilih lokasi perkuliahan."*
+     - Banner Usulan KM Menunggu Persetujuan: Amber box `#FEF3C7`, outline `#FCD34D`, icon lonceng, detail usulan (misal: `D117-Lab. IoT` oleh KM D4-TI 1B), kutipan catatan KM, tombol `[ Setujui ]` (hijau `#15803D`) & `[ Tolak... ]` (outline merah `#DC2626`).
+     - Filter Bar 4 Kontrol: Search input (`Cari kode, nama, atau gedung ruangan...`), dropdown Gedung (`Semua gedung`, `Gedung D`, `Gedung H`), dropdown Jenis (`Semua jenis`, `Teori`, `Laboratorium`), dropdown Status (`Semua status`, `Aktif`, `Nonaktif`).
+     - Tabel Desktop 6 Kolom:
+       * `RUANGAN`: Kode tebal (misal `D101-Kelas`, `D102-Lab. MT`) + subtitle nama ruangan.
+       * `GEDUNG`: Gedung D / Gedung H.
+       * `KAPASITAS`: Format angka kursi (misal `32 kursi`).
+       * `JENIS`: `Teori` atau `Laboratorium`.
+       * `STATUS`: Badge pill hijau mint `Aktif` (`#E1FFB7`) atau abu-abu `Nonaktif`.
+       * `AKSI`: Tombol pill `[ ✏️ Ubah ]` (lavender `#E9EAFF`, text `#3965FB`) + Tombol menu cepat `[ ··· ]`.
+     - Footer: Keterangan *"Menampilkan 4 dari 18 ruangan · contoh hasil pemindaian POLBAN."*
+   - **B. SCR-ADM-003C: Modal Tambah Ruangan Baru**:
+     - Modal pop-up tengah (max-w-lg 540px, rounded-2xl, p-6).
+     - Box Peringatan Permanen: Background `#EEF2FF`, border `#C7D7FE`, icon info biru: *"Kode ruangan bersifat permanen (immutable) dan tidak dapat diubah setelah disimpan untuk menjaga relasi jadwal kelas. Pastikan format sesuai standar POLBAN (contoh: D102-Lab. MT)."*
+     - Baris 1: `Kode ruangan *` (placeholder mono: `D102-Lab. MT atau RT-01`) & `Nama ruangan *` (`Lab. Multimedia`).
+     - Baris 2: `Gedung (opsional)` (`Gedung D`), `Tipe ruangan (opsional)` (`Laboratorium`), `Kapasitas (opsional)` (placeholder `32` dengan suffix `kursi`).
+     - Baris 3: Status ruangan switch toggle interaktif.
+     - Footer: Tombol `[ Batal ]` & `[ Simpan Ruangan ]`.
+   - **C. SCR-ADM-003D: Modal Ubah Ruangan**:
+     - Modal pop-up tengah (width: 540px, rounded-2xl).
+     - Field `Kode ruangan`: Terkunci / Disabled (🔒) berlatar `#F6F7FB`, teks mono `#667085` + helper text: *"Kode bersifat permanen dan tidak dapat diubah."*
+     - Field Nama, Gedung, Tipe, Kapasitas: Bebas diperbarui.
+     - Footer Kiri: Aksi cepat teks merah `Nonaktifkan ruangan`.
+     - Footer Kanan: Tombol `[ Batal ]` & `[ Simpan Perubahan ]`.
+   - **D. SCR-ADM-003E: Modal Tolak Usulan Ruangan**:
+     - Modal dialog pop-up (width: 480px, rounded-2xl, p-6).
+     - Header: Icon bulatan merah muda `#FEE4E2` dengan silang merah `#D92D20`, judul "Tolak Usulan Ruangan".
+     - Summary Card: Ringkasan `D117-Lab. IoT`, pengusul KM, spesifikasi gedung/tipe/kapasitas, dan kutipan catatan KM.
+     - Form Wajib: Textarea `Alasan Penolakan (Catatan Review) *` min. 5 karakter untuk audit log & notifikasi WhatsApp ke KM.
+     - Footer: Tombol `[ Batal ]` & `[ Tolak Usulan ]` (merah bahaya `#D92D20`).
+   - **E. SCR-ADM-003F: Modal Konfirmasi Nonaktifkan Ruangan**:
+     - Modal dialog pop-up (width: 440px, rounded-2xl, p-6).
+     - Header: Icon bulatan amber `#FEF0C7` dengan tanda seru `#DC6803`, judul "Nonaktifkan Ruangan?".
+     - Body: Pertanyaan konfirmasi spesifik + Card 3 poin jaminan integritas (riwayat semester lalu tetap aman, tidak muncul di semester baru, bisa diaktifkan kembali).
+     - Footer: Tombol `[ Batal ]` & `[ Nonaktifkan ]` (`#D92D20`).
+   - **F. SCR-ADM-003G: Modal Impor & Sinkronisasi Ruangan (Dual-Tab)**:
+     - *Tab 1 (Impor Format JSON)*: Textarea payload array JSON masal, link aksi `[ 📥 Unduh Format JSON ]`, box petunjuk validasi (code wajib & unik, idempotent upsert), live counter hijau `✓ 2 ruangan terdeteksi valid`, tombol `[ Validasi & Impor ]`.
+     - *Tab 2 (Sinkronisasi Otomatis POLBAN)*:
+       * Opsi A: `[ 🔄 Sinkronkan Ruangan Saja ]` (Memindai berkas jadwal, ekstrak 18 ruangan resmi POLBAN di Gedung D & H via `POST /api/v1/master/rooms/sync-jadwal`).
+       * Opsi B: `[ ⚡ Sinkronkan Semua Master (106) ]` (Sinkron terpadu 41 matkul + 18 ruangan + 47 dosen via `POST /api/v1/master/sync-all`).
+       * Safety Banner `#EEF2FF`: Jaminan integritas merge-upsert aman, data manual terlindungi, status nonaktif tidak tertimpa.
+
+4. **SCR-ADM-004: Master Dosen (Manajemen Dosen Pengampu POLBAN) - [100% AUDITED & APPROVED]**
+   - **A. Layar Utama Master Dosen (SCR-ADM-004A)**:
+     * *Empty State (SCR-ADM-004A-EMPTY)*: Ilustrasi kartu ID kosong `#EEF2FF`, teks "Belum Ada Data Dosen", deskripsi panduan inisial unik 2–4 huruf kapital, tombol aksi ganda: `[ ⚡ Sinkronkan 47 Dosen POLBAN ]` (Primary `#3965FB`) dan `[ + Tambah Manual ]` (Outline `#D7DDE7`).
+     * *Filled State (SCR-ADM-004A-FILLED)*:
+       - Header: Judul "Master Dosen", badge pill "47 dosen" (`#F1F5F9`), deskripsi, tombol aksi kanan: `[ 🔄 Impor / Sinkron ]` (outline) & `[ + Tambah Dosen ]` (primary `#3965FB`).
+       - Callout Edukasi Pengampu: Biru muda `#EEF2FF`, border `#C7D7FE`: *"Dosen yang aktif dapat dipilih sebagai pengampu mata kuliah saat jadwal disusun."*
+       - Filter Bar: Search input (`Cari nama atau kode dosen...`) + dropdown Status (`Semua status`, `Aktif`, `Nonaktif`).
+       - Tabel Desktop 4 Kolom: `KODE` (JetBrains Mono bold 14px, e.g. `AD`, `BW`, `HA`, `PH`, `SD`), `NAMA LENGKAP & GELAR` (Geist medium 13px), `STATUS` (Badge pill hijau mint `Aktif` `#E1FFB7` / `#166534`), `AKSI` (Tombol `[ ✏️ Ubah ]` lavender `#E9EAFF` + Menu cepat `[ ··· ]`).
+       - Footer: Menampilkan catatan *"Menampilkan 5 dari 47 dosen · hasil pemindaian kurikulum POLBAN"* & pagination `‹ 1 2 3 … 10 ›`.
+   - **B. SCR-ADM-004C: Modal Tambah Dosen Baru**:
+     * Modal dialog pop-up tengah (width: 500px, rounded-2xl 16px, background `#FFFFFF`, shadow-xl).
+     * Info Box Immutability: Background `#EEF2FF`, border `#C7D7FE`, ikon info: *"Kode inisial dosen bersifat permanen (immutable) dan tidak dapat diubah setelah disimpan untuk menjaga relasi penugasan jadwal. Gunakan format inisial resmi POLBAN (2–4 huruf kapital, contoh: AD, BW, HA)."*
+     * Field 1: `Inisial / Kode Dosen *` (placeholder mono: `Contoh: AD atau BW` + helper format resmi).
+     * Field 2: `Nama Lengkap & Gelar Akademik *` (placeholder: `Dr. Ade Chandra Nugraha, S.Si., M.T.` + helper pencetakan dokumen).
+     * Field 3: Status Dosen card container dengan toggle switch ON `#3965FB`.
+     * Footer: Tombol `[ Batal ]` (Ghost) & `[ Simpan Dosen ]` (Solid primary `#3965FB`).
+   - **C. SCR-ADM-004D: Modal Ubah Dosen**:
+     * Modal dialog pop-up tengah (width: 500px, rounded-2xl).
+     * Field `Inisial / Kode Dosen`: Terkunci / Disabled (🔒) berlatar `#F2F5FA`, font JetBrains Mono bold `"AD"` + badge `Terkunci 🔒` + helper: *"Inisial bersifat permanen dan tidak dapat diubah agar relasi jadwal kuliah tidak terputus."*
+     * Field `Nama Lengkap & Gelar Akademik *`: State fokus border `#3965FB`, nilai terisi editable.
+     * Field `Status Dosen`: Card container dengan toggle switch ON `#3965FB`.
+     * Shortcut bahaya pojok kiri bawah: Teks merah `#D92D20` `"Nonaktifkan Dosen Ini"`.
+     * Footer: Tombol `[ Batal ]` & `[ Simpan Perubahan ]` (Primary `#3965FB`).
+   - **D. SCR-ADM-004E: Modal Konfirmasi Nonaktifkan Dosen**:
+     * Modal dialog bahaya pop-up tengah (width: 460px, rounded-2xl, shadow-2xl).
+     * Header: Avatar lingkaran merah muda `#FEE4E2` (44px) dengan ikon warning `#D92D20`, judul "Nonaktifkan Dosen?", pertanyaan spesifik menyebutkan nama & kode dosen.
+     * Callout Jaminan Keamanan Data: Background `#FEF3F2`, border `#FECDCA`, 3 poin jaminan tegas `#B42318` (1. Jadwal Kuliah Aman, 2. Penyusunan Jadwal Baru, 3. Dapat Dipulihkan).
+     * Footer: Tombol `[ Batal ]` (Outline netral `#D7DDE7`) & `[ Ya, Nonaktifkan Dosen ]` (Solid danger `#D92D20`).
+   - **E. SCR-ADM-004G: Modal Impor & Sinkronisasi Dosen Dual-Tab**:
+     * Modal dialog pop-up tengah (width: 620px, rounded-2xl, shadow-2xl).
+     * Navigasi Dual-Tab: Tab 1 "Impor JSON Masal" & Tab 2 (Aktif) "⚡ Sinkronisasi Kurikulum POLBAN".
+     * Edukasi Sistem: Callout `#EEF2FF` menjelaskan pemindaian data kurikulum `data/jadwal/*.json`, penyaringan inisial tim teaching bertanda `+` menjadi 47 dosen unik, serta jaminan Idempotent Safe.
+     * Opsi 1 (Dosen Saja): Card border `#D7DDE7`, badge "47 Dosen Terdeteksi", tombol `[ ⚡ Sinkronkan Dosen ]` (Primary `#3965FB`) via `POST /api/v1/master/sync-jadwal`.
+     * Opsi 2 (Semua Master): Card dashed border `#D7DDE7`, deskripsi 41 Matkul + 18 Ruangan + 47 Dosen, tombol `[ 🔄 Sinkronkan Semua ]` (Outline `#3965FB`) via `POST /api/v1/master/sync-all`.
+     * Footer: Tombol `[ Tutup ]` (Background `#F2F5FA`, border `#D7DDE7`).
 
 5. **SCR-ADM-005: Manajemen Kelas & Semester (Terdiri dari 3 Sub-Layar)**
    - **A. SCR-ADM-005A: Daftar Kelas (Grid Kelas)**

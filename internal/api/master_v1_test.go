@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -57,6 +58,21 @@ func TestV1Master_RoomsAndCourses(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code == http.StatusCreated {
 		t.Fatalf("kode ganda seharusnya ditolak")
+	}
+
+	// 4b. Bulk create rooms
+	bulkRoomsPayload, _ := json.Marshal(map[string]any{
+		"rooms": []map[string]any{
+			{"code": "BULK-R1", "name": "Bulk Room 1", "building": "Gedung D", "room_type": "TEORI", "capacity": 32},
+			{"code": "BULK-R2", "name": "Bulk Room 2", "building": "Gedung H", "room_type": "LAB", "capacity": 32},
+		},
+	})
+	bulkRoomReq := httptest.NewRequest("POST", "/api/v1/master/rooms/bulk", bytes.NewReader(bulkRoomsPayload))
+	bulkRoomReq.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, bulkRoomReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("admin POST /rooms/bulk expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 
 	// 5. Admin membuat + menonaktifkan mata kuliah
@@ -125,8 +141,8 @@ func TestV1Master_RoomsAndCourses(t *testing.T) {
 		t.Fatalf("hasil sync jadwal tidak valid: %v, totalSynced: %d", err, syncRes.Data.TotalSynced)
 	}
 
-	// 9. Master Lecturers (Dosen): Create, Get, Patch
-	lecBody, _ := json.Marshal(map[string]string{"code": "TS", "full_name": "Test Dosen, S.T., M.T."})
+	// 9. Master Lecturers (Dosen): Create, Get, Patch, Bulk, Sync
+	lecBody, _ := json.Marshal(map[string]string{"code": "ts", "full_name": "Test Dosen, S.T., M.T."})
 	req = httptest.NewRequest("POST", "/api/v1/master/lecturers", bytes.NewReader(lecBody))
 	req.Header.Set("Authorization", "Bearer "+adminToken)
 	w = httptest.NewRecorder()
@@ -134,16 +150,60 @@ func TestV1Master_RoomsAndCourses(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("admin POST /master/lecturers expected 201, got %d, body: %s", w.Code, w.Body.String())
 	}
-
-	req = httptest.NewRequest("GET", "/api/v1/master/lecturers", nil)
-	req.Header.Set("Authorization", "Bearer "+kmToken)
-	w = httptest.NewRecorder()
-	s.httpServer.Handler.ServeHTTP(w, req)
-	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte("TS")) {
-		t.Fatalf("KM GET /master/lecturers expected 200 with TS, got %d", w.Code)
+	var lecCreateRes struct {
+		Data struct {
+			ID     int64  `json:"id"`
+			Code   string `json:"code"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &lecCreateRes)
+	if lecCreateRes.Data.Code != "TS" {
+		t.Fatalf("dosen code harus uppercase TS, got %s", lecCreateRes.Data.Code)
 	}
 
-	// 10. Sync-All Master (Matkul + Ruangan + Dosen)
+	// Patch Dosen (ubah nama & nonaktifkan)
+	lecPatchBody, _ := json.Marshal(map[string]string{"name": "Dosen Diperbarui, S.T.", "status": "INACTIVE"})
+	req = httptest.NewRequest("PATCH", fmt.Sprintf("/api/v1/master/lecturers/%d", lecCreateRes.Data.ID), bytes.NewReader(lecPatchBody))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("admin PATCH /master/lecturers expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// Bulk Create Dosen
+	bulkLecBody, _ := json.Marshal([]map[string]string{
+		{"code": "BK1", "full_name": "Dosen Bulk 1, M.T."},
+		{"code": "BK2", "full_name": "Dosen Bulk 2, M.Kom."},
+	})
+	req = httptest.NewRequest("POST", "/api/v1/master/lecturers/bulk", bytes.NewReader(bulkLecBody))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("admin POST /master/lecturers/bulk expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// Sync Dosen Mandiri (47 dosen resmi dari 19 jadwal POLBAN)
+	req = httptest.NewRequest("POST", "/api/v1/master/lecturers/sync-jadwal", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /master/lecturers/sync-jadwal expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+	var lecSyncRes struct {
+		Data struct {
+			TotalFound  int `json:"total_found"`
+			TotalSynced int `json:"total_synced"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &lecSyncRes); err != nil || lecSyncRes.Data.TotalSynced != 47 {
+		t.Fatalf("sync dosen harus tepat 47 dosen resmi POLBAN, got %d (err: %v)", lecSyncRes.Data.TotalSynced, err)
+	}
+
+	// 10. Sync-All Master (41 Matkul + 18 Ruangan + 47 Dosen = 106 Total)
 	syncAllReq := httptest.NewRequest("POST", "/api/v1/master/sync-all", nil)
 	syncAllReq.Header.Set("Authorization", "Bearer "+adminToken)
 	w = httptest.NewRecorder()
@@ -159,7 +219,15 @@ func TestV1Master_RoomsAndCourses(t *testing.T) {
 			TotalSynced     int `json:"total_synced"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &syncAllRes); err != nil || syncAllRes.Data.TotalSynced < 100 {
-		t.Fatalf("sync all tidak valid: %v, total: %d", err, syncAllRes.Data.TotalSynced)
+	if err := json.Unmarshal(w.Body.Bytes(), &syncAllRes); err != nil || syncAllRes.Data.TotalSynced != 106 {
+		t.Fatalf("sync all harus tepat 106 (41 matkul + 18 ruangan + 47 dosen), got %d (C: %d, R: %d, L: %d)",
+			syncAllRes.Data.TotalSynced, syncAllRes.Data.CoursesSynced, syncAllRes.Data.RoomsSynced, syncAllRes.Data.LecturersSynced)
+	}
+
+	// Pastikan status INACTIVE pada TS tetap terlindungi dan tidak ditimpa
+	var tsStatus string
+	_ = s.v1DB.QueryRow(`SELECT status FROM lecturers WHERE code = 'TS';`).Scan(&tsStatus)
+	if tsStatus != "INACTIVE" {
+		t.Fatalf("status dosen TS harus tetap INACTIVE setelah sync-all, got %s", tsStatus)
 	}
 }

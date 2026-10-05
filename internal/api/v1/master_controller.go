@@ -104,20 +104,46 @@ func (c *MasterController) GetRooms(w http.ResponseWriter, r *http.Request) {
 	common.WriteV1Success(w, http.StatusOK, out)
 }
 
+// RoomInput mewakili format data kode, nama, gedung, tipe, dan kapasitas ruangan
+type RoomInput struct {
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	Building string `json:"building"`
+	RoomType string `json:"room_type"`
+	Capacity *int   `json:"capacity"`
+}
+
 // POST /api/v1/master/rooms
 func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	if c.db == nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	var req struct {
-		Code     string `json:"code"`
-		Name     string `json:"name"`
-		Building string `json:"building"`
-		RoomType string `json:"room_type"`
-		Capacity *int   `json:"capacity"`
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+
+	// 1. Opsi A: bulk rooms object
+	var bulkCheck struct {
+		Rooms []RoomInput `json:"rooms"`
+	}
+	if err := json.Unmarshal(bodyBytes, &bulkCheck); err == nil && len(bulkCheck.Rooms) > 0 {
+		c.bulkInsertRoomsInternal(w, r, bulkCheck.Rooms)
+		return
+	}
+
+	// 2. Opsi B: bulk rooms array [...]
+	var arrayCheck []RoomInput
+	if err := json.Unmarshal(bodyBytes, &arrayCheck); err == nil && len(arrayCheck) > 0 {
+		c.bulkInsertRoomsInternal(w, r, arrayCheck)
+		return
+	}
+
+	// 3. Default: single room
+	var req RoomInput
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
 		return
 	}
@@ -150,6 +176,98 @@ func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": "ACTIVE"})
+}
+
+// POST /api/v1/master/rooms/bulk
+func (c *MasterController) BulkCreateRooms(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+		return
+	}
+	var bulkCheck struct {
+		Rooms []RoomInput `json:"rooms"`
+	}
+	if err := json.Unmarshal(bodyBytes, &bulkCheck); err == nil && len(bulkCheck.Rooms) > 0 {
+		c.bulkInsertRoomsInternal(w, r, bulkCheck.Rooms)
+		return
+	}
+	var arrayCheck []RoomInput
+	if err := json.Unmarshal(bodyBytes, &arrayCheck); err == nil && len(arrayCheck) > 0 {
+		c.bulkInsertRoomsInternal(w, r, arrayCheck)
+		return
+	}
+	common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Daftar ruangan kosong atau tidak valid")
+}
+
+func (c *MasterController) bulkInsertRoomsInternal(w http.ResponseWriter, r *http.Request, items []RoomInput) {
+	if len(items) == 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Daftar ruangan kosong")
+		return
+	}
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi impor ruangan")
+		return
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`INSERT INTO rooms (code, name, building, room_type, capacity, status)
+		VALUES (?, ?, ?, ?, COALESCE(?, 32), 'ACTIVE')
+		ON CONFLICT(code) DO UPDATE SET
+			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE rooms.name END,
+			building = CASE WHEN excluded.building != '' THEN excluded.building ELSE rooms.building END,
+			room_type = CASE WHEN excluded.room_type != '' THEN excluded.room_type ELSE rooms.room_type END,
+			capacity = CASE WHEN excluded.capacity > 0 THEN excluded.capacity ELSE rooms.capacity END;`)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah impor ruangan")
+		return
+	}
+	defer stmt.Close()
+
+	inserted := 0
+	skipped := 0
+	for _, item := range items {
+		code := strings.TrimSpace(item.Code)
+		if code == "" {
+			skipped++
+			continue
+		}
+		name := strings.TrimSpace(item.Name)
+		building := strings.TrimSpace(item.Building)
+		roomType := strings.TrimSpace(item.RoomType)
+		cap := 32
+		if item.Capacity != nil && *item.Capacity > 0 {
+			cap = *item.Capacity
+		}
+		if _, err := stmt.Exec(code, name, building, roomType, cap); err == nil {
+			inserted++
+		} else {
+			skipped++
+		}
+	}
+
+	afterJSON := fmt.Sprintf(`{"action":"BULK_IMPORT_ROOMS","total_received":%d,"total_imported":%d,"total_skipped":%d}`, len(items), inserted, skipped)
+	if err := writeMasterAudit(r.Context(), tx, r, "BULK_CREATE_MASTER_ROOMS", "MASTER_ROOM", 0, "", afterJSON); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit impor ruangan")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan hasil impor ruangan")
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"total_received": len(items),
+		"total_imported": inserted,
+		"total_skipped":  skipped,
+		"message":        fmt.Sprintf("Berhasil mengimpor %d ruangan", inserted),
+	})
 }
 
 // PATCH /api/v1/master/rooms/{id}
@@ -469,7 +587,7 @@ func (c *MasterController) syncCoursesInternal(w http.ResponseWriter, r *http.Re
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah sinkronisasi")
 		return
@@ -514,7 +632,7 @@ func (c *MasterController) bulkInsertCoursesInternal(w http.ResponseWriter, r *h
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah impor")
 		return
@@ -720,7 +838,7 @@ func (c *MasterController) CreateLecturer(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
 		return
 	}
-	code := strings.TrimSpace(req.Code)
+	code := strings.ToUpper(strings.TrimSpace(req.Code))
 	fullName := strings.TrimSpace(req.FullName)
 	if code == "" || fullName == "" {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode inisial dan nama dosen wajib diisi")
@@ -908,14 +1026,14 @@ func (c *MasterController) syncLecturersInternal(w http.ResponseWriter, r *http.
 		for k, v := range rf.Dosen {
 			k = strings.TrimSpace(k)
 			v = strings.TrimSpace(v)
-			if k != "" && v != "" {
+			if k != "" && v != "" && !strings.Contains(k, "+") {
 				uniqueLecturers[k] = v
 			}
 		}
 		for _, item := range rf.Jadwal {
 			k := strings.TrimSpace(item.InisialDosen)
 			v := strings.TrimSpace(item.Dosen)
-			if k != "" && v != "" {
+			if k != "" && v != "" && !strings.Contains(k, "+") {
 				if _, exists := uniqueLecturers[k]; !exists {
 					uniqueLecturers[k] = v
 				}
@@ -936,7 +1054,7 @@ func (c *MasterController) syncLecturersInternal(w http.ResponseWriter, r *http.
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah sinkronisasi dosen")
 		return
@@ -981,7 +1099,7 @@ func (c *MasterController) bulkInsertLecturersInternal(w http.ResponseWriter, r 
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah impor dosen")
 		return
@@ -991,7 +1109,7 @@ func (c *MasterController) bulkInsertLecturersInternal(w http.ResponseWriter, r 
 	inserted := 0
 	skipped := 0
 	for _, item := range items {
-		code := strings.TrimSpace(item.Code)
+		code := strings.ToUpper(strings.TrimSpace(item.Code))
 		name := strings.TrimSpace(item.FullName)
 		if code == "" || name == "" {
 			skipped++
@@ -1077,7 +1195,7 @@ func (c *MasterController) SyncRoomsFromJadwal(w http.ResponseWriter, r *http.Re
 
 	stmt, err := tx.Prepare(`INSERT INTO rooms (code, name, building, room_type, capacity, status)
 		VALUES (?, ?, ?, ?, 32, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name, building = excluded.building, room_type = excluded.room_type, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name, building = excluded.building, room_type = excluded.room_type;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah sinkronisasi ruangan")
 		return
@@ -1177,7 +1295,7 @@ func (c *MasterController) SyncAllMasterFromJadwal(w http.ResponseWriter, r *htt
 		for k, v := range rf.Dosen {
 			k = strings.TrimSpace(k)
 			v = strings.TrimSpace(v)
-			if k != "" && v != "" {
+			if k != "" && v != "" && !strings.Contains(k, "+") {
 				uniqueLecturers[k] = v
 			}
 		}
@@ -1191,7 +1309,7 @@ func (c *MasterController) SyncAllMasterFromJadwal(w http.ResponseWriter, r *htt
 			}
 			lecCode := strings.TrimSpace(item.InisialDosen)
 			lecName := strings.TrimSpace(item.Dosen)
-			if lecCode != "" && lecName != "" {
+			if lecCode != "" && lecName != "" && !strings.Contains(lecCode, "+") {
 				if _, exists := uniqueLecturers[lecCode]; !exists {
 					uniqueLecturers[lecCode] = lecName
 				}
@@ -1212,7 +1330,7 @@ func (c *MasterController) SyncAllMasterFromJadwal(w http.ResponseWriter, r *htt
 
 	// 1. Upsert Courses
 	stmtCourses, err := tx.Prepare(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah courses")
 		return
@@ -1227,7 +1345,7 @@ func (c *MasterController) SyncAllMasterFromJadwal(w http.ResponseWriter, r *htt
 
 	// 2. Upsert Lecturers
 	stmtLecturers, err := tx.Prepare(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah lecturers")
 		return
@@ -1243,7 +1361,7 @@ func (c *MasterController) SyncAllMasterFromJadwal(w http.ResponseWriter, r *htt
 	// 3. Upsert Rooms
 	stmtRooms, err := tx.Prepare(`INSERT INTO rooms (code, name, building, room_type, capacity, status)
 		VALUES (?, ?, ?, ?, 32, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name, building = excluded.building, room_type = excluded.room_type, status = 'ACTIVE';`)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name, building = excluded.building, room_type = excluded.room_type;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah rooms")
 		return

@@ -121,6 +121,15 @@ func (s *Server) handleBulkCreateMasterLecturers(w http.ResponseWriter, r *http.
 	http.Error(w, "Master controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+// handleBulkCreateMasterRooms menangani POST /api/v1/master/rooms/bulk
+func (s *Server) handleBulkCreateMasterRooms(w http.ResponseWriter, r *http.Request) {
+	if s.masterController != nil {
+		s.masterController.BulkCreateRooms(w, r)
+		return
+	}
+	http.Error(w, "Master controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleSyncMasterRooms menangani POST /api/v1/master/rooms/sync-jadwal
 func (s *Server) handleSyncMasterRooms(w http.ResponseWriter, r *http.Request) {
 	if s.masterController != nil {

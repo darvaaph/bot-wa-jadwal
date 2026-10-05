@@ -135,6 +135,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/whatsapp-channels/{id}/revoke", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleRevokeChannel)))
 	mux.HandleFunc("GET /api/v1/master/rooms", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterRooms)))
 	mux.HandleFunc("POST /api/v1/master/rooms", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateMasterRoom)))
+	mux.HandleFunc("POST /api/v1/master/rooms/bulk", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleBulkCreateMasterRooms)))
 	mux.HandleFunc("PATCH /api/v1/master/rooms/{id}", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handlePatchMasterRoom)))
 	mux.HandleFunc("POST /api/v1/master/rooms/sync-jadwal", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleSyncMasterRooms)))
 	mux.HandleFunc("GET /api/v1/master/courses", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetMasterCourses)))
