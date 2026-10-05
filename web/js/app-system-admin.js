@@ -933,6 +933,17 @@ function systemAdminApp() {
       this.go('audit');
     },
 
+    bukaAuditMatkul(m) {
+      this.auditKelas = '';
+      this.auditAction = '';
+      this.auditEntity = 'COURSE';
+      this.auditEntityId = m ? String(m.id || '') : '';
+      this.auditActor = '';
+      this.auditSince = '';
+      this.auditUntil = '';
+      this.go('audit');
+    },
+
     fmtWaktuID(iso) { return API.fmtWaktuID(iso); },
 
     async loadPengguna() {

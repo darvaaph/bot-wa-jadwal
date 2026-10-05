@@ -288,20 +288,42 @@
                   </svg>
                 </button>
 
-                <!-- Popover Menu Pilihan (Otomatis Dropup untuk Baris Bawah) -->
+                <!-- Popover Menu Pilihan (Otomatis Dropup untuk Baris Bawah) · Layar 07 -->
                 <div x-show="matkulMenu === m.id"
                      x-transition:enter="transition ease-out duration-100"
                      x-transition:enter-start="transform opacity-0 scale-95"
                      x-transition:enter-end="transform opacity-100 scale-100"
                      :class="(index >= filteredMatkul().length - 2 && index > 0) ? 'bottom-[48px] origin-bottom-right' : 'top-[48px] origin-top-right'"
-                     class="absolute right-0 z-50 w-[150px] rounded-[12px] bg-white border border-[#D7DDE7] shadow-xl py-1 text-left pointer-events-auto"
+                     class="box-border w-[210px] h-fit shadow-[0px_10px_22px_#10182833] absolute right-0 flex flex-col gap-0 p-[6px_0px] justify-start items-start bg-[#FFFFFF] border border-[#D7DDE7] rounded-[12px] z-50 text-left pointer-events-auto"
                      role="menu">
+                  <!-- Nonaktifkan / Aktifkan mata kuliah (Layar 05) -->
                   <button type="button"
-                          @click="matkulMenu = null; salinKodeMatkul(m.code)"
+                          @click="matkulMenu = null; mintaKonfirmasiStatusMatkul(m)"
                           role="menuitem"
-                          class="w-full text-left px-3.5 h-[40px] flex items-center gap-2.5 text-[12px] font-medium text-[#1D1B3A] hover:bg-slate-50 rounded-[8px] transition-colors">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#667085]"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <span>Salin Kode</span>
+                          class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[10px] px-[14px] justify-start items-center hover:bg-slate-50 transition-colors text-left cursor-pointer">
+                    <svg width="17" height="17" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                      <path d="M7.00342 12.25q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q0.85449 0 1.64404-0.29737 0.79297-0.30078 1.43897-0.87158l-6.57959-6.57959q-0.55713 0.646-0.86475 1.43897-0.3042 0.78955-0.3042 1.64404 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z m3.49658-1.58252q0.5708-0.646 0.86817-1.43555 0.30078-0.79297 0.30078-1.64746 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-0.85791 0-1.6543 0.29395-0.79297 0.29395-1.42871 0.875l6.57959 6.57959z"/>
+                    </svg>
+                    <span class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif] whitespace-nowrap"
+                          x-text="String(m.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Nonaktifkan mata kuliah' : 'Aktifkan mata kuliah'">
+                      Nonaktifkan mata kuliah
+                    </span>
+                  </button>
+
+                  <!-- Pemisah Aksi -->
+                  <div class="box-border w-full h-[1px] shrink-0 bg-[#EEEEEE]"></div>
+
+                  <!-- Lihat riwayat audit -->
+                  <button type="button"
+                          @click="matkulMenu = null; bukaAuditMatkul(m)"
+                          role="menuitem"
+                          class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[10px] px-[14px] justify-start items-center hover:bg-slate-50 transition-colors text-left cursor-pointer">
+                    <svg width="17" height="17" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                      <path d="M6.97607 11.66553q-1.67822 0-2.9497-1.02881-1.26807-1.03223-1.59961-2.64551-0.0376-0.12988 0.02392-0.23926 0.06494-0.10938 0.19483-0.12646 0.12646-0.01709 0.21875 0.05469 0.0957 0.07178 0.1333 0.20507 0.31787 1.39111 1.42871 2.29688 1.11084 0.90234 2.5498 0.90234 1.70898 0 2.89502-1.18945 1.18945-1.18945 1.18946-2.89502 0-1.70557-1.18946-2.89502-1.18604-1.18945-2.89502-1.18945-0.90234 0-1.69873 0.38281-0.79639 0.38281-1.4082 1.05273l1.15527 0q0.12646 0 0.2085 0.08545 0.08545 0.08545 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.65771 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-1.65772q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08203 0.08203 0.08203 0.20849l0 1.10059q0.67676-0.7417 1.58594-1.15528 0.90918-0.41699 1.91406-0.41699 0.97412 0 1.82178 0.36573 0.84766 0.3623 1.47998 0.99804 0.63574 0.63574 1.00147 1.4834 0.36572 0.84766 0.36572 1.81836 0 0.9707-0.36572 1.81836-0.36572 0.84766-1.00147 1.4834-0.63232 0.63574-1.47998 1.00146-0.84766 0.3623-1.82178 0.36231z m0.32813-4.78516l1.75 1.75q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.2085-0.0957 0.0957-0.2085 0.0957-0.11279 0-0.20508-0.0957l-1.78076-1.77735q-0.0752-0.07861-0.10937-0.16064-0.03076-0.08545-0.03076-0.17432l0-2.55322q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085l0 2.50537z"/>
+                    </svg>
+                    <span class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif] whitespace-nowrap">
+                      Lihat riwayat audit
+                    </span>
                   </button>
                 </div>
               </div>
@@ -332,11 +354,16 @@
               <span>Ubah</span>
             </button>
             <button type="button"
-                    @click="salinKodeMatkul(m.code)"
-                    title="Salin kode"
-                    class="h-[42px] px-3.5 rounded-[10px] border border-[#D7DDE7] inline-flex items-center justify-center gap-1.5 text-[12px] font-medium text-[#667085] hover:bg-slate-50 transition-colors min-h-[42px]">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span>Salin</span>
+                    @click="mintaKonfirmasiStatusMatkul(m)"
+                    title="Ubah status mata kuliah"
+                    class="h-[42px] px-3 rounded-[10px] border border-[#D7DDE7] inline-flex items-center justify-center gap-1.5 text-[12px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors min-h-[42px]">
+              <span x-text="String(m.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'"></span>
+            </button>
+            <button type="button"
+                    @click="bukaAuditMatkul(m)"
+                    title="Riwayat audit mata kuliah"
+                    class="h-[42px] px-3 rounded-[10px] border border-[#D7DDE7] inline-flex items-center justify-center gap-1.5 text-[12px] font-medium text-[#667085] hover:bg-slate-50 transition-colors min-h-[42px]">
+              <span>Audit</span>
             </button>
           </div>
         </div>
