@@ -229,6 +229,7 @@ function systemAdminApp() {
     matkulStatusFilter: '',
     matkulEdit: null,
     matkulEditError: '',
+    matkulEditLoading: false,
     matkulMenu: null,
     matkulStatusConfirm: null,
     modalTambahMatkul: false,
@@ -1887,27 +1888,43 @@ function systemAdminApp() {
     },
 
     mulaiUbahMatkul(m) {
-      this.matkulEdit = { id: m.id, kode: m.code, nama: m.name || '' };
+      this.matkulEdit = {
+        id: m.id,
+        kode: m.code,
+        nama: m.name || '',
+        status: (m.status || 'ACTIVE').toUpperCase()
+      };
       this.matkulEditError = '';
+      this.matkulEditLoading = false;
     },
 
     batalUbahMatkul() {
+      if (this.matkulEditLoading) return;
       this.matkulEdit = null;
       this.matkulEditError = '';
+      this.matkulEditLoading = false;
     },
 
     async simpanUbahMatkul() {
       const f = this.matkulEdit;
       if (!f) return;
-      if (!((f.nama || '').trim())) { this.matkulEditError = 'Nama mata kuliah wajib diisi.'; return; }
+      const nama = (f.nama || '').trim();
+      if (!nama) {
+        this.matkulEditError = 'Nama mata kuliah wajib diisi.';
+        return;
+      }
+      const status = (f.status || 'ACTIVE').toUpperCase();
       this.matkulEditError = '';
+      this.matkulEditLoading = true;
       try {
-        await API.patchMasterCourse(f.id, { name: f.nama.trim() });
-        this.showToast(`Mata kuliah ${f.kode} diubah.`);
+        await API.patchMasterCourse(f.id, { name: nama, status: status });
+        this.showToast(`Mata kuliah ${f.kode} berhasil diperbarui.`);
         this.matkulEdit = null;
         await this.loadMatkul();
       } catch (err) {
         this.matkulEditError = err.message || 'Gagal mengubah mata kuliah.';
+      } finally {
+        this.matkulEditLoading = false;
       }
     },
 
