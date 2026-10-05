@@ -1,367 +1,626 @@
 <!-- partials/system-admin/view-master-matkul.html - System Admin: Master Mata Kuliah -->
-<section x-show="view === 'master-matkul'" x-cloak>
-  <div class="ui-card p-6 md:p-10 shadow-sm">
-    <!-- Header: Judul & Tombol Aksi -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-3">
-          <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Master Mata Kuliah</h1>
-          <span class="ui-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-slate-100 text-slate-700" x-text="(matkulList ? matkulList.length : 0) + ' matkul'">-</span>
-        </div>
-        <p class="text-[14px] text-muted mt-1">Daftar induk mata kuliah kampus untuk penawaran semester. Kode tidak dapat diubah.</p>
-      </div>
+<section x-show="view === 'master-matkul'" x-cloak class="w-full flex flex-col gap-6">
 
-      <!-- Tombol Impor & Tambah Mata Kuliah -->
-      <div class="flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-auto">
-        <button type="button" @click="sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--outline text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]" title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen">
-          <span x-show="syncAllLoading" class="inline-block w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></span>
-          <span class="material-symbols-outlined text-[18px]" x-show="!syncAllLoading">auto_mode</span>
-          <span>Sinkron Semua Master (106)</span>
-        </button>
-        <button type="button" @click="bukaModalImportMatkul()" class="ui-button ui-button--outline text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
-          <span>Impor / Sinkron Matkul</span>
-        </button>
-        <button type="button" @click="bukaModalTambahMatkul()" class="ui-button ui-button--primary text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          <span>Tambah Mata Kuliah</span>
-        </button>
+  <!-- Header: Judul, Badge Jumlah & Tombol Aksi Utama -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex flex-col gap-1.5">
+      <div class="flex items-center gap-3">
+        <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F] leading-tight tracking-tight">Master Mata Kuliah</h1>
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold bg-[#F1F5F9] text-[#334155]"
+              x-text="(matkulList ? matkulList.length : 0) + ' matkul'">0 matkul</span>
       </div>
+      <p class="text-[14px] text-[#667085] leading-normal">
+        Daftar induk mata kuliah kampus untuk penawaran semester. Kode tidak dapat diubah.
+      </p>
     </div>
 
-    <!-- Cari + filter status -->
-    <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div class="sm:col-span-2 relative">
-        <input type="text" x-model="matkulQ" placeholder="Cari kode atau nama mata kuliah..." aria-label="Cari mata kuliah" class="ui-field text-[14px] pl-10" />
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">search</span>
+    <!-- Tombol Aksi Header -->
+    <div class="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-auto">
+      <button type="button"
+              @click="bukaModalImportMatkul()"
+              class="h-[44px] px-3.5 rounded-[10px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold inline-flex items-center gap-2 transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="shrink-0 text-[#1D1B3A]" aria-hidden="true" focusable="false">
+          <path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/>
+        </svg>
+        <span>Impor / Sinkron</span>
+      </button>
+
+      <button type="button"
+              @click="bukaModalTambahMatkul()"
+              class="h-[44px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[14px] font-semibold inline-flex items-center gap-2 shadow-sm transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3965FB]">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true" focusable="false">
+          <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/>
+        </svg>
+        <span>Tambah Mata Kuliah</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Keterangan Katalog: Banner Kartu Gelap Edukatif -->
+  <div class="w-full min-h-[88px] rounded-[14px] bg-[#1D1B3A] p-4 sm:p-5 flex flex-row items-center gap-4 text-white shadow-sm">
+    <div class="w-[44px] h-[44px] shrink-0 rounded-[11px] bg-white/10 flex items-center justify-center text-white" aria-hidden="true">
+      <svg width="23" height="23" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true" focusable="false">
+        <path d="M3.79053 9.35498q0.76563 0 1.48681 0.17773 0.72119 0.17432 1.43213 0.57081l0-5.7251q-0.63232-0.45117-1.39453-0.67676-0.75879-0.22559-1.52441-0.22559-0.52295 0-0.91944 0.06495-0.39307 0.06152-0.875 0.23242-0.1333 0.04443-0.1914 0.12988-0.05469 0.08203-0.05469 0.18457l0 5.26025q0 0.15723 0.11279 0.22901 0.11279 0.07178 0.2461 0.01709 0.32129-0.10938 0.73828-0.17432 0.42041-0.06494 0.94336-0.06494z m3.5 0.74854q0.71094-0.39648 1.43213-0.57081 0.72119-0.17773 1.48681-0.17773 0.52295 0 0.93994 0.06494 0.42041 0.06494 0.7417 0.17432 0.1333 0.05469 0.2461-0.01709 0.11279-0.07178 0.11279-0.22901l0-5.26025q0-0.10254-0.0581-0.18115-0.05469-0.07861-0.18799-0.1333-0.48193-0.1709-0.87842-0.23242-0.39307-0.06494-0.91602-0.06495-0.76563 0-1.52783 0.22559-0.75879 0.22559-1.39111 0.67676l0 5.7251z m-0.29053 0.66308q-0.13672 0-0.25293-0.03418-0.11279-0.03418-0.21875-0.08887-0.63574-0.34521-1.32617-0.52294-0.68701-0.18115-1.41162-0.18116-0.45459 0-0.89551 0.07862-0.4375 0.0752-0.85449 0.24267-0.31787 0.12646-0.59815-0.07519-0.27686-0.20508-0.27685-0.56397l0-5.63623q0-0.21875 0.11279-0.40332 0.11621-0.18457 0.32129-0.25635 0.5127-0.229 1.06641-0.32812 0.55713-0.10254 1.12451-0.10254 0.85791 0 1.67138 0.24609 0.81689 0.24609 1.53809 0.71778 0.72119-0.47168 1.53467-0.71778 0.81689-0.24609 1.6748-0.24609 0.56738 0 1.1211 0.10254 0.55713 0.09912 1.06982 0.32812 0.20508 0.07178 0.31787 0.25635 0.11621 0.18457 0.11621 0.40332l0 5.63623q0 0.35889-0.3042 0.5503-0.30078 0.19141-0.63916 0.06494-0.40674-0.15723-0.83056-0.22559-0.42041-0.07178-0.85108-0.07178-0.72461 0-1.41504 0.18116-0.68701 0.17774-1.32275 0.52295-0.10596 0.05469-0.22217 0.08886-0.11279 0.03418-0.24951 0.03418z"/>
+      </svg>
+    </div>
+    <div class="flex-1 flex flex-col gap-1 min-w-0">
+      <h2 class="text-[15px] sm:text-[16px] font-bold text-white leading-tight">Satu katalog, banyak kelas</h2>
+      <p class="text-[12px] sm:text-[13px] text-[#D6D5E5] leading-normal">
+        Katalog induk mata kuliah kampus. Penempatan ke semester dan rombel dilakukan saat menyusun jadwal kelas.
+      </p>
+    </div>
+  </div>
+
+  <!-- Inbox Persetujuan · Usulan KM (Muncul dinamis bila ada usulan pending) -->
+  <div x-show="!usulanLoading && usulanKindList('COURSE').length > 0" class="space-y-3">
+    <template x-for="u in usulanKindList('COURSE')" :key="u.id">
+      <div class="w-full rounded-[16px] bg-[#FEF3C7] border border-[#FCD34D] p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3.5 min-w-0 flex-1">
+          <div class="w-[42px] h-[42px] shrink-0 rounded-[11px] bg-[#FDE68A] flex items-center justify-center text-[#92400E]" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 14 14" fill="#92400E" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M3.20947 10.94775q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l0.64942 0 0-4.62451q0-1.1416 0.72119-2.00977 0.72461-0.86816 1.83545-1.08008l0-0.31787q0-0.24268 0.1709-0.41357 0.1709-0.1709 0.41357-0.1709 0.24268 0 0.41357 0.1709 0.1709 0.1709 0.1709 0.41357l0 0.31787q1.11084 0.21191 1.83203 1.08008 0.72461 0.86816 0.72461 2.00977l0 4.62451 0.64942 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20849 0.08203l-7.58106 0z m3.78711 1.52784q-0.38965 0-0.6665-0.27686-0.27344-0.27685-0.27344-0.6665l1.88672 0q0 0.38965-0.28027 0.6665-0.27686 0.27686-0.66651 0.27686z m-2.55322-2.10889l5.11328 0 0-4.62451q0-1.06299-0.74853-1.80811-0.74512-0.74854-1.80811-0.74853-1.06299 0-1.81152 0.74853-0.74512 0.74512-0.74512 1.80811l0 4.62451z"/>
+            </svg>
+          </div>
+          <div class="flex flex-col gap-1 min-w-0 flex-1">
+            <h3 class="text-[15px] sm:text-[16px] font-bold text-[#1D1B3A] leading-tight"
+                x-text="usulanKindList('COURSE').length + ' Usulan Mata Kuliah Menunggu Persetujuan'"></h3>
+            <p class="text-[12px] text-[#667085]">
+              Diajukan oleh <span class="font-semibold text-[#1D1B3A]" x-text="u.proposed_by"></span>
+              <span x-show="u.class_slug" x-text="' (' + u.class_slug + ')'"></span>
+              <span x-show="u.created_at" x-text="' · ' + formatWaktuRelatif(u.created_at)"></span>
+            </p>
+            <p class="text-[14px] font-bold text-[#1D1B3A] mt-0.5 tracking-tight" x-text="namaUsulanMatkul(u)"></p>
+            <p class="text-[12px] text-[#475467] leading-relaxed" x-text="u.note || 'Tidak ada catatan tambahan dari pengaju.'"></p>
+
+            <!-- Inline Review Note Box saat Admin Klik Setujui/Tolak -->
+            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="mt-3 p-3.5 bg-white/90 rounded-[12px] border border-[#FCD34D] space-y-2">
+              <p class="text-[12px] font-semibold text-[#1D1B3A]"
+                 x-text="(usulanKeputusan.keputusan === 'approve' ? 'Konfirmasi Setujui: ' : 'Konfirmasi Tolak: ') + usulanKeputusan.judul"></p>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" x-model="usulanCatatan"
+                       placeholder="Catatan persetujuan / alasan (opsional untuk setujui)..."
+                       class="flex-1 text-[13px] px-3 py-1.5 rounded-lg border border-[#D7DDE7] focus:outline-none focus:border-[#3965FB]" />
+                <button type="button" @click="jalankanKeputusanUsulan()"
+                        class="h-[36px] px-4 rounded-lg bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[12px] font-semibold transition-colors">
+                  Terapkan
+                </button>
+                <button type="button" @click="usulanKeputusan = null"
+                        class="h-[36px] px-3 rounded-lg border border-[#D7DDE7] hover:bg-slate-50 text-[12px] font-medium text-[#667085]">
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Usulan -->
+        <div x-show="!usulanKeputusan || usulanKeputusan.id !== u.id" class="flex items-center gap-2 shrink-0 self-end md:self-center">
+          <button type="button"
+                  @click="mulaiKeputusanUsulan(u, 'approve')"
+                  class="h-[40px] px-3.5 rounded-[12px] bg-[#15803D] hover:bg-green-800 text-white text-[12px] font-semibold inline-flex items-center gap-1.5 shadow-sm transition-colors min-h-[40px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#15803D]">
+            <svg width="17" height="17" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M5.57129 9.2627l5.13379-5.13379q0.08545-0.08545 0.20166-0.08887 0.11621-0.00684 0.21191 0.08887 0.0957 0.0957 0.0957 0.20849 0 0.11279-0.0957 0.2085l-5.21924 5.21924q-0.14014 0.14355-0.32812 0.14355-0.18799 0-0.33154-0.14355l-2.36182-2.36182q-0.08545-0.08545-0.08887-0.20166-0.00342-0.11621 0.09229-0.21533 0.0957-0.0957 0.20849-0.09571 0.11279 0 0.2085 0.09571l2.27295 2.27637z"/>
+            </svg>
+            <span>Setujui</span>
+          </button>
+          <button type="button"
+                  @click="mulaiKeputusanUsulan(u, 'reject')"
+                  class="h-[40px] px-3.5 rounded-[12px] bg-[#FEF3C7] hover:bg-amber-100 text-[#DC2626] border border-[#FCA5A5] text-[12px] font-semibold inline-flex items-center gap-1.5 transition-colors min-h-[40px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400">
+            <svg width="17" height="17" viewBox="0 0 14 14" fill="#DC2626" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
+            <span>Tolak</span>
+          </button>
+        </div>
       </div>
-      <select x-model="matkulStatusFilter" @change="loadMatkul()" aria-label="Filter status mata kuliah" class="ui-field text-[13px]">
+    </template>
+  </div>
+
+  <!-- Pencarian dan Filter Status Mata Kuliah -->
+  <div class="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+    <!-- Input Cari -->
+    <div class="relative flex-1 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3.5 gap-2.5 focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all">
+      <svg width="19" height="19" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+        <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/>
+      </svg>
+      <input type="text"
+             x-model="matkulQ"
+             placeholder="Cari kode atau nama mata kuliah..."
+             aria-label="Cari kode atau nama mata kuliah"
+             class="w-full bg-transparent border-none p-0 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:ring-0" />
+      <button type="button"
+              x-show="matkulQ"
+              @click="matkulQ = ''"
+              title="Hapus pencarian"
+              class="text-slate-400 hover:text-slate-600 p-1">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+      </button>
+    </div>
+
+    <!-- Dropdown Filter Status -->
+    <div class="relative w-full sm:w-[172px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+      <select x-model="matkulStatusFilter"
+              @change="loadMatkul()"
+              aria-label="Filter status mata kuliah"
+              class="w-full appearance-none bg-transparent pr-6 text-[12px] text-[#1D1B3A] font-medium focus:outline-none cursor-pointer">
         <option value="">Semua status</option>
         <option value="ACTIVE">Aktif</option>
         <option value="INACTIVE">Nonaktif</option>
       </select>
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+        <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Kartu Kontainer Tabel Daftar Mata Kuliah -->
+  <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-4 sm:p-5 md:p-6 shadow-sm flex flex-col gap-0">
+    
+    <!-- Baris Header Tabel -->
+    <div class="w-full h-[46px] shrink-0 flex items-center justify-between pb-2">
+      <h2 class="text-[17px] font-bold text-[#1D1B3A] tracking-tight">Daftar mata kuliah</h2>
+      <span class="text-[11px] text-[#667085]"
+            x-text="(filteredMatkul().length) + ' data ditampilkan'"></span>
     </div>
 
-    <!-- Loading State -->
-    <div x-show="matkulLoading" class="p-12 text-center text-muted">
-      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      <p class="mt-3 text-[14px]">Memuat daftar mata kuliah...</p>
+    <!-- SKELETON LOADING STATE (Mencegah Layout Shift) -->
+    <div x-show="matkulLoading" class="w-full py-3 space-y-3" aria-busy="true" aria-label="Memuat daftar mata kuliah">
+      <div class="h-[44px] bg-slate-100 rounded-[9px] animate-pulse"></div>
+      <template x-for="i in [1, 2, 3, 4, 5]" :key="i">
+        <div class="h-[64px] border-b border-[#EEEEEE] flex items-center gap-3 px-3 animate-pulse">
+          <div class="w-[140px] h-4 bg-slate-200 rounded"></div>
+          <div class="flex-1 h-4 bg-slate-200 rounded max-w-sm"></div>
+          <div class="w-[112px] h-6 bg-slate-200 rounded-full"></div>
+          <div class="w-[160px] h-9 bg-slate-200 rounded-[12px] ml-auto"></div>
+        </div>
+      </template>
     </div>
 
-    <!-- Error State -->
-    <div x-show="matkulError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-      <span x-text="matkulError">-</span>
-      <button type="button" @click="loadMatkul()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
+    <!-- ERROR STATE -->
+    <div x-show="!matkulLoading && matkulError" class="my-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+      <span x-text="matkulError">Gagal memuat mata kuliah.</span>
+      <button type="button" @click="loadMatkul()" class="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 text-[12px] font-semibold transition-colors">
+        Coba Lagi
+      </button>
     </div>
 
-    <!-- Empty State: Database Kosong (Belum ada matkul sama sekali) -->
-    <div x-show="!matkulLoading && !matkulError && (!matkulList || matkulList.length === 0)" class="ui-empty p-8 md:p-12 text-center text-muted mt-6 border border-dashed border-border rounded-2xl bg-slate-50/50">
-      <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-soft/60 flex items-center justify-center text-primary mb-4">
-        <span class="material-symbols-outlined text-[32px]">menu_book</span>
+    <!-- EMPTY STATE 1: Database Master Kosong -->
+    <div x-show="!matkulLoading && !matkulError && (!matkulList || matkulList.length === 0)" class="my-6 p-8 md:p-12 text-center border border-dashed border-[#CBD5E1] rounded-2xl bg-slate-50/60">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center text-[#3965FB] mb-3.5 shadow-sm">
+        <svg width="32" height="32" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false">
+          <path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z"/>
+        </svg>
       </div>
-      <p class="text-[17px] font-bold text-ink">Belum Ada Master Mata Kuliah</p>
-      <p class="text-[13px] text-muted max-w-md mx-auto mt-1">Database master mata kuliah masih kosong. Anda dapat menyinkronkan 41 mata kuliah dari jadwal kurikulum POLBAN atau mengimpor data secara manual.</p>
+      <p class="text-[17px] font-bold text-[#1D1B3A]">Belum Ada Master Mata Kuliah</p>
+      <p class="text-[13px] text-[#667085] max-w-md mx-auto mt-1 leading-normal">
+        Database master mata kuliah kampus masih kosong. Anda dapat menyinkronkan 41 mata kuliah dari berkas jadwal kurikulum POLBAN atau menambahkannya manual.
+      </p>
       <div class="flex flex-wrap items-center justify-center gap-3 mt-5">
-        <button type="button" @click="sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--primary text-[13px] font-semibold inline-flex items-center gap-2 min-h-[44px]">
-          <span x-show="syncAllLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-          <span class="material-symbols-outlined text-[18px]" x-show="!syncAllLoading">auto_mode</span>
-          <span>Sinkron Semua Master (106 Data)</span>
+        <button type="button" @click="bukaModalImportMatkul()" class="h-[44px] px-5 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold inline-flex items-center gap-2 shadow-sm transition-colors">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="#FFFFFF"><path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z"/></svg>
+          <span>Sinkronkan dari Jadwal POLBAN (41 Matkul)</span>
         </button>
-        <button type="button" @click="bukaModalImportMatkul(); importTab = 'jadwal'" class="ui-button ui-button--outline text-[13px] font-semibold inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">sync</span>
-          <span>Sinkron Matkul Saja (41)</span>
-        </button>
-        <button type="button" @click="bukaModalImportMatkul(); importTab = 'csv'" class="ui-button ui-button--outline text-[13px] font-semibold inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">upload_file</span>
-          <span>Impor CSV / Teks</span>
-        </button>
-        <button type="button" @click="bukaModalTambahMatkul()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-semibold hover:bg-white min-h-[44px]">
-          <span>+ Tambah Manual</span>
+        <button type="button" @click="bukaModalTambahMatkul()" class="h-[44px] px-4 rounded-[10px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition-colors">
+          + Tambah Manual
         </button>
       </div>
     </div>
 
-    <!-- Empty State: Hasil Filter / Pencarian Tidak Ditemukan -->
-    <div x-show="!matkulLoading && !matkulError && (matkulList && matkulList.length > 0) && filteredMatkul().length === 0" class="ui-empty p-10 text-center text-muted mt-6 border border-dashed border-border rounded-2xl">
-      <span class="material-symbols-outlined text-[36px] text-slate-300">search_off</span>
-      <p class="text-[15px] font-semibold text-ink mt-2">Tidak ada mata kuliah yang cocok</p>
-      <p class="text-[13px] text-muted mt-0.5">Ubah kata kunci pencarian atau reset filter status.</p>
-      <button type="button" @click="matkulQ = ''; matkulStatusFilter = ''; loadMatkul()" class="ui-button ui-button--ghost mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+    <!-- EMPTY STATE 2: Hasil Pencarian / Filter Kosong -->
+    <div x-show="!matkulLoading && !matkulError && matkulList && matkulList.length > 0 && filteredMatkul().length === 0" class="my-6 p-8 text-center border border-dashed border-[#CBD5E1] rounded-2xl">
+      <p class="text-[15px] font-semibold text-[#1D1B3A]">Tidak ada mata kuliah yang cocok</p>
+      <p class="text-[13px] text-[#667085] mt-0.5">Ubah kata kunci pencarian atau reset filter status.</p>
+      <button type="button" @click="matkulQ = ''; matkulStatusFilter = ''; loadMatkul()" class="mt-3.5 h-[40px] px-4 rounded-[10px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] transition-colors">
+        Reset filter
+      </button>
     </div>
 
-    <!-- Desktop: Tabel Mata Kuliah -->
-    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="ui-table-wrap mt-6 hidden md:block">
-      <table class="ui-table min-w-[560px]">
-        <thead>
-          <tr class="text-left text-slate-500 border-b border-border">
-            <th class="py-2.5 pr-3 font-semibold">Kode</th>
-            <th class="py-2.5 pr-3 font-semibold">Nama Mata Kuliah</th>
-            <th class="py-2.5 pr-3 font-semibold">Status</th>
-            <th class="py-2.5 font-semibold text-right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-          <template x-for="m in filteredMatkul()" :key="m.id">
-            <tr class="hover:bg-slate-50/50 transition-colors">
-              <td class="py-3 pr-3 font-mono font-semibold text-ink" x-text="m.code">-</td>
-              <td class="py-3 pr-3 font-medium text-ink" x-text="m.name">-</td>
-              <td class="py-3 pr-3">
-                <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'">
-                  <span class="material-symbols-outlined text-[12px]">book</span>
-                  <span x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
-                </span>
-              </td>
-              <td class="py-3 text-right whitespace-nowrap">
-                <button type="button" @click="mulaiUbahMatkul(m)" class="ui-button ui-button--outline text-primary text-[12px] font-semibold mr-1.5">Ubah</button>
-                <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
+    <!-- DESKTOP TABLE VIEW -->
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="hidden md:block w-full overflow-x-auto">
+      
+      <!-- Header Tabel -->
+      <div class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[12px] p-[0px_12px] justify-start items-center bg-[#F6F7FB] rounded-[9px]">
+        <div class="text-[10px]/[normal] box-border w-[140px] shrink-0 text-[#667085] font-bold text-left tracking-wider uppercase">
+          KODE
+        </div>
+        <div class="text-[10px]/[normal] box-border flex-1 text-[#667085] font-bold text-left tracking-wider uppercase">
+          NAMA MATA KULIAH
+        </div>
+        <div class="text-[10px]/[normal] box-border w-[112px] shrink-0 text-[#667085] font-bold text-left tracking-wider uppercase">
+          STATUS
+        </div>
+        <div class="text-[10px]/[normal] box-border w-[160px] shrink-0 text-[#667085] font-bold text-right tracking-wider uppercase pr-2">
+          AKSI
+        </div>
+      </div>
 
-    <!-- Mobile: Daftar Berlabel -->
-    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="mt-6 space-y-3 md:hidden">
-      <template x-for="m in filteredMatkul()" :key="m.id">
-        <div class="ui-card p-4">
-          <div class="flex items-start justify-between gap-2">
-            <p class="font-mono font-bold text-[15px] text-ink" x-text="m.code">-</p>
-            <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
-              :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
-              x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+      <!-- Baris Data Mata Kuliah -->
+      <div class="divide-y divide-[#EEEEEE]">
+        <template x-for="m in filteredMatkul()" :key="m.id">
+          <div class="w-full min-h-[72px] py-3 px-3 flex flex-row gap-[12px] justify-start items-center hover:bg-slate-50/70 transition-colors">
+            
+            <!-- Kolom Kode -->
+            <div class="text-[12px]/[normal] box-border w-[140px] shrink-0 text-[#1D1B3A] font-mono font-bold tracking-[-0.3px] text-left"
+                 x-text="m.code">
+              -
+            </div>
+
+            <!-- Kolom Nama Mata Kuliah -->
+            <div class="box-border flex-1 min-w-[200px] flex flex-col justify-center">
+              <span class="text-[14px]/[normal] text-[#1D1B3A] font-bold text-left"
+                    x-text="m.name">
+                -
+              </span>
+            </div>
+
+            <!-- Kolom Status -->
+            <div class="box-border w-[112px] shrink-0 flex items-center">
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold"
+                    :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#E8ECF2] text-[#667085]'"
+                    x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">
+                -
+              </span>
+            </div>
+
+            <!-- Kolom Aksi -->
+            <div class="box-border w-[160px] shrink-0 flex items-center justify-end gap-2">
+              
+              <!-- Tombol Ubah -->
+              <button type="button"
+                      @click="mulaiUbahMatkul(m)"
+                      title="Ubah nama mata kuliah"
+                      class="box-border w-[96px] shrink-0 h-[40px] flex flex-row gap-[5px] justify-center items-center bg-[#EEF2FF] hover:bg-[#dbeafe] text-[#3965FB] rounded-[12px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z m8.28858-8.11084l-0.64942-0.64942 0.64942 0.64942z m-1.62354 0.97412l-0.31445-0.32813 0.64258 0.64258-0.32813-0.31445z"/>
+                </svg>
+                <span class="text-[11px] font-semibold text-[#3965FB]">Ubah</span>
+              </button>
+
+              <!-- Tombol Titik Tiga Dropdown Menu -->
+              <div class="relative" @click.outside="matkulMenu = null" :class="matkulMenu === m.id ? 'z-50' : 'z-10'">
+                <button type="button"
+                        @click.stop="matkulMenu = (matkulMenu === m.id ? null : m.id)"
+                        :aria-expanded="String(matkulMenu === m.id)"
+                        :aria-label="'Menu aksi mata kuliah ' + m.code"
+                        class="box-border w-[44px] shrink-0 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#FFFFFF] border border-[#D7DDE7] hover:bg-slate-50 rounded-[12px] text-[#667085] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                    <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                  </svg>
+                </button>
+
+                <!-- Popover Menu Pilihan -->
+                <div x-show="matkulMenu === m.id"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="transform opacity-0 scale-95"
+                     x-transition:enter-end="transform opacity-100 scale-100"
+                     class="absolute right-0 top-[48px] z-50 w-[184px] rounded-[12px] bg-white border border-[#D7DDE7] shadow-xl py-1 text-left pointer-events-auto"
+                     role="menu">
+                  <button type="button"
+                          @click="matkulMenu = null; salinKodeMatkul(m.code)"
+                          role="menuitem"
+                          class="w-full text-left px-3.5 h-[42px] flex items-center gap-2.5 text-[12px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#667085]"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span>Salin Kode</span>
+                  </button>
+                  <button type="button"
+                          @click="matkulMenu = null; mintaKonfirmasiStatusMatkul(m)"
+                          role="menuitem"
+                          class="w-full text-left px-3.5 h-[42px] flex items-center gap-2.5 text-[12px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors"
+                          :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'text-amber-700 hover:text-amber-800' : 'text-emerald-700 hover:text-emerald-800'">
+                    <span class="inline-block w-2 h-2 rounded-full"
+                          :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+                    <span x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan Matkul' : 'Aktifkan Matkul'"></span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
-          <dl class="mt-2 text-[13px] space-y-1">
-            <div class="flex gap-2"><dt class="w-14 shrink-0 text-slate-500">Nama</dt><dd class="flex-1 font-medium text-ink" x-text="m.name">-</dd></div>
-          </dl>
-          <div class="mt-3 flex gap-2">
-            <button type="button" @click="mulaiUbahMatkul(m)" class="ui-button ui-button--outline flex-1 text-primary text-[13px] font-semibold">Ubah</button>
-            <button type="button" @click="mintaKonfirmasiStatusMatkul(m)" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+        </template>
+      </div>
+
+    </div>
+
+    <!-- MOBILE LIST VIEW (Responsive Card-based) -->
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="md:hidden mt-3 space-y-3">
+      <template x-for="m in filteredMatkul()" :key="m.id">
+        <div class="p-4 rounded-xl border border-[#D7DDE7] bg-white space-y-2.5 shadow-xs">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-[13px] font-bold text-[#1D1B3A]" x-text="m.code">-</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+                  :class="String(m.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#E8ECF2] text-[#667085]'"
+                  x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+          </div>
+          <p class="text-[14px] font-bold text-[#1D1B3A] leading-snug" x-text="m.name">-</p>
+          <div class="pt-2 border-t border-slate-100 flex items-center gap-2">
+            <button type="button"
+                    @click="mulaiUbahMatkul(m)"
+                    class="flex-1 h-[42px] rounded-[10px] bg-[#EEF2FF] hover:bg-[#dbeafe] text-[#3965FB] text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors min-h-[42px]">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="#3965FB"><path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z"/></svg>
+              <span>Ubah Nama</span>
+            </button>
+            <button type="button"
+                    @click="mintaKonfirmasiStatusMatkul(m)"
+                    class="h-[42px] px-3 rounded-[10px] border border-[#D7DDE7] text-[12px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors min-h-[42px]"
+                    x-text="String(m.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">
+            </button>
+            <button type="button"
+                    @click="salinKodeMatkul(m.code)"
+                    title="Salin kode"
+                    class="w-[42px] h-[42px] rounded-[10px] border border-[#D7DDE7] inline-flex items-center justify-center text-[#667085] hover:bg-slate-50 transition-colors min-h-[42px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
           </div>
         </div>
       </template>
     </div>
 
-    <!-- Usulan KM Menunggu -->
-    <div class="mt-10 pt-8 border-t border-border">
-      <div class="flex items-center justify-between gap-3">
+    <!-- Catatan Kaki Master Mata Kuliah -->
+    <div class="w-full pt-4 pb-1 border-t border-slate-100 mt-2">
+      <p class="text-[11px] text-[#667085] leading-normal">
+        Kode mata kuliah tetap setelah dibuat. Periksa data sebelum ditawarkan pada jadwal kelas.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 1: Tambah Mata Kuliah Baru                                -->
+  <!-- ============================================================== -->
+  <div x-show="modalTambahMatkul" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="tutupModalTambahMatkul()"></div>
+    <div class="relative max-w-lg w-full rounded-[16px] bg-white p-6 sm:p-7 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Tambah mata kuliah baru">
+      
+      <div class="flex items-start justify-between pb-3.5 border-b border-[#EEEEEE]">
         <div>
-          <h2 class="text-[16px] font-bold text-ink">Usulan KM Menunggu</h2>
-          <p class="text-[12px] text-muted">Usulan mata kuliah baru atau perubahan dari Ketua Murid kelas.</p>
+          <h3 class="text-[18px] font-bold text-[#1D1B3A]">Tambah Mata Kuliah</h3>
+          <p class="text-[12px] text-[#667085] mt-0.5">Kode mata kuliah bersifat permanen dan tidak dapat diubah setelah disimpan.</p>
         </div>
-        <button type="button" @click="loadUsulan('COURSE')" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+        <button type="button"
+                @click="tutupModalTambahMatkul()"
+                aria-label="Tutup dialog"
+                class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+        </button>
       </div>
-      <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
-      <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="usulanError">-</span>
-        <button type="button" @click="loadUsulan('COURSE')" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!usulanLoading && !usulanError && usulanKindList('COURSE').length === 0" class="ui-empty mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Tidak ada usulan mata kuliah menunggu.</div>
-      <div x-show="!usulanLoading && usulanKindList('COURSE').length > 0" class="mt-3 space-y-3">
-        <template x-for="u in usulanKindList('COURSE')" :key="u.id">
-          <div class="p-4 rounded-2xl border border-amber-300 bg-amber-50/40">
-            <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="u.target_code || 'Mata kuliah baru'">-</span> <span class="font-normal text-slate-500" x-text="'· ' + u.class_slug">-</span></p>
-            <p class="text-[12px] text-slate-500 mt-0.5">Oleh <span x-text="u.proposed_by">-</span><span x-show="u.note" x-text="' · ' + u.note"></span></p>
-            <details class="mt-1 text-[11px] text-slate-500">
-              <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi usulan</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(u.payload_json)"></pre>
-            </details>
-            <div class="flex gap-2 mt-2">
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="ui-button ui-button--primary text-[12px] font-semibold">Setujui</button>
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'reject')" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
-            </div>
-            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="ui-card mt-3 p-4">
-              <p class="text-[13px] font-semibold" x-text="(usulanKeputusan.keputusan === 'approve' ? 'Setujui ' : 'Tolak ') + usulanKeputusan.judul">-</p>
-              <p x-show="usulanKeputusan.keputusan === 'approve'" class="text-[12px] text-slate-500 mt-1">Diterapkan ke master dan tercatat di Audit Global.</p>
-              <label :for="'sa-usulan-catatan-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Catatan <span x-show="usulanKeputusan.keputusan === 'reject'" class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input aria-label="Catatan" :id="'sa-usulan-catatan-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanKeputusanUsulan()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="usulanKeputusan = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
+
+      <div x-show="matkulFormError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulFormError"></div>
+
+      <form @submit.prevent="tambahMatkul()" class="space-y-4 mt-4">
+        <div>
+          <label for="sa-matkul-input-kode" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Kode Mata Kuliah <span class="text-red-500">*</span>
+          </label>
+          <input id="sa-matkul-input-kode"
+                 type="text"
+                 x-model="matkulForm.kode"
+                 placeholder="Contoh: 25TI1101 atau 25IF1101"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] border border-[#CBD5E1] font-mono text-[13px] uppercase text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
+                 required />
+          <p class="text-[11px] text-[#667085] mt-1">Gunakan kode resmi kurikulum. Huruf kapital otomatis.</p>
+        </div>
+
+        <div>
+          <label for="sa-matkul-input-nama" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Nama Mata Kuliah <span class="text-red-500">*</span>
+          </label>
+          <input id="sa-matkul-input-nama"
+                 type="text"
+                 x-model="matkulForm.nama"
+                 placeholder="Contoh: Dasar-Dasar Pemrograman"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] border border-[#CBD5E1] text-[14px] text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
+                 required />
+        </div>
+
+        <div class="flex gap-2.5 pt-3 border-t border-[#EEEEEE]">
+          <button type="submit"
+                  class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold transition-colors min-h-[44px]">
+            Simpan Mata Kuliah
+          </button>
+          <button type="button"
+                  @click="tutupModalTambahMatkul()"
+                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+            Batal
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!-- MODAL 1: Tambah Mata Kuliah Baru -->
-    <div x-show="modalTambahMatkul" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tutupModalTambahMatkul()"></div>
-      <div class="ui-card relative max-w-lg w-full p-6 sm:p-7 shadow-2xl" role="dialog" aria-modal="true" aria-label="Tambah mata kuliah baru">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[18px] font-bold text-ink">Tambah Mata Kuliah</h3>
-            <p class="text-[13px] text-muted mt-0.5">Kode mata kuliah bersifat permanen dan tidak dapat diubah setelah dibuat.</p>
-          </div>
-          <button type="button" @click="tutupModalTambahMatkul()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
+  <!-- ============================================================== -->
+  <!-- MODAL 2: Impor & Sinkronisasi Mata Kuliah                      -->
+  <!-- ============================================================== -->
+  <div x-show="modalImportMatkul" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="tutupModalImportMatkul()"></div>
+    <div class="relative max-w-xl w-full rounded-[16px] bg-white p-6 sm:p-7 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Impor dan sinkronisasi mata kuliah">
+      
+      <div class="flex items-start justify-between pb-3.5 border-b border-[#EEEEEE]">
+        <div>
+          <h3 class="text-[18px] font-bold text-[#1D1B3A]">Impor &amp; Sinkronisasi Mata Kuliah</h3>
+          <p class="text-[12px] text-[#667085] mt-0.5">Pilih metode otomatis dari berkas kurikulum atau tempel data teks bebas.</p>
         </div>
-
-        <div x-show="matkulFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulFormError">-</div>
-
-        <form @submit.prevent="tambahMatkul()" class="space-y-4 mt-4">
-          <div>
-            <label for="sa-modal-matkul-kode" class="block text-[12px] font-semibold text-ink mb-1">Kode Mata Kuliah *</label>
-            <input id="sa-modal-matkul-kode" type="text" x-model="matkulForm.kode" placeholder="Contoh: 25IF1101 atau IF-101" class="ui-field text-[14px] font-mono uppercase" required />
-            <p class="text-[11px] text-muted mt-1">Gunakan kode standar kurikulum (misal: 25IF1101, 25TI1101).</p>
-          </div>
-          <div>
-            <label for="sa-modal-matkul-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama Mata Kuliah *</label>
-            <input id="sa-modal-matkul-nama" type="text" x-model="matkulForm.nama" placeholder="Contoh: Dasar-Dasar Pemrograman" class="ui-field text-[14px]" required />
-          </div>
-
-          <div class="flex gap-2 pt-2 border-t border-border">
-            <button type="submit" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Tambah Mata Kuliah</button>
-            <button type="button" @click="tutupModalTambahMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-          </div>
-        </form>
+        <button type="button"
+                @click="tutupModalImportMatkul()"
+                aria-label="Tutup dialog"
+                class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+        </button>
       </div>
-    </div>
 
-    <!-- MODAL 2: Impor & Sinkronisasi Mata Kuliah -->
-    <div x-show="modalImportMatkul" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tutupModalImportMatkul()"></div>
-      <div class="ui-card relative max-w-xl w-full p-6 sm:p-7 shadow-2xl" role="dialog" aria-modal="true" aria-label="Impor dan sinkronisasi mata kuliah">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
+      <!-- Tab Switcher -->
+      <div class="flex border-b border-[#EEEEEE] mt-3">
+        <button type="button"
+                @click="importTab = 'jadwal'"
+                class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
+                :class="importTab === 'jadwal' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-[#667085] hover:text-[#1D1B3A]'">
+          Sinkron Berkas Jadwal
+        </button>
+        <button type="button"
+                @click="importTab = 'csv'"
+                class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
+                :class="importTab === 'csv' ? 'border-[#3965FB] text-[#3965FB]' : 'border-transparent text-[#667085] hover:text-[#1D1B3A]'">
+          CSV / Teks Bebas
+        </button>
+      </div>
+
+      <!-- Alert Notifikasi -->
+      <div x-show="importError" class="mt-3.5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="importError"></div>
+      <div x-show="importSuccess" class="mt-3.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800" x-text="importSuccess"></div>
+
+      <!-- TAB 1: Sinkron Jadwal -->
+      <div x-show="importTab === 'jadwal'" class="mt-4 space-y-4">
+        <div class="p-4 rounded-xl border border-[#D7DDE7] bg-slate-50/70 flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#3965FB] shrink-0">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </div>
           <div>
-            <h3 class="text-[18px] font-bold text-ink">Impor / Sinkronisasi Mata Kuliah</h3>
-            <p class="text-[13px] text-muted mt-0.5">Pilih metode impor otomatis dari kurikulum POLBAN atau impor manual.</p>
-          </div>
-          <button type="button" @click="tutupModalImportMatkul()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
-        </div>
-
-        <!-- Tab Switcher -->
-        <div class="flex border-b border-border mt-3">
-          <button type="button" @click="importTab = 'jadwal'" class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
-            :class="importTab === 'jadwal' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'">
-            <span class="inline-flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">sync</span>
-              <span>Sinkron Jadwal POLBAN</span>
-            </span>
-          </button>
-          <button type="button" @click="importTab = 'csv'" class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
-            :class="importTab === 'csv' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'">
-            <span class="inline-flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
-              <span>CSV / Teks Bebas</span>
-            </span>
-          </button>
-        </div>
-
-        <!-- Alert Error & Success -->
-        <div x-show="importError" class="mt-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="importError">-</div>
-        <div x-show="importSuccess" class="mt-3 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800" x-text="importSuccess">-</div>
-
-        <!-- TAB 1: Sinkron Jadwal POLBAN -->
-        <div x-show="importTab === 'jadwal'" class="mt-4 space-y-4">
-          <div class="p-4 rounded-2xl border border-border bg-slate-50/70">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <span class="material-symbols-outlined text-[24px]">folder_special</span>
-              </div>
-              <div>
-                <p class="text-[14px] font-bold text-ink">19 Berkas Jadwal POLBAN Tersedia</p>
-                <p class="text-[12px] text-muted mt-0.5">Sistem akan memindai berkas <code class="font-mono text-ink text-[11px] bg-slate-200/60 px-1 py-0.5 rounded">data/jadwal/*.json</code> dan mengekstrak seluruh <strong>41 mata kuliah unik</strong> ke master kampus secara otomatis.</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="text-[12px] text-muted space-y-1">
-            <p class="font-semibold text-ink">Keunggulan 1-Click Sync:</p>
-            <ul class="list-disc pl-4 space-y-0.5">
-              <li>Mata kuliah yang belum ada akan langsung dibuat dengan status <span class="font-semibold text-emerald-700">Aktif</span>.</li>
-              <li>Mata kuliah yang sudah ada akan diperbarui nama resminya tanpa membuat duplikasi kode.</li>
-              <li>Aksi sinkronisasi tercatat otomatis di Audit Trail.</li>
-            </ul>
-          </div>
-
-          <div class="pt-3 border-t border-border flex flex-col sm:flex-row gap-2">
-            <button type="button" @click="sinkronMatkulDariJadwal()" :disabled="importLoading" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2">
-              <span x-show="importLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <span class="material-symbols-outlined text-[18px]" x-show="!importLoading">sync</span>
-              <span x-text="importLoading ? 'Menyinkronkan...' : 'Sinkronkan 41 Mata Kuliah Saja'">Sinkronkan 41 Mata Kuliah Saja</span>
-            </button>
-            <button type="button" @click="tutupModalImportMatkul(); sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--outline text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2" title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen">
-              <span class="material-symbols-outlined text-[18px]">auto_mode</span>
-              <span>Sinkron Semua (106)</span>
-            </button>
-            <button type="button" @click="tutupModalImportMatkul()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Tutup</button>
+            <p class="text-[14px] font-bold text-[#1D1B3A]">19 Berkas Jadwal POLBAN Tersedia</p>
+            <p class="text-[12px] text-[#667085] mt-0.5 leading-relaxed">
+              Sistem akan memindai <code class="font-mono text-[11px] bg-slate-200/70 px-1 py-0.5 rounded text-[#1D1B3A]">data/jadwal/*.json</code> dan mengekstrak seluruh <strong>41 mata kuliah unik</strong> ke master kampus secara otomatis tanpa membuat duplikasi kode.
+            </p>
           </div>
         </div>
 
-        <!-- TAB 2: CSV / Teks Bebas -->
-        <div x-show="importTab === 'csv'" class="mt-4 space-y-4">
-          <div>
-            <label for="sa-import-csv-text" class="block text-[12px] font-semibold text-ink mb-1">Tempel Data CSV atau Baris Teks</label>
-            <p class="text-[12px] text-muted mb-2">Format yang didukung: <code class="font-mono text-ink text-[11px] bg-slate-100 px-1 py-0.5 rounded">KODE, NAMA MATA KULIAH</code> (satu baris per mata kuliah, dipisahkan koma, titik-koma, atau tab) atau JSON array.</p>
-            <textarea id="sa-import-csv-text" x-model="importCsvText" rows="6" placeholder="Contoh:&#10;25IF1101, Algoritma dan Pemrograman&#10;25TI1102, Komputasi Kognitif&#10;25KU0002, Pendidikan Pancasila" class="ui-field text-[13px] font-mono leading-relaxed"></textarea>
-          </div>
-
-          <!-- Preview hitungan baris valid -->
-          <div class="flex items-center justify-between text-[12px] p-3 rounded-xl bg-slate-50 border border-border">
-            <span class="text-muted">Data valid terdeteksi:</span>
-            <span class="font-bold text-ink" x-text="parsedImportCourses().length + ' baris mata kuliah'">0 baris mata kuliah</span>
-          </div>
-
-          <div class="pt-3 border-t border-border flex gap-2">
-            <button type="button" @click="prosesImportCsvMatkul()" :disabled="importLoading || parsedImportCourses().length === 0" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2">
-              <span x-show="importLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <span class="material-symbols-outlined text-[18px]" x-show="!importLoading">upload_file</span>
-              <span x-text="importLoading ? 'Mengimpor...' : ('Impor ' + parsedImportCourses().length + ' Mata Kuliah')">Impor Mata Kuliah</span>
-            </button>
-            <button type="button" @click="tutupModalImportMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-          </div>
+        <div class="pt-3 border-t border-[#EEEEEE] flex flex-col sm:flex-row gap-2.5">
+          <button type="button"
+                  @click="sinkronMatkulDariJadwal()"
+                  :disabled="importLoading"
+                  class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-colors min-h-[44px]">
+            <span x-show="importLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+            <span x-text="importLoading ? 'Menyinkronkan...' : 'Sinkronkan 41 Mata Kuliah Saja'">Sinkronkan 41 Mata Kuliah Saja</span>
+          </button>
+          <button type="button"
+                  @click="tutupModalImportMatkul(); sinkronSemuaMaster()"
+                  :disabled="syncAllLoading"
+                  title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen"
+                  class="h-[44px] px-4 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition-colors min-h-[44px]">
+            <span>Sinkron Semua (106)</span>
+          </button>
+          <button type="button"
+                  @click="tutupModalImportMatkul()"
+                  class="h-[44px] px-4 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+            Tutup
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- MODAL 3: Ubah Mata Kuliah -->
-    <div x-show="matkulEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="batalUbahMatkul()"></div>
-      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Ubah mata kuliah">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[17px] font-bold text-ink">Ubah Mata Kuliah</h3>
-            <p class="text-[12px] text-muted mt-0.5">Kode: <span class="font-mono font-semibold text-ink" x-text="matkulEdit ? matkulEdit.kode : ''">-</span> (tidak dapat diubah)</p>
-          </div>
-          <button type="button" @click="batalUbahMatkul()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+      <!-- TAB 2: CSV / Teks Bebas -->
+      <div x-show="importTab === 'csv'" class="mt-4 space-y-4">
+        <div>
+          <label for="sa-import-matkul-csv-input" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Tempel Data Baris CSV atau Teks
+          </label>
+          <p class="text-[12px] text-[#667085] mb-2">
+            Format: <code class="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded text-[#1D1B3A]">KODE, NAMA MATA KULIAH</code> (satu baris per mata kuliah).
+          </p>
+          <textarea id="sa-import-matkul-csv-input"
+                    x-model="importCsvText"
+                    rows="6"
+                    placeholder="Contoh:&#10;25IF1101, Algoritma dan Pemrograman&#10;25TI1102, Komputasi Kognitif&#10;25KU0002, Pendidikan Pancasila"
+                    class="w-full p-3 rounded-[10px] border border-[#CBD5E1] text-[13px] font-mono leading-relaxed text-[#1D1B3A] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between text-[12px] p-3 rounded-xl bg-slate-50 border border-[#D7DDE7]">
+          <span class="text-[#667085]">Data valid terdeteksi:</span>
+          <span class="font-bold text-[#1D1B3A]" x-text="parsedImportCourses().length + ' baris mata kuliah'">0 baris mata kuliah</span>
+        </div>
+
+        <div class="pt-3 border-t border-[#EEEEEE] flex gap-2.5">
+          <button type="button"
+                  @click="prosesImportCsvMatkul()"
+                  :disabled="importLoading || parsedImportCourses().length === 0"
+                  class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-colors min-h-[44px]">
+            <span x-show="importLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+            <span x-text="importLoading ? 'Mengimpor...' : ('Impor ' + parsedImportCourses().length + ' Mata Kuliah')">Impor Mata Kuliah</span>
+          </button>
+          <button type="button"
+                  @click="tutupModalImportMatkul()"
+                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+            Batal
           </button>
         </div>
-
-        <div x-show="matkulEditError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulEditError"></div>
-
-        <form @submit.prevent="simpanUbahMatkul()" class="mt-4 space-y-4">
-          <div>
-            <label for="sa-matkul-ubah-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama Mata Kuliah *</label>
-            <input id="sa-matkul-ubah-nama" type="text" x-model="matkulEdit.nama" class="ui-field text-[14px]" required />
-          </div>
-
-          <div class="flex gap-2 pt-2 border-t border-border">
-            <button type="submit" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Simpan Perubahan</button>
-            <button type="button" @click="batalUbahMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-          </div>
-        </form>
       </div>
-    </div>
 
-    <!-- MODAL 4: Dialog Konfirmasi Status Mata Kuliah -->
-    <div x-show="matkulStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="batalKonfirmasiStatusMatkul()"></div>
-      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
-        <h3 class="text-[17px] font-bold text-ink">Ubah Status Mata Kuliah?</h3>
-        <p class="text-[13px] text-muted mt-1">Mata kuliah <span class="font-mono font-semibold text-ink" x-text="matkulStatusConfirm ? matkulStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="matkulStatusConfirm ? matkulStatusConfirm.dari : ''"></span> ke <span class="font-mono font-semibold text-ink" x-text="matkulStatusConfirm ? matkulStatusConfirm.ke : ''"></span>.</p>
-        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah pemakaian untuk penawaran baru. Penawaran lama tetap tampil di riwayat.</p>
-        <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatusMatkul()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatusMatkul()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 3: Ubah Mata Kuliah                                      -->
+  <!-- ============================================================== -->
+  <div x-show="matkulEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="batalUbahMatkul()"></div>
+    <div class="relative max-w-md w-full rounded-[16px] bg-white p-6 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Ubah mata kuliah">
+      
+      <div class="flex items-start justify-between pb-3.5 border-b border-[#EEEEEE]">
+        <div>
+          <h3 class="text-[17px] font-bold text-[#1D1B3A]">Ubah Mata Kuliah</h3>
+          <p class="text-[12px] text-[#667085] mt-0.5">Kode: <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulEdit ? matkulEdit.kode : ''">-</span> (tidak dapat diubah)</p>
         </div>
+        <button type="button"
+                @click="batalUbahMatkul()"
+                aria-label="Tutup dialog"
+                class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+        </button>
+      </div>
+
+      <div x-show="matkulEditError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulEditError"></div>
+
+      <form @submit.prevent="simpanUbahMatkul()" class="mt-4 space-y-4">
+        <div>
+          <label for="sa-matkul-edit-nama-input" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Nama Mata Kuliah <span class="text-red-500">*</span>
+          </label>
+          <input id="sa-matkul-edit-nama-input"
+                 type="text"
+                 x-model="matkulEdit.nama"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] border border-[#CBD5E1] text-[14px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
+                 required />
+        </div>
+
+        <div class="flex gap-2.5 pt-3 border-t border-[#EEEEEE]">
+          <button type="submit"
+                  class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold transition-colors min-h-[44px]">
+            Simpan Perubahan
+          </button>
+          <button type="button"
+                  @click="batalUbahMatkul()"
+                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+            Batal
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- MODAL 4: Dialog Konfirmasi Status Mata Kuliah                  -->
+  <!-- ============================================================== -->
+  <div x-show="matkulStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="batalKonfirmasiStatusMatkul()"></div>
+    <div class="relative max-w-md w-full rounded-[16px] bg-white p-6 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
+      <h3 class="text-[17px] font-bold text-[#1D1B3A]">Ubah Status Mata Kuliah?</h3>
+      <p class="text-[13px] text-[#667085] mt-1.5 leading-normal">
+        Ubah status mata kuliah <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulStatusConfirm ? matkulStatusConfirm.kode : ''"></span>
+        dari <span class="font-semibold" x-text="matkulStatusConfirm ? matkulStatusConfirm.dari : ''"></span>
+        ke <span class="font-semibold text-[#1D1B3A]" x-text="matkulStatusConfirm ? matkulStatusConfirm.ke : ''"></span>.
+      </p>
+      <p class="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 leading-relaxed">
+        Penonaktifan mencegah mata kuliah ini dipilih pada penawaran semester baru. Penawaran kelas lama yang sudah berjalan tetap utuh di riwayat jadwal.
+      </p>
+      <div class="flex gap-2.5 mt-4 pt-2">
+        <button type="button"
+                @click="jalankanUbahStatusMatkul()"
+                class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold transition-colors min-h-[44px]">
+          Konfirmasi
+        </button>
+        <button type="button"
+                @click="batalKonfirmasiStatusMatkul()"
+                class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+          Batal
+        </button>
       </div>
     </div>
   </div>
+
 </section>

@@ -228,6 +228,7 @@ function systemAdminApp() {
     matkulStatusFilter: '',
     matkulEdit: null,
     matkulEditError: '',
+    matkulMenu: null,
     matkulStatusConfirm: null,
     modalTambahMatkul: false,
     modalImportMatkul: false,
@@ -1920,6 +1921,38 @@ function systemAdminApp() {
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status.');
       }
+    },
+
+    salinKodeMatkul(code) {
+      if (!code) return;
+      this.copyText(code, `Kode mata kuliah ${code} disalin.`);
+    },
+
+    namaUsulanMatkul(u) {
+      if (!u) return 'Mata Kuliah Baru';
+      if (u.payload_json) {
+        try {
+          const p = typeof u.payload_json === 'string' ? JSON.parse(u.payload_json) : u.payload_json;
+          if (p && p.name) return p.name;
+        } catch (_) {}
+      }
+      return u.target_code || 'Mata Kuliah Baru';
+    },
+
+    formatWaktuRelatif(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const now = new Date();
+      const diffSec = Math.floor((now - d) / 1000);
+      if (diffSec < 60) return 'baru saja';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin} menit lalu`;
+      const diffHours = Math.floor(diffMin / 60);
+      if (diffHours < 24) return `${diffHours} jam lalu`;
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays < 30) return `${diffDays} hari lalu`;
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
     },
 
     filteredDosen() {
