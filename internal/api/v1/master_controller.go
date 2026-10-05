@@ -416,8 +416,9 @@ func (c *MasterController) GetCourses(w http.ResponseWriter, r *http.Request) {
 
 // CourseInput mewakili format data kode dan nama mata kuliah
 type CourseInput struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 // POST /api/v1/master/courses
@@ -631,8 +632,8 @@ func (c *MasterController) bulkInsertCoursesInternal(w http.ResponseWriter, r *h
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`INSERT INTO courses (code, name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET name = excluded.name;`)
+	stmt, err := tx.Prepare(`INSERT INTO courses (code, name, status) VALUES (?, ?, ?)
+		ON CONFLICT(code) DO UPDATE SET name = excluded.name, status = excluded.status;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah impor")
 		return
@@ -644,11 +645,15 @@ func (c *MasterController) bulkInsertCoursesInternal(w http.ResponseWriter, r *h
 	for _, item := range items {
 		code := strings.TrimSpace(item.Code)
 		name := strings.TrimSpace(item.Name)
+		status := strings.ToUpper(strings.TrimSpace(item.Status))
+		if status != "INACTIVE" {
+			status = "ACTIVE"
+		}
 		if code == "" || name == "" {
 			skipped++
 			continue
 		}
-		if _, err := stmt.Exec(code, name); err == nil {
+		if _, err := stmt.Exec(code, name, status); err == nil {
 			inserted++
 		} else {
 			skipped++
