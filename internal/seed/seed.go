@@ -348,7 +348,8 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 		VALUES (?, ?, ?, 1)
 		ON CONFLICT(class_id) DO UPDATE SET
 			timezone = excluded.timezone,
-			portal_access_mode = excluded.portal_access_mode;
+			portal_access_mode = excluded.portal_access_mode,
+			portal_code_hash = CASE WHEN excluded.portal_access_mode = 'LINK' THEN NULL ELSE portal_code_hash END;
 	`, classID, timezone, portalMode)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan pengaturan kelas: %w", err)

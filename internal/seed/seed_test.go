@@ -588,3 +588,63 @@ func TestSeed_Case8_LegacyDatabaseRemainsByteIdentical(t *testing.T) {
 		t.Errorf("PELANGGARAN: Database lama termodifikasi! Sebelum=%s, Sesudah=%s", hashBefore, hashAfter)
 	}
 }
+
+// Kasus 9: Seed ulang pada kelas yang portal_access_mode-nya sudah pernah diset CODE tidak gagal check constraint.
+func TestSeed_Case9_ReRunWhenPortalModeWasCodeClearsCodeHash(t *testing.T) {
+	targetDBPath := filepath.Join(t.TempDir(), "target_v1.db")
+	db, err := database.InitDB(targetDBPath)
+	if err != nil {
+		t.Fatalf("InitDB gagal: %v", err)
+	}
+	defer db.Close()
+
+	curriculumPath := setupMockCurriculum(t, "pilot_a.json")
+	manifest := &Manifest{
+		Classes: []ClassMapping{
+			{
+				ClassCode:        "D4-TI-2024-A",
+				Slug:             "d4-ti-2024-a",
+				StudyProgram:     "D4 Teknik Informatika",
+				CohortYear:       2024,
+				GroupLabel:       "A",
+				SourceFile:       curriculumPath,
+				LegacyClassID:    "D4-TI-SMT3-A",
+				AcademicYear:     "2026/2027",
+				Term:             "GANJIL",
+				StartsOn:         "2026-09-01",
+				EndsOn:           "2027-01-31",
+				Timezone:         "Asia/Jakarta",
+				PortalAccessMode: "LINK",
+			},
+		},
+	}
+
+	// 1. Eksekusi pertama
+	_, err = SeedClasses(manifest, "chk-1", db, "")
+	if err != nil {
+		t.Fatalf("Seed pertama gagal: %v", err)
+	}
+
+	// 2. Simulasikan perubahan portal ke mode CODE dengan hash sandi
+	_, err = db.Exec(`UPDATE class_settings SET portal_access_mode = 'CODE', portal_code_hash = 'dummy_hash_123' WHERE class_id = 1;`)
+	if err != nil {
+		t.Fatalf("Gagal mensimulasikan mode CODE: %v", err)
+	}
+
+	// 3. Eksekusi seed kedua (manifest meminta mode LINK)
+	_, err = SeedClasses(manifest, "chk-2", db, "")
+	if err != nil {
+		t.Fatalf("Seed kedua gagal karena CHECK constraint: %v", err)
+	}
+
+	// 4. Verifikasi portal_access_mode kembali LINK dan portal_code_hash menjadi NULL
+	var mode string
+	var codeHash *string
+	err = db.QueryRow(`SELECT portal_access_mode, portal_code_hash FROM class_settings WHERE class_id = 1;`).Scan(&mode, &codeHash)
+	if err != nil {
+		t.Fatalf("Query class_settings gagal: %v", err)
+	}
+	if mode != "LINK" || codeHash != nil {
+		t.Errorf("Ekspektasi mode=LINK dan codeHash=nil, dapat mode=%s, codeHash=%v", mode, codeHash)
+	}
+}
