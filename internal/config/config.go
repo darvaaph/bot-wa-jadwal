@@ -144,20 +144,6 @@ func ValidateOrigin(origin string) error {
 	return nil
 }
 
-// NormalizeOrigin mengembalikan bentuk kanonis scheme://host[:port] lower-case.
-func NormalizeOrigin(origin string) string {
-	u, err := url.Parse(strings.TrimSpace(origin))
-	if err != nil {
-		return ""
-	}
-	host := strings.ToLower(u.Hostname())
-	port := u.Port()
-	if port == "" {
-		return strings.ToLower(u.Scheme) + "://" + host
-	}
-	return strings.ToLower(u.Scheme) + "://" + host + ":" + port
-}
-
 // EnsureStorageAndMigrate memindahkan file runtime lama beserta sidecar SQLite ke storage
 // agar migrasi tidak meninggalkan WAL atau SHM yang terkunci.
 func (c *Config) EnsureStorageAndMigrate() error {

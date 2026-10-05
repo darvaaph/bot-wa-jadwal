@@ -1,0 +1,2102 @@
+<!-- partials/system-admin/view-kelas.html - System Admin: Daftar, Buat, dan Detail Kelas -->
+
+<!-- 1. DAFTAR KELAS -->
+<section x-show="view === 'kelas'" x-cloak>
+  <div x-show="kelasLoading" class="p-12 text-center text-[#667085]" role="status">
+    <div class="inline-block w-8 h-8 border-4 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+    <p class="mt-3 text-[14px]">Memuat daftar kelas...</p>
+  </div>
+
+  <div x-show="!kelasLoading" class="flex flex-col gap-5">
+    <!-- Lingkup kerja (khusus mobile; desktop ada di sidebar) -->
+    <div class="md:hidden rounded-[11px] border border-[#D7DDE7] bg-white px-3.5 h-[58px] flex items-center gap-2" :class="dukunganAktif ? 'bg-[#FEF3C7] border-[#FCD34D]' : ''">
+      <template x-if="dukunganAktif">
+        <div class="flex-1 min-w-0" title="Lingkup dikunci selama Mode Dukungan">
+          <span class="block text-[9px] font-semibold text-[#667085]">LINGKUP KERJA</span>
+          <span class="block text-[12px] font-bold text-[#78350F] truncate mt-0.5" x-text="(namaDukungan() || dukunganKelasSlug()) + ' (Dukungan)'"></span>
+        </div>
+      </template>
+      <template x-if="!dukunganAktif">
+      <label class="flex-1 min-w-0">
+        <span class="block text-[9px] font-semibold text-[#667085]">LINGKUP KERJA</span>
+        <span class="flex items-center gap-1.5 mt-0.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-[#3965FB] shrink-0" aria-hidden="true" focusable="false"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h9A1.5 1.5 0 0 1 16 5.5V21"/><path d="M2.5 21h17"/><path d="M16 9.5h2.3a1 1 0 0 1 1 1V21"/><path d="M7.2 7.5h1.6M7.2 11h1.6M7.2 14.5h1.6M11.2 7.5h1.6M11.2 11h1.6M11.2 14.5h1.6"/></svg>
+          <select x-model="lingkupKelas" @change="onLingkupChange()" aria-label="Lingkup kerja" class="min-w-0 flex-1 appearance-none bg-transparent text-[12px] font-semibold text-[#1D1B3A] truncate cursor-pointer focus:outline-none">
+            <option value="">Seluruh Kampus</option>
+            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
+          </select>
+        </span>
+      </label>
+      </template>
+      <span class="text-[#667085] shrink-0" aria-hidden="true" :class="dukunganAktif ? 'text-[#92400E]' : ''">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+      </span>
+    </div>
+
+    <!-- Header Kelas & Semester -->
+    <div class="flex flex-row items-center justify-between gap-5 w-full">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A] tracking-tight">Kelas &amp; semester</h1>
+          <span class="inline-flex items-center rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[11px] font-medium text-[#3965FB]" x-text="filteredKelas().length + ' KELAS'"></span>
+        </div>
+        <p class="text-[13px] md:text-[14px] text-[#667085] mt-1.5">Kelola kelas aktif, periode semester, dan akses dukungan administratif.</p>
+      </div>
+      <!-- Tombol Tambah Kelas Mobile (icon only) -->
+      <button type="button" @click="bukaModalBuatKelas()" aria-label="Tambah kelas" class="md:hidden w-11 h-11 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white min-w-[44px] min-h-[44px] items-center justify-center transition-colors flex shrink-0 shadow-sm">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.33691 7.66309l-2.87451 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l2.87451 0 0-2.87451q0-0.28027 0.19141-0.47168 0.19141-0.19141 0.47168-0.1914 0.28027 0 0.47168 0.1914 0.19141 0.19141 0.19141 0.47168l0 2.87451 2.87451 0q0.28027 0 0.47168 0.19141 0.19141 0.19141 0.1914 0.47168 0 0.28027-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-2.87451 0 0 2.87451q0 0.28027-0.19141 0.47168-0.19141 0.19141-0.47168 0.1914-0.28027 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168l0-2.87451z"/></svg>
+      </button>
+      <!-- Tombol Tambah Kelas Desktop -->
+      <button type="button" @click="bukaModalBuatKelas()" class="hidden md:inline-flex h-11 px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[14px] font-semibold items-center gap-2 transition-colors shrink-0 shadow-sm">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.33691 7.66309l-2.87451 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l2.87451 0 0-2.87451q0-0.28027 0.19141-0.47168 0.19141-0.19141 0.47168-0.1914 0.28027 0 0.47168 0.1914 0.19141 0.19141 0.19141 0.47168l0 2.87451 2.87451 0q0.28027 0 0.47168 0.19141 0.19141 0.19141 0.1914 0.47168 0 0.28027-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-2.87451 0 0 2.87451q0 0.28027-0.19141 0.47168-0.19141 0.19141-0.47168 0.1914-0.28027 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168l0-2.87451z"/></svg>
+        <span>Tambah kelas</span>
+      </button>
+    </div>
+
+    <!-- Status Semester Aktif -->
+    <div class="w-full min-h-[84px] md:h-[92px] rounded-[14px] bg-[#1D1B3A] px-4 md:px-5 py-3.5 md:py-0 flex flex-row items-center gap-3.5 md:gap-4 shadow-sm">
+      <div class="w-10 h-10 md:w-11 md:h-11 rounded-[11px] bg-white/10 flex items-center justify-center text-white shrink-0" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M6.38818 8.98584l2.01319-2.01318q0.18115-0.18457 0.4375-0.18457 0.25977 0 0.44092 0.18457 0.18457 0.18115 0.18457 0.44091 0 0.25635-0.18457 0.4375l-2.42676 2.42676q-0.20166 0.19482-0.46826 0.19483-0.26318 0-0.46143-0.19483l-1.20313-1.1997q-0.18457-0.18457-0.18457-0.44092 0-0.25977 0.18457-0.44092 0.18115-0.18115 0.4375-0.18115 0.25977 0 0.44092 0.18115l0.78955 0.78955z m-3.42822 3.96484q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-semibold tracking-wider text-[#C7C6D8] uppercase">SEMESTER AKTIF</p>
+        <p class="text-[15px] md:text-[17px] font-medium text-white truncate mt-0.5" x-text="bannerSemester().label ? bannerSemester().label + ' • Periode berjalan' : 'Belum ada semester aktif'"></p>
+      </div>
+      <span x-show="bannerSemester().label" class="inline-flex items-center gap-1.5 rounded-full bg-[#E1FFB7] px-2.5 py-1 text-[11px] font-semibold text-[#166534] shrink-0">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z m0-1.32617q1.94141 0 3.28125-1.33984 1.34326-1.34326 1.34326-3.28467 0-1.94141-1.34326-3.28125-1.33984-1.34326-3.28125-1.34326-1.94141 0-3.28467 1.34326-1.33984 1.33984-1.33984 3.28125 0 1.94141 1.33984 3.28467 1.34326 1.33984 3.28467 1.33984z"/>
+        </svg>
+        <span>AKTIF</span>
+      </span>
+      <button type="button" @click="kelolaPeriode()" class="h-10 md:h-11 px-3.5 rounded-[10px] bg-white/10 hover:bg-white/15 border border-white/20 text-white text-[13px] font-semibold flex items-center gap-2 shrink-0 transition-colors">
+        <span class="hidden sm:inline">Kelola periode</span>
+        <span class="sm:hidden">Periode</span>
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M9.24219 7.66309l-6.36426 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19141 0.47168-0.19141l6.36426 0-2.72071-2.72412q-0.19824-0.19824-0.19482-0.46484 0.00684-0.27002 0.20508-0.46826 0.20166-0.18457 0.46826-0.19141 0.2666-0.00684 0.46826 0.19483l3.84863 3.84863q0.09912 0.09912 0.14356 0.21875 0.04443 0.11963 0.04443 0.24951 0 0.12988-0.04443 0.24951-0.04443 0.11963-0.14356 0.21875l-3.85205 3.85205q-0.18799 0.18799-0.46142 0.18799-0.27002 0-0.47168-0.18799-0.19824-0.19824-0.19824-0.47168 0-0.27344 0.19824-0.4751l2.71045-2.71044z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="w-full flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+      <!-- Search Input -->
+      <div class="flex-1 relative flex items-center min-h-[44px]">
+        <span class="absolute left-3.5 text-[#667085] pointer-events-none" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor">
+            <path d="M5.51318 9.41309q-1.62012 0-2.74804-1.12452-1.12451-1.12451-1.12452-2.74804 0-1.62012 1.12452-2.74463 1.12793-1.12451 2.74804-1.12451 1.62012 0 2.74463 1.12451 1.12793 1.12451 1.12793 2.74463 0 0.64941-0.19824 1.21338-0.19482 0.56396-0.5332 0.99463l3.24023 3.24023q0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18799 0.46143-0.18457 0.18457-0.46484 0.18457-0.28027 0-0.46484-0.18457l-3.2334-3.23682q-0.43408 0.33838-1.00147 0.53662-0.56738 0.19482-1.21338 0.19483z m0-1.32618q1.06299 0 1.80469-0.7417 0.7417-0.7417 0.7417-1.80468 0-1.05957-0.7417-1.80127-0.7417-0.7417-1.80469-0.7417-1.06299 0-1.80468 0.7417-0.73828 0.7417-0.73829 1.80127 0 1.06299 0.73829 1.80468 0.7417 0.7417 1.80468 0.7417z"/>
+          </svg>
+        </span>
+        <input type="search" x-model="q" placeholder="Cari kode atau nama kelas..." aria-label="Cari kode atau nama kelas" class="h-11 w-full rounded-[10px] border border-[#CBD5E1] bg-white pl-10 pr-3 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors" />
+      </div>
+
+      <!-- Filter Program Dropdown -->
+      <div class="relative w-full md:w-[178px]">
+        <span class="absolute left-3 text-[#667085] pointer-events-none top-1/2 -translate-y-1/2" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor">
+            <path d="M3.56836 10.4419q-0.33154-0.18115-0.51611-0.48878-0.18457-0.31104-0.18457-0.69042l0-2.7002-1.32276-0.72803q-0.18115-0.09912-0.2666-0.24609-0.08203-0.15039-0.08203-0.33496 0-0.18115 0.08203-0.33155 0.08545-0.15381 0.2666-0.25292l4.82276-2.625q0.15039-0.08545 0.30761-0.12305 0.15723-0.04102 0.32471-0.04102 0.16748 0 0.32471 0.04102 0.15723 0.0376 0.30761 0.12305l5.53711 3.02148q0.16748 0.08203 0.25635 0.24268 0.09228 0.16064 0.09229 0.34179l0 3.68457q0 0.27002-0.18457 0.45459-0.18115 0.18115-0.45118 0.18115-0.27002 0-0.45459-0.18115-0.18457-0.18457-0.18457-0.45459l0-3.38379-1.11084 0.61182 0 2.7002q0 0.37939-0.18457 0.69042-0.18457 0.30762-0.51611 0.48877l-2.80273 1.50733q-0.15039 0.08545-0.30762 0.12646-0.15723 0.0376-0.32129 0.0376-0.16406 0-0.32129-0.0376-0.15723-0.04102-0.30762-0.12646l-2.80273-1.50733z m3.43164-3.10352l3.86572-2.08838-3.86572-2.08838-3.86572 2.08838 3.86572 2.08838z m0 3.51025l2.85742-1.5415 0-2.07129-2.21484 1.22021q-0.15039 0.08545-0.31445 0.12647-0.16064 0.0376-0.32813 0.0376-0.16748 0-0.33154-0.0376-0.16064-0.04102-0.31104-0.12647l-2.21484-1.22021 0 2.07129 2.85742 1.5415z"/>
+          </svg>
+        </span>
+        <select x-model="kelasFilter.prodi" aria-label="Filter program studi" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-9 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
+          <option value="">Semua program</option>
+          <template x-for="p in daftarProdi()" :key="p"><option :value="p" x-text="p"></option></template>
+        </select>
+        <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085]" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </div>
+
+      <!-- Filter Status Dropdown -->
+      <div class="relative w-full md:w-[150px]">
+        <select x-model="kelasFilter.status" aria-label="Filter status kelas" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-3.5 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
+          <option value="">Semua status</option>
+          <option value="ACTIVE">Status: Aktif</option>
+          <option value="INACTIVE">Status: Nonaktif</option>
+          <option value="ARCHIVED">Status: Arsip</option>
+        </select>
+        <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#667085]" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </div>
+
+      <!-- Filter Lanjutan Button -->
+      <button type="button" @click="kelasFilterLanjutan = !kelasFilterLanjutan" :aria-expanded="String(kelasFilterLanjutan)" class="h-11 px-3.5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#667085] flex items-center justify-center shrink-0 transition-colors">
+        <span x-text="kelasFilterLanjutan ? 'Tutup filter' : 'Filter lanjutan'"></span>
+      </button>
+    </div>
+
+    <!-- Filter Lanjutan Panel (Collapsible) -->
+    <div x-show="kelasFilterLanjutan" x-transition.opacity class="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0]">
+      <label class="block">
+        <span class="sr-only">Filter angkatan</span>
+        <input type="text" x-model="kelasFilter.angkatan" placeholder="Angkatan (contoh: 2024)" inputmode="numeric" class="h-10 w-full rounded-[8px] border border-[#CBD5E1] bg-white px-3 text-[12px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
+      </label>
+      <label class="block">
+        <span class="sr-only">Filter rombel</span>
+        <input type="text" x-model="kelasFilter.rombel" placeholder="Rombel (contoh: A)" class="h-10 w-full rounded-[8px] border border-[#CBD5E1] bg-white px-3 text-[12px] uppercase text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]" />
+      </label>
+      <label class="relative flex items-center">
+        <span class="sr-only">Filter status KM</span>
+        <select x-model="kelasFilter.statusKM" class="h-10 w-full appearance-none rounded-[8px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB]">
+          <option value="">KM: Semua</option>
+          <option value="active">KM: Aktif</option>
+          <option value="pending">KM: Undangan menunggu</option>
+          <option value="none">KM: Belum ditetapkan</option>
+        </select>
+        <span class="pointer-events-none absolute right-2.5 text-[#667085]" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="currentColor"><path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z"/></svg>
+        </span>
+      </label>
+      <button type="button" @click="resetKelasFilter()" class="h-10 px-4 rounded-[8px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#667085] hover:text-[#1D1B3A] transition-colors">Reset filter</button>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="filteredKelas().length === 0" class="p-12 rounded-[16px] bg-white border border-dashed border-[#D7DDE7] text-center text-[#667085]">
+      <p class="text-[15px] font-bold text-[#1D1B3A]">Tidak ada kelas ditemukan</p>
+      <p class="text-[13px] text-[#667085] mt-1">Coba sesuaikan filter atau kata kunci pencarian, atau buat kelas baru.</p>
+      <div class="mt-3.5 flex items-center justify-center gap-2.5 flex-wrap">
+        <button type="button" @click="resetKelasFilter()" class="h-10 px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition-colors">Reset filter</button>
+        <button type="button" @click="bukaModalBuatKelas()" class="h-10 px-5 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[13px] font-semibold transition-colors shadow-sm">Buat Kelas Baru</button>
+      </div>
+    </div>
+
+    <!-- Pembatas daftar (khusus mobile) -->
+    <div class="md:hidden flex items-center gap-2 pt-1" aria-hidden="true">
+      <span class="text-[10px] font-semibold tracking-wider text-[#667085]">DAFTAR KELAS</span>
+      <span class="flex-1"></span>
+      <span class="px-2.5 py-0.5 rounded-full bg-[#EEF2FF] text-[10px] font-bold text-[#3965FB]" x-text="filteredKelas().length + ' KELAS'"></span>
+    </div>
+
+    <!-- Tabel Desktop -->
+    <div x-show="filteredKelas().length > 0" class="hidden md:block w-full bg-white border border-[#D7DDE7] rounded-[16px] p-5 shadow-sm min-h-[460px] flex flex-col justify-between">
+      <div class="overflow-x-auto flex-1 min-h-[360px] pb-16">
+        <div class="min-w-[1080px]">
+          <!-- Header Kolom -->
+          <div class="grid grid-cols-[170px_minmax(0,1fr)_150px_130px_100px_178px] gap-3 px-3 h-11 items-center bg-[#F6F7FB] rounded-[9px] text-[10px] font-semibold text-[#667085]" aria-hidden="true">
+            <span>KELAS</span>
+            <span>PROGRAM STUDI</span>
+            <span>SEMESTER</span>
+            <span>PENGURUS</span>
+            <span>STATUS</span>
+            <span class="text-right pr-2">AKSI</span>
+          </div>
+
+          <!-- Baris Kelas -->
+          <template x-for="(k, i) in filteredKelas()" :key="k.slug || k.id">
+            <div :class="kelasMenu === k.slug ? 'z-30 relative' : 'relative'" class="grid grid-cols-[170px_minmax(0,1fr)_150px_130px_100px_178px] gap-3 px-3 py-4 items-center border-b border-[#EEEEEE] min-h-[78px] hover:bg-[#F8FAFC]/50 transition-colors">
+              <!-- Kolom 1: Identitas Kelas -->
+              <div class="min-w-0">
+                <p class="text-[13px] font-bold text-[#1D1B3A] truncate" x-text="k.nama"></p>
+                <p class="text-[10px] text-[#667085] mt-0.5 truncate" x-text="'Angkatan ' + k.angkatan + ' · Rombel ' + (k.group || 'A')"></p>
+              </div>
+
+              <!-- Kolom 2: Program Studi -->
+              <div class="min-w-0">
+                <p class="text-[13px] text-[#1D1B3A] font-normal truncate" :title="k.prodi" x-text="k.prodi"></p>
+              </div>
+
+              <!-- Kolom 3: Semester -->
+              <div class="min-w-0 flex flex-col gap-1 items-start">
+                <p class="text-[12px] text-[#1D1B3A] truncate w-full" x-text="labelSemester(semesterTampilKelas(k.slug))"></p>
+                <template x-if="!jadwalChipKelas(k.slug)">
+                  <span class="text-[10px] text-slate-400">Memuat...</span>
+                </template>
+                <template x-if="jadwalChipKelas(k.slug)">
+                  <span class="inline-flex h-[23px] items-center px-2 rounded-[7px] text-[10px] font-medium"
+                        :class="jadwalChipKelas(k.slug).tone === 'ok' ? 'bg-[#E1FFB7] text-[#166534]' : (jadwalChipKelas(k.slug).tone === 'warn' ? 'bg-[#FCD484] text-[#92400E]' : 'bg-slate-100 text-slate-500')"
+                        x-text="jadwalChipKelas(k.slug).text"></span>
+                </template>
+              </div>
+
+              <!-- Kolom 4: Pengurus -->
+              <div class="min-w-0">
+                <template x-if="k.statusKM === 'active'">
+                  <p class="text-[11px] text-[#1D1B3A] truncate font-medium" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p>
+                </template>
+                <template x-if="k.statusKM === 'pending'">
+                  <p class="text-[11px] text-[#92400E] font-medium truncate">Undangan menunggu</p>
+                </template>
+                <template x-if="k.statusKM === 'none'">
+                  <p class="text-[11px] text-[#92400E] font-medium truncate">KM: Belum Ditetapkan</p>
+                </template>
+              </div>
+
+              <!-- Kolom 5: Status -->
+              <div>
+                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
+                      :class="String(k.status || '').toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : (String(k.status || '').toUpperCase() === 'INACTIVE' ? 'bg-amber-100 text-[#92400E]' : 'bg-slate-100 text-slate-500')"
+                      x-text="labelStatusKelas(k.status)"></span>
+              </div>
+
+              <!-- Kolom 6: Aksi -->
+              <div class="flex items-center justify-end gap-1.5 relative">
+                <!-- Tombol Lihat Detail (KM Aktif) -->
+                <template x-if="k.statusKM === 'active'">
+                  <button type="button" @click="bukaDetail(k)" class="h-10 px-3 rounded-[9px] bg-[#EEF2FF] hover:bg-[#DFE4FF] text-[#3965FB] text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors" :aria-label="'Lihat detail ' + k.nama">
+                    <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                      <path d="M7 9.33447q1.09375 0 1.85938-0.76562 0.76563-0.76562 0.76562-1.85938 0-1.09375-0.76563-1.85937-0.76563-0.76563-1.85937-0.76563-1.09375 0-1.85938 0.76563-0.76563 0.76563-0.76562 1.85937 0 1.09375 0.76563 1.85938 0.76563 0.76563 1.85937 0.76562z m0-1.12451q-0.62549 0-1.06299-0.4375-0.4375-0.4375-0.4375-1.06299 0-0.62549 0.4375-1.06299 0.4375-0.44092 1.06299-0.44091 0.62549 0 1.06299 0.4375 0.4375 0.4375 0.4375 1.06298 0 0.62549-0.4375 1.06641-0.4375 0.4375-1.06299 0.4375z m0 2.98047q-1.97559 0-3.60938-1.05615-1.63037-1.05615-2.57031-2.79932-0.08545-0.14697-0.12646-0.3042-0.0376-0.16064-0.0376-0.32129 0-0.16406 0.0376-0.32129 0.04102-0.15723 0.12646-0.30761 0.93994-1.73975 2.57031-2.7959 1.63379-1.05957 3.60938-1.05957 1.97559 0 3.60596 1.05957 1.63379 1.05615 2.57373 2.7959 0.08545 0.15039 0.12304 0.30761 0.04102 0.15723 0.04102 0.32129 0 0.16064-0.04102 0.32129-0.0376 0.15723-0.12304 0.3042-0.93994 1.74316-2.57373 2.79932-1.63037 1.05615-3.60596 1.05615z m0-1.2749q1.64404 0 3.01807-0.86817 1.37402-0.86816 2.10547-2.33789-0.73145-1.46973-2.10547-2.33789-1.37402-0.87158-3.01807-0.87158-1.64404 0-3.01807 0.87158-1.37402 0.86816-2.10547 2.33789 0.73145 1.46973 2.10547 2.33789 1.37402 0.86816 3.01807 0.86817z"/>
+                    </svg>
+                    <span>Lihat detail</span>
+                  </button>
+                </template>
+
+                <!-- Tombol Undang KM (KM Belum Aktif) -->
+                <template x-if="k.statusKM !== 'active'">
+                  <button type="button" @click="bukaUndang(k)" class="h-10 px-3 rounded-[9px] bg-[#3965FB] hover:bg-blue-600 text-white text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors" :aria-label="(k.statusKM === 'pending' ? 'Kirim ulang undangan KM ' : 'Undang KM ') + k.nama">
+                    <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                      <path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/>
+                    </svg>
+                    <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+                  </button>
+                </template>
+
+                <!-- Tombol Menu Titik Tiga -->
+                <div class="relative" @click.outside="if (kelasMenu === k.slug) kelasMenu = null">
+                  <button type="button" @click.stop="toggleKelasMenu(k.slug)" :aria-expanded="String(kelasMenu === k.slug)" :aria-label="'Menu lain ' + k.nama" class="w-10 h-10 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[#667085] transition-colors">
+                    <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                      <path d="M7.00342 11.82617q-0.50586 0-0.86475-0.35547-0.35889-0.35889-0.35888-0.86132 0-0.50586 0.35888-0.86475 0.35889-0.35889 0.86133-0.35889 0.50586 0 0.86133 0.35889 0.35889 0.35889 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35547-0.85791 0.35547z m0-3.60596q-0.50586 0-0.86475-0.35888-0.35889-0.35889-0.35888-0.86133 0-0.50586 0.35888-0.86133 0.35889-0.35889 0.86133-0.35888 0.50586 0 0.86133 0.35888 0.35889 0.35547 0.35888 0.85791 0 0.50586-0.35888 0.86475-0.35547 0.35889-0.85791 0.35888z m0-3.60595q-0.50586 0-0.86475-0.35889-0.35889-0.35889-0.35888-0.86474 0-0.50586 0.35888-0.86133 0.35889-0.35547 0.86133-0.35547 0.50586 0 0.86133 0.35547 0.35889 0.35547 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35889-0.85791 0.35889z"/>
+                    </svg>
+                  </button>
+
+                  <!-- Popup Menu Dropdown -->
+                  <div x-show="kelasMenu === k.slug" x-cloak :class="(i >= filteredKelas().length - 2 && filteredKelas().length > 2) ? 'bottom-full mb-1.5' : 'top-full mt-1.5'" class="absolute right-0 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
+                    <!-- Opsi Mode Dukungan (Highlight sesuai Figma) -->
+                    <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" role="menuitem" class="w-full text-left px-3 py-2 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px]">
+                      <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+                        <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
+                      </svg>
+                      <span>Mode dukungan</span>
+                    </button>
+                    <div class="h-[1px] bg-[#EEEEEE] my-1"></div>
+                    <button type="button" @click="kelasMenu = null; bukaAuditKelas(k.slug)" role="menuitem" class="w-full text-left px-3 py-2 flex items-center text-[12px] text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+                      Lihat audit kelas
+                    </button>
+                    <button type="button" @click="kelasMenu = null; notifFilter = ''; notifKelas = ''; go('antrean')" role="menuitem" class="w-full text-left px-3 py-2 flex items-center text-[12px] text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors rounded-b-[9px]">
+                      Lihat antrean WhatsApp
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Footer Tabel Kelas (Desktop) -->
+          <div class="flex flex-row items-center justify-between pt-4 px-1 text-[11px] text-[#667085]">
+            <p x-text="'Menampilkan ' + filteredKelas().length + ' kelas pada semester aktif'"></p>
+            <p class="hidden sm:block">Mode dukungan membuka akses sementara yang tercatat di audit.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tampilan Kartu (Khusus Mobile) -->
+    <div x-show="filteredKelas().length > 0" class="md:hidden flex flex-col gap-3">
+      <template x-for="k in filteredKelas()" :key="'m-' + (k.slug || k.id)">
+        <div class="bg-white border border-[#D7DDE7] rounded-[13px] p-3.5 flex flex-col gap-2 shadow-sm">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-bold text-[#1D1B3A] truncate" x-text="k.nama"></p>
+              <p class="text-[11px] text-[#667085] truncate" x-text="k.prodi"></p>
+              <p class="text-[10px] text-[#667085] mt-0.5 font-medium truncate" x-text="'Angkatan ' + k.angkatan + ' · Rombel ' + (k.group || 'A')"></p>
+            </div>
+            <span class="inline-flex items-center h-6 px-2.5 rounded-full text-[10px] font-medium shrink-0" :class="String(k.status || '').toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : (String(k.status || '').toUpperCase() === 'INACTIVE' ? 'bg-amber-100 text-[#92400E]' : 'bg-slate-100 text-slate-500')" x-text="labelStatusKelas(k.status).toUpperCase()"></span>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1 border-t border-[#F1F5F9]">
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/></svg>
+            <span class="text-[11px] font-medium text-[#667085] truncate" x-text="labelSemester(semesterTampilKelas(k.slug))"></span>
+            <span class="flex-1"></span>
+            <template x-if="!jadwalChipKelas(k.slug)"><span class="text-[10px] text-slate-400 shrink-0">Memuat...</span></template>
+            <template x-if="jadwalChipKelas(k.slug)">
+              <span class="inline-flex h-6 items-center px-2 rounded-[7px] text-[10px] font-medium shrink-0" :class="jadwalChipKelas(k.slug).tone === 'ok' ? 'bg-[#E1FFB7] text-[#166534]' : (jadwalChipKelas(k.slug).tone === 'warn' ? 'bg-[#FCD484] text-[#92400E]' : 'bg-slate-100 text-slate-500')" x-text="jadwalChipKelas(k.slug).text"></span>
+            </template>
+          </div>
+
+          <div class="text-[11px]">
+            <template x-if="k.statusKM === 'active'"><p class="text-[#1D1B3A] font-medium truncate" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p></template>
+            <template x-if="k.statusKM === 'pending'"><p class="text-[#92400E] font-medium">Undangan menunggu</p></template>
+            <template x-if="k.statusKM === 'none'"><p class="text-[#92400E] font-medium">KM: Belum Ditetapkan</p></template>
+          </div>
+
+          <div class="flex gap-2 h-11 pt-1">
+            <template x-if="k.statusKM === 'active'">
+              <button type="button" @click="bukaDetail(k)" class="flex-1 h-11 rounded-[9px] bg-[#EEF2FF] hover:bg-[#DFE4FF] text-[#3965FB] text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="'Lihat detail ' + k.nama">
+                <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 9.33447q1.09375 0 1.85938-0.76562 0.76563-0.76562 0.76562-1.85938 0-1.09375-0.76563-1.85937-0.76563-0.76563-1.85937-0.76563-1.09375 0-1.85938 0.76563-0.76563 0.76563-0.76562 1.85937 0 1.09375 0.76563 1.85938 0.76563 0.76563 1.85937 0.76562z m0-1.12451q-0.62549 0-1.06299-0.4375-0.4375-0.4375-0.4375-1.06299 0-0.62549 0.4375-1.06299 0.4375-0.44092 1.06299-0.44091 0.62549 0 1.06299 0.4375 0.4375 0.4375 0.4375 1.06298 0 0.62549-0.4375 1.06641-0.4375 0.4375-1.06299 0.4375z m0 2.98047q-1.97559 0-3.60938-1.05615-1.63037-1.05615-2.57031-2.79932-0.08545-0.14697-0.12646-0.3042-0.0376-0.16064-0.0376-0.32129 0-0.16406 0.0376-0.32129 0.04102-0.15723 0.12646-0.30761 0.93994-1.73975 2.57031-2.7959 1.63379-1.05957 3.60938-1.05957 1.97559 0 3.60596 1.05957 1.63379 1.05615 2.57373 2.7959 0.08545 0.15039 0.12304 0.30761 0.04102 0.15723 0.04102 0.32129 0 0.16064-0.04102 0.32129-0.0376 0.15723-0.12304 0.3042-0.93994 1.74316-2.57373 2.79932-1.63037 1.05615-3.60596 1.05615z m0-1.2749q1.64404 0 3.01807-0.86817 1.37402-0.86816 2.10547-2.33789-0.73145-1.46973-2.10547-2.33789-1.37402-0.87158-3.01807-0.87158-1.64404 0-3.01807 0.87158-1.37402 0.86816-2.10547 2.33789 0.73145 1.46973 2.10547 2.33789 1.37402 0.86816 3.01807 0.86817z"/></svg>
+                <span>Lihat detail</span>
+              </button>
+            </template>
+            <template x-if="k.statusKM !== 'active'">
+              <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-[9px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="(k.statusKM === 'pending' ? 'Kirim ulang undangan KM ' : 'Undang KM ') + k.nama">
+                <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/></svg>
+                <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+              </button>
+            </template>
+            <div class="relative" @click.outside="if (kelasMenu === 'm-' + k.slug) kelasMenu = null">
+              <button type="button" @click.stop="toggleKelasMenu('m-' + k.slug)" :aria-expanded="String(kelasMenu === 'm-' + k.slug)" :aria-label="'Menu lain ' + k.nama" class="w-11 h-11 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] text-[#667085] min-w-[44px] min-h-[44px]">
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.00342 11.82617q-0.50586 0-0.86475-0.35547-0.35889-0.35889-0.35888-0.86132 0-0.50586 0.35888-0.86475 0.35889-0.35889 0.86133-0.35889 0.50586 0 0.86133 0.35889 0.35889 0.35889 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35547-0.85791 0.35547z m0-3.60596q-0.50586 0-0.86475-0.35888-0.35889-0.35889-0.35888-0.86133 0-0.50586 0.35888-0.86133 0.35889-0.35889 0.86133-0.35888 0.50586 0 0.86133 0.35888 0.35889 0.35547 0.35888 0.85791 0 0.50586-0.35888 0.86475-0.35547 0.35889-0.85791 0.35888z m0-3.60595q-0.50586 0-0.86475-0.35889-0.35889-0.35889-0.35888-0.86474 0-0.50586 0.35888-0.86133 0.35889-0.35547 0.86133-0.35547 0.50586 0 0.86133 0.35547 0.35889 0.35547 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35889-0.85791 0.35889z"/></svg>
+              </button>
+              <div x-show="kelasMenu === 'm-' + k.slug" x-cloak class="absolute right-0 top-full mt-1.5 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
+                <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px]">
+                  <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+                    <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
+                  </svg>
+                  <span>Mode dukungan</span>
+                </button>
+                <div class="h-[1px] bg-[#EEEEEE] my-1"></div>
+                <button type="button" @click="kelasMenu = null; bukaAuditKelas(k.slug)" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center text-[12px] text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors">
+                  Lihat audit kelas
+                </button>
+                <button type="button" @click="kelasMenu = null; notifFilter = ''; notifKelas = ''; go('antrean')" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center text-[12px] text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors rounded-b-[9px]">
+                  Lihat antrean WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Modal Dialog Masuk Mode Dukungan -->
+    <div x-show="dialogDukunganKelas" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="dialogDukunganKelas = null"></div>
+      <div class="relative max-w-md w-full bg-white rounded-[16px] p-6 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Masuk Mode Dukungan">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-[10px] bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42725 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-[16px] font-bold text-[#1D1B3A]">Mode Dukungan</h3>
+            <p class="text-[12px] text-[#667085]">Akses break-glass 60 menit untuk <span class="font-bold text-[#1D1B3A]" x-text="dialogDukunganKelas ? dialogDukunganKelas.nama : ''"></span></p>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1.5" for="sa-dukungan-alasan-modal">
+            Alasan Dukungan <span class="text-red-500">*</span> <span class="text-[11px] font-normal text-[#667085]">(minimal 10 karakter)</span>
+          </label>
+          <textarea id="sa-dukungan-alasan-modal" x-model="dukunganAlasan" rows="3" placeholder="Contoh: Pemulihan konfigurasi jadwal dan akses pengurus kelas..." class="w-full rounded-[10px] border border-[#CBD5E1] p-3 text-[13px] text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"></textarea>
+        </div>
+
+        <p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-[8px] p-2.5 mt-3">
+          Sesi hibah server berlaku 60 menit. Seluruh aksi selama mode ini dicatat permanen dalam Audit Global sebagai SUPPORT_ENTER/EXIT.
+        </p>
+
+        <div class="flex gap-2.5 mt-5">
+          <button type="button" @click="jalankanMasukDukungan()" :disabled="dukunganLoading || (dukunganAlasan || '').trim().length < 10" class="flex-1 h-11 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 disabled:opacity-50 text-white text-[13px] font-semibold flex items-center justify-center transition-colors shadow-sm">
+            <span x-text="dukunganLoading ? 'Memproses...' : 'Aktifkan Mode Dukungan'"></span>
+          </button>
+          <button type="button" @click="dialogDukunganKelas = null" class="h-11 px-5 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold transition-colors">
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- 2. MODAL BUAT KELAS BARU (SCR-ADM-005B) -->
+<div
+  x-show="modalBuatTerbuka"
+  x-cloak
+  @keydown.escape.window="if (!kelasSaving) modalBuatTerbuka = false"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-buat-kelas-title"
+>
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 bg-[#00000080] backdrop-blur-[2px] transition-opacity"
+    @click="if (!kelasSaving) modalBuatTerbuka = false"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Modal Dialog Content -->
+  <div
+    class="relative w-full max-w-[540px] bg-white rounded-[16px] p-[24px] sm:p-[26px] shadow-[0px_18px_44px_rgba(16,24,40,0.27)] border border-[#E2E8F0] flex flex-col gap-[20px] max-h-[90vh] overflow-y-auto z-10"
+    @click.stop
+  >
+    <!-- Header Modal -->
+    <div class="w-full flex items-start justify-between gap-3 shrink-0">
+      <div class="flex flex-col gap-1 min-w-0">
+        <h2 id="modal-buat-kelas-title" class="text-[18px] font-semibold text-[#1D1B3A] tracking-tight">
+          Buat Kelas Baru
+        </h2>
+        <p class="text-[13px] text-[#64748B]">
+          Daftarkan identitas kelas baru ke dalam sistem akademik.
+        </p>
+      </div>
+      <button
+        type="button"
+        @click="modalBuatTerbuka = false"
+        :disabled="kelasSaving"
+        aria-label="Tutup dialog buat kelas"
+        class="w-[30px] h-[30px] flex items-center justify-center rounded-lg text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/30"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Error Alert -->
+    <div x-show="kelasError" x-cloak class="p-3 rounded-[10px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-start gap-2">
+      <svg class="w-4 h-4 mt-0.5 shrink-0 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <span x-text="kelasError"></span>
+    </div>
+
+    <!-- Form Identitas Kelas -->
+    <form @submit.prevent="simpanKelas()" class="w-full flex flex-col gap-[18px]">
+      <!-- 1. Program Studi -->
+      <div class="w-full flex flex-col gap-[7px]">
+        <label for="sa-modal-prodi" class="text-[13px] font-medium text-[#1D1B3A]">
+          Program Studi <span class="text-red-500">*</span>
+        </label>
+        <div class="relative w-full">
+          <select
+            id="sa-modal-prodi"
+            x-model="kelasForm.prodi"
+            @change="updateAutoKelas()"
+            required
+            class="w-full h-[44px] px-3 pr-9 rounded-[8px] bg-white border border-[#CBD5E1] text-[13px] text-[#1D1B3A] appearance-none focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors cursor-pointer"
+          >
+            <option value="" disabled>Pilih Program Studi</option>
+            <template x-for="p in daftarProdi()" :key="p">
+              <option :value="p" x-text="p"></option>
+            </template>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[#667085]">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Tahun Angkatan dan Rombel -->
+      <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-[14px]">
+        <!-- Tahun Angkatan -->
+        <div class="flex flex-col gap-[7px]">
+          <label for="sa-modal-angkatan" class="text-[13px] font-medium text-[#1D1B3A]">
+            Tahun Angkatan <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="sa-modal-angkatan"
+            type="number"
+            x-model="kelasForm.angkatan"
+            @input="updateAutoKelas()"
+            placeholder="2025"
+            min="2000"
+            max="2100"
+            required
+            class="w-full h-[44px] px-3 rounded-[8px] bg-white border border-[#CBD5E1] text-[14px] font-semibold text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+          />
+          <span class="text-[11px] text-[#667085]">Tahun masuk angkatan.</span>
+        </div>
+
+        <!-- Rombel / Grup -->
+        <div class="flex flex-col gap-[7px]">
+          <label for="sa-modal-rombel" class="text-[13px] font-medium text-[#1D1B3A]">
+            Rombel / Grup <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="sa-modal-rombel"
+            type="text"
+            x-model="kelasForm.rombel"
+            @input="kelasForm.rombel = (kelasForm.rombel || '').toUpperCase(); updateAutoKelas()"
+            placeholder="A"
+            maxlength="4"
+            required
+            class="w-full h-[44px] px-3 rounded-[8px] bg-white border border-[#CBD5E1] text-[14px] font-semibold text-[#1D1B3A] placeholder-[#94A3B8] uppercase focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+          />
+          <span class="text-[11px] text-[#667085]">Label kelas (misal: A, B).</span>
+        </div>
+      </div>
+
+      <!-- 3. Pratinjau Identitas Kelas -->
+      <div class="w-full p-[14px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] flex flex-col gap-[10px]">
+        <div class="w-full flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold text-[#94A3B8] tracking-[0.7px]">
+            PRATINJAU IDENTITAS KELAS
+          </span>
+          <button
+            type="button"
+            @click="toggleKustomKelas()"
+            class="text-[11px] font-medium text-[#3965FB] hover:underline focus:outline-none cursor-pointer"
+          >
+            <span x-show="!kelasForm.kustom">Sesuaikan kode manual</span>
+            <span x-show="kelasForm.kustom">Kembalikan otomatis</span>
+          </button>
+        </div>
+
+        <!-- Live Preview Mode -->
+        <div x-show="!kelasForm.kustom" class="flex flex-col gap-2">
+          <div class="w-full flex items-center gap-2">
+            <span class="text-[12px] text-[#64748B] w-[130px] shrink-0">Kode Kelas</span>
+            <span class="text-[12px] text-[#94A3B8]">➔</span>
+            <span class="text-[15px] font-jbmono font-bold text-[#1D1B3A]" x-text="kelasForm.nama || '-'"></span>
+          </div>
+          <div class="w-full flex items-center gap-2">
+            <span class="text-[12px] text-[#64748B] w-[130px] shrink-0">URL Portal Mahasiswa</span>
+            <span class="text-[12px] text-[#94A3B8]">➔</span>
+            <span class="text-[12px] font-jbmono font-medium text-[#3965FB] truncate" x-text="portalURLPreview()"></span>
+          </div>
+        </div>
+
+        <!-- Manual Custom Input Mode -->
+        <div x-show="kelasForm.kustom" x-cloak class="pt-2 border-t border-[#E2E8F0] flex flex-col gap-3">
+          <div>
+            <label for="sa-modal-custom-nama" class="block text-[12px] font-medium text-[#1D1B3A] mb-1">
+              Nama / Kode Kelas Kustom <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="sa-modal-custom-nama"
+              type="text"
+              x-model="kelasForm.nama"
+              placeholder="D4-TI 1A"
+              class="w-full h-9 px-3 rounded-[6px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            />
+          </div>
+          <div>
+            <label for="sa-modal-custom-slug" class="block text-[12px] font-medium text-[#1D1B3A] mb-1">
+              Slug Portal URL
+            </label>
+            <input
+              id="sa-modal-custom-slug"
+              type="text"
+              x-model="kelasForm.slug"
+              placeholder="d4-ti-1a"
+              class="w-full h-9 px-3 rounded-[6px] border border-[#CBD5E1] bg-white text-[13px] font-jbmono text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Keamanan Akses Portal Mahasiswa -->
+      <div class="w-full flex flex-col gap-[9px]">
+        <label class="text-[13px] font-medium text-[#1D1B3A]">
+          Keamanan Akses Portal Mahasiswa <span class="text-red-500">*</span>
+        </label>
+
+        <!-- Option LINK -->
+        <label
+          class="w-full flex items-start gap-[10px] p-[10px_12px] rounded-[9px] cursor-pointer transition-colors border"
+          :class="kelasForm.portal_access_mode === 'LINK' ? 'bg-[#F0F4FF] border-[#3965FB]' : 'bg-white border-[#CBD5E1] hover:bg-slate-50'"
+        >
+          <input
+            type="radio"
+            name="sa_modal_portal_access_mode"
+            value="LINK"
+            x-model="kelasForm.portal_access_mode"
+            class="sr-only"
+          />
+          <div
+            class="w-[18px] h-[18px] mt-0.5 rounded-full border flex items-center justify-center shrink-0 transition-colors"
+            :class="kelasForm.portal_access_mode === 'LINK' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#94A3B8] bg-white'"
+          >
+            <div x-show="kelasForm.portal_access_mode === 'LINK'" class="w-[8px] h-[8px] bg-white rounded-full"></div>
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
+            <span class="text-[12px] font-medium text-[#1D1B3A]">Tautan Langsung (LINK)</span>
+            <span class="text-[11px] text-[#667085] leading-[15px]">
+              Mahasiswa dapat langsung membuka jadwal dan tugas melalui tautan portal.
+            </span>
+          </div>
+        </label>
+
+        <!-- Option CODE -->
+        <label
+          class="w-full flex items-start gap-[10px] p-[10px_12px] rounded-[9px] cursor-pointer transition-colors border"
+          :class="kelasForm.portal_access_mode === 'CODE' ? 'bg-[#F0F4FF] border-[#3965FB]' : 'bg-white border-[#CBD5E1] hover:bg-slate-50'"
+        >
+          <input
+            type="radio"
+            name="sa_modal_portal_access_mode"
+            value="CODE"
+            x-model="kelasForm.portal_access_mode"
+            class="sr-only"
+          />
+          <div
+            class="w-[18px] h-[18px] mt-0.5 rounded-full border flex items-center justify-center shrink-0 transition-colors"
+            :class="kelasForm.portal_access_mode === 'CODE' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#94A3B8] bg-white'"
+          >
+            <div x-show="kelasForm.portal_access_mode === 'CODE'" class="w-[8px] h-[8px] bg-white rounded-full"></div>
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
+            <span class="text-[12px] font-medium text-[#1D1B3A]">Kode Akses 6-Digit (CODE)</span>
+            <span class="text-[11px] text-[#667085] leading-[15px]">
+              Memerlukan kode PIN 6-karakter untuk membuka portal kelas.
+            </span>
+          </div>
+        </label>
+      </div>
+
+      <!-- 5. Footer Modal Kelas Baru -->
+      <div class="w-full pt-4 border-t border-[#F1F5F9] flex items-center justify-end gap-3 mt-1 shrink-0">
+        <button
+          type="button"
+          @click="modalBuatTerbuka = false"
+          :disabled="kelasSaving"
+          class="h-[40px] px-4 rounded-[8px] border border-[#CBD5E1] bg-white text-[#1D1B3A] text-[13px] font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+        >
+          Batal
+        </button>
+        <button
+          type="submit"
+          :disabled="kelasSaving"
+          class="h-[40px] px-5 rounded-[8px] bg-[#3965FB] hover:bg-blue-600 text-white text-[13px] font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+        >
+          <svg x-show="kelasSaving" class="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span x-text="kelasSaving ? 'Menyimpan...' : 'Simpan Kelas'"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. DETAIL KELAS -->
+<section x-show="view === 'detail'" x-cloak>
+  <div x-show="!kelasAktifObj" class="p-12 rounded-[12px] bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] border-dashed border-[#D7DDE7] text-center text-[#667085]">
+    <p class="text-[15px] font-semibold text-[#1D1B3A]">Kelas tidak ditemukan</p>
+    <p class="text-[13px] mt-1 text-[#667085]">Pilih kelas dari daftar untuk melihat detailnya.</p>
+    <button type="button" @click="go('kelas')" class="mt-4 h-10 px-5 rounded-[9px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-medium min-h-[40px] text-[#1D1B3A] cursor-pointer transition-colors">Kembali ke daftar kelas</button>
+  </div>
+
+  <div x-show="kelasAktifObj" class="box-border w-full flex flex-col gap-[16px] justify-start items-start">
+    <!-- Header Detail Kelas -->
+    <div
+      data-pencil-name="Header Detail Kelas"
+      class="box-border w-full h-fit shrink-0 flex flex-col md:flex-row gap-[16px] justify-between items-start md:items-center"
+    >
+      <div
+        data-pencil-name="Identitas Halaman Detail"
+        class="box-border flex-1 h-fit flex flex-col gap-[7px] justify-start items-start"
+      >
+        <div
+          data-pencil-name="Judul dan Badge Kelas"
+          class="box-border w-fit h-fit shrink-0 flex flex-row flex-wrap gap-[10px] justify-start items-center"
+        >
+          <h1
+            class="text-[28px]/[normal] box-border text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-bold text-left"
+            x-text="kelasAktifObj ? kelasAktifObj.nama : '-'"
+          >-</h1>
+          <div
+            data-pencil-name="Badge Kode Kelas"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[5px_9px] justify-start items-center bg-[#F1F5F9] rounded-[7px]"
+          >
+            <span
+              class="text-[11px]/[normal] box-border text-[#475569] font-jbmono font-semibold text-left"
+              x-text="kelasAktifObj ? kelasAktifObj.slug : ''"
+            ></span>
+          </div>
+          <div
+            data-pencil-name="Badge Kelas Aktif"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[5px_9px] justify-start items-center rounded-[7px]"
+            :class="kelasAktifObj && String(kelasAktifObj.status).toUpperCase() === 'ACTIVE' ? 'bg-[#DCFCE7]' : (kelasAktifObj && String(kelasAktifObj.status).toUpperCase() === 'INACTIVE' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]')"
+          >
+            <span
+              class="text-[11px]/[normal] box-border font-[Geist,system-ui,sans-serif] font-bold text-left"
+              :class="kelasAktifObj && String(kelasAktifObj.status).toUpperCase() === 'ACTIVE' ? 'text-[#15803D]' : (kelasAktifObj && String(kelasAktifObj.status).toUpperCase() === 'INACTIVE' ? 'text-[#D97706]' : 'text-[#64748B]')"
+              x-text="kelasAktifObj ? (String(kelasAktifObj.status).toUpperCase() === 'ACTIVE' ? 'Kelas Aktif' : labelStatusKelas(kelasAktifObj.status)) : '-'"
+            >-</span>
+          </div>
+        </div>
+        <div
+          data-pencil-name="Angkatan dan Rombel"
+          class="text-[13px]/[normal] box-border text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+        >
+          Angkatan <span x-text="kelasAktifObj ? kelasAktifObj.angkatan : '-'">-</span> • Rombel <span x-text="kelasAktifObj ? (kelasAktifObj.group || 'A') : 'A'">A</span>
+        </div>
+        <div
+          data-pencil-name="Tautan Portal Publik"
+          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[7px] justify-start items-center"
+        >
+          <span
+            class="text-[12px]/[normal] box-border text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+          >
+            Portal Publik Mahasiswa:
+          </span>
+          <span
+            class="text-[12px]/[normal] box-border text-[#3965FB] font-jbmono font-semibold text-left"
+            x-text="'/c/' + (kelasAktifObj ? kelasAktifObj.slug : '')"
+          ></span>
+          <button
+            type="button"
+            @click="copyText(portalURL(), 'Tautan portal disalin.')"
+            title="Salin tautan portal"
+            aria-label="Salin tautan portal"
+            class="p-0.5 text-[#3965FB] hover:text-[#284FD9] transition-colors rounded flex items-center justify-center cursor-pointer"
+          >
+            <svg
+              data-pencil-name="Salin Tautan Portal"
+              width="16"
+              height="16"
+              viewBox="0 0 14 14"
+              fill="#3965FB"
+              class="w-[16px] h-[16px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div
+        data-pencil-name="Aksi Detail Kelas"
+        class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] justify-start items-center self-start md:self-auto"
+      >
+        <button
+          type="button"
+          @click="dukunganFormTerbuka = !dukunganFormTerbuka"
+          :aria-expanded="String(dukunganFormTerbuka)"
+          class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[7px] px-[13px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[9px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer"
+        >
+          <svg
+            data-pencil-name="Ikon Mode Dukungan"
+            width="18"
+            height="18"
+            viewBox="0 0 14 14"
+            fill="#3965FB"
+            class="w-[18px] h-[18px] shrink-0"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M7.15723 11.66553q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l3.56836 0q0.14356 0 0.24951-0.08887 0.10938-0.09228 0.10937-0.23925l0-4.01612q0-1.64063-1.20654-2.73779-1.20654-1.10059-2.87793-1.10058-1.67139 0-2.87793 1.10058-1.20654 1.09717-1.20654 2.73779l0 3.01807q0 0.12646-0.08545 0.21191-0.08203 0.08203-0.20508 0.08204-0.35889 0-0.61865-0.24268-0.25635-0.24268-0.25635-0.59814l0-1.10059q0-0.26318 0.16748-0.46484 0.1709-0.20166 0.41699-0.32813l0.01026-0.71777q0.02393-0.9126 0.41015-1.6919 0.38965-0.7793 1.01856-1.35351 0.63232-0.57764 1.46631-0.89893 0.8374-0.32129 1.76025-0.32129 0.92285 0 1.75684 0.32129 0.83398 0.32129 1.46631 0.89551 0.63232 0.57422 1.01855 1.35352 0.38623 0.7793 0.41357 1.69189l0.01026 0.7041q0.23242 0.10596 0.40674 0.29053 0.17773 0.18457 0.17773 0.44433l0 1.26123q0 0.25977-0.17773 0.44434-0.17432 0.18115-0.40674 0.29053l0 0.72461q0 0.38281-0.27686 0.64599-0.27344 0.26318-0.66308 0.26319l-3.56836 0z m-1.68164-3.7666q-0.18115 0-0.31788-0.12305-0.1333-0.12305-0.1333-0.3042 0-0.18115 0.1333-0.30762 0.13672-0.12988 0.31788-0.12988 0.17773 0 0.31103 0.12988 0.13672 0.12646 0.13672 0.30762 0 0.18115-0.13672 0.3042-0.1333 0.12305-0.31103 0.12305z m3.04882 0q-0.17773 0-0.31445-0.12305-0.1333-0.12305-0.1333-0.3042 0-0.18115 0.1333-0.30762 0.13672-0.12988 0.31445-0.12988 0.18115 0 0.31446 0.12988 0.13672 0.12646 0.13672 0.30762 0 0.18115-0.13672 0.3042-0.1333 0.12305-0.31446 0.12305z m-4.60742-0.92969q-0.07861-1.30908 0.84424-2.23194 0.92285-0.92285 2.26953-0.92285 1.12793 0 1.99951 0.68018 0.87158 0.67676 1.06641 1.78076-1.15869-0.01709-2.15332-0.59131-0.99121-0.57764-1.521-1.60644-0.21191 1.01172-0.87841 1.7705-0.6665 0.75879-1.62696 1.1211z"/>
+          </svg>
+          <span class="text-[13px]/[normal] text-[#3965FB] font-semibold">Mode dukungan</span>
+        </button>
+
+        <div class="relative" @click.outside="detailMenu = null">
+          <button
+            type="button"
+            @click.stop="detailMenu = detailMenu ? null : true"
+            :aria-expanded="String(!!detailMenu)"
+            :aria-label="'Menu lain ' + (kelasAktifObj ? kelasAktifObj.nama : '')"
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row gap-0 justify-center items-center bg-[#FFFFFF] rounded-[9px] hover:bg-slate-50 transition-colors cursor-pointer border border-[#E2E8F0] md:border-transparent text-[#667085]"
+          >
+            <svg
+              data-pencil-name="Ikon Menu Kelas"
+              width="22"
+              height="22"
+              viewBox="0 0 14 14"
+              fill="currentColor"
+              class="w-[22px] h-[22px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+            </svg>
+          </button>
+          <div
+            x-show="detailMenu"
+            x-cloak
+            class="absolute right-0 top-[44px] z-20 w-[216px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-card py-1"
+            role="menu"
+          >
+            <template x-if="kelasAktifObj && kelasAktifObj.status === 'ACTIVE'">
+              <button type="button" @click="detailMenu = null; mintaKonfirmasiStatus('INACTIVE')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Nonaktifkan kelas</button>
+            </template>
+            <template x-if="kelasAktifObj && kelasAktifObj.status !== 'ACTIVE'">
+              <button type="button" @click="detailMenu = null; mintaKonfirmasiStatus('ACTIVE')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Aktifkan kelas</button>
+            </template>
+            <template x-if="kelasAktifObj && kelasAktifObj.status !== 'ARCHIVED'">
+              <button type="button" @click="detailMenu = null; mintaKonfirmasiStatus('ARCHIVED')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Arsipkan kelas</button>
+            </template>
+            <button type="button" @click="detailMenu = null; kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Lihat Riwayat Perubahan</button>
+            <button type="button" @click="detailMenu = null; notifFilter = ''; notifKelas = ''; go('antrean')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Lihat Antrean Notifikasi</button>
+            <button type="button" @click="detailMenu = null; go('kelas')" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50 cursor-pointer">Kembali ke daftar kelas</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Masuk / Keluar Mode Dukungan -->
+    <div x-show="dukunganFormTerbuka" x-cloak class="w-full p-4 rounded-xl border border-amber-300 bg-amber-50">
+      <template x-if="!dukunganAktif">
+        <div>
+          <p class="text-[14px] font-bold text-ink">Masuk Mode Dukungan untuk <span x-text="kelasAktifObj ? kelasAktifObj.nama : ''"></span></p>
+          <p class="text-[12px] text-amber-900 mt-0.5">Hibah 60 menit + alasan wajib. Masuk/keluar tercatat di Audit Global.</p>
+          <div class="flex flex-col sm:flex-row gap-2 mt-3">
+            <input type="text" x-model="dukunganAlasan" placeholder="Alasan dukungan (min. 10 karakter)" aria-label="Alasan dukungan" class="ui-field flex-1 text-[14px]" />
+            <button type="button" @click="masukDukungan()" :disabled="dukunganLoading" class="h-11 px-5 rounded-[10px] bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60 transition-colors" x-text="dukunganLoading ? 'Memproses...' : 'Masuk mode dukungan'"></button>
+          </div>
+        </div>
+      </template>
+      <template x-if="dukunganAktif">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <p class="flex-1 text-[13px] text-amber-900"><span class="font-bold">Aktif: <span x-text="namaDukungan()"></span></span> · Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan || '-') : ''"></span><span x-show="dukunganAktif && dukunganAktif.expires_at"> · s.d. <span class="font-mono" x-text="dukunganJam()"></span> (<span x-text="dukunganSisa()"></span>)</span></p>
+          <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="h-11 px-5 rounded-[10px] bg-[#DC2626] hover:bg-red-700 text-white text-[13px] font-bold min-h-[44px] disabled:opacity-60 transition-colors self-start sm:self-auto" x-text="dukunganLoading ? 'Keluar...' : 'Keluar Dukungan'"></button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Pengurus dan Akses Portal -->
+    <div
+      data-pencil-name="Pengurus dan Akses Portal"
+      class="box-border w-full flex flex-col lg:flex-row gap-[16px] justify-start items-stretch"
+    >
+      <!-- Kartu 1: Ketua Murid (KM) -->
+      <div
+        data-pencil-name="Kartu Pengurus Kelas"
+        class="box-border flex-1 flex flex-col gap-[13px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]"
+      >
+        <div
+          data-pencil-name="Header Ketua Murid"
+          class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-between items-center"
+        >
+          <h2 class="text-[16px]/[normal] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left">
+            Ketua Murid (KM)
+          </h2>
+          <div
+            data-pencil-name="Status KM Aktif"
+            class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[5px_9px] justify-start items-center rounded-[7px]"
+            :class="!kelasAktifObj || kelasAktifObj.statusKM === 'active' ? 'bg-[#DCFCE7]' : (kelasAktifObj.statusKM === 'pending' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]')"
+          >
+            <span
+              class="text-[11px]/[normal] font-[Geist,system-ui,sans-serif] font-bold text-left"
+              :class="!kelasAktifObj || kelasAktifObj.statusKM === 'active' ? 'text-[#15803D]' : (kelasAktifObj.statusKM === 'pending' ? 'text-[#D97706]' : 'text-[#64748B]')"
+              x-text="!kelasAktifObj || kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum ditetapkan')"
+            >Aktif</span>
+          </div>
+        </div>
+
+        <div
+          data-pencil-name="Identitas Ketua Murid"
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start"
+        >
+          <div
+            data-pencil-name="Nama Ketua Murid"
+            class="text-[15px]/[normal] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-semibold text-left"
+            x-text="kelasAktifObj && kelasAktifObj.kmName ? kelasAktifObj.kmName : 'Belum ada KM'"
+          >-</div>
+          <div
+            data-pencil-name="WhatsApp Ketua Murid"
+            class="box-border w-fit h-fit shrink-0 flex flex-row gap-[7px] justify-start items-center"
+          >
+            <svg
+              data-pencil-name="Ikon WhatsApp KM"
+              width="17"
+              height="17"
+              viewBox="0 0 14 14"
+              fill="#15803D"
+              class="w-[17px] h-[17px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M3.54443 9.91553l-0.99463 0.99463q-0.21875 0.22217-0.50927 0.10254-0.29053-0.11963-0.29053-0.43409l0-7.88525q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l8.61328 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.67334 0.27002l-7.76221 0z m-0.24951-0.58106l8.01172 0q0.13672 0 0.24609-0.11279 0.11279-0.11279 0.1128-0.24609l0-6.28223q0-0.13672-0.1128-0.24609-0.10938-0.11279-0.24609-0.1128l-8.61328 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 7.59814 0.96045-0.95703z m-0.96045 0l0-6.64111q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z m1.75-1.45947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z"/>
+            </svg>
+            <div
+              data-pencil-name="Nomor WhatsApp KM"
+              class="text-[12px]/[normal] text-[#1D1B3A] font-jbmono font-normal text-left"
+              x-text="kelasAktifObj && kelasAktifObj.kmPhone ? kelasAktifObj.kmPhone : '-'"
+            >-</div>
+          </div>
+          <div
+            data-pencil-name="Tanggal Penugasan KM"
+            class="text-[13px]/[normal] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+            x-show="kmPenugasan && (kmPenugasan.valid_from || kmPenugasan.created_at)"
+          >
+            Aktif sejak <span x-text="fmtTanggalID(kmPenugasan.valid_from || kmPenugasan.created_at)"></span>
+          </div>
+          <div
+            class="text-[13px]/[normal] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+            x-show="!kmPenugasan || (!kmPenugasan.valid_from && !kmPenugasan.created_at)"
+          >
+            <span x-text="kelasAktifObj && kelasAktifObj.kmName ? 'Status penugasan tercatat aktif' : 'Belum ada ketua murid yang ditugaskan'"></span>
+          </div>
+        </div>
+
+        <div class="flex-1 min-h-[14px]"></div>
+
+        <div class="pt-1">
+          <button
+            type="button"
+            @click="bukaUndang(kelasAktifObj)"
+            class="box-border w-fit h-[36px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold"
+          >
+            <svg
+              data-pencil-name="Ikon Ganti KM"
+              width="17"
+              height="17"
+              viewBox="0 0 14 14"
+              fill="#3965FB"
+              class="w-[17px] h-[17px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+            </svg>
+            <span x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Ganti / Undang Ulang KM' : 'Undang KM'">Ganti / Undang Ulang KM</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Kartu 2: Akses Portal Mahasiswa -->
+      <div
+        data-pencil-name="Kartu Akses Portal Mahasiswa"
+        class="box-border flex-1 flex flex-col gap-[11px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]"
+      >
+        <h2 class="text-[16px]/[normal] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left">
+          Akses Portal Mahasiswa
+        </h2>
+
+        <!-- Segmented Control Mode -->
+        <div
+          data-pencil-name="Pilihan Mode Akses Portal"
+          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[3px] p-[3px] justify-start items-start bg-[#F1F5F9] rounded-[9px]"
+          role="group"
+          aria-label="Pilihan mode akses portal"
+        >
+          <button
+            type="button"
+            @click="mintaKonfirmasiModePortal('LINK')"
+            class="box-border w-fit shrink-0 h-[29px] flex flex-row gap-0 px-[12px] justify-center items-center rounded-[7px] transition-colors cursor-pointer text-[11px]"
+            :class="!detailSettings || detailSettings.portal_access_mode !== 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-sm' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
+          >
+            Tautan Langsung
+          </button>
+          <button
+            type="button"
+            @click="mintaKonfirmasiModePortal('CODE')"
+            class="box-border w-fit shrink-0 h-[29px] flex flex-row gap-0 px-[12px] justify-center items-center rounded-[7px] transition-colors cursor-pointer text-[11px]"
+            :class="detailSettings && detailSettings.portal_access_mode === 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-sm' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
+          >
+            Kode Akses (Aktif)
+          </button>
+        </div>
+
+        <!-- Mode Tautan Langsung View -->
+        <template x-if="!detailSettings || detailSettings.portal_access_mode !== 'CODE'">
+          <div class="w-full flex flex-col gap-1.5">
+            <div class="text-[12px]/[normal] text-[#667085] font-normal">Tautan Portal Publik:</div>
+            <div class="flex items-center gap-2">
+              <span class="text-[13px] font-jbmono font-semibold text-[#3965FB] truncate" x-text="'/c/' + (kelasAktifObj ? kelasAktifObj.slug : '')"></span>
+              <button
+                type="button"
+                @click="copyText(portalURL(), 'Tautan portal disalin.')"
+                title="Salin tautan portal"
+                aria-label="Salin tautan portal"
+                class="p-0.5 text-[#3965FB] hover:text-[#284FD9] transition-colors rounded flex items-center justify-center cursor-pointer"
+              >
+                <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="text-[11px]/[15px] text-[#667085] font-normal mt-1">
+              Mahasiswa membuka portal langsung tanpa kode sandi.
+            </div>
+          </div>
+        </template>
+
+        <!-- Mode Kode Akses View -->
+        <template x-if="detailSettings && detailSettings.portal_access_mode === 'CODE'">
+          <div class="w-full flex flex-col gap-1.5">
+            <div
+              data-pencil-name="Kode Akses Aktif"
+              class="box-border w-fit h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center"
+            >
+              <div class="text-[12px]/[normal] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+                Kode Akses Aktif:
+              </div>
+              <div
+                class="text-[20px]/[normal] text-[#1D1B3A] font-jbmono font-bold text-left tracking-wide"
+                x-text="portalCodeReveal || '••••••••'"
+              ></div>
+              <button
+                type="button"
+                x-show="portalCodeReveal"
+                @click="copyText(portalCodeReveal, 'Kode portal disalin.')"
+                title="Salin kode akses"
+                aria-label="Salin kode akses"
+                class="p-0.5 text-[#3965FB] hover:text-[#284FD9] transition-colors rounded flex items-center justify-center cursor-pointer"
+              >
+                <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
+                </svg>
+              </button>
+            </div>
+            <div
+              data-pencil-name="Keterangan Versi Kode"
+              class="text-[11px]/[15px] box-border w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+            >
+              Versi kode: v<span x-text="detailSettings.portal_code_version ?? '-'"></span> • Mahasiswa wajib memasukkan kode ini untuk membuka portal.
+            </div>
+          </div>
+        </template>
+
+        <p x-show="detailSettingsError" class="text-[12px] text-amber-800" x-text="detailSettingsError"></p>
+
+        <div class="flex-1 min-h-[14px]"></div>
+
+        <div class="pt-1">
+          <button
+            type="button"
+            @click="rotasiKodePortal()"
+            class="box-border w-fit h-[36px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold"
+          >
+            <svg
+              data-pencil-name="Ikon Rotasi Kode"
+              width="17"
+              height="17"
+              viewBox="0 0 14 14"
+              fill="#3965FB"
+              class="w-[17px] h-[17px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+            </svg>
+            <span>Rotasi Kode Portal</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daftar Semester dan Jadwal Kuliah -->
+    <div
+      data-pencil-name="Daftar Semester dan Jadwal Kuliah"
+      class="box-border w-full flex flex-col gap-[16px] p-[24px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] relative"
+    >
+      <div
+        data-pencil-name="Header Daftar Semester"
+        class="box-border w-full h-fit shrink-0 flex flex-col sm:flex-row gap-[12px] justify-between items-start sm:items-center relative [z-index:0]"
+      >
+        <div
+          data-pencil-name="Judul dan Keterangan Semester"
+          class="box-border flex flex-col gap-[5px] justify-start items-start"
+        >
+          <div
+            data-pencil-name="Judul Daftar Semester"
+            class="text-[18px]/[normal] box-border text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap"
+          >
+            Daftar Semester &amp; Jadwal Kuliah
+          </div>
+          <div
+            data-pencil-name="Subjudul Daftar Semester"
+            class="text-[12px]/[normal] box-border text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left whitespace-nowrap"
+          >
+            Kelola kurikulum, jadwal mingguan, dan aktivasi semester berjalan.
+          </div>
+        </div>
+
+        <div
+          data-pencil-name="Aksi Daftar Semester"
+          class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] justify-start items-center"
+        >
+          <button
+            type="button"
+            @click="bukaBuatSemester()"
+            data-pencil-name="Buat Semester Baru"
+            class="box-border w-fit shrink-0 h-[38px] flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#3965FB] [outline:1px_solid_#3965FB] [outline-offset:-0.5px] rounded-[9px] hover:bg-blue-600 transition-colors cursor-pointer text-[#FFFFFF] text-[12px] font-semibold font-[Geist,system-ui,sans-serif]"
+          >
+            <svg
+              data-pencil-name="Ikon Buat Semester Baru"
+              viewBox="0 0 14.000015258789062 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              class="box-border w-[17px] shrink-0 h-[17px]"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"
+                fill="#FFFFFF"
+              ></path>
+            </svg>
+            <span class="text-[12px]/[normal] box-border text-[#FFFFFF] font-[Geist,system-ui,sans-serif] font-semibold text-left whitespace-nowrap">
+              Buat Semester Baru
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div x-show="detailSemesterLoading" class="py-6 text-center text-[13px] text-slate-400" role="status">Memuat semester...</div>
+      <div x-show="detailSemesterError" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-[13px] text-amber-900" x-text="detailSemesterError"></div>
+      <div x-show="!detailSemesterLoading && !detailSemesterError && detailSemesterList.length === 0" class="w-full p-6 rounded-[10px] border border-dashed border-[#D7DDE7] text-center text-[13px] text-slate-400">
+        Belum ada semester terdaftar untuk kelas ini. Buat semester draf untuk memulai.
+      </div>
+
+      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="w-full overflow-x-auto">
+        <div class="min-w-[980px] flex flex-col gap-0 pb-20">
+          <div
+            data-pencil-name="Header Tabel Riwayat Semester"
+            class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[12px] px-[12px] justify-start items-center bg-[#F6F7FB] rounded-[8px] relative z-10"
+          >
+            <div class="text-[10px]/[normal] box-border w-[170px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-left uppercase">
+              TAHUN &amp; SEMESTER
+            </div>
+            <div class="text-[10px]/[normal] box-border w-[180px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-left uppercase">
+              RENTANG WAKTU
+            </div>
+            <div class="text-[10px]/[normal] box-border w-[80px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-left uppercase">
+              MATA KULIAH
+            </div>
+            <div class="text-[10px]/[normal] box-border w-[115px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-left uppercase">
+              POLA JADWAL
+            </div>
+            <div class="text-[10px]/[normal] box-border w-[143px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-left uppercase">
+              STATUS
+            </div>
+            <div class="text-[10px]/[normal] box-border flex-1 min-w-[240px] text-[#667085] font-[Geist,system-ui,sans-serif] font-semibold text-right pr-2 uppercase">
+              AKSI
+            </div>
+          </div>
+
+          <template x-for="(s, i) in detailSemesterList" :key="s.id">
+            <div class="w-full relative" :class="smMenu === s.id ? 'z-30' : ''">
+              <div class="box-border w-full min-h-[75.5px] py-3.5 shrink-0 flex flex-row gap-[12px] px-[12px] justify-start items-center border-b border-[#EEEEEE]">
+                <!-- TAHUN & SEMESTER -->
+                <div
+                  class="text-[12px]/[16px] box-border w-[170px] shrink-0 text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left truncate"
+                  x-text="labelSemester(s)"
+                ></div>
+
+                <!-- RENTANG WAKTU -->
+                <div
+                  class="text-[11px]/[14px] box-border w-[180px] shrink-0 text-[#475467] font-[Geist,system-ui,sans-serif] font-medium text-left truncate"
+                  x-text="fmtRentangID(s.starts_on || s.start_date || '', s.ends_on || s.end_date || '')"
+                ></div>
+
+                <!-- MATA KULIAH -->
+                <div
+                  class="text-[11px]/[14px] box-border w-[80px] shrink-0 text-[#475467] font-[Geist,system-ui,sans-serif] font-medium text-left"
+                  x-text="smJumlah(s.id, 'offerings') === null ? '–' : smJumlah(s.id, 'offerings') + ' Matkul'"
+                ></div>
+
+                <!-- POLA JADWAL -->
+                <div
+                  class="text-[12px]/[16px] box-border w-[115px] shrink-0 text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
+                  x-text="smJumlah(s.id, 'patterns') === null ? '–' : smJumlah(s.id, 'patterns') + ' sesi/minggu'"
+                ></div>
+
+                <!-- STATUS -->
+                <div class="box-border w-[143px] shrink-0 h-fit flex flex-row gap-0 justify-start items-start">
+                  <!-- ACTIVE (Berjalan) -->
+                  <template x-if="String(s.status || '').toUpperCase() === 'ACTIVE'">
+                    <div
+                      class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[6px_9px] justify-start items-center bg-[#DCFCE7] rounded-[7px]"
+                    >
+                      <span
+                        class="text-[10px]/[normal] box-border text-[#15803D] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap"
+                      >ACTIVE (Berjalan)</span>
+                    </div>
+                  </template>
+
+                  <!-- DRAFT (Persiapan) -->
+                  <template x-if="String(s.status || '').toUpperCase() === 'DRAFT'">
+                    <div
+                      class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[6px_9px] justify-start items-center bg-[#FEF3C7] rounded-[7px]"
+                    >
+                      <div
+                        class="box-border w-[6px] shrink-0 h-[6px] bg-[#F59E0B] rounded-full"
+                      ></div>
+                      <span
+                        class="text-[10px]/[normal] box-border text-[#D97706] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap"
+                      >DRAFT (Persiapan)</span>
+                    </div>
+                  </template>
+
+                  <!-- ARCHIVED (Diarsipkan) -->
+                  <template x-if="String(s.status || '').toUpperCase() !== 'ACTIVE' && String(s.status || '').toUpperCase() !== 'DRAFT'">
+                    <div
+                      class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[6px_9px] justify-start items-center bg-[#F1F5F9] rounded-[7px]"
+                    >
+                      <span
+                        class="text-[10px]/[normal] box-border text-[#64748B] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap"
+                      >ARCHIVED (Diarsipkan)</span>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- AKSI -->
+                <div class="box-border flex-1 min-w-[240px] h-fit flex flex-row gap-[8px] justify-end items-center">
+                  <!-- ACTIVE -->
+                  <template x-if="String(s.status || '').toUpperCase() === 'ACTIVE'">
+                    <div class="flex flex-row gap-[8px] items-center">
+                      <button
+                        type="button"
+                        @click="bukaJadwal(kelasAktifObj.slug, s.id)"
+                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-[6px] px-[10px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer text-[11px] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-normal"
+                      >
+                        Kelola Jadwal
+                      </button>
+                      <!-- 3-dots -->
+                      <div class="relative" @click.outside="if (smMenu === s.id) smMenu = null">
+                        <button
+                          type="button"
+                          @click.stop="smMenu = smMenu === s.id ? null : s.id"
+                          :aria-expanded="String(smMenu === s.id)"
+                          :aria-label="'Menu semester ' + labelSemester(s)"
+                          class="box-border w-[32px] shrink-0 h-[32px] flex flex-row gap-0 justify-center items-center bg-[#FFFFFF] rounded-[7px] text-[#667085] hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
+                            <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                          </svg>
+                        </button>
+                        <div
+                          x-show="smMenu === s.id"
+                          x-cloak
+                          class="absolute right-0 z-40 w-[190px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-xl py-1"
+                          :class="(detailSemesterList.length >= 3 && i >= detailSemesterList.length - 1) ? 'bottom-[38px]' : 'top-[38px]'"
+                          role="menu"
+                        >
+                          <button
+                            type="button"
+                            @click="smMenu = null; bukaPratinjauSM(s)"
+                            role="menuitem"
+                            class="w-full text-left px-3.5 py-2.5 flex items-center gap-2 text-[12px] text-deep-ink hover:bg-slate-50 hover:text-primary transition-colors cursor-pointer"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px] shrink-0 text-[#667085]" aria-hidden="true" focusable="false">
+                              <path d="M7 9.8q1.162 0 1.981-.819Q9.8 8.162 9.8 7t-.819-1.981Q8.162 4.2 7 4.2t-1.981.819Q4.2 5.838 4.2 7t.819 1.981Q5.838 9.8 7 9.8Zm0-.95q-.775 0-1.312-.538Q5.15 7.775 5.15 7t.538-1.312Q6.225 5.15 7 5.15t1.312.538Q8.85 6.225 8.85 7t-.538 1.312Q7.775 8.85 7 8.85ZM7 11.55q-2.15 0-3.95-1.187Q1.25 9.175.5 7q.75-2.175 2.55-3.363Q4.85 2.45 7 2.45t3.95 1.187Q12.75 4.825 13.5 7q-.75 2.175-2.55 3.363Q9.15 11.55 7 11.55Z"/>
+                            </svg>
+                            <span>Pratinjau kesiapan</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="smMenu = null; kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)"
+                            role="menuitem"
+                            class="w-full text-left px-3.5 py-2.5 flex items-center gap-2 text-[12px] text-deep-ink hover:bg-slate-50 hover:text-primary transition-colors cursor-pointer"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px] shrink-0 text-[#667085]" aria-hidden="true" focusable="false">
+                              <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0z"/>
+                            </svg>
+                            <span>Lihat audit kelas</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- DRAFT -->
+                  <template x-if="String(s.status || '').toUpperCase() === 'DRAFT'">
+                    <div class="flex flex-row gap-[8px] items-center">
+                      <!-- Kelola Jadwal -->
+                      <button
+                        type="button"
+                        @click="bukaTambahSesiSM(s)"
+                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-[6px] px-[12px] justify-center items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer text-[11px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-medium whitespace-nowrap"
+                        title="Atur mata kuliah dan jadwal mingguan semester ini"
+                      >
+                        <span>Kelola Jadwal</span>
+                      </button>
+
+                      <!-- Terbitkan & Aktifkan -->
+                      <button
+                        type="button"
+                        @click="mulaiAktifkanSM(s)"
+                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-[6px] px-[12px] justify-start items-center bg-[#3965FB] [outline:1px_solid_#3965FB] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#284FD9] transition-colors cursor-pointer text-[11px] text-[#FFFFFF] font-[Geist,system-ui,sans-serif] font-normal whitespace-nowrap shadow-sm"
+                      >
+                        <svg
+                          data-pencil-name="Ikon Terbitkan Semester"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 14 14"
+                          fill="#FFFFFF"
+                          class="w-[16px] h-[16px] shrink-0"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path d="M4.37842 7.20508q0.27002-0.54346 0.58789-1.0459 0.32129-0.50244 0.70752-0.98438l-0.89551-0.18115q-0.08887-0.02393-0.17432 0.00684-0.08203 0.02734-0.15039 0.09228l-1.41504 1.41846q-0.03418 0.03076-0.02392 0.07861 0.01025 0.04443 0.0581 0.06495l1.30567 0.55029z m6.67871-4.35791q-1.34326 0.0957-2.36865 0.59131-1.02539 0.49561-1.92774 1.39795-0.646 0.646-1.12793 1.34668-0.48193 0.70068-0.79297 1.39111l1.65088 1.64746q0.69043-0.31104 1.39453-0.79297 0.70752-0.48193 1.35352-1.12793 0.90234-0.90234 1.39795-1.91748 0.49561-1.01855 0.59473-2.36523 0-0.0376-0.00684-0.06494-0.00342-0.03076-0.0376-0.06495-0.03076-0.03076-0.06152-0.03418-0.03076-0.00684-0.06836-0.00683z m-3.11719 3.28467q-0.25635-0.25635-0.25635-0.61524 0-0.35889 0.25635-0.61523 0.25635-0.25977 0.61865-0.25977 0.3623 0 0.61866 0.25977 0.25635 0.25635 0.25634 0.61523 0 0.35889-0.25634 0.61524-0.25635 0.25635-0.61866 0.25634-0.3623 0-0.61865-0.25634z m-1.08008 3.56494l0.5503 1.30908q0.02051 0.04443 0.06494 0.05127 0.04785 0.00342 0.07861-0.03076l1.41846-1.40479q0.06494-0.06494 0.09228-0.15039 0.03076-0.08545 0.00684-0.17431l-0.18115-0.89551q-0.48193 0.38623-0.98438 0.7041-0.50244 0.31787-1.0459 0.59131z m4.92871-6.93506q-0.00684 1.45605-0.55371 2.68994-0.54688 1.23047-1.62695 2.31397-0.05811 0.05811-0.10937 0.10253-0.04785 0.04443-0.10596 0.09913l0.24951 1.20996q0.04443 0.23584-0.02734 0.458-0.06836 0.21875-0.23926 0.38965l-1.62354 1.62354q-0.17432 0.17432-0.42382 0.12988-0.24951-0.04785-0.34522-0.28369l-0.69727-1.64746-2.06787-2.07813-1.64746-0.69726q-0.23584-0.0957-0.28027-0.34522-0.04102-0.24951 0.1333-0.42383l1.62354-1.62353q0.1709-0.1709 0.39306-0.23584 0.22559-0.06494 0.46143-0.02051l1.20654 0.24951q0.05469-0.05811 0.09229-0.10254 0.04102-0.04443 0.09912-0.09912 1.0835-1.0835 2.31396-1.63379 1.23389-0.55371 2.68994-0.56054 0.0957 0.00342 0.18457 0.03759 0.08887 0.03418 0.16406 0.10938 0.0752 0.07861 0.10255 0.16064 0.03076 0.08203 0.03417 0.17774z m-8.80468 6.66846q0.3418-0.3418 0.83056-0.33838 0.49219 0.00342 0.83399 0.34863 0.3418 0.3418 0.33838 0.83057 0 0.48877-0.3418 0.83056-0.48535 0.48877-1.14502 0.61524-0.65625 0.12305-1.32959 0.18799 0.06494-0.68359 0.19482-1.33301 0.1333-0.65283 0.61866-1.1416z m0.41699 0.42382q-0.25977 0.25977-0.35889 0.61182-0.09912 0.34863-0.14697 0.72461 0.37598-0.04785 0.72461-0.15039 0.35205-0.10596 0.6084-0.36572 0.17773-0.17432 0.18115-0.417 0.00342-0.24268-0.17432-0.41699-0.17432-0.17432-0.41699-0.16748-0.24268 0.00684-0.41699 0.18115z"/>
+                        </svg>
+                        <span>Terbitkan &amp; Aktifkan</span>
+                      </button>
+
+                      <!-- 3-dots DRAFT (with styled background #F1F5F9 outline #CBD5E1) -->
+                      <div class="relative" @click.outside="if (smMenu === s.id) smMenu = null">
+                        <button
+                          type="button"
+                          @click.stop="smMenu = smMenu === s.id ? null : s.id"
+                          :aria-expanded="String(smMenu === s.id)"
+                          :aria-label="'Menu semester draf ' + labelSemester(s)"
+                          class="box-border w-[32px] shrink-0 h-[32px] flex flex-row gap-0 justify-center items-center bg-[#F1F5F9] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] text-[#1D1B3A] hover:bg-slate-200 transition-colors cursor-pointer"
+                        >
+                          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0 text-[#1D1B3A]" aria-hidden="true" focusable="false">
+                            <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.1709 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                          </svg>
+                        </button>
+
+                        <!-- DRAFT dropdown menu -->
+                        <div
+                          x-show="smMenu === s.id"
+                          x-cloak
+                          class="absolute right-0 z-40 w-[205px] h-fit [box-shadow:0px_12px_24px_rgba(29,27,58,0.15)] flex flex-col gap-0 py-1 justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]"
+                          :class="(detailSemesterList.length >= 3 && i >= detailSemesterList.length - 1) ? 'bottom-[38px]' : 'top-[38px]'"
+                          role="menu"
+                        >
+                          <!-- Item 1: Impor berkas JSON (Opsional) -->
+                          <button
+                            type="button"
+                            @click="smMenu = null; bukaImporSemester(s)"
+                            role="menuitem"
+                            class="box-border w-full h-[36px] shrink-0 flex flex-row gap-[9px] px-[12px] justify-start items-center hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="#1D1B3A" class="w-[16px] h-[16px] shrink-0" aria-hidden="true" focusable="false">
+                              <path d="M3.33252 0.60156q-0.58789 0.04102-1.02197 0.44776-0.43408 0.40674-0.53321 0.99463-0.02734 0.16748-0.02734 4.95605 0 4.78857 0.02734 4.95605 0.09912 0.5332 0.46827 0.92627 0.37256 0.38965 0.90576 0.50245 0.10938 0.01367 0.66992 0.02734l3.17871 0 3.17871 0q0.56055-0.01367 0.66992-0.02734 0.5332-0.11279 0.90235-0.50245 0.37256-0.39307 0.47168-0.92627 0.02734-0.16748 0.02734-3.80078 0-3.6333-0.02734-3.80078-0.08545-0.51953-0.40674-0.92285-0.11279-0.14014-1.24756-1.2749-0.89551-0.88184-1.10742-1.06983-0.2085-0.19141-0.41699-0.29052-0.30762-0.15381-0.67334-0.19483-0.14014-0.02734-2.4917-0.02734-2.35156 0-2.54639 0.02734z m4.25537 2.42334l0 1.27149 0.04102 0.14013q0.08545 0.22559 0.24609 0.40674 0.16064 0.18115 0.35547 0.28028 0.14014 0.07178 0.22558 0.08544 0.12646 0.02734 0.40674 0.04102l2.21143 0 0 6.11816q0 0.43408-0.0376 0.51954-0.03418 0.08203-0.11963 0.17431-0.08203 0.08887-0.16406 0.1333l-0.09912 0.04102-7.30762 0-0.09912-0.04102q-0.08203-0.04443-0.16748-0.1333-0.08203-0.09228-0.11963-0.17431-0.03418-0.08545-0.03418-0.70069l0-4.18701 0-4.18701q0-0.61523 0.02734-0.6836 0.05811-0.12646 0.16749-0.23242 0.11279-0.10596 0.23925-0.1333 0.08545-0.01367 2.14307-0.01367l2.07129 0 0.01367 1.2749z"/>
+                            </svg>
+                            <span class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Impor berkas JSON</span>
+                          </button>
+
+                          <!-- Item 2: Pratinjau kesiapan -->
+                          <button
+                            type="button"
+                            @click="smMenu = null; bukaPratinjauSM(s)"
+                            role="menuitem"
+                            class="box-border w-full h-[36px] shrink-0 flex flex-row gap-[9px] px-[12px] justify-start items-center hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="#1D1B3A" class="w-[16px] h-[16px] shrink-0" aria-hidden="true" focusable="false">
+                              <path d="M6.67871 2.35156q-1.23389 0.04102-2.38916 0.54004-1.15186 0.49561-2.05078 1.37744-0.9502 0.92627-1.46973 2.05762-0.10938 0.25293-0.14697 0.37939-0.03418 0.12646-0.03418 0.29395 0 0.16748 0.03418 0.28711 0.0376 0.11963 0.1333 0.35547 0.37939 0.82715 0.97412 1.5415 0.59473 0.71436 1.33643 1.24756 1.45605 1.00488 3.2915 1.20313 0.2085 0.02734 0.64258 0.02734 0.43408 0 0.62891-0.02734 1.20654-0.12647 2.24902-0.60157 1.04248-0.47851 1.8833-1.28857 0.96387-0.93994 1.4834-2.10205 0.0957-0.23584 0.12988-0.35547 0.0376-0.11963 0.0376-0.28711 0-0.16748-0.0376-0.28711-0.03418-0.11963-0.12988-0.35547-0.36572-0.78613-0.93311-1.4834-0.56396-0.70068-1.27832-1.22021-0.84082-0.61523-1.82861-0.9502-0.98779-0.33838-2.02344-0.36572-0.2085 0-0.50244 0.01367z m0.99463 1.18946q1.46973 0.16748 2.67285 1.05273 1.20313 0.88184 1.81836 2.2251l0.08545 0.18115-0.08545 0.19482q-0.62891 1.34668-1.83203 2.22168-1.20313 0.875-2.73096 1.05616-0.18115 0.01367-0.60156 0.01367-0.42041 0-0.60156-0.01367-1.10742-0.12647-2.0542-0.62207-0.94336-0.49902-1.65772-1.32618-0.51611-0.61523-0.85107-1.34326l-0.08545-0.18115 0.08545-0.18115q0.43408-0.95361 1.18945-1.69531 0.75537-0.7417 1.75-1.16211 0.90918-0.39307 1.94483-0.44776 0.14014-0.01367 0.46142 0 0.32129 0.01367 0.49219 0.02735z"/>
+                            </svg>
+                            <span class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Pratinjau kesiapan</span>
+                          </button>
+
+                          <!-- Pemisah -->
+                          <div class="box-border w-full h-[1px] shrink-0 bg-[#EEEEEE] my-1"></div>
+
+                          <!-- Item 3: Hapus draf semester (Red) -->
+                          <button
+                            type="button"
+                            @click="konfirmasiHapusDraf(s)"
+                            role="menuitem"
+                            class="box-border w-full h-[36px] shrink-0 flex flex-row gap-[9px] px-[12px] justify-start items-center hover:bg-red-50 transition-colors cursor-pointer text-left group"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="#991B1B" class="w-[16px] h-[16px] shrink-0 group-hover:scale-110 transition-transform" aria-hidden="true" focusable="false">
+                              <path d="M5.65674 0.60156q-0.44775 0.04102-0.84766 0.32129-0.3999 0.28027-0.58105 0.70069-0.08545 0.21191-0.1128 0.37939-0.02734 0.16748-0.02734 0.50244l-0.01367 0.42041-2.4917 0-0.08545 0.05469q-0.18115 0.09912-0.28027 0.2666-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.24609 0.04443 0.0752 0.12646 0.16065 0.08545 0.08203 0.14697 0.11963 0.06494 0.03418 0.13331 0.04101 0.07178 0.00684 0.33496 0.00684l0.36572 0 0.01367 7.84082 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0.01367-7.84082 0.36572 0q0.26318 0 0.33155-0.00684 0.07178-0.00684 0.1333-0.04101 0.06494-0.0376 0.14697-0.11963 0.08545-0.08545 0.12647-0.16065 0.04443-0.07861 0.04443-0.24609 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666l-0.08545-0.05469-2.4917 0-0.01367-0.42041q0-0.28027-0.00684-0.37598-0.00684-0.09912-0.03418-0.21191-0.15381-0.56055-0.57422-0.91602-0.42041-0.35889-0.99462-0.41357-0.16748-0.01367-1.31592-0.00684-1.14844 0.00684-1.32959 0.02051z"/>
+                            </svg>
+                            <span class="text-[12px] text-[#991B1B] font-[Inter,system-ui,sans-serif] font-normal whitespace-nowrap">Hapus draf semester</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- ARCHIVED -->
+                  <template x-if="String(s.status || '').toUpperCase() !== 'ACTIVE' && String(s.status || '').toUpperCase() !== 'DRAFT'">
+                    <div class="flex flex-row gap-[8px] items-center">
+                      <button
+                        type="button"
+                        @click="smArsipTerbuka = smArsipTerbuka === s.id ? null : s.id"
+                        :aria-expanded="String(smArsipTerbuka === s.id)"
+                        class="box-border w-fit shrink-0 h-[34px] flex flex-row gap-[6px] px-[10px] justify-start items-center bg-[#FFFFFF] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer text-[11px] text-[#3965FB] font-[Geist,system-ui,sans-serif] font-normal"
+                      >
+                        Lihat Arsip
+                      </button>
+                      <!-- 3-dots -->
+                      <div class="relative" @click.outside="if (smMenu === s.id) smMenu = null">
+                        <button
+                          type="button"
+                          @click.stop="smMenu = smMenu === s.id ? null : s.id"
+                          :aria-expanded="String(smMenu === s.id)"
+                          :aria-label="'Menu semester arsip ' + labelSemester(s)"
+                          class="box-border w-[32px] shrink-0 h-[32px] flex flex-row gap-0 justify-center items-center bg-[#FFFFFF] rounded-[7px] text-[#667085] hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
+                            <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                          </svg>
+                        </button>
+                        <div
+                          x-show="smMenu === s.id"
+                          x-cloak
+                          class="absolute right-0 z-40 w-[190px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-xl py-1"
+                          :class="(detailSemesterList.length >= 3 && i >= detailSemesterList.length - 1) ? 'bottom-[38px]' : 'top-[38px]'"
+                          role="menu"
+                        >
+                          <button
+                            type="button"
+                            @click="smMenu = null; bukaPratinjauSM(s)"
+                            role="menuitem"
+                            class="w-full text-left px-3.5 py-2.5 flex items-center gap-2 text-[12px] text-deep-ink hover:bg-slate-50 hover:text-primary transition-colors cursor-pointer"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px] shrink-0 text-[#667085]" aria-hidden="true" focusable="false">
+                              <path d="M7 9.8q1.162 0 1.981-.819Q9.8 8.162 9.8 7t-.819-1.981Q8.162 4.2 7 4.2t-1.981.819Q4.2 5.838 4.2 7t.819 1.981Q5.838 9.8 7 9.8Zm0-.95q-.775 0-1.312-.538Q5.15 7.775 5.15 7t.538-1.312Q6.225 5.15 7 5.15t1.312.538Q8.85 6.225 8.85 7t-.538 1.312Q7.775 8.85 7 8.85ZM7 11.55q-2.15 0-3.95-1.187Q1.25 9.175.5 7q.75-2.175 2.55-3.363Q4.85 2.45 7 2.45t3.95 1.187Q12.75 4.825 13.5 7q-.75 2.175-2.55 3.363Q9.15 11.55 7 11.55Z"/>
+                            </svg>
+                            <span>Pratinjau kesiapan</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="smMenu = null; kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)"
+                            role="menuitem"
+                            class="w-full text-left px-3.5 py-2.5 flex items-center gap-2 text-[12px] text-deep-ink hover:bg-slate-50 hover:text-primary transition-colors cursor-pointer"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px] shrink-0 text-[#667085]" aria-hidden="true" focusable="false">
+                              <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0z"/>
+                            </svg>
+                            <span>Lihat audit kelas</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Accordion Arsip -->
+              <div
+                x-show="smArsipTerbuka === s.id"
+                x-cloak
+                class="px-4 py-3 bg-slate-50/60 border-b border-[#EEEEEE] text-[12px] text-slate-600 flex flex-col gap-1"
+              >
+                <p>Rentang: <span class="font-medium text-[#1D1B3A]" x-text="fmtRentangID(s.starts_on || s.start_date || '', s.ends_on || s.end_date || '')"></span></p>
+                <p>Isi arsip: <span class="font-medium text-[#1D1B3A]" x-text="(smJumlah(s.id, 'offerings') === null ? '–' : smJumlah(s.id, 'offerings')) + ' matkul · ' + (smJumlah(s.id, 'patterns') === null ? '–' : smJumlah(s.id, 'patterns')) + ' pola'"></span></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigasi Cepat Detail Kelas -->
+    <div
+      data-pencil-name="Navigasi Cepat Detail Kelas"
+      class="box-border w-full h-fit py-1 shrink-0 flex flex-col sm:flex-row gap-[16px] justify-between items-start sm:items-center"
+    >
+      <button
+        type="button"
+        @click="kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)"
+        class="box-border w-fit shrink-0 h-fit flex flex-row gap-[7px] justify-start items-center text-[#3965FB] hover:text-[#284FD9] transition-colors cursor-pointer group"
+      >
+        <svg
+          data-pencil-name="Ikon Riwayat Audit Kelas"
+          width="17"
+          height="17"
+          viewBox="0 0 14 14"
+          fill="#3965FB"
+          class="w-[17px] h-[17px] shrink-0"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0z m0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279z m1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203z m0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08545-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203z m2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z m-4.08447 8.49365q0 0 0-0.11279 0-0.11279 0-0.24609l0-7.45118q0-0.1333 0-0.24609 0-0.11279 0-0.11279 0 0 0 0.11279 0 0.11279 0 0.24609l0 7.45118q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
+        </svg>
+        <span class="text-[12px]/[normal] text-[#3965FB] group-hover:underline font-semibold text-left">
+          Lihat Riwayat Audit Perubahan Kelas Ini
+        </span>
+      </button>
+
+      <button
+        type="button"
+        @click="bukaAntreanKelas(kelasAktifObj ? kelasAktifObj.id : '')"
+        class="box-border w-fit shrink-0 h-fit flex flex-row gap-[7px] justify-start items-center text-[#3965FB] hover:text-[#284FD9] transition-colors cursor-pointer group"
+      >
+        <svg
+          data-pencil-name="Ikon Antrean Kelas"
+          width="17"
+          height="17"
+          viewBox="0 0 14 14"
+          fill="#3965FB"
+          class="w-[17px] h-[17px] shrink-0"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M3.54443 9.91553l-0.99463 0.99463q-0.21875 0.22217-0.50927 0.10254-0.29053-0.11963-0.29053-0.43409l0-7.88525q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l8.61328 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.67334 0.27002l-7.76221 0z m-0.24951-0.58106l8.01172 0q0.13672 0 0.24609-0.11279 0.11279-0.11279 0.1128-0.24609l0-6.28223q0-0.13672-0.1128-0.24609-0.10938-0.11279-0.24609-0.1128l-8.61328 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 7.59814 0.96045-0.95703z m-0.96045 0l0-6.64111q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z m1.75-1.45947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z"/>
+        </svg>
+        <span class="text-[12px]/[normal] text-[#3965FB] group-hover:underline font-semibold text-left">
+          Lihat Antrean Notifikasi WhatsApp Kelas Ini
+        </span>
+      </button>
+    </div>
+
+    <!-- Modal buat semester -->
+    <div x-show="smBuatTerbuka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="smBuatTerbuka = false"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Buat semester baru">
+        <h3 class="text-[16px] font-bold text-ink">Buat Semester Baru</h3>
+        <p class="text-[13px] text-muted mt-1">Semester baru dibuat sebagai draf untuk <span class="font-semibold text-ink" x-text="kelasAktifObj ? kelasAktifObj.nama : ''"></span>.</p>
+        <div x-show="smBuatError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="smBuatError"></div>
+        <div class="mt-4 space-y-3">
+          <div>
+            <label for="sa-sm-tahun" class="block text-[12px] font-semibold text-ink mb-1">Tahun akademik *</label>
+            <input id="sa-sm-tahun" type="text" x-model="smBuatForm.academic_year" placeholder="2025/2026" class="ui-field w-full text-[14px]" />
+          </div>
+          <div>
+            <label for="sa-sm-term" class="block text-[12px] font-semibold text-ink mb-1">Semester *</label>
+            <select id="sa-sm-term" x-model="smBuatForm.term" class="ui-field w-full text-[14px]">
+              <option value="Ganjil">Ganjil</option>
+              <option value="Genap">Genap</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="sa-sm-mulai" class="block text-[12px] font-semibold text-ink mb-1">Mulai *</label>
+              <input id="sa-sm-mulai" type="date" x-model="smBuatForm.starts_on" class="ui-field w-full text-[14px]" />
+            </div>
+            <div>
+              <label for="sa-sm-selesai" class="block text-[12px] font-semibold text-ink mb-1">Selesai *</label>
+              <input id="sa-sm-selesai" type="date" x-model="smBuatForm.ends_on" class="ui-field w-full text-[14px]" />
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" @click="simpanSemesterBaru()" :disabled="smBuatSaving" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="smBuatSaving ? 'Menyimpan...' : 'Buat draf semester'"></button>
+          <button type="button" @click="smBuatTerbuka = false" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal impor kurikulum -->
+    <div x-show="smImporTerbuka" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <!-- Backdrop with blur -->
+      <div class="absolute inset-0 bg-[#00000080] backdrop-blur-xs" @click="smImporTerbuka = false"></div>
+
+      <!-- Dialog Impor Kurikulum -->
+      <div
+        data-pencil-name="Dialog Impor Kurikulum"
+        class="relative box-border w-[480px] max-w-full h-fit shrink-0 shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col gap-0 p-[24px] justify-start items-start bg-[#FFFFFF] rounded-[16px]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Impor Kurikulum"
+      >
+        <!-- Header modal -->
+        <div
+          data-pencil-name="Header modal"
+          class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center"
+        >
+          <h3
+            data-pencil-name="Judul Impor Kurikulum"
+            class="text-[17px]/[normal] text-[#1D1B3A] font-[Poppins,Inter,system-ui,sans-serif] font-bold text-left"
+          >
+            Impor Kurikulum
+          </h3>
+          <button
+            type="button"
+            @click="smImporTerbuka = false"
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row justify-center items-center rounded-[10px] text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Tutup dialog impor"
+          >
+            <svg
+              data-pencil-name="Ikon tutup"
+              width="20"
+              height="20"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="w-[20px] h-[20px] shrink-0"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M3.5 3.5l7 7M10.5 3.5l-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Deskripsi modal -->
+        <div
+          data-pencil-name="Deskripsi modal"
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start mt-0.5"
+        >
+          <p
+            data-pencil-name="Panduan impor"
+            class="text-[13px]/[19px] text-[#667085] font-[Inter,system-ui,sans-serif] font-normal text-left"
+          >
+            Pilih berkas JSON kurikulum untuk divalidasi ke semester draf, lalu terapkan.
+          </p>
+        </div>
+
+        <!-- Garis pemisah header -->
+        <div class="w-full h-px bg-[#EEEEEE] my-[18px]"></div>
+
+        <!-- General Error Message -->
+        <div
+          x-show="smImporError && (!smImporHasil || !smImporHasil.has_fatal_errors)"
+          x-cloak
+          class="w-full mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700"
+          x-text="smImporError"
+        ></div>
+
+        <!-- STATE A: Belum divalidasi (State Awal / Pilih Berkas) -->
+        <div
+          x-show="!smImporHasil"
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start"
+        >
+          <!-- Area unggah berkas JSON / Dropzone -->
+          <input
+            type="file"
+            x-ref="smImporInput"
+            accept=".json,application/json"
+            @change="pilihFileImporSM($event)"
+            class="hidden"
+          />
+
+          <div
+            data-pencil-name="Area unggah berkas JSON"
+            @click="$refs.smImporInput.click()"
+            @dragover.prevent="smImporDragOver = true"
+            @dragleave.prevent="smImporDragOver = false"
+            @drop.prevent="dropFileImporSM($event)"
+            class="box-border w-full h-[52px] shrink-0 flex flex-row gap-[9px] px-[14px] justify-center items-center rounded-[12px] cursor-pointer transition-all border-2"
+            :class="smImporDragOver ? 'bg-[#EEF2FF] border-[#3965FB]' : (smImporFile ? 'bg-[#F0FDF4] border-[#86EFAC]' : 'bg-[#F8FAFC] border-[#CBD5E1] border-dashed hover:bg-slate-100')"
+          >
+            <svg
+              data-pencil-name="Ikon dokumen"
+              width="18"
+              height="18"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="w-[18px] h-[18px] shrink-0"
+              :class="smImporFile ? 'text-[#16A34A]' : 'text-[#667085]'"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M8.5 1.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5L8.5 1.5z"/>
+              <path d="M8.5 1.5v3h3M4.5 7h5M4.5 9.5h5"/>
+            </svg>
+            <span
+              data-pencil-name="Pilih atau seret berkas"
+              class="text-[12px]/[normal] font-[Inter,system-ui,sans-serif] font-medium text-left truncate"
+              :class="smImporFile ? 'text-[#166534] font-semibold' : 'text-[#475569]'"
+              x-text="smImporFile ? smImporFile.name + ' (' + fmtFileSize(smImporFile.size) + ')' : 'Pilih berkas kurikulum (.json) atau seret ke sini'"
+            >
+              Pilih berkas kurikulum (.json) atau seret ke sini
+            </span>
+          </div>
+
+          <!-- Keterangan format & Unduh Template -->
+          <div
+            data-pencil-name="Keterangan format"
+            class="box-border w-full h-fit shrink-0 flex flex-row gap-0 pt-[8px] justify-between items-center"
+          >
+            <div
+              data-pencil-name="Format berkas JSON POLBAN"
+              class="text-[11px]/[normal] text-[#667085] font-[Inter,system-ui,sans-serif] font-normal text-left"
+            >
+              Format berkas: JSON Kurikulum POLBAN (.json)
+            </div>
+            <button
+              type="button"
+              @click="unduhTemplateKurikulum()"
+              class="box-border w-fit shrink-0 h-fit flex flex-row gap-[4px] justify-start items-center text-[#3965FB] hover:underline cursor-pointer group"
+            >
+              <svg
+                data-pencil-name="Ikon unduh template"
+                width="13"
+                height="13"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="w-[13px] h-[13px] shrink-0"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M7 1.5v8M3.5 6.5l3.5 3.5 3.5-3.5M2 11.5h10"/>
+              </svg>
+              <span
+                data-pencil-name="Unduh Contoh Template"
+                class="text-[11px]/[normal] text-[#3965FB] font-[Inter,system-ui,sans-serif] font-semibold text-left"
+              >
+                Unduh Contoh Template
+              </span>
+            </button>
+          </div>
+
+          <!-- Aksi State A (Validasi Berkas & Terapkan ke Draf) -->
+          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-start items-start pt-[24px]">
+            <button
+              type="button"
+              @click="validasiImporSM()"
+              :disabled="smImporSaving || !smImporFile"
+              class="box-border flex-1 h-[44px] flex flex-row gap-0 justify-center items-center rounded-[10px] text-[13px] font-semibold font-[Inter,system-ui,sans-serif] transition-colors"
+              :class="smImporFile && !smImporSaving ? 'bg-[#FFFFFF] [outline:1px_solid_#3965FB] text-[#3965FB] hover:bg-[#F0F5FF] cursor-pointer' : 'bg-[#F1F5F9] [outline:1px_solid_#CBD5E1] text-[#94A3B8] cursor-not-allowed'"
+            >
+              <span x-text="smImporSaving ? 'Memvalidasi...' : 'Validasi Berkas'">Validasi Berkas</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              class="box-border flex-1 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#E2E8F0] rounded-[10px] text-[13px] text-[#94A3B8] font-[Inter,system-ui,sans-serif] font-semibold cursor-not-allowed"
+            >
+              Terapkan ke Draf
+            </button>
+          </div>
+        </div>
+
+        <!-- STATE B: Validasi Berhasil (Status: READY) -->
+        <div
+          x-show="smImporHasil && !smImporHasil.has_fatal_errors"
+          x-cloak
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start"
+        >
+          <!-- File Info Bar -->
+          <div class="box-border w-full p-[10px_14px] rounded-[10px] border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+              <svg width="17" height="17" viewBox="0 0 14 14" fill="none" stroke="#667085" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
+                <path d="M8.5 1.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5L8.5 1.5z"/>
+                <path d="M8.5 1.5v3h3"/>
+              </svg>
+              <span class="text-[12px] font-mono text-[#1D1B3A] font-medium truncate" x-text="smImporFile ? smImporFile.name + ' (' + fmtFileSize(smImporFile.size) + ')' : '-'"></span>
+            </div>
+            <button
+              type="button"
+              @click="resetImporSM(); $refs.smImporInput.click()"
+              class="text-[11px] text-[#3965FB] font-semibold hover:underline flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-[14px] h-[14px]" aria-hidden="true" focusable="false">
+                <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+              </svg>
+              <span>Ganti berkas</span>
+            </button>
+          </div>
+
+          <!-- Success Alert Box -->
+          <div class="box-border w-full p-[14px] rounded-[12px] bg-[#F0FDF4] border border-[#86EFAC] flex gap-3 items-start mt-3">
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="#15803D" class="w-[20px] h-[20px] shrink-0 mt-0.5" aria-hidden="true" focusable="false">
+              <path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z"/>
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="text-[13px] font-bold text-[#15803D]">Validasi Berhasil (Status: READY)</p>
+              <p class="text-[12px] text-[#166534] mt-0.5" x-text="'Terdeteksi: ' + (smImporHasil.lecturers_count || 0) + ' Dosen · ' + (smImporHasil.courses_count || smImporHasil.offerings_count || 0) + ' Mata Kuliah · ' + (smImporHasil.patterns_count || 0) + ' Sesi Pola Mingguan tanpa bentrok ruangan.'"></p>
+            </div>
+          </div>
+
+          <!-- Aksi State B (Validasi Ulang & Terapkan ke Draf) -->
+          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-start items-start pt-[24px]">
+            <button
+              type="button"
+              @click="validasiImporSM()"
+              :disabled="smImporSaving"
+              class="box-border flex-1 h-[44px] flex flex-row gap-1.5 justify-center items-center bg-[#FFFFFF] [outline:1px_solid_#3965FB] text-[#3965FB] hover:bg-[#F0F5FF] rounded-[10px] text-[13px] font-semibold font-[Inter,system-ui,sans-serif] transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px]" aria-hidden="true" focusable="false">
+                <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+              </svg>
+              <span x-text="smImporSaving ? 'Memvalidasi...' : 'Validasi Ulang'">Validasi Ulang</span>
+            </button>
+            <button
+              type="button"
+              @click="terapkanImporSM()"
+              :disabled="smImporSaving"
+              class="box-border flex-1 h-[44px] flex flex-row gap-1.5 justify-center items-center bg-[#3965FB] hover:bg-[#284FD9] text-white rounded-[10px] text-[13px] font-semibold font-[Inter,system-ui,sans-serif] transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px]" aria-hidden="true" focusable="false">
+                <path d="M4.37842 7.20508q0.27002-0.54346 0.58789-1.0459 0.32129-0.50244 0.70752-0.98438l-0.89551-0.18115q-0.08887-0.02393-0.17432 0.00684-0.08203 0.02734-0.15039 0.09228l-1.41504 1.41846q-0.03418 0.03076-0.02392 0.07861 0.01025 0.04443 0.0581 0.06495l1.30567 0.55029z m6.67871-4.35791q-1.34326 0.0957-2.36865 0.59131-1.02539 0.49561-1.92774 1.39795-0.646 0.646-1.12793 1.34668-0.48193 0.70068-0.79297 1.39111l1.65088 1.64746q0.69043-0.31104 1.39453-0.79297 0.70752-0.48193 1.35352-1.12793 0.90234-0.90234 1.39795-1.91748 0.49561-1.01855 0.59473-2.36523 0-0.0376-0.00684-0.06494-0.00342-0.03076-0.0376-0.06495-0.03076-0.03076-0.06152-0.03418-0.03076-0.00684-0.06836-0.00683z m-3.11719 3.28467q-0.25635-0.25635-0.25635-0.61524 0-0.35889 0.25635-0.61523 0.25635-0.25977 0.61865-0.25977 0.3623 0 0.61866 0.25977 0.25635 0.25635 0.25634 0.61523 0 0.35889-0.25634 0.61524-0.25635 0.25635-0.61866 0.25634-0.3623 0-0.61865-0.25634z m-1.08008 3.56494l0.5503 1.30908q0.02051 0.04443 0.06494 0.05127 0.04785 0.00342 0.07861-0.03076l1.41846-1.40479q0.06494-0.06494 0.09228-0.15039 0.03076-0.08545 0.00684-0.17431l-0.18115-0.89551q-0.48193 0.38623-0.98438 0.7041-0.50244 0.31787-1.0459 0.59131z m4.92871-6.93506q-0.00684 1.45605-0.55371 2.68994-0.54688 1.23047-1.62695 2.31397-0.05811 0.05811-0.10937 0.10253-0.04785 0.04443-0.10596 0.09913l0.24951 1.20996q0.04443 0.23584-0.02734 0.458-0.06836 0.21875-0.23926 0.38965l-1.62354 1.62354q-0.17432 0.17432-0.42382 0.12988-0.24951-0.04785-0.34522-0.28369l-0.69727-1.64746-2.06787-2.07813-1.64746-0.69726q-0.23584-0.0957-0.28027-0.34522-0.04102-0.24951 0.1333-0.42383l1.62354-1.62353q0.1709-0.1709 0.39306-0.23584 0.22559-0.06494 0.46143-0.02051l1.20654 0.24951q0.05469-0.05811 0.09229-0.10254 0.04102-0.04443 0.09912-0.09912 1.0835-1.0835 2.31396-1.63379 1.23389-0.55371 2.68994-0.56054 0.0957 0.00342 0.18457 0.03759 0.08887 0.03418 0.16406 0.10938 0.0752 0.07861 0.10255 0.16064 0.03076 0.08203 0.03417 0.17774z"/>
+              </svg>
+              <span x-text="smImporSaving ? 'Menerapkan...' : 'Terapkan ke Draf'">Terapkan ke Draf</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- STATE C: Validasi Ditolak / Ditemukan Galat Fatal -->
+        <div
+          x-show="smImporHasil && smImporHasil.has_fatal_errors"
+          x-cloak
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start"
+        >
+          <!-- File Info Bar -->
+          <div class="box-border w-full p-[10px_14px] rounded-[10px] border border-[#CBD5E1] bg-[#F8FAFC] flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+              <svg width="17" height="17" viewBox="0 0 14 14" fill="none" stroke="#667085" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
+                <path d="M8.5 1.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5L8.5 1.5z"/>
+                <path d="M8.5 1.5v3h3"/>
+              </svg>
+              <span class="text-[12px] font-mono text-[#1D1B3A] font-medium truncate" x-text="smImporFile ? smImporFile.name + (smImporFile.size ? ' (' + fmtFileSize(smImporFile.size) + ')' : '') : '-'"></span>
+            </div>
+            <button
+              type="button"
+              @click="resetImporSM(); $refs.smImporInput.click()"
+              class="text-[11px] text-[#3965FB] font-semibold hover:underline flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-[14px] h-[14px]" aria-hidden="true" focusable="false">
+                <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+              </svg>
+              <span>Ganti berkas</span>
+            </button>
+          </div>
+
+          <!-- Error Alert Box -->
+          <div class="box-border w-full p-[14px] rounded-[12px] bg-[#FEF2F2] border border-[#FCA5A5] flex gap-3 items-start mt-3">
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="#DC2626" class="w-[20px] h-[20px] shrink-0 mt-0.5" aria-hidden="true" focusable="false">
+              <path d="M7 12.36963q-1.11426 0-2.0918-0.42725-0.97754-0.42383-1.70215-1.14844-0.72461-0.7246-1.14844-1.70214-0.42724-0.97754-0.42724-2.0918 0-1.11426 0.42724-2.0918 0.42383-0.97754 1.14844-1.70215 0.72461-0.7246 1.70215-1.14843 0.97754-0.42725 2.0918-0.42725 1.11426 0 2.0918 0.42725 0.97754 0.42383 1.70214 1.14843 0.72461 0.72461 1.15186 1.70215 0.42383 0.97754 0.42383 2.0918 0 1.11426-0.42383 2.0918-0.42725 0.97754-1.15186 1.70214-0.7246 0.72461-1.70214 1.14844-0.97754 0.42725-2.0918 0.42725z m-1.89014-4.12549l1.89014-1.89014 1.89014 1.89014q0.18115 0.18115 0.45459 0.18115 0.27686 0 0.45801-0.18115 0.18115-0.18115 0.18115-0.45801 0-0.27686-0.18115-0.45801l-1.89014-1.89014 1.89014-1.89014q0.18115-0.18115 0.18115-0.45801 0-0.27685-0.18115-0.458-0.18115-0.18116-0.45801-0.18116-0.27344 0-0.45459 0.18116l-1.89014 1.89013-1.89014-1.89013q-0.18115-0.18116-0.45801-0.18116-0.27685 0-0.45801 0.18116-0.18115 0.18115-0.18115 0.458 0 0.27686 0.18115 0.45801l1.89014 1.89014-1.89014 1.89014q-0.18115 0.18115-0.18115 0.45801 0 0.27686 0.18115 0.45801 0.18116 0.18115 0.45801 0.18115 0.27686 0 0.45801-0.18115z"/>
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="text-[13px] font-bold text-[#DC2626]" x-text="'Validasi Ditolak: Ditemukan ' + (smImporHasil.errors ? smImporHasil.errors.length : 0) + ' Galat Fatal'"></p>
+              <ul class="mt-2 space-y-1 text-[12px] text-[#B91C1C] max-h-[140px] overflow-y-auto pr-1">
+                <template x-for="(err, idx) in smImporHasil.errors || []" :key="idx">
+                  <li class="flex items-start gap-1.5">
+                    <span class="shrink-0">•</span>
+                    <span x-text="(err.row_number ? 'Baris ' + err.row_number + ': ' : '') + err.message"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Aksi State C (Periksa Berkas & Terapkan Disabled) -->
+          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-start items-start pt-[24px]">
+            <button
+              type="button"
+              @click="resetImporSM(); $refs.smImporInput.click()"
+              class="box-border flex-1 h-[44px] flex flex-row gap-1.5 justify-center items-center bg-[#FFFFFF] [outline:1px_solid_#3965FB] text-[#3965FB] hover:bg-[#F0F5FF] rounded-[10px] text-[13px] font-semibold font-[Inter,system-ui,sans-serif] transition-colors cursor-pointer"
+            >
+              <span>Periksa Berkas</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              class="box-border flex-1 h-[44px] flex flex-row gap-0 justify-center items-center bg-[#E2E8F0] rounded-[10px] text-[13px] text-[#94A3B8] font-[Inter,system-ui,sans-serif] font-semibold cursor-not-allowed"
+            >
+              Terapkan ke Draf
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer: Batal / Tutup -->
+        <div
+          data-pencil-name="Aksi batal"
+          class="box-border w-full h-fit shrink-0 flex flex-col gap-0 pt-[12px] justify-start items-start"
+        >
+          <button
+            type="button"
+            @click="smImporTerbuka = false"
+            class="box-border w-full h-[40px] shrink-0 flex flex-row gap-0 justify-center items-center text-[12px] text-[#667085] hover:text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-medium transition-colors cursor-pointer"
+          >
+            Batal / Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal pratinjau semester -->
+    <div x-show="smPratinjau" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="smPratinjau = null"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Pratinjau semester">
+        <h3 class="text-[16px] font-bold text-ink">Ringkasan <span x-text="smPratinjau && smPratinjau.sem ? labelSemester(smPratinjau.sem) : ''"></span></h3>
+        <div x-show="smPratinjau && smPratinjau.loading" class="py-6 text-center text-[13px] text-slate-400">Memuat pratinjau...</div>
+        <div x-show="smPratinjau && !smPratinjau.loading && !smPratinjau.data" class="mt-3 p-3 rounded-xl bg-slate-50 border border-border text-[13px] text-muted">Pratinjau belum dapat dimuat.</div>
+        <div x-show="smPratinjau && smPratinjau.data" class="mt-3 text-[13px] space-y-2">
+          <p class="font-semibold">Kesiapan aktivasi: <span x-text="smPratinjau && smPratinjau.data && smPratinjau.data.can_activate ? 'Siap' : 'Belum siap'"></span></p>
+          <p class="text-slate-600" x-text="smPratinjau && smPratinjau.data ? (smPratinjau.data.offerings + ' matkul · ' + smPratinjau.data.patterns + ' pola · ' + (smPratinjau.data.lecturers || 0) + ' dosen · ' + (smPratinjau.data.rooms_used || 0) + ' ruangan') : ''"></p>
+          <div x-show="smPratinjau && smPratinjau.data && smPratinjau.data.blockers && smPratinjau.data.blockers.length" class="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800">
+            <template x-for="b in (smPratinjau && smPratinjau.data && smPratinjau.data.blockers) || []" :key="b"><p x-text="b"></p></template>
+          </div>
+          <div x-show="smPratinjau && smPratinjau.data && smPratinjau.data.conflicts && smPratinjau.data.conflicts.length" class="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900">
+            <template x-for="c in (smPratinjau && smPratinjau.data && smPratinjau.data.conflicts) || []" :key="c"><p x-text="c"></p></template>
+          </div>
+        </div>
+        <button type="button" @click="smPratinjau = null" class="mt-5 w-full h-11 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Tutup</button>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi aktivasi semester -->
+    <div x-show="smAktifkan" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="smAktifkan = null"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi aktivasi semester">
+        <h3 class="text-[16px] font-bold text-ink">Terbitkan & Aktifkan?</h3>
+        <p class="text-[13px] text-muted mt-1">Semester <span class="font-semibold text-ink" x-text="smAktifkan ? smAktifkan.nama : ''"></span> menjadi aktif dan semester berjalan menjadi arsip.</p>
+        <div class="flex gap-2 mt-4">
+          <button type="button" @click="jalankanAktifkanSM()" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="smAktifkan = null" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Tambah Mata Kuliah ke Semester dari Master Data -->
+    <div x-show="modalTambahOffering" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="if (!offeringFormSaving) modalTambahOffering = false"></div>
+      <div class="relative w-full max-w-lg bg-white rounded-[16px] border border-[#CBD5E1] p-6 shadow-2xl flex flex-col gap-4" @click.stop role="dialog" aria-modal="true" aria-label="Tambah Mata Kuliah ke Semester">
+        <div class="flex items-center justify-between pb-3 border-b border-[#F1F5F9]">
+          <div>
+            <h3 class="text-[17px] font-bold text-[#1D1B3A]">Tambah Mata Kuliah ke Semester</h3>
+            <p class="text-[12px] text-[#667085] mt-0.5">
+              Pilih langsung dari Master Data Mata Kuliah &amp; Dosen tanpa perlu berkas JSON.
+            </p>
+          </div>
+          <button type="button" @click="if (!offeringFormSaving) modalTambahOffering = false" class="p-1 rounded text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer" aria-label="Tutup modal">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-3.5">
+          <!-- 1. Pilih Mata Kuliah dari Master -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Mata Kuliah (Master Data) <span class="text-red-500">*</span>
+            </label>
+            <select
+              x-model="offeringForm.course_code"
+              @change="onOfferingCourseSelect()"
+              class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            >
+              <option value="">-- Pilih Mata Kuliah --</option>
+              <template x-for="m in matkulList" :key="m.code">
+                <option :value="m.code" x-text="m.code + ' · ' + m.name"></option>
+              </template>
+            </select>
+            <p x-show="!matkulList || matkulList.length === 0" class="text-[11px] text-amber-600 mt-1">
+              Master Data mata kuliah kosong. Anda dapat mengisinya terlebih dahulu di menu Mata Kuliah.
+            </p>
+          </div>
+
+          <!-- 2. Jenis Aktivitas -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Jenis Aktivitas <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+                :class="offeringForm.activity_type === 'TEORI' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+                <input type="radio" value="TEORI" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+                <span class="text-[12px]">Teori (Kelas)</span>
+              </label>
+              <label class="flex items-center gap-2 p-2.5 rounded-[8px] border cursor-pointer transition-colors"
+                :class="offeringForm.activity_type === 'PRAKTIKUM' ? 'border-[#3965FB] bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50'">
+                <input type="radio" value="PRAKTIKUM" x-model="offeringForm.activity_type" @change="onOfferingActivityChange()" class="sr-only">
+                <span class="text-[12px]">Praktikum (Lab)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 3. Nama Tampilan pada Jadwal -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Nama Tampilan pada Jadwal <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              x-model="offeringForm.display_name"
+              placeholder="Contoh: Pemrograman Web (Teori)"
+              class="w-full h-[40px] px-3 rounded-[8px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            />
+            <p class="text-[11px] text-[#667085] mt-1">Nama yang akan tampil pada kalender dan jadwal mahasiswa.</p>
+          </div>
+
+          <!-- 4. Dosen Pengampu (Opsional / Multiple) -->
+          <div>
+            <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+              Dosen Pengampu (Master Data)
+            </label>
+            <div class="max-h-[140px] overflow-y-auto border border-[#CBD5E1] rounded-[8px] p-2 flex flex-col gap-1 bg-white">
+              <template x-for="d in dosenList" :key="d.code">
+                <label class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer text-[12px] text-[#1D1B3A]">
+                  <input
+                    type="checkbox"
+                    :value="d.code"
+                    :checked="offeringForm.lecturer_codes.includes(d.code)"
+                    @change="toggleOfferingLecturer(d.code)"
+                    class="rounded text-[#3965FB] focus:ring-[#3965FB]"
+                  />
+                  <span class="font-mono text-[#667085]" x-text="d.code"></span>
+                  <span class="truncate" x-text="d.name"></span>
+                </label>
+              </template>
+              <div x-show="!dosenList || dosenList.length === 0" class="text-[11px] text-slate-400 p-2 text-center">
+                Belum ada master dosen terdaftar.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div x-show="offeringFormError" class="p-2.5 rounded-[8px] bg-red-50 border border-red-200 text-red-700 text-[12px]" x-text="offeringFormError"></div>
+
+        <div class="flex gap-2.5 mt-2 pt-3 border-t border-[#F1F5F9]">
+          <button
+            type="button"
+            @click="simpanOffering()"
+            :disabled="offeringFormSaving || !offeringForm.course_code"
+            class="flex-1 h-[40px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 text-white text-[13px] font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            <span x-show="!offeringFormSaving">Simpan Mata Kuliah</span>
+            <span x-show="offeringFormSaving">Menyimpan...</span>
+          </button>
+          <button
+            type="button"
+            @click="if (!offeringFormSaving) modalTambahOffering = false"
+            class="h-[40px] px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#475467] transition-colors cursor-pointer"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi hapus draf semester -->
+    <div x-show="smHapusKonfirmasi" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="smHapusKonfirmasi = null"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl bg-white rounded-[16px] border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Konfirmasi hapus draf semester">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+              <path d="M5.65674 0.60156q-0.44775 0.04102-0.84766 0.32129-0.3999 0.28027-0.58105 0.70069-0.08545 0.21191-0.1128 0.37939-0.02734 0.16748-0.02734 0.50244l-0.01367 0.42041-2.4917 0-0.08545 0.05469q-0.18115 0.09912-0.28027 0.2666-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.24609 0.04443 0.0752 0.12646 0.16065 0.08545 0.08203 0.14697 0.11963 0.06494 0.03418 0.13331 0.04101 0.07178 0.00684 0.33496 0.00684l0.36572 0 0.01367 7.84082 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0.01367-7.84082 0.36572 0q0.26318 0 0.33155-0.00684 0.07178-0.00684 0.1333-0.04101 0.06494-0.0376 0.14697-0.11963 0.08545-0.08545 0.12647-0.16065 0.04443-0.07861 0.04443-0.24609 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666l-0.08545-0.05469-2.4917 0-0.01367-0.42041q0-0.28027-0.00684-0.37598-0.00684-0.09912-0.03418-0.21191-0.15381-0.56055-0.57422-0.91602-0.42041-0.35889-0.99462-0.41357-0.16748-0.01367-1.31592-0.00684-1.14844 0.00684-1.32959 0.02051z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-[16px] font-bold text-[#1D1B3A]">Hapus Draf Semester?</h3>
+            <p class="text-[12px] text-[#667085] mt-0.5">Tindakan ini tidak dapat dibatalkan.</p>
+          </div>
+        </div>
+
+        <p class="text-[13px] text-[#475467] mt-3">
+          Apakah Anda yakin ingin menghapus semester draf <span class="font-semibold text-[#1D1B3A]" x-text="smHapusKonfirmasi ? smHapusKonfirmasi.nama : ''"></span>? Seluruh pola jadwal dan mata kuliah draf di dalamnya akan ikut dibersihkan.
+        </p>
+
+        <div x-show="smHapusError" class="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-[12px]" x-text="smHapusError"></div>
+
+        <div class="flex gap-2.5 mt-5">
+          <button
+            type="button"
+            :disabled="smHapusSaving"
+            @click="eksekusiHapusDraf()"
+            class="h-11 px-4 rounded-[10px] bg-red-600 hover:bg-red-700 text-white flex-1 text-[13px] font-semibold transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
+          >
+            <span x-show="!smHapusSaving">Ya, Hapus Draf</span>
+            <span x-show="smHapusSaving">Menghapus...</span>
+          </button>
+          <button
+            type="button"
+            :disabled="smHapusSaving"
+            @click="smHapusKonfirmasi = null; smHapusError = ''"
+            class="h-11 px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-medium text-[#475467] transition-colors cursor-pointer min-h-[44px]"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi mode portal -->
+    <div x-show="portalModeConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiModePortal()"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi mode portal">
+        <h3 class="text-[16px] font-bold text-ink">Ubah mode Portal Kelas?</h3>
+        <p class="text-[13px] text-muted mt-1">Kelas <span class="font-semibold text-ink" x-text="portalModeConfirm ? portalModeConfirm.nama : ''"></span> dari <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.dari : ''"></span> ke <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.ke : ''"></span>.</p>
+        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Mode tautan mencabut kode aktif: sesi portal versi lama tak berlaku. Mode kode butuh kode aktif — putar kode dulu bila belum ada.</p>
+        <div class="flex gap-2 mt-4">
+          <button type="button" @click="jalankanUbahModePortal()" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiModePortal()" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog konfirmasi status -->
+    <div x-show="kelasStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiStatus()"></div>
+      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status kelas">
+        <h3 class="text-[16px] font-bold text-ink">Ubah status kelas?</h3>
+        <p class="text-[13px] text-muted mt-1">Kelas <span class="font-semibold text-ink" x-text="kelasStatusConfirm ? kelasStatusConfirm.nama : ''"></span> dari <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.dari : ''"></span> ke <span class="font-mono" x-text="kelasStatusConfirm ? kelasStatusConfirm.ke : ''"></span>.</p>
+        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif/arsip menyembunyikan kelas dari daftar aktif. Arsip bersifat administratif dan tercatat di Riwayat Perubahan.</p>
+        <div class="flex gap-2 mt-4">
+          <button type="button" @click="jalankanUbahStatus()" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
+          <button type="button" @click="batalKonfirmasiStatus()" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

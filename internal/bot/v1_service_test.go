@@ -124,6 +124,11 @@ func TestV1BotService_BindChannel(t *testing.T) {
 	if err != nil || dName != "Grup TI 2024 A (Official)" {
 		t.Errorf("Verifikasi display_name gagal: %v, got %s", err, dName)
 	}
+
+	// JID tertaut kelas lain tidak boleh pindah diam-diam.
+	if err = svc.BindChannel(ctx, 999, jid, "Grup Lain"); err == nil {
+		t.Errorf("BindChannel lintas kelas harus ditolak")
+	}
 }
 
 func TestV1BotService_GetSchedule(t *testing.T) {

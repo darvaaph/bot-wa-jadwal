@@ -108,9 +108,8 @@ func dailyKey(classID int64, date string) string {
 func taskKey(classID int64, date string) string {
 	return fmt.Sprintf("tasks:%d:%s", classID, date)
 }
-func eventPublishKey(eventID int64) string { return fmt.Sprintf("event-publish:%d", eventID) }
-func eventRevokeKey(eventID int64) string  { return fmt.Sprintf("event-revoke:%d", eventID) }
-func replacementKey(eventID int64) string  { return fmt.Sprintf("replacement-reminder:%d", eventID) }
+func eventRevokeKey(eventID int64) string { return fmt.Sprintf("event-revoke:%d", eventID) }
+func replacementKey(eventID int64) string { return fmt.Sprintf("replacement-reminder:%d", eventID) }
 
 // BuildDailyText composes the morning summary per PRD template from effective schedule + urgent tasks.
 func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string, link string) (string, error) {
@@ -127,7 +126,7 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 		FROM schedule_patterns sp JOIN course_offerings co ON co.id = sp.course_offering_id
 		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN rooms r ON r.id = sp.room_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND sp.status = 'ACTIVE'
 		AND sp.day_of_week = ? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
@@ -341,20 +340,6 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 	return enqueued, rows.Err()
 }
 
-// EnqueueEventPublished creates a change message after schedule publish (idempotent).
-// Durable: tetap tersimpan PENDING tanpa channel ketika kelas belum punya kanal aktif.
-func (s *Service) EnqueueEventPublished(ctx context.Context, classID, eventID int64, text string, triggeredBy *int64) (int64, error) {
-	chID, _, _ := s.ChannelForClass(ctx, classID)
-	var chArg int64
-	if chID > 0 {
-		chArg = chID
-	} else {
-		chArg = 0
-	}
-	id, _, err := s.Enqueue(ctx, classID, chArg, "SCHEDULE_CHANGE", "TEACHING_EVENT", eventID, eventPublishKey(eventID), text, "", time.Now().UTC(), triggeredBy)
-	return id, err
-}
-
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
 // Both writes happen in one transaction so a crash cannot leave duplicates.
 // Durable: tetap tersimpan tanpa channel ketika kelas belum punya kanal aktif.
@@ -518,16 +503,6 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
-}
-
-// GetMessageClass returns the owning class of a notification message.
-func (s *Service) GetMessageClass(ctx context.Context, messageID int64) (int64, error) {
-	var classID int64
-	err := s.db.QueryRowContext(ctx, `SELECT class_id FROM notification_messages WHERE id = ?`, messageID).Scan(&classID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, ErrNotFound
-	}
-	return classID, err
 }
 
 // Retry requeues a FAILED message.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,16 +13,18 @@ import (
 	"strings"
 	"time"
 
+	"bot-jadwal/internal/academic"
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/audit"
 )
 
 // CreateSemesterRequest adalah payload pembuatan semester baru
 type CreateSemesterRequest struct {
-	AcademicYear string `json:"academic_year"`
-	Term         string `json:"term"`
-	StartsOn     string `json:"starts_on"`
-	EndsOn       string `json:"ends_on"`
+	AcademicYear     string `json:"academic_year"`
+	Term             string `json:"term"`
+	StartsOn         string `json:"starts_on"`
+	EndsOn           string `json:"ends_on"`
+	SourceSemesterID *int64 `json:"source_semester_id,omitempty"`
 }
 
 // CourseImportItem merepresentasikan mata kuliah dalam batch impor kurikulum
@@ -203,6 +206,11 @@ func (c *AcademicController) CreateClassSemester(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if strings.TrimSpace(req.AcademicYear) == "" || strings.TrimSpace(req.Term) == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "academic_year dan term wajib diisi")
+		return
+	}
+
 	startDate, errStart := time.Parse("2006-01-02", req.StartsOn)
 	endDate, errEnd := time.Parse("2006-01-02", req.EndsOn)
 	if errStart != nil || errEnd != nil || !endDate.After(startDate) {
@@ -211,14 +219,26 @@ func (c *AcademicController) CreateClassSemester(w http.ResponseWriter, r *http.
 	}
 
 	var semID int64
-	err = c.db.QueryRow(`
-		INSERT INTO semesters (class_id, academic_year, term, starts_on, ends_on, status, version)
-		VALUES (?, ?, ?, ?, ?, 'DRAFT', 1)
-		RETURNING id;
-	`, classID, req.AcademicYear, req.Term, req.StartsOn, req.EndsOn).Scan(&semID)
-
+	svc := academic.NewSemesterService(c.db)
+	semID, err = svc.CreateDraft(r.Context(), academic.Actor{
+		UserID:           u.UserID,
+		RoleAssignmentID: u.ActiveAssignmentID,
+	}, classID, academic.DraftInput{
+		AcademicYear:     req.AcademicYear,
+		Term:             req.Term,
+		StartsOn:         req.StartsOn,
+		EndsOn:           req.EndsOn,
+		SourceSemesterID: req.SourceSemesterID,
+	})
 	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan semester: %v", err))
+		switch {
+		case errors.Is(err, academic.ErrInvalidInput):
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format tanggal harus YYYY-MM-DD, ends_on harus setelah starts_on, dan semester sumber harus sekelas")
+		case errors.Is(err, academic.ErrNotFound):
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester sumber tidak ditemukan")
+		default:
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan semester: %v", err))
+		}
 		return
 	}
 
@@ -263,6 +283,16 @@ func (c *AcademicController) ActivateSemester(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT status FROM semesters WHERE id = ? AND class_id = ?;`, semID, classID).Scan(&curStatus); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return
+	}
+	if curStatus != "DRAFT" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya semester DRAFT yang dapat diaktifkan")
+		return
+	}
+
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi aktivasi")
@@ -284,7 +314,7 @@ func (c *AcademicController) ActivateSemester(w http.ResponseWriter, r *http.Req
 	res, err := tx.Exec(`
 		UPDATE semesters
 		SET status = 'ACTIVE', published_at = CURRENT_TIMESTAMP, activated_at = CURRENT_TIMESTAMP
-		WHERE id = ? AND class_id = ?;
+		WHERE id = ? AND class_id = ? AND status = 'DRAFT';
 	`, semID, classID)
 
 	if err != nil {
@@ -381,6 +411,266 @@ func (c *AcademicController) GetSemesterOfferings(w http.ResponseWriter, r *http
 	}
 
 	common.WriteV1Success(w, http.StatusOK, offerings)
+}
+
+// PreviewSemester menangani GET /api/v1/classes/{slug}/semesters/{id}/preview
+func (c *AcademicController) PreviewSemester(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang meninjau semester")
+		return
+	}
+	slug := r.PathValue("slug")
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if semID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester tidak valid")
+		return
+	}
+	var classID int64
+	if err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang meninjau semester kelas penugasannya")
+		return
+	}
+	svc := academic.NewSemesterService(c.db)
+	p, err := svc.Preview(r.Context(), classID, semID)
+	if err != nil {
+		if errors.Is(err, academic.ErrNotFound) {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+			return
+		}
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal meninjau semester")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, p)
+}
+
+// DeleteDraftSemester menangani DELETE /api/v1/classes/{slug}/semesters/{id}
+func (c *AcademicController) DeleteDraftSemester(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menghapus draf semester")
+		return
+	}
+	slug := r.PathValue("slug")
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if semID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester tidak valid")
+		return
+	}
+	var classID int64
+	if err := c.db.QueryRowContext(r.Context(), `SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang menghapus draf semester kelas penugasannya")
+		return
+	}
+	svc := academic.NewSemesterService(c.db)
+	err := svc.DeleteDraft(r.Context(), academic.Actor{
+		UserID:           u.UserID,
+		RoleAssignmentID: u.ActiveAssignmentID,
+	}, classID, semID)
+	if err != nil {
+		switch {
+		case errors.Is(err, academic.ErrNotFound):
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester draf tidak ditemukan")
+		case errors.Is(err, academic.ErrInvalidState):
+			common.WriteV1Error(w, http.StatusConflict, common.CodeValidation, "Hanya semester berstatus DRAFT yang dapat dihapus")
+		case errors.Is(err, academic.ErrInvalidInput):
+			common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Semester tidak sesuai dengan kelas yang dipilih")
+		default:
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menghapus semester draf: %v", err))
+		}
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"deleted": true,
+		"id":      semID,
+	})
+}
+
+// CreateSemesterOfferingRequest adalah payload tambah offering manual ke semester DRAFT
+type CreateSemesterOfferingRequest struct {
+	CourseCode    string   `json:"course_code"`
+	ActivityType  string   `json:"activity_type"`
+	DisplayName   string   `json:"display_name"`
+	LecturerCodes []string `json:"lecturer_codes,omitempty"`
+}
+
+// CreateSemesterOffering menangani POST /api/v1/semesters/{id}/offerings
+func (c *AcademicController) CreateSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menambah mata kuliah")
+		return
+	}
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if semID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester tidak valid")
+		return
+	}
+	var status string
+	var classID int64
+	if err := c.db.QueryRow(`SELECT class_id, status FROM semesters WHERE id = ?;`, semID).Scan(&classID, &status); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca semester")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang menambah mata kuliah kelas penugasannya")
+		return
+	}
+	if status != "DRAFT" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya semester DRAFT yang dapat ditambah mata kuliah")
+		return
+	}
+	var req CreateSemesterOfferingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	code := strings.TrimSpace(req.CourseCode)
+	actType := strings.ToUpper(strings.TrimSpace(req.ActivityType))
+	display := strings.TrimSpace(req.DisplayName)
+	if code == "" || display == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "course_code dan display_name wajib diisi")
+		return
+	}
+	if actType != "TEORI" && actType != "PRAKTIKUM" && actType != "PRAKTIK" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "activity_type harus TEORI/PRAKTIKUM/PRAKTIK")
+		return
+	}
+	var courseID int64
+	if err := c.db.QueryRow(`SELECT id FROM courses WHERE code = ?;`, code).Scan(&courseID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "course_code tidak dikenal di master mata kuliah")
+		return
+	}
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+	var offeringID int64
+	if err := tx.QueryRow(`
+		INSERT INTO course_offerings (semester_id, course_id, activity_type, display_name, status)
+		VALUES (?, ?, ?, ?, 'ACTIVE') RETURNING id;
+	`, semID, courseID, actType, display).Scan(&offeringID); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menambah mata kuliah")
+		return
+	}
+	for _, lc := range req.LecturerCodes {
+		lc = strings.TrimSpace(lc)
+		if lc == "" {
+			continue
+		}
+		var lectID int64
+		if err := tx.QueryRow(`SELECT id FROM lecturers WHERE code = ?;`, lc).Scan(&lectID); err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, fmt.Sprintf("Kode dosen tidak dikenal: %s", lc))
+			return
+		}
+		if _, err := tx.Exec(`INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility) VALUES (?, ?, 'PRIMARY') ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET superseded_at=NULL;`, offeringID, lectID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menautkan dosen")
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan mata kuliah")
+		return
+	}
+	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": offeringID, "status": "ACTIVE"})
+}
+
+// DeleteSemesterOffering menangani DELETE /api/v1/semesters/{id}/offerings/{offering_id}
+func (c *AcademicController) DeleteSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menghapus mata kuliah")
+		return
+	}
+	semID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	offeringID, _ := strconv.ParseInt(r.PathValue("offering_id"), 10, 64)
+	if semID <= 0 || offeringID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID semester atau offering tidak valid")
+		return
+	}
+	var classID int64
+	var status string
+	if err := c.db.QueryRow(`SELECT class_id, status FROM semesters WHERE id = ?;`, semID).Scan(&classID, &status); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca semester")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang menghapus mata kuliah kelas penugasannya")
+		return
+	}
+	if status != "DRAFT" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya mata kuliah di semester DRAFT yang dapat dihapus")
+		return
+	}
+
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+
+	// Cek apakah ada jadwal atau tugas yang terhubung
+	var patCount, taskCount int
+	_ = tx.QueryRow(`SELECT COUNT(*) FROM schedule_patterns WHERE course_offering_id = ?;`, offeringID).Scan(&patCount)
+	_ = tx.QueryRow(`SELECT COUNT(*) FROM tasks WHERE course_offering_id = ?;`, offeringID).Scan(&taskCount)
+	if patCount > 0 || taskCount > 0 {
+		common.WriteV1Error(w, http.StatusConflict, "CONFLICT", fmt.Sprintf("Mata kuliah memiliki %d sesi jadwal dan %d tugas. Hapus sesi terlebih dahulu sebelum menghapus mata kuliah ini.", patCount, taskCount))
+		return
+	}
+
+	if _, err := tx.Exec(`DELETE FROM offering_lecturers WHERE course_offering_id = ?;`, offeringID); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus dosen penugasan")
+		return
+	}
+	res, err := tx.Exec(`DELETE FROM course_offerings WHERE id = ? AND semester_id = ?;`, offeringID, semID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus mata kuliah")
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Mata kuliah tidak ditemukan pada semester ini")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyelesaikan transaksi")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"deleted": true, "id": offeringID})
 }
 
 // SemesterImportValidate menangani POST /api/v1/semesters/{id}/import-validate
@@ -695,23 +985,40 @@ func (c *AcademicController) SemesterImportValidate(w http.ResponseWriter, r *ht
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`
+	var batchID int64
+	err = tx.QueryRow(`
 		INSERT INTO import_batches (
-			class_id, semester_id, source_type, source_checksum, status, created_by_user_id, summary_json, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-	`, classID, semID, sourceType, checksum, batchStatus, u.UserID, string(summaryJSONBytes))
+			class_id, semester_id, source_type, source_checksum, status, created_by_user_id, summary_json, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT(class_id, semester_id, source_checksum) DO UPDATE SET
+			source_type = excluded.source_type,
+			status = excluded.status,
+			created_by_user_id = excluded.created_by_user_id,
+			summary_json = excluded.summary_json,
+			updated_at = CURRENT_TIMESTAMP
+		RETURNING id;
+	`, classID, semID, sourceType, checksum, batchStatus, u.UserID, string(summaryJSONBytes)).Scan(&batchID)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan rekam batch impor: %v", err))
 		return
 	}
 
-	batchID, _ := res.LastInsertId()
+	// Hapus catatan error sebelumnya jika batch ini divalidasi ulang
+	_, _ = tx.Exec(`DELETE FROM import_errors WHERE batch_id = ?;`, batchID)
 
+	useNewImportErrCols := hasImportErrNewCols(tx)
 	for _, e := range errorsList {
-		_, _ = tx.Exec(`
-			INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
-			VALUES (?, ?, ?, ?, ?, ?);
-		`, batchID, e.RowNumber, e.Field, e.ErrorCode, e.Message, e.Severity)
+		if useNewImportErrCols {
+			_, _ = tx.Exec(`
+				INSERT INTO import_errors (batch_id, source_location, field_name, error_code, message, severity)
+				VALUES (?, ?, ?, ?, ?, ?);
+			`, batchID, fmt.Sprintf("row %d", e.RowNumber), e.Field, e.ErrorCode, e.Message, e.Severity)
+		} else {
+			_, _ = tx.Exec(`
+				INSERT INTO import_errors (batch_id, row_number, field, error_code, message, severity)
+				VALUES (?, ?, ?, ?, ?, ?);
+			`, batchID, e.RowNumber, e.Field, e.ErrorCode, e.Message, e.Severity)
+		}
 	}
 
 	_ = tx.Commit()
@@ -908,7 +1215,7 @@ func (c *AcademicController) SemesterImportApply(w http.ResponseWriter, r *http.
 				_, _ = tx.Exec(`
 					INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
 					VALUES (?, ?, 'PRIMARY')
-					ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING;
+					ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET responsibility='PRIMARY', superseded_at=NULL;
 				`, offID, lid)
 			}
 		}
@@ -1023,7 +1330,8 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 
 	query := `
 		SELECT m.id, m.class_id, c.slug, m.course_offering_id, m.task_id, m.title,
-		       m.material_type, COALESCE(m.url, ''), COALESCE(m.description, '')
+		       m.material_type, COALESCE(m.url, ''), COALESCE(m.description, ''),
+		       COALESCE(m.created_at, ''), m.version
 		FROM materials m
 		JOIN classes c ON m.class_id = c.id
 		WHERE m.status = 'ACTIVE' AND m.deleted_at IS NULL
@@ -1054,10 +1362,11 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 	var materials []map[string]any
 	for rows.Next() {
 		var id, classID int64
-		var slug, title, matType, urlStr, desc string
+		var slug, title, matType, urlStr, desc, created string
+		var version int
 		var offID, taskID sql.NullInt64
 
-		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc); err == nil {
+		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc, &created, &version); err == nil {
 			materials = append(materials, map[string]any{
 				"id":         id,
 				"class_slug": slug,
@@ -1077,6 +1386,8 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 				"material_type": matType,
 				"url":           urlStr,
 				"description":   desc,
+				"created_at":    created,
+				"version":       version,
 			})
 		}
 	}
@@ -1148,6 +1459,19 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		matType = "OTHER"
 	}
 
+	urlStr := ""
+	if req.URL != nil {
+		urlStr = strings.TrimSpace(*req.URL)
+	}
+	descStr := ""
+	if req.Description != nil {
+		descStr = *req.Description
+	}
+	var descArg any
+	if descStr != "" {
+		descArg = descStr
+	}
+
 	var matID int64
 	err = c.db.QueryRow(`
 		INSERT INTO materials (
@@ -1156,7 +1480,7 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, 'CLASS_ACCESS', 'ACTIVE', 1, ?)
 		RETURNING id;
-	`, classID, req.OfferingID, req.TaskID, req.Title, matType, req.URL, req.Description, u.UserID).Scan(&matID)
+	`, classID, req.OfferingID, req.TaskID, req.Title, matType, urlStr, descArg, u.UserID).Scan(&matID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan materi: %v", err))
@@ -1167,6 +1491,185 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		"id":     matID,
 		"status": "ACTIVE",
 	})
+}
+
+// PatchMaterialRequest adalah payload ubah materi
+type PatchMaterialRequest struct {
+	Version      int     `json:"version"`
+	Title        *string `json:"title,omitempty"`
+	MaterialType *string `json:"material_type,omitempty"`
+	URL          *string `json:"url,omitempty"`
+	Description  *string `json:"description,omitempty"`
+}
+
+// PatchMaterial menangani PATCH /api/v1/materials/{id}
+func (c *AcademicController) PatchMaterial(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang mengubah materi")
+		return
+	}
+	matID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if matID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID materi tidak valid")
+		return
+	}
+	var req PatchMaterialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	if req.Version <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib diisi")
+		return
+	}
+	var classID, offeringID sql.NullInt64
+	var curVersion int
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT class_id, course_offering_id, version, status FROM materials WHERE id = ? AND deleted_at IS NULL;`, matID).
+		Scan(&classID, &offeringID, &curVersion, &curStatus); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Materi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if curStatus != "ACTIVE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya materi aktif yang dapat diubah")
+		return
+	}
+	if req.Version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || !classID.Valid || u.ActiveClassID.Int64 != classID.Int64) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang mengubah materi kelas penugasannya")
+		return
+	}
+	if u.ActiveRole == "PJ" {
+		if !offeringID.Valid || !u.ActiveCourseOfferingID.Valid || offeringID.Int64 != u.ActiveCourseOfferingID.Int64 {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "PJ hanya berwenang mengubah materi offering penugasannya")
+			return
+		}
+	}
+	sets := []string{}
+	args := []any{}
+	if req.Title != nil {
+		if strings.TrimSpace(*req.Title) == "" {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "title tidak boleh kosong")
+			return
+		}
+		sets = append(sets, "title = ?")
+		args = append(args, strings.TrimSpace(*req.Title))
+	}
+	if req.MaterialType != nil {
+		matType := strings.ToUpper(strings.TrimSpace(*req.MaterialType))
+		switch matType {
+		case "DOCUMENT", "MEETING", "REPOSITORY", "PORTAL", "OTHER":
+		default:
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "material_type harus DOCUMENT/MEETING/REPOSITORY/PORTAL/OTHER")
+			return
+		}
+		sets = append(sets, "material_type = ?")
+		args = append(args, matType)
+	}
+	if req.URL != nil {
+		sets = append(sets, "url = ?")
+		args = append(args, strings.TrimSpace(*req.URL))
+	}
+	if req.Description != nil {
+		if strings.TrimSpace(*req.Description) == "" {
+			sets = append(sets, "description = NULL")
+		} else {
+			sets = append(sets, "description = ?")
+			args = append(args, *req.Description)
+		}
+	}
+	if len(sets) == 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
+		return
+	}
+	sets = append(sets, "version = version + 1")
+	args = append(args, matID, curVersion)
+	res, err := c.db.Exec(`UPDATE materials SET `+strings.Join(sets, ", ")+` WHERE id = ? AND version = ? AND deleted_at IS NULL;`, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah materi")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan", map[string]any{"current_version": curVersion})
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "version": curVersion + 1})
+}
+
+// DeleteMaterial menangani DELETE /api/v1/materials/{id} (arsip lunak)
+func (c *AcademicController) DeleteMaterial(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "PJ" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM, PJ, atau System Admin yang berwenang mengarsipkan materi")
+		return
+	}
+	matID, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if matID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID materi tidak valid")
+		return
+	}
+	version := 0
+	if v := strings.TrimSpace(r.URL.Query().Get("version")); v != "" {
+		version, _ = strconv.Atoi(v)
+	}
+	if version <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "version wajib disertakan sebagai query parameter")
+		return
+	}
+	var classID, offeringID sql.NullInt64
+	var curVersion int
+	var curStatus string
+	if err := c.db.QueryRow(`SELECT class_id, course_offering_id, version, status FROM materials WHERE id = ? AND deleted_at IS NULL;`, matID).
+		Scan(&classID, &offeringID, &curVersion, &curStatus); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Materi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if curStatus != "ACTIVE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hanya materi aktif yang dapat diarsipkan")
+		return
+	}
+	if version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || !classID.Valid || u.ActiveClassID.Int64 != classID.Int64) {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang mengarsipkan materi kelas penugasannya")
+		return
+	}
+	if u.ActiveRole == "PJ" {
+		if !offeringID.Valid || !u.ActiveCourseOfferingID.Valid || offeringID.Int64 != u.ActiveCourseOfferingID.Int64 {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "PJ hanya berwenang mengarsipkan materi offering penugasannya")
+			return
+		}
+	}
+	res, err := c.db.Exec(`UPDATE materials SET status = 'ARCHIVED', version = version + 1 WHERE id = ? AND version = ? AND deleted_at IS NULL;`, matID, curVersion)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengarsipkan materi")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
+		return
+	}
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "status": "ARCHIVED"})
 }
 
 // GetRoomCandidates menangani GET /api/v1/rooms/candidates
@@ -1271,48 +1774,132 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Status konfirmasi harus PENDING, CONFIRMED, atau REJECTED")
 		return
 	}
-
-	var roomExists int
-	if err := c.db.QueryRow(`SELECT COUNT(*) FROM rooms WHERE id = ?;`, req.RoomID).Scan(&roomExists); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi ruangan")
-		return
-	}
-	if roomExists == 0 {
-		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan")
-		return
-	}
-	var eventClassID int64
-	if err := c.db.QueryRow(`
-		SELECT sem.class_id FROM teaching_events te
-		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
-		JOIN course_offerings co ON co.id = teo.course_offering_id
-		JOIN semesters sem ON sem.id = co.semester_id
-		WHERE te.id = ?;
-	`, eventID).Scan(&eventClassID); err != nil {
-		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
-		return
-	}
-	if u.ActiveRole != "SYSTEM_ADMIN" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != eventClassID) {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+	if req.RoomID <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "room_id wajib diisi")
 		return
 	}
 
-	var confirmedAt any
-	if status == "CONFIRMED" {
-		confirmedAt = time.Now().UTC().Format(time.RFC3339)
-	}
-
-	tx, err := c.db.Begin()
+	tx, err := c.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi konfirmasi ruangan")
 		return
 	}
 	defer tx.Rollback()
+
+	var eventClassID int64
+	var lifecycle, timezone string
+	var startsAt, endsAt common.DBTimestamp
+	scopeQuery := `
+		SELECT sem.class_id, te.lifecycle_status, te.starts_at, te.ends_at,
+		       COALESCE(cs.timezone, 'Asia/Jakarta')
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo
+		  ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
+		JOIN course_offerings co ON co.id = teo.course_offering_id
+		JOIN semesters sem ON sem.id = co.semester_id
+		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
+		WHERE te.id = ?`
+	scopeArgs := []any{eventID}
+	switch u.ActiveRole {
+	case "PJ":
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+			return
+		}
+		scopeQuery += ` AND co.id = ?`
+		scopeArgs = append(scopeArgs, u.ActiveCourseOfferingID.Int64)
+	case "KM":
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+			return
+		}
+		scopeQuery += ` AND sem.class_id = ?`
+		scopeArgs = append(scopeArgs, u.ActiveClassID.Int64)
+	case "SYSTEM_ADMIN":
+	default:
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+		return
+	}
+	err = tx.QueryRowContext(r.Context(), scopeQuery, scopeArgs...).Scan(
+		&eventClassID, &lifecycle, &startsAt, &endsAt, &timezone,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		if u.ActiveRole == "SYSTEM_ADMIN" {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
+		} else {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses kejadian jadwal ditolak")
+		}
+		return
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi cakupan kejadian jadwal")
+		return
+	}
+	if lifecycle != "DRAFT" {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Konfirmasi TU hanya dapat dicatat pada teaching event DRAFT")
+		return
+	}
+
+	var roomExists bool
+	if err := tx.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM rooms WHERE id = ? AND status = 'ACTIVE')`, req.RoomID).Scan(&roomExists); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi ruangan")
+		return
+	}
+	if !roomExists {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Ruangan tidak ditemukan atau nonaktif")
+		return
+	}
+
+	if status == "CONFIRMED" {
+		loc, err := time.LoadLocation(timezone)
+		if err != nil {
+			loc = time.FixedZone("WIB", 7*60*60)
+		}
+		localStart := startsAt.Time.In(loc)
+		localEnd := endsAt.Time.In(loc)
+		dayOfWeek := int(localStart.Weekday())
+		if dayOfWeek == 0 {
+			dayOfWeek = 7
+		}
+		date := localStart.Format("2006-01-02")
+		var roomConflict bool
+		err = tx.QueryRowContext(r.Context(), `SELECT EXISTS(
+			SELECT 1 FROM teaching_events other
+			WHERE other.room_id = ? AND other.id <> ? AND other.lifecycle_status = 'PUBLISHED'
+			  AND other.starts_at < ? AND other.ends_at > ?
+			UNION ALL
+			SELECT 1 FROM schedule_patterns sp
+			WHERE sp.room_id = ? AND sp.status = 'ACTIVE' AND sp.day_of_week = ?
+			  AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+			  AND sp.start_time < ? AND sp.end_time > ?
+		)`, req.RoomID, eventID, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339),
+			req.RoomID, dayOfWeek, date, date, localEnd.Format("15:04"), localStart.Format("15:04")).Scan(&roomConflict)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa ketersediaan ruangan")
+			return
+		}
+		if roomConflict {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Ruangan tidak lagi tersedia pada rentang waktu kejadian")
+			return
+		}
+	}
+
+	var externalContact, note any
+	if req.ExternalContact != nil && strings.TrimSpace(*req.ExternalContact) != "" {
+		externalContact = strings.TrimSpace(*req.ExternalContact)
+	}
+	if req.Note != nil && strings.TrimSpace(*req.Note) != "" {
+		note = strings.TrimSpace(*req.Note)
+	}
+	var confirmedAt any
+	if status == "CONFIRMED" {
+		confirmedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 	res, err := tx.Exec(`
 		INSERT INTO room_confirmations (
 			teaching_event_id, room_id, confirmation_status, external_contact, note, recorded_by_user_id, recorded_at, confirmed_at
 		) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?);
-	`, eventID, req.RoomID, status, req.ExternalContact, req.Note, u.UserID, confirmedAt)
+	`, eventID, req.RoomID, status, externalContact, note, u.UserID, confirmedAt)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan konfirmasi ruangan: %v", err))
@@ -1363,4 +1950,26 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 		"room_id":             req.RoomID,
 		"confirmation_status": status,
 	})
+}
+
+// hasImportErrNewCols mendeteksi skema import_errors baru (source_location)
+// vs legacy (row_number) agar tulis tetap jalan di kedua DB.
+func hasImportErrNewCols(tx *sql.Tx) bool {
+	rows, err := tx.Query(`PRAGMA table_info(import_errors);`)
+	if err != nil {
+		return true
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil {
+			if name == "source_location" {
+				return true
+			}
+		}
+	}
+	return false
 }

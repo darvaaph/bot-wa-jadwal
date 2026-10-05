@@ -54,6 +54,22 @@ func (s *Server) handlePortalMaterials(w http.ResponseWriter, r *http.Request) {
 	v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager).Materials(w, r)
 }
 
+func (s *Server) handlePortalCourses(w http.ResponseWriter, r *http.Request) {
+	if s.portalController != nil {
+		s.portalController.Courses(w, r)
+		return
+	}
+	v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager).Courses(w, r)
+}
+
+func (s *Server) handlePortalSemesters(w http.ResponseWriter, r *http.Request) {
+	if s.portalController != nil {
+		s.portalController.Semesters(w, r)
+		return
+	}
+	v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager).Semesters(w, r)
+}
+
 func extractPortalToken(r *http.Request) string {
 	return v1.ExtractPortalToken(r)
 }

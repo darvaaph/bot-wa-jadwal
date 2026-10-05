@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Go application with an embedded plain HTML dashboard, CDN-hosted Tailwind CSS and Alpine.js, SQLite storage, and WhatsApp integration through whatsmeow. The repository does not use npm or a frontend build step.
+Go application with an embedded plain HTML dashboard, locally vendored Tailwind Play and Alpine.js, self-hosted fonts, SQLite storage, and WhatsApp integration through whatsmeow. The repository does not use npm or a frontend build step.
 
 ## Users
 

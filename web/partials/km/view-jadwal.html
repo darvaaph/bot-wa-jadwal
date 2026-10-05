@@ -1,44 +1,718 @@
-<!-- partials/km/view-jadwal.html — KM Jadwal: kalender mingguan + ruangan -->
+<!-- partials/km/view-jadwal.html — Hub Jadwal KM: daftar, form, tinjau, detail, partisipasi. -->
 <section x-show="view === 'jadwal'" x-cloak>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-1">
     <div>
-      <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Manajemen Jadwal</h1>
-      <p class="text-[14px] text-slate-500 mt-1">Kalender kelas, ruangan, dan perubahan terkini</p>
+      <h1 class="font-display text-[24px] md:text-[28px] font-bold text-ink tracking-tight">Manajemen Jadwal</h1>
+      <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan dan penyesuaian sesi kelas <span class="font-medium text-slate-700" x-text="selectedClass || '—'">-</span></p>
+      <div x-show="(semesterOptions || []).length > 1" class="mt-2 flex items-center gap-2">
+        <label class="text-[12px] font-semibold text-slate-600" for="km-jadwal-semester">Semester</label>
+        <select id="km-jadwal-semester" x-model="semesterId" @change="pilihSemesterJadwal(semesterId)" class="ui-field w-auto min-w-[220px] text-[13px]">
+          <template x-for="s in (semesterOptions || [])" :key="s.id"><option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option></template>
+        </select>
+      </div>
     </div>
-    <button type="button" @click="go('dosen')" class="h-11 px-5 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold self-start min-h-[44px]">Pindah jadwal</button>
+    <div class="flex items-center gap-2.5 self-start md:self-auto">
+      <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="ui-button ui-button--primary text-[13px] font-semibold self-start flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">edit_calendar</span>
+        <span>Buat perubahan</span>
+      </button>
+    </div>
   </div>
-  <div class="flex items-center gap-3 mt-5">
-    <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_left</span></button>
-    <span class="text-[14px] font-medium" x-text="weekLabel">-</span>
-    <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="w-11 h-11 rounded-xl border border-[#3965FB] text-[#3965FB] flex items-center justify-center hover:bg-[#E9EAFF]"><span class="material-symbols-outlined">chevron_right</span></button>
-  </div>
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-4 items-start">
-    <div class="lg:col-span-3 p-5 rounded-2xl border border-[#EEEEEE] bg-white overflow-x-auto">
-      <h2 class="text-[18px] font-semibold text-[#1D1B3A]">Kalender mingguan</h2>
-      <p class="text-[12px] text-slate-500">Data jadwal reguler dari API. Slot kosong = tidak ada sesi tercatat.</p>
-      <div class="grid grid-cols-5 gap-2 mt-4 min-w-[640px]">
-        <template x-for="d in weekDays" :key="d.name">
-          <div class="text-center text-[12px] font-medium bg-slate-50 rounded-lg py-2"><span x-text="d.name">-</span> <span class="text-slate-400" x-text="d.dateNum">-</span></div>
+
+  <!-- ============ SUB: DAFTAR ============ -->
+  <div x-show="jadwalSub === 'daftar'">
+    <!-- Week Navigation Toolbar -->
+    <div class="ui-card flex flex-wrap items-center justify-between gap-3 mt-5 p-3 shadow-sm">
+      <div class="flex items-center gap-2">
+        <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="ui-button ui-button--ghost w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+        </button>
+        <span class="text-[14px] md:text-[15px] font-bold text-ink px-1" x-text="weekLabel">-</span>
+        <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="ui-button ui-button--ghost w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+        </button>
+        <button type="button" @click="weekOffset = 0; if (['Sabtu','Minggu'].includes(todayName)) { activeScheduleDay = 'Senin'; } else { activeScheduleDay = todayName; }"
+                class="ui-button ui-button--ghost h-10 px-3.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors ml-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+          Minggu ini
+        </button>
+      </div>
+
+      <!-- Legend -->
+      <div class="hidden sm:flex items-center gap-4 text-[12px] text-slate-600 font-medium">
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span>Teori</span>
+        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span>Praktikum</span>
+      </div>
+    </div>
+
+    <!-- Calendar Container Card -->
+    <div class="ui-card p-4 md:p-5 shadow-sm mt-4">
+      <div x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</div>
+      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert">
+        <span x-text="eventDetailError"></span>
+        <button type="button" @click="bukaDetail(selectedEvent)" class="ui-button ui-button--ghost ml-2 underline font-semibold">Coba lagi</button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="text-[17px] md:text-[18px] font-bold text-ink">Kalender Mingguan</h2>
+          <p class="text-[12px] text-slate-500 mt-0.5">Jadwal perkuliahan tetap dan penyesuaian kelas dalam minggu ini.</p>
+        </div>
+      </div>
+
+      <!-- DESKTOP VIEW: 5-Column Weekly Board (md:grid) -->
+      <div class="hidden md:grid md:grid-cols-5 gap-3.5 mt-4 items-start">
+        <template x-for="d in weekDays" :key="'col-' + d.name">
+          <div class="flex flex-col rounded-xl border transition-all"
+               :class="isToday(d.name) ? 'border-primary bg-canvas-blue shadow-sm ring-1 ring-primary/30' : 'border-slate-200/80 bg-slate-50/50'">
+            
+            <!-- Day Column Header -->
+            <div class="p-3 border-b flex items-center justify-between"
+                 :class="isToday(d.name) ? 'border-primary/20 bg-primary text-white rounded-t-[11px]' : 'border-slate-200/80 bg-white rounded-t-[11px] text-slate-700'">
+              <div>
+                <span class="text-[13px] font-bold block leading-tight" x-text="d.name">-</span>
+                <span class="text-[11px] font-medium leading-none" :class="isToday(d.name) ? 'text-white/80' : 'text-slate-400'" x-text="d.dateShort || (d.dateNum + ' ' + weekLabel.split(' ')[1])">-</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span x-show="isToday(d.name)" class="ui-badge text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-primary tracking-wider">HARI INI</span>
+                <span x-show="!isToday(d.name)" class="text-[11px] font-semibold text-slate-400" x-text="daySessions(d.name).length + ' sesi'"></span>
+              </div>
+            </div>
+
+            <!-- Column Sessions -->
+            <div class="p-2.5 space-y-2.5 min-h-[140px] flex flex-col">
+              <!-- Session Cards -->
+              <template x-for="s in daySessions(d.name)" :key="s.id">
+                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
+                        :aria-label="'Ubah sesi ' + s.matkul + ' hari ' + s.hari"
+                        class="ui-button ui-button--stack ui-button--ghost w-full text-left rounded-xl p-3 bg-white border border-slate-200/90 hover:border-primary hover:shadow-md transition-all group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                  <!-- Top line: Time badge + Type badge -->
+                  <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                    <span class="ui-badge font-mono text-[11px] font-bold text-primary bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '')">-</span>
+                    <template x-if="slotKind(s.matkul) === 'Praktikum'">
+                      <span class="ui-badge text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
+                    </template>
+                    <template x-if="slotKind(s.matkul) === 'Teori'">
+                      <span class="ui-badge text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-primary border border-blue-200/60">Teori</span>
+                    </template>
+                  </div>
+                  
+                  <!-- Subject Name -->
+                  <p class="font-bold text-[13px] text-ink leading-snug line-clamp-2 group-hover:text-primary transition-colors" x-text="s.matkul">-</p>
+                  
+                  <!-- Room & Lecturer -->
+                  <div class="mt-2 pt-2 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">meeting_room</span>
+                      <span class="truncate font-medium text-slate-600" x-text="s.ruang || 'Tanpa ruangan'">-</span>
+                    </div>
+                    <template x-if="s.dosen">
+                      <div class="flex items-center gap-1.5 truncate">
+                        <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">person</span>
+                        <span class="truncate" x-text="s.dosen">-</span>
+                      </div>
+                    </template>
+                  </div>
+                </button>
+              </template>
+
+              <!-- Empty state for day -->
+              <template x-if="daySessions(d.name).length === 0">
+                <div class="my-auto py-8 text-center flex flex-col items-center justify-center text-slate-400">
+                  <span class="material-symbols-outlined text-[24px] text-slate-300 mb-1">event_available</span>
+                  <span class="text-[12px] font-medium" x-text="q.trim() ? 'Tidak ada hasil pencarian' : 'Tidak ada jadwal'"></span>
+                </div>
+              </template>
+            </div>
+
+          </div>
         </template>
-        <template x-for="slot in ['08','10','13','15']" :key="slot">
-          <template x-for="d in weekDays" :key="d.name + slot">
-            <div class="rounded-lg p-2 min-h-[64px] text-[11px] leading-snug" :class="slotAt(d.name, slot) ? 'bg-[#E9EAFF]' : 'bg-[#E1FFB7]'">
-              <p class="font-mono font-semibold text-[#3965FB]" x-text="slot + '.00'">-</p>
-              <p class="font-medium line-clamp-2" x-text="slotAt(d.name, slot) ? slotAt(d.name, slot).matkul : 'Kosong'">-</p>
+      </div>
+
+      <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden) -->
+      <div class="md:hidden mt-3">
+        <!-- Horizontal Day Pill Selector -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
+          <template x-for="d in weekDays" :key="'tab-' + d.name">
+            <button type="button" role="tab"
+                    :aria-selected="currentScheduleDay === d.name"
+                    @click="activeScheduleDay = d.name"
+                    class="ui-button ui-button--ghost flex-1 min-w-[62px] py-2 px-1 rounded-xl text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    :class="currentScheduleDay === d.name ? 'bg-primary text-white border-primary shadow-sm font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/90 font-medium'">
+              <span class="text-[11px] uppercase tracking-wide leading-tight" x-text="d.name.slice(0, 3)">-</span>
+              <div class="flex items-center gap-1 mt-0.5">
+                <span class="text-[14px] leading-tight" x-text="d.dateNum">-</span>
+                <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="currentScheduleDay === d.name ? 'bg-white' : 'bg-primary'"></span>
+              </div>
+            </button>
+          </template>
+        </div>
+
+        <!-- Active Day Header -->
+        <div class="flex items-center justify-between mt-3 mb-2 px-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-[15px] font-bold text-ink">
+              <span x-text="currentScheduleDay"></span>
+              <span class="text-[13px] font-normal text-slate-500" x-text="getActiveDayDate() ? '· ' + getActiveDayDate() : ''"></span>
+            </h3>
+            <span x-show="isToday(currentScheduleDay)" class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-primary border border-blue-200/60">Hari Ini</span>
+          </div>
+          <span class="text-[12px] font-semibold text-slate-500" x-text="daySessions(currentScheduleDay).length + ' Sesi'"></span>
+        </div>
+
+        <!-- Active Day Sessions List -->
+        <div class="space-y-3 mt-2">
+          <!-- Session Cards -->
+          <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-' + s.id">
+            <div class="ui-card p-3.5 shadow-sm">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="ui-badge font-mono text-[12px] font-bold text-primary bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
+                <template x-if="slotKind(s.matkul) === 'Praktikum'">
+                  <span class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
+                </template>
+                <template x-if="slotKind(s.matkul) === 'Teori'">
+                  <span class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-200/60">Teori</span>
+                </template>
+              </div>
+
+              <h4 class="font-bold text-[15px] text-ink leading-snug" x-text="s.matkul">-</h4>
+
+              <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5 text-[12px] text-slate-600">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">meeting_room</span>
+                  <span class="font-medium text-slate-700" x-text="s.ruang ? 'Ruang: ' + s.ruang : 'Tanpa ruangan'">-</span>
+                </div>
+                <template x-if="s.dosen">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">person</span>
+                    <span x-text="'Dosen: ' + s.dosen">-</span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="mt-3 pt-2 flex justify-end">
+                <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
+                        class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 flex items-center gap-1.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                  <span class="material-symbols-outlined text-[16px] text-slate-500">tune</span>
+                  <span>Ajukan Penyesuaian</span>
+                </button>
+              </div>
             </div>
           </template>
+
+          <!-- Empty State for Active Day -->
+          <template x-if="daySessions(currentScheduleDay).length === 0">
+            <div class="py-10 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center flex flex-col items-center justify-center">
+              <span class="material-symbols-outlined text-[32px] text-slate-300 mb-2">event_available</span>
+              <p class="text-[14px] font-bold text-ink" x-text="q.trim() ? 'Tidak ada hasil pencarian jadwal' : 'Tidak ada jadwal perkuliahan'"></p>
+              <p class="text-[12px] text-slate-500 mt-1 max-w-xs" x-text="q.trim() ? 'Coba kata kunci lain untuk hari ' + currentScheduleDay + '.' : 'Tidak ada sesi kelas yang tercatat pada hari ' + currentScheduleDay + '.'"></p>
+              <button type="button" @click="go('tugas')" class="ui-button ui-button--ghost mt-4 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shadow-sm transition-colors">
+                Lihat Daftar Tugas
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SCR-SCH-001: Pola jadwal -->
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-[18px] font-semibold text-ink">Jadwal Tetap</h2>
+        <div class="flex items-center gap-2">
+          <span x-show="isDraftSemester()" class="ui-badge ui-badge--primary">Semester DRAFT — ubah langsung tanpa siaran</span>
+          <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary text-[13px] font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
+        </div>
+      </div>
+      <p class="text-[12px] text-slate-500 mt-1" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester. Ubah dan hapus langsung tanpa alasan dan tanpa siaran WhatsApp.' : 'Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.'">-</p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+        <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="ui-field text-[14px]" />
+        <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="ui-field text-[14px]" />
+        <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="ui-field text-[14px]" />
+      </div>
+      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat jadwal tetap...</div>
+      <div x-show="polaError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="polaError">-</span>
+        <button type="button" @click="polaError=''; loadPatterns()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!polaLoading && !polaError && scopePatterns.length === 0" class="ui-empty mt-3 p-6 rounded-xl border border-dashed border-border text-center">
+        <p class="text-[15px] font-semibold">Jadwal tetap belum dibuat</p>
+        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal tetap agar mahasiswa dapat melihat perkuliahan rutin mingguannya.</p>
+        <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary mt-3 text-[13px] font-semibold">Tambah Jadwal Tetap</button>
+      </div>
+      <div x-show="!polaLoading && !polaError && scopePatterns.length > 0 && filteredPola.length === 0" class="ui-empty mt-3 p-6 rounded-xl border border-dashed border-border text-center">
+        <p class="text-[15px] font-semibold">Tidak ada jadwal yang cocok</p>
+        <p class="text-[13px] text-slate-500 mt-1">Tidak ada jadwal dengan filter yang dipilih.</p>
+        <button type="button" @click="hapusPolaFilter()" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Hapus Semua Filter</button>
+      </div>
+      <div class="mt-3 divide-y divide-border">
+        <template x-for="p in filteredPola" :key="p.id">
+          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold line-clamp-1" x-text="(p.display_name || p.offering || '—')">-</p>
+              <p class="text-[12px] text-slate-500 font-mono" x-text="polaHariName(p.day_of_week) + ' · ' + (p.start_time || '') + '–' + (p.end_time || '') + (p.room ? ' · ' + p.room : '')">-</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" @click="editPola(p)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
+              <button type="button" @click="hapusPola(p)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
+            </div>
+          </div>
         </template>
       </div>
     </div>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <h2 class="text-[18px] font-semibold text-center">Ruangan tersedia</h2>
-      <p class="text-[11px] text-slate-400 text-center mt-1">Data internal — perlu konfirmasi TU.</p>
-      <div class="divide-y divide-[#EEEEEE] mt-2">
+
+    <!-- Daftar perubahan jadwal -->
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-[18px] font-semibold text-ink">Perubahan jadwal</h2>
+        <select x-model="eventFilter" aria-label="Filter status publikasi" class="ui-field text-[13px]">
+          <option value="semua">Semua status</option>
+          <option value="DRAFT">Draf</option>
+          <option value="PUBLISHED">Terbit</option>
+          <option value="REVOKED">Publikasi Dicabut</option>
+        </select>
+      </div>
+      <p class="text-[13px] text-slate-500 mt-1">Seluruh perubahan di kelas yang dikelola, termasuk draf yang belum terlihat mahasiswa.</p>
+      <div x-show="eventsLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat perubahan jadwal...</div>
+      <div x-show="eventsError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="eventsError">-</span>
+        <button type="button" @click="loadEvents()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!eventsLoading && !eventsError && filteredEvents.length === 0" class="ui-empty py-6 text-center text-[13px] text-slate-400">Belum ada perubahan tercatat.</div>
+      <div class="mt-2 divide-y divide-border">
+        <template x-for="ev in filteredEvents" :key="ev.id">
+          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold flex items-center gap-1.5 flex-wrap">
+                <span class="material-symbols-outlined text-[18px] text-primary">event</span>
+                <span x-text="kindLabel(ev.event_kind)">-</span>
+                <span class="text-slate-400 font-normal">·</span>
+                <span class="font-normal text-slate-600 line-clamp-1" x-text="ev.offering || ''">-</span>
+              </p>
+              <p class="text-[12px] text-slate-500 font-mono mt-0.5" x-text="fmtWaktuID(ev.starts_at)">-</p>
+            </div>
+            <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(ev.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'bg-success text-green-800' : (String(ev.lifecycle_status).toUpperCase() === 'DRAFT' ? 'bg-warning-soft text-amber-900' : 'bg-slate-100 text-slate-500')">
+              <span class="material-symbols-outlined text-[14px]" x-text="String(ev.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'check_circle' : (String(ev.lifecycle_status).toUpperCase() === 'DRAFT' ? 'pending' : 'cancel')">-</span>
+              <span x-text="statusLabel(ev.lifecycle_status)">-</span>
+            </span>
+            <div class="flex gap-2">
+              <button type="button" @click="bukaDetail(ev)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Buka</button>
+              <button type="button" @click="lanjutkanDraf(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Lanjutkan</button>
+              <button type="button" @click="hapusDrafPerubahan(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <h2 class="text-[18px] font-semibold text-center">Ruangan Kandidat</h2>
+      <p class="text-[11px] text-slate-400 text-center mt-1">Hasil pencarian internal — wajib konfirmasi TU sebelum publish.</p>
+      <div class="divide-y divide-border mt-2">
         <template x-for="r in roomList" :key="r">
           <div class="py-3"><p class="text-[14px] font-medium" x-text="r">-</p><p class="text-[12px] text-slate-500">Tidak tercatat dipakai</p></div>
         </template>
-        <div x-show="roomList.length === 0" class="py-4 text-center text-[12px] text-slate-400">Belum ada data ruangan.</div>
+        <div x-show="roomList.length === 0" class="ui-empty py-4 text-center text-[12px] text-slate-400">Belum ada data ruangan.</div>
       </div>
     </div>
   </div>
+
+  <!-- ============ SUB: POLA ============ -->
+  <div x-show="jadwalSub === 'pola'">
+    <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <h2 class="text-[18px] font-semibold text-ink" x-text="polaForm.id ? 'Ubah Jadwal Tetap' : 'Tambah Jadwal Tetap'">-</h2>
+      <p class="text-[13px] text-slate-500 mt-1" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester.' : 'Jadwal perkuliahan mingguan yang berlaku rutin dalam semester aktif.'">-</p>
+      <div x-show="polaFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="polaFormError">-</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div class="sm:col-span-2">
+          <label class="block text-[13px] font-medium mb-1">Mata kuliah di kelas ini <span class="text-red-600">*</span></label>
+          <select aria-label="Mata kuliah di kelas ini" x-model="polaForm.offeringId" class="ui-field w-full text-[14px]">
+            <option value="">-- Pilih mata kuliah --</option>
+            <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
+          </select>
+          <p x-show="!offeringLoading && pesanOffering()" class="text-[12px] text-amber-800 mt-1">
+            <span x-text="pesanOffering()">-</span>
+            <button type="button" @click="loadOfferings()" class="ui-button ui-button--ghost font-semibold underline ml-1 min-h-[44px] inline-flex items-center">Muat ulang</button>
+          </p>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Hari <span class="text-red-600">*</span></label>
+          <select aria-label="Hari" x-model="polaForm.day" class="ui-field w-full text-[14px]">
+            <option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option>
+            <option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option><option value="7">Minggu</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Ruangan</label>
+          <select aria-label="Ruangan" x-model="polaForm.roomId" class="ui-field w-full text-[14px]">
+            <option value="">Tanpa ruangan khusus</option>
+            <template x-for="r in polaRooms" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Jam mulai <span class="text-red-600">*</span></label>
+          <input aria-label="Jam mulai" type="time" x-model="polaForm.start" @change="!polaForm.id && hitungAkhirPola()" class="ui-field w-full text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1" x-text="polaForm.id ? 'Jam selesai' : 'Durasi (menit)'">Durasi</label>
+          <input aria-label="Durasi (menit)" x-show="!polaForm.id" type="number" min="1" max="1439" x-model.number="polaForm.duration" @input="hitungAkhirPola()" class="ui-field w-full text-[14px]" />
+          <input aria-label="Jam selesai" x-show="polaForm.id" type="time" x-model="polaForm.end" class="ui-field w-full text-[14px] font-mono" />
+          <p x-show="!polaForm.id && polaForm.end" class="text-[12px] text-slate-500 mt-1" x-text="'Selesai ' + polaForm.end"></p>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
+          <input aria-label="Tautan kelas daring (opsional)" type="text" x-model="polaForm.link" placeholder="https://..." class="ui-field w-full text-[14px]" />
+        </div>
+        <div x-show="polaForm.id && !isDraftSemester()" class="sm:col-span-2">
+          <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku (perubahan permanen)</label>
+          <input aria-label="Tanggal mulai berlaku (perubahan permanen)" type="date" x-model="polaForm.effectiveDate" class="ui-field w-full text-[14px]" />
+          <p class="text-[12px] text-slate-500 mt-1">Sesi sebelum tanggal berlaku tetap memakai versi lama. Tanggal harus berada dalam semester aktif.</p>
+        </div>
+        <p x-show="polaForm.id && isDraftSemester()" class="sm:col-span-2 text-[13px] text-slate-600">DRAFT: ubah langsung tanpa tanggal berlaku dan tanpa alasan.</p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 mt-5">
+        <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Batal</button>
+        <button type="button" @click="simpanPola()" :disabled="polaPreviewLoading" class="ui-button ui-button--primary flex-1 font-semibold" x-text="polaForm.id ? 'Lanjut ke tinjau' : 'Pratinjau jadwal'">Pratinjau</button>
+      </div>
+      <div x-show="polaPreview && !polaForm.id" class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-[13px]">
+        <p class="font-semibold">Pratinjau jadwal reguler</p>
+        <p x-text="polaPreview ? polaHariName(polaPreview.day_of_week) + ' · ' + polaPreview.start_time + '–' + polaPreview.end_time : ''"></p>
+        <p x-show="polaPreview && !polaPreview.can_publish" class="text-red-700 mt-2">Ada konflik yang menghalangi publikasi.</p>
+        <template x-for="conflict in (polaPreview && polaPreview.conflicts || [])" :key="conflict.code + conflict.entity_id"><p class="text-red-700" x-text="conflict.message"></p></template>
+        <button type="button" @click="terbitPola()" :disabled="!polaPreview || !polaPreview.can_publish || polaPreviewLoading" class="ui-button ui-button--primary mt-3 font-semibold">Terbitkan jadwal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SUB: UBAH (SCR-SCH-002) ============ -->
+  <div x-show="jadwalSub === 'ubah'">
+    <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="ui-card p-4 md:p-6 shadow-sm mt-4 max-w-[960px]">
+      <h2 class="text-[18px] font-semibold text-ink">Buat Perubahan Jadwal</h2>
+      <p class="text-[13px] text-slate-500 mt-1">Kelas <strong class="text-ink" x-text="selectedClass || '—'"></strong> · Waktu WIB · Tanggal harus berada dalam semester aktif.</p>
+      <div x-show="ubahFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ubahFormError">-</div>
+
+      <div x-show="offeringLoading" class="mt-5 rounded-xl bg-slate-50 p-4 text-[13px] text-slate-600" role="status">Memuat semester dan mata kuliah...</div>
+      <div x-show="!offeringLoading && offeringState !== 'ok'" class="schedule-setup mt-5" role="alert">
+        <div class="flex items-start gap-3">
+          <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">info</span>
+          <div class="min-w-0">
+            <p class="font-semibold text-[14px]">Form belum dapat dilanjutkan</p>
+            <p class="text-[13px] mt-1" x-text="pesanOffering()">-</p>
+            <button type="button" @click="loadOfferings()" class="ui-button ui-button--outline mt-3">Muat ulang data</button>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="!offeringLoading && offeringState === 'ok'">
+        <div class="mt-6">
+          <label for="ubah-offering" class="block text-[14px] font-semibold mb-2">Mata kuliah penyelenggara <span class="text-red-600">*</span></label>
+          <select id="ubah-offering" x-model="ubahForm.offeringId" class="ui-field w-full text-[14px]">
+            <option value="">Pilih mata kuliah</option>
+            <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
+          </select>
+        </div>
+
+        <fieldset class="schedule-choice-group mt-7">
+          <legend class="text-[15px] font-semibold text-ink">Sifat perubahan</legend>
+          <p class="text-[13px] text-slate-500 mt-1">Pilih apakah perubahan berlaku sekali atau untuk jadwal rutin berikutnya.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <button type="button" @click="ubahForm.scope = 'sementara'" :aria-pressed="ubahForm.scope === 'sementara'" class="schedule-choice" :class="ubahForm.scope === 'sementara' && 'schedule-choice--selected'">
+              <span class="schedule-choice__text"><strong>Satu kejadian</strong><small>Hanya untuk tanggal yang dipilih.</small></span>
+              <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.scope === 'sementara' ? 'check_circle' : 'radio_button_unchecked'"></span>
+            </button>
+            <button type="button" @click="ubahForm.scope = 'permanen'; pilihPolaAsal()" :aria-pressed="ubahForm.scope === 'permanen'" class="schedule-choice" :class="ubahForm.scope === 'permanen' && 'schedule-choice--selected'">
+              <span class="schedule-choice__text"><strong>Berlaku seterusnya</strong><small>Mengubah jadwal rutin sejak tanggal berlaku.</small></span>
+              <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.scope === 'permanen' ? 'check_circle' : 'radio_button_unchecked'"></span>
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset x-show="ubahForm.scope === 'sementara'" class="schedule-choice-group mt-7">
+          <legend class="text-[15px] font-semibold text-ink">Jenis perubahan</legend>
+          <p class="text-[13px] text-slate-500 mt-1">Pilih kejadian yang paling sesuai.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <template x-for="k in ['REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED']" :key="k">
+              <button type="button" @click="ubahForm.kind = k" :aria-pressed="ubahForm.kind === k" class="schedule-choice" :class="ubahForm.kind === k && 'schedule-choice--selected'">
+                <span class="schedule-choice__text"><strong x-text="kindLabel(k)">-</strong><small x-text="kindDescription(k)">-</small></span>
+                <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.kind === k ? 'check_circle' : 'radio_button_unchecked'"></span>
+              </button>
+            </template>
+          </div>
+        </fieldset>
+
+        <p x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Sesi sebelum tanggal berlaku tetap memakai jadwal lama.</p>
+        <p x-show="ubahForm.scope === 'permanen' && isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Semester masih DRAFT: ubah langsung baris yang sama sejak tanggal mulai semester, tanpa siaran WhatsApp.</p>
+
+        <div class="mt-7 border-t border-border pt-5">
+          <h3 class="text-[15px] font-semibold text-ink">Detail jadwal</h3>
+          <p class="text-[13px] text-slate-500 mt-1">Isi hanya informasi yang diperlukan untuk perubahan ini.</p>
+        </div>
+
+      <div x-show="ubahForm.scope === 'permanen' || ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
+        <h3 class="text-[14px] font-semibold mt-5">Jadwal Semula</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Jadwal tetap semula <span class="text-red-600">*</span></label>
+            <select aria-label="Jadwal tetap semula" x-model="ubahForm.originPatternId" @change="pilihPolaAsal()" class="ui-field w-full text-[14px]">
+              <option value="">-- Pilih jadwal tetap semula --</option>
+              <template x-for="p in scopePatterns" :key="p.id"><option :value="p.id" x-text="(p.display_name || p.offering || '') + ' · ' + polaHariName(p.day_of_week) + ' ' + (p.start_time || '') + '–' + (p.end_time || '')">-</option></template>
+            </select>
+          </div>
+          <div x-show="ubahForm.scope === 'sementara'">
+            <label class="block text-[13px] font-medium mb-1">Tanggal kejadian asal <span class="text-red-600">*</span></label>
+            <input aria-label="Tanggal kejadian asal" type="date" x-model="ubahForm.originDate" class="ui-field w-full text-[14px]" />
+          </div>
+        </div>
+      </div>
+
+      <div x-show="ubahForm.scope === 'permanen' || ubahForm.kind !== 'SESSION_CANCELLED'">
+        <h3 class="text-[14px] font-semibold mt-5">Jadwal Baru</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+          <div x-show="ubahForm.scope === 'sementara'">
+            <label class="block text-[13px] font-medium mb-1">Tanggal <span class="text-red-600">*</span></label>
+            <input aria-label="Tanggal" type="date" x-model="ubahForm.date" class="ui-field w-full text-[14px]" />
+          </div>
+          <div x-show="ubahForm.scope === 'permanen'">
+            <label class="block text-[13px] font-medium mb-1">Hari rutin baru <span class="text-red-600">*</span></label>
+            <select aria-label="Hari rutin baru" x-model="ubahForm.day" class="ui-field w-full text-[14px]"><template x-for="d in [1,2,3,4,5,6,7]" :key="d"><option :value="d" x-text="polaHariName(d)">-</option></template></select>
+          </div>
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Jam mulai <span class="text-red-600">*</span></label>
+            <input aria-label="Jam mulai" type="time" x-model="ubahForm.start" class="ui-field w-full text-[14px] font-mono" />
+          </div>
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Jam selesai <span class="text-red-600">*</span></label>
+            <input aria-label="Jam selesai" type="time" x-model="ubahForm.end" class="ui-field w-full text-[14px] font-mono" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Ruangan</label>
+            <select aria-label="Ruangan" x-model="ubahForm.roomId" class="ui-field w-full text-[14px]">
+              <option value="">Belum memilih</option>
+              <template x-for="r in polaRooms" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
+            </select>
+            <p class="text-[12px] text-slate-500 mt-1">Hasil ruangan adalah kandidat data internal. Catat konfirmasi TU sebelum menerbitkan bila ruangan diwajibkan.</p>
+          </div>
+          <div x-show="ubahForm.scope === 'sementara'">
+            <label class="block text-[13px] font-medium mb-1">Kelas peserta (ID, pisahkan koma — opsional)</label>
+            <input aria-label="Kelas peserta (ID, pisahkan koma — opsional)" type="text" x-model="ubahForm.participantIds" placeholder="Contoh: 12, 15" class="ui-field w-full text-[14px] font-mono" />
+            <p class="text-[12px] text-slate-500 mt-1">Perubahan tampil di kelas peserta setelah KM kelas tersebut menerima.</p>
+          </div>
+          <div x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="sm:col-span-2">
+            <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
+            <input aria-label="Tanggal mulai berlaku" type="date" x-model="ubahForm.effectiveDate" class="ui-field w-full text-[14px]" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
+            <input aria-label="Tautan kelas daring (opsional)" type="text" x-model="ubahForm.link" placeholder="https://..." class="ui-field w-full text-[14px]" />
+          </div>
+        </div>
+      </div>
+
+      <h3 class="text-[14px] font-semibold mt-5">Keterangan</h3>
+      <div class="mt-2" x-show="!isDraftSemester() || ubahForm.scope === 'sementara'">
+        <label class="block text-[13px] font-medium mb-1">Alasan perubahan <span class="text-red-600">*</span></label>
+        <textarea aria-label="Alasan perubahan" x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="ui-field w-full text-[14px]"></textarea>
+      </div>
+      <p x-show="isDraftSemester() && ubahForm.scope === 'permanen'" class="text-[13px] text-slate-500 mt-2">DRAFT: alasan opsional, tidak disiarkan.</p>
+
+      <div x-show="!isDraftSemester()" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
+        <span class="material-symbols-outlined text-[20px] shrink-0">campaign</span>
+        <p>Perubahan yang terbit akan disiarkan ke grup kelas melalui WhatsApp. Kegagalan pengiriman pesan tidak membatalkan penerbitan di web.</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 mt-5">
+        <button x-show="ubahForm.scope === 'sementara'" type="button" @click="simpanDrafPerubahan()" class="ui-button ui-button--outline flex-1 text-primary font-semibold">Simpan sebagai Draf</button>
+        <button type="button" @click="tinjauPerubahan()" class="ui-button ui-button--primary flex-1 font-semibold">Tinjau Perubahan</button>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SUB: TINJAU (SCR-SCH-003) ============ -->
+  <div x-show="jadwalSub === 'tinjau'">
+    <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <h2 class="text-[18px] font-semibold text-ink">Tinjau Perubahan</h2>
+      <p class="text-[13px] text-slate-500 mt-1">Periksa dampak sebelum menerbitkan. Tidak ada konfirmasi tambahan setelah ini.</p>
+      <div x-show="previewLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pratinjau perubahan...</div>
+      <div x-show="previewError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="previewError">-</span>
+        <button type="button" @click="muatPratinjau()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!previewLoading && !previewError && previewData">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+          <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <p class="text-[11px] font-bold tracking-widest text-slate-400 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">lock</span>SEBELUM</p>
+            <p class="text-[14px] font-semibold mt-1" x-text="previewData.old ? previewData.old.offering : ''">-</p>
+            <p class="text-[13px] text-slate-600 font-mono" x-text="previewData.old ? ('Hari ' + previewData.old.day_of_week + ' · ' + previewData.old.start_time + '–' + previewData.old.end_time + (previewData.old.room ? ' · ' + previewData.old.room : '')) : ''">-</p>
+          </div>
+          <div class="p-4 rounded-xl bg-primary-soft/60 border border-primary/30">
+            <p class="text-[11px] font-bold tracking-widest text-primary">MENJADI</p>
+            <p class="text-[14px] font-semibold mt-1" x-text="previewData.new ? previewData.new.offering : ''">-</p>
+            <p x-show="!(draftEvent && draftEvent.permanent)" class="text-[13px] font-mono" x-text="previewData.new ? fmtWaktuID(previewData.new.starts_at) + ' – ' + fmtWaktuID(previewData.new.ends_at) + (previewData.new.room ? ' · ' + previewData.new.room : '') : ''">-</p>
+            <p x-show="draftEvent && draftEvent.permanent" class="text-[13px]" x-text="previewData.new ? polaHariName(previewData.new.day_of_week) + ' · ' + previewData.new.start_time + '–' + previewData.new.end_time + ' mulai ' + previewData.effective_from : ''">-</p>
+            <a x-show="previewData.new && previewData.new.meeting_link" :href="previewData.new.meeting_link" target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-medium hover:underline break-all" x-text="previewData.new.meeting_link">-</a>
+            <p class="text-[12px] mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-primary/20 text-primary font-semibold"><span class="material-symbols-outlined text-[14px]">event</span><span x-text="previewData ? kindLabel(previewData.kind) : ''">-</span></p>
+          </div>
+        </div>
+        <p x-show="draftEvent && draftEvent.permanent" class="mt-3 text-[13px] text-slate-600" x-text="previewData ? previewData.affected_session_count + ' sesi rutin sampai akhir semester; tanggal pertama: ' + (previewData.first_session_dates || []).join(', ') : ''">-</p>
+        <div x-show="previewData && previewData.room_note" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
+          <span class="material-symbols-outlined text-[20px] shrink-0">meeting_room</span>
+          <p>Ruangan <span class="font-semibold">perlu konfirmasi TU</span>. Catat konfirmasi manual sebelum menerbitkan bila ruangan diwajibkan.</p>
+        </div>
+
+        <template x-if="roomCands.length > 0 && previewData && previewData.new && previewData.new.starts_at">
+          <div class="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
+            <h4 class="text-[14px] font-semibold text-blue-900 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">meeting_room</span>Kandidat Ruangan (data internal)</h4>
+            <p class="text-[12px] text-blue-800 mt-1">Sumber internal — <span class="font-mono" x-text="roomCands[0].source_updated_at || '—'">-</span>. Wajib konfirmasi TU sebelum publish.</p>
+            <div class="mt-3 space-y-2">
+              <template x-for="rc in roomCands" :key="rc.id">
+                <div class="ui-card p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div class="flex-1">
+                    <p class="text-[14px] font-medium" x-text="rc.name || rc.code">-</p>
+                    <p class="text-[12px] text-slate-500 font-mono" x-text="rc.code + ' · Kapasitas: ' + rc.capacity + ' · Tipe: ' + rc.room_type">-</p>
+                  </div>
+                  <button type="button" @click="bukaKonfirmasiTU(rc)" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi TU</button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+        <div x-show="blockingConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-300">
+          <p class="text-[14px] font-semibold text-red-800 flex items-center gap-1.5"><span class="material-symbols-outlined">block</span>Konflik pemblokir — penerbitan dinonaktifkan</p>
+          <template x-for="(c, i) in blockingConflicts" :key="i">
+            <p class="text-[13px] text-red-700 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
+          </template>
+        </div>
+        <div x-show="overrideConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
+          <p class="text-[14px] font-semibold text-amber-900 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Konflik butuh alasan pengecualian</p>
+          <template x-for="(c, i) in overrideConflicts" :key="i">
+            <p class="text-[13px] text-amber-900 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
+          </template>
+          <label class="block text-[13px] font-medium mt-3 mb-1">Alasan pengecualian <span class="text-red-600">*</span></label>
+          <textarea aria-label="Alasan pengecualian" x-model="ubahForm.conflictReason" rows="2" placeholder="Jelaskan mengapa perubahan tetap diterbitkan" class="ui-field w-full text-[14px]"></textarea>
+        </div>
+        <div x-show="blockingConflicts.length === 0 && overrideConflicts.length === 0" class="ui-empty mt-3 p-3 rounded-xl bg-green-50 border border-green-200 text-[13px] text-green-800 flex items-center gap-2">
+          <span class="material-symbols-outlined">check_circle</span>Tidak ada konflik tercatat untuk jadwal ini.
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3 mt-5">
+          <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Ubah Lagi</button>
+          <button type="button" @click="terbitkanPerubahan()" :disabled="blockingConflicts.length > 0" :class="blockingConflicts.length > 0 ? 'bg-slate-200 text-slate-400' : 'bg-primary hover:bg-primary-hover text-white'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl font-semibold min-h-[44px]">Terbitkan Perubahan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SUB: DETAIL (SCR-SCH-004 + SCR-SCH-005) ============ -->
+  <div x-show="jadwalSub === 'detail' && selectedEvent">
+    <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
+    <div class="ui-card p-5 shadow-sm mt-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-[18px] font-semibold text-ink">Detail Perubahan Jadwal</h2>
+        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold"
+          :class="String(selectedEvent.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'bg-success text-green-800' : (String(selectedEvent.lifecycle_status).toUpperCase() === 'DRAFT' ? 'bg-warning-soft text-amber-900' : 'bg-slate-100 text-slate-500')">
+          <span class="material-symbols-outlined text-[14px]">info</span>
+          <span x-text="statusLabel(selectedEvent.lifecycle_status)">-</span>
+        </span>
+        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-primary-soft text-primary-hover">
+          <span class="material-symbols-outlined text-[14px]">event</span>
+          <span x-text="kindLabel(selectedEvent.event_kind)">-</span>
+        </span>
+      </div>
+      <h3 class="text-[14px] font-semibold mt-4">Detail</h3>
+      <dl class="mt-2 text-[13px] space-y-1.5">
+        <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Mata kuliah</dt><dd class="font-medium" x-text="selectedEvent.offering || '—'">-</dd></div>
+        <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Waktu baru</dt><dd class="font-mono" x-text="fmtWaktuID(selectedEvent.starts_at) + ' – ' + fmtWaktuID(selectedEvent.ends_at)">-</dd></div>
+        <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Ruangan</dt><dd x-text="selectedEvent.room || '—'">-</dd></div>
+        <div class="flex gap-2" x-show="selectedEvent.meeting_link"><dt class="w-32 shrink-0 text-slate-500">Tautan daring</dt><dd><a :href="selectedEvent.meeting_link" target="_blank" rel="noopener noreferrer" class="text-primary font-medium hover:underline break-all" x-text="selectedEvent.meeting_link">-</a></dd></div>
+        <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Keterangan</dt><dd x-text="selectedEvent.reason || '—'">-</dd></div>
+        <div class="flex gap-2"><dt class="w-32 shrink-0 text-slate-500">Versi</dt><dd class="font-mono" x-text="selectedEvent.version || '—'">-</dd></div>
+      </dl>
+      <h3 class="text-[14px] font-semibold mt-4">Partisipasi kelas</h3>
+      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-600">
+        <p x-show="!(selectedEvent.participants && selectedEvent.participants.length)">Perubahan ini hanya berlaku di kelas pemilik. Jika ada kelas peserta, status persetujuan (menunggu, diterima, ditolak, dilepas) tampil di sini setelah server mengirim datanya.</p>
+        <template x-if="selectedEvent.participants && selectedEvent.participants.length">
+          <div class="space-y-2">
+            <template x-for="pt in selectedEvent.participants" :key="pt.offering_id || pt.course_offering_id || pt.id">
+              <div class="ui-card flex flex-wrap items-center gap-2 p-2">
+                <span class="text-[13px] font-medium flex-1" x-text="pt.display_name || pt.offering || '—'">-</span>
+                <span class="ui-badge text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="pt.participation_status || '—'">-</span>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'accept')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-green-600 text-green-700 text-[12px] font-semibold min-h-[44px]">Terima</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'decline')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-red-600 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'leave')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-slate-200 text-[12px] min-h-[44px]">Lepas Kelas</button>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <h3 class="text-[14px] font-semibold mt-4">Riwayat konfirmasi ruangan</h3>
+      <div class="mt-2 space-y-2">
+        <p x-show="!(selectedEvent.confirmations && selectedEvent.confirmations.length)" class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-500">Belum ada konfirmasi TU yang dicatat.</p>
+        <template x-for="c in (selectedEvent.confirmations || [])" :key="c.id"><div class="p-3 rounded-xl border border-slate-200 text-[13px]"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold" x-text="c.room || 'Ruangan'"></p><span class="ui-badge text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="c.confirmation_status"></span></div><p class="text-slate-500 mt-1" x-text="(c.external_contact || 'Kontak TU tidak dicatat') + (c.note ? ' · ' + c.note : '')"></p><p class="text-[11px] text-slate-400 mt-1" x-text="fmtWaktuID(c.recorded_at)"></p></div></template>
+      </div>
+      <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
+      <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-600 flex gap-2">
+        <span class="material-symbols-outlined shrink-0">notifications</span>
+        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis.</p>
+      </div>
+      <button type="button" @click="go('notifikasi')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Pantau di Notifikasi</button>
+      <div class="flex flex-wrap gap-3 mt-5">
+        <button type="button" @click="lanjutkanDraf(selectedEvent)" x-show="String(selectedEvent.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--primary text-[13px] font-semibold">Lanjutkan Draf</button>
+      </div>
+      <div x-show="String(selectedEvent.lifecycle_status).toUpperCase() === 'PUBLISHED'" class="mt-5 p-4 rounded-xl border border-red-300 bg-red-50">
+        <h3 class="text-[14px] font-semibold text-red-800 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Cabut Publikasi</h3>
+        <p class="text-[13px] text-red-700 mt-1">Pencabutan tidak dapat dibatalkan langsung. Jadwal semula akan berlaku kembali dan koreksi akan disiarkan ke kelas.</p>
+        <div x-show="revokeError" class="ui-card mt-2 p-2.5 text-[13px] text-red-700" x-text="revokeError">-</div>
+        <label class="block text-[13px] font-medium mt-3 mb-1">Alasan pencabutan <span class="text-red-600">*</span></label>
+        <textarea aria-label="Alasan pencabutan" x-model="revokeReason" rows="2" placeholder="Jelaskan mengapa publikasi dicabut" class="ui-field w-full text-[14px]"></textarea>
+        <button type="button" @click="cabutPublikasi()" class="ui-button ui-button--ghost mt-3 h-11 px-4 rounded-xl border border-red-700 text-red-700 text-[13px] font-semibold min-h-[44px]">Cabut Publikasi</button>
+      </div>
+    </div>
+  </div>
+<!-- Modal Konfirmasi TU -->
+<div x-show="tuConfirm.open" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-50" @click.self="tuConfirm.open = false" aria-hidden="true"></div>
+<div x-show="tuConfirm.open" x-cloak
+     x-transition:enter="transition ease-out duration-200 transform"
+     x-transition:enter-start="-translate-y-4 opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
+     x-transition:leave="transition ease-in duration-150 transform"
+     x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="-translate-y-4 opacity-0"
+     class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white z-60 rounded-2xl shadow-2xl p-5"
+     role="dialog" aria-modal="true" aria-labelledby="tu-confirm-title">
+  <h3 id="tu-confirm-title" class="text-[18px] font-semibold">Konfirmasi Ruangan oleh TU</h3>
+  <p class="text-[13px] text-slate-500 mt-1">Catat hasil konfirmasi manual dengan petugas TU untuk ruangan ini.</p>
+  <div class="mt-4 space-y-3">
+    <div class="p-3 rounded-xl bg-blue-50 border border-blue-200">
+      <p class="text-[14px] font-semibold" x-text="tuConfirm.room?.name || tuConfirm.room?.code">-</p>
+      <p class="text-[12px] text-slate-500 font-mono" x-text="tuConfirm.room?.code + ' · Kapasitas ' + tuConfirm.room?.capacity + ' · ' + tuConfirm.room?.room_type">-</p>
+    </div>
+    <div>
+      <label class="block text-[13px] font-medium mb-1">Status konfirmasi <span class="text-red-600">*</span></label>
+      <select aria-label="Status konfirmasi" x-model="tuConfirm.form.status" class="ui-field w-full text-[14px]">
+        <option value="PENDING">Menunggu TU (PENDING)</option>
+        <option value="CONFIRMED">Disetujui (CONFIRMED)</option>
+        <option value="REJECTED">Ditolak (REJECTED)</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-[13px] font-medium mb-1">Nama petugas TU <span class="text-red-600">*</span></label>
+      <input aria-label="Nama petugas TU" type="text" x-model="tuConfirm.form.name" placeholder="Contoh: Bpk. Ahmad" class="ui-field w-full text-[14px]" />
+    </div>
+    <div>
+      <label class="block text-[13px] font-medium mb-1">Catatan (opsional)</label>
+      <textarea aria-label="Catatan (opsional)" x-model="tuConfirm.form.note" rows="2" placeholder="Contoh: Ruangan dikunci jam 07:00, kunci di TU" class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
+    </div>
+  </div>
+  <div x-show="tuConfirm.saving" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">Menyimpan konfirmasi...</div>
+  <div x-show="tuConfirm.error" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tuConfirm.error">-</div>
+  <div class="flex gap-3 mt-5">
+    <button type="button" @click="tutupKonfirmasiTU()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Batal</button>
+    <button type="button" @click="simpanKonfirmasiTU()" :disabled="tuConfirm.saving" class="ui-button ui-button--primary flex-1 font-semibold">Simpan Konfirmasi</button>
+  </div>
+</div>
+
 </section>

@@ -19,6 +19,14 @@ func (s *Server) handleGetRoomCandidates(w http.ResponseWriter, r *http.Request)
 	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+func (s *Server) handleGetRoomConfirmations(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.GetRoomConfirmations(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleCreateRoomConfirmation menangani POST /api/v1/teaching-events/{id}/room-confirmations
 func (s *Server) handleCreateRoomConfirmation(w http.ResponseWriter, r *http.Request) {
 	if s.academicController != nil {

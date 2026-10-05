@@ -23,6 +23,7 @@ func (s *Server) SetSecurityOptions(opt SecurityOptions) {
 	s.allowedOrigins = opt.AllowedOrigins
 	s.trustedProxyCIDRs = s.secManager.TrustedProxyCIDRs()
 	s.buildLimiter()
+	s.configureRecovery()
 }
 
 // isProduction melaporkan environment production eksplisit.

@@ -8,7 +8,7 @@
 | Status | Approved untuk perencanaan desain |
 | Pemilik | Tim Bot Jadwal |
 | Terakhir diperbarui | 24 September 2026 |
-| Panduan global | [Panduan Desain pen.dev](PENCIL_CONTEXT.md) |
+| Panduan global | [Panduan Desain & Aksesibilitas](../../PRODUCT.md) |
 | Data contoh | [Data Contoh untuk Prototype](PROTOTYPE_DATA.md) |
 
 Dokumen ini membagi desain menjadi batch yang dapat dikerjakan dan diperiksa secara terpisah. Satu baris dapat menghasilkan beberapa frame untuk peran, ukuran layar, atau keadaan berbeda.
@@ -55,7 +55,7 @@ Dokumen ini membagi desain menjadi batch yang dapat dikerjakan dan diperiksa sec
 | SCR-TASK-004 | Detail dan Riwayat Tugas | PJ, KM | P0 | Belum diperiksa, disetujui, koreksi, dicabut |
 | SCR-TASK-005 | Antrean Pemeriksaan KM | KM | P0 | Daftar, kosong, versi berubah |
 | SCR-TASK-006 | Dialog Hasil Pemeriksaan | KM | P0 | Setujui, minta koreksi, batalkan |
-| SCR-SCH-001 | Pola Jadwal Reguler | PJ, KM | P1 | Daftar hari, filter, tambah, versi baru |
+| SCR-SCH-001 | Pola Jadwal | PJ, KM | P1 | Daftar hari, filter, tambah, versi baru |
 | SCR-SCH-002 | Form Perubahan Jadwal | PJ, KM | P1 | Pengganti, tambahan, libur, pembatalan sesi |
 | SCR-SCH-003 | Pratinjau dan Konflik Jadwal | PJ, KM | P1 | Tanpa konflik, konflik pemblokir, pengecualian beralasan |
 | SCR-SCH-004 | Detail Perubahan Jadwal | PJ, KM | P1 | Draf, terbit, dicabut, status notifikasi |

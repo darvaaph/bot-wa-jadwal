@@ -15,7 +15,6 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
@@ -64,7 +63,7 @@ func main() {
 
 	reminderManager := reminder.LoadReminderManager(cfg.ReminderPath)
 
-	appDB, err := database.InitDB(cfg.AppDBPath)
+	appDB, err := database.OpenPool(cfg.AppDBPath)
 	if err != nil {
 		fmt.Printf("❌ Gagal menginisialisasi database utama: %v\n", err)
 		return
@@ -181,15 +180,18 @@ func main() {
 
 	// 13. Jalankan HTTP REST API Server untuk Web Admin Dashboard dan API v1
 	apiServer := api.NewServer(cfg.APIPort, botClient, classManager, taskManager, v1DB)
-	apiServer.SetSecureCookies(cfg.SecureCookies)
 	apiServer.SetSecurityOptions(api.SecurityOptions{
 		Env:               cfg.Env,
 		AuthHashKey:       cfg.AuthHashKey,
 		AllowedOrigins:    cfg.AllowedOrigins,
 		TrustedProxyCIDRs: cfg.TrustedProxyCIDRs,
 		PublicBaseURL:     cfg.PublicBaseURL,
+		SecureCookies:     cfg.SecureCookies,
 	})
-	_ = apiServer.Start()
+	if err := apiServer.Start(); err != nil {
+		fmt.Printf("❌ Gagal memulai server Web API: %v\n", err)
+		return
+	}
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
@@ -240,22 +242,4 @@ func main() {
 	}
 
 	fmt.Println("✅ [Graceful Shutdown Selesai] Semua layanan dan database telah ditutup dengan bersih. Sampai jumpa!")
-}
-
-// runNotifyScheduler enqueues due reminders every 30s and drains the outbox when a sender exists.
-// Web publish never depends on WA: enqueue always runs, delivery is best-effort.
-func runNotifyScheduler(svc *notify.Service, sender notify.Sender) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		now := time.Now().UTC()
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		_, _ = svc.EnsureDailySummaries(ctx, now)
-		_, _ = svc.EnsureTaskReminders(ctx, now)
-		_, _ = svc.EnsureReplacementReminders(ctx, now)
-		if sender != nil {
-			_, _, _ = svc.ProcessDue(ctx, sender, 20, now)
-		}
-		cancel()
-	}
 }

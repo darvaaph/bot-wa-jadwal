@@ -4,7 +4,7 @@
 
 `cmd/bot/main.go` owns CLI flags and startup wiring. Domain code lives under `internal/`: HTTP handlers in `api`, WhatsApp integration in `bot`, SQLite setup in `database`, and business logic in `schedule`, `task`, `link`, `chat`, and `reminder`. Keep helpers in `internal/util` and configuration in `internal/config`.
 
-Schedule data belongs in `data/jadwal/`. The dashboard is served from `web/` and embedded through `web/embed.go`; keep it as plain HTML with CDN-hosted Tailwind and Alpine.js. Do not add npm, `package.json`, or a frontend build step. Runtime files belong in ignored `storage/`. Design and operational notes live in `docs/`.
+Schedule data belongs in `data/jadwal/`. The dashboard is served from `web/` and embedded through `web/embed.go`; keep it as plain HTML with vendored Tailwind and Alpine.js (`web/js/vendor/`, no CDN script). Do not add npm, `package.json`, or a frontend build step. Runtime files belong in ignored `storage/`. Design and operational notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 

@@ -108,7 +108,10 @@ func (s *SemesterService) CreateDraft(ctx context.Context, actor Actor, classID 
 		VALUES (?, ?, ?, ?, ?, 'DRAFT') RETURNING id
 	`, classID, year, term, starts, ends).Scan(&newID)
 	if err != nil {
-		return 0, ErrConflict
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, fmt.Errorf("%w: semester %s %s sudah ada di kelas ini (cek daftar semester, termasuk arsip)", ErrConflict, year, term)
+		}
+		return 0, err
 	}
 	if in.SourceSemesterID != nil {
 		if err := copySemesterStructure(ctx, tx, classID, *in.SourceSemesterID, newID); err != nil {
@@ -126,6 +129,7 @@ func (s *SemesterService) CreateDraft(ctx context.Context, actor Actor, classID 
 }
 
 // copySemesterStructure menyalin offerings, dosen, dan pola jadwal aktif tanpa tugas/review/PJ.
+// Pola salinan memakai effective_from = starts_on semester tujuan agar konsisten dengan aturan DRAFT.
 func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID, targetSemID int64) error {
 	var sourceClass int64
 	if err := tx.QueryRowContext(ctx, `SELECT class_id FROM semesters WHERE id = ?`, sourceSemID).Scan(&sourceClass); err != nil {
@@ -136,6 +140,13 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 	}
 	if sourceClass != classID {
 		return ErrInvalidInput
+	}
+	var targetStart string
+	if err := tx.QueryRowContext(ctx, `SELECT starts_on FROM semesters WHERE id = ?`, targetSemID).Scan(&targetStart); err != nil {
+		return err
+	}
+	if len(targetStart) >= 10 {
+		targetStart = targetStart[:10]
 	}
 
 	type offering struct {
@@ -176,7 +187,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		}
 
 		lrows, err := tx.QueryContext(ctx, `
-			SELECT lecturer_id, responsibility FROM offering_lecturers WHERE course_offering_id = ?
+			SELECT lecturer_id, responsibility FROM offering_lecturers WHERE course_offering_id = ? AND superseded_at IS NULL
 		`, o.oldID)
 		if err != nil {
 			return err
@@ -190,7 +201,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 			}
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
-				VALUES (?, ?, ?) ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING
+				VALUES (?, ?, ?) ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET responsibility=excluded.responsibility, superseded_at=NULL
 			`, newOfferingID, lid, resp); err != nil {
 				lrows.Close()
 				return err
@@ -199,7 +210,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		lrows.Close()
 
 		prows, err := tx.QueryContext(ctx, `
-			SELECT room_id, day_of_week, start_time, end_time, effective_from FROM schedule_patterns
+			SELECT room_id, day_of_week, start_time, end_time FROM schedule_patterns
 			WHERE course_offering_id = ? AND status = 'ACTIVE'
 		`, o.oldID)
 		if err != nil {
@@ -208,8 +219,8 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 		for prows.Next() {
 			var roomID sql.NullInt64
 			var dow int
-			var start, end, effFrom string
-			if err := prows.Scan(&roomID, &dow, &start, &end, &effFrom); err != nil {
+			var start, end string
+			if err := prows.Scan(&roomID, &dow, &start, &end); err != nil {
 				prows.Close()
 				return err
 			}
@@ -220,7 +231,7 @@ func copySemesterStructure(ctx context.Context, tx *sql.Tx, classID, sourceSemID
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO schedule_patterns (course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status)
 				VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
-			`, newOfferingID, roomArg, dow, start, end, effFrom); err != nil {
+			`, newOfferingID, roomArg, dow, start, end, targetStart); err != nil {
 				prows.Close()
 				return err
 			}
@@ -376,7 +387,7 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 	var lecturers, rooms int
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT ol.lecturer_id) FROM offering_lecturers ol
-		JOIN course_offerings co ON co.id = ol.course_offering_id WHERE co.semester_id = ?
+		JOIN course_offerings co ON co.id = ol.course_offering_id WHERE co.semester_id = ? AND ol.superseded_at IS NULL
 	`, semesterID).Scan(&lecturers)
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT sp.room_id) FROM schedule_patterns sp
@@ -445,7 +456,7 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 	var noLect int
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM course_offerings co WHERE co.semester_id = ?
-		AND NOT EXISTS (SELECT 1 FROM offering_lecturers ol WHERE ol.course_offering_id = co.id)
+		AND NOT EXISTS (SELECT 1 FROM offering_lecturers ol WHERE ol.course_offering_id = co.id AND ol.superseded_at IS NULL)
 	`, semesterID).Scan(&noLect)
 	if noLect > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d mata kuliah belum memiliki dosen", noLect))
@@ -456,4 +467,80 @@ func (s *SemesterService) Preview(ctx context.Context, classID, semesterID int64
 		p.Blockers = append(p.Blockers, "hanya semester DRAFT yang dapat diaktifkan")
 	}
 	return p, nil
+}
+
+// DeleteDraft menghapus semester draf beserta offerings, lecturers, schedule patterns, dan batch import terkait jika belum aktif/arsip.
+func (s *SemesterService) DeleteDraft(ctx context.Context, actor Actor, classID, semesterID int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var curClassID int64
+	var status, year, term string
+	err = tx.QueryRowContext(ctx, `
+		SELECT class_id, status, academic_year, term FROM semesters WHERE id = ?
+	`, semesterID).Scan(&curClassID, &status, &year, &term)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if curClassID != classID {
+		return ErrInvalidInput
+	}
+	if status != "DRAFT" {
+		return ErrInvalidState
+	}
+
+	// Hapus pola jadwal terkait offering semester ini
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM schedule_patterns WHERE course_offering_id IN (
+			SELECT id FROM course_offerings WHERE semester_id = ?
+		)
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus dosen offering
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM offering_lecturers WHERE course_offering_id IN (
+			SELECT id FROM course_offerings WHERE semester_id = ?
+		)
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus offerings
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM course_offerings WHERE semester_id = ?
+	`, semesterID); err != nil {
+		return err
+	}
+
+	// Hapus import errors dan import batches jika ada
+	_, _ = tx.ExecContext(ctx, `
+		DELETE FROM import_errors WHERE batch_id IN (
+			SELECT id FROM curriculum_import_batches WHERE semester_id = ?
+		)
+	`, semesterID)
+	_, _ = tx.ExecContext(ctx, `
+		DELETE FROM curriculum_import_batches WHERE semester_id = ?
+	`, semesterID)
+
+	// Hapus semester
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM semesters WHERE id = ?
+	`, semesterID); err != nil {
+		return err
+	}
+
+	before := fmt.Sprintf(`{"academic_year":%q,"term":%q,"status":%q}`, year, term, status)
+	if err := WriteAuditLog(ctx, tx, actor, &classID, &semesterID, "DELETE", "SEMESTER", &semesterID, &before, nil, "Hapus draf semester"); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

@@ -2,11 +2,10 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +13,9 @@ import (
 	"bot-jadwal/internal/api/legacy"
 	"bot-jadwal/internal/api/middleware"
 	v1 "bot-jadwal/internal/api/v1"
+	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
+	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
 	"bot-jadwal/internal/schedule"
@@ -23,24 +24,25 @@ import (
 
 // Server mengelola HTTP REST API untuk Web Admin Dashboard dan API v1
 type Server struct {
-	httpServer     *http.Server
-	botClient      *bot.BotClient
-	classManager   *schedule.ClassManager
-	taskManager    *task.TaskManager
-	v1DB           *sql.DB
-	portalService  *portal.Service
-	legacyHandler  *legacy.Handler
-	secManager     *middleware.SecurityManager
-	authManager    *middleware.AuthManager
+	httpServer         *http.Server
+	botClient          *bot.BotClient
+	classManager       *schedule.ClassManager
+	taskManager        *task.TaskManager
+	v1DB               *sql.DB
+	portalService      *portal.Service
+	legacyHandler      *legacy.Handler
+	secManager         *middleware.SecurityManager
+	authManager        *middleware.AuthManager
 	rlManager          *middleware.RateLimitManager
 	taskController     *v1.TaskController
 	scheduleController *v1.ScheduleController
+	masterController   *v1.MasterController
 	portalController   *v1.PortalController
 	authController     *v1.AuthController
 	academicController *v1.AcademicController
 	adminController    *v1.AdminController
 	storageDir         string
-	secureCookies bool
+	secureCookies      bool
 	// BE-013/BE-014: konfigurasi security eksplisit.
 	env               string
 	authHashKey       []byte
@@ -95,6 +97,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	s.legacyHandler = legacy.NewHandler(classManager, taskManager, s.v1DB)
 	s.taskController = v1.NewTaskController(s.v1DB)
 	s.scheduleController = v1.NewScheduleController(s.v1DB)
+	s.masterController = v1.NewMasterController(s.v1DB)
 	s.portalController = v1.NewPortalController(s.v1DB, s.portalService, s.rlManager, s.secManager)
 	s.authController = v1.NewAuthController(s.v1DB, s.secManager, s.rlManager, s.portalService)
 	s.academicController = v1.NewAcademicController(s.v1DB)
@@ -107,7 +110,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	// Registrasi seluruh rute (legacy shim, API v1, static web assets)
 	s.registerRoutes(mux)
 
-	handler := s.corsMiddleware(s.recoveryMiddleware(mux))
+	handler := s.corsMiddleware(s.recoveryMiddleware(s.maintenanceMiddleware(mux)))
 
 	s.httpServer = &http.Server{
 		Addr:              addr,
@@ -121,11 +124,53 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	return s
 }
 
+func (s *Server) maintenanceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions ||
+			strings.HasSuffix(r.URL.Path, "/restore-execute") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		release, ok := maintenance.EnterMutation()
+		if !ok {
+			w.Header().Set("Retry-After", "5")
+			s.writeV1Error(w, http.StatusServiceUnavailable, "MAINTENANCE", "Pemulihan data sedang berlangsung. Coba lagi beberapa saat.")
+			return
+		}
+		defer release()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// SetRecoverySender replaces the WhatsApp delivery adapter used by password
+// recovery. Production uses BotClient; tests may inject a deterministic fake.
+func (s *Server) SetRecoverySender(sender v1.RecoverySender) {
+	if s.authController != nil {
+		s.authController.SetRecoverySender(sender)
+	}
+}
+
+func (s *Server) configureRecovery() {
+	if s.authController == nil || s.v1DB == nil || len(s.authHashKey) < 32 {
+		return
+	}
+	service, err := auth.NewService(s.v1DB, auth.Config{HashKey: s.authHashKey})
+	if err != nil {
+		fmt.Printf("[Auth] gagal menginisialisasi pemulihan kata sandi: %v\n", err)
+		return
+	}
+	s.authController.ConfigureRecovery(service, s.botClient, s.publicBaseURL)
+}
+
 // Start menjalankan HTTP Server di background goroutine
 func (s *Server) Start() error {
+	ln, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return fmt.Errorf("gagal mendengarkan pada %s: %w", s.httpServer.Addr, err)
+	}
 	fmt.Printf("🌐 [Web API] Server REST API aktif di http://localhost%s\n", s.httpServer.Addr)
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("⚠️ [Web API] Server berhenti dengan pesan: %v\n", err)
 		}
 	}()
@@ -185,90 +230,6 @@ func (s *Server) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(data)
-}
-
-// queueNotification mendaftarkan pesan notifikasi siaran ke tabel notification_messages.
-// BE-005 durable outbox: intent tetap disimpan PENDING dengan channel NULL
-// ketika kelas belum punya kanal aktif; worker tidak mengklaimnya sampai
-// ReconcilePendingChannels mengisi channel + scheduled_at.
-func (s *Server) queueNotification(classID int64, eventType, entityType string, entityID int64, payload map[string]any, triggeredByUserID ...int64) {
-	if s.v1DB == nil {
-		return
-	}
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Printf("[Notifikasi] payload %s/%s/%d tidak valid: %v\n", eventType, entityType, entityID, err)
-		return
-	}
-	keySource := fmt.Sprintf("%s:%s:%d:%s", eventType, entityType, entityID, payloadBytes)
-	keyHash := sha256.Sum256([]byte(keySource))
-	idempotencyKey := hex.EncodeToString(keyHash[:])
-
-	var userID any
-	if len(triggeredByUserID) > 0 && triggeredByUserID[0] > 0 {
-		userID = triggeredByUserID[0]
-	}
-
-	// Cari kanal WhatsApp default yang aktif untuk kelas ini jika ada (boleh kosong).
-	var channelID any
-	var scheduledAt any
-	var ch int64
-	if err := s.v1DB.QueryRow(`
-		SELECT id FROM whatsapp_channels
-		WHERE class_id = ? AND status = 'ACTIVE'
-		ORDER BY id DESC LIMIT 1;
-	`, classID).Scan(&ch); err == nil {
-		channelID = ch
-		scheduledAt = time.Now().UTC().Format(time.RFC3339Nano)
-	}
-
-	if _, err := s.v1DB.Exec(`
-		INSERT INTO notification_messages (
-			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
-			idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)
-		ON CONFLICT(idempotency_key) DO NOTHING;
-	`, classID, channelID, eventType, entityType, entityID, idempotencyKey, string(payloadBytes), scheduledAt, userID); err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "unique") {
-			fmt.Printf("[Notifikasi] gagal menyimpan outbox %s/%s/%d: %v\n", eventType, entityType, entityID, err)
-		}
-	}
-}
-
-// queueNotificationTx menyimpan intent dalam transaksi bisnis yang sama.
-func (s *Server) queueNotificationTx(ctx context.Context, tx *sql.Tx, classID int64, eventType, entityType string, entityID int64, payload map[string]any, idempotencyKey string, triggeredByUserID ...int64) error {
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(idempotencyKey) == "" {
-		keySource := fmt.Sprintf("%s:%s:%d:%s", eventType, entityType, entityID, payloadBytes)
-		keyHash := sha256.Sum256([]byte(keySource))
-		idempotencyKey = hex.EncodeToString(keyHash[:])
-	}
-	var userID any
-	if len(triggeredByUserID) > 0 && triggeredByUserID[0] > 0 {
-		userID = triggeredByUserID[0]
-	}
-	var channelID any
-	var scheduledAt any
-	var ch int64
-	if err := tx.QueryRowContext(ctx, `
-		SELECT id FROM whatsapp_channels
-		WHERE class_id = ? AND status = 'ACTIVE'
-		ORDER BY id DESC LIMIT 1;
-	`, classID).Scan(&ch); err == nil {
-		channelID = ch
-		scheduledAt = time.Now().UTC().Format(time.RFC3339Nano)
-	}
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO notification_messages (
-			class_id, whatsapp_channel_id, event_type, entity_type, entity_id,
-			idempotency_key, payload_json, status, scheduled_at, triggered_by_user_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)
-		ON CONFLICT(idempotency_key) DO NOTHING;
-	`, classID, channelID, eventType, entityType, entityID, idempotencyKey, string(payloadBytes), scheduledAt, userID)
-	return err
 }
 
 // SetStorageDir menentukan direktori penyimpanan berkas runtime/backup (berguna untuk pengujian terisolasi)

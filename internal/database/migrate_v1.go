@@ -387,10 +387,10 @@ var v1Schema = []string{
 	`CREATE TABLE IF NOT EXISTS import_errors (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		batch_id INTEGER NOT NULL REFERENCES import_batches(id),
-		row_number INTEGER,
-		field TEXT,
-		error_code TEXT,
-		message TEXT,
+		source_location TEXT NOT NULL,
+		field_name TEXT,
+		error_code TEXT NOT NULL,
+		message TEXT NOT NULL,
 		severity TEXT NOT NULL CHECK (severity IN ('ERROR','WARNING'))
 	);`,
 	`CREATE INDEX IF NOT EXISTS idx_import_errors ON import_errors(batch_id, severity);`,
@@ -406,4 +406,33 @@ var v1Schema = []string{
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		verified_at DATETIME
 	);`,
+	`CREATE TABLE IF NOT EXISTS support_grants (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		class_id INTEGER NOT NULL REFERENCES classes(id),
+		reason TEXT NOT NULL CHECK (length(trim(reason)) >= 10),
+		status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','CLOSED','EXPIRED')),
+		expires_at DATETIME NOT NULL,
+		closed_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		CHECK ((status = 'ACTIVE' AND closed_at IS NULL) OR (status <> 'ACTIVE' AND closed_at IS NOT NULL))
+	);`,
+	`CREATE INDEX IF NOT EXISTS idx_support_grants_user_status ON support_grants(user_id, status);`,
+	`CREATE TABLE IF NOT EXISTS master_proposals (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind TEXT NOT NULL CHECK (kind IN ('ROOM','COURSE')),
+		target_id INTEGER,
+		payload_json TEXT NOT NULL,
+		note TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+		proposed_by_user_id INTEGER NOT NULL REFERENCES users(id),
+		class_id INTEGER NOT NULL REFERENCES classes(id),
+		reviewed_by_user_id INTEGER REFERENCES users(id),
+		review_note TEXT,
+		decided_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`,
+	`CREATE INDEX IF NOT EXISTS idx_master_proposals_status ON master_proposals(status, kind);`,
 }

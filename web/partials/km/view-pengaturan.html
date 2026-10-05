@@ -1,45 +1,179 @@
-<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas + Pengingat + Akun -->
+<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas -->
 <section x-show="view === 'pengaturan'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Pengaturan Kelas</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Kelas <span class="font-mono" x-text="selectedClass">-</span> · perubahan tersimpan lokal sampai endpoint tersedia</p>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Pengaturan Kelas</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Kelas <span class="font-mono" x-text="selectedClass">-</span> · dibaca dari server</p>
+  <div x-show="settingsLoading" class="mt-5 py-4 text-center text-[13px] text-slate-400">Memuat pengaturan...</div>
+  <div x-show="settingsError" class="mt-5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="settingsError">-</span>
+    <button type="button" @click="loadPengaturanKelas()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+  </div>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 items-start">
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
-      <h2 class="text-[18px] font-semibold">Waktu pengingat</h2>
-      <div class="grid grid-cols-2 gap-4 mt-3">
+    <div class="ui-card p-5">
+      <h2 class="text-[18px] font-semibold">Waktu pengingat & zona</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Berlaku untuk pengiriman berikutnya.</p>
+      <div x-show="pengaturanFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="pengaturanFormError">-</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
         <div>
           <label class="block text-[13px] font-medium mb-1">Ringkasan pagi</label>
-          <input type="text" x-model="pengaturan.pagi" placeholder="06:00" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+          <input aria-label="Ringkasan pagi" type="time" x-model="pengaturan.pagi" class="ui-field w-full text-[14px] font-mono" />
         </div>
         <div>
           <label class="block text-[13px] font-medium mb-1">Pengingat sore</label>
-          <input type="text" x-model="pengaturan.sore" placeholder="17:00" class="w-full h-11 px-3 rounded-xl border border-[#EEEEEE] text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#3965FB]" />
+          <input aria-label="Pengingat sore" type="time" x-model="pengaturan.sore" class="ui-field w-full text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Pengganti (menit)</label>
+          <input aria-label="Pengganti (menit)" type="number" min="0" max="1440" x-model.number="pengaturan.gantiMenit" class="ui-field w-full text-[14px] font-mono" />
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium mb-1">Zona waktu</label>
+          <select aria-label="Zona waktu" x-model="pengaturan.zona" class="ui-field w-full text-[14px] font-mono">
+            <option>Asia/Jakarta</option><option>Asia/Makassar</option><option>Asia/Jayapura</option>
+          </select>
         </div>
       </div>
-      <button type="button" @click="simpanPengaturan()" class="mt-4 h-11 px-5 rounded-xl bg-[#3965FB] text-white text-[14px] font-semibold min-h-[44px]">Simpan pengaturan</button>
+      <button type="button" @click="simpanPengaturan()" :disabled="pengaturanSaving" class="ui-button ui-button--primary mt-4 text-[14px] font-semibold" x-text="pengaturanSaving ? 'Menyimpan...' : 'Simpan pengaturan'">Simpan pengaturan</button>
     </div>
-    <div class="p-5 rounded-2xl border border-[#EEEEEE] bg-white">
+    <div class="ui-card p-5">
       <h2 class="text-[18px] font-semibold">Akses portal kelas</h2>
-      <p class="text-[12px] text-slate-500">Mode tautan atau kode kelas. Rotasi kode membatalkan sesi portal lama.</p>
-      <button type="button" @click="soon('Rotasi kode kelas')" class="mt-3 h-11 px-5 rounded-xl border border-[#EEEEEE] text-[14px] font-medium hover:bg-slate-50 min-h-[44px]">Rotasi kode kelas</button>
+      <p class="text-[12px] text-slate-500">Mode <span class="font-mono font-semibold" x-text="(classSettings && classSettings.portal_access_mode) || '-'">-</span> · rotasi kode membatalkan sesi portal lama.</p>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button type="button" @click="setModePortal('LINK')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Pakai tautan</button>
+        <button type="button" @click="setModePortal('CODE')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Pakai kode</button>
+        <button type="button" @click="rotasiKodeKelas()" :disabled="rotatingCode" class="ui-button ui-button--primary text-[13px] font-semibold" x-text="rotatingCode ? 'Merotasi...' : 'Rotasi kode kelas'">Rotasi kode kelas</button>
+      </div>
+    </div>
+    <div class="ui-card p-5">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-[18px] font-semibold">Cadangan kelas</h2>
+        <button type="button" @click="backupFormOpen = !backupFormOpen" class="ui-button ui-button--outline text-primary text-[13px] font-semibold" x-text="backupFormOpen ? 'Tutup' : 'Minta cadangan'">Minta cadangan</button>
+      </div>
+      <p class="text-[12px] text-slate-500 mt-0.5">Permintaan diteruskan ke System Admin untuk dieksekusi.</p>
+      <div x-show="backupFormOpen" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
+        <div x-show="backupFormError" class="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="backupFormError">-</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[13px] font-medium mb-1">Cakupan</label>
+            <select aria-label="Cakupan" x-model="backupForm.scope" class="ui-field w-full text-[14px]">
+              <option value="kelas">Kelas ini (semua semester)</option>
+              <option value="semester">Satu semester</option>
+            </select>
+          </div>
+          <div x-show="backupForm.scope === 'semester'">
+            <label class="block text-[13px] font-medium mb-1">Semester</label>
+            <select aria-label="Semester" x-model="backupForm.semester_id" class="ui-field w-full text-[14px]">
+              <option value="">-- Pilih semester --</option>
+              <template x-for="s in semesterList" :key="'bk-' + s.id"><option :value="s.id" x-text="semesterLabel(s)">-</option></template>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[13px] font-medium mb-1">Alasan <span class="text-danger">*</span></label>
+            <input aria-label="Alasan" type="text" x-model="backupForm.reason" placeholder="Contoh: Arsip akhir semester" class="ui-field w-full text-[14px]" />
+          </div>
+        </div>
+        <button type="button" @click="mintaBackup()" :disabled="backupSaving" class="ui-button ui-button--primary mt-3 text-[13px] font-semibold" x-text="backupSaving ? 'Mengirim...' : 'Kirim permintaan'">Kirim permintaan</button>
+      </div>
+      <div x-show="backupLoading" class="mt-3 py-3 text-center text-[13px] text-slate-400">Memuat cadangan...</div>
+      <div x-show="backupError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="backupError">-</span>
+        <button type="button" @click="loadBackupSaya()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!backupLoading && !backupError && backupList.length === 0" class="ui-empty mt-3 text-[13px] text-slate-400">Belum ada permintaan cadangan.</div>
+      <div x-show="!backupLoading && backupList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
+        <template x-for="b in backupList" :key="b.id">
+          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="text-[14px] font-semibold">Permintaan <span class="font-mono" x-text="'#' + b.id">-</span><span x-show="b.semester_id" class="font-normal text-slate-500" x-text="' · semester #' + b.semester_id">-</span><span x-show="b.backup_id" class="font-normal text-slate-500" x-text="' · cadangan #' + b.backup_id">-</span></p>
+              <p class="text-[12px] text-slate-500" x-text="(b.reason || '—') + ' · ' + fmtWaktuID(b.created_at)">-</p>
+              <p x-show="b.checksum" class="text-[11px] text-slate-400 font-mono truncate" x-text="'checksum ' + b.checksum">-</p>
+            </div>
+            <span class="ui-badge inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(b.status).toUpperCase() === 'FAILED' ? 'bg-red-700 text-white' : (['READY','VERIFIED'].includes(String(b.status).toUpperCase()) ? 'bg-success text-green-800' : 'bg-amber-50 text-amber-900')"
+              x-text="labelStatusBackup(b.status)">-</span>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="ui-card p-5 lg:col-span-2">
+      <h2 class="text-[18px] font-semibold">Kanal WhatsApp kelas</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5">Tautkan grup agar notifikasi terkirim. Minta JID via perintah <span class="font-mono">!kanal</span> di grup.</p>
+      <div x-show="kanalFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kanalFormError"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        <div class="sm:col-span-2">
+          <label for="km-kanal-jid" class="block text-[12px] font-semibold mb-1">JID grup *</label>
+          <input id="km-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="12036...@g.us" class="ui-field text-[13px] font-mono w-full" />
+        </div>
+        <div>
+          <label for="km-kanal-nama" class="block text-[12px] font-semibold mb-1">Nama tampilan</label>
+          <input id="km-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="Grup Kelas" class="ui-field text-[14px] w-full" />
+        </div>
+      </div>
+      <button type="button" @click="tautkanKanalSaya()" :disabled="kanalSaving" class="ui-button ui-button--primary mt-3 text-[14px] font-semibold">Tautkan kanal</button>
+      <div x-show="kanalLoading" class="mt-3 py-4 text-center text-[13px] text-slate-400">Memuat kanal...</div>
+      <div x-show="kanalError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+        <span x-text="kanalError">-</span>
+        <button type="button" @click="loadKanalSaya()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      </div>
+      <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="ui-empty mt-3 p-4 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Belum ada kanal tertaut.</div>
+      <div x-show="!kanalLoading && kanalList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
+        <template x-for="k in kanalList" :key="k.id">
+          <div class="py-3">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <p class="text-[14px] font-semibold truncate" x-text="k.display_name || k.jid">-</p>
+                <p class="text-[12px] text-slate-500 font-mono truncate" x-text="k.jid">-</p>
+              </div>
+              <span class="ui-badge inline-flex px-2 py-0.5 rounded text-[11px] font-bold w-fit"
+                :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
+                x-text="labelStatusKanal(k.status)">-</span>
+              <button type="button" @click="mulaiLepasKanalSaya(k)" x-show="String(k.status).toUpperCase() === 'ACTIVE'" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Lepas</button>
+            </div>
+            <div x-show="kanalLepas && kanalLepas.id === k.id" class="mt-2 p-3 rounded-xl bg-slate-50 border border-border">
+              <p class="text-[13px] font-semibold" x-text="'Lepas ' + kanalLepas.nama">-</p>
+              <label :for="'km-kanal-alasan-' + k.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan <span class="text-red-600">*</span></label>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <input aria-label="Alasan" :id="'km-kanal-alasan-' + k.id" type="text" x-model="kanalAlasan" placeholder="Contoh: Grup bubar" class="ui-field flex-1 text-[14px]" />
+                <button type="button" @click="jalankanLepasKanalSaya()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
+                <button type="button" @click="kanalLepas = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </section>
+<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center" @click.self="tutupKodePortal()">
+  <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="portal-code-title">
+    <h2 id="portal-code-title" class="text-[18px] font-semibold">Kode portal baru</h2>
+    <p class="mt-1 text-[13px] text-slate-500">Kode ini hanya ditampilkan sekali. Salin dan bagikan melalui kanal kelas yang tepat.</p>
+    <p class="mt-4 rounded-xl border border-illustration-blue bg-primary-soft/50 p-4 text-center font-mono text-[24px] font-bold tracking-wider break-all" x-text="portalCodeReveal"></p>
+    <div class="mt-5 flex gap-3"><button type="button" @click="salinKodePortal()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold">Salin kode</button><button type="button" @click="tutupKodePortal()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border text-[13px] font-semibold">Sudah disimpan</button></div>
+  </div>
+</div>
 
 <section x-show="view === 'akun'" x-cloak>
-  <h1 class="text-[26px] md:text-[30px] font-bold text-[#1D1B3A]" style="font-family:'Poppins',sans-serif">Akun</h1>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Akun</h1>
   <p class="text-[14px] text-slate-500 mt-1">Profil dan peran pengelola</p>
-  <div class="mt-5 p-5 rounded-2xl border border-[#EEEEEE] bg-white max-w-xl">
+  <div class="ui-card mt-5 p-5 max-w-xl">
     <div class="flex items-center gap-3">
-      <span class="w-12 h-12 rounded-full bg-[#E9EAFF] text-[#3965FB] font-bold flex items-center justify-center">KM</span>
+      <span class="w-12 h-12 rounded-full bg-primary-soft text-primary-hover font-bold flex items-center justify-center">KM</span>
       <div>
         <p class="font-semibold">Ketua Murid</p>
         <p class="text-[12px] text-slate-500">Kelas <span class="font-mono" x-text="selectedClass">-</span> · Pengelola seluruh kelas</p>
       </div>
     </div>
-    <div class="flex flex-wrap gap-2 mt-4">
-      <button type="button" @click="soon('Ubah kata sandi')" class="h-11 px-4 rounded-xl border border-[#EEEEEE] text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Ubah kata sandi</button>
-      <button type="button" @click="soon('Keluar')" class="h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="mt-4 p-4 rounded-xl bg-primary-soft/50 border border-illustration-blue">
+      <label for="km-context-select" class="text-[13px] font-semibold">Pindah ruang kerja</label>
+      <p class="text-[12px] text-slate-500 mt-0.5">Pilih penugasan aktif agar izin dan data mengikuti konteks yang benar.</p>
+      <select id="km-context-select" :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-2 w-full text-[14px] disabled:opacity-60">
+        <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+      </select>
     </div>
-    <p class="text-[11px] text-slate-400 mt-3">Login dan sesi butuh endpoint autentikasi backend.</p>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <button type="button" @click="mintaResetSandi()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Ubah kata sandi via admin</button>
+      <button type="button" @click="logout()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
+    </div>
+    <p class="text-[11px] text-slate-400 mt-3">Sesi masuk memakai token pengelola. Pemulihan akun dibantu System Admin.</p>
   </div>
 </section>

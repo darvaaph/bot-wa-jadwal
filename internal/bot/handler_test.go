@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -82,4 +83,25 @@ func TestHandleIncomingMessage_WithV1Cutover(t *testing.T) {
 	}()
 
 	HandleIncomingMessage(nil, msg, nil, nil, nil, nil, nil, nil, nil)
+}
+
+func TestKanalCommand_StaysReadable(t *testing.T) {
+	// BE-015: !kanal adalah perintah baca (balas JID), bukan mutasi —
+	// tidak boleh dialihkan ke dashboard oleh MutationRedirectEntity.
+	for _, text := range []string{"!kanal", "!channel", "!jid", "/kanal"} {
+		if entity, ok := MutationRedirectEntity(text, true); ok {
+			t.Fatalf("%s dialihkan sebagai %s, seharusnya tidak", text, entity)
+		}
+		if entity, ok := MutationRedirectEntity(text, false); ok {
+			t.Fatalf("%s (DM) dialihkan sebagai %s, seharusnya tidak", text, entity)
+		}
+	}
+	got := kanalReplyText("120363000000000001@g.us", true)
+	if !strings.Contains(got, "120363000000000001@g.us") || !strings.Contains(got, "grup") {
+		t.Fatalf("balasan grup harus memuat JID + jenis: %s", got)
+	}
+	got = kanalReplyText("62812@s.whatsapp.net", false)
+	if !strings.Contains(got, "62812@s.whatsapp.net") || !strings.Contains(got, "pribadi") {
+		t.Fatalf("balasan DM harus memuat JID + jenis: %s", got)
+	}
 }

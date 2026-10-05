@@ -44,6 +44,16 @@ var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", 
 // MutationRedirectEntity memeriksa apakah pesan adalah perintah mutasi yang
 // sudah dipensiunkan. Mengembalikan label entitas untuk pesan pengalihan.
 // Perintah baca (jadwal, daftar tugas, tautan, portal) tidak cocok.
+// kanalReplyText menyusun teks balasan JID chat untuk perintah !kanal.
+// Fungsi murni agar isi balasan dapat diuji tanpa klien WhatsApp.
+func kanalReplyText(chatJID string, isGroup bool) string {
+	kind := "pribadi"
+	if isGroup {
+		kind = "grup"
+	}
+	return fmt.Sprintf("📡 *JID CHAT INI*\n──────────\nChat %s ini: `%s`\n\nSalin JID di atas ke form _Tautkan Kanal_ di dashboard System Admin untuk menautkan ke kelas.", kind, chatJID)
+}
+
 func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {
 	clean := strings.TrimSpace(msgText)
 	if clean == "" {
@@ -96,14 +106,10 @@ func PortalMessage() string {
 	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
 	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
 	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
-	sb.WriteString(DashboardBaseURL + "/app.html\n")
+	sb.WriteString(DashboardBaseURL + "/login.html\n")
 	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
 	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
 	return sb.String()
-}
-
-func GetDefaultCommandLimiter() *RateLimiter {
-	return defaultCommandLimiter
 }
 
 // ResolveSenderAdmin mengembalikan status hak akses admin (selalu true di DM pribadi, atau cek admin grup di grup WA)
@@ -199,6 +205,13 @@ func HandleIncomingMessage(
 		return
 	}
 
+	// BE-015: balas JID chat saat ini agar admin tinggal salin ke form
+	// Kelola Kanal di dashboard. Baca saja, aman untuk semua pengirim.
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "kanal", "channel", "jid") {
+		reply(kanalReplyText(v.Info.Chat.String(), v.Info.IsGroup), "📡", 600*time.Millisecond, "perintah kanal")
+		return
+	}
+
 	var activeClassID string
 	if chatSettingsManager != nil {
 		activeClassID = chatSettingsManager.GetClass(v.Info.Chat.String())
@@ -219,8 +232,10 @@ func HandleIncomingMessage(
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
 		classReply := chatSettingsManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, classManager)
 		if classReply != "" {
-			// Sinkronisasi otomatis ke whatsapp_channels jika target kelas adalah kelas pilot v1
-			if v1Service != nil {
+			// Sinkronisasi otomatis ke whatsapp_channels jika target kelas adalah kelas pilot v1.
+			// Hanya grup (JID grup valid sebagai kanal); DM adalah preferensi pribadi,
+			// bukan kanal kelas. Tak pernah pindah kelas (BindChannel menolak).
+			if v.Info.IsGroup && v1Service != nil {
 				newClassID := chatSettingsManager.GetClass(v.Info.Chat.String())
 				if matchedV1, err := v1Service.FindClass(context.Background(), newClassID); err == nil && matchedV1 != nil {
 					groupName := "Grup Chat"

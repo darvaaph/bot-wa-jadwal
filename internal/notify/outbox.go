@@ -137,25 +137,3 @@ func (s *Service) ReconcilePendingChannels(ctx context.Context, classID *int64) 
 	n, _ := res.RowsAffected()
 	return n, nil
 }
-
-// CancelPending membatalkan pesan usang yang belum terkirim.
-func (s *Service) CancelPending(ctx context.Context, exec DBTX, entityType string, entityID int64, reason string) (int64, error) {
-	_ = reason
-	res, err := exec.ExecContext(ctx, `UPDATE notification_messages SET status='CANCELLED',
-		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE entity_type = ? AND entity_id = ? AND status IN ('PENDING','FAILED')`,
-		strings.TrimSpace(entityType), entityID)
-	if err != nil {
-		return 0, err
-	}
-	n, _ := res.RowsAffected()
-	return n, nil
-}
-
-// Supersede menandai pesan lama sebagai SUPERSEDED oleh pesan baru.
-func (s *Service) Supersede(ctx context.Context, exec DBTX, oldID, newID int64) error {
-	_, err := exec.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED', supersedes_message_id=?,
-		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE id = ? AND status IN ('PENDING','PROCESSING','FAILED')`, newID, oldID)
-	return err
-}

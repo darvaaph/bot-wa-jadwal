@@ -16,6 +16,7 @@ const (
 	CodeNotImplemented  = "NOT_IMPLEMENTED"     // 501
 	CodeTooManyRequests = "TOO_MANY_REQUESTS"   // 429
 	CodeServiceDown     = "SERVICE_UNAVAILABLE" // 503
+	CodeDeliveryFailed  = "DELIVERY_FAILED"     // 502
 )
 
 // V1Response adalah envelope standar untuk seluruh respons sukses API v1

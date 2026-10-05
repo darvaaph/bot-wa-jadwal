@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Asterisk — Masuk Pengurus</title>
+  
+  <style>
+    /* Critical CSS untuk stabilitas layout seketika (mencegah FOUC & SVG raksasa) */
+    [x-cloak] { display: none !important; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: #F8FAFC;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+      padding: 1rem;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background-color: #FFFFFF;
+      border-radius: 20px;
+      border: 1px solid #F1F5F9;
+      box-shadow: 0px 14px 32px rgba(29, 27, 58, 0.08);
+      padding: 36px 32px;
+    }
+    @media (max-width: 640px) {
+      .login-card { padding: 24px 20px; }
+    }
+    .login-logo {
+      height: 33px !important;
+      width: auto !important;
+      max-width: 140px;
+      display: block;
+      margin: 0 auto;
+    }
+    .login-icon-sm {
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px !important;
+      min-height: 18px !important;
+      max-width: 18px !important;
+      max-height: 18px !important;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .login-icon-md {
+      width: 20px !important;
+      height: 20px !important;
+      min-width: 20px !important;
+      min-height: 20px !important;
+      max-width: 20px !important;
+      max-height: 20px !important;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .skeleton-box {
+      background-color: #E2E8F0;
+      animation: skeletonPulse 1.8s ease-in-out infinite;
+    }
+    .skeleton-box-light {
+      background-color: #F1F5F9;
+      animation: skeletonPulse 1.8s ease-in-out infinite;
+    }
+  </style>
+
+  <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
+  <link rel="stylesheet" href="/css/style.css?v=20261003" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
+  <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
+  <script defer src="/js/vendor/alpine.cdn.min.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261003"></script>
+  <script src="/js/app-login.js?v=20261003"></script>
+</head>
+<body class="bg-[#F8FAFC] text-[#1D1B3A] min-h-screen flex flex-col justify-center items-center p-4" x-data="loginApp()" x-init="initLogin()">
+
+  <main class="login-container">
+    
+    <!-- 1. LOADING SKELETON (Tampil seketika sebelum Alpine.js dan script selesai dimuat) -->
+    <div x-show="!ready" class="login-card">
+      <!-- Logo Skeleton -->
+      <div class="flex justify-center">
+        <div class="w-[136px] h-[33px] rounded-lg skeleton-box"></div>
+      </div>
+      
+      <!-- Judul & Subtitle Skeleton -->
+      <div class="mt-5 flex flex-col items-center gap-2">
+        <div class="w-48 h-6 rounded-md skeleton-box"></div>
+        <div class="w-64 h-3.5 rounded skeleton-box-light"></div>
+      </div>
+
+      <!-- Form Skeleton -->
+      <div class="mt-7 space-y-5">
+        <div>
+          <div class="w-32 h-3.5 rounded skeleton-box"></div>
+          <div class="w-full h-[44px] mt-2 rounded-[10px] skeleton-box-light border border-slate-200"></div>
+          <div class="w-48 h-3 mt-1.5 rounded skeleton-box-light"></div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center">
+            <div class="w-24 h-3.5 rounded skeleton-box"></div>
+            <div class="w-16 h-3 rounded skeleton-box-light"></div>
+          </div>
+          <div class="w-full h-[44px] mt-1.5 rounded-[10px] skeleton-box-light border border-slate-200"></div>
+        </div>
+
+        <!-- Tombol Skeleton -->
+        <div class="w-full h-[44px] mt-6 rounded-[12px] bg-blue-100 skeleton-box"></div>
+      </div>
+
+      <!-- Callout Mahasiswa Skeleton -->
+      <div class="mt-7 w-full h-[64px] rounded-[10px] skeleton-box-light border border-slate-200"></div>
+    </div>
+
+    <!-- 2. KARTU LOGIN UTAMA (Tampil mulus setelah Alpine.js siap) -->
+    <div x-show="ready" x-cloak class="login-card">
+      
+      <!-- Logo Asterisk Resmi -->
+      <div class="flex justify-center">
+        <img src="/assets/icons/logo.svg" alt="Asterisk" width="136" height="33" class="login-logo" />
+      </div>
+
+      <!-- MODE 1: FORM MASUK UTAMA -->
+      <template x-if="mode === 'masuk'">
+        <div>
+          <!-- Header Teks -->
+          <div class="mt-4 text-center">
+            <h1 class="font-display text-[22px] sm:text-[24px] font-bold text-[#1D1B3A] leading-tight">
+              Masuk ke Panel Pengurus
+            </h1>
+            <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
+              Khusus Administrator, Ketua Murid, dan Penanggung Jawab Mata Kuliah.
+            </p>
+          </div>
+
+          <!-- Alert Error -->
+          <div x-show="formError" x-cloak class="mt-4 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[13px] flex items-start gap-2.5" role="alert">
+            <svg class="login-icon-sm text-red-500 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+            </svg>
+            <span class="flex-1" x-text="formError">-</span>
+          </div>
+
+          <!-- Form Input -->
+          <div class="mt-6 space-y-5">
+            <!-- Field Nomor WhatsApp -->
+            <div>
+              <label for="login-nomor" class="block text-[13px] font-semibold text-[#1D1B3A]">
+                Nomor WhatsApp <span class="text-red-500">*</span>
+              </label>
+              <div class="relative mt-2">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#64748B]">
+                  <!-- Lucide Smartphone -->
+                  <svg class="login-icon-sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                    <path d="M12 18h.01"/>
+                  </svg>
+                </div>
+                <input id="login-nomor" type="text" x-model="nomor" inputmode="tel" autocomplete="tel"
+                       placeholder="Contoh: +62 812-3456-7890 atau 0812..."
+                       @keydown.enter="masuk()"
+                       :aria-invalid="fieldError === 'nomor'"
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       :class="fieldError === 'nomor' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
+              </div>
+              <p class="text-[12px] text-[#64748B] mt-1.5 leading-normal">
+                Nomor WhatsApp yang terdaftar sebagai pengurus.
+              </p>
+            </div>
+
+            <!-- Field Kata Sandi -->
+            <div>
+              <div class="flex justify-between items-center">
+                <label for="login-sandi" class="text-[13px] font-semibold text-[#1D1B3A]">
+                  Kata Sandi <span class="text-red-500">*</span>
+                </label>
+                <button type="button" @click="mode = 'lupa'; formError = ''" class="text-[12px] font-semibold text-[#3965FB] hover:underline focus:outline-none min-h-[32px] flex items-center">
+                  Lupa sandi?
+                </button>
+              </div>
+              <div class="relative mt-1.5">
+                <input id="login-sandi" :type="lihat ? 'text' : 'password'" x-model="sandi"
+                       placeholder="Masukkan kata sandi Anda"
+                       autocomplete="current-password"
+                       @keydown.enter="masuk()"
+                       :aria-invalid="fieldError === 'sandi'"
+                       class="w-full h-[44px] pl-3.5 pr-11 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       :class="fieldError === 'sandi' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
+                <button type="button" @click="lihat = !lihat"
+                        :aria-label="lihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
+                        class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#64748B] hover:text-[#1D1B3A] focus:outline-none min-w-[44px] min-h-[44px] justify-center">
+                  <!-- Lucide Eye / Eye-off -->
+                  <svg x-show="!lihat" class="login-icon-sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg x-show="lihat" x-cloak class="login-icon-sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499A10.75 10.75 0 0 1 2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.417-5.068"/><line x1="2" x2="22" y1="2" y2="22"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tombol Masuk Utama -->
+            <button type="button" @click="masuk()" :disabled="loading"
+                    class="w-full h-[44px] rounded-[12px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span x-text="loading ? 'Memeriksa...' : 'Masuk ke Sistem'">Masuk ke Sistem</span>
+            </button>
+          </div>
+
+          <!-- Area Informasi Mahasiswa -->
+          <div class="mt-7 p-3.5 bg-[#F1F5F9] rounded-[10px] flex flex-col items-center gap-2">
+            <!-- Lucide Book Open -->
+            <svg class="login-icon-sm text-[#475569] shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+            </svg>
+            <p class="text-[12px] leading-[18px] text-[#475569] text-center">
+              Mahasiswa tidak memerlukan akun pengurus. <a href="/" class="text-[#3965FB] font-semibold hover:underline">Kunjungi tautan portal kelas Anda</a> untuk melihat jadwal dan tugas kuliah.
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <!-- MODE 2: PILIH RUANG KERJA (MULTI-ROLE) -->
+      <template x-if="mode === 'pilih'">
+        <div>
+          <div class="mt-4 text-center">
+            <h1 class="font-display text-[22px] sm:text-[24px] font-bold text-[#1D1B3A] leading-tight">
+              Pilih Ruang Kerja
+            </h1>
+            <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
+              Akun Anda terdaftar pada beberapa peran. Pilih ruang kerja yang ingin Anda kelola:
+            </p>
+          </div>
+
+          <div x-show="formError" x-cloak class="mt-4 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[13px]" role="alert" x-text="formError">-</div>
+
+          <div class="mt-6 space-y-3">
+            <template x-for="a in ruangKerja" :key="a.id">
+              <div class="p-4 rounded-[14px] border border-[#CBD5E1] bg-white hover:border-[#3965FB] transition-all">
+                <div class="flex items-center justify-between">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#E9EAFF] text-[#3965FB]" x-text="labelPeran(a.role)">-</span>
+                </div>
+                <p class="text-[14px] font-semibold text-[#1D1B3A] mt-2" x-text="deskripsiPenugasan(a)">-</p>
+                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading"
+                        class="w-full h-[40px] mt-3 rounded-[10px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
+                  <span x-show="loading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>Buka Ruang Kerja</span>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <button type="button" @click="mode = 'masuk'; formError = ''" class="w-full h-[44px] mt-4 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] text-[13px] font-semibold transition-colors">
+            Kembali ke Masuk
+          </button>
+        </div>
+      </template>
+
+      <!-- MODE 3: LUPA KATA SANDI -->
+      <template x-if="mode === 'lupa'">
+        <div>
+          <div class="mt-4 text-center">
+            <h1 class="font-display text-[22px] sm:text-[24px] font-bold text-[#1D1B3A] leading-tight">
+              Lupa Kata Sandi?
+            </h1>
+            <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
+              Masukkan nomor WhatsApp Anda. Kami akan mengirimkan tautan pemulihan melalui bot WhatsApp jika terdaftar.
+            </p>
+          </div>
+
+          <div x-show="formError" x-cloak class="mt-4 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[13px] flex items-start gap-2.5" role="alert">
+            <svg class="login-icon-sm text-red-500 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+            </svg>
+            <span class="flex-1" x-text="formError">-</span>
+          </div>
+
+          <div x-show="!recoverySent" class="mt-6 space-y-4">
+            <div>
+              <label for="recovery-nomor" class="block text-[13px] font-semibold text-[#1D1B3A]">
+                Nomor WhatsApp Terdaftar <span class="text-red-500">*</span>
+              </label>
+              <div class="relative mt-2">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#64748B]">
+                  <svg class="login-icon-sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                    <path d="M12 18h.01"/>
+                  </svg>
+                </div>
+                <input id="recovery-nomor" type="text" x-model="nomor" inputmode="tel" autocomplete="tel"
+                       placeholder="Contoh: 081234567890"
+                       @keydown.enter="mintaPemulihan()"
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+              </div>
+            </div>
+
+            <button type="button" @click="mintaPemulihan()" :disabled="loading"
+                    class="w-full h-[44px] rounded-[12px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span x-text="loading ? 'Mengirim...' : 'Kirim Tautan Pemulihan'">Kirim Tautan Pemulihan</span>
+            </button>
+          </div>
+
+          <div x-show="recoverySent" x-cloak class="mt-6 p-4 rounded-[12px] bg-slate-50 border border-[#CBD5E1] text-left">
+            <div class="flex items-center gap-2 text-emerald-700 font-semibold text-[14px]">
+              <svg class="login-icon-md text-emerald-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+              </svg>
+              <span>Periksa Pesan WhatsApp</span>
+            </div>
+            <p class="text-[12px] text-[#64748B] mt-2 leading-relaxed">
+              Jika nomor Anda terdaftar dan bot aktif, tautan pemulihan telah dikirimkan. Silakan buka tautan tersebut untuk mengatur ulang kata sandi.
+            </p>
+          </div>
+
+          <button type="button" @click="mode = 'masuk'; formError = ''; recoverySent = false"
+                  class="w-full h-[44px] mt-4 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] text-[13px] font-semibold transition-colors">
+            Kembali ke Masuk
+          </button>
+        </div>
+      </template>
+
+      <!-- MODE 4: ATUR ULANG KATA SANDI (DARI LINK TOKEN) -->
+      <template x-if="mode === 'reset'">
+        <div>
+          <div class="mt-4 text-center">
+            <h1 class="font-display text-[22px] sm:text-[24px] font-bold text-[#1D1B3A] leading-tight">
+              Atur Ulang Kata Sandi
+            </h1>
+            <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
+              Buat kata sandi baru minimal 12 karakter. Semua sesi login lama akan dicabut otomatis demi keamanan.
+            </p>
+          </div>
+
+          <div x-show="formError" x-cloak class="mt-4 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[13px] flex items-start gap-2.5" role="alert">
+            <svg class="login-icon-sm text-red-500 mt-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+            </svg>
+            <span class="flex-1" x-text="formError">-</span>
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <div>
+              <label for="recovery-password" class="block text-[13px] font-semibold text-[#1D1B3A]">
+                Kata Sandi Baru (Min. 12 Karakter) <span class="text-red-500">*</span>
+              </label>
+              <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password"
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+            </div>
+
+            <div>
+              <label for="recovery-confirm" class="block text-[13px] font-semibold text-[#1D1B3A]">
+                Konfirmasi Kata Sandi Baru <span class="text-red-500">*</span>
+              </label>
+              <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password"
+                     @keydown.enter="aturUlangSandi()"
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+            </div>
+
+            <button type="button" @click="aturUlangSandi()" :disabled="loading"
+                    class="w-full h-[44px] rounded-[12px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+              <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span x-text="loading ? 'Menyimpan...' : 'Simpan Kata Sandi Baru'">Simpan Kata Sandi Baru</span>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- MODE 5: RESET SELESAI -->
+      <template x-if="mode === 'reset-selesai'">
+        <div class="text-center py-4">
+          <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+            <svg class="login-icon-md text-emerald-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <h1 class="font-display text-[22px] font-bold text-[#1D1B3A] mt-4">
+            Kata Sandi Diperbarui
+          </h1>
+          <p class="text-[13px] text-[#64748B] mt-2 leading-relaxed">
+            Kata sandi baru Anda telah aktif. Silakan masuk kembali menggunakan kredensial baru.
+          </p>
+          <button type="button" @click="mode = 'masuk'; formError = ''"
+                  class="w-full h-[44px] mt-6 rounded-[12px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[14px] font-semibold transition-colors">
+            Kembali ke Halaman Masuk
+          </button>
+        </div>
+      </template>
+
+    </div>
+
+    <!-- Footer Sistem -->
+    <footer class="mt-6 text-center text-[12px] text-[#94A3B8]">
+      Bot Jadwal v2.0 • Sistem Informasi Akademik Terintegrasi WhatsApp
+    </footer>
+  </main>
+
+  <!-- Toast Notification -->
+  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-4 z-50 bg-[#1D1B3A] text-white text-[13px] px-4 py-2.5 rounded-[10px] shadow-lg flex items-center gap-2" role="status" aria-live="polite">
+    <span x-text="toast.message">-</span>
+  </div>
+
+</body>
+</html>

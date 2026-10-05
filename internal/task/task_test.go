@@ -50,7 +50,7 @@ func TestTaskManager(t *testing.T) {
 	}
 
 	adminReply := tm.HandleCommand(groupJID, true, userJID, true, "!tugas tambah SBD | Laporan Praktikum Modul 1 | Jumat 23:59", cfg, refNow)
-	if !strings.Contains(adminReply, "PENGELOLAAN DATA TERPUSAT") || !strings.Contains(adminReply, "app.html") {
+	if !strings.Contains(adminReply, "PENGELOLAAN DATA TERPUSAT") || !strings.Contains(adminReply, "login.html") {
 		t.Errorf("Expected admin mutation to be redirected to dashboard, got: %s", adminReply)
 	}
 

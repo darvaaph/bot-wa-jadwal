@@ -2,7 +2,6 @@ package schedule
 
 import (
 	"bot-jadwal/internal/academic"
-	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/util"
 	"context"
 	"database/sql"
@@ -63,15 +62,6 @@ func NewOverrideManager(db *sql.DB) (*OverrideManager, error) {
 	_, _ = om.BackfillLegacyOverridesContext(context.Background())
 
 	return om, nil
-}
-
-// NewOverrideManagerWithPath membuat koneksi baru dari path file dan menginisialisasi OverrideManager
-func NewOverrideManagerWithPath(dbPath string) (*OverrideManager, error) {
-	db, err := database.InitDB(dbPath)
-	if err != nil {
-		return nil, err
-	}
-	return NewOverrideManager(db)
 }
 
 func (om *OverrideManager) Close() error {
@@ -553,7 +543,7 @@ func (om *OverrideManager) GetOverridesForDateContext(ctx context.Context, scope
 		LEFT JOIN rooms r ON r.id = te.room_id
 		LEFT JOIN users u ON u.id = te.published_by_user_id
 		LEFT JOIN schedule_patterns sp ON sp.id = te.origin_schedule_pattern_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
@@ -689,7 +679,7 @@ func (om *OverrideManager) GetActiveOverridesContext(ctx context.Context, scopeJ
 		LEFT JOIN rooms r ON r.id = te.room_id
 		LEFT JOIN users u ON u.id = te.published_by_user_id
 		LEFT JOIN schedule_patterns sp ON sp.id = te.origin_schedule_pattern_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id
+		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
 		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
 		WHERE s.class_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
@@ -1255,13 +1245,6 @@ func (om *OverrideManager) BackfillLegacyOverridesContext(ctx context.Context) (
 	return report, nil
 }
 
-// BackfillLegacyOverrides adapter
-func (om *OverrideManager) BackfillLegacyOverrides() (*BackfillReport, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return om.BackfillLegacyOverridesContext(ctx)
-}
-
 // ParseOverrideDate mengekstrak tanggal target dari input teks fleksibel
 func ParseOverrideDate(rawInput string, refNow time.Time) time.Time {
 	clean := strings.ToLower(strings.TrimSpace(rawInput))
@@ -1346,103 +1329,6 @@ func (om *OverrideManager) FormatActiveOverrides(overrides []ScheduleOverride) s
 	return sb.String()
 }
 
-type ScheduleConflict struct {
-	Matkul string
-	Jam    string
-	Ruang  string
-	Dosen  string
-}
-
-// CheckScheduleConflict memeriksa apakah jam baru di tanggal tertentu bertabrakan dengan jadwal aktif lainnya
-func (om *OverrideManager) CheckScheduleConflict(
-	scopeJID string, targetDate time.Time, newJam string, ignoreItem *JadwalItem, cfg *JadwalConfig,
-) *ScheduleConflict {
-	if cfg == nil {
-		return nil
-	}
-
-	propStart, propEnd, err := util.ParseJamRange(newJam, targetDate)
-	if err != nil {
-		return nil
-	}
-
-	targetDateStr := targetDate.Format("2006-01-02")
-	hariTarget := util.GetHariIndonesia(targetDate)
-
-	overrides, _ := om.GetOverridesForDate(scopeJID, targetDate)
-
-	cfg.mu.RLock()
-	var normalItems []JadwalItem
-	for _, it := range cfg.Jadwal {
-		if strings.EqualFold(it.Hari, hariTarget) {
-			normalItems = append(normalItems, it)
-		}
-	}
-	cfg.mu.RUnlock()
-
-	for _, it := range normalItems {
-		// Abaikan jika ini adalah sesi matkul yang sama yang sedang dipindahkan
-		if ignoreItem != nil && it.KodeMatkul == ignoreItem.KodeMatkul && it.Jam == ignoreItem.Jam {
-			continue
-		}
-
-		// Periksa apakah jadwal reguler ini sudah ditiadakan (CANCEL) atau dipindahkan keluar (RESCHEDULE)
-		isCancelledOrMoved := false
-		for _, o := range overrides {
-			if o.OrigDate == targetDateStr &&
-				(o.KodeMatkul == it.KodeMatkul || strings.EqualFold(o.NamaMatkul, it.NamaMatkul)) &&
-				(o.OrigJam == it.Jam || strings.Contains(it.Jam, strings.TrimSpace(strings.Split(o.OrigJam, "-")[0]))) {
-				if o.Type == "CANCEL" || o.Type == "RESCHEDULE" {
-					isCancelledOrMoved = true
-					break
-				}
-			}
-		}
-		if isCancelledOrMoved {
-			continue
-		}
-
-		itStart, itEnd, err := util.ParseJamRange(it.Jam, targetDate)
-		if err != nil {
-			continue
-		}
-
-		// Cek irisan waktu: [propStart, propEnd) beririsan dengan [itStart, itEnd)
-		if propStart.Before(itEnd) && propEnd.After(itStart) {
-			return &ScheduleConflict{
-				Matkul: it.NamaMatkul,
-				Jam:    it.Jam,
-				Ruang:  it.Ruang,
-				Dosen:  it.Dosen,
-			}
-		}
-	}
-
-	for _, o := range overrides {
-		if o.TargetDate == targetDateStr && (o.Type == "RESCHEDULE" || o.Type == "EXTRA") {
-			if ignoreItem != nil && o.KodeMatkul == ignoreItem.KodeMatkul {
-				continue
-			}
-
-			oStart, oEnd, err := util.ParseJamRange(o.NewJam, targetDate)
-			if err != nil {
-				continue
-			}
-
-			if propStart.Before(oEnd) && propEnd.After(oStart) {
-				return &ScheduleConflict{
-					Matkul: o.NamaMatkul,
-					Jam:    o.NewJam,
-					Ruang:  o.Ruang,
-					Dosen:  o.Dosen,
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // HandleCommand memproses perintah perubahan jadwal (!pindah, !kosong, !kuliahganti, !jadwalganti, !batalganti)
 func (om *OverrideManager) HandleCommand(
 	scopeJID string, isGroup bool, senderJID string, isAdmin bool, rawMsg string, cfg *JadwalConfig, now time.Time,
@@ -1483,7 +1369,7 @@ func (om *OverrideManager) HandleCommand(
 		sb.WriteString("  ➔ Melihat daftar perubahan jadwal aktif\n\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("⚠️ *Penambahan, perubahan, dan pembatalan jadwal kuliah kini hanya melalui Web Dashboard Pengelola:*\n")
-		sb.WriteString("👉 http://localhost:8080/app.html (atau domain portal Anda)\n")
+		sb.WriteString("👉 http://localhost:8080/login.html (atau domain portal Anda)\n")
 		sb.WriteString("──────────\n")
 		return sb.String()
 	}

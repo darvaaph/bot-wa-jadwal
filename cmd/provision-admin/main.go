@@ -21,8 +21,9 @@ func main() {
 	flag.Parse()
 
 	cfg := config.LoadConfig()
+	targetDB := cfg.V1DBPath
 	if *databasePath != "" {
-		cfg.AppDBPath = *databasePath
+		targetDB = *databasePath
 	}
 	password := os.Getenv("BOT_JADWAL_ADMIN_PASSWORD")
 	if *identity == "" || *displayName == "" || password == "" {
@@ -32,7 +33,7 @@ func main() {
 		log.Fatal("environment BOT_JADWAL_AUTH_HASH_KEY wajib diisi (minimal 32 byte)")
 	}
 
-	db, err := database.InitDB(cfg.AppDBPath)
+	db, err := database.InitDB(targetDB)
 	if err != nil {
 		log.Fatalf("gagal membuka database: %v", err)
 	}

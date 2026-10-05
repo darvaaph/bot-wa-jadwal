@@ -26,3 +26,21 @@ func (s *Server) handleCreateV1Material(w http.ResponseWriter, r *http.Request) 
 	}
 	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handlePatchV1Material menangani PATCH /api/v1/materials/{id}
+func (s *Server) handlePatchV1Material(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.PatchMaterial(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleDeleteV1Material menangani DELETE /api/v1/materials/{id}
+func (s *Server) handleDeleteV1Material(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.DeleteMaterial(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}

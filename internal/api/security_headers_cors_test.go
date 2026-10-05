@@ -220,8 +220,11 @@ func TestBE014_SecurityHeadersAndHSTS(t *testing.T) {
 		t.Fatalf("expected Permissions-Policy to restrict capabilities")
 	}
 	csp := wHTTP.Header().Get("Content-Security-Policy")
-	if !strings.Contains(csp, "default-src 'self'") || !strings.Contains(csp, "cdn.tailwindcss.com") || !strings.Contains(csp, "cdn.jsdelivr.net") {
-		t.Fatalf("CSP tidak valid atau tidak memuat CDN: %s", csp)
+	if !strings.Contains(csp, "default-src 'self'") {
+		t.Fatalf("CSP tidak valid: %s", csp)
+	}
+	if strings.Contains(csp, "cdn.tailwindcss.com") || strings.Contains(csp, "cdn.jsdelivr.net") {
+		t.Fatalf("CSP tidak boleh lagi memuat host CDN JS: %s", csp)
 	}
 
 	// 2. Request HTTPS langsung di production: HSTS wajib aktif
@@ -313,7 +316,7 @@ func TestBE014_NoStoreOnSensitiveResponses(t *testing.T) {
 func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 	_, s := setupV1TestEnv(t)
 
-	pages := []string{"/", "/superadmin.html", "/app.html"}
+	pages := []string{"/", "/system-admin.html", "/login.html", "/km.html", "/pj.html"}
 	for _, page := range pages {
 		req := httptest.NewRequest(http.MethodGet, page, nil)
 		w := httptest.NewRecorder()
@@ -328,13 +331,14 @@ func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 			t.Fatalf("halaman %s wajib memiliki Content-Security-Policy", page)
 		}
 
-		// Verifikasi CDN yang digunakan halaman frontend diizinkan
+		// Verifikasi skrip JS hanya dari origin sendiri (vendored, ADR-0015).
+		// CDN JS pihak ketiga tidak boleh dirujuk halaman mana pun.
 		body := w.Body.String()
-		if strings.Contains(body, "cdn.tailwindcss.com") && !strings.Contains(csp, "https://cdn.tailwindcss.com") {
-			t.Fatalf("halaman %s memuat Tailwind CDN tapi tidak diizinkan oleh CSP", page)
+		if strings.Contains(body, "cdn.tailwindcss.com") {
+			t.Fatalf("halaman %s masih memuat Tailwind CDN", page)
 		}
-		if strings.Contains(body, "cdn.jsdelivr.net") && !strings.Contains(csp, "https://cdn.jsdelivr.net") {
-			t.Fatalf("halaman %s memuat jsdelivr CDN tapi tidak diizinkan oleh CSP", page)
+		if strings.Contains(body, "cdn.jsdelivr.net") {
+			t.Fatalf("halaman %s masih memuat jsdelivr CDN", page)
 		}
 		if strings.Contains(body, "fonts.googleapis.com") && !strings.Contains(csp, "https://fonts.googleapis.com") {
 			t.Fatalf("halaman %s memuat Google Fonts tapi tidak diizinkan oleh CSP", page)

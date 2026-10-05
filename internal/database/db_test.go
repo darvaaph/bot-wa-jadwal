@@ -107,6 +107,9 @@ func TestSchemaVerification(t *testing.T) {
 		"import_batches",
 		"import_errors",
 		"backup_records",
+		"backup_requests",
+		"support_grants",
+		"master_proposals",
 		"chat_class_contexts",
 		"seen_chats",
 	}
@@ -228,6 +231,18 @@ func TestInitDBAppliesPendingMigration(t *testing.T) {
 	}
 	if _, err := db.Exec("DROP INDEX uq_teaching_events_result_pattern"); err != nil {
 		t.Fatalf("Gagal menyiapkan index lama: %v", err)
+	}
+	if _, err := db.Exec("DROP INDEX idx_room_confirmations_active_event"); err != nil {
+		t.Fatalf("Gagal menyiapkan indeks pra-restore: %v", err)
+	}
+	if _, err := db.Exec("DROP INDEX idx_offering_lecturers_active"); err != nil {
+		t.Fatalf("Gagal menyiapkan indeks dosen pra-restore: %v", err)
+	}
+	if _, err := db.Exec("ALTER TABLE offering_lecturers DROP COLUMN superseded_at"); err != nil {
+		t.Fatalf("Gagal menyiapkan tabel dosen pra-restore: %v", err)
+	}
+	if _, err := db.Exec("ALTER TABLE room_confirmations DROP COLUMN superseded_at"); err != nil {
+		t.Fatalf("Gagal menyiapkan tabel pra-restore: %v", err)
 	}
 	if _, err := db.Exec("DELETE FROM schema_migrations"); err != nil {
 		t.Fatalf("Gagal menyiapkan versi migration lama: %v", err)

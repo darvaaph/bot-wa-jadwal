@@ -1,0 +1,161 @@
+<!-- partials/km/view-semester.html — KM Semester: daftar + draf/salin + impor + preview + arsip -->
+<section x-show="view === 'semester'" x-cloak>
+  <div class="w-full max-w-[960px] mx-auto flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div>
+      <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Semester</h1>
+      <p class="text-[14px] text-slate-500 mt-1">Kelola semester kelas <span class="font-mono" x-text="selectedClass">-</span> · hanya satu semester aktif</p>
+    </div>
+    <button type="button" @click="loadSemesters()" class="ui-button ui-button--secondary self-start">Muat ulang</button>
+  </div>
+
+  <div x-show="semesterLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat semester...</div>
+  <div x-show="semesterError" class="mt-5 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <span x-text="semesterError">-</span>
+    <button type="button" @click="loadSemesters()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+  </div>
+
+  <div x-show="!semesterLoading && !semesterError" class="w-full max-w-[960px] mx-auto mt-5 space-y-3">
+    <template x-for="s in semesterList" :key="s.id">
+      <div class="ui-card p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div class="flex-1 min-w-0">
+            <p class="text-[15px] font-semibold" x-text="semesterLabel(s)">-</p>
+            <p class="text-[12px] text-slate-500 font-mono" x-text="(s.starts_on || '') + ' → ' + (s.ends_on || '')">-</p>
+            <p class="text-[12px] text-slate-500" x-text="(s.offerings || 0) + ' mata kuliah · ' + (s.patterns || 0) + ' pola'">-</p>
+          </div>
+          <span class="ui-badge inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+            :class="String(s.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : (String(s.status).toUpperCase() === 'DRAFT' ? 'bg-warning-soft/60 text-amber-900' : 'bg-slate-100 text-slate-500')"
+            x-text="semesterStatusLabel(s.status)">-</span>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" @click="muatPreviewSemester(s.id)" class="ui-button ui-button--secondary">Tinjau</button>
+            <button type="button" @click="bukaArsipSemester(s)" x-show="String(s.status).toUpperCase() === 'ARCHIVED'" class="ui-button ui-button--secondary">Arsip</button>
+            <button type="button" @click="mulaiAktifkanSemester(s)" x-show="String(s.status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--primary text-[13px] font-semibold">Aktifkan</button>
+          </div>
+        </div>
+        <div x-show="semesterAktif && semesterAktif.id === s.id" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
+          <p class="font-semibold">Aktifkan semester ini?</p>
+          <p class="mt-1">Semester aktif lama menjadi arsip secara atomik. Arsip hanya-baca.</p>
+          <div class="flex flex-col sm:flex-row gap-2 mt-3">
+            <button type="button" @click="jalankanAktifkanSemester()" class="ui-button ui-button--primary text-[13px] font-semibold">Ya, aktifkan</button>
+            <button type="button" @click="semesterAktif = null" class="ui-button ui-button--secondary">Batal</button>
+          </div>
+        </div>
+
+        <!-- Pratinjau kesiapan -->
+        <div x-show="semesterPreview && String(semesterPreview.semester.id) === String(s.id)" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border text-[13px]">
+          <div x-show="semesterPreviewLoading" class="py-2 text-center text-slate-400">Memuat pratinjau...</div>
+          <div x-show="semesterPreviewError" class="text-red-700"><span x-text="semesterPreviewError">-</span></div>
+          <div x-show="!semesterPreviewLoading && !semesterPreviewError">
+            <p class="font-semibold">Kesiapan aktivasi: <span x-text="semesterPreview.can_activate ? 'Siap' : 'Belum siap'">-</span></p>
+            <p class="text-slate-600 mt-1" x-text="semesterPreview.offerings + ' matkul · ' + semesterPreview.patterns + ' pola · ' + semesterPreview.lecturers + ' dosen · ' + semesterPreview.rooms_used + ' ruangan'">-</p>
+            <div x-show="semesterPreview.blockers && semesterPreview.blockers.length" class="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800">
+              <template x-for="b in semesterPreview.blockers" :key="b"><p x-text="'⛔ ' + b">-</p></template>
+            </div>
+            <div x-show="semesterPreview.conflicts && semesterPreview.conflicts.length" class="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900">
+              <p class="font-semibold">Konflik jadwal:</p>
+              <template x-for="c in semesterPreview.conflicts" :key="c"><p x-text="'• ' + c">-</p></template>
+            </div>
+            <div x-show="semesterPreview.warnings && semesterPreview.warnings.length" class="mt-2 text-amber-800">
+              <template x-for="wr in semesterPreview.warnings" :key="wr"><p x-text="'⚠ ' + wr">-</p></template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kelola isi draf: impor + tambah manual -->
+        <div x-show="String(s.status).toUpperCase() === 'DRAFT'" class="mt-4 pt-4 border-t border-border">
+          <h3 class="text-[14px] font-semibold">Isi semester draf</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+            <div>
+              <p class="text-[13px] font-medium">Impor JSON kurikulum</p>
+              <p class="text-[12px] text-slate-500">Format: courses, lecturers, offerings, schedule_patterns.</p>
+              <input aria-label="Impor JSON kurikulum" type="file" accept="application/json,.json" @change="pilihFileImpor($event)" class="mt-2 block w-full text-[13px] file:h-11 file:px-4 file:rounded-xl file:border file:border-border file:bg-slate-50 file:text-[13px] file:font-medium file:min-h-[44px]" />
+              <div class="flex flex-wrap gap-2 mt-2">
+                <button type="button" @click="validasiImpor(s.id)" :disabled="imporSaving" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Validasi</button>
+                <button type="button" @click="terapkanImpor(s.id)" :disabled="imporSaving || !imporHasil || imporHasil.has_fatal_errors" class="ui-button ui-button--primary text-[13px] font-semibold">Terapkan</button>
+              </div>
+              <div x-show="imporError" class="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="imporError">-</div>
+              <div x-show="imporHasil" class="mt-2 text-[12px] text-slate-600">
+                <p x-text="'Batch #' + imporHasil.batch_id + ' · ' + imporHasil.status + ' · ' + imporHasil.courses_count + ' matkul · ' + imporHasil.offerings_count + ' offering · ' + imporHasil.patterns_count + ' pola'">-</p>
+                <template x-for="e in (imporHasil.errors || [])" :key="e.row_number + '-' + e.field">
+                  <p :class="String(e.severity).toUpperCase() === 'ERROR' ? 'text-red-700 font-medium' : 'text-amber-800'" x-text="(String(e.severity).toUpperCase() === 'ERROR' ? 'GALAT' : 'peringatan') + ' baris ' + e.row_number + ' [' + e.field + ']: ' + e.message">-</p>
+                </template>
+              </div>
+            </div>
+            <div>
+              <p class="text-[13px] font-medium">Tambah mata kuliah manual</p>
+              <div x-show="offeringFormError" class="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="offeringFormError">-</div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <input aria-label="Kode mata kuliah" type="text" x-model="offeringForm.course_code" placeholder="Kode, mis. TI201" class="ui-field text-[14px] font-mono" />
+                <select aria-label="Jenis kegiatan" x-model="offeringForm.activity_type" class="ui-field text-[14px]">
+                  <option>TEORI</option><option>PRAKTIKUM</option><option>PRAKTIK</option>
+                </select>
+                <input aria-label="Nama tampilan mata kuliah" type="text" x-model="offeringForm.display_name" placeholder="Nama tampilan" class="ui-field text-[14px] sm:col-span-2" />
+                <input aria-label="Kode dosen" type="text" x-model="offeringForm.lecturer_codes" placeholder="Kode dosen, pisahkan koma" class="ui-field text-[14px] font-mono sm:col-span-2" />
+              </div>
+              <button type="button" @click="simpanOfferingManual(s.id)" :disabled="offeringSaving" class="ui-button ui-button--primary mt-2 text-[13px] font-semibold">Tambah</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail arsip read-only -->
+        <div x-show="arsipDetail && arsipDetail.id === s.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border text-[13px]">
+          <p class="font-semibold">Arsip hanya-baca: <span x-text="semesterLabel(s)">-</span></p>
+          <div x-show="arsipLoading" class="py-2 text-center text-slate-400">Memuat isi arsip...</div>
+          <div x-show="!arsipLoading && arsipOfferings.length === 0" class="ui-empty text-slate-500 mt-1">Semester ini tidak menyimpan mata kuliah.</div>
+          <div x-show="!arsipLoading && arsipOfferings.length > 0" class="mt-2 divide-y divide-border">
+            <template x-for="o in arsipOfferings" :key="o.id">
+              <div class="py-2">
+                <p class="font-medium" x-text="o.display_name">-</p>
+                <p class="text-[12px] text-slate-500 font-mono" x-text="o.course_code + ' · ' + o.activity_type">-</p>
+              </div>
+            </template>
+          </div>
+          <button type="button" @click="arsipDetail = null" class="ui-button ui-button--secondary mt-2">Tutup</button>
+        </div>
+      </div>
+    </template>
+    <div x-show="semesterList.length === 0" class="ui-card w-full max-w-[960px] mx-auto p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <p class="text-[15px] font-semibold">Belum ada semester</p>
+        <p class="text-[13px] text-slate-500 mt-1">Isi form di bawah untuk membuat semester draf pertama.</p>
+      </div>
+      <a href="#semester-draft-form" class="ui-button ui-button--secondary self-start sm:self-auto shrink-0">Isi form semester</a>
+    </div>
+  </div>
+
+  <div id="semester-draft-form" class="ui-card w-full max-w-[960px] mx-auto mt-5 p-4 md:p-6 scroll-mt-6">
+    <h2 class="text-[18px] font-semibold">Buat semester draf</h2>
+    <p class="text-[12px] text-slate-500 mt-0.5">Semester baru selalu berstatus draf. Salin struktur dari semester lama atau isi manual/impor.</p>
+    <div x-show="semesterFormError && !semesterFormErrorField" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" role="alert" x-text="semesterFormError">-</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div>
+        <label for="semester-academic-year" class="block text-[13px] font-medium mb-1">Tahun ajaran <span class="text-danger">*</span></label>
+        <input id="semester-academic-year" type="text" x-model="semesterForm.academic_year" @input="semesterFormErrorField === 'academic_year' && (semesterFormError = '', semesterFormErrorField = '')" :aria-invalid="semesterFormErrorField === 'academic_year'" :aria-describedby="semesterFormErrorField === 'academic_year' ? 'semester-year-error' : null" placeholder="2024/2025" class="ui-field w-full text-[14px]" />
+        <p id="semester-year-error" x-show="semesterFormErrorField === 'academic_year'" class="text-[12px] text-red-700 mt-1" role="alert" x-text="semesterFormError"></p>
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Semester <span class="text-danger">*</span></label>
+        <select aria-label="Semester" x-model="semesterForm.term" class="ui-field w-full text-[14px]">
+          <option>Ganjil</option><option>Genap</option><option>Pendek</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Mulai <span class="text-danger">*</span></label>
+        <input aria-label="Mulai" type="date" x-model="semesterForm.starts_on" class="ui-field w-full text-[14px]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Selesai <span class="text-danger">*</span></label>
+        <input aria-label="Selesai" type="date" x-model="semesterForm.ends_on" class="ui-field w-full text-[14px]" />
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Salin dari semester (opsional)</label>
+        <select aria-label="Salin dari semester (opsional)" x-model="semesterForm.source_semester_id" class="ui-field w-full text-[14px]">
+          <option value="">Kosong — isi manual / impor</option>
+          <template x-for="s in semesterList" :key="'src-' + s.id"><option :value="s.id" x-text="semesterLabel(s) + ' (' + semesterStatusLabel(s.status) + ')'">-</option></template>
+        </select>
+        <p class="text-[12px] text-slate-500 mt-1">Menyalin matkul, dosen, dan pola jadwal. Tanpa tugas, publikasi, dan PJ.</p>
+      </div>
+    </div>
+    <button type="button" @click="buatSemesterDraf()" :disabled="semesterSaving" class="ui-button ui-button--primary mt-4 text-[14px] font-semibold" x-text="semesterSaving ? 'Menyimpan...' : 'Buat draf'">Buat draf</button>
+  </div>
+</section>

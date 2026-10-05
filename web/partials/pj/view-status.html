@@ -1,0 +1,117 @@
+<!-- partials/pj/view-status.html — PJ Status Pemeriksaan (review KM atas tugas PJ) -->
+<section x-show="view === 'status'" x-cloak>
+  <h1 class="font-display text-[26px] md:text-[30px] font-bold">Status Pemeriksaan</h1>
+  <p class="text-[14px] text-slate-500 mt-1">Hasil pemeriksaan KM atas tugas <span x-text="pjMatkul || 'yang ditugaskan'">-</span>.</p>
+  <div x-show="tugasSaya.length === 0" class="ui-card mt-5 p-10 text-center text-[13px] text-slate-400">Belum ada tugas untuk diperiksa.</div>
+  <div class="mt-4 space-y-3">
+    <template x-for="t in tugasSaya" :key="t.id">
+      <button type="button" @click="bukaDetailTugas(t.id)" class="ui-button ui-button--ghost w-full p-4 rounded-2xl border border-border bg-white flex flex-col md:flex-row md:items-center gap-3 text-left">
+        <div class="flex-1 min-w-0">
+          <p class="text-[15px] font-medium line-clamp-1" x-text="t.title || t.deskripsi">-</p>
+          <p class="text-[12px] text-slate-500" x-text="'Tenggat ' + t.deadline">-</p>
+        </div>
+        <span class="ui-badge inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold shrink-0"
+          :class="String(t.review_state).toUpperCase() === 'APPROVED' ? 'bg-success text-green-800' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'bg-warning-soft text-amber-900' : 'bg-slate-100 text-slate-600')">
+          <span class="material-symbols-outlined text-[16px]" x-text="String(t.review_state).toUpperCase() === 'APPROVED' ? 'check_circle' : (String(t.review_state).toUpperCase() === 'CHANGES_REQUESTED' ? 'warning' : 'pending')">-</span>
+          <span x-text="reviewLabel(t.review_state) + ' · versi ' + t.version">-</span>
+        </span>
+      </button>
+    </template>
+  </div>
+</section>
+
+<!-- partials/pj/view-materi.html — PJ Repositori Materi (lingkup penugasan) -->
+<section x-show="view === 'materi'" x-cloak>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+    <div>
+      <h1 class="font-display text-[26px] md:text-[30px] font-bold">Repositori Materi</h1>
+      <p class="text-[14px] text-slate-500 mt-1">Materi <span x-text="pjMatkul || 'mata kuliah yang ditugaskan'">-</span>.</p>
+    </div>
+    <button type="button" @click="materiFormOpen = !materiFormOpen" class="ui-button ui-button--primary text-[14px] font-semibold self-start inline-flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]" x-text="materiFormOpen ? 'close' : 'add'">-</span><span x-text="materiFormOpen ? 'Tutup form' : 'Tambah materi'">-</span>
+    </button>
+  </div>
+
+  <div x-show="materiFormOpen" class="ui-card mt-5 p-5">
+    <h2 class="text-[18px] font-semibold" x-text="editMateriId ? 'Ubah materi' : 'Tambah materi'">-</h2>
+    <p class="text-[12px] text-slate-500 mt-0.5">Tersimpan untuk <span class="font-semibold" x-text="pjMatkul || 'mata kuliah penugasan'">-</span>.</p>
+    <div x-show="materiFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="materiFormError">-</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Judul <span class="text-danger">*</span></label>
+        <input aria-label="Judul" type="text" x-model="materiForm.title" placeholder="Contoh: Slide pekan 1" class="ui-field w-full text-[14px]" />
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Jenis</label>
+        <select aria-label="Jenis" x-model="materiForm.material_type" class="ui-field w-full text-[14px]">
+          <option value="DOCUMENT">Dokumen</option>
+          <option value="MEETING">Tautan rapat</option>
+          <option value="REPOSITORY">Repositori</option>
+          <option value="PORTAL">Portal</option>
+          <option value="OTHER">Lainnya</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[13px] font-medium mb-1">Tautan</label>
+        <input aria-label="Tautan" type="text" x-model="materiForm.url" placeholder="https://..." class="ui-field w-full text-[14px]" />
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-[13px] font-medium mb-1">Deskripsi</label>
+        <textarea aria-label="Deskripsi" x-model="materiForm.description" rows="2" class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
+      </div>
+    </div>
+    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="ui-button ui-button--primary mt-4 text-[14px] font-semibold" x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan perubahan' : 'Simpan materi')">Simpan materi</button>
+    <button type="button" @click="batalUbahMateri()" x-show="editMateriId" class="ui-button ui-button--ghost mt-4 ml-2 h-11 px-5 rounded-xl border border-border text-[14px] font-medium min-h-[44px]">Batal</button>
+  </div>
+
+  <div class="ui-card mt-5 p-4 sm:p-5">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-[15px] font-semibold" x-text="'Materi · ' + (materiSort === 'terlama' ? 'Terlama' : 'Terbaru')">-</h2>
+      <div class="flex items-center gap-2">
+        <button type="button" @click="loadMateri()" aria-label="Muat ulang materi" title="Muat ulang" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border flex items-center justify-center hover:bg-slate-50 shrink-0">
+          <span class="material-symbols-outlined text-[20px]">refresh</span>
+        </button>
+        <button type="button" @click="materiSort = materiSort === 'terlama' ? 'terbaru' : 'terlama'" :aria-label="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')" :title="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')"
+          class="ui-button ui-button--primary text-[13px] font-semibold inline-flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[18px]">filter_list</span><span x-text="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')">-</span>
+        </button>
+      </div>
+    </div>
+    <div x-show="materiLoading" class="py-8 text-center text-[13px] text-slate-400">Memuat materi...</div>
+    <div x-show="materiError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+      <span x-text="materiError">-</span>
+      <button type="button" @click="loadMateri()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
+    </div>
+    <div x-show="!materiLoading && !materiError && materiTampil.length === 0" class="ui-empty py-10 text-center">
+      <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
+      <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
+      <p class="text-[13px] text-slate-500">Materi mata kuliah yang ditugaskan tampil di sini.</p>
+    </div>
+    <div x-show="!materiLoading && materiTampil.length > 0" class="divide-y divide-border">
+      <template x-for="m in materiTampil" :key="m.id">
+        <div class="py-4 flex items-center gap-3">
+          <span class="w-11 h-11 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[22px] text-primary">folder</span>
+          </span>
+          <div class="flex-1 min-w-0">
+            <template x-if="m.url">
+              <a :href="m.url" target="_blank" rel="noopener" class="block text-[15px] font-medium text-ink line-clamp-1 hover:text-primary hover:underline" x-text="m.title">-</a>
+            </template>
+            <template x-if="!m.url">
+              <p class="text-[15px] font-medium text-ink line-clamp-1" x-text="m.title">-</p>
+            </template>
+            <p class="text-[12px] text-slate-500 mt-0.5 truncate" x-text="(pjMatkul || 'Mata kuliah') + ' · ' + sumberMateri(m)">-</p>
+          </div>
+          <div class="shrink-0 text-right">
+            <p class="text-[13px] font-medium text-primary" x-text="materiTipeLabel(m.material_type)">-</p>
+            <p class="text-[12px] text-slate-400 mt-0.5" x-text="fmtTanggalSingkat(m.created_at)">-</p>
+            <div class="flex gap-1.5 mt-1.5 justify-end">
+              <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-slate-50 text-slate-600"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+              <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-red-50 text-slate-600 hover:text-red-600"><span class="material-symbols-outlined text-[18px]">archive</span></button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</section>

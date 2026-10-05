@@ -12,6 +12,7 @@
   Kode: `UNAUTHENTICATED 401 | FORBIDDEN 403 | NOT_FOUND 404 | VALIDATION 422 | VERSION_CONFLICT 409 | GONE_ARCHIVED 410 | TOO_MANY_REQUESTS 429 | NOT_IMPLEMENTED 501`.
 - Optimistic locking: semua PATCH/POST-publish kirim `version`; mismatch → `409 + {current_version, current_data}`; input user tidak boleh hilang (FE wajib tampilkan diff).
 - Scope diambil dari sesi server, bukan dari payload. `class_id/semester_id/offering_id` di URL diverifikasi lawan `active_role_assignment_id`.
+- Penolakan cakupan: peran salah → `403`; cakupan asing (kelas/entitas di luar jangkauan) → `404` generik tanpa mengungkap keberadaan data (FR-ACCESS-004).
 - Audit: publish/revoke/delete/restore/assign-role selalu tulis `audit_logs` (tak ada endpoint tulis audit langsung).
 
 ## 1. Auth & konteks (`FR-ACCESS-002 s.d 007`)
@@ -20,11 +21,13 @@
 |---|---|---|---|---|
 | `POST /api/v1/auth/login` | publik, rate-limit | `{identity_key, password}` | `{token, token_type:"Bearer", expires_at, assignments:[{id,role,class_slug,semester_id,offering_id}], need_context_choice:bool}` | 5 gagal/15 mnt → 429 + `login_attempts`; pesan gagal generik |
 | `POST /api/v1/auth/logout` | Bearer | `{}` | `{revoked:true}` | Cabut token aktif |
-| `GET /api/v1/auth/me` | Bearer | — | `{user, active_assignment, classes}` | Setiap halaman pengelola wajib panggil untuk tampilkan konteks aktif |
+| `GET /api/v1/auth/me` | Bearer | — | `{user, active_assignment, assignments:[{id,role,class_slug,semester_id,offering_id,offering_name}], classes}` | `assignments` hanya penugasan aktif dan masih berlaku milik pengguna; setiap halaman pengelola wajib panggil untuk tampilkan konteks aktif |
 | `POST /api/v1/auth/switch-context` | Bearer | `{role_assignment_id}` | `{token_baru, expires_at}` | Rotasi token, ganti konteks tanpa login ulang |
+| `POST /api/v1/auth/recovery/request` | publik, rate-limit | `{identity_key}` | `202 {message}` | Respons sama untuk identitas dikenal/tidak dikenal; token sekali pakai dikirim lewat WhatsApp dan diinvalkan bila pengiriman gagal |
+| `POST /api/v1/auth/recovery/confirm` | publik, rate-limit | `{token,new_password}` | `{password_reset:true}` | Token berlaku 1 jam dan sekali pakai; kata sandi minimal 12 karakter; seluruh sesi pengguna dicabut |
 | `GET /api/v1/classes` | Bearer KM/Admin atau portal-token | — | `{classes:[{slug,code,program,cohort,group,status}]}` | KM: kelas konteks aktif; Admin: seluruh kelas; portal-token: hanya kelas token; PJ ditolak |
 | `POST /api/v1/classes/:slug/portal-code/rotate` | KM kelas terkait/Admin | `{code?}` | `{portal_code,portal_code_version,portal_access_mode:"CODE",reveal_once:true}` | Tanpa `code`, server membuat kode 8 digit; kode hanya ditampilkan sekali; versi naik dan sesi lama dicabut atomik |
-| `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; kirim ulang → revoke lama |
+| `POST /api/v1/invitations` | KM/Admin sesuai scope | `{role: KM\|PJ\|SYSTEM_ADMIN, class_slug, semester_id?, offering_id?, invited_identity_key}` | `{invitation_id, expires_at}` | Scope dikunci server; SYSTEM_ADMIN hanya oleh SA, tanpa kelas; kirim ulang → revoke lama |
 | `POST /api/v1/invitations/accept` | token undangan | `{token, password?, display_name?}` | `{user_id, assignment_id}` | Token sekali pakai |
 
 Header: `Authorization: Bearer <token>`. Cookie `bv1` httpOnly opsional sebagai fallback Alpine.
@@ -60,8 +63,10 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | Method & Path | Body penting | Aturan |
 |---|---|---|
 | `GET /api/v1/schedule/patterns?offering_id=&day=` | — | Filter offering sesuai scope PJ |
-| `POST /api/v1/schedule/patterns` | `{offering_id, day_of_week:1-7, start_time, duration_min, room_id?, lecturer_ids[]}` | Server hitung `end_time`; cek konflik |
-| `PATCH /api/v1/schedule/patterns/:id` | `{..., version}` | Permanen via versi baru (pola lama `effective_until`=hari ini inklusif, pola baru `effective_from`=besok; response `{id, replaces_pattern_id, version, effective_from, effective_until:null}`; BE-007) |
+| `POST /api/v1/schedule/patterns` | `{offering_id, day_of_week:1-7, start_time, duration_min, room_id?, lecturer_ids[]}` | Server hitung `end_time`; hanya semester aktif; cek konflik seluruh pertemuan dari hari ini sampai akhir semester dalam zona kelas |
+| `POST /api/v1/schedule/patterns/preview` | Sama dengan create | Pratinjau read-only jam selesai, rentang berlaku, dan konflik seluruh sisa semester. `can_publish=false` jika konflik pemblokir |
+| `POST /api/v1/schedule/patterns/:id/preview` | `{version, effective_from, reason, day_of_week?, start_time?, duration_min?, room_id?}` | Tanggal dari hari ini hingga akhir semester aktif; tampilkan sesi terdampak dan konflik tanpa mutasi |
+| `PATCH /api/v1/schedule/patterns/:id` | Payload pratinjau versi pola | Perubahan permanen atomik: tutup pola lama sehari sebelum `effective_from`, buat versi baru, audit dan satu outbox. Versi lama/stale ditolak `409`; tanggal lampau atau luar semester ditolak `422` |
 | `POST /api/v1/teaching-events` | `{owner_offering_id, event_kind, starts_at, ends_at, origin_pattern_id?, origin_date?, participant_offering_ids[], room_id?, reason?}` | Buat `DRAFT`; `REPLACEMENT/SESSION_CANCELLED` wajib `origin_*`; tanggal dalam semester owner |
 | `GET /api/v1/teaching-events?scope=mine&status=draft\|published\|revoked&from=&to=` | — | Tab Draf/Terbit/Dicabut |
 | `POST /api/v1/teaching-events/:id/preview` | `{}` | `{old, new, kind, conflicts:[{type, message, blocking}], room_note:"perlu konfirmasi TU"}`; blocking → tolak publish |
@@ -90,15 +95,49 @@ Mode default `LINK` (tanpa kode). Mode `CODE`: `X-Portal-Token` atau `?portal_to
 | Method & Path | Body penting / Query | Aturan & Akses |
 |---|---|---|
 | `GET /api/v1/rooms/candidates` | `?starts_at=&ends_at=` | Auth; Cari ruangan yang tidak bentrok dengan jadwal lain |
+| `GET /api/v1/rooms/confirmations` | — | KM kelasnya, PJ offering-nya, Admin; riwayat konfirmasi TU |
+| `GET /api/v1/publications/:entityType/:id/delivery` | `TASK`, `SCHEDULE_PATTERN`, atau `TEACHING_EVENT` | KM/PJ sesuai cakupan, Admin; status outbox pada publikasi terkait |
 | `POST /api/v1/teaching-events/:id/room-confirmations` | `{notes?, confirmed_room_id?}` | KM / Admin; Konfirmasi kesiapan ruangan TU |
-| `GET /api/v1/notifications` | `?status=PENDING\|SENT\|FAILED&limit=` | KM / Admin; Antrean siaran pesan WhatsApp |
+| `GET /api/v1/notifications` | `?status=&class_id=&event_type=&since=&until=&limit=` | KM (kelasnya, asing 404) / Admin; Antrean siaran + penerima, idempotensi, galat terakhir. `since/until` RFC3339/YYYY-MM-DD (naive = UTC; FE kirim UTC dari zona lokal). `event_type` tak peka huruf besar; `class_id`/`since` invalid 422 |
 | `POST /api/v1/notifications/:id/retry` | — | KM / Admin; Jadwalkan ulang pesan `FAILED`/`CANCELLED` menjadi `PENDING`. Response `{id, status:"PENDING", scheduled_at, retry_scheduled:true}` tanpa `attempt_number`; attempt hanya dibuat worker saat delivery (BE-010) |
-| `GET /api/v1/audit` | `?entity_type=&action=&limit=` | KM / Admin; Rekam jejak audit trail perubahan sistem |
-| `POST /api/v1/backups` | `{class_slug?, reason?}` | KM / Admin; Snapshot basis data aman via `VACUUM INTO` |
-| `POST /api/v1/restores` | `{backup_id, reason!}` | Admin; Verify-only (ADR-0008): verifikasi path dalam storage backup, checksum (`422 CHECKSUM_MISMATCH`), format SQLite, schema, scope; tandai `VERIFIED`; response `{backup_id, status:"VERIFIED", checksum, restore_performed:false}` tanpa path internal. Database aktif tidak diganti |
+| `GET /api/v1/audit` | `?entity_type=&action=&entity_id=&actor=&since=&until=&class_slug=&limit=` | KM (kelasnya) / Admin; Rekam jejak audit trail perubahan sistem. `since/until` RFC3339 atau YYYY-MM-DD (presisi detik, UTC); `actor` = ID numerik atau identity_key; `entity_id` numerik |
+| `POST /api/v1/backup-requests` | `{class_slug, semester_id?, reason}` | KM kelasnya meminta backup; status awal `PENDING` |
+| `GET /api/v1/backup-requests` | — | KM melihat permintaan kelasnya; Admin semua kelas |
+| `POST /api/v1/backup-requests/:id/execute` | — | Admin mengeksekusi permintaan dan menghasilkan backup v2 |
+| `POST /api/v1/backups` | `{class_slug, semester_id?, reason?}` | Admin saja; paket JSON v2 data akademik kelas/semester, checksum SHA-256; akun, izin, master global, audit, kanal, dan pesan tidak dicadangkan untuk restore |
+| `GET /api/v1/backups` | `?class_slug=&status=&limit=` | KM kelasnya / Admin; tanpa path internal, `restorable=true` hanya paket v2 |
+| `POST /api/v1/backups/:id/restore-preview` | `{}` | Admin; verifikasi checksum/versi/cakupan, tampilkan jumlah data aktif vs paket, daftar event lintas kelas, serta `preview_token` |
+| `POST /api/v1/backups/:id/restore-execute` | `{reason, preview_token}` | Admin; token usang `409`, paket tak cocok `422`, keterkaitan lintas kelas `409`; jeda tulis dan worker, titik pemulihan baru, transaksi akademik, audit, pembatalan pesan tertunda yang usang, satu koreksi bila informasi terbit berubah. Response `pre_restore_backup_id` |
+| `POST /api/v1/restores` | `{backup_id, reason}` | Admin; **verifikasi saja** untuk arsip v1 SQLite dan paket v2. Response `restore_performed:false`; tidak mengubah data aktif |
 | `GET /api/v1/admin/status` | — | Admin; Telemetri runtime, koneksi bot, dan status migrasi |
+| `GET /api/v1/admin/assignments` | `?status=&role=&class_slug=&limit=` | Admin; Daftar Penugasan Peran + scope |
+| `POST /api/v1/admin/assignments/:id/suspend` | `{reason!, force?}` | Admin (+KM untuk PJ kelasnya); cabut sesi penugasan; guard KM-terakhir (`409` kecuali `force`) |
+| `POST /api/v1/admin/assignments/:id/revoke` | `{reason!, force?}` | Sama dengan suspend; status akhir `REVOKED` |
+| `GET /api/v1/admin/invitations` | `?status=&role=&class_slug=` | Admin (+KM kelasnya); Daftar Undangan tanpa token (`EXPIRED` derivasi) |
+| `POST /api/v1/admin/invitations/:id/revoke` | `{reason!}` | Admin (+KM untuk PJ kelasnya); hanya `PENDING` |
+| `POST /api/v1/admin/support/enter` | `{class_slug!, reason! min 10}` | Admin; Hibah dukungan 60 menit, tutup hibah lama; audit `SUPPORT_ENTER` |
+| `POST /api/v1/admin/support/exit` | `{reason?}` | Admin; Tutup hibah aktif; audit `SUPPORT_EXIT` |
+| `GET /api/v1/admin/support/active` | — | Admin; Hibah aktif atau `null`; kedaluwarsa ditandai `EXPIRED` |
+| `GET /api/v1/whatsapp-channels` | `?class_slug=&status=` | KM (kelasnya) / Admin; Daftar kanal + tautan kelas |
+| `POST /api/v1/whatsapp-channels` | `{jid!, class_slug! (KM boleh kosong = kelasnya), display_name?}` | KM / Admin sesuai cakupan; tolak-dulu bila JID tertaut kelas lain (409); idempoten sekelas |
+| `POST /api/v1/whatsapp-channels/:id/revoke` | `{reason!}` | KM / Admin sesuai cakupan; hanya ACTIVE; baris dipertahankan REVOKED |
+| `POST /api/v1/admin/bot/test-message` | `{to!, text! 1-500}` | Admin; Uji kirim hanya ke kanal terdaftar + audit `BOT_TEST_MESSAGE`. Reconnect/QR tak diekspos web |
+| `GET /api/v1/classes/:slug/settings` | — | KM (kelasnya) / Admin; Baca pengaturan kelas (zona waktu, mode portal, versi kode) |
+| `PATCH /api/v1/classes/:slug/portal-mode` | `{mode!: LINK\|CODE, reason?}` | KM (kelasnya) / Admin; Ganti mode Portal Kelas + audit `UPDATE_PORTAL_MODE`. LINK selalu bisa (hapus hash); CODE wajib hash aktif (422 bila belum: putar kode dulu); idempoten (`changed:false`) |
+| `GET /api/v1/master/proposals` | `?status=&kind=&class_slug=` | KM (kelasnya) / Admin; Daftar usulan koreksi master tanpa token |
+| `POST /api/v1/master/proposals` | `{kind!, target_id?, payload!, note?}` | KM; Usul tambah/ubah ruangan/matkul (kode immutable); audit `PROPOSE_MASTER_CORRECTION` |
+| `POST /api/v1/master/proposals/:id/approve` | `{review_note?}` | Admin; Terapkan ke master + audit ganda; hanya `PENDING` |
+| `POST /api/v1/master/proposals/:id/reject` | `{review_note!}` | Admin; Tolak + audit; hanya `PENDING` |
 | `POST /api/v1/admin/users/:id/suspend` | `{reason?}` | Admin; Bekukan pengguna dan cabut seluruh sesi aktif |
 | `POST /api/v1/admin/users/:id/recover` | `{reason?}` | Admin; Pulihkan akun yang sebelumnya dibekukan |
+| `GET /api/v1/admin/users` | `?q=&status=` | Admin; Daftar pengguna sistem |
+| `GET /api/v1/notifications/:id/attempts` | — | KM (kelasnya) / Admin; Riwayat percobaan pengiriman notifikasi |
+| `GET /api/v1/master/rooms` | `?status=` | KM / PJ / Admin; Daftar master ruangan kuliah |
+| `POST /api/v1/master/rooms` | `{code!, name!, capacity?, location?}` | Admin; Tambah master ruangan baru |
+| `PATCH /api/v1/master/rooms/:id` | `{name?, capacity?, location?, status?}` | Admin; Ubah master ruangan |
+| `GET /api/v1/master/courses` | `?status=` | KM / PJ / Admin; Daftar master mata kuliah |
+| `POST /api/v1/master/courses` | `{code!, name!, sks?}` | Admin; Tambah master mata kuliah baru |
+| `PATCH /api/v1/master/courses/:id` | `{name?, sks?, status?}` | Admin; Ubah master mata kuliah |
 
 ## 8. Shim legacy → v1
 

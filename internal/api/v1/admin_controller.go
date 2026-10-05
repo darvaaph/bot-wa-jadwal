@@ -1,10 +1,12 @@
 package v1
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +19,8 @@ import (
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
+	"bot-jadwal/internal/backup"
+	"bot-jadwal/internal/bot"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/ratelimit"
 	"golang.org/x/crypto/bcrypt"
@@ -38,9 +42,12 @@ type AdminStatusResponse struct {
 		Archived int `json:"archived"`
 	} `json:"classes_summary"`
 	UsersSummary struct {
-		Total     int `json:"total"`
-		Active    int `json:"active"`
-		Suspended int `json:"suspended"`
+		Total      int `json:"total"`
+		Active     int `json:"active"`
+		Suspended  int `json:"suspended"`
+		KMCount    int `json:"km_count"`
+		PJCount    int `json:"pj_count"`
+		AdminCount int `json:"admin_count"`
 	} `json:"users_summary"`
 	TasksSummary struct {
 		Total     int `json:"total"`
@@ -64,6 +71,82 @@ type RecoverUserRequest struct {
 	Reason      *string `json:"reason,omitempty"`
 }
 
+// AdminUserItem merepresentasikan satu pengguna beserta ringkasan penugasannya
+type AdminUserItem struct {
+	ID          int64    `json:"id"`
+	IdentityKey string   `json:"identity_key"`
+	DisplayName string   `json:"display_name"`
+	Status      string   `json:"status"`
+	Roles       []string `json:"roles"`
+}
+
+// GetUsers menangani GET /api/v1/admin/users
+func (c *AdminController) GetUsers(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang melihat daftar pengguna")
+		return
+	}
+
+	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	limit := 50
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+	offset := 0
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = o
+	}
+
+	query := `SELECT id, identity_key, display_name, status FROM users WHERE (1=1)`
+	var args []any
+	if statusFilter != "" {
+		query += " AND status = ?"
+		args = append(args, statusFilter)
+	}
+	query += " ORDER BY id ASC LIMIT ? OFFSET ?;"
+	args = append(args, limit, offset)
+
+	rows, err := c.db.Query(query, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat daftar pengguna")
+		return
+	}
+	defer rows.Close()
+
+	users := []AdminUserItem{}
+	for rows.Next() {
+		var item AdminUserItem
+		if err := rows.Scan(&item.ID, &item.IdentityKey, &item.DisplayName, &item.Status); err != nil {
+			continue
+		}
+		roleRows, err := c.db.Query(`
+			SELECT DISTINCT ra.role FROM role_assignments ra
+			WHERE ra.user_id = ? AND ra.status = 'ACTIVE' ORDER BY ra.role;
+		`, item.ID)
+		if err == nil {
+			for roleRows.Next() {
+				var role string
+				if err := roleRows.Scan(&role); err == nil {
+					item.Roles = append(item.Roles, role)
+				}
+			}
+			roleRows.Close()
+		}
+		if item.Roles == nil {
+			item.Roles = []string{}
+		}
+		users = append(users, item)
+	}
+
+	common.WriteV1Success(w, http.StatusOK, users)
+}
+
 // AuditLogResponseItem merepresentasikan catatan riwayat audit sistem
 type AuditLogResponseItem struct {
 	ID          int64   `json:"id"`
@@ -81,21 +164,29 @@ type AuditLogResponseItem struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
-// BackupRequest merepresentasikan payload pembuatan backup on-demand
+// BackupRequest merepresentasikan pembuatan paket akademik oleh Admin.
+// SemesterID opsional membatasi isi paket ke satu semester.
 type BackupRequest struct {
-	ClassSlug *string `json:"class_slug,omitempty"`
-	Reason    *string `json:"reason,omitempty"`
+	ClassSlug  *string `json:"class_slug,omitempty"`
+	SemesterID *int64  `json:"semester_id,omitempty"`
+	Reason     *string `json:"reason,omitempty"`
 }
 
-// BackupResponseItem merepresentasikan catatan cadangan basis data
+// BackupResponseItem merepresentasikan catatan cadangan basis data.
+// artifact_ref tidak dikembalikan ke client (jalur internal).
+// Paket v2 dapat dipulihkan; arsip SQLite v1 hanya dapat diverifikasi.
 type BackupResponseItem struct {
-	ID          int64   `json:"id"`
-	ClassID     *int64  `json:"class_id,omitempty"`
-	ArtifactRef string  `json:"artifact_ref"`
-	Checksum    string  `json:"checksum"`
-	Status      string  `json:"status"` // CREATING, READY, RESTORING, VERIFIED, FAILED
-	Reason      *string `json:"reason,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	ID         int64   `json:"id"`
+	Restorable bool    `json:"restorable"`
+	ClassID    *int64  `json:"class_id,omitempty"`
+	ClassSlug  *string `json:"class_slug,omitempty"`
+	SemesterID *int64  `json:"semester_id,omitempty"`
+	Checksum   string  `json:"checksum"`
+	Status     string  `json:"status"` // CREATING, READY, VERIFIED, FAILED
+	Reason     *string `json:"reason,omitempty"`
+	CreatedBy  *string `json:"created_by,omitempty"`
+	CreatedAt  string  `json:"created_at"`
+	VerifiedAt *string `json:"verified_at,omitempty"`
 }
 
 // RestoreRequest merepresentasikan payload permintaan pemulihan database
@@ -104,28 +195,36 @@ type RestoreRequest struct {
 	Reason   *string `json:"reason,omitempty"`
 }
 
-// NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp
+// NotificationResponseItem merepresentasikan pesan notifikasi dalam antrean siaran WhatsApp.
+// Penerima = kanal WhatsApp tujuan (jid/nama); riwayat percobaan = jumlah +
+// galat terakhir.
 type NotificationResponseItem struct {
-	ID           int64   `json:"id"`
-	ClassID      int64   `json:"class_id"`
-	EventType    string  `json:"event_type"`
-	EntityType   *string `json:"entity_type,omitempty"`
-	EntityID     *int64  `json:"entity_id,omitempty"`
-	Status       string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
-	PayloadJSON  string  `json:"payload_json"`
-	ScheduledAt  *string `json:"scheduled_at,omitempty"`
-	SentAt       *string `json:"sent_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	AttemptCount int     `json:"attempt_count"`
+	ID               int64   `json:"id"`
+	ClassID          int64   `json:"class_id"`
+	ClassSlug        *string `json:"class_slug,omitempty"`
+	EventType        string  `json:"event_type"`
+	EntityType       *string `json:"entity_type,omitempty"`
+	EntityID         *int64  `json:"entity_id,omitempty"`
+	Status           string  `json:"status"` // PENDING, PROCESSING, SENT, FAILED, CANCELLED
+	IdempotencyKey   string  `json:"idempotency_key"`
+	ChannelJID       *string `json:"channel_jid,omitempty"`
+	ChannelName      *string `json:"channel_name,omitempty"`
+	PayloadJSON      string  `json:"payload_json"`
+	ScheduledAt      *string `json:"scheduled_at,omitempty"`
+	SentAt           *string `json:"sent_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	AttemptCount     int     `json:"attempt_count"`
+	LastAttemptAt    *string `json:"last_attempt_at,omitempty"`
+	LastAttemptError *string `json:"last_attempt_error,omitempty"`
 }
 
 // AdminController mengelola telemetri sistem, penangguhan/pemulihan akun, audit logs, backup & restore, dan notifikasi outbox
 type AdminController struct {
-	db             *sql.DB
-	botClient      BotStatusProvider
-	secManager     *middleware.SecurityManager
-	rlManager      *middleware.RateLimitManager
-	getStorageDir  func() string
+	db            *sql.DB
+	botClient     BotStatusProvider
+	secManager    *middleware.SecurityManager
+	rlManager     *middleware.RateLimitManager
+	getStorageDir func() string
 }
 
 // NewAdminController membuat instance baru AdminController
@@ -181,6 +280,13 @@ func (c *AdminController) GetAdminStatus(w http.ResponseWriter, r *http.Request)
 		       COALESCE(SUM(CASE WHEN status = 'SUSPENDED' THEN 1 ELSE 0 END), 0)
 		FROM users;
 	`).Scan(&resp.UsersSummary.Total, &resp.UsersSummary.Active, &resp.UsersSummary.Suspended)
+
+	_ = c.db.QueryRow(`
+		SELECT COALESCE(SUM(CASE WHEN role = 'KM' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN role = 'PJ' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN role = 'SYSTEM_ADMIN' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0)
+		FROM role_assignments;
+	`).Scan(&resp.UsersSummary.KMCount, &resp.UsersSummary.PJCount, &resp.UsersSummary.AdminCount)
 
 	// Hitung Tugas
 	_ = c.db.QueryRow(`
@@ -343,6 +449,11 @@ func (c *AdminController) RecoverUser(w http.ResponseWriter, r *http.Request) {
 	var req RecoverUserRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
+	if req.NewPassword != nil && strings.TrimSpace(*req.NewPassword) != "" && len(strings.TrimSpace(*req.NewPassword)) < 12 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi baru minimal 12 karakter")
+		return
+	}
+
 	var curStatus string
 	err = c.db.QueryRow(`SELECT status FROM users WHERE id = ?;`, targetUserID).Scan(&curStatus)
 	if err == sql.ErrNoRows {
@@ -440,14 +551,18 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang menelaah log audit")
+	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" && u.ActiveRole != "PJ" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya PJ, KM, atau System Admin yang berwenang menelaah log audit")
 		return
 	}
 
 	classSlugFilter := strings.TrimSpace(r.URL.Query().Get("class_slug"))
 	actionFilter := strings.TrimSpace(r.URL.Query().Get("action"))
 	entityTypeFilter := strings.TrimSpace(r.URL.Query().Get("entity_type"))
+	entityIDFilter := strings.TrimSpace(r.URL.Query().Get("entity_id"))
+	actorFilter := strings.TrimSpace(r.URL.Query().Get("actor"))
+	sinceFilter := strings.TrimSpace(r.URL.Query().Get("since"))
+	untilFilter := strings.TrimSpace(r.URL.Query().Get("until"))
 
 	limit := 50
 	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
@@ -471,14 +586,60 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	`
 	var args []any
 
-	// Pembatasan cakupan: KM hanya dapat membaca audit kelas miliknya
+	// Pembatasan cakupan: KM hanya membaca audit kelas miliknya; PJ hanya
+	// audit kelasnya untuk tindakannya sendiri atau entitas mata kuliah
+	// penugasannya (TASK, TEACHING_EVENT, SCHEDULE_PATTERN, ROOM_CONFIRMATION).
 	if u.ActiveRole == "KM" {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak valid")
 			return
 		}
+		if classSlugFilter != "" {
+			var ownSlug string
+			_ = c.db.QueryRow(`SELECT slug FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&ownSlug)
+			if classSlugFilter != ownSlug {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Riwayat Perubahan tidak ditemukan")
+				return
+			}
+		}
 		query += " AND al.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
+	} else if u.ActiveRole == "PJ" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas PJ tidak valid")
+			return
+		}
+		if classSlugFilter != "" {
+			var ownSlug string
+			_ = c.db.QueryRow(`SELECT slug FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&ownSlug)
+			if classSlugFilter != ownSlug {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Riwayat Perubahan tidak ditemukan")
+				return
+			}
+		}
+		// Himpunan offering penugasan PJ aktif (termasuk jendela masa berlaku)
+		// dipakai ulang oleh seluruh filter entitas di bawah.
+		query = `WITH my_offerings AS (
+			SELECT course_offering_id FROM role_assignments
+			WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE' AND class_id = ?
+			  AND (valid_from IS NULL OR julianday(valid_from) <= julianday('now'))
+			  AND (valid_until IS NULL OR julianday(valid_until) > julianday('now'))
+		)` + query
+		args = append([]any{u.UserID, u.ActiveClassID.Int64}, args...)
+		query += ` AND al.class_id = ? AND (
+			al.actor_user_id = ?
+			OR (al.entity_type = 'TASK' AND EXISTS (
+				SELECT 1 FROM tasks t WHERE t.id = al.entity_id AND t.course_offering_id IN (SELECT * FROM my_offerings)))
+			OR (al.entity_type = 'TEACHING_EVENT' AND EXISTS (
+				SELECT 1 FROM teaching_event_offerings teo WHERE teo.teaching_event_id = al.entity_id AND teo.course_offering_id IN (SELECT * FROM my_offerings)))
+			OR (al.entity_type = 'SCHEDULE_PATTERN' AND EXISTS (
+				SELECT 1 FROM schedule_patterns sp WHERE sp.id = al.entity_id AND sp.course_offering_id IN (SELECT * FROM my_offerings)))
+			OR (al.entity_type = 'ROOM_CONFIRMATION' AND EXISTS (
+				SELECT 1 FROM room_confirmations rc
+				JOIN teaching_event_offerings teo ON teo.teaching_event_id = rc.teaching_event_id
+				WHERE rc.id = al.entity_id AND teo.course_offering_id IN (SELECT * FROM my_offerings)))
+		)`
+		args = append(args, u.ActiveClassID.Int64, u.UserID)
 	} else if classSlugFilter != "" {
 		query += " AND cl.slug = ?"
 		args = append(args, classSlugFilter)
@@ -492,6 +653,58 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if entityTypeFilter != "" {
 		query += " AND al.entity_type = ?"
 		args = append(args, entityTypeFilter)
+	}
+
+	if entityIDFilter != "" {
+		entityID, err := strconv.ParseInt(entityIDFilter, 10, 64)
+		if err != nil || entityID <= 0 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "entity_id tidak valid")
+			return
+		}
+		query += " AND al.entity_id = ?"
+		args = append(args, entityID)
+	}
+
+	if actorFilter != "" {
+		// Identitas dicek dulu karena identity_key teleponik ("+62...")
+		// lolos ParseInt dan akan salah dibaca sebagai ID numerik.
+		var actorID int64
+		if err := c.db.QueryRow(`SELECT id FROM users WHERE identity_key = ?;`, actorFilter).Scan(&actorID); err == nil {
+			query += " AND al.actor_user_id = ?"
+			args = append(args, actorID)
+		} else if n, err := strconv.ParseInt(actorFilter, 10, 64); err == nil && n > 0 {
+			query += " AND al.actor_user_id = ?"
+			args = append(args, n)
+		} else {
+			query += " AND 1 = 0"
+		}
+	}
+
+	// Rentang waktu presisi detik (UTC): bandingkan 19 char pertama setelah
+	// normalisasi pemisah, agar baris DATETIME lama (spasi) dan RFC3339 (T)
+	// dapat dibandingkan dengan benar.
+	if sinceFilter != "" {
+		since, err := common.ParseTime(sinceFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format since tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		query += " AND replace(substr(al.created_at, 1, 19), ' ', 'T') >= ?"
+		args = append(args, since.UTC().Format("2006-01-02T15:04:05"))
+	}
+
+	if untilFilter != "" {
+		until, err := common.ParseTime(untilFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format until tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		// Tanggal saja berarti akhir hari agar rentang harian tidak menyesatkan.
+		if s := strings.TrimSpace(untilFilter); len(s) == 10 && s[4] == '-' && s[7] == '-' {
+			until = time.Date(until.Year(), until.Month(), until.Day(), 23, 59, 59, 0, time.UTC)
+		}
+		query += " AND replace(substr(al.created_at, 1, 19), ' ', 'T') <= ?"
+		args = append(args, until.UTC().Format("2006-01-02T15:04:05"))
 	}
 
 	query += " ORDER BY al.created_at DESC LIMIT ? OFFSET ?;"
@@ -562,8 +775,8 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang memicu pencadangan database")
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang membuat cadangan")
 		return
 	}
 
@@ -572,9 +785,19 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
 		return
 	}
+	// Urutan ini disengaja: KM di luar cakupan selalu menerima 404 yang sama
+	// dengan kelas tak ada, agar keberadaan kelas lain tak terungkap (FR-ACCESS-004).
 	var classID int64
+	classFound := false
 	if req.ClassSlug != nil && strings.TrimSpace(*req.ClassSlug) != "" {
-		if err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, strings.TrimSpace(*req.ClassSlug)).Scan(&classID); err != nil {
+		if err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, strings.TrimSpace(*req.ClassSlug)).Scan(&classID); err == nil {
+			classFound = true
+		}
+		if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || !classFound || u.ActiveClassID.Int64 != classID) {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+			return
+		}
+		if !classFound {
 			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 			return
 		}
@@ -584,9 +807,24 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "class_slug wajib untuk System Admin")
 		return
 	}
-	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya berwenang membuat backup kelas penugasannya")
+	if u.ActiveRole == "KM" && u.ActiveClassID.Int64 != classID {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
+	}
+
+	// BE-010: cakupan semester opsional, wajib milik kelas yang dicadangkan.
+	var semesterID sql.NullInt64
+	if req.SemesterID != nil {
+		if *req.SemesterID <= 0 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "semester_id tidak valid")
+			return
+		}
+		var found int64
+		if err := c.db.QueryRow(`SELECT id FROM semesters WHERE id = ? AND class_id = ?;`, *req.SemesterID, classID).Scan(&found); err != nil {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan pada kelas ini")
+			return
+		}
+		semesterID = sql.NullInt64{Int64: found, Valid: true}
 	}
 
 	// BE-012: batasi frekuensi operasi mahal dan berisiko.
@@ -599,95 +837,37 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trustedProxies, ratelimit.PolicyBackupRestore, backupSubject) {
 		return
 	}
-
-	backupDir := filepath.Join(c.getStorageDir(), "backups")
-	_ = os.MkdirAll(backupDir, 0755)
-
-	timestamp := time.Now().Format("20060102_150405")
-	backupFileName := fmt.Sprintf("backup_v1_%s.db", timestamp)
-	backupFilePath := filepath.Join(backupDir, backupFileName)
-
-	// Lakukan VACUUM INTO untuk membuat snapshot SQLite secara aman tanpa mengunci penulisan
-	_, err := c.db.Exec(fmt.Sprintf("VACUUM INTO '%s';", filepath.ToSlash(backupFilePath)))
+	var scopedSemester *int64
+	if semesterID.Valid {
+		scopedSemester = &semesterID.Int64
+	}
+	reason := "Backup on-demand"
+	if req.Reason != nil && strings.TrimSpace(*req.Reason) != "" {
+		reason = strings.TrimSpace(*req.Reason)
+	}
+	svc := backup.NewService(c.db, filepath.Join(c.getStorageDir(), "backups"))
+	record, err := svc.Create(r.Context(), classID, scopedSemester, u.UserID, reason)
 	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", fmt.Sprintf("Gagal membuat snapshot database: %v", err))
-		return
-	}
-
-	// Hitung checksum berkas hasil backup
-	f, err := os.Open(backupFilePath)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal membaca berkas hasil cadangan")
-		return
-	}
-	defer f.Close()
-
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, f); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal menghitung checksum cadangan")
-		return
-	}
-	checksum := hex.EncodeToString(hasher.Sum(nil))
-
-	tx, err := c.db.Begin()
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi backup")
-		return
-	}
-	defer tx.Rollback()
-	res, err := tx.Exec(`
-		INSERT INTO backup_records (
-			class_id, artifact_ref, checksum, status, created_by_user_id, reason, created_at
-		) VALUES (?, ?, ?, 'READY', ?, ?, CURRENT_TIMESTAMP);
-	`, classID, backupFilePath, checksum, u.UserID, req.Reason)
-
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan rekam cadangan: %v", err))
-		return
-	}
-
-	backupID, _ := res.LastInsertId()
-
-	// Catat audit_logs
-	{
-		uid := u.UserID
-		var raid *int64
-		if u.ActiveAssignmentID != 0 {
-			v := u.ActiveAssignmentID
-			raid = &v
-		}
-		afterJSON := fmt.Sprintf(`{"artifact_ref":%q,"checksum":%q}`, backupFilePath, checksum)
-		correlationID := fmt.Sprintf("create-backup-%d-%d", backupID, time.Now().UnixNano())
-		if err := audit.Write(r.Context(), tx, audit.Entry{
-			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
-			ClassID:       &classID,
-			Action:        "CREATE_BACKUP",
-			EntityType:    "BACKUP_RECORD",
-			EntityID:      &backupID,
-			AfterJSON:     &afterJSON,
-			CorrelationID: correlationID,
-		}); err != nil {
-			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit backup")
-			return
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit backup")
+		common.WriteV1Error(w, http.StatusInternalServerError, "BACKUP_FAILED", "Gagal membuat cadangan akademik")
 		return
 	}
 	if c.rlManager != nil {
 		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyBackupRestore, backupSubject, backupSource, "SUCCESS")
 	}
-
 	common.WriteV1Success(w, http.StatusCreated, BackupResponseItem{
-		ID:          backupID,
-		ClassID:     &classID,
-		ArtifactRef: backupFilePath,
-		Checksum:    checksum,
-		Status:      "READY",
-		Reason:      req.Reason,
-		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+		ID: record.ID, ClassID: &classID, SemesterID: scopedSemester,
+		Checksum: record.Checksum, Status: record.Status, Reason: &reason, CreatedAt: record.CreatedAt,
 	})
+	return
+
+}
+
+// nullableInt memformat sql.NullInt64 untuk audit JSON (null bila invalid).
+func nullableInt(n sql.NullInt64) string {
+	if n.Valid {
+		return strconv.FormatInt(n.Int64, 10)
+	}
+	return "null"
 }
 
 // RestoreBackup menangani POST /api/v1/restores
@@ -730,13 +910,14 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 		expectedChk string
 		curStatus   string
 		classID     int64
+		semesterID  sql.NullInt64
 	)
 
 	err := c.db.QueryRow(`
-		SELECT artifact_ref, checksum, status, class_id
+		SELECT artifact_ref, checksum, status, class_id, semester_id
 		FROM backup_records
 		WHERE id = ?;
-	`, req.BackupID).Scan(&artifactRef, &expectedChk, &curStatus, &classID)
+	`, req.BackupID).Scan(&artifactRef, &expectedChk, &curStatus, &classID, &semesterID)
 
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Catatan cadangan tidak ditemukan")
@@ -791,9 +972,21 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// BE-011: verifikasi format SQLite, kompatibilitas schema, dan scope metadata.
-	if err := verifyBackupArtifact(absTarget, classID); err != nil {
-		if err == errBackupScope || err == errBackupSchema {
+	// BE-011: verifikasi format SQLite, kompatibilitas schema, scope metadata,
+	// cakupan semester bila dicatat, dan integritas relasi — tanpa memodifikasi
+	// database aktif (ADR-0008 verify-only).
+	var formatErr error
+	if strings.EqualFold(filepath.Ext(absTarget), ".json") {
+		_, formatErr = backup.NewService(c.db, backupDir).Preview(r.Context(), req.BackupID)
+	} else {
+		formatErr = verifyBackupArtifact(absTarget, classID, semesterID)
+	}
+	if err := formatErr; err != nil {
+		if errors.Is(err, backup.ErrMismatch) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "cakupan kelas atau semester backup tidak cocok")
+			return
+		}
+		if err == errBackupScope || err == errBackupSchema || err == errBackupSemester || err == errBackupRelations {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, err.Error())
 			return
 		}
@@ -825,10 +1018,10 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 			v := u.ActiveAssignmentID
 			raid = &v
 		}
-		afterJSON := fmt.Sprintf(`{"status":"VERIFIED","restore_performed":false,"checksum":%q}`, actualChk)
+		afterJSON := fmt.Sprintf(`{"status":"VERIFIED","restore_performed":false,"checksum":%q,"semester_id":%v}`, actualChk, nullableInt(semesterID))
 		correlationID := fmt.Sprintf("verify-backup-%d-%d", req.BackupID, time.Now().UnixNano())
 		reason := strings.TrimSpace(*req.Reason)
-		if err := audit.Write(r.Context(), tx, audit.Entry{
+		verifyEntry := audit.Entry{
 			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
 			ClassID:       &classID,
 			Action:        "VERIFY_RESTORE_BACKUP",
@@ -837,7 +1030,11 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 			AfterJSON:     &afterJSON,
 			Reason:        reason,
 			CorrelationID: correlationID,
-		}); err != nil {
+		}
+		if semesterID.Valid {
+			verifyEntry.SemesterID = &semesterID.Int64
+		}
+		if err := audit.Write(r.Context(), tx, verifyEntry); err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit verifikasi backup")
 			return
 		}
@@ -852,27 +1049,36 @@ func (c *AdminController) RestoreBackup(w http.ResponseWriter, r *http.Request) 
 
 	// BE-011 (ADR-0008): verify-only — tidak mengganti database aktif.
 	// artifact_ref dan path internal tidak dikembalikan ke client.
-	common.WriteV1Success(w, http.StatusOK, map[string]any{
+	// Respons menggema cakupan yang diverifikasi (tinjau cakupan).
+	verifyResp := map[string]any{
 		"backup_id":         req.BackupID,
+		"class_id":          classID,
 		"status":            "VERIFIED",
 		"checksum":          actualChk,
 		"restore_performed": false,
 		"message":           "Berkas cadangan terverifikasi (checksum, format, schema, scope). Database aktif tidak diubah.",
-	})
+	}
+	if semesterID.Valid {
+		verifyResp["semester_id"] = semesterID.Int64
+	}
+	common.WriteV1Success(w, http.StatusOK, verifyResp)
 }
 
 var (
-	errBackupScope  = backupVerifyError{msg: "cakupan backup tidak cocok dengan kelas yang diminta"}
-	errBackupSchema = backupVerifyError{msg: "versi schema backup tidak kompatibel"}
+	errBackupScope     = backupVerifyError{msg: "cakupan backup tidak cocok dengan kelas yang diminta"}
+	errBackupSchema    = backupVerifyError{msg: "versi schema backup tidak kompatibel"}
+	errBackupSemester  = backupVerifyError{msg: "cakupan semester backup tidak cocok"}
+	errBackupRelations = backupVerifyError{msg: "integritas relasi backup rusak"}
 )
 
 type backupVerifyError struct{ msg string }
 
 func (e backupVerifyError) Error() string { return e.msg }
 
-// verifyBackupArtifact memeriksa format SQLite, kompatibilitas schema, dan
-// metadata scope tanpa memodifikasi database aktif. Dibuka read-only.
-func verifyBackupArtifact(absPath string, classID int64) error {
+// verifyBackupArtifact memeriksa format SQLite, kompatibilitas schema, metadata
+// scope (kelas + semester bila dicatat), dan integritas relasi tanpa memodifikasi
+// database aktif. Dibuka read-only.
+func verifyBackupArtifact(absPath string, classID int64, semesterID sql.NullInt64) error {
 	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?mode=ro", absPath))
 	if err != nil {
 		return err
@@ -896,6 +1102,16 @@ func verifyBackupArtifact(absPath string, classID int64) error {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM classes WHERE id = ?`, classID).Scan(&n); err != nil || n == 0 {
 		return errBackupScope
 	}
+	if semesterID.Valid {
+		var m int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM semesters WHERE id = ? AND class_id = ?`, semesterID.Int64, classID).Scan(&m); err != nil || m == 0 {
+			return errBackupSemester
+		}
+	}
+	var fkViolations int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_foreign_key_check`).Scan(&fkViolations); err != nil || fkViolations != 0 {
+		return errBackupRelations
+	}
 	return nil
 }
 
@@ -908,6 +1124,10 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
+	classIDFilter := strings.TrimSpace(r.URL.Query().Get("class_id"))
+	eventTypeFilter := strings.TrimSpace(r.URL.Query().Get("event_type"))
+	sinceFilter := strings.TrimSpace(r.URL.Query().Get("since"))
+	untilFilter := strings.TrimSpace(r.URL.Query().Get("until"))
 	limitStr := r.URL.Query().Get("limit")
 	limit := 50
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
@@ -921,22 +1141,82 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	}
 
 	query := `
-		SELECT nm.id, nm.class_id, nm.event_type, nm.entity_type, nm.entity_id,
-		       nm.status, nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
-		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts
+		SELECT nm.id, nm.class_id, cl.slug, nm.event_type, nm.entity_type, nm.entity_id,
+		       nm.status, nm.idempotency_key, wc.jid, wc.display_name,
+		       nm.payload_json, nm.scheduled_at, nm.sent_at, nm.created_at,
+		       (SELECT COUNT(*) FROM notification_attempts na WHERE na.notification_message_id = nm.id) AS attempts,
+		       (SELECT COALESCE(na2.finished_at, na2.started_at) FROM notification_attempts na2
+		         WHERE na2.notification_message_id = nm.id
+		         ORDER BY na2.attempt_number DESC LIMIT 1) AS last_attempt_at,
+		       (SELECT na3.error_message FROM notification_attempts na3
+		         WHERE na3.notification_message_id = nm.id
+		         ORDER BY na3.attempt_number DESC LIMIT 1) AS last_attempt_error
 		FROM notification_messages nm
+		LEFT JOIN whatsapp_channels wc ON wc.id = nm.whatsapp_channel_id
+		LEFT JOIN classes cl ON cl.id = nm.class_id
 		WHERE (1=1)
 	`
 	var args []any
 
-	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveClassID.Valid {
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak valid")
+			return
+		}
+		if classIDFilter != "" {
+			want, err := strconv.ParseInt(classIDFilter, 10, 64)
+			if err != nil || want <= 0 {
+				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "class_id tidak valid")
+				return
+			}
+			if want != u.ActiveClassID.Int64 {
+				common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Notifikasi tidak ditemukan")
+				return
+			}
+		}
 		query += " AND nm.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
+	} else if classIDFilter != "" {
+		classID, err := strconv.ParseInt(classIDFilter, 10, 64)
+		if err != nil || classID <= 0 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "class_id tidak valid")
+			return
+		}
+		query += " AND nm.class_id = ?"
+		args = append(args, classID)
 	}
 
 	if statusFilter != "" {
 		query += " AND nm.status = ?"
 		args = append(args, statusFilter)
+	}
+
+	if eventTypeFilter != "" {
+		query += " AND UPPER(nm.event_type) = ?"
+		args = append(args, strings.ToUpper(eventTypeFilter))
+	}
+
+	if sinceFilter != "" {
+		since, err := common.ParseTime(sinceFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format since tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		query += " AND replace(substr(nm.created_at, 1, 19), ' ', 'T') >= ?"
+		args = append(args, since.UTC().Format("2006-01-02T15:04:05"))
+	}
+
+	if untilFilter != "" {
+		until, err := common.ParseTime(untilFilter)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Format until tidak valid (RFC3339 atau YYYY-MM-DD)")
+			return
+		}
+		if s := strings.TrimSpace(untilFilter); len(s) == 10 && s[4] == '-' && s[7] == '-' {
+			until = time.Date(until.Year(), until.Month(), until.Day(), 23, 59, 59, 0, time.UTC)
+		}
+		query += " AND replace(substr(nm.created_at, 1, 19), ' ', 'T') <= ?"
+		args = append(args, until.UTC().Format("2006-01-02T15:04:05"))
 	}
 
 	query += " ORDER BY nm.created_at DESC LIMIT ? OFFSET ?;"
@@ -952,20 +1232,28 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 	notifications := []NotificationResponseItem{}
 	for rows.Next() {
 		var (
-			id          int64
-			classID     int64
-			eventType   string
-			entityType  sql.NullString
-			entityID    sql.NullInt64
-			status      string
-			payloadJSON string
-			scheduledAt common.DBTimestamp
-			sentAt      common.DBTimestamp
-			createdAt   common.DBTimestamp
-			attempts    int
+			id             int64
+			classID        int64
+			classSlug      sql.NullString
+			eventType      string
+			entityType     sql.NullString
+			entityID       sql.NullInt64
+			status         string
+			idempotencyKey string
+			channelJID     sql.NullString
+			channelName    sql.NullString
+			payloadJSON    string
+			scheduledAt    common.DBTimestamp
+			sentAt         common.DBTimestamp
+			createdAt      common.DBTimestamp
+			attempts       int
+			lastAttemptAt  sql.NullString
+			lastAttemptErr sql.NullString
 		)
 
-		if err := rows.Scan(&id, &classID, &eventType, &entityType, &entityID, &status, &payloadJSON, &scheduledAt, &sentAt, &createdAt, &attempts); err == nil {
+		if err := rows.Scan(&id, &classID, &classSlug, &eventType, &entityType, &entityID, &status,
+			&idempotencyKey, &channelJID, &channelName, &payloadJSON,
+			&scheduledAt, &sentAt, &createdAt, &attempts, &lastAttemptAt, &lastAttemptErr); err == nil {
 			var schedStr *string
 			if scheduledAt.Valid {
 				formatted := scheduledAt.Time.Format(time.RFC3339)
@@ -984,24 +1272,246 @@ func (c *AdminController) GetNotifications(w http.ResponseWriter, r *http.Reques
 			if entityID.Valid {
 				eID = &entityID.Int64
 			}
+			var chJID, chName *string
+			if channelJID.Valid && channelJID.String != "" {
+				chJID = &channelJID.String
+			}
+			var clSlug *string
+			if classSlug.Valid && classSlug.String != "" {
+				clSlug = &classSlug.String
+			}
+			if channelName.Valid && channelName.String != "" {
+				chName = &channelName.String
+			}
+			var lastAt, lastErr *string
+			if lastAttemptAt.Valid && lastAttemptAt.String != "" {
+				if t, err := common.ParseTime(lastAttemptAt.String); err == nil {
+					formatted := t.Format(time.RFC3339)
+					lastAt = &formatted
+				} else {
+					lastAt = &lastAttemptAt.String
+				}
+			}
+			if lastAttemptErr.Valid && lastAttemptErr.String != "" {
+				lastErr = &lastAttemptErr.String
+			}
 
 			notifications = append(notifications, NotificationResponseItem{
-				ID:           id,
-				ClassID:      classID,
-				EventType:    eventType,
-				EntityType:   eType,
-				EntityID:     eID,
-				Status:       status,
-				PayloadJSON:  payloadJSON,
-				ScheduledAt:  schedStr,
-				SentAt:       sentStr,
-				CreatedAt:    createdAt.Time.Format(time.RFC3339),
-				AttemptCount: attempts,
+				ID:               id,
+				ClassID:          classID,
+				ClassSlug:        clSlug,
+				EventType:        eventType,
+				EntityType:       eType,
+				EntityID:         eID,
+				Status:           status,
+				IdempotencyKey:   idempotencyKey,
+				ChannelJID:       chJID,
+				ChannelName:      chName,
+				PayloadJSON:      payloadJSON,
+				ScheduledAt:      schedStr,
+				SentAt:           sentStr,
+				CreatedAt:        createdAt.Time.Format(time.RFC3339),
+				AttemptCount:     attempts,
+				LastAttemptAt:    lastAt,
+				LastAttemptError: lastErr,
 			})
 		}
 	}
 
 	common.WriteV1Success(w, http.StatusOK, notifications)
+}
+
+// botTextSender adalah kemampuan kirim teks klien WhatsApp.
+// Dipisah dari BotStatusProvider agar controller tetap dapat dibangun tanpa
+// klien hidup (asersi tipe gagal → 503). *bot.BotClient memenuhinya.
+type botTextSender interface {
+	SendText(ctx context.Context, jid string, text string) (string, error)
+}
+
+// TestBotMessageRequest adalah payload uji kirim pesan (BE-013).
+type TestBotMessageRequest struct {
+	To   string `json:"to"`
+	Text string `json:"text"`
+}
+
+// TestBotMessage menangani POST /api/v1/admin/bot/test-message (khusus System Admin).
+// Mengirim teks diagnostik HANYA ke kanal WhatsApp terdaftar (anti-spam) saat bot
+// terhubung. Penyambungan ulang/QR tidak diekspos web: Connect() memblokir
+// menunggu QR dan watchdog sudah auto-reconnect; QR tetap di terminal server.
+func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang menguji kirim pesan")
+		return
+	}
+
+	var req TestBotMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	to := strings.TrimSpace(req.To)
+	text := strings.TrimSpace(req.Text)
+	if to == "" || !strings.Contains(to, "@") || len(to) > 128 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tujuan (JID kanal) tidak valid")
+		return
+	}
+	if text == "" || len([]rune(text)) > 500 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Teks wajib 1–500 karakter")
+		return
+	}
+
+	var channelID int64
+	var channelName sql.NullString
+	if err := c.db.QueryRow(`SELECT id, display_name FROM whatsapp_channels WHERE jid = ?;`, to).Scan(&channelID, &channelName); err != nil {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kanal WhatsApp tidak terdaftar")
+		return
+	}
+
+	// Klien mati → 503 sebelum kuota rate-limit tersentuh.
+	sender, ok := c.botClient.(botTextSender)
+	if !ok {
+		common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Bot WhatsApp tidak aktif")
+		return
+	}
+
+	subject := fmt.Sprintf("admin:%d", u.UserID)
+	var trustedProxies []string
+	if c.secManager != nil {
+		trustedProxies = c.secManager.TrustedProxyCIDRs()
+	}
+	source := middleware.ClientSource(r, trustedProxies)
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trustedProxies, ratelimit.PolicyAdminMutation, subject) {
+		return
+	}
+
+	messageID, err := sender.SendText(r.Context(), to, text)
+	if err != nil {
+		if errors.Is(err, bot.ErrNotConnected) {
+			common.WriteV1Error(w, http.StatusServiceUnavailable, common.CodeServiceDown, "Bot WhatsApp tidak terhubung")
+			return
+		}
+		common.WriteV1Error(w, http.StatusBadGateway, common.CodeDeliveryFailed, "Gagal mengirim pesan uji")
+		return
+	}
+	if c.rlManager != nil {
+		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyAdminMutation, subject, source, "SUCCESS")
+	}
+
+	uid := u.UserID
+	var raid *int64
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	afterJSON := fmt.Sprintf(`{"channel_jid":%q,"message_id":%q,"chars":%d}`, to, messageID, len([]rune(text)))
+	if err := audit.Write(r.Context(), c.db, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		Action:        "BOT_TEST_MESSAGE",
+		EntityType:    "WHATSAPP_CHANNEL",
+		EntityID:      &channelID,
+		AfterJSON:     &afterJSON,
+		CorrelationID: fmt.Sprintf("bot-test-%d", time.Now().UnixNano()),
+	}); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR",
+			fmt.Sprintf("Pesan terkirim (ID %s) tetapi audit gagal dicatat. Simpan ID ini untuk rekonsiliasi manual.", messageID))
+		return
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"message_id": messageID,
+		"to":         to,
+		"status":     "SENT",
+	})
+}
+
+// AttemptItem merepresentasikan satu percobaan pengiriman pesan.
+type AttemptItem struct {
+	AttemptNumber   int     `json:"attempt_number"`
+	StartedAt       string  `json:"started_at"`
+	FinishedAt      *string `json:"finished_at,omitempty"`
+	Result          *string `json:"result,omitempty"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
+	ProviderMessage *string `json:"provider_message_id,omitempty"`
+}
+
+// GetNotificationAttempts menangani GET /api/v1/notifications/{id}/attempts.
+// Cakupan mengikuti daftar antrean (SA global; KM kelasnya, asing 404).
+// PJ tidak diberi akses antrean (matriks ACCESS_CONTROL §8.5).
+func (c *AdminController) GetNotificationAttempts(w http.ResponseWriter, r *http.Request) {
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	notifID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || notifID <= 0 {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "ID notifikasi tidak valid")
+		return
+	}
+
+	var classID int64
+	if err := c.db.QueryRow(`SELECT class_id FROM notification_messages WHERE id = ?;`, notifID).Scan(&classID); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi notifikasi")
+		return
+	}
+	if u.ActiveRole != "SYSTEM_ADMIN" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
+			return
+		}
+	}
+
+	rows, err := c.db.Query(`
+		SELECT attempt_number, started_at, finished_at, result, error_message, provider_message_id
+		FROM notification_attempts
+		WHERE notification_message_id = ?
+		ORDER BY attempt_number ASC;
+	`, notifID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat percobaan")
+		return
+	}
+	defer rows.Close()
+
+	items := []AttemptItem{}
+	for rows.Next() {
+		var it AttemptItem
+		var startedAt common.DBTimestamp
+		var finishedAt, result, errMsg, providerID sql.NullString
+		if err := rows.Scan(&it.AttemptNumber, &startedAt, &finishedAt, &result, &errMsg, &providerID); err != nil {
+			continue
+		}
+		it.StartedAt = startedAt.Time.Format(time.RFC3339)
+		if finishedAt.Valid && finishedAt.String != "" {
+			if t, err := common.ParseTime(finishedAt.String); err == nil {
+				formatted := t.Format(time.RFC3339)
+				it.FinishedAt = &formatted
+			} else {
+				it.FinishedAt = &finishedAt.String
+			}
+		}
+		if result.Valid && result.String != "" {
+			it.Result = &result.String
+		}
+		if errMsg.Valid && errMsg.String != "" {
+			it.ErrorMessage = &errMsg.String
+		}
+		if providerID.Valid && providerID.String != "" {
+			it.ProviderMessage = &providerID.String
+		}
+		items = append(items, it)
+	}
+
+	common.WriteV1Success(w, http.StatusOK, items)
 }
 
 // RetryNotification menangani POST /api/v1/notifications/{id}/retry
@@ -1031,8 +1541,12 @@ func (c *AdminController) RetryNotification(w http.ResponseWriter, r *http.Reque
 	}
 
 	if u.ActiveRole != "SYSTEM_ADMIN" {
-		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != curClassID {
-			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya pengurus kelas terkait yang berwenang mencoba ulang pengiriman notifikasi")
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak valid")
+			return
+		}
+		if u.ActiveClassID.Int64 != curClassID {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pesan notifikasi tidak ditemukan")
 			return
 		}
 	}

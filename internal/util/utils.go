@@ -281,7 +281,7 @@ func DashboardRedirectNotice(entity string) string {
 	sb.WriteString("──────────\n")
 	sb.WriteString("Penambahan, perubahan, dan pembatalan " + entity + " kini dilakukan sepenuhnya melalui Web Dashboard Pengelola demi keamanan dan validitas data.\n")
 	sb.WriteString("\n👉 Kelola di sini:\n")
-	sb.WriteString("http://localhost:8080/app.html (atau domain portal Anda)")
+	sb.WriteString("http://localhost:8080/login.html (atau domain portal Anda)")
 	return sb.String()
 }
 

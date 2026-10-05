@@ -280,3 +280,27 @@ func (s *Service) ConfirmRecovery(ctx context.Context, token, newPassword string
 	}
 	return tx.Commit()
 }
+
+// InvalidateRecoveryToken consumes an unused recovery token without changing
+// the user's password. Callers use it when delivery over the verified channel
+// fails, so an undelivered token cannot block a subsequent request.
+func (s *Service) InvalidateRecoveryToken(ctx context.Context, token string) error {
+	if strings.TrimSpace(token) == "" {
+		return ErrInvalidInput
+	}
+	now := s.clock().UTC()
+	result, err := s.db.ExecContext(ctx, `UPDATE recovery_tokens
+		SET used_at=?, updated_at=?
+		WHERE token_hash=? AND used_at IS NULL`, formatTime(now), formatTime(now), tokenHash(token))
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed == 0 {
+		return ErrInvalidInput
+	}
+	return nil
+}

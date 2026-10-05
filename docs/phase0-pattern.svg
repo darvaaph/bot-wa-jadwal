@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="410" viewBox="0 0 920 410" role="img" aria-labelledby="title desc">
+  <title id="title">Pola shell dan palet Bot Jadwal pada Fase 0</title>
+  <desc id="desc">Skema desktop dengan sidebar, topbar, konten, dan skema ponsel dengan topbar, konten, navigasi bawah.</desc>
+  <rect width="920" height="410" fill="#F8FAFC"/>
+  <text x="32" y="38" fill="#1F1F1F" font-family="Arial,sans-serif" font-size="20" font-weight="700">Pola shell saat ini</text>
+  <text x="32" y="61" fill="#667085" font-family="Arial,sans-serif" font-size="12">Skema inventaris Fase 0, bukan tangkapan layar atau hasil uji responsif</text>
+  <rect x="32" y="84" width="560" height="258" rx="12" fill="white" stroke="#EEEEEE"/>
+  <rect x="32" y="84" width="124" height="258" rx="12" fill="#1F1F1F"/>
+  <text x="50" y="117" fill="white" font-family="Arial,sans-serif" font-size="13" font-weight="700">Sidebar</text>
+  <text x="50" y="136" fill="#E1FFB7" font-family="Arial,sans-serif" font-size="11">248 / 76 px</text>
+  <rect x="156" y="84" width="436" height="42" fill="white" stroke="#EEEEEE"/>
+  <text x="174" y="110" fill="#1F1F1F" font-family="Arial,sans-serif" font-size="13">Topbar</text>
+  <rect x="174" y="146" width="400" height="178" rx="8" fill="#F8FAFC"/>
+  <text x="190" y="170" fill="#667085" font-family="Arial,sans-serif" font-size="13">Konten per peran</text>
+  <rect x="190" y="185" width="166" height="56" rx="8" fill="#E9EAFF"/>
+  <rect x="366" y="185" width="190" height="56" rx="8" fill="#E1FFB7"/>
+  <rect x="190" y="252" width="366" height="54" rx="8" fill="white" stroke="#EEEEEE"/>
+  <rect x="646" y="84" width="242" height="258" rx="16" fill="white" stroke="#EEEEEE"/>
+  <rect x="646" y="84" width="242" height="42" rx="16" fill="white" stroke="#EEEEEE"/>
+  <text x="664" y="110" fill="#1F1F1F" font-family="Arial,sans-serif" font-size="13">Topbar</text>
+  <text x="664" y="157" fill="#667085" font-family="Arial,sans-serif" font-size="13">Konten per peran</text>
+  <rect x="664" y="171" width="206" height="94" rx="8" fill="#F8FAFC"/>
+  <rect x="646" y="282" width="242" height="60" rx="12" fill="white" stroke="#EEEEEE"/>
+  <rect x="658" y="290" width="48" height="44" rx="10" fill="#E9EAFF"/>
+  <text x="672" y="318" fill="#3965FB" font-family="Arial,sans-serif" font-size="13" font-weight="700">1</text>
+  <text x="720" y="318" fill="#667085" font-family="Arial,sans-serif" font-size="13">2</text>
+  <text x="778" y="318" fill="#667085" font-family="Arial,sans-serif" font-size="13">3</text>
+  <text x="838" y="318" fill="#667085" font-family="Arial,sans-serif" font-size="13">4</text>
+  <text x="32" y="378" fill="#667085" font-family="Arial,sans-serif" font-size="12">Desktop: sidebar + topbar · Mobile: topbar + navigasi bawah empat tujuan · Drawer tersedia pada kedua pola</text>
+</svg>

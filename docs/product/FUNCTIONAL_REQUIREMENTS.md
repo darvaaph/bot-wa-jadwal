@@ -217,7 +217,7 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Prioritas | Must |
 | Sumber | UR-SCH-003, UR-SCH-006; BR-SCH-001, BR-SCH-004; UF-SCH-003 |
 | Requirement | Publikasi perubahan permanen harus menutup versi `schedule_pattern` lama dan mengaktifkan versi baru sejak tanggal berlaku tanpa menghapus riwayat. |
-| Acceptance criteria | Tanggal berlaku harus berada pada semester aktif; sesi sebelum tanggal tersebut tetap menggunakan versi lama; konflik dengan perubahan sementara harus diselesaikan sebelum publikasi. |
+| Acceptance criteria | Tanggal berlaku dapat dipilih dari hari ini sampai akhir semester aktif; tanggal lampau ditolak; sesi sebelum tanggal tersebut tetap menggunakan versi lama; konflik sepanjang sisa semester harus diselesaikan sebelum publikasi; versi stale dan publikasi ulang ditolak. |
 
 ### FR-SCH-007 Pencabutan Publikasi dan Koreksi
 
@@ -454,8 +454,8 @@ Dokumen ini menerjemahkan kebutuhan pengguna dan aturan bisnis menjadi perilaku 
 | Aktor | System Admin, KM sebagai pemohon |
 | Prioritas | Must |
 | Sumber | UR-OPS-002; BR-OPS-003; UF-OPS-003 |
-| Requirement | System Admin dapat membuat backup dan menjalankan restore untuk kelas serta semester yang dipilih setelah meninjau cakupan dan memasukkan alasan. |
-| Acceptance criteria | Paket yang tidak cocok ditolak; sistem membuat titik pemulihan sebelum restore; relasi dan kelas tujuan diverifikasi; kegagalan mengembalikan keadaan awal; hasil masuk audit log. |
+| Requirement | KM meminta backup kelas/semester; System Admin mengeksekusi backup akademik atau membuatnya langsung dan menjalankan restore setelah pratinjau serta alasan. |
+| Acceptance criteria | Paket v2 memuat data akademik saja; akun, izin, master global, audit, kanal, dan riwayat pesan tetap mutakhir. Paket v1 hanya diverifikasi. Checksum, versi, dan token pratinjau diperiksa; keterkaitan teaching event lintas kelas menahan restore; titik pemulihan dibuat sebelum perubahan; operasi tulis dan worker dijeda; data setelah backup tidak tampil aktif tanpa hilang jejak; pesan usang dibatalkan dan koreksi baru dibuat bila perlu; relasi, jumlah data, dan kelas tujuan diperiksa; kegagalan rollback; hasil masuk audit. |
 
 ### FR-OPS-003 Soft Delete dan Pemulihan Data
 

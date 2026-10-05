@@ -92,6 +92,9 @@ func (s *Service) CreateInvitation(ctx context.Context, inviter Principal, in In
 	if identity == "" {
 		return nil, "", ErrInvalidInput
 	}
+	if !IsValidPhoneIdentity(identity) {
+		return nil, "", ErrInvalidInput
+	}
 	if err := s.checkInvitePermission(inviter, in); err != nil {
 		return nil, "", err
 	}
@@ -110,6 +113,19 @@ func (s *Service) CreateInvitation(ctx context.Context, inviter Principal, in In
 		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?)`, *in.ClassID).Scan(&exists); err != nil || !exists {
 			return nil, "", ErrAccessDenied
 		}
+	}
+
+	var alreadyActive bool
+	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(
+		SELECT 1 FROM users u
+		JOIN role_assignments ra ON ra.user_id = u.id
+		WHERE u.identity_key = ? AND ra.role = ? AND ra.scope_type = ?
+		AND COALESCE(ra.class_id,0)=COALESCE(?,0)
+		AND COALESCE(ra.semester_id,0)=COALESCE(?,0)
+		AND COALESCE(ra.course_offering_id,0)=COALESCE(?,0)
+		AND ra.status = 'ACTIVE'
+	)`, identity, role, scope, in.ClassID, in.SemesterID, in.CourseOfferingID).Scan(&alreadyActive); err == nil && alreadyActive {
+		return nil, "", ErrInvalidInput
 	}
 
 	now := s.clock().UTC()
@@ -328,12 +344,21 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, pass
 	err = tx.QueryRowContext(ctx, `INSERT INTO role_assignments (
 		user_id, role, scope_type, class_id, semester_id, course_offering_id,
 		accepted_invitation_id, status, valid_from, version, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, 1, ?, ?) RETURNING id`,
+	) SELECT ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, 1, ?, ?
+	WHERE NOT EXISTS(
+		SELECT 1 FROM role_assignments
+		WHERE user_id = ? AND role = ? AND scope_type = ?
+		AND COALESCE(class_id,0)=COALESCE(?,0)
+		AND COALESCE(semester_id,0)=COALESCE(?,0)
+		AND COALESCE(course_offering_id,0)=COALESCE(?,0)
+		AND status = 'ACTIVE'
+	) RETURNING id`,
 		userID, role, scope, nullableInt(classID), nullableInt(semesterID), nullableInt(offeringID),
 		invID, formatTime(now), formatTime(now), formatTime(now),
+		userID, role, scope, nullableInt(classID), nullableInt(semesterID), nullableInt(offeringID),
 	).Scan(&assignmentID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, ErrInvalidInput
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE role_invitations SET status='ACCEPTED', accepted_at=?, updated_at=? WHERE id=?`,
 		formatTime(now), formatTime(now), invID); err != nil {

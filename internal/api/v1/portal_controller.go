@@ -13,6 +13,7 @@ import (
 
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/api/middleware"
+	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
 )
@@ -250,6 +251,340 @@ func (c *PortalController) RotateCode(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetClassSettings menangani GET /api/v1/classes/{slug}/settings (BE-005).
+// KM hanya kelasnya; System Admin global. Tanpa audit (operasi baca).
+func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var out struct {
+		ClassID           int64          `json:"-"`
+		Timezone          string         `json:"timezone"`
+		PortalAccessMode  string         `json:"portal_access_mode"`
+		PortalCodeVersion int            `json:"portal_code_version"`
+		Morning           sql.NullString `json:"-"`
+		Afternoon         sql.NullString `json:"-"`
+		Replacement       sql.NullInt64  `json:"-"`
+		Version           int            `json:"-"`
+	}
+	err := c.db.QueryRow(`
+		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version,
+		       cs.morning_reminder_time, cs.afternoon_reminder_time,
+		       cs.replacement_reminder_minutes, cs.version
+		FROM classes c
+		JOIN class_settings cs ON cs.class_id = c.id
+		WHERE c.slug = ?;
+	`, slug).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion,
+		&out.Morning, &out.Afternoon, &out.Replacement, &out.Version)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat pengaturan kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != out.ClassID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	resp := map[string]any{
+		"slug":                slug,
+		"timezone":            out.Timezone,
+		"portal_access_mode":  out.PortalAccessMode,
+		"portal_code_version": out.PortalCodeVersion,
+		"version":             out.Version,
+	}
+	if out.Morning.Valid {
+		resp["morning_reminder_time"] = out.Morning.String
+	}
+	if out.Afternoon.Valid {
+		resp["afternoon_reminder_time"] = out.Afternoon.String
+	}
+	if out.Replacement.Valid {
+		resp["replacement_reminder_minutes"] = out.Replacement.Int64
+	}
+	common.WriteV1Success(w, http.StatusOK, resp)
+}
+
+// UpdateClassSettingsRequest adalah payload ubah pengaturan kelas.
+type UpdateClassSettingsRequest struct {
+	Version                    *int    `json:"version,omitempty"`
+	Timezone                   *string `json:"timezone,omitempty"`
+	MorningReminderTime        *string `json:"morning_reminder_time,omitempty"`
+	AfternoonReminderTime      *string `json:"afternoon_reminder_time,omitempty"`
+	ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes,omitempty"`
+}
+
+// UpdateClassSettings menangani PATCH /api/v1/classes/{slug}/settings.
+func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+	if u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang mengubah pengaturan kelas")
+		return
+	}
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var req UpdateClassSettingsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	var classID int64
+	var curVersion int
+	var curTz string
+	var curMorning, curAfternoon sql.NullString
+	var curRepl sql.NullInt64
+	if err := c.db.QueryRow(`SELECT c.id, cs.version, cs.timezone, cs.morning_reminder_time, cs.afternoon_reminder_time, cs.replacement_reminder_minutes
+		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.slug = ?;`, slug).
+		Scan(&classID, &curVersion, &curTz, &curMorning, &curAfternoon, &curRepl); err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca pengaturan kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+	if req.Version != nil && *req.Version != curVersion {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		return
+	}
+	sets := []string{}
+	args := []any{}
+	isHHMM := func(s string) bool {
+		if len(s) != 5 || s[2] != ':' {
+			return false
+		}
+		h, herr := strconv.Atoi(s[:2])
+		m, merr := strconv.Atoi(s[3:])
+		return herr == nil && merr == nil && h >= 0 && h <= 23 && m >= 0 && m <= 59
+	}
+	newTz := curTz
+	if req.Timezone != nil {
+		tz := strings.TrimSpace(*req.Timezone)
+		if _, err := time.LoadLocation(tz); err != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "timezone tidak dikenal (format IANA, mis. Asia/Jakarta)")
+			return
+		}
+		sets = append(sets, "timezone = ?")
+		args = append(args, tz)
+		newTz = tz
+	}
+	if req.MorningReminderTime != nil {
+		t := strings.TrimSpace(*req.MorningReminderTime)
+		if !isHHMM(t) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "morning_reminder_time harus HH:MM")
+			return
+		}
+		sets = append(sets, "morning_reminder_time = ?")
+		args = append(args, t)
+	}
+	if req.AfternoonReminderTime != nil {
+		t := strings.TrimSpace(*req.AfternoonReminderTime)
+		if !isHHMM(t) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "afternoon_reminder_time harus HH:MM")
+			return
+		}
+		sets = append(sets, "afternoon_reminder_time = ?")
+		args = append(args, t)
+	}
+	if req.ReplacementReminderMinutes != nil {
+		if *req.ReplacementReminderMinutes < 0 || *req.ReplacementReminderMinutes > 1440 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "replacement_reminder_minutes harus 0-1440")
+			return
+		}
+		sets = append(sets, "replacement_reminder_minutes = ?")
+		args = append(args, *req.ReplacementReminderMinutes)
+	}
+	if len(sets) == 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
+		return
+	}
+	sets = append(sets, "version = version + 1")
+	args = append(args, classID, curVersion)
+	res, err := c.db.Exec(`UPDATE class_settings SET `+strings.Join(sets, ", ")+` WHERE class_id = ? AND version = ?;`, args...)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pengaturan kelas")
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
+		return
+	}
+	beforeJSON := fmt.Sprintf(`{"timezone":%q}`, curTz)
+	afterJSON := fmt.Sprintf(`{"timezone":%q}`, newTz)
+	uid := u.UserID
+	var raid *int64
+	if u.ActiveAssignmentID != 0 {
+		v := u.ActiveAssignmentID
+		raid = &v
+	}
+	_ = audit.Write(r.Context(), c.db, audit.Entry{
+		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+		ClassID:       &classID,
+		Action:        "UPDATE_CLASS_SETTINGS",
+		EntityType:    "CLASS_SETTINGS",
+		EntityID:      &classID,
+		BeforeJSON:    &beforeJSON,
+		AfterJSON:     &afterJSON,
+		CorrelationID: fmt.Sprintf("class-settings-%d-%d", classID, time.Now().UnixNano()),
+	})
+	common.WriteV1Success(w, http.StatusOK, map[string]any{"slug": slug, "version": curVersion + 1})
+}
+
+// SetPortalModeRequest adalah payload ganti mode Portal Kelas.
+type SetPortalModeRequest struct {
+	Mode   string  `json:"mode"`
+	Reason *string `json:"reason,omitempty"`
+}
+
+// SetPortalMode menangani PATCH /api/v1/classes/{slug}/portal-mode (BE-005).
+// LINK selalu bisa (membersihkan hash kode). CODE wajib sudah punya hash aktif —
+// bila belum, putar kode portal dulu (rotate otomatis mengaktifkan CODE).
+func (c *PortalController) SetPortalMode(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
+
+	var req SetPortalModeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Payload JSON tidak valid")
+		return
+	}
+	mode := strings.ToUpper(strings.TrimSpace(req.Mode))
+	if mode != "LINK" && mode != "CODE" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Mode harus LINK atau CODE")
+		return
+	}
+	reason := ""
+	if req.Reason != nil {
+		reason = strings.TrimSpace(*req.Reason)
+	}
+
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	var classID int64
+	var curMode string
+	var hasHash bool
+	err := c.db.QueryRow(`
+		SELECT c.id, cs.portal_access_mode, cs.portal_code_hash IS NOT NULL
+		FROM classes c
+		JOIN class_settings cs ON cs.class_id = c.id
+		WHERE c.slug = ?;
+	`, slug).Scan(&classID, &curMode, &hasHash)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	}
+
+	if curMode == mode {
+		common.WriteV1Success(w, http.StatusOK, map[string]any{
+			"slug": slug, "portal_access_mode": curMode, "changed": false,
+		})
+		return
+	}
+	if mode == "CODE" && !hasHash {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Belum ada kode aktif. Putar kode portal dulu untuk mengaktifkan mode CODE")
+		return
+	}
+
+	modeSubject := fmt.Sprintf("portal-mode:%d:class:%d", u.UserID, classID)
+	var trusted []string
+	if c.secManager != nil {
+		trusted = c.secManager.TrustedProxyCIDRs()
+	}
+	modeSource := middleware.ClientSource(r, trusted)
+	if c.rlManager != nil && !c.rlManager.CheckSensitiveLimit(w, r, trusted, ratelimit.PolicyPortalRotate, modeSubject) {
+		return
+	}
+
+	tx, err := c.db.Begin()
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi mode portal")
+		return
+	}
+	defer tx.Rollback()
+	if mode == "LINK" {
+		if _, err := tx.Exec(`UPDATE class_settings SET portal_access_mode='LINK',
+			portal_code_hash=NULL, portal_code_version=portal_code_version+1, version=version+1,
+			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah mode portal")
+			return
+		}
+	} else {
+		if _, err := tx.Exec(`UPDATE class_settings SET portal_access_mode='CODE', version=version+1,
+			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE class_id=?`, classID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah mode portal")
+			return
+		}
+	}
+	{
+		uid := u.UserID
+		var raid *int64
+		if u.ActiveAssignmentID != 0 {
+			v := u.ActiveAssignmentID
+			raid = &v
+		}
+		beforeJSON := fmt.Sprintf(`{"portal_access_mode":%q}`, curMode)
+		afterJSON := fmt.Sprintf(`{"portal_access_mode":%q}`, mode)
+		correlationID := fmt.Sprintf("portal-mode-%d-%d", classID, time.Now().UnixNano())
+		if err := audit.Write(r.Context(), tx, audit.Entry{
+			Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
+			ClassID:       &classID,
+			Action:        "UPDATE_PORTAL_MODE",
+			EntityType:    "CLASS",
+			EntityID:      &classID,
+			BeforeJSON:    &beforeJSON,
+			AfterJSON:     &afterJSON,
+			Reason:        reason,
+			CorrelationID: correlationID,
+		}); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan audit mode portal")
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal commit mode portal")
+		return
+	}
+	if c.rlManager != nil {
+		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyPortalRotate, modeSubject, modeSource, "SUCCESS")
+	}
+
+	common.WriteV1Success(w, http.StatusOK, map[string]any{
+		"slug": slug, "portal_access_mode": mode, "changed": true,
+	})
+}
+
 // Summary menangani GET /api/v1/portal/{slug}/summary
 func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 	if c.db == nil {
@@ -301,7 +636,7 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		dayOfWeek = 7
 	}
 
-	scheduleItems, _ := c.getScheduleForDate(classID, targetDate, dayOfWeek)
+	scheduleItems, _ := c.getScheduleForDate(classID, 0, targetDate, dayOfWeek)
 
 	nowTimeStr := targetDate.Format("15:04")
 	var nowEvent any
@@ -398,6 +733,11 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -420,7 +760,7 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		dayOfWeek = 7
 	}
 
-	items, err := c.getScheduleForDate(classID, targetDate, dayOfWeek)
+	items, err := c.getScheduleForDate(classID, semesterID, targetDate, dayOfWeek)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat jadwal")
 		return
@@ -462,6 +802,11 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -473,11 +818,11 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ? AND sem.id = ?
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
 	`
-	args := []any{classID}
+	args := []any{classID, semesterID}
 
 	group := r.URL.Query().Get("group")
 	if group != "" && group != "hari_ini" && group != "minggu_ini" && group != "mendatang" && group != "terlewat" {
@@ -584,6 +929,11 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	var (
 		id           int64
 		offeringID   int64
@@ -604,8 +954,9 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE t.id = ? AND sem.class_id = ? AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
-	`, taskID, classID).Scan(
+		WHERE t.id = ? AND sem.class_id = ? AND sem.id = ?
+		  AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
+	`, taskID, classID, semesterID).Scan(
 		&id, &offeringID, &offeringName, &title, &instructions, &deadlineAt,
 		&taskType, &subText, &subURL, &version, &completedAt,
 	)
@@ -622,7 +973,8 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 	matRows, err := c.db.Query(`
 		SELECT id, title, material_type, url, description
 		FROM materials
-		WHERE (task_id = ? OR course_offering_id = ?) AND status = 'ACTIVE' AND deleted_at IS NULL;
+		WHERE (task_id = ? OR (task_id IS NULL AND course_offering_id = ?))
+		  AND status = 'ACTIVE' AND visibility = 'CLASS_ACCESS' AND deleted_at IS NULL;
 	`, id, offeringID)
 	if err == nil {
 		defer matRows.Close()
@@ -682,6 +1034,11 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	query := `
 		SELECT te.id, te.event_kind, co.display_name, te.starts_at, te.ends_at,
 		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.published_at
@@ -690,9 +1047,9 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE sem.class_id = ? AND te.lifecycle_status = 'PUBLISHED'
+		WHERE sem.class_id = ? AND sem.id = ? AND te.lifecycle_status = 'PUBLISHED'
 	`
-	args := []any{classID}
+	args := []any{classID, semesterID}
 
 	since := r.URL.Query().Get("since")
 	if since != "" {
@@ -737,6 +1094,59 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 	common.WriteV1Success(w, http.StatusOK, changes)
 }
 
+// Semesters menangani GET /api/v1/portal/{slug}/semesters
+func (c *PortalController) Semesters(w http.ResponseWriter, r *http.Request) {
+	if c.db == nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
+		return
+	}
+
+	slug := r.PathValue("slug")
+	var classID int64
+	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
+	if err == sql.ErrNoRows {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+
+	if !c.portalAccessAllowed(w, r, classID) {
+		return
+	}
+
+	rows, err := c.db.Query(`
+		SELECT id, academic_year, term, starts_on, ends_on, status,
+		       COALESCE(published_at, ''), COALESCE(activated_at, ''), COALESCE(archived_at, '')
+		FROM semesters
+		WHERE class_id = ?
+		  AND status IN ('ACTIVE', 'ARCHIVED')
+		  AND published_at IS NOT NULL
+		ORDER BY starts_on DESC;
+	`, classID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+		return
+	}
+	defer rows.Close()
+
+	out := []map[string]any{}
+	for rows.Next() {
+		var id int64
+		var year, term, startsOn, endsOn, status, publishedAt, activatedAt, archivedAt string
+		if err := rows.Scan(&id, &year, &term, &startsOn, &endsOn, &status, &publishedAt, &activatedAt, &archivedAt); err == nil {
+			out = append(out, map[string]any{
+				"id": id, "academic_year": year, "term": term,
+				"starts_on": startsOn, "ends_on": endsOn, "status": status,
+				"published_at": publishedAt, "activated_at": activatedAt, "archived_at": archivedAt,
+			})
+		}
+	}
+
+	common.WriteV1Success(w, http.StatusOK, out)
+}
+
 // Materials menangani GET /api/v1/portal/{slug}/materials
 func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 	if c.db == nil {
@@ -759,27 +1169,34 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	semesterID, ok := c.resolvePortalSemester(w, r, classID)
+	if !ok {
+		return
+	}
+
 	query := `
 		SELECT m.id, m.title, m.material_type, COALESCE(m.url, ''), COALESCE(m.description, '')
 		FROM materials m
+		LEFT JOIN tasks mt ON mt.id = m.task_id
+		LEFT JOIN course_offerings co ON co.id = COALESCE(m.course_offering_id, mt.course_offering_id)
+		WHERE m.class_id = ?
+		  AND m.status = 'ACTIVE'
+		  AND m.visibility = 'CLASS_ACCESS'
+		  AND m.deleted_at IS NULL
+		  AND (m.task_id IS NULL OR mt.publication_status = 'PUBLISHED')
+		  AND (co.semester_id = ? OR (m.course_offering_id IS NULL AND m.task_id IS NULL))
 	`
-	args := []any{}
+	args := []any{classID, semesterID}
 
 	offering := r.URL.Query().Get("offering")
 	if offering != "" {
 		if offID, err := strconv.ParseInt(offering, 10, 64); err == nil {
-			query += " WHERE m.class_id = ? AND m.course_offering_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
-			args = append(args, classID, offID)
+			query += " AND co.id = ?"
+			args = append(args, offID)
 		} else {
-			query += `
-				JOIN course_offerings co ON m.course_offering_id = co.id
-				WHERE m.class_id = ? AND co.display_name = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL
-			`
-			args = append(args, classID, offering)
+			query += " AND co.display_name = ?"
+			args = append(args, offering)
 		}
-	} else {
-		query += " WHERE m.class_id = ? AND m.status = 'ACTIVE' AND m.deleted_at IS NULL"
-		args = append(args, classID)
 	}
 
 	query += " ORDER BY m.created_at DESC;"
@@ -809,24 +1226,73 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 	common.WriteV1Success(w, http.StatusOK, materials)
 }
 
-func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
+// resolvePortalSemester memilih semester aktif secara default dan hanya menerima
+// semester yang pernah dipublikasikan ketika semester_id diberikan eksplisit.
+func (c *PortalController) resolvePortalSemester(w http.ResponseWriter, r *http.Request, classID int64) (int64, bool) {
+	rawID := strings.TrimSpace(r.URL.Query().Get("semester_id"))
+	if rawID == "" {
+		var semesterID int64
+		err := c.db.QueryRow(`
+			SELECT id
+			FROM semesters
+			WHERE class_id = ? AND status = 'ACTIVE' AND published_at IS NOT NULL
+		`, classID).Scan(&semesterID)
+		if errors.Is(err, sql.ErrNoRows) {
+			common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester aktif tidak ditemukan")
+			return 0, false
+		}
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+			return 0, false
+		}
+		return semesterID, true
+	}
+
+	semesterID, err := strconv.ParseInt(rawID, 10, 64)
+	if err != nil || semesterID <= 0 {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "semester_id harus berupa bilangan bulat positif")
+		return 0, false
+	}
+
+	err = c.db.QueryRow(`
+		SELECT id
+		FROM semesters
+		WHERE id = ? AND class_id = ?
+		  AND status IN ('ACTIVE', 'ARCHIVED')
+		  AND published_at IS NOT NULL
+	`, semesterID, classID).Scan(&semesterID)
+	if errors.Is(err, sql.ErrNoRows) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Semester tidak ditemukan")
+		return 0, false
+	}
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat semester")
+		return 0, false
+	}
+
+	return semesterID, true
+}
+
+func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
 	dateStr := targetDate.Format("2006-01-02")
 
 	patternRows, err := c.db.Query(`
 		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
-		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until
+		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until,
+		       COALESCE(sp.meeting_link, '')
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ?
+		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
 		  AND sp.status = 'ACTIVE'
 		  AND sp.day_of_week = ?
 		  AND (sp.effective_from IS NULL OR sp.effective_from <= ?)
 		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
 		ORDER BY sp.start_time ASC;
-	`, classID, dayOfWeek, dateStr, dateStr)
+	`, classID, semesterID, semesterID, dayOfWeek, dateStr, dateStr)
 
 	var items []map[string]any
 	if err != nil {
@@ -836,10 +1302,10 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 
 	for patternRows.Next() {
 		var patternID, offID int64
-		var offDisplay, courseName, actType, startTime, endTime, roomCode string
+		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 		var effFrom, effUntil sql.NullString
 
-		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil); err == nil {
+		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink); err == nil {
 			lecturers := c.getOfferingLecturers(offID)
 			items = append(items, map[string]any{
 				"id":            fmt.Sprintf("pat_%d", patternID),
@@ -850,6 +1316,7 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 				"starts_at":     startTime,
 				"ends_at":       endTime,
 				"room":          roomCode,
+				"meeting_link":  meetingLink,
 				"lecturers":     lecturers,
 				"source": map[string]any{
 					"pattern_id": patternID,
@@ -862,26 +1329,27 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
 		       strftime('%H:%M', te.starts_at) as start_time,
 		       strftime('%H:%M', te.ends_at) as end_time,
-		       COALESCE(r.code, ''), te.origin_schedule_pattern_id
+		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
+		WHERE sem.class_id = ?
+		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
 		  AND te.lifecycle_status = 'PUBLISHED'
 		  AND date(te.starts_at) = ?;
-	`, classID, dateStr)
+	`, classID, semesterID, semesterID, dateStr)
 
 	if err == nil {
 		defer eventRows.Close()
 		for eventRows.Next() {
 			var eventID, offID int64
-			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode string
+			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 			var originPatID sql.NullInt64
 
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID); err == nil {
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink); err == nil {
 				kindMap := map[string]string{
 					"REPLACEMENT":       "PENGGANTI",
 					"EXTRA":             "TAMBAHAN",
@@ -904,6 +1372,7 @@ func (c *PortalController) getScheduleForDate(classID int64, targetDate time.Tim
 					"starts_at":     startTime,
 					"ends_at":       endTime,
 					"room":          roomCode,
+					"meeting_link":  meetingLink,
 					"lecturers":     lecturers,
 					"source": map[string]any{
 						"event_id":   eventID,
@@ -931,7 +1400,7 @@ func GetOfferingLecturers(db *sql.DB, offeringID int64) []string {
 		SELECT l.full_name
 		FROM offering_lecturers ol
 		JOIN lecturers l ON ol.lecturer_id = l.id
-		WHERE ol.course_offering_id = ?;
+		WHERE ol.course_offering_id = ? AND ol.superseded_at IS NULL;
 	`, offeringID)
 	if err == nil {
 		defer rows.Close()

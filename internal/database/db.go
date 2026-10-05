@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 8
+const LatestSchemaVersion = 15
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL
@@ -134,8 +134,9 @@ func CurrentSchemaVersion(ctx context.Context, db *sql.DB) (int, error) {
 	return version, nil
 }
 
-// InitDB memakai satu pool ber-WAL agar pembaca dan penulis tidak saling mengunci file.
-func InitDB(dbPath string) (*sql.DB, error) {
+// OpenPool membuka koneksi pool SQLite WAL tanpa menerapkan skema DDL v1 (schema.sql).
+// Cocok digunakan untuk database legacy (seperti tugas.db) atau sesi.
+func OpenPool(dbPath string) (*sql.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -178,6 +179,19 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("gagal memverifikasi koneksi database: %w", err)
 	}
+
+	return db, nil
+}
+
+// InitDB memakai satu pool ber-WAL dan menerapkan skema DDL v1 serta migrasi otomatis.
+func InitDB(dbPath string) (*sql.DB, error) {
+	db, err := OpenPool(dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	var isInitialized bool
 	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='users');").Scan(&isInitialized)

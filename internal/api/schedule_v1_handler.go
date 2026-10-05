@@ -30,12 +30,28 @@ func (s *Server) handleCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
 	v1.NewScheduleController(s.v1DB).CreatePattern(w, r)
 }
 
+func (s *Server) handlePreviewCreateV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.PreviewCreatePattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).PreviewCreatePattern(w, r)
+}
+
 func (s *Server) handlePatchV1Pattern(w http.ResponseWriter, r *http.Request) {
 	if s.scheduleController != nil {
 		s.scheduleController.PatchPattern(w, r)
 		return
 	}
 	v1.NewScheduleController(s.v1DB).PatchPattern(w, r)
+}
+
+func (s *Server) handlePreviewV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.PreviewPattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).PreviewPattern(w, r)
 }
 
 func (s *Server) handleCreateV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +68,14 @@ func (s *Server) handleGetV1TeachingEvents(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	v1.NewScheduleController(s.v1DB).GetTeachingEvents(w, r)
+}
+
+func (s *Server) handleGetV1TeachingEventDetail(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.GetTeachingEventDetail(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).GetTeachingEventDetail(w, r)
 }
 
 func (s *Server) handlePreviewV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
@@ -84,4 +108,20 @@ func (s *Server) handleParticipationV1TeachingEvent(w http.ResponseWriter, r *ht
 		return
 	}
 	v1.NewScheduleController(s.v1DB).ParticipationTeachingEvent(w, r)
+}
+
+func (s *Server) handleDeleteV1Pattern(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.DeletePattern(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).DeletePattern(w, r)
+}
+
+func (s *Server) handleDeleteV1TeachingEvent(w http.ResponseWriter, r *http.Request) {
+	if s.scheduleController != nil {
+		s.scheduleController.DeleteTeachingEvent(w, r)
+		return
+	}
+	v1.NewScheduleController(s.v1DB).DeleteTeachingEvent(w, r)
 }

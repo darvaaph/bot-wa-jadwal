@@ -44,3 +44,39 @@ func (s *Server) handleGetSemesterOfferings(w http.ResponseWriter, r *http.Reque
 	}
 	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
 }
+
+// handlePreviewSemester menangani GET /api/v1/classes/{slug}/semesters/{id}/preview
+func (s *Server) handlePreviewSemester(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.PreviewSemester(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleCreateSemesterOffering menangani POST /api/v1/semesters/{id}/offerings
+func (s *Server) handleCreateSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.CreateSemesterOffering(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleDeleteDraftSemester menangani DELETE /api/v1/classes/{slug}/semesters/{id}
+func (s *Server) handleDeleteDraftSemester(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.DeleteDraftSemester(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
+// handleDeleteSemesterOffering menangani DELETE /api/v1/semesters/{id}/offerings/{offering_id}
+func (s *Server) handleDeleteSemesterOffering(w http.ResponseWriter, r *http.Request) {
+	if s.academicController != nil {
+		s.academicController.DeleteSemesterOffering(w, r)
+		return
+	}
+	http.Error(w, "Academic controller belum diinisialisasi", http.StatusInternalServerError)
+}

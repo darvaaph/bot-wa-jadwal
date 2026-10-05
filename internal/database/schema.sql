@@ -744,6 +744,66 @@ CREATE INDEX idx_backup_records_class_status ON backup_records(class_id, status)
 CREATE INDEX idx_backup_records_semester_status ON backup_records(semester_id, status);
 CREATE INDEX idx_backup_records_created_by ON backup_records(created_by_user_id);
 
+CREATE TABLE backup_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL REFERENCES classes(id),
+    semester_id INTEGER REFERENCES semesters(id),
+    requested_by_user_id INTEGER NOT NULL REFERENCES users(id),
+    executed_by_user_id INTEGER REFERENCES users(id),
+    backup_id INTEGER REFERENCES backup_records(id),
+    reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5),
+    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PROCESSING', 'EXECUTED', 'FAILED', 'REJECTED')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    decided_at TEXT
+);
+CREATE INDEX idx_backup_requests_class_status ON backup_requests(class_id, status);
+
+-- Hibah dukungan break-glass System Admin (BE-004): konteks sementara per kelas
+-- dengan alasan tercatat dan kedaluwarsa. Satu hibah aktif per pengguna.
+CREATE TABLE support_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    reason TEXT NOT NULL CHECK (length(trim(reason)) >= 10),
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'CLOSED', 'EXPIRED')),
+    expires_at TEXT NOT NULL,
+    closed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CHECK ((status = 'ACTIVE' AND closed_at IS NULL) OR (status <> 'ACTIVE' AND closed_at IS NOT NULL))
+);
+
+CREATE INDEX idx_support_grants_user_status ON support_grants(user_id, status);
+
+-- Usulan koreksi master oleh KM (BE-007): KM mengusulkan tanpa mengubah langsung;
+-- System Admin menyetujui (diterapkan) atau menolak dengan catatan.
+CREATE TABLE master_proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL CHECK (kind IN ('ROOM', 'COURSE')),
+    target_id INTEGER,
+    payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+    note TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    proposed_by_user_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    reviewed_by_user_id INTEGER,
+    review_note TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (proposed_by_user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CHECK ((status = 'PENDING') = (decided_at IS NULL))
+);
+
+CREATE INDEX idx_master_proposals_status_kind ON master_proposals(status, kind);
+CREATE INDEX idx_master_proposals_class ON master_proposals(class_id, status);
+
 CREATE TRIGGER trg_audit_logs_prevent_update
 BEFORE UPDATE ON audit_logs
 BEGIN

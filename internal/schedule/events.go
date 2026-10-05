@@ -421,7 +421,7 @@ func (s *EventService) getDetail(ctx context.Context, q dbQuerier, eventID int64
 	crows, err := q.QueryContext(ctx, `SELECT rc.id, rc.room_id, r.code, rc.confirmation_status,
 		rc.external_contact, rc.note, rc.recorded_by_user_id, rc.recorded_at, rc.confirmed_at
 		FROM room_confirmations rc JOIN rooms r ON r.id = rc.room_id
-		WHERE rc.teaching_event_id = ? ORDER BY rc.recorded_at DESC, rc.id DESC`, eventID)
+		WHERE rc.teaching_event_id = ? AND rc.superseded_at IS NULL ORDER BY rc.recorded_at DESC, rc.id DESC`, eventID)
 	if err != nil {
 		return nil, err
 	}

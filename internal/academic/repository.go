@@ -647,7 +647,7 @@ func (r *Repository) EnsureOfferingLecturer(ctx context.Context, offeringID, lec
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
 		VALUES (?, ?, 'PRIMARY')
-		ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING
+		ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET superseded_at=NULL
 	`, offeringID, lecturerID)
 	if err != nil {
 		return fmt.Errorf("gagal menghubungkan offering %d dengan lecturer %d: %w", offeringID, lecturerID, err)

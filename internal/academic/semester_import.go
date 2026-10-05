@@ -309,7 +309,7 @@ func (s *SemesterService) applyImport(ctx context.Context, classID, semesterID i
 			}
 			_, _ = tx.ExecContext(ctx, `
 				INSERT INTO offering_lecturers (course_offering_id, lecturer_id, responsibility)
-				VALUES (?, ?, 'PRIMARY') ON CONFLICT(course_offering_id, lecturer_id) DO NOTHING
+				VALUES (?, ?, 'PRIMARY') ON CONFLICT(course_offering_id, lecturer_id) DO UPDATE SET responsibility='PRIMARY', superseded_at=NULL
 			`, offeringID, lid)
 		}
 		var roomArg any

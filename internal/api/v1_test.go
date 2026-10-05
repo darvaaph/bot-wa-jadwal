@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -400,6 +401,11 @@ func TestV1Classes_AccessIsScopedForKMAdminPJAndPortal(t *testing.T) {
 func TestV1Auth_GetMe_Success(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
+	if _, err := db.Exec(`UPDATE role_assignments
+		SET valid_from = datetime('now', '-2 hours'), valid_until = datetime('now', '-1 hour')
+		WHERE id = 3`); err != nil {
+		t.Fatalf("gagal menyiapkan assignment kedaluwarsa: %v", err)
+	}
 
 	token := helperLogin(t, s, "+6281234567890", "password123")
 
@@ -421,6 +427,7 @@ func TestV1Auth_GetMe_Success(t *testing.T) {
 			ActiveAssignment struct {
 				Role string `json:"role"`
 			} `json:"active_assignment"`
+			Assignments []RoleAssignmentItem `json:"assignments"`
 		} `json:"data"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &resp)
@@ -430,6 +437,12 @@ func TestV1Auth_GetMe_Success(t *testing.T) {
 	}
 	if resp.Data.ActiveAssignment.Role != "KM" {
 		t.Errorf("Role expected KM, got %s", resp.Data.ActiveAssignment.Role)
+	}
+	if len(resp.Data.Assignments) != 1 {
+		t.Fatalf("assignments aktif expected 1, got %d: %#v", len(resp.Data.Assignments), resp.Data.Assignments)
+	}
+	if resp.Data.Assignments[0].Role != "KM" {
+		t.Fatalf("assignments role mismatch: %#v", resp.Data.Assignments)
 	}
 }
 
@@ -483,6 +496,26 @@ func TestV1Auth_SwitchContext_TokenRotation(t *testing.T) {
 	}
 }
 
+func TestV1Auth_SwitchContext_ExpiredAssignmentForbidden(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	if _, err := db.Exec(`UPDATE role_assignments
+		SET valid_from = datetime('now', '-2 hours'), valid_until = datetime('now', '-1 hour')
+		WHERE id = 3`); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]int64{"role_assignment_id": 3})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/switch-context", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("switch ke assignment kedaluwarsa expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 // 2. Portal Read Endpoints Tests
 
 func TestV1Portal_Endpoints(t *testing.T) {
@@ -527,6 +560,14 @@ func TestV1Portal_Endpoints(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("Portal materials expected 200, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	// 5b. Detail mata kuliah menggabungkan jadwal, tugas, dan materi terbit.
+	req = httptest.NewRequest("GET", "/api/v1/portal/d4-ti-2024-a/courses", nil)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Struktur Data") || !strings.Contains(w.Body.String(), "Slide Pertemuan 1") {
+		t.Errorf("Portal courses expected 200 with academic detail, got %d. Body: %s", w.Code, w.Body.String())
 	}
 
 	// 6. Kelas tidak ada -> 404
@@ -1046,6 +1087,154 @@ func TestV1Tasks_CompleteArchiveRestore(t *testing.T) {
 	}
 }
 
+func TestV1Materials_PatchAndArchive(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	doReq := func(method, target, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		var reader *strings.Reader
+		if body == "" {
+			reader = strings.NewReader("")
+		} else {
+			reader = strings.NewReader(body)
+		}
+		req := httptest.NewRequest(method, target, reader)
+		req.Header.Set("Authorization", "Bearer "+kmToken)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		return w
+	}
+
+	// PATCH versi salah -> 409
+	w := doReq("PATCH", "/api/v1/materials/1", `{"version":99,"title":"X"}`)
+	if w.Code != http.StatusConflict {
+		t.Errorf("PATCH versi salah expected 409, got %d", w.Code)
+	}
+
+	// PATCH judul -> 200, version 2
+	w = doReq("PATCH", "/api/v1/materials/1", `{"version":1,"title":"Slide Revisi"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PATCH expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var patched struct {
+		Data struct {
+			Version int `json:"version"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &patched)
+	if patched.Data.Version != 2 {
+		t.Errorf("PATCH version expected 2, got %d", patched.Data.Version)
+	}
+
+	// GET memuat version + judul baru
+	w = doReq("GET", "/api/v1/materials?class_slug=d4-ti-2024-a", "")
+	var listed struct {
+		Data []map[string]any `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &listed)
+	if len(listed.Data) == 0 {
+		t.Fatalf("GET materials expected >= 1 item")
+	}
+	if v, _ := listed.Data[0]["version"].(float64); v != 2 {
+		t.Errorf("GET version expected 2, got %v", listed.Data[0]["version"])
+	}
+	if listed.Data[0]["title"] != "Slide Revisi" {
+		t.Errorf("GET title expected revisi, got %v", listed.Data[0]["title"])
+	}
+
+	// DELETE tanpa version -> 422
+	w = doReq("DELETE", "/api/v1/materials/1", "")
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE tanpa version expected 422, got %d", w.Code)
+	}
+
+	// DELETE versi benar -> 200 ARCHIVED
+	w = doReq("DELETE", "/api/v1/materials/1?version=2", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("DELETE expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+
+	// GET tak lagi tampil
+	w = doReq("GET", "/api/v1/materials?class_slug=d4-ti-2024-a", "")
+	listed.Data = nil
+	_ = json.Unmarshal(w.Body.Bytes(), &listed)
+	if len(listed.Data) != 0 {
+		t.Errorf("materi terarsip tak boleh tampil, got %d item", len(listed.Data))
+	}
+
+	// PATCH materi terarsip -> 422
+	w = doReq("PATCH", "/api/v1/materials/1", `{"version":3,"title":"Y"}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("PATCH terarsip expected 422, got %d", w.Code)
+	}
+}
+
+func TestV1Tasks_DetailIncludesTimestamps(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	getDetail := func() map[string]any {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/api/v1/tasks/1", nil)
+		req.Header.Set("Authorization", "Bearer "+kmToken)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET task detail expected 200, got %d; body=%s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Data struct {
+				Task map[string]any `json:"task"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("respons bukan JSON: %v", err)
+		}
+		return resp.Data.Task
+	}
+
+	// Awal: belum selesai/diarsip -> null + boolean false
+	task := getDetail()
+	if task["completed_at"] != nil {
+		t.Errorf("completed_at awal expected null, got %v", task["completed_at"])
+	}
+	if task["archived_at"] != nil {
+		t.Errorf("archived_at awal expected null, got %v", task["archived_at"])
+	}
+
+	// Complete -> completed_at terisi
+	req := httptest.NewRequest("POST", "/api/v1/tasks/1/complete", strings.NewReader(`{"version":1}`))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Complete expected 200, got %d", w.Code)
+	}
+	task = getDetail()
+	completed, _ := task["completed_at"].(string)
+	if completed == "" {
+		t.Errorf("completed_at expected terisi setelah complete, got %v", task["completed_at"])
+	}
+
+	// Archive -> archived_at terisi
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":2}`))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Archive expected 200, got %d", w.Code)
+	}
+	task = getDetail()
+	archived, _ := task["archived_at"].(string)
+	if archived == "" {
+		t.Errorf("archived_at expected terisi setelah archive, got %v", task["archived_at"])
+	}
+}
+
 // 4. Fitur Lanjutan Tests (Status Kelas, Ruangan, Notifikasi, Audit, Backup, Admin, Impor)
 
 func TestV1Classes_PatchStatus(t *testing.T) {
@@ -1093,17 +1282,70 @@ func TestV1Classes_PatchStatus(t *testing.T) {
 	}
 }
 
+func TestV1Classes_CreateClass(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// 1. Non-admin harus ditolak 403
+	body, _ := json.Marshal(map[string]any{
+		"name":          "D4 TI 2025 C",
+		"study_program": "D4 Teknik Informatika",
+		"cohort_year":   2025,
+		"group_label":   "C",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/classes", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM buat kelas expected 403, got %d", w.Code)
+	}
+
+	// 2. Admin berhasil membuat kelas
+	req = httptest.NewRequest("POST", "/api/v1/classes", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Admin buat kelas expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 3. Verifikasi kelas tersimpan di database
+	var count int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM classes WHERE slug = 'd4-ti-2025-c';`).Scan(&count)
+	if count != 1 {
+		t.Fatalf("Kelas baru tidak ditemukan di database")
+	}
+}
+
 func TestV1Rooms_CandidatesAndConfirmation(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()
 
-	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	draftStart := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	draftEnd := time.Now().Add(26 * time.Hour).UTC().Format(time.RFC3339)
+	_, err := db.Exec(`
+		INSERT INTO rooms (id, code, name) VALUES (2, 'R-302', 'Ruang Kelas 302');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, reason, lifecycle_status, version)
+		VALUES (2, 'EXTRA', ?, ?, 'Draf untuk konfirmasi TU', 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (2, 1, 'OWNER', 'ACCEPTED');
+	`, draftStart, draftEnd)
+	if err != nil {
+		t.Fatalf("Gagal menyiapkan event draf: %v", err)
+	}
 
 	// 1. Cari kandidat ruangan
 	startsAt := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
 	endsAt := time.Now().Add(3 * time.Hour).UTC().Format(time.RFC3339)
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/rooms/candidates?starts_at=%s&ends_at=%s", startsAt, endsAt), nil)
-	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
 	w := httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
@@ -1113,18 +1355,213 @@ func TestV1Rooms_CandidatesAndConfirmation(t *testing.T) {
 
 	// 2. Konfirmasi ruangan TU
 	body, _ := json.Marshal(map[string]any{
-		"room_id":             1,
+		"room_id":             2,
 		"confirmation_status": "CONFIRMED",
+		"external_contact":    "TU Gedung A",
 		"note":                "Disetujui staf TU",
 	})
-	req = httptest.NewRequest("POST", "/api/v1/teaching-events/1/room-confirmations", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req = httptest.NewRequest("POST", "/api/v1/teaching-events/2/room-confirmations", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+pjToken)
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("POST room confirmation expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+	var roomID int64
+	var version int
+	if err := db.QueryRow(`SELECT room_id, version FROM teaching_events WHERE id = 2`).Scan(&roomID, &version); err != nil {
+		t.Fatalf("Gagal membaca event setelah konfirmasi: %v", err)
+	}
+	if roomID != 2 || version != 2 {
+		t.Fatalf("Konfirmasi harus memperbarui room/version secara atomik, got room=%d version=%d", roomID, version)
+	}
+	var auditCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'CREATE_ROOM_CONFIRMATION' AND entity_type = 'ROOM_CONFIRMATION'`).Scan(&auditCount); err != nil || auditCount != 1 {
+		t.Fatalf("Konfirmasi harus menghasilkan satu audit log, count=%d err=%v", auditCount, err)
+	}
+}
+
+func TestV1TeachingEventDetail_ScopeAndResponse(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	_, err := db.Exec(`
+		INSERT INTO rooms (id, code, name) VALUES (2, 'R-302', 'Ruang Kelas 302');
+		INSERT INTO room_confirmations
+			(teaching_event_id, room_id, confirmation_status, external_contact, note, recorded_by_user_id, recorded_at, confirmed_at)
+		VALUES (1, 1, 'CONFIRMED', 'TU Gedung A', 'Tersedia', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO courses (id, code, name) VALUES (2, 'TI202', 'Basis Data');
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 2, 'Basis Data (Teori)', 'TEORI');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, lifecycle_status, version)
+		VALUES (2, 'EXTRA', '2024-10-01T02:00:00Z', '2024-10-01T04:00:00Z', 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (2, 2, 'OWNER', 'ACCEPTED'), (2, 1, 'PARTICIPANT', 'PENDING');
+	`)
+	if err != nil {
+		t.Fatalf("Gagal menyiapkan detail event lintas kelas: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/teaching-events/1", nil)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("PJ owner GET detail expected 200, got %d body=%s", w.Code, w.Body.String())
+	}
+	var response struct {
+		Data struct {
+			Event struct {
+				OfferingID int64 `json:"offering_id"`
+			} `json:"event"`
+			Participations []map[string]any `json:"participations"`
+			Confirmations  []struct {
+				RecordedBy struct {
+					ID          int64  `json:"id"`
+					DisplayName string `json:"display_name"`
+				} `json:"recorded_by"`
+			} `json:"confirmations"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Respons detail bukan JSON valid: %v", err)
+	}
+	if response.Data.Event.OfferingID != 1 || len(response.Data.Participations) != 1 || len(response.Data.Confirmations) != 1 {
+		t.Fatalf("Respons detail tidak lengkap: %s", w.Body.String())
+	}
+	if response.Data.Confirmations[0].RecordedBy.ID != 1 || response.Data.Confirmations[0].RecordedBy.DisplayName == "" {
+		t.Fatalf("Pelaku konfirmasi tidak terisi: %s", w.Body.String())
+	}
+
+	// KM kelas peserta boleh membaca undangan PENDING agar dapat merespons partisipasi.
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/teaching-events/2", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("KM participant GET detail expected 200, got %d body=%s", w.Code, w.Body.String())
+	}
+
+	// PJ hanya boleh membaca event yang offering OWNER-nya sama dengan konteks aktif.
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/teaching-events/2", nil)
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ out-of-scope GET detail expected 403, got %d body=%s", w.Code, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/teaching-events/999", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("Admin missing event expected 404, got %d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestV1RoomConfirmation_PJOwnerScopeAndDraftOnly(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	body := []byte(`{"room_id":1,"confirmation_status":"PENDING","external_contact":"TU"}`)
+
+	// Event terbit ditolak; konfirmasi manual wajib terikat pada draf.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/1/room-confirmations", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("Confirmation on published event expected 409, got %d body=%s", w.Code, w.Body.String())
+	}
+
+	_, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (2, 2, '2024/2025', 'GANJIL', '2024-09-01', '2025-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO courses (id, code, name) VALUES (2, 'TI202', 'Basis Data');
+		INSERT INTO course_offerings (id, semester_id, course_id, display_name, activity_type)
+		VALUES (2, 2, 2, 'Basis Data (Teori)', 'TEORI');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, lifecycle_status, version)
+		VALUES (2, 'EXTRA', '2024-10-01T02:00:00Z', '2024-10-01T04:00:00Z', 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (2, 2, 'OWNER', 'ACCEPTED');
+	`)
+	if err != nil {
+		t.Fatalf("Gagal menyiapkan event out-of-scope: %v", err)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/2/room-confirmations", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("PJ out-of-scope confirmation expected 403, got %d body=%s", w.Code, w.Body.String())
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM room_confirmations WHERE teaching_event_id = 2`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("Out-of-scope confirmation must not be persisted, count=%d err=%v", count, err)
+	}
+}
+
+func TestV1RoomConfirmation_RejectsUnavailableRoom(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	startsAt := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Second)
+	endsAt := startsAt.Add(2 * time.Hour)
+	_, err := db.Exec(`
+		INSERT INTO rooms (id, code, name) VALUES (2, 'R-302', 'Ruang Kelas 302');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, lifecycle_status, version)
+		VALUES (2, 'EXTRA', ?, ?, 'DRAFT', 1),
+		       (3, 'EXTRA', ?, ?, 'DRAFT', 1);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (2, 1, 'OWNER', 'ACCEPTED'), (3, 1, 'OWNER', 'ACCEPTED');
+		UPDATE teaching_events
+		SET room_id = 2, lifecycle_status = 'PUBLISHED', published_by_user_id = 2, published_at = CURRENT_TIMESTAMP
+		WHERE id = 3;
+	`, startsAt.Format(time.RFC3339), endsAt.Format(time.RFC3339), startsAt.Format(time.RFC3339), endsAt.Format(time.RFC3339))
+	if err != nil {
+		t.Fatalf("Gagal menyiapkan konflik ruangan: %v", err)
+	}
+
+	body := []byte(`{"room_id":2,"confirmation_status":"CONFIRMED","external_contact":"TU"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teaching-events/2/room-confirmations", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+pjToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("Unavailable room confirmation expected 409, got %d body=%s", w.Code, w.Body.String())
+	}
+
+	var confirmations int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM room_confirmations WHERE teaching_event_id = 2`).Scan(&confirmations); err != nil || confirmations != 0 {
+		t.Fatalf("Konfirmasi konflik tidak boleh tersimpan, count=%d err=%v", confirmations, err)
+	}
+	var roomID sql.NullInt64
+	var version int
+	if err := db.QueryRow(`SELECT room_id, version FROM teaching_events WHERE id = 2`).Scan(&roomID, &version); err != nil {
+		t.Fatalf("Gagal memeriksa event konflik: %v", err)
+	}
+	if roomID.Valid || version != 1 {
+		t.Fatalf("Event konflik harus tetap utuh, room=%v version=%d", roomID, version)
 	}
 }
 
@@ -1217,15 +1654,23 @@ func TestV1Backups_CreateAndVerifyRestore(t *testing.T) {
 	kmToken := helperLogin(t, s, "+6281234567890", "password123")
 	adminToken := helperLogin(t, s, "+6281111111111", "password123")
 
-	// 1. Buat backup (KM)
-	body, _ := json.Marshal(map[string]string{"reason": "Uji cadangan berkala"})
-	req := httptest.NewRequest("POST", "/api/v1/backups", bytes.NewReader(body))
+	// 1. KM meminta backup; Admin mengeksekusi permintaan.
+	kmToken = helperSwitchContext(t, s, kmToken, 1)
+	body, _ := json.Marshal(map[string]string{"class_slug": "d4-ti-2024-a", "reason": "Uji cadangan berkala"})
+	req := httptest.NewRequest("POST", "/api/v1/backup-requests", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w := httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)
 
 	if w.Code != http.StatusCreated {
-		t.Fatalf("POST backups expected 201, got %d, body: %s", w.Code, w.Body.String())
+		t.Fatalf("POST backup-requests expected 201, got %d, body: %s", w.Code, w.Body.String())
+	}
+	req = httptest.NewRequest("POST", "/api/v1/backup-requests/1/execute", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("execute backup request: %d %s", w.Code, w.Body.String())
 	}
 
 	var backupResp struct {
@@ -1379,6 +1824,157 @@ func TestV1Curriculum_ImportValidateAndApply(t *testing.T) {
 	err := db.QueryRow(`SELECT name FROM courses WHERE code = 'IF301';`).Scan(&courseName)
 	if err != nil || courseName != "Kecerdasan Buatan" {
 		t.Errorf("Course IF301 tidak ditemukan setelah import apply: %v", err)
+	}
+}
+
+func TestV1Semester_Preview(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest("GET", "/api/v1/classes/d4-ti-2024-a/semesters/1/preview", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET preview expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			Offerings   int      `json:"offerings"`
+			CanActivate bool     `json:"can_activate"`
+			Blockers    []string `json:"blockers"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("respons bukan JSON: %v", err)
+	}
+	if resp.Data.Offerings < 1 {
+		t.Errorf("preview offerings expected >= 1, got %d", resp.Data.Offerings)
+	}
+	if resp.Data.CanActivate {
+		t.Errorf("semester ACTIVE tak boleh can_activate=true")
+	}
+
+	// Semester tak ada -> 404
+	req = httptest.NewRequest("GET", "/api/v1/classes/d4-ti-2024-a/semesters/999/preview", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("preview semester tak ada expected 404, got %d", w.Code)
+	}
+}
+
+func TestV1Semester_CreateWithSource(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	body, _ := json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GANJIL",
+		"starts_on": "2025-09-01", "ends_on": "2026-01-31",
+		"source_semester_id": 1,
+	})
+	req := httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST semesters+source expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	var copied, original int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM course_offerings WHERE semester_id = ?;`, resp.Data.ID).Scan(&copied)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM course_offerings WHERE semester_id = 1;`).Scan(&original)
+	if original == 0 || copied != original {
+		t.Errorf("salinan offerings expected %d, got %d", original, copied)
+	}
+
+	// Sumber tak ada -> 404
+	body, _ = json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GENAP",
+		"starts_on": "2026-02-01", "ends_on": "2026-06-30",
+		"source_semester_id": 999,
+	})
+	req = httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("source tak ada expected 404, got %d", w.Code)
+	}
+}
+
+func TestV1Semester_CreateOffering(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Semester ACTIVE (id 1) -> 422
+	body, _ := json.Marshal(map[string]any{
+		"course_code": "TI201", "activity_type": "TEORI", "display_name": "Struktur Data (Teori)",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/semesters/1/offerings", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("offering ke semester ACTIVE expected 422, got %d", w.Code)
+	}
+
+	// Buat semester DRAFT dulu
+	draftBody, _ := json.Marshal(map[string]any{
+		"academic_year": "2025/2026", "term": "GANJIL",
+		"starts_on": "2025-09-01", "ends_on": "2026-01-31",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/classes/d4-ti-2024-a/semesters", bytes.NewReader(draftBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("buat draf expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var draftResp struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &draftResp)
+
+	// Kode matkul tak dikenal -> 422
+	badBody, _ := json.Marshal(map[string]any{
+		"course_code": "XX999", "activity_type": "TEORI", "display_name": "Tidak Ada",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/semesters/"+strconv.FormatInt(draftResp.Data.ID, 10)+"/offerings", bytes.NewReader(badBody))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("course tak dikenal expected 422, got %d", w.Code)
+	}
+
+	// Happy path -> 201
+	req = httptest.NewRequest("POST", "/api/v1/semesters/"+strconv.FormatInt(draftResp.Data.ID, 10)+"/offerings", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("tambah offering expected 201, got %d; body=%s", w.Code, w.Body.String())
 	}
 }
 
@@ -1793,6 +2389,32 @@ func TestV1SemesterAndMaterial_RejectCrossClassKM(t *testing.T) {
 	}
 }
 
+func TestV1Materials_GetIncludesCreatedAt(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/materials?class_slug=d4-ti-2024-a", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET materials expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Gagal parsing respons materials: %v", err)
+	}
+	if len(resp.Data) == 0 {
+		t.Fatal("GET materials expected minimal 1 item")
+	}
+	created, _ := resp.Data[0]["created_at"].(string)
+	if created == "" {
+		t.Fatal("GET materials expected created_at terisi untuk urutan terbaru/terlama")
+	}
+}
+
 func TestV1Tasks_CreateRejectsOfferingOutsideActiveClass(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	_, err := db.Exec(`
@@ -1836,5 +2458,125 @@ func TestV1TeachingEvents_ScopeAndConflict(t *testing.T) {
 	s.httpServer.Handler.ServeHTTP(w, req)
 	if w.Code != http.StatusConflict {
 		t.Errorf("Expected 409 Conflict for mismatched version on revoke, got %d", w.Code)
+	}
+}
+
+func TestV1Schedule_DeletePattern(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Cari pattern aktif
+	var patternID int64
+	var version int
+	err := db.QueryRow(`
+		SELECT sp.id, sp.version
+		FROM schedule_patterns sp
+		JOIN course_offerings co ON sp.course_offering_id = co.id
+		WHERE co.id = 1 AND sp.effective_until IS NULL
+		LIMIT 1
+	`).Scan(&patternID, &version)
+	if err != nil {
+		t.Fatalf("No active pattern found for test: %v", err)
+	}
+
+	// Hapus tanpa version -> 422
+	req := httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE pattern without version expected 422, got %d", w.Code)
+	}
+
+	// Hapus dengan versi salah -> 409
+	req = httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10)+"?version=99", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE pattern wrong version expected 409, got %d", w.Code)
+	}
+
+	// Hapus dengan versi benar -> 200
+	req = httptest.NewRequest("DELETE", "/api/v1/schedule/patterns/"+strconv.FormatInt(patternID, 10)+"?version="+strconv.Itoa(version), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("DELETE pattern correct version expected 200, got %d; body=%s", w.Code, w.Body.String())
+	}
+
+	// Baris tetap ada untuk audit: effective_until terisi, bukan hapus fisik
+	var effUntil sql.NullString
+	err = db.QueryRow(`SELECT effective_until FROM schedule_patterns WHERE id = ?`, patternID).Scan(&effUntil)
+	if err != nil {
+		t.Fatalf("pola terhapus fisik, riwayat audit hilang: %v", err)
+	}
+	if !effUntil.Valid || effUntil.String == "" {
+		t.Errorf("effective_until kosong setelah hapus, pola masih dianggap aktif")
+	}
+}
+
+func TestV1Schedule_DeleteTeachingEvent(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Buat draf event untuk dihapus
+	draftBody := `{"owner_offering_id":1,"event_kind":"EXTRA","starts_at":"2024-12-01T10:00:00+07:00","ends_at":"2024-12-01T12:00:00+07:00","reason":"Test hapus draf"}`
+	req := httptest.NewRequest("POST", "/api/v1/teaching-events", bytes.NewReader([]byte(draftBody)))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create draft for delete test expected 201, got %d; body=%s", w.Code, w.Body.String())
+	}
+	var draftResp struct {
+		Data struct {
+			ID      int64 `json:"id"`
+			Version int   `json:"version"`
+		} `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &draftResp)
+	eventID := draftResp.Data.ID
+	eventVersion := draftResp.Data.Version
+
+	// Hapus tanpa version -> 422
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("DELETE event without version expected 422, got %d", w.Code)
+	}
+
+	// Hapus dengan versi salah -> 409
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10)+"?version=99", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE event wrong version expected 409, got %d", w.Code)
+	}
+
+	// Coba hapus PUBLISHED event -> 409
+	pubEventID := int64(1)
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(pubEventID, 10)+"?version=1", nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("DELETE published event expected 409, got %d", w.Code)
+	}
+
+	// Hapus draf dengan versi benar -> 200
+	req = httptest.NewRequest("DELETE", "/api/v1/teaching-events/"+strconv.FormatInt(eventID, 10)+"?version="+strconv.Itoa(eventVersion), nil)
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("DELETE draft event correct version expected 200, got %d; body=%s", w.Code, w.Body.String())
 	}
 }

@@ -476,6 +476,18 @@ func (c *TaskController) GetTaskDetail(w http.ResponseWriter, r *http.Request) {
 			"version":            version,
 			"is_completed":       completedAt.Valid,
 			"is_archived":        archivedAt.Valid,
+			"completed_at": func() any {
+				if completedAt.Valid {
+					return completedAt.RFC3339()
+				}
+				return nil
+			}(),
+			"archived_at": func() any {
+				if archivedAt.Valid {
+					return archivedAt.RFC3339()
+				}
+				return nil
+			}(),
 		},
 		"reviews": reviews,
 	})
@@ -784,6 +796,8 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		newPubStatus = "DRAFT"
 	} else if decision == "REVOKED" {
 		newPubStatus = "REVOKED"
+	} else if decision == "APPROVED" {
+		newPubStatus = "PUBLISHED"
 	}
 
 	tx, err := c.db.Begin()

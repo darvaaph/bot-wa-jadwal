@@ -67,4 +67,22 @@ func TestAPIServer_WebStatic(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected status 200 for index.html, got %d", rr.Code)
 	}
+
+	reqJS := httptest.NewRequest("GET", "/js/vendor/tailwindcss.play.js", nil)
+	rrJS := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrJS, reqJS)
+	t.Logf("tailwindcss.play.js Status: %d, Content-Type: %q", rrJS.Code, rrJS.Header().Get("Content-Type"))
+
+	reqCSS := httptest.NewRequest("GET", "/css/style.css", nil)
+	rrCSS := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrCSS, reqCSS)
+	t.Logf("style.css Status: %d, Content-Type: %q", rrCSS.Code, rrCSS.Header().Get("Content-Type"))
+
+	reqTailwind := httptest.NewRequest("GET", "/css/tailwind.css", nil)
+	rrTailwind := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrTailwind, reqTailwind)
+	if rrTailwind.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /css/tailwind.css, got %d", rrTailwind.Code)
+	}
+	t.Logf("tailwind.css Status: %d, Content-Type: %q, Length: %d", rrTailwind.Code, rrTailwind.Header().Get("Content-Type"), rrTailwind.Body.Len())
 }

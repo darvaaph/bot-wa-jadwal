@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Asterisk — Area PJ</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
+  <link rel="stylesheet" href="/css/style.css?v=20261003" />
+  <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
+  <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
+  <script>
+    (function() {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (!token) {
+        window.location.replace('/login.html?role=pj');
+      }
+    })();
+  </script>
+  <script defer src="/js/vendor/alpine.cdn.min.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261003"></script>
+  <script src="/js/shell.js?v=20261003"></script>
+  <script src="/js/app-pj.js?v=20261003"></script>
+</head>
+<!--
+  AREA PJ (REVISI Figma). Pindah peran KM↔PJ via tautan di layar Akun kedua area.
+  Isi per layar: web/partials/pj/*.html dimuat oleh initPJ() di js/app-pj.js.
+-->
+<body class="bg-white text-ink min-h-screen" x-data="pjApp()" x-init="initPJ()" @keydown.escape.window="shellCloseDrawer()">
+  <div id="app-shell"></div>
+</body>
+</html>
