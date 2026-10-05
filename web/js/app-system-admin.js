@@ -236,6 +236,9 @@ function systemAdminApp() {
     modalImportMatkul: false,
     importTab: 'jadwal',
     importCsvText: '',
+    importFileName: '',
+    importFileSize: '',
+    importDragOver: false,
     importLoading: false,
     importError: '',
     importSuccess: '',
@@ -1777,6 +1780,9 @@ function systemAdminApp() {
       this.modalImportMatkul = true;
       this.importTab = 'jadwal';
       this.importCsvText = '';
+      this.importFileName = '';
+      this.importFileSize = '';
+      this.importDragOver = false;
       this.importLoading = false;
       this.importError = '';
       this.importSuccess = '';
@@ -1787,6 +1793,66 @@ function systemAdminApp() {
       this.importLoading = false;
       this.importError = '';
       this.importSuccess = '';
+      this.importDragOver = false;
+    },
+
+    resetImportFile() {
+      this.importCsvText = '';
+      this.importFileName = '';
+      this.importFileSize = '';
+      this.importError = '';
+      const fileInput = document.getElementById('sa-import-matkul-file');
+      if (fileInput) fileInput.value = '';
+    },
+
+    handleImportFileSelect(event) {
+      const file = event.target.files && event.target.files[0];
+      if (file) {
+        this.readFileContent(file);
+      }
+    },
+
+    handleImportDrop(event) {
+      this.importDragOver = false;
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) {
+        this.readFileContent(file);
+      }
+    },
+
+    readFileContent(file) {
+      this.importError = '';
+      if (file.size > 2 * 1024 * 1024) {
+        this.importError = 'Ukuran berkas melebihi batas maksimal 2MB.';
+        return;
+      }
+      this.importFileName = file.name;
+      this.importFileSize = (file.size / 1024).toFixed(1) + ' KB';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.importCsvText = e.target.result || '';
+        const parsed = this.parsedImportCourses();
+        if (parsed.length === 0) {
+          this.importError = 'Tidak ditemukan baris data mata kuliah yang valid di dalam berkas.';
+        }
+      };
+      reader.onerror = () => {
+        this.importError = 'Gagal membaca berkas yang dipilih.';
+      };
+      reader.readAsText(file);
+    },
+
+    unduhTemplateMatkul() {
+      const csvContent = "kode,nama_matkul,status\n25IF1101,Algoritma dan Pemrograman,ACTIVE\n25TI1102,Komputasi Kognitif,ACTIVE\n25KU0002,Pendidikan Pancasila,INACTIVE\n";
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'template_mata_kuliah.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     },
 
     parsedImportCourses() {
@@ -1798,7 +1864,8 @@ function systemAdminApp() {
           const list = Array.isArray(parsed) ? parsed : (parsed.courses || []);
           return list.map(item => ({
             code: (item.code || item.kode || '').trim(),
-            name: (item.name || item.nama || item.matkul || '').trim()
+            name: (item.name || item.nama || item.matkul || '').trim(),
+            status: ((item.status || 'ACTIVE').toUpperCase() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE')
           })).filter(item => item.code && item.name);
         } catch (_) {}
       }
@@ -1813,13 +1880,27 @@ function systemAdminApp() {
         else if (line.includes(';') && !line.includes(',')) delimiter = ';';
         else if (line.includes('|')) delimiter = '|';
 
-        const parts = line.split(delimiter);
+        const parts = line.split(delimiter).map(p => p.trim());
         if (parts.length >= 2) {
-          const code = parts[0].trim();
-          const name = parts.slice(1).join(delimiter).trim();
+          const code = parts[0];
+          // Skip header row if detected
+          const lowerCode = code.toLowerCase();
+          if (lowerCode === 'kode' || lowerCode === 'code' || lowerCode === 'kode_matkul') {
+            continue;
+          }
+          let name = parts[1];
+          let status = 'ACTIVE';
+          if (parts.length >= 3) {
+            const rawStatus = parts[2].toUpperCase();
+            if (rawStatus === 'INACTIVE' || rawStatus === 'TIDAK AKTIF' || rawStatus === 'NONAKTIF') {
+              status = 'INACTIVE';
+            } else if (rawStatus === 'ACTIVE' || rawStatus === 'AKTIF') {
+              status = 'ACTIVE';
+            }
+          }
           if (code && name && !seen.has(code.toUpperCase())) {
             seen.add(code.toUpperCase());
-            out.push({ code, name });
+            out.push({ code, name, status });
           }
         }
       }
@@ -1855,6 +1936,8 @@ function systemAdminApp() {
         const res = await API.bulkCreateMasterCourses(courses);
         this.importSuccess = res.message || `Berhasil mengimpor ${res.total_imported || 0} mata kuliah.`;
         this.importCsvText = '';
+        this.importFileName = '';
+        this.importFileSize = '';
         await this.loadMatkul();
         this.showToast(`Berhasil mengimpor ${res.total_imported || 0} mata kuliah.`);
       } catch (err) {
