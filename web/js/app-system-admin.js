@@ -232,6 +232,7 @@ function systemAdminApp() {
     matkulEditLoading: false,
     matkulMenu: null,
     matkulStatusConfirm: null,
+    matkulStatusLoading: false,
     modalTambahMatkul: false,
     modalImportMatkul: false,
     importTab: 'jadwal',
@@ -240,8 +241,11 @@ function systemAdminApp() {
     importFileSize: '',
     importDragOver: false,
     importLoading: false,
-    importError: '',
     importSuccess: '',
+    modalTolakUsulan: false,
+    usulanDitolakTarget: null,
+    usulanAlasanTolak: '',
+    usulanRejectLoading: false,
     dosenList: [],
     dosenLoading: false,
     dosenError: '',
@@ -1971,11 +1975,13 @@ function systemAdminApp() {
     },
 
     mulaiUbahMatkul(m) {
+      const st = (m.status || 'ACTIVE').toUpperCase();
       this.matkulEdit = {
         id: m.id,
         kode: m.code,
         nama: m.name || '',
-        status: (m.status || 'ACTIVE').toUpperCase()
+        status: st,
+        _originalStatus: st
       };
       this.matkulEditError = '';
       this.matkulEditLoading = false;
@@ -1997,6 +2003,20 @@ function systemAdminApp() {
         return;
       }
       const status = (f.status || 'ACTIVE').toUpperCase();
+
+      // OPSI A: Jika status diubah dari ACTIVE ke INACTIVE, tampilkan dialog konfirmasi Layar 05
+      if (status === 'INACTIVE' && f._originalStatus === 'ACTIVE') {
+        this.matkulStatusConfirm = {
+          id: f.id,
+          kode: f.kode,
+          nama: nama,
+          dari: 'ACTIVE',
+          ke: 'INACTIVE',
+          fromModalEdit: true
+        };
+        return;
+      }
+
       this.matkulEditError = '';
       this.matkulEditLoading = true;
       try {
@@ -2012,23 +2032,44 @@ function systemAdminApp() {
     },
 
     mintaKonfirmasiStatusMatkul(m) {
-      this.matkulStatusConfirm = { id: m.id, kode: m.code, dari: String(m.status || '').toUpperCase(), ke: String(m.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
+      const st = String(m.status || 'ACTIVE').toUpperCase();
+      this.matkulStatusConfirm = {
+        id: m.id,
+        kode: m.code,
+        nama: m.name,
+        dari: st,
+        ke: st === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        fromModalEdit: false
+      };
     },
 
     batalKonfirmasiStatusMatkul() {
+      if (this.matkulStatusLoading) return;
       this.matkulStatusConfirm = null;
     },
 
     async jalankanUbahStatusMatkul() {
       const c = this.matkulStatusConfirm;
       if (!c) return;
+      this.matkulStatusLoading = true;
       try {
-        await API.patchMasterCourse(c.id, { status: c.ke });
+        const payload = { status: c.ke };
+        if (c.nama) {
+          payload.name = c.nama;
+        }
+        await API.patchMasterCourse(c.id, payload);
         this.matkulStatusConfirm = null;
+        if (c.fromModalEdit) {
+          this.matkulEdit = null;
+        }
         await this.loadMatkul();
-        this.showToast(c.ke === 'ACTIVE' ? 'Mata kuliah diaktifkan.' : 'Mata kuliah dinonaktifkan. Penawaran lama tetap tampil; nonaktif tak dipakai untuk penawaran baru.');
+        this.showToast(c.ke === 'ACTIVE'
+          ? `Mata kuliah ${c.kode} berhasil diaktifkan.`
+          : `Mata kuliah ${c.kode} dinonaktifkan. Nonaktif tidak dipakai untuk penawaran jadwal baru.`);
       } catch (err) {
-        this.showToast(err.message || 'Gagal mengubah status.');
+        this.showToast(err.message || 'Gagal mengubah status mata kuliah.');
+      } finally {
+        this.matkulStatusLoading = false;
       }
     },
 
@@ -4081,6 +4122,43 @@ function systemAdminApp() {
         await Promise.all([this.loadUsulan(''), this.loadRuang(), this.loadMatkul()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal memutuskan usulan.');
+      }
+    },
+
+    bukaModalTolakUsulan(u) {
+      if (!u) return;
+      this.usulanDitolakTarget = u;
+      this.usulanAlasanTolak = '';
+      this.usulanRejectLoading = false;
+      this.modalTolakUsulan = true;
+    },
+
+    tutupModalTolakUsulan() {
+      if (this.usulanRejectLoading) return;
+      this.modalTolakUsulan = false;
+      this.usulanDitolakTarget = null;
+      this.usulanAlasanTolak = '';
+    },
+
+    async prosesTolakUsulan() {
+      const u = this.usulanDitolakTarget;
+      if (!u) return;
+      const note = (this.usulanAlasanTolak || '').trim();
+      if (!note) {
+        this.showToast('Alasan penolakan wajib diisi untuk KM.');
+        return;
+      }
+      this.usulanRejectLoading = true;
+      try {
+        await API.decideProposal(u.id, 'reject', note);
+        const judul = this.namaUsulanMatkul(u) || u.target_code || 'Mata Kuliah';
+        this.showToast(`Usulan "${judul}" telah ditolak.`);
+        this.tutupModalTolakUsulan();
+        await Promise.all([this.loadUsulan(''), this.loadRuang(), this.loadMatkul()]);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menolak usulan.');
+      } finally {
+        this.usulanRejectLoading = false;
       }
     },
 

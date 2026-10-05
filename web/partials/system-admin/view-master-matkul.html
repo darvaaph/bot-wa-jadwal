@@ -104,7 +104,7 @@
             <span>Setujui</span>
           </button>
           <button type="button"
-                  @click="mulaiKeputusanUsulan(u, 'reject')"
+                  @click="bukaModalTolakUsulan(u)"
                   class="h-[40px] px-3.5 rounded-[12px] bg-[#FEF3C7] hover:bg-amber-100 text-[#DC2626] border border-[#FCA5A5] text-[12px] font-semibold inline-flex items-center gap-1.5 transition-colors min-h-[40px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400">
             <svg width="17" height="17" viewBox="0 0 14 14" fill="#DC2626" class="shrink-0" aria-hidden="true" focusable="false">
               <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
@@ -894,32 +894,200 @@
   </div>
 
   <!-- ============================================================== -->
-  <!-- MODAL 4: Dialog Konfirmasi Status Mata Kuliah                  -->
+  <!-- MODAL 4: Dialog Konfirmasi Ubah Status Mata Kuliah · Layar 05   -->
   <!-- ============================================================== -->
-  <div x-show="matkulStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="batalKonfirmasiStatusMatkul()"></div>
-    <div class="relative max-w-md w-full rounded-[16px] bg-white p-6 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Konfirmasi status mata kuliah">
-      <h3 class="text-[17px] font-bold text-[#1D1B3A]">Ubah Status Mata Kuliah?</h3>
-      <p class="text-[13px] text-[#667085] mt-1.5 leading-normal">
-        Ubah status mata kuliah <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulStatusConfirm ? matkulStatusConfirm.kode : ''"></span>
-        dari <span class="font-semibold" x-text="matkulStatusConfirm ? matkulStatusConfirm.dari : ''"></span>
-        ke <span class="font-semibold text-[#1D1B3A]" x-text="matkulStatusConfirm ? matkulStatusConfirm.ke : ''"></span>.
-      </p>
-      <p class="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 leading-relaxed">
-        Penonaktifan mencegah mata kuliah ini dipilih pada penawaran semester baru. Penawaran kelas lama yang sudah berjalan tetap utuh di riwayat jadwal.
-      </p>
-      <div class="flex gap-2.5 mt-4 pt-2">
-        <button type="button"
-                @click="jalankanUbahStatusMatkul()"
-                class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold transition-colors min-h-[44px]">
-          Konfirmasi
-        </button>
+  <div x-show="matkulStatusConfirm" 
+       x-cloak 
+       class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#101828A6] backdrop-blur-[3px]"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-ubah-status-title">
+    
+    <!-- Backdrop dismiss -->
+    <div class="absolute inset-0" @click="batalKonfirmasiStatusMatkul()"></div>
+
+    <!-- Modal Box: Layar 05 (w-[540px] rounded-[20px]) -->
+    <div class="relative w-full max-w-[540px] bg-white rounded-[20px] shadow-[0px_18px_38px_rgba(16,24,40,0.25)] flex flex-col gap-0 z-10"
+         @click.stop>
+      
+      <!-- Isi Konfirmasi Status -->
+      <div class="w-full flex flex-col gap-[16px] p-[28px_28px_24px_28px] justify-start items-start">
+        
+        <!-- Ikon Peringatan Ubah Status -->
+        <div :class="matkulStatusConfirm && matkulStatusConfirm.ke === 'INACTIVE' ? 'bg-[#FEE4E2]' : 'bg-[#E1FFB7]'"
+             class="w-[48px] h-[48px] shrink-0 flex flex-row justify-center items-center rounded-[12px] transition-colors">
+          <!-- Simbol Peringatan Status Nonaktif (Ikon Block) -->
+          <template x-if="matkulStatusConfirm && matkulStatusConfirm.ke === 'INACTIVE'">
+            <svg viewBox="0 0 14 14" class="w-[24px] h-[24px] shrink-0" fill="#B42318" aria-hidden="true">
+              <path d="M7.00342 12.25q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q0.85449 0 1.64404-0.29737 0.79297-0.30078 1.43897-0.87158l-6.57959-6.57959q-0.55713 0.646-0.86475 1.43897-0.3042 0.78955-0.3042 1.64404 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z m3.49658-1.58252q0.5708-0.646 0.86817-1.43555 0.30078-0.79297 0.30078-1.64746 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-0.85791 0-1.6543 0.29395-0.79297 0.29395-1.42871 0.875l6.57959 6.57959z"/>
+            </svg>
+          </template>
+          <!-- Simbol Status Aktif (Ikon Check Circle) -->
+          <template x-if="matkulStatusConfirm && matkulStatusConfirm.ke === 'ACTIVE'">
+            <svg viewBox="0 0 14 14" class="w-[24px] h-[24px] shrink-0" fill="#166534" aria-hidden="true">
+              <path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z m0-1.32617q1.94141 0 3.28125-1.33984 1.34326-1.34326 1.34326-3.28467 0-1.94141-1.34326-3.28125-1.33984-1.34326-3.28125-1.34326-1.94141 0-3.28467 1.34326-1.33984 1.33984-1.33984 3.28125 0 1.94141 1.33984 3.28467 1.34326 1.33984 3.28467 1.33984z"/>
+            </svg>
+          </template>
+        </div>
+
+        <!-- Judul dan Penjelasan Status -->
+        <div class="w-full flex flex-col gap-[9px] justify-start items-start">
+          <h3 id="modal-ubah-status-title" class="text-[22px] font-bold text-[#1D1B3A] font-[Inter,system-ui,sans-serif] text-left">
+            Ubah Status Mata Kuliah?
+          </h3>
+          <p class="text-[13px]/[20px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+            <template x-if="matkulStatusConfirm && matkulStatusConfirm.ke === 'INACTIVE'">
+              <span>
+                Mengubah status <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulStatusConfirm.kode"></span> menjadi <strong class="text-[#B42318]">NONAKTIF</strong>. Mata kuliah nonaktif tidak dapat dipilih untuk penawaran jadwal baru.
+              </span>
+            </template>
+            <template x-if="matkulStatusConfirm && matkulStatusConfirm.ke === 'ACTIVE'">
+              <span>
+                Mengubah status <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulStatusConfirm.kode"></span> menjadi <strong class="text-[#166534]">AKTIF</strong>. Mata kuliah aktif dapat kembali dipilih untuk penawaran jadwal baru.
+              </span>
+            </template>
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Pemisah Footer Konfirmasi -->
+      <div class="w-full h-[1px] bg-[#EEEEEE]"></div>
+
+      <!-- Aksi Konfirmasi Status -->
+      <div class="w-full flex flex-row gap-[10px] p-[18px_28px] justify-end items-center">
+        <!-- Batal -->
         <button type="button"
                 @click="batalKonfirmasiStatusMatkul()"
-                class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+                :disabled="matkulStatusLoading"
+                class="w-fit h-[44px] px-[18px] rounded-[12px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-normal text-[#1D1B3A] transition-colors disabled:opacity-60 cursor-pointer focus:outline-none">
           Batal
         </button>
+
+        <!-- Konfirmasi -->
+        <button type="button"
+                @click="jalankanUbahStatusMatkul()"
+                :disabled="matkulStatusLoading"
+                :class="matkulStatusConfirm && matkulStatusConfirm.ke === 'INACTIVE' ? 'bg-[#DC2626] hover:bg-[#b91c1c]' : 'bg-[#15803D] hover:bg-[#166534]'"
+                class="w-fit h-[44px] px-[18px] rounded-[12px] text-[13px] font-normal text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer focus:outline-none">
+          <svg x-show="matkulStatusLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span x-text="matkulStatusLoading ? 'Menyimpan...' : 'Konfirmasi'">Konfirmasi</span>
+        </button>
       </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 6: TOLAK USULAN KM (Layar 06 / SCR-ADM-002E) -->
+  <div x-show="modalTolakUsulan"
+       x-cloak
+       class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#101828A6] backdrop-blur-[3px]"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-tolak-usulan-title">
+
+    <!-- Backdrop dismiss -->
+    <div class="absolute inset-0" @click="tutupModalTolakUsulan()"></div>
+
+    <!-- Modal Box: Layar 06 (w-[460px] rounded-[16px]) -->
+    <div data-pencil-name="SCR-ADM-002E · Tolak Usulan KM"
+         class="relative w-full max-w-[460px] bg-white rounded-[16px] shadow-[0px_18px_42px_#10182840] flex flex-col gap-0 p-[24px] justify-start items-start z-10"
+         @click.stop>
+
+      <!-- Ikon Penolakan -->
+      <div data-pencil-name="Ikon penolakan"
+           class="w-[40px] h-[40px] shrink-0 flex flex-row justify-center items-center bg-[#FEF2F2] border border-[#FECACA] rounded-[12px]">
+        <svg data-pencil-name="Simbol tolak"
+             width="22"
+             height="22"
+             viewBox="0 0 14 14"
+             fill="#991B1B"
+             class="shrink-0"
+             aria-hidden="true"
+             focusable="false">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+        </svg>
+      </div>
+
+      <!-- Penjelasan Penolakan -->
+      <div data-pencil-name="Penjelasan penolakan"
+           class="w-full h-fit shrink-0 flex flex-col gap-[5px] pt-[12px] justify-start items-start">
+        <h3 id="modal-tolak-usulan-title"
+            data-pencil-name="Judul tolak"
+            class="text-[17px] font-bold text-[#1D1B3A] font-[Geist,Inter,system-ui,sans-serif] text-left leading-normal">
+          Tolak Usulan Mata Kuliah?
+        </h3>
+        <p data-pencil-name="Detail usulan"
+           class="text-[13px]/[19px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+          Usulan mata kuliah “<span class="font-semibold text-[#1D1B3A]" x-text="namaUsulanMatkul(usulanDitolakTarget)"></span>” yang diajukan oleh <span class="font-semibold text-[#1D1B3A]" x-text="usulanDitolakTarget ? (usulanDitolakTarget.class_slug ? 'KM ' + usulanDitolakTarget.class_slug : (usulanDitolakTarget.proposed_by || 'Ketua Murid')) : 'Ketua Murid'"></span> akan ditolak.
+        </p>
+      </div>
+
+      <!-- Alasan Wajib Penolakan -->
+      <div data-pencil-name="Alasan wajib penolakan"
+           class="w-full h-fit shrink-0 flex flex-col gap-[7px] pt-[18px] justify-start items-start">
+        <label for="usulan-alasan-tolak-input"
+               data-pencil-name="Label alasan"
+               class="text-[11px] text-[#667085] font-[Geist,Inter,system-ui,sans-serif] font-bold tracking-[0.4px] text-left uppercase">
+          ALASAN PENOLAKAN (WAJIB UNTUK KM) *
+        </label>
+        <div data-pencil-name="Textarea alasan · wajib diisi"
+             class="w-full shrink-0 flex flex-row bg-white rounded-[12px]">
+          <textarea id="usulan-alasan-tolak-input"
+                    x-model="usulanAlasanTolak"
+                    :disabled="usulanRejectLoading"
+                    rows="3"
+                    placeholder="Tuliskan alasan penolakan agar Ketua Murid memahaminya (contoh: Mata kuliah ini ekuivalen dengan 25IF3101 di kurikulum baru)..."
+                    class="w-full h-[96px] text-[12px]/[17px] p-[12px] text-[#1D1B3A] placeholder-[#667085] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626] resize-none transition-colors disabled:bg-slate-50 disabled:opacity-70 font-[Geist,system-ui,sans-serif]"></textarea>
+        </div>
+        <p data-pencil-name="Bantuan notifikasi"
+           class="text-[11px]/[15px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+          Catatan penolakan ini akan dikirimkan otomatis ke notifikasi Ketua Murid.
+        </p>
+      </div>
+
+      <!-- Footer Tolak Usulan -->
+      <div data-pencil-name="Footer Tolak Usulan"
+           class="w-full h-fit shrink-0 flex flex-col gap-[12px] pt-[20px] justify-start items-start">
+        <!-- Pemisah Footer -->
+        <div data-pencil-name="Pemisah footer"
+             class="w-full h-[1px] bg-[#EEEEEE]"></div>
+        
+        <!-- Aksi Penolakan -->
+        <div data-pencil-name="Aksi penolakan"
+             class="w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center">
+          <button type="button"
+                  data-pencil-name="Batal · kembali ke inbox usulan"
+                  @click="tutupModalTolakUsulan()"
+                  :disabled="usulanRejectLoading"
+                  class="w-fit h-[42px] px-[16px] flex items-center justify-center rounded-[12px] hover:bg-slate-100 text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer disabled:opacity-60">
+            <span data-pencil-name="Label batal"
+                  class="text-[13px] font-[Geist,system-ui,sans-serif] font-medium whitespace-nowrap">
+              Batal
+            </span>
+          </button>
+          
+          <button type="button"
+                  data-pencil-name="Tolak Usulan · kirim notifikasi KM"
+                  @click="prosesTolakUsulan()"
+                  :disabled="!usulanAlasanTolak.trim() || usulanRejectLoading"
+                  class="w-fit h-[42px] shadow-[0px_2px_4px_#DC262633] flex flex-row gap-2 px-[20px] justify-center items-center bg-[#DC2626] hover:bg-[#b91c1c] rounded-[12px] text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg x-show="usulanRejectLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span data-pencil-name="Label tolak"
+                  class="text-[13px] font-[Geist,system-ui,sans-serif] font-normal whitespace-nowrap text-white"
+                  x-text="usulanRejectLoading ? 'Menolak...' : 'Tolak Usulan'">
+              Tolak Usulan
+            </span>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
