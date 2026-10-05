@@ -227,6 +227,8 @@ function systemAdminApp() {
     matkulFormLoading: false,
     matkulQ: '',
     matkulStatusFilter: '',
+    matkulPage: 1,
+    matkulPerPage: 8,
     matkulEdit: null,
     matkulEditError: '',
     matkulEditLoading: false,
@@ -1765,10 +1767,72 @@ function systemAdminApp() {
       );
     },
 
+    totalBarisMatkul() {
+      return (this.filteredMatkul() || []).length;
+    },
+
+    totalHalamanMatkul() {
+      return Math.max(1, Math.ceil(this.totalBarisMatkul() / (this.matkulPerPage || 8)));
+    },
+
+    paginatedMatkul() {
+      const perPage = this.matkulPerPage || 8;
+      const totalHalaman = this.totalHalamanMatkul();
+      const page = Math.max(1, Math.min(this.matkulPage || 1, totalHalaman));
+      const start = (page - 1) * perPage;
+      return (this.filteredMatkul() || []).slice(start, start + perPage);
+    },
+
+    mulaiItemMatkul() {
+      const total = this.totalBarisMatkul();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanMatkul();
+      const page = Math.max(1, Math.min(this.matkulPage || 1, totalHalaman));
+      return (page - 1) * (this.matkulPerPage || 8) + 1;
+    },
+
+    akhirItemMatkul() {
+      const total = this.totalBarisMatkul();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanMatkul();
+      const page = Math.max(1, Math.min(this.matkulPage || 1, totalHalaman));
+      return Math.min(page * (this.matkulPerPage || 8), total);
+    },
+
+    keHalamanMatkul(p) {
+      const target = Math.max(1, Math.min(p, this.totalHalamanMatkul()));
+      this.matkulPage = target;
+      this.matkulMenu = null;
+    },
+
+    halamanArrayMatkul() {
+      const total = this.totalHalamanMatkul();
+      const curr = this.matkulPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
     async loadMatkul() {
       this.matkulLoading = true; this.matkulError = '';
       try {
         this.matkulList = await API.getMasterCourses(this.matkulStatusFilter || '');
+        if (this.matkulPage > this.totalHalamanMatkul()) {
+          this.matkulPage = Math.max(1, this.totalHalamanMatkul());
+        }
       } catch (e) {
         this.matkulList = [];
         this.matkulError = 'Daftar mata kuliah belum dapat dimuat. Periksa koneksi lalu coba lagi.';
