@@ -2177,12 +2177,17 @@ function systemAdminApp() {
 
     async sinkronSemuaMaster() {
       this.syncAllLoading = true;
+      this.importError = '';
+      this.importSuccess = '';
       try {
         const res = await API.syncMasterAllJadwal();
         await Promise.all([this.loadMatkul(), this.loadRuang(), this.loadDosen()]);
-        this.showToast(res.message || `Berhasil menyinkronkan ${res.total_synced || 0} master data kampus.`);
+        const msg = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} master data kampus.`;
+        this.importSuccess = msg;
+        this.showToast(msg);
       } catch (err) {
-        this.showToast(err.message || 'Gagal menyinkronkan master data kampus.');
+        this.importError = err.message || 'Gagal menyinkronkan master data kampus.';
+        this.showToast(this.importError);
       } finally {
         this.syncAllLoading = false;
       }
