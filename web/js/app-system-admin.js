@@ -224,6 +224,7 @@ function systemAdminApp() {
     matkulError: '',
     matkulForm: { kode: '', nama: '' },
     matkulFormError: '',
+    matkulFormLoading: false,
     matkulQ: '',
     matkulStatusFilter: '',
     matkulEdit: null,
@@ -1760,12 +1761,15 @@ function systemAdminApp() {
     bukaModalTambahMatkul() {
       this.matkulForm = { kode: '', nama: '' };
       this.matkulFormError = '';
+      this.matkulFormLoading = false;
       this.modalTambahMatkul = true;
     },
 
     tutupModalTambahMatkul() {
+      if (this.matkulFormLoading) return;
       this.modalTambahMatkul = false;
       this.matkulFormError = '';
+      this.matkulFormLoading = false;
     },
 
     bukaModalImportMatkul() {
@@ -1861,19 +1865,24 @@ function systemAdminApp() {
 
     async tambahMatkul() {
       const f = this.matkulForm;
-      if (!((f.kode || '').trim()) || !((f.nama || '').trim())) {
+      const kode = (f.kode || '').trim().toUpperCase();
+      const nama = (f.nama || '').trim();
+      if (!kode || !nama) {
         this.matkulFormError = 'Kode dan nama mata kuliah wajib diisi.';
         return;
       }
       this.matkulFormError = '';
+      this.matkulFormLoading = true;
       try {
-        await API.createMasterCourse({ code: f.kode.trim(), name: f.nama.trim() });
+        await API.createMasterCourse({ code: kode, name: nama });
         this.matkulForm = { kode: '', nama: '' };
         await this.loadMatkul();
         this.modalTambahMatkul = false;
-        this.showToast('Mata kuliah ditambahkan.');
+        this.showToast('Mata kuliah berhasil ditambahkan.');
       } catch (err) {
         this.matkulFormError = err.message || 'Gagal menambah mata kuliah.';
+      } finally {
+        this.matkulFormLoading = false;
       }
     },
 

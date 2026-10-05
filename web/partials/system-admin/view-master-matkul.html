@@ -216,7 +216,7 @@
     </div>
 
     <!-- DESKTOP TABLE VIEW -->
-    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="hidden md:block w-full overflow-x-auto">
+    <div x-show="!matkulLoading && filteredMatkul().length > 0" class="hidden md:block w-full">
       
       <!-- Header Tabel -->
       <div class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[12px] p-[0px_12px] justify-start items-center bg-[#F6F7FB] rounded-[9px]">
@@ -236,7 +236,7 @@
 
       <!-- Baris Data Mata Kuliah -->
       <div class="divide-y divide-[#EEEEEE]">
-        <template x-for="m in filteredMatkul()" :key="m.id">
+        <template x-for="(m, index) in filteredMatkul()" :key="m.id">
           <div class="w-full min-h-[72px] py-3 px-3 flex flex-row gap-[12px] justify-start items-center hover:bg-slate-50/70 transition-colors">
             
             <!-- Kolom Kode -->
@@ -288,12 +288,13 @@
                   </svg>
                 </button>
 
-                <!-- Popover Menu Pilihan -->
+                <!-- Popover Menu Pilihan (Otomatis Dropup untuk Baris Bawah) -->
                 <div x-show="matkulMenu === m.id"
                      x-transition:enter="transition ease-out duration-100"
                      x-transition:enter-start="transform opacity-0 scale-95"
                      x-transition:enter-end="transform opacity-100 scale-100"
-                     class="absolute right-0 top-[48px] z-50 w-[184px] rounded-[12px] bg-white border border-[#D7DDE7] shadow-xl py-1 text-left pointer-events-auto"
+                     :class="(index >= filteredMatkul().length - 2 && index > 0) ? 'bottom-[48px] origin-bottom-right' : 'top-[48px] origin-top-right'"
+                     class="absolute right-0 z-50 w-[184px] rounded-[12px] bg-white border border-[#D7DDE7] shadow-xl py-1 text-left pointer-events-auto"
                      role="menu">
                   <button type="button"
                           @click="matkulMenu = null; salinKodeMatkul(m.code)"
@@ -367,60 +368,108 @@
   <!-- ============================================================== -->
   <!-- MODAL 1: Tambah Mata Kuliah Baru                                -->
   <!-- ============================================================== -->
-  <div x-show="modalTambahMatkul" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/50 backdrop-blur-xs" @click="tutupModalTambahMatkul()"></div>
-    <div class="relative max-w-lg w-full rounded-[16px] bg-white p-6 sm:p-7 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Tambah mata kuliah baru">
+  <div x-show="modalTambahMatkul" 
+       x-cloak 
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#101828A6] backdrop-blur-[3px]"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-tambah-matkul-title">
+    
+    <!-- Backdrop dismiss -->
+    <div class="absolute inset-0" @click="tutupModalTambahMatkul()"></div>
+
+    <!-- Modal Box (Card) -->
+    <div class="relative w-full max-w-[640px] bg-white rounded-[20px] shadow-[0px_18px_38px_rgba(16,24,40,0.25)] border border-[#D7DDE7] overflow-hidden flex flex-col z-10"
+         @click.stop>
       
-      <div class="flex items-start justify-between pb-3.5 border-b border-[#EEEEEE]">
-        <div>
-          <h3 class="text-[18px] font-bold text-[#1D1B3A]">Tambah Mata Kuliah</h3>
-          <p class="text-[12px] text-[#667085] mt-0.5">Kode mata kuliah bersifat permanen dan tidak dapat diubah setelah disimpan.</p>
+      <!-- Header Dialog Tambah -->
+      <div class="flex items-center justify-between p-[20px_24px] sm:p-[24px_28px] border-b border-[#EEEEEE]">
+        <div class="flex flex-col gap-[5px]">
+          <h3 id="modal-tambah-matkul-title" class="text-[20px] sm:text-[22px] font-bold text-[#1D1B3A] font-[Inter,system-ui,sans-serif] leading-tight">
+            Tambah Mata Kuliah
+          </h3>
+          <p class="text-[13px] text-[#667085] leading-normal font-[Geist,system-ui,sans-serif]">
+            Masukkan mata kuliah baru ke katalog induk kampus.
+          </p>
         </div>
         <button type="button"
                 @click="tutupModalTambahMatkul()"
                 aria-label="Tutup dialog"
-                class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors">
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+                class="w-[44px] h-[44px] shrink-0 rounded-[11px] bg-[#F6F7FB] hover:bg-[#EEF2F6] flex items-center justify-center text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/30">
+          <svg width="22" height="22" viewBox="0 0 14 14" fill="currentColor" class="w-[22px] h-[22px]" aria-hidden="true">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
         </button>
       </div>
 
-      <div x-show="matkulFormError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="matkulFormError"></div>
+      <!-- Alert Error Validasi -->
+      <div x-show="matkulFormError" x-cloak class="mx-6 sm:mx-7 mt-5 p-3.5 rounded-[12px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-start gap-2.5">
+        <svg class="w-4 h-4 shrink-0 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span x-text="matkulFormError" class="leading-relaxed"></span>
+      </div>
 
-      <form @submit.prevent="tambahMatkul()" class="space-y-4 mt-4">
-        <div>
-          <label for="sa-matkul-input-kode" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
-            Kode Mata Kuliah <span class="text-red-500">*</span>
-          </label>
-          <input id="sa-matkul-input-kode"
-                 type="text"
-                 x-model="matkulForm.kode"
-                 placeholder="Contoh: 25TI1101 atau 25IF1101"
-                 class="w-full h-[44px] px-3.5 rounded-[10px] border border-[#CBD5E1] font-mono text-[13px] uppercase text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
-                 required />
-          <p class="text-[11px] text-[#667085] mt-1">Gunakan kode resmi kurikulum. Huruf kapital otomatis.</p>
+      <!-- Formulir Mata Kuliah -->
+      <form @submit.prevent="tambahMatkul()" class="flex flex-col">
+        <div class="p-[20px_24px] sm:p-[24px_28px] flex flex-col gap-[18px]">
+          <!-- Field Kode mata kuliah -->
+          <div class="flex flex-col gap-[8px]">
+            <label for="sa-matkul-input-kode" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+              Kode mata kuliah <span class="text-red-500">*</span>
+            </label>
+            <input id="sa-matkul-input-kode"
+                   type="text"
+                   x-model="matkulForm.kode"
+                   @input="matkulForm.kode = $event.target.value.toUpperCase()"
+                   placeholder="25TI1103"
+                   maxlength="20"
+                   class="w-full h-[44px] px-[14px] bg-white border border-[#CBD5E1] rounded-[12px] font-mono text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all uppercase"
+                   required />
+          </div>
+
+          <!-- Field Nama mata kuliah -->
+          <div class="flex flex-col gap-[8px]">
+            <label for="sa-matkul-input-nama" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+              Nama mata kuliah <span class="text-red-500">*</span>
+            </label>
+            <input id="sa-matkul-input-nama"
+                   type="text"
+                   x-model="matkulForm.nama"
+                   placeholder="Masukkan nama mata kuliah"
+                   maxlength="150"
+                   class="w-full h-[44px] px-[14px] bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
+                   required />
+          </div>
+
+          <!-- Peringatan Kode Tetap -->
+          <div class="w-full p-[12px] flex flex-row items-center gap-[9px] bg-[#EEF2FF] rounded-[10px]">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" class="w-[18px] h-[18px] shrink-0" aria-hidden="true">
+              <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+            </svg>
+            <span class="text-[12px] text-[#1D1B3A] font-normal font-[Geist,system-ui,sans-serif]">Kode tidak dapat diubah setelah disimpan.</span>
+          </div>
         </div>
 
-        <div>
-          <label for="sa-matkul-input-nama" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
-            Nama Mata Kuliah <span class="text-red-500">*</span>
-          </label>
-          <input id="sa-matkul-input-nama"
-                 type="text"
-                 x-model="matkulForm.nama"
-                 placeholder="Contoh: Dasar-Dasar Pemrograman"
-                 class="w-full h-[44px] px-3.5 rounded-[10px] border border-[#CBD5E1] text-[14px] text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20 transition-all"
-                 required />
-        </div>
+        <!-- Pemisah Footer Tambah -->
+        <div class="w-full h-[1px] bg-[#EEEEEE]"></div>
 
-        <div class="flex gap-2.5 pt-3 border-t border-[#EEEEEE]">
-          <button type="submit"
-                  class="flex-1 h-[44px] rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold transition-colors min-h-[44px]">
-            Simpan Mata Kuliah
-          </button>
+        <!-- Aksi Dialog Tambah -->
+        <div class="w-full flex flex-row items-center justify-end gap-[10px] p-[18px_24px] sm:p-[18px_28px]">
           <button type="button"
                   @click="tutupModalTambahMatkul()"
-                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#667085] transition-colors min-h-[44px]">
+                  :disabled="matkulFormLoading"
+                  class="h-[44px] px-[18px] rounded-[12px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-normal text-[#1D1B3A] transition-colors disabled:opacity-60 min-h-[44px] focus:outline-none">
             Batal
+          </button>
+          <button type="submit"
+                  :disabled="matkulFormLoading"
+                  class="h-[44px] px-[18px] rounded-[12px] bg-[#3965FB] hover:bg-[#2d52d9] text-[13px] font-normal text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
+            <svg x-show="matkulFormLoading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span x-text="matkulFormLoading ? 'Menyimpan...' : 'Simpan mata kuliah'"></span>
           </button>
         </div>
       </form>
