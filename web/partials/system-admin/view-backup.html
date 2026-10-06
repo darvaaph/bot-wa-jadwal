@@ -263,78 +263,157 @@
       </div>
     </div>
 
-    <!-- Modal: Buat Cadangan Baru -->
-    <div x-show="modalBuatBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" @keydown.escape.window="tutupModalBuatBackup()">
-      <div class="relative w-full max-w-[560px] bg-white rounded-[16px] shadow-2xl border border-[#E5E7EB] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150" @click.stop>
-        <div class="flex items-start justify-between">
-          <div>
-            <h3 class="text-[18px] font-bold text-[#1D1B3A]">Buat Cadangan Baru</h3>
-            <p class="text-[13px] text-[#667085] mt-0.5">Cadangkan snapshot data akademik kelas untuk pengarsipan aman.</p>
+    <!-- Modal: Buat Cadangan Akademik (SCR-ADM-008B-MODAL-BACKUP) -->
+    <div x-show="modalBuatBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalBuatBackup()">
+      <div class="relative w-full max-w-[480px] bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#E4E7EC] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150" @click.stop>
+        
+        <!-- Header Dialog -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[12px] justify-between items-start">
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <h3 class="text-[18px] font-bold text-[#1D1B3A] tracking-tight" x-text="backupHasil ? 'Hasil Cadangan Akademik' : 'Buat Cadangan Akademik'">
+              Buat Cadangan Akademik
+            </h3>
+            <p class="text-[12px]/[17px] text-[#667085]" x-text="backupHasil ? 'Snapshot data akademik kelas berhasil dibuat dan diverifikasi.' : 'Cadangkan seluruh data jadwal, tugas, dan materi kelas.'">
+              Cadangkan seluruh data jadwal, tugas, dan materi kelas.
+            </p>
           </div>
-          <button type="button" @click="tutupModalBuatBackup()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
-            <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          <button type="button" @click="tutupModalBuatBackup()" class="w-[44px] shrink-0 h-[44px] flex items-center justify-center rounded-full text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279-0-0.2085-0.09228l-3.05908-3.05909z"/>
             </svg>
           </button>
+        </div>
+
+        <!-- Callout Keamanan dan Integritas Cadangan (Hanya Tampil Saat Form Pengisian) -->
+        <div x-show="!backupHasil" class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[14px] justify-start items-start bg-[#EFF4FF] border border-[#BFDBFE] rounded-[12px]">
+          <svg class="w-5 h-5 shrink-0 text-[#1D4ED8] mt-0.5" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M5.85498 9.13281l2.29004 0q0.19824 0 0.33496-0.13672 0.13672-0.13672 0.13672-0.33496l0-1.70556q0-0.20166-0.13672-0.33496-0.13672-0.13672-0.33496-0.13672l-0.10254 0 0-0.58448q0-0.43408-0.29736-0.73144-0.29736-0.30078-0.73487-0.30078-0.43408 0-0.73486 0.30078-0.29736 0.29736-0.29736 0.73144l0 0.58448-0.12305 0q-0.19824 0-0.33496 0.13672-0.13672 0.1333-0.13672 0.33496l0 1.70556q0 0.19824 0.13672 0.33496 0.13672 0.13672 0.33496 0.13672z m0.57422-2.64892l0-0.58448q0-0.24609 0.16748-0.41357 0.16748-0.16748 0.41357-0.16748 0.24951 0 0.417 0.16748 0.16748 0.16748 0.41357l0 0.58448-1.16553 0z m0.5708 5.67383q-0.07861 0-0.16748-0.01368-0.08887-0.01367-0.16406-0.04443-1.72266-0.65625-2.7378-2.2251-1.01514-1.57227-1.01513-3.40088l0-2.49853q0-0.29736 0.1709-0.53662 0.1709-0.24268 0.44433-0.34864l3.14112-1.16894q0.16748-0.06152 0.32812-0.06152 0.16064 0 0.32813 0.06152l3.14111 1.16894q0.27344 0.10596 0.44433 0.34864 0.1709 0.23926 0.1709 0.53662l0 2.49853q0 1.82861-1.01513 3.40088-1.01514 1.56885-2.7378 2.2251-0.0752 0.03076-0.16406 0.04443-0.08887 0.01367-0.16748 0.01368z m0-0.5503q1.51758-0.48193 2.50879-1.92431 0.99121-1.44238 0.99121-3.20948l0-2.50879q0-0.11279-0.06152-0.20166-0.06152-0.08887-0.17432-0.1333l-3.14111-1.16894q-0.05469-0.02051-0.12305-0.02051-0.06836 0-0.12305 0.02051l-3.14111 1.16894q-0.11279 0.04443-0.17432 0.1333-0.06152 0.08887-0.06152 0.20166l0 2.50879q0 1.76709 0.99121 3.20948 0.99121 1.44238 2.50879 1.92431z"/>
+          </svg>
+          <div class="text-[12px]/[17px] flex-1 text-[#1D4ED8]">
+            Cadangan diisolasi per kelas dengan verifikasi checksum SHA-256. Data tersimpan aman di folder storage/backups server.
+          </div>
         </div>
 
         <!-- Notifikasi Eror -->
-        <div x-show="backupError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700" x-text="backupError"></div>
+        <div x-show="backupError" class="p-3 bg-red-50 border border-red-200 rounded-[12px] text-[12px] text-red-700" x-text="backupError"></div>
 
-        <!-- Notifikasi Berhasil -->
-        <div x-show="backupHasil" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-[13px] text-emerald-800 flex flex-col gap-2">
-          <div class="font-bold flex items-center gap-1.5 text-emerald-900">
-            <svg class="w-5 h-5 text-emerald-600" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
-            </svg>
-            <span>Cadangan Berhasil Dibuat</span>
-          </div>
-          <div class="grid grid-cols-3 gap-1 font-mono text-[12px] bg-white/70 p-2.5 rounded-lg border border-emerald-100">
-            <span class="text-slate-500">ID:</span><span class="col-span-2 font-bold" x-text="'#' + backupHasil.id"></span>
-            <span class="text-slate-500">Status:</span><span class="col-span-2 font-bold" x-text="backupHasil.status || 'READY'"></span>
-            <span class="text-slate-500">Checksum:</span><span class="col-span-2 break-all text-[11px]" x-text="backupHasil.checksum || '-'"></span>
+        <!-- Mode Hasil Cadangan: Hanya Menampilkan Snapshot Hasil Saja -->
+        <div x-show="backupHasil" class="w-full flex flex-col gap-3">
+          <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-[12px] text-[12px] text-emerald-800 flex flex-col gap-2.5">
+            <div class="font-bold flex items-center gap-2 text-emerald-900 text-[13px]">
+              <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+              </svg>
+              <span>Cadangan Berhasil Dibuat</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 font-mono text-[11px] bg-white/90 p-3 rounded-[10px] border border-emerald-100">
+              <span class="text-slate-500 font-sans">ID Cadangan:</span>
+              <span class="col-span-2 font-bold text-[#1D1B3A]" x-text="'#' + (backupHasil?.id || '-')"></span>
+
+              <span class="text-slate-500 font-sans">Cakupan Kelas:</span>
+              <span class="col-span-2 font-semibold text-[#1D1B3A] font-sans" x-text="namaKelasBySlug(backupHasil?.class_slug || backupForm.kelas, backupHasil?.class_id)"></span>
+
+              <span class="text-slate-500 font-sans">Semester:</span>
+              <span class="col-span-2 font-semibold text-[#1D1B3A] font-sans" x-text="backupHasil?.semester_id ? ('Semester #' + backupHasil.semester_id) : 'Seluruh Semester'"></span>
+
+              <span class="text-slate-500 font-sans">Status:</span>
+              <span class="col-span-2 font-bold text-emerald-700" x-text="backupHasil?.status || 'READY'"></span>
+
+              <span class="text-slate-500 font-sans">Checksum:</span>
+              <span class="col-span-2 break-all font-semibold text-[#1D1B3A]" x-text="backupHasil?.checksum || '-'"></span>
+
+              <template x-if="backupHasil?.created_at">
+                <span class="text-slate-500 font-sans">Dibuat Pada:</span>
+              </template>
+              <template x-if="backupHasil?.created_at">
+                <span class="col-span-2 text-slate-700 font-sans" x-text="fmtWaktuID(backupHasil.created_at)"></span>
+              </template>
+            </div>
+            <p class="text-[11px] text-emerald-700">Berkas snapshot telah dicatat dan dapat dilihat pada tabel daftar cadangan.</p>
           </div>
         </div>
 
-        <!-- Kolom Formulir -->
-        <div class="flex flex-col gap-4">
-          <div>
-            <label for="modal-backup-kelas" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Kelas <span class="text-red-500">*</span></label>
-            <select id="modal-backup-kelas" x-model="backupForm.kelas" @change="onBackupKelasChange()" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]">
-              <option value="">-- Pilih Kelas --</option>
-              <template x-for="k in kelasList" :key="k.slug">
-                <option :value="k.slug" x-text="k.nama + ' (' + labelStatusKelas(k.status) + ')'"></option>
-              </template>
-            </select>
+        <!-- Form Pencadangan Akademik (Hanya Tampil Saat Mode Pengisian, Sembunyi Saat Hasil Snapshot Muncul) -->
+        <div x-show="!backupHasil" class="box-border w-full flex flex-col gap-[16px]">
+          <!-- Field 1: Pilih Kelas -->
+          <div class="flex flex-col gap-[6px]">
+            <label for="modal-backup-kelas" class="text-[12px] text-[#1D1B3A]">
+              Pilih Kelas *
+            </label>
+            <div class="relative w-full">
+              <select id="modal-backup-kelas" x-model="backupForm.kelas" @change="onBackupKelasChange()" class="w-full h-[44px] pl-[14px] pr-[36px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] text-[#1D1B3A] outline-none appearance-none cursor-pointer focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]">
+                <option value="">-- Pilih Kelas --</option>
+                <template x-for="k in kelasList" :key="k.slug">
+                  <option :value="k.slug" x-text="k.nama + ' (' + labelStatusKelas(k.status) + ')'"></option>
+                </template>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-[14px] text-[#667085]">
+                <svg class="w-[18px] h-[18px]" viewBox="0 0 14 14" fill="currentColor">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-[11px]/[15px] text-[#667085]">
+              System Admin wajib menentukan kelas target pencadangan.
+            </p>
           </div>
 
-          <div>
-            <label for="modal-backup-sem" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Cakupan Semester (Opsional)</label>
-            <select id="modal-backup-sem" x-model="backupForm.semester" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]">
-              <option value="">Seluruh Semester Kelas</option>
-              <template x-for="s in backupSemesterList" :key="s.id">
-                <option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + ' • ' + (s.status || '')"></option>
-              </template>
-            </select>
-            <p class="text-[11px] text-[#667085] mt-1">Pilih satu semester atau kosongkan untuk mencadangkan seluruh data kelas.</p>
+          <!-- Field 2: Cakupan Semester -->
+          <div class="flex flex-col gap-[6px]">
+            <label for="modal-backup-sem" class="text-[12px] text-[#1D1B3A]">
+              Cakupan Semester (Opsional)
+            </label>
+            <div class="relative w-full">
+              <select id="modal-backup-sem" x-model="backupForm.semester" class="w-full h-[44px] pl-[14px] pr-[36px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] text-[#1D1B3A] outline-none appearance-none cursor-pointer focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]">
+                <option value="">Seluruh Data Kelas (Semua Semester)</option>
+                <template x-for="s in backupSemesterList" :key="s.id">
+                  <option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + (s.status ? ' • ' + s.status : '')"></option>
+                </template>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-[14px] text-[#667085]">
+                <svg class="w-[18px] h-[18px]" viewBox="0 0 14 14" fill="currentColor">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-[11px]/[15px] text-[#667085]">
+              Pilih satu semester spesifik atau seluruh riwayat kelas.
+            </p>
           </div>
 
-          <div>
-            <label for="modal-backup-alasan" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Alasan Pencadangan <span class="text-red-500">*</span></label>
-            <input id="modal-backup-alasan" type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi semester genap 2024/2025" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]" />
-            <p class="text-[11px] text-[#667085] mt-1">Alasan pencadangan dicatat dalam riwayat audit sistem.</p>
+          <!-- Field 3: Alasan Pencadangan -->
+          <div class="flex flex-col gap-[6px]">
+            <label for="modal-backup-alasan" class="text-[12px] text-[#1D1B3A]">
+              Alasan Pencadangan *
+            </label>
+            <input id="modal-backup-alasan" type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi kurikulum semester baru" class="w-full h-[44px] px-[14px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] text-[#1D1B3A] placeholder-[#667085] outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]" />
+            <p class="text-[11px]/[15px] text-[#667085]">
+              Minimal 5 karakter. Alasan dicatat permanen dalam Audit Global.
+            </p>
           </div>
         </div>
 
-        <!-- Tombol Aksi Modal -->
-        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5E7EB]">
-          <button type="button" @click="tutupModalBuatBackup()" class="min-h-[44px] px-4 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-medium text-[#475467] transition-colors">
-            Tutup
-          </button>
-          <button type="button" @click="buatBackup()" :disabled="backupLoading" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-60">
-            <span x-show="backupLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            <span x-text="backupLoading ? 'Membuat...' : 'Buat Cadangan'"></span>
-          </button>
+        <!-- Aksi Dialog (Footer) -->
+        <div class="w-full h-[59.5px] border-t border-[#F2F4F7] pt-[16px] flex flex-row gap-[12px] justify-end items-center">
+          <!-- Mode Formulir Input (!backupHasil) -->
+          <template x-if="!backupHasil">
+            <div class="flex items-center gap-[12px]">
+              <button type="button" @click="tutupModalBuatBackup()" class="min-h-[44px] px-[16px] rounded-[12px] text-[12px] font-semibold text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors">
+                Batal
+              </button>
+              <button type="button" @click="buatBackup()" :disabled="backupLoading || !backupForm.kelas || !(backupForm.alasan || '').trim() || (backupForm.alasan || '').trim().length < 5" class="min-h-[44px] px-[20px] rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-normal [box-shadow:0px_1px_3px_#1018281A] inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="backupLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span x-text="backupLoading ? 'Membuat...' : 'Buat Cadangan Sekarang'"></span>
+              </button>
+            </div>
+          </template>
+
+          <!-- Mode Hasil Snapshot Selesai (backupHasil): HANYA 1 Tombol "Selesai" Saja -->
+          <template x-if="backupHasil">
+            <button type="button" @click="tutupModalBuatBackup()" class="min-h-[44px] px-[24px] rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-semibold [box-shadow:0px_1px_3px_#1018281A] inline-flex items-center justify-center transition-colors">
+              Selesai
+            </button>
+          </template>
         </div>
       </div>
     </div>

@@ -2886,18 +2886,22 @@ function systemAdminApp() {
 
     async buatBackup() {
       const f = this.backupForm;
-      if (!f.kelas) { this.backupError = 'Pilih kelas untuk dicadangkan.'; return; }
-      if (!((f.alasan || '').trim())) { this.backupError = 'Isi alasan pencadangan. Alasan tercatat di Riwayat Perubahan.'; return; }
+      if (!f.kelas) { this.backupError = 'Pilih kelas target untuk dicadangkan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.backupError = 'Alasan pencadangan minimal 5 karakter.';
+        return;
+      }
       this.backupError = ''; this.backupHasil = null;
       this.backupLoading = true;
       try {
-        const payload = { class_slug: f.kelas, reason: f.alasan.trim() };
+        const payload = { class_slug: f.kelas, reason: alasan };
         if (f.semester) payload.semester_id = Number(f.semester);
         this.backupHasil = await API.createBackup(payload);
-        this.showToast('Cadangan berhasil dibuat.');
+        this.showToast('Cadangan akademik berhasil dibuat.');
         await this.loadBackupList();
       } catch (err) {
-        this.backupError = err.message || 'Gagal membuat cadangan.';
+        this.backupError = err.message || 'Gagal membuat cadangan akademik.';
       } finally {
         this.backupLoading = false;
       }
@@ -2955,6 +2959,8 @@ function systemAdminApp() {
 
     tutupModalBuatBackup() {
       this.modalBuatBackup = false;
+      this.backupHasil = null;
+      this.backupError = '';
     },
 
     bukaModalRestoreBackup(b) {
