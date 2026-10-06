@@ -2981,6 +2981,11 @@ function systemAdminApp() {
     tutupModalRestoreBackup() {
       this.modalRestoreBackup = false;
       this.selectedBackup = null;
+      this.restoreForm = { id: '', alasan: '', paham: false };
+      this.scopedRestorePreview = null;
+      this.scopedRestoreResult = null;
+      this.restoreHasil = null;
+      this.restoreError = '';
     },
 
     filteredBackupList() {
@@ -3064,14 +3069,55 @@ function systemAdminApp() {
       finally { this.scopedRestoreLoading = false; }
     },
 
+    getRestoreComparisonRows() {
+      if (!this.scopedRestorePreview) return [];
+      const p = this.scopedRestorePreview;
+      const src = p.source_counts || {};
+      const cur = p.current_counts || {};
+
+      const items = [
+        { key: 'offerings', label: 'Mata Kuliah Kurikulum', unit: 'data' },
+        { key: 'patterns', label: 'Pola Jadwal Mingguan', unit: 'sesi' },
+        { key: 'events', label: 'Jadwal Kuliah Pengganti', unit: 'sesi' },
+        { key: 'tasks', label: 'Tugas & Deadline Kuliah', unit: 'tugas' },
+      ];
+
+      if (src.materials !== undefined || cur.materials !== undefined) {
+        items.push({ key: 'materials', label: 'Materi Kuliah', unit: 'berkas' });
+      }
+
+      return items.map(item => {
+        const s = src[item.key] ?? 0;
+        const c = cur[item.key] ?? 0;
+        const same = s === c;
+        return {
+          key: item.key,
+          label: item.label,
+          source: s,
+          sourceText: s + ' ' + item.unit,
+          current: c,
+          currentText: same ? (c + ' ' + item.unit + ' (Sama)') : (c + ' ' + item.unit + ' aktif'),
+          same: same,
+        };
+      });
+    },
+
     async executeRestore() {
       const f = this.restoreForm;
       const preview = this.scopedRestorePreview;
       if (!preview || !preview.can_restore) { this.restoreError = 'Selesaikan keterkaitan lintas kelas lalu muat ulang pratinjau.'; return; }
-      if (!f.alasan.trim() || !f.paham) { this.restoreError = 'Isi alasan dan konfirmasi dampak pemulihan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.restoreError = 'Alasan pemulihan minimal 5 karakter.';
+        return;
+      }
+      if (!f.paham) {
+        this.restoreError = 'Centang pernyataan pemahaman dampak terlebih dahulu.';
+        return;
+      }
       this.scopedRestoreLoading = true; this.restoreError = '';
       try {
-        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, f.alasan.trim(), preview.preview_token);
+        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, alasan, preview.preview_token);
         this.scopedRestorePreview = null;
         this.showToast('Data akademik berhasil dipulihkan.');
         await this.loadBackupList();

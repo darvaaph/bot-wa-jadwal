@@ -418,126 +418,239 @@
       </div>
     </div>
 
-    <!-- Modal: Pemulihan & Verifikasi Cadangan -->
-    <div x-show="modalRestoreBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" @keydown.escape.window="tutupModalRestoreBackup()">
-      <div class="relative w-full max-w-[620px] max-h-[90vh] overflow-y-auto bg-white rounded-[16px] shadow-2xl border border-[#E5E7EB] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150" @click.stop>
-        <div class="flex items-start justify-between">
-          <div>
-            <h3 class="text-[18px] font-bold text-[#1D1B3A]" x-text="selectedBackupRestorable ? 'Pratinjau Pemulihan Paket v2' : 'Verifikasi Integritas Arsip v1'"></h3>
-            <p class="text-[13px] text-[#667085] mt-0.5" x-text="selectedBackupRestorable ? 'Periksa cakupan data akademik sebelum menerapkan ke database aktif.' : 'Verifikasi checksum dan konsistensi arsip SQLite tanpa mengubah database aktif.'"></p>
+    <!-- Modal: Pemulihan Data Akademik v2 (SCR-ADM-008C-MODAL-RESTORE) -->
+    <div x-show="modalRestoreBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalRestoreBackup()">
+      <div class="relative w-full max-w-[520px] max-h-[92vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#E4E7EC] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150" @click.stop>
+        
+        <!-- Header Dialog -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[12px] pb-[12px] justify-between items-start border-b border-[#F2F4F7]">
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <h3 class="text-[18px] font-bold text-[#1D1B3A] tracking-tight" x-text="selectedBackupRestorable ? (scopedRestoreResult ? 'Hasil Pemulihan Akademik' : 'Pratinjau Pemulihan Akademik') : (restoreHasil ? 'Hasil Verifikasi Arsip v1' : 'Verifikasi Integritas Arsip v1')">
+              Pratinjau Pemulihan Akademik
+            </h3>
+            <div class="text-[12px]/[17px] text-[#667085] font-mono break-all" x-text="selectedBackupRestorable ? ('Paket Cadangan #' + (selectedBackup?.id || restoreForm.id) + ' · ' + namaKelasBySlug(selectedBackup?.class_slug, selectedBackup?.class_id) + (selectedBackup?.semester_id ? (' (Semester #' + selectedBackup?.semester_id + ')') : ' (Seluruh Data Kelas)')) : ('Berkas Arsip SQLite #' + (selectedBackup?.id || restoreForm.id) + ' · ' + namaKelasBySlug(selectedBackup?.class_slug, selectedBackup?.class_id))">
+              Paket Cadangan #12 · D4 - TI 1A (Ganjil 2024/2025)
+            </div>
           </div>
-          <button type="button" @click="tutupModalRestoreBackup()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
-            <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
+          <button type="button" @click="tutupModalRestoreBackup()" class="w-[44px] shrink-0 h-[44px] flex items-center justify-center rounded-full text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 14 14" fill="currentColor">
               <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
             </svg>
           </button>
         </div>
 
-        <!-- Ringkasan Informasi Cadangan Terpilih -->
-        <div class="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="font-mono text-[14px] font-bold text-[#1D1B3A]" x-text="'Cadangan #' + (selectedBackup?.id || restoreForm.id)"></span>
-              <span class="px-2 py-0.5 rounded-[5px] text-[11px] font-medium"
-                    :class="selectedBackupRestorable ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'"
-                    x-text="selectedBackupRestorable ? 'Format v2 (Scoped)' : 'Arsip v1 (SQLite)'"></span>
-            </div>
-            <span class="text-[12px] text-slate-500" x-text="fmtWaktuID(selectedBackup?.created_at)"></span>
-          </div>
-          <div class="text-[12px] text-[#475467] grid grid-cols-2 gap-1.5 pt-1 border-t border-[#E2E8F0]">
-            <div>Kelas: <span class="font-medium text-[#1D1B3A]" x-text="namaKelasBySlug(selectedBackup?.class_slug, selectedBackup?.class_id)"></span></div>
-            <div>Semester: <span class="font-medium text-[#1D1B3A]" x-text="selectedBackup?.semester_id ? ('#' + selectedBackup?.semester_id) : 'Seluruh Kelas'"></span></div>
-            <div class="col-span-2">Alasan: <span class="font-medium text-[#1D1B3A]" x-text="selectedBackup?.reason || '-'"></span></div>
-          </div>
-        </div>
+        <!-- Notifikasi Eror -->
+        <div x-show="restoreError" class="p-3 bg-red-50 border border-red-200 rounded-[12px] text-[12px] text-red-700" x-text="restoreError"></div>
 
-        <!-- Pratinjau Pemulihan Berlingkup (Scoped Restore) -->
-        <div x-show="selectedBackupRestorable" class="flex flex-col gap-3">
-          <div x-show="scopedRestoreLoading" class="py-4 text-center text-[13px] text-slate-500 flex items-center justify-center gap-2">
-            <span class="w-4 h-4 border-2 border-[#3965FB] border-t-transparent rounded-full animate-spin"></span>
-            <span>Menganalisis pratinjau pemulihan paket...</span>
-          </div>
+        <!-- Mode Scoped Restore v2: Perbandingan Isi Paket dan Data Aktif -->
+        <template x-if="selectedBackupRestorable && !scopedRestoreResult">
+          <div class="box-border w-full flex flex-col gap-[10px]">
+            <!-- Tabel Tiga Kolom Pemulihan -->
+            <div class="box-border w-full bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] overflow-hidden flex flex-col">
+              <div class="w-full h-[41.5px] shrink-0 flex flex-row gap-[8px] px-[12px] items-center bg-[#F8FAFC] border-b border-[#E4E7EC]">
+                <div class="text-[11px] w-[196px] shrink-0 text-[#475467] font-medium tracking-[0.4px] text-left">
+                  KOMPONEN DATA
+                </div>
+                <div class="text-[11px] w-[100px] shrink-0 text-[#475467] font-medium tracking-[0.4px] text-left">
+                  ISI PAKET
+                </div>
+                <div class="text-[11px] flex-1 text-[#475467] font-medium tracking-[0.4px] text-left">
+                  DATA AKTIF SAAT INI
+                </div>
+              </div>
 
-          <div x-show="scopedRestorePreview && !scopedRestoreLoading" class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-[12px] flex flex-col gap-2.5 text-[13px]">
-            <div class="font-semibold text-blue-950 flex items-center justify-between">
-              <span>Perbandingan Data (Paket Cadangan → Data Aktif):</span>
-              <span class="text-[11px] font-normal text-blue-700" x-text="scopedRestorePreview.can_restore ? 'Siap dipulihkan' : 'Keterkaitan konflik'"></span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white/80 p-2.5 rounded-lg border border-blue-100 font-mono text-[12px]">
-              <template x-for="key in Object.keys(scopedRestorePreview.source_counts || {})" :key="key">
+              <!-- Loading Skeleton saat menganalisis pratinjau -->
+              <template x-if="scopedRestoreLoading && !scopedRestorePreview">
                 <div class="flex flex-col">
-                  <span class="text-[11px] text-slate-500 uppercase tracking-wider" x-text="key"></span>
-                  <span class="font-bold text-[#1D1B3A]" x-text="scopedRestorePreview.source_counts[key] + ' → ' + (scopedRestorePreview.current_counts[key] || 0)"></span>
+                  <template x-for="i in 4" :key="i">
+                    <div class="w-full min-h-[46.5px] px-[12px] py-3 flex flex-row gap-[8px] items-center border-b border-[#F2F4F7] animate-pulse">
+                      <div class="w-[196px] h-3.5 bg-slate-200 rounded"></div>
+                      <div class="w-[100px] h-3.5 bg-slate-200 rounded"></div>
+                      <div class="flex-1 h-3.5 bg-slate-200 rounded"></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Data Rows Perbandingan -->
+              <template x-if="scopedRestorePreview">
+                <div class="flex flex-col">
+                  <template x-for="row in getRestoreComparisonRows()" :key="row.key">
+                    <div class="w-full min-h-[46.5px] py-2.5 px-[12px] flex flex-row gap-[8px] items-center border-b border-[#F2F4F7] last:border-b-0">
+                      <div class="text-[12px] w-[196px] shrink-0 text-[#1D1B3A] text-left" x-text="row.label"></div>
+                      <div
+                        class="text-[12px] w-[100px] shrink-0 font-mono text-left"
+                        :class="row.same ? 'text-[#475467]' : 'text-[#B45309] font-semibold'"
+                        x-text="row.sourceText"
+                      ></div>
+                      <div
+                        class="text-[12px] flex-1 font-mono text-left"
+                        :class="row.same ? 'text-[#15803D]' : 'text-[#B42318] font-semibold'"
+                        x-text="row.currentText"
+                      ></div>
+                    </div>
+                  </template>
                 </div>
               </template>
             </div>
-            <div x-show="!scopedRestorePreview.can_restore" class="p-2.5 bg-red-100/80 border border-red-300 rounded-lg text-red-800 text-[12px] font-medium">
-              Tertahan oleh teaching event lintas kelas: <span class="font-mono font-bold" x-text="(scopedRestorePreview.cross_class_event_ids || []).join(', ')"></span>. Selesaikan konflik sebelum memulihkan.
+
+            <!-- Banner Peringatan Konflik Lintas Kelas -->
+            <div x-show="scopedRestorePreview && !scopedRestorePreview.can_restore" class="w-full p-[10px_12px] bg-amber-50 border border-amber-200 rounded-[8px] text-[12px] text-amber-800 flex items-start gap-2">
+              <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 1.16699L12.8333 11.667H1.16667L7 1.16699ZM7 9.33366C6.72386 9.33366 6.5 9.55752 6.5 9.83366C6.5 10.1098 6.72386 10.3337 7 10.3337C7.27614 10.3337 7.5 10.1098 7.5 9.83366C7.5 9.55752 7.27614 9.33366 7 9.33366ZM6.5 5.83366V8.16699H7.5V5.83366H6.5Z"/>
+              </svg>
+              <div class="flex-1">
+                <span>Pemulihan tertahan oleh event perkuliahan lintas kelas (ID: </span>
+                <span class="font-mono font-bold" x-text="(scopedRestorePreview.cross_class_event_ids || []).join(', ')"></span>
+                <span>). Harap selesaikan keterkaitan lintas kelas sebelum memulihkan.</span>
+              </div>
+            </div>
+
+            <!-- Jaminan Titik Pre-Restore -->
+            <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] p-[9px_12px] justify-start items-center bg-[#F0FDF4] border border-[#BBF7D0] rounded-[8px]">
+              <svg class="w-[16px] shrink-0 h-[16px] text-[#15803D]" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M6.1626 8.45264l-1.45948-1.45606q-0.07861-0.08203-0.19824-0.08545-0.11963-0.00684-0.21191 0.08545-0.0957 0.0957-0.0957 0.2085 0 0.11279 0.0957 0.20508l1.53808 1.53808q0.14014 0.14355 0.32813 0.14356 0.19141 0 0.33154-0.14356l3.1958-3.19238q0.08203-0.08203 0.08545-0.20166 0.00684-0.11963-0.08545-0.21191-0.0957-0.09229-0.20849-0.09229-0.11279 0-0.20508 0.09229l-3.11035 3.11035z m0.84082 3.79736q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+              </svg>
+              <div class="text-[12px]/[17px] flex-1 text-[#15803D] font-medium">
+                Titik pemulihan (pre-restore backup) otomatis dibuat sebelum data ditimpa.
+              </div>
             </div>
           </div>
+        </template>
 
-          <div x-show="scopedRestoreResult" class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-[12px] text-emerald-800 text-[13px] font-medium flex items-center gap-2">
-            <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
-            </svg>
-            <span x-text="'Pemulihan berhasil! Titik pemulihan aman dibuat di #' + scopedRestoreResult.pre_restore_backup_id"></span>
+        <!-- Mode Verifikasi Arsip v1 (Legacy SQLite) -->
+        <template x-if="!selectedBackupRestorable && !restoreHasil">
+          <div class="box-border w-full flex flex-col gap-3">
+            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-[12px] text-[12px] text-[#475467] flex flex-col gap-1.5">
+              <span class="font-semibold text-[#1D1B3A]">Verifikasi Integritas Arsip SQLite</span>
+              <p>Berkas cadangan format v1 (SQLite) hanya menguji konsistensi arsip dan checksum SHA-256 tanpa mengubah database aktif.</p>
+            </div>
           </div>
-        </div>
+        </template>
 
-        <!-- Hasil Verifikasi Arsip v1 -->
-        <div x-show="!selectedBackupRestorable && restoreHasil" class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-[12px] text-emerald-800 text-[13px] flex flex-col gap-1.5">
-          <div class="font-bold flex items-center gap-1.5 text-emerald-900">
-            <svg class="w-5 h-5 text-emerald-600" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
-            </svg>
-            <span>Berkas Arsip v1 Terverifikasi Integritasnya</span>
+        <!-- Hasil Pemulihan Sukses (Format v2) -->
+        <template x-if="scopedRestoreResult">
+          <div class="w-full p-4 bg-emerald-50 border border-emerald-200 rounded-[12px] text-[12px] text-emerald-800 flex flex-col gap-2">
+            <div class="font-bold flex items-center gap-2 text-emerald-900 text-[13px]">
+              <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+              </svg>
+              <span>Data Akademik Berhasil Dipulihkan!</span>
+            </div>
+            <p class="text-[12px] text-emerald-700">
+              Data akademik kelas telah diselaraskan dengan paket cadangan. Titik pemulihan aman (pre-restore snapshot) otomatis tersimpan sebagai
+              <strong class="font-mono text-emerald-900" x-text="'#' + scopedRestoreResult.pre_restore_backup_id"></strong>.
+            </p>
           </div>
-          <p class="text-[12px]" x-text="restoreHasil.message || 'Database aktif tetap utuh tanpa perubahan.'"></p>
-        </div>
+        </template>
 
-        <!-- Kolom Alasan & Persetujuan -->
-        <div class="flex flex-col gap-3 pt-1">
-          <div>
-            <label for="modal-restore-alasan" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">
-              Alasan <span x-text="selectedBackupRestorable ? 'Pemulihan' : 'Verifikasi'"></span> <span class="text-red-500">*</span>
+        <!-- Hasil Verifikasi Arsip v1 Sukses -->
+        <template x-if="!selectedBackupRestorable && restoreHasil">
+          <div class="w-full p-4 bg-emerald-50 border border-emerald-200 rounded-[12px] text-[12px] text-emerald-800 flex flex-col gap-2">
+            <div class="font-bold flex items-center gap-2 text-emerald-900 text-[13px]">
+              <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+              </svg>
+              <span>Berkas Arsip v1 Terverifikasi Integritasnya</span>
+            </div>
+            <p class="text-[12px] text-emerald-700" x-text="restoreHasil.message || 'Database aktif tetap utuh tanpa perubahan.'"></p>
+          </div>
+        </template>
+
+        <!-- Alasan dan Persetujuan Pemulihan (Hanya tampil saat form input) -->
+        <div x-show="!scopedRestoreResult && !restoreHasil" class="box-border w-full flex flex-col gap-[12px]">
+          <div class="flex flex-col gap-[6px]">
+            <label for="modal-restore-alasan" class="text-[12px] text-[#1D1B3A]">
+              Alasan <span x-text="selectedBackupRestorable ? 'Pemulihan' : 'Verifikasi'"></span> *
             </label>
-            <textarea id="modal-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan alasan operasional untuk dicatat dalam log audit..." class="w-full p-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none resize-none focus:ring-2 focus:ring-[#3965FB]"></textarea>
+            <textarea
+              id="modal-restore-alasan"
+              x-model="restoreForm.alasan"
+              rows="2"
+              :placeholder="selectedBackupRestorable ? 'Tuliskan alasan pemulihan darurat ini...' : 'Jelaskan alasan verifikasi arsip...'"
+              class="w-full min-h-[72px] p-[10px_14px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] text-[#1D1B3A] placeholder-[#667085] outline-none resize-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]"
+            ></textarea>
+            <p class="text-[11px] text-[#667085]">Minimal 5 karakter. Dicatat permanen dalam Riwayat Audit Global.</p>
           </div>
 
-          <label class="flex items-start gap-2.5 text-[12px] text-[#344054] cursor-pointer select-none">
-            <input type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-[#3965FB] rounded" />
-            <span x-text="selectedBackupRestorable ? 'Saya memahami bahwa pemulihan scoped akan mengganti data akademik kelas terpilih dan otomatis mencadangkan titik pemulihan sebelumnya.' : 'Saya memahami bahwa verifikasi arsip v1 hanya mengecek integritas berkas cadangan dan tidak mengubah database operasional.'"></span>
+          <label class="w-full flex flex-row gap-[10px] items-start cursor-pointer select-none">
+            <div class="w-[44px] shrink-0 h-[44px] flex items-center justify-center">
+              <input
+                type="checkbox"
+                x-model="restoreForm.paham"
+                class="w-[18px] h-[18px] text-[#3965FB] border-[#667085] rounded cursor-pointer focus:ring-[#3965FB]"
+              />
+            </div>
+            <div class="text-[12px]/[18px] flex-1 text-[#475467] pt-[11px]">
+              <span x-text="selectedBackupRestorable ? ('Saya memahami pemulihan ini akan menimpa data jadwal dan tugas aktif pada kelas ' + namaKelasBySlug(selectedBackup?.class_slug, selectedBackup?.class_id) + '.') : 'Saya memahami bahwa verifikasi arsip v1 hanya mengecek integritas berkas cadangan dan tidak mengubah database operasional.'"></span>
+            </div>
           </label>
         </div>
 
-        <!-- Notifikasi Eror -->
-        <div x-show="restoreError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700" x-text="restoreError"></div>
+        <!-- Aksi Konfirmasi Pemulihan (Footer) -->
+        <div class="w-full h-[59.5px] border-t border-[#F2F4F7] pt-[16px] flex flex-row gap-[10px] justify-end items-center">
+          <!-- Sebelum Sukses (!scopedRestoreResult && !restoreHasil) -->
+          <template x-if="!scopedRestoreResult && !restoreHasil">
+            <div class="flex items-center gap-[10px]">
+              <!-- Tombol Segarkan jika stale atau ada error -->
+              <button
+                x-show="selectedBackupRestorable && (!scopedRestorePreview || !scopedRestorePreview.can_restore || restoreError)"
+                type="button"
+                @click="previewRestore(restoreForm.id)"
+                :disabled="scopedRestoreLoading"
+                class="min-h-[44px] px-[14px] rounded-[12px] border border-[#CBD5E1] text-[12px] font-medium text-[#475467] hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
+              >
+                <span x-show="scopedRestoreLoading" class="w-3.5 h-3.5 border-2 border-[#475467] border-t-transparent rounded-full animate-spin"></span>
+                <span>Segarkan Pratinjau</span>
+              </button>
 
-        <!-- Tombol Aksi Modal -->
-        <div class="flex items-center justify-between pt-3 border-t border-[#E5E7EB]">
-          <div>
-            <button x-show="selectedBackupRestorable" type="button" @click="previewRestore(restoreForm.id)" :disabled="scopedRestoreLoading" class="min-h-[44px] px-3.5 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-medium text-[#475467] transition-colors inline-flex items-center gap-1.5">
-              <span x-show="scopedRestoreLoading" class="w-3.5 h-3.5 border-2 border-[#475467] border-t-transparent rounded-full animate-spin"></span>
-              <span>Segarkan Pratinjau</span>
-            </button>
-          </div>
-          <div class="flex items-center gap-2.5">
-            <button type="button" @click="tutupModalRestoreBackup()" class="min-h-[44px] px-4 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-medium text-[#475467] transition-colors">
-              Tutup
-            </button>
-            <template x-if="selectedBackupRestorable">
-              <button type="button" @click="executeRestore()" :disabled="scopedRestoreLoading || !scopedRestorePreview || !scopedRestorePreview.can_restore || !restoreForm.paham || !restoreForm.alasan.trim()" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-red-600 hover:bg-red-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <span x-show="scopedRestoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span>Pulihkan Paket v2</span>
+              <!-- Tombol Batal -->
+              <button
+                type="button"
+                @click="tutupModalRestoreBackup()"
+                class="min-h-[44px] px-[16px] rounded-[12px] border border-[#667085] bg-[#FFFFFF] text-[12px] font-medium text-[#475467] hover:bg-slate-50 transition-colors"
+              >
+                Batal
               </button>
-            </template>
-            <template x-if="!selectedBackupRestorable">
-              <button type="button" @click="pulihkanBackup()" :disabled="restoreLoading || !restoreForm.paham || !restoreForm.alasan.trim()" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <span x-show="restoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi Arsip v1'"></span>
-              </button>
-            </template>
-          </div>
+
+              <!-- Tombol Konfirmasi Pulihkan (Format v2) -->
+              <template x-if="selectedBackupRestorable">
+                <button
+                  type="button"
+                  @click="executeRestore()"
+                  :disabled="scopedRestoreLoading || !scopedRestorePreview || !scopedRestorePreview.can_restore || !restoreForm.paham || !(restoreForm.alasan || '').trim() || (restoreForm.alasan || '').trim().length < 5"
+                  class="min-h-[44px] px-[20px] rounded-[12px] bg-[#D92D20] hover:bg-red-700 text-[#FFFFFF] text-[12px] font-semibold [box-shadow:0px_1px_3px_#1018281A] inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span x-show="scopedRestoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span x-text="scopedRestoreLoading ? 'Memulihkan...' : 'Konfirmasi Pulihkan'"></span>
+                </button>
+              </template>
+
+              <!-- Tombol Verifikasi (Format v1 Legacy) -->
+              <template x-if="!selectedBackupRestorable">
+                <button
+                  type="button"
+                  @click="pulihkanBackup()"
+                  :disabled="restoreLoading || !restoreForm.paham || !(restoreForm.alasan || '').trim() || (restoreForm.alasan || '').trim().length < 5"
+                  class="min-h-[44px] px-[20px] rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-[#FFFFFF] text-[12px] font-semibold shadow-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span x-show="restoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi Arsip v1'"></span>
+                </button>
+              </template>
+            </div>
+          </template>
+
+          <!-- Setelah Sukses (scopedRestoreResult || restoreHasil): HANYA 1 Tombol Selesai -->
+          <template x-if="scopedRestoreResult || restoreHasil">
+            <button
+              type="button"
+              @click="tutupModalRestoreBackup()"
+              class="min-h-[44px] px-[24px] rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-semibold [box-shadow:0px_1px_3px_#1018281A] inline-flex items-center justify-center transition-colors"
+            >
+              Selesai
+            </button>
+          </template>
         </div>
       </div>
     </div>
