@@ -1,94 +1,233 @@
 <!-- partials/system-admin/view-master-dosen.html - System Admin: Master Dosen -->
 <section x-show="view === 'master-dosen'" x-cloak>
   <div class="flex flex-col gap-5 md:gap-[22px]">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-1">
-      <div class="min-w-0">
-        <h1 class="font-display text-[28px] font-bold text-deep-ink tracking-tight">Master Dosen</h1>
-        <p class="text-[14px] text-muted mt-1.5">Kelola identitas dan status dosen untuk penugasan pada jadwal kuliah.</p>
+    <!-- Header Master Dosen -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col md:flex-row gap-4 md:gap-[18px] justify-between items-start md:items-center mt-1">
+      <div class="box-border flex-1 h-fit flex flex-col gap-[6px] justify-start items-start min-w-0">
+        <div class="box-border w-fit h-fit shrink-0 flex flex-row gap-[12px] justify-start items-center">
+          <h1 class="font-display text-[28px] font-bold text-[#1D1B3A] tracking-tight whitespace-nowrap">
+            Master Dosen
+          </h1>
+          <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-0 p-[4px_10px] justify-start items-center bg-[#F2F5FA] rounded-[999px]">
+            <span class="text-[12px] text-[#667085] font-normal whitespace-nowrap"
+                  x-text="(dosenList ? dosenList.length : 0) + ' dosen'">
+              0 dosen
+            </span>
+          </div>
+        </div>
+        <p class="text-[14px] text-[#667085] font-normal text-left">
+          Kelola identitas dan status dosen untuk penugasan pada jadwal kuliah.
+        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
-        <button type="button" @click="bukaModalImportDosen()" class="h-11 px-4 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-deep-ink text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
+        <button type="button" @click="bukaModalImportDosen()" class="box-border h-11 px-4 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
           <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false"><path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/></svg>
           <span>Impor / Sinkron</span>
         </button>
-        <button type="button" @click="bukaModalTambahDosen()" class="h-11 px-4 rounded-[10px] bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
+        <button type="button" @click="bukaModalTambahDosen()" class="box-border h-11 px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
           <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/></svg>
-          <span>Tambah dosen</span>
+          <span>Tambah Dosen</span>
         </button>
       </div>
     </div>
 
     <!-- Konteks -->
-    <div class="flex items-center gap-3 px-[18px] py-4 rounded-[10px] bg-primary-faint">
+    <div class="box-border flex items-center gap-3 px-[18px] py-3.5 rounded-[12px] bg-[#EEF2FF] border border-[#C7D7FE]">
       <svg width="20" height="20" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false"><path d="M3.98877 9.26953q-0.22559-0.12646-0.35889-0.34521-0.12988-0.21875-0.12988-0.48877l0-2.2627-0.92969-0.51269q-0.12646-0.07861-0.18799-0.18116-0.06152-0.10254-0.06152-0.229 0-0.12646 0.06152-0.229 0.06152-0.10254 0.18799-0.18116l3.97852-2.17041q0.10596-0.05811 0.21875-0.08203 0.11279-0.02734 0.23242-0.02734 0.11963 0 0.23242 0.02734 0.11279 0.02393 0.21875 0.08203l4.50488 2.44385q0.12305 0.07178 0.18457 0.18115 0.06494 0.10938 0.06495 0.23926l0 3.14795q0 0.12646-0.08545 0.21191-0.08203 0.08203-0.2085 0.08204-0.12305 0-0.2085-0.08204-0.08203-0.08545-0.08203-0.21191l0-3.10351-1.12109 0.59472 0 2.2627q0 0.27002-0.1333 0.48877-0.12988 0.21875-0.35547 0.34521l-2.55664 1.38428q-0.10938 0.06152-0.22217 0.08887-0.11279 0.02393-0.23242 0.02392-0.11963 0-0.23242-0.02392-0.11279-0.02734-0.22217-0.08887l-2.55664-1.38428z"/></svg>
-      <p class="flex-1 min-w-0 text-[13px] font-medium text-deep-ink">Dosen yang aktif dapat dipilih sebagai pengampu mata kuliah saat jadwal disusun.</p>
+      <p class="flex-1 min-w-0 text-[13px] font-medium text-[#1D1B3A]">Dosen yang aktif dapat dipilih sebagai pengampu mata kuliah saat jadwal disusun.</p>
     </div>
 
-    <!-- Cari + filter status -->
-    <div class="flex flex-col md:flex-row gap-3 md:items-center">
-      <label class="relative flex-1 flex items-center min-h-[44px]">
-        <span class="absolute left-3.5 text-muted" aria-hidden="true">
-          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/></svg>
-        </span>
-        <span class="sr-only">Cari nama atau kode dosen</span>
-        <input type="search" x-model="dosenQ" placeholder="Cari nama atau kode dosen..." class="h-11 w-full rounded-[10px] border border-[#D7DDE7] bg-white pl-10 pr-3 text-[13px]" />
-      </label>
-      <label class="relative flex items-center min-h-[44px] w-full md:w-[160px]">
-        <span class="sr-only">Filter status dosen</span>
-        <select x-model="dosenStatusFilter" @change="loadDosen()" class="h-11 w-full appearance-none rounded-[10px] border border-[#D7DDE7] bg-white pl-3 pr-8 text-[12px] text-deep-ink cursor-pointer">
+    <!-- Pencarian dan Filter Status Dosen -->
+    <div class="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <!-- Input Cari -->
+      <div class="relative flex-1 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3.5 gap-2.5 focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all">
+        <svg width="19" height="19" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+          <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/>
+        </svg>
+        <input type="text"
+               x-model="dosenQ"
+               @input="dosenPage = 1"
+               placeholder="Cari nama atau kode dosen..."
+               aria-label="Cari nama atau kode dosen"
+               class="w-full bg-transparent border-none p-0 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:ring-0" />
+        <button type="button"
+                x-show="dosenQ"
+                @click="dosenQ = ''; dosenPage = 1"
+                title="Hapus pencarian"
+                class="text-slate-400 hover:text-slate-600 p-1">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+        </button>
+      </div>
+
+      <!-- Dropdown Filter Status -->
+      <div class="relative w-full sm:w-[172px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+        <select x-model="dosenStatusFilter"
+                @change="dosenPage = 1; loadDosen()"
+                aria-label="Filter status dosen"
+                class="w-full appearance-none bg-transparent pr-6 text-[12px] text-[#1D1B3A] font-medium focus:outline-none cursor-pointer">
           <option value="">Semua status</option>
           <option value="ACTIVE">Aktif</option>
           <option value="INACTIVE">Nonaktif</option>
         </select>
-        <span class="pointer-events-none absolute right-2.5 text-muted" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/></svg>
-        </span>
-      </label>
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+        </svg>
+      </div>
     </div>
 
-    <!-- Daftar -->
-    <div class="bg-white border border-[#D7DDE7] rounded-2xl p-5">
-      <div class="flex items-center gap-3 pb-4">
-        <h2 class="text-[16px] font-bold text-deep-ink">Daftar dosen</h2>
-        <span class="flex-1"></span>
-        <span class="text-[12px] text-muted" x-show="dosenLoading">Memuat...</span>
-        <span class="text-[12px] text-muted" x-show="!dosenLoading && dosenList.length > 0" x-text="filteredDosen().length + ' data'"></span>
-        <span class="text-[12px] text-muted" x-show="!dosenLoading && dosenList.length === 0">Data belum tersedia</span>
+    <!-- Kartu Kontainer Tabel Daftar Dosen -->
+    <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-4 sm:p-5 md:p-6 shadow-sm flex flex-col gap-0">
+      
+      <!-- Baris Header Tabel -->
+      <div class="w-full h-[46px] shrink-0 flex items-center justify-between pb-2">
+        <h2 class="text-[17px] font-bold text-[#1D1B3A] tracking-tight">Daftar dosen</h2>
+        <span class="text-[11px] text-[#667085]"
+              x-show="!dosenLoading && dosenList.length > 0"
+              x-text="(filteredDosen().length) + ' data ditampilkan'"></span>
+        <span class="text-[11px] text-[#667085]"
+              x-show="!dosenLoading && dosenList.length === 0">0 dosen</span>
       </div>
 
-      <div x-show="dosenLoading" class="py-12 text-center text-muted" role="status">
-        <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p class="mt-3 text-[14px]">Memuat daftar dosen...</p>
+      <!-- SKELETON LOADING STATE (Mencegah Layout Shift) -->
+      <div x-show="dosenLoading" class="w-full py-3 space-y-3" aria-busy="true" aria-label="Memuat daftar dosen">
+        <div class="h-[44px] bg-slate-100 rounded-[9px] animate-pulse"></div>
+        <template x-for="i in [1, 2, 3, 4, 5]" :key="i">
+          <div class="h-[64px] border-b border-[#EEEEEE] flex items-center gap-3 px-3 animate-pulse">
+            <div class="w-[140px] h-4 bg-slate-200 rounded"></div>
+            <div class="flex-1 h-4 bg-slate-200 rounded max-w-sm"></div>
+            <div class="w-[112px] h-6 bg-slate-200 rounded-full"></div>
+            <div class="w-[160px] h-9 bg-slate-200 rounded-[12px] ml-auto"></div>
+          </div>
+        </template>
       </div>
 
-      <div x-show="dosenError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+      <!-- ERROR STATE -->
+      <div x-show="dosenError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 my-2">
         <span x-text="dosenError">-</span>
         <button type="button" @click="loadDosen()" class="ml-2 font-semibold underline">Coba lagi</button>
       </div>
 
-      <div x-show="!dosenLoading && !dosenError && dosenList.length > 0" class="overflow-x-auto">
-        <div class="min-w-[560px]">
-          <div class="grid grid-cols-[140px_minmax(0,1fr)_120px_80px] gap-3 px-3.5 h-11 items-center bg-surface-subtle rounded-[9px] text-[10px] text-muted" aria-hidden="true">
-            <span>KODE</span><span>NAMA LENGKAP & GELAR</span><span>STATUS</span><span class="text-right">AKSI</span>
+      <!-- EMPTY STATE · SCR-ADM-004A-EMPTY (Database Kosong) -->
+      <div x-show="!dosenLoading && !dosenError && dosenList.length === 0" class="py-12 px-4 flex flex-col items-center justify-center text-center">
+        <!-- Lingkaran icon person_off -->
+        <div class="box-border w-[64px] shrink-0 h-[64px] flex flex-row justify-center items-center bg-[#FEF3F2] rounded-[999px] mb-4">
+          <svg
+            viewBox="0 0 14.000015258789062 14"
+            class="box-border w-[32px] shrink-0 h-[32px]"
+            fill="#D92D20"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d="M11.36133 12.1919l-1.33643-1.33301-6.50097 0q-0.25977 0-0.43409-0.17432-0.17432-0.17432-0.17431-0.43066l0-0.35547q0-0.3623 0.20849-0.67676 0.21191-0.31445 0.56739-0.48877 0.76904-0.36914 1.53808-0.56055 0.76904-0.19141 1.53467-0.21533 0.08887 0 0.18457 0 0.0957 0 0.18457 0.01026l-5.32861-5.32862q-0.08545-0.08545-0.08887-0.20166-0.00342-0.11963 0.09229-0.21533 0.0957-0.0957 0.20849-0.0957 0.11279 0 0.2085 0.0957l9.55322 9.55664q0.08545 0.08545 0.08887 0.20166 0.00683 0.11621-0.08887 0.21192-0.0957 0.0957-0.2085 0.0957-0.10938 0-0.20849-0.0957zm-7.86133-1.91749l5.94385 0-1.69531-1.69189q-0.19824-0.02393-0.37598-0.04102-0.17432-0.01709-0.37256-0.01709-0.78271 0-1.54492 0.18799-0.76221 0.18457-1.4834 0.53321-0.22217 0.11963-0.34863 0.29052-0.12305 0.16748-0.12305 0.36231l0 0.37597zm4.78516-4.78516l-0.59473-0.59473q0.16406-0.03418 0.31445-0.04101 0.15039-0.01026 0.29395-0.01026 0.82031 0 1.40137 0.58106 0.58105 0.58105 0.58105 1.40137 0 0.14355-0.01025 0.29394-0.00684 0.15039-0.04102 0.31445l-0.59472-0.59472q0.0205-0.07178 0.02392-0.12988 0.00684-0.06153 0.00684-0.12305 0-0.56055-0.39648-0.95703-0.39649-0.39649-0.95704-0.39649-0.06152 0-0.12304 0.00684-0.05811 0.00342-0.12989 0.02393zm1.61328 1.61328l-0.59473-0.59472 0.02051-0.01368q0.74853-0.50586 1.15185-1.28857 0.40674-0.78272 0.40674-1.68164 0-1.39795-0.9707-2.36865-0.9707-0.97412-2.36865-0.97412-0.89893 0-1.68164 0.40674-0.78272 0.40332-1.28858 1.15185l-0.01367 0.02051-0.59473-0.59472 0.03418-0.04444q0.61865-0.91601 1.57568-1.42871 0.96045-0.51611 2.05078-0.51611 1.63721 0 2.80274 1.16211 1.16894 1.16211 1.16894 2.80273 0 1.09033-0.51611 2.05078-0.5127 0.95704-1.42871 1.57569l-0.04443 0.03417z"
+            />
+          </svg>
+        </div>
+        
+        <!-- Judul & Deskripsi -->
+        <p class="font-bold text-[18px] text-[#1D1B3A] text-center tracking-tight leading-[26px]">
+          Belum ada data master dosen
+        </p>
+        <p class="text-[13px] text-[#667085] text-center leading-[20px] max-w-[440px] mt-1.5">
+          Database master dosen masih kosong. Anda dapat menyinkronkan data langsung dari file jadwal POLBAN atau menambahkan dosen satu per satu secara manual.
+        </p>
+
+        <!-- Dua Tombol Aksi -->
+        <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
+          <button type="button"
+                  @click="sinkronDosenDariJadwal()"
+                  :disabled="importDosenLoading"
+                  class="h-11 px-4 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors disabled:opacity-50">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="shrink-0" :class="importDosenLoading ? 'animate-spin' : ''" aria-hidden="true" focusable="false">
+              <path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/>
+            </svg>
+            <span x-text="importDosenLoading ? 'Menyinkronkan...' : 'Sinkronkan 47 Dosen POLBAN'">Sinkronkan 47 Dosen POLBAN</span>
+          </button>
+          <button type="button"
+                  @click="bukaModalTambahDosen()"
+                  class="h-11 px-4 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/></svg>
+            <span>Tambah Manual</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- DESKTOP TABLE VIEW -->
+      <div x-show="!dosenLoading && !dosenError && filteredDosen().length > 0" class="hidden md:block overflow-x-auto">
+        <div class="min-w-[620px]">
+          <div class="grid grid-cols-[120px_minmax(0,1fr)_120px_140px] gap-3 px-3.5 h-11 items-center bg-[#F6F7FB] rounded-[9px] text-[10px] text-[#667085]" aria-hidden="true">
+            <span>KODE</span>
+            <span>NAMA LENGKAP & GELAR</span>
+            <span>STATUS</span>
+            <span>AKSI</span>
           </div>
-          <template x-for="d in filteredDosen()" :key="d.id">
-            <div>
-              <div class="grid grid-cols-[140px_minmax(0,1fr)_120px_80px] gap-3 px-3.5 py-3 items-center border-b border-[#EEEEEE] min-h-[64px]">
-                <p class="font-mono font-bold text-[13px] text-deep-ink truncate" x-text="d.code"></p>
-                <p class="text-[13px] text-deep-ink truncate" :title="d.full_name || d.name" x-text="d.full_name || d.name"></p>
-                <div>
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold" :class="String(d.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-[#166534]' : 'bg-slate-100 text-slate-500'" x-text="String(d.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'"></span>
-                </div>
-                <div class="flex justify-end">
-                  <div class="relative" @click.outside="dosenMenu = null">
-                    <button type="button" @click="dosenMenu = dosenMenu === d.id ? null : d.id" :aria-expanded="String(dosenMenu === d.id)" :aria-label="'Menu ' + (d.code || 'dosen')" class="w-11 h-11 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-muted min-w-[44px] min-h-[44px] transition-colors">
-                      <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41357 0.1709z"/></svg>
+          <template x-for="(d, index) in paginatedDosen()" :key="d.id">
+            <div class="grid grid-cols-[120px_minmax(0,1fr)_120px_140px] gap-3 px-3.5 py-3 items-center border-b border-[#EEEEEE] min-h-[71.5px] hover:bg-slate-50/50 transition-colors">
+              <p class="font-mono font-bold text-[14px] text-[#1D1B3A] truncate" x-text="d.code"></p>
+              <p class="text-[13px] text-[#1D1B3A] font-medium truncate" :title="d.full_name || d.name" x-text="d.full_name || d.name"></p>
+              <div>
+                <span class="inline-flex items-center px-[10px] py-[5px] rounded-[999px] text-[11px] font-normal"
+                      :class="String(d.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#E8ECF2] text-[#667085]'"
+                      x-text="String(d.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'"></span>
+              </div>
+              
+              <!-- Kolom Aksi -->
+              <div class="flex items-center gap-2">
+                <!-- Tombol Ubah -->
+                <button type="button"
+                        @click="mulaiUbahDosen(d)"
+                        title="Ubah data dosen"
+                        class="box-border h-[34px] flex flex-row gap-[5px] px-[11px] justify-center items-center bg-[#E9EAFF] hover:bg-[#dbeafe] text-[#3965FB] rounded-[10px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  <svg width="16" height="16" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+                    <path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z m8.28858-8.11084l-0.64942-0.64942 0.64942 0.64942z m-1.62354 0.97412l-0.31445-0.32813 0.64258 0.64258-0.32813-0.31445z"/>
+                  </svg>
+                  <span class="text-[12px] font-normal text-[#3965FB]">Ubah</span>
+                </button>
+
+                <!-- Tombol Titik Tiga Dropdown Menu -->
+                <div class="relative" @click.outside="dosenMenu = null" :class="dosenMenu === d.id ? 'z-50' : 'z-10'">
+                  <button type="button"
+                          @click.stop="dosenMenu = (dosenMenu === d.id ? null : d.id)"
+                          :aria-expanded="String(dosenMenu === d.id)"
+                          :aria-label="'Menu aksi dosen ' + (d.code || 'dosen')"
+                          class="box-border w-[34px] shrink-0 h-[34px] flex flex-row justify-center items-center bg-white border border-[#D7DDE7] hover:bg-slate-50 rounded-[9px] text-[#667085] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                    <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                      <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                    </svg>
+                  </button>
+
+                  <!-- Popover Menu Pilihan -->
+                  <div x-show="dosenMenu === d.id"
+                       x-transition:enter="transition ease-out duration-100"
+                       x-transition:enter-start="transform opacity-0 scale-95"
+                       x-transition:enter-end="transform opacity-100 scale-100"
+                       :class="(index >= paginatedDosen().length - 2 && index > 0) ? 'bottom-[40px] origin-bottom-right' : 'top-[40px] origin-top-right'"
+                       class="box-border w-[210px] h-fit shadow-[0px_10px_22px_#10182833] absolute right-0 flex flex-col gap-0 p-[6px_0px] justify-start items-start bg-white border border-[#D7DDE7] rounded-[12px] z-50 text-left pointer-events-auto"
+                       role="menu"
+                       :aria-label="'Menu ' + (d.code || 'dosen')">
+                    <!-- Ubah data -->
+                    <button type="button"
+                            @click="dosenMenu = null; mulaiUbahDosen(d)"
+                            role="menuitem"
+                            class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[10px] px-[14px] justify-start items-center hover:bg-slate-50 transition-colors text-left cursor-pointer text-[12px] text-[#1D1B3A]">
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                        <path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z"/>
+                      </svg>
+                      <span>Ubah data</span>
                     </button>
-                    <div x-show="dosenMenu === d.id" class="absolute right-0 top-[48px] z-20 w-[182px] rounded-[9px] bg-white border border-[#D7DDE7] shadow-card py-1" role="menu" :aria-label="'Menu ' + (d.code || 'dosen')">
-                      <button type="button" @click="dosenMenu = null; mulaiUbahDosen(d)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50">Ubah data</button>
-                      <button type="button" @click="dosenMenu = null; mintaKonfirmasiStatusDosen(d)" role="menuitem" class="w-full text-left px-3 min-h-[44px] flex items-center text-[12px] text-deep-ink hover:bg-slate-50" x-text="String(d.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'"></button>
-                    </div>
+
+                    <div class="box-border w-full h-[1px] shrink-0 bg-[#EEEEEE]"></div>
+
+                    <!-- Nonaktifkan / Aktifkan status -->
+                    <button type="button"
+                            @click="dosenMenu = null; mintaKonfirmasiStatusDosen(d)"
+                            role="menuitem"
+                            class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[10px] px-[14px] justify-start items-center hover:bg-slate-50 transition-colors text-left cursor-pointer text-[12px] text-[#1D1B3A]">
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+                        <path d="M7.00342 12.25q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q0.85449 0 1.64404-0.29737 0.79297-0.30078 1.43897-0.87158l-6.57959-6.57959q-0.55713 0.646-0.86475 1.43897-0.3042 0.78955-0.3042 1.64404 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z m3.49658-1.58252q0.5708-0.646 0.86817-1.43555 0.30078-0.79297 0.30078-1.64746 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-0.85791 0-1.6543 0.29395-0.79297 0.29395-1.42871 0.875l6.57959 6.57959z"/>
+                      </svg>
+                      <span x-text="String(d.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan dosen' : 'Aktifkan dosen'"></span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -97,25 +236,86 @@
         </div>
       </div>
 
-      <div x-show="!dosenLoading && !dosenError && dosenList.length > 0 && filteredDosen().length === 0" class="mt-2 p-10 rounded-[10px] border border-dashed border-[#D7DDE7] text-center text-muted">
-        <p class="text-[15px] font-semibold text-ink">Tidak ada dosen yang cocok</p>
-        <p class="text-[13px] mt-1">Ubah kata kunci pencarian atau reset filter status.</p>
-        <button type="button" @click="dosenQ = ''; dosenStatusFilter = ''; loadDosen()" class="mt-3 h-10 px-5 rounded-xl border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+      <!-- MOBILE LIST VIEW (Responsive Card-based) -->
+      <div x-show="!dosenLoading && filteredDosen().length > 0" class="md:hidden mt-3 space-y-3">
+        <template x-for="d in paginatedDosen()" :key="d.id">
+          <div class="p-4 rounded-xl border border-[#D7DDE7] bg-white space-y-2.5 shadow-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono text-[14px] font-bold text-[#1D1B3A]" x-text="d.code">-</span>
+              <span class="inline-flex items-center px-[10px] py-[5px] rounded-[999px] text-[11px] font-normal"
+                    :class="String(d.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#E8ECF2] text-[#667085]'"
+                    x-text="String(d.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+            </div>
+            <p class="text-[13px] font-medium text-[#1D1B3A] leading-snug" x-text="d.full_name || d.name">-</p>
+            <div class="pt-2 border-t border-slate-100 flex items-center gap-2">
+              <button type="button"
+                      @click="mulaiUbahDosen(d)"
+                      class="flex-1 h-[36px] rounded-[10px] bg-[#E9EAFF] hover:bg-[#dbeafe] text-[#3965FB] text-[12px] font-normal inline-flex items-center justify-center gap-1.5 transition-colors min-h-[36px]">
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="#3965FB"><path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z"/></svg>
+                <span>Ubah</span>
+              </button>
+              <button type="button"
+                      @click="mintaKonfirmasiStatusDosen(d)"
+                      title="Ubah status dosen"
+                      class="h-[36px] px-3 rounded-[10px] border border-[#D7DDE7] inline-flex items-center justify-center gap-1.5 text-[12px] font-normal text-[#1D1B3A] hover:bg-slate-50 transition-colors min-h-[36px]">
+                <span x-text="String(d.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'"></span>
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
 
-      <div x-show="!dosenLoading && !dosenError && dosenList.length === 0" class="py-10 flex flex-col gap-2.5 justify-center items-center text-center">
-        <span class="flex items-center justify-center w-14 h-14 rounded-[14px] bg-primary-faint text-primary" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M11.36133 12.1919l-1.33643-1.33301-6.50097 0q-0.25977 0-0.43409-0.17432-0.17432-0.17432-0.17431-0.43066l0-0.35547q0-0.3623 0.20849-0.67676 0.21191-0.31445 0.56739-0.48877 0.76904-0.36914 1.53808-0.56055 0.76904-0.19141 1.53467-0.21533 0.08887 0 0.18457 0 0.0957 0 0.18457 0.01026l-5.32861-5.32862q-0.08545-0.08545-0.08887-0.20166-0.00342-0.11963 0.09229-0.21533 0.0957-0.0957 0.20849-0.0957 0.11279 0 0.2085 0.0957l9.55322 9.55664q0.08545 0.08545 0.08887 0.20166 0.00683 0.11621-0.08887 0.21192-0.0957 0.0957-0.2085 0.0957-0.10938 0-0.20849-0.0957z m-7.86133-1.91749l5.94385 0-1.69531-1.69189q-0.19824-0.02393-0.37598-0.04102-0.17432-0.01709-0.37256-0.01709-0.78271 0-1.54492 0.18799-0.76221 0.18457-1.4834 0.53321-0.22217 0.11963-0.34863 0.29052-0.12305 0.16748-0.12305 0.36231l0 0.37597z"/></svg>
-        </span>
-        <p class="text-[18px] text-deep-ink">Belum ada dosen dalam daftar</p>
-        <p class="text-[13px] text-muted max-w-[420px]">Tambahkan dosen secara manual atau sinkronkan data untuk mulai menyusun jadwal.</p>
-        <button type="button" @click="bukaModalTambahDosen()" class="mt-1 h-11 px-4 rounded-[10px] bg-primary hover:bg-primary-hover text-white text-[13px] font-semibold min-h-[44px] inline-flex items-center gap-2 transition-colors">
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/></svg>
-          <span>Tambah dosen</span>
-        </button>
+      <!-- PENCARIAN KOSONG (Filter tidak menghasilkan data) -->
+      <div x-show="!dosenLoading && !dosenError && dosenList.length > 0 && filteredDosen().length === 0" class="mt-4 p-10 rounded-[12px] border border-dashed border-[#D7DDE7] text-center text-muted">
+        <p class="text-[15px] font-semibold text-[#1D1B3A]">Tidak ada dosen yang cocok</p>
+        <p class="text-[13px] text-[#667085] mt-1">Ubah kata kunci pencarian atau reset filter status.</p>
+        <button type="button" @click="dosenQ = ''; dosenStatusFilter = ''; dosenPage = 1; loadDosen()" class="mt-3 h-10 px-5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] min-h-[44px]">Reset filter</button>
       </div>
 
-      <p class="mt-4 pt-4 border-t border-[#EEEEEE] text-[11px] text-muted">Daftar menampilkan dosen setelah data ditambahkan atau berhasil disinkronkan.</p>
+      <!-- KONTROL PAGINATION MASTER DOSEN -->
+      <div x-show="!dosenLoading && totalBarisDosen() > 0" class="pt-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-[#667085]">
+        <div class="flex items-center gap-2.5">
+          <span class="text-[11px] text-[#667085]">
+            Menampilkan <strong class="text-[#1D1B3A]" x-text="mulaiItemDosen()"></strong>–<strong class="text-[#1D1B3A]" x-text="akhirItemDosen()"></strong> dari <strong class="text-[#1D1B3A]" x-text="totalBarisDosen()"></strong> dosen · hasil pemindaian kurikulum POLBAN.
+          </span>
+          <div class="flex items-center gap-1.5 pl-2 border-l border-[#E2E8F0]">
+            <label for="dosen-per-page" class="text-[11px] text-[#667085]">Per hal:</label>
+            <select id="dosen-per-page" x-model.number="dosenPerPage" @change="dosenPage = 1" class="h-7 rounded-[6px] border border-[#D7DDE7] bg-white px-1.5 text-[11px] font-medium text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]">
+              <option :value="5">5</option>
+              <option :value="8">8</option>
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Navigasi Halaman -->
+        <div x-show="totalHalamanDosen() > 1" class="flex items-center gap-1">
+          <button type="button" @click="keHalamanDosen(dosenPage - 1)" :disabled="dosenPage <= 1" :class="dosenPage <= 1 ? 'opacity-40 cursor-not-allowed bg-slate-50 text-[#667085] border-[#E2E8F0]' : 'hover:bg-slate-50 text-[#667085] border-[#D7DDE7] cursor-pointer bg-white'" class="w-7 h-7 rounded-[7px] border text-[12px] font-medium transition-colors flex items-center justify-center">
+            <span aria-hidden="true">‹</span>
+            <span class="sr-only">Sebelumnya</span>
+          </button>
+
+          <template x-for="(p, pIdx) in halamanArrayDosen()" :key="pIdx">
+            <div>
+              <template x-if="p === '...'">
+                <span class="w-7 h-7 flex items-center justify-center text-[12px] text-[#667085]">…</span>
+              </template>
+              <template x-if="p !== '...'">
+                <button type="button" @click="keHalamanDosen(p)" :class="dosenPage === p ? 'bg-[#EEF2FF] text-[#3965FB] font-bold border-transparent' : 'bg-white text-[#667085] border-[#D7DDE7] hover:bg-slate-50 font-medium'" class="min-w-[28px] h-7 px-1.5 rounded-[7px] border text-[12px] transition-colors cursor-pointer flex items-center justify-center" x-text="p"></button>
+              </template>
+            </div>
+          </template>
+
+          <button type="button" @click="keHalamanDosen(dosenPage + 1)" :disabled="dosenPage >= totalHalamanDosen()" :class="dosenPage >= totalHalamanDosen() ? 'opacity-40 cursor-not-allowed bg-slate-50 text-[#667085] border-[#E2E8F0]' : 'hover:bg-slate-50 text-[#667085] border-[#D7DDE7] cursor-pointer bg-white'" class="w-7 h-7 rounded-[7px] border text-[12px] font-medium transition-colors flex items-center justify-center">
+            <span aria-hidden="true">›</span>
+            <span class="sr-only">Berikutnya</span>
+          </button>
+        </div>
+      </div>
+
+      <p class="mt-4 pt-4 border-t border-[#EEEEEE] text-[11px] text-[#667085]">Sinkronisasi akan mengekstrak kode inisial dan nama dosen dari file jadwal POLBAN aktif.</p>
     </div>
 
     <!-- MODAL 1: Tambah Dosen Baru -->
