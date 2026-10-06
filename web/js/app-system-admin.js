@@ -260,6 +260,7 @@ function systemAdminApp() {
     dosenPerPage: 8,
     dosenEdit: null,
     dosenEditError: '',
+    dosenEditSaving: false,
     dosenMenu: null,
     dosenStatusConfirm: null,
     modalTambahDosen: false,
@@ -2308,27 +2309,47 @@ function systemAdminApp() {
     },
 
     mulaiUbahDosen(d) {
-      this.dosenEdit = { id: d.id, kode: d.code, nama: d.full_name || d.name || '' };
+      const isAktif = String(d.status || '').toUpperCase() === 'ACTIVE';
+      this.dosenEdit = {
+        id: d.id,
+        kode: d.code,
+        nama: d.full_name || d.name || '',
+        aktif: isAktif,
+        statusAwal: d.status || 'ACTIVE'
+      };
       this.dosenEditError = '';
+      this.dosenEditSaving = false;
     },
 
     batalUbahDosen() {
       this.dosenEdit = null;
       this.dosenEditError = '';
+      this.dosenEditSaving = false;
     },
 
     async simpanUbahDosen() {
       const f = this.dosenEdit;
       if (!f) return;
-      if (!((f.nama || '').trim())) { this.dosenEditError = 'Nama dosen wajib diisi.'; return; }
+      const nama = (f.nama || '').trim();
+      if (!nama) {
+        this.dosenEditError = 'Nama dosen wajib diisi.';
+        return;
+      }
       this.dosenEditError = '';
+      this.dosenEditSaving = true;
       try {
-        await API.patchMasterLecturer(f.id, { full_name: f.nama.trim() });
-        this.showToast(`Data dosen ${f.kode} diubah.`);
+        const newStatus = f.aktif ? 'ACTIVE' : 'INACTIVE';
+        await API.patchMasterLecturer(f.id, {
+          full_name: nama,
+          status: newStatus
+        });
+        this.showToast(`Data dosen ${f.kode} berhasil diperbarui.`);
         this.dosenEdit = null;
         await this.loadDosen();
       } catch (err) {
         this.dosenEditError = err.message || 'Gagal mengubah data dosen.';
+      } finally {
+        this.dosenEditSaving = false;
       }
     },
 
