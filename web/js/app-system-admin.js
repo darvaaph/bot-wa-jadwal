@@ -212,6 +212,8 @@ function systemAdminApp() {
     ruangBuildingFilter: '',
     ruangTypeFilter: '',
     ruangMenuId: null,
+    ruangPage: 1,
+    ruangPerPage: 8,
     ruangEdit: null,
     ruangEditError: '',
     ruangEditLoading: false,
@@ -1657,6 +1659,65 @@ function systemAdminApp() {
       });
     },
 
+    totalBarisRuang() {
+      return (this.filteredRuang() || []).length;
+    },
+
+    totalHalamanRuang() {
+      return Math.max(1, Math.ceil(this.totalBarisRuang() / (this.ruangPerPage || 8)));
+    },
+
+    paginatedRuang() {
+      const perPage = this.ruangPerPage || 8;
+      const totalHalaman = this.totalHalamanRuang();
+      const page = Math.max(1, Math.min(this.ruangPage || 1, totalHalaman));
+      const start = (page - 1) * perPage;
+      return (this.filteredRuang() || []).slice(start, start + perPage);
+    },
+
+    mulaiItemRuang() {
+      const total = this.totalBarisRuang();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanRuang();
+      const page = Math.max(1, Math.min(this.ruangPage || 1, totalHalaman));
+      return (page - 1) * (this.ruangPerPage || 8) + 1;
+    },
+
+    akhirItemRuang() {
+      const total = this.totalBarisRuang();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanRuang();
+      const page = Math.max(1, Math.min(this.ruangPage || 1, totalHalaman));
+      return Math.min(page * (this.ruangPerPage || 8), total);
+    },
+
+    keHalamanRuang(p) {
+      const target = Math.max(1, Math.min(p, this.totalHalamanRuang()));
+      this.ruangPage = target;
+      this.ruangMenuId = null;
+    },
+
+    halamanArrayRuang() {
+      const total = this.totalHalamanRuang();
+      const curr = this.ruangPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
     daftarGedungRuang() {
       const list = this.ruangList || [];
       const set = new Set();
@@ -1761,6 +1822,9 @@ function systemAdminApp() {
       this.ruangLoading = true; this.ruangError = '';
       try {
         this.ruangList = await API.getMasterRooms(this.ruangStatusFilter || '');
+        if (this.ruangPage > this.totalHalamanRuang()) {
+          this.ruangPage = Math.max(1, this.totalHalamanRuang());
+        }
       } catch (e) {
         this.ruangList = [];
         this.ruangError = 'Daftar ruangan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
