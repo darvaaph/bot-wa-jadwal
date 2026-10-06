@@ -1,149 +1,465 @@
-<!-- partials/system-admin/view-backup.html - System Admin: Backup dan Pemulihan -->
+<!-- partials/system-admin/view-backup.html - System Admin: Cadangan dan Audit -->
 <section x-show="view === 'backup'" x-cloak>
-  <div class="ui-card p-6 md:p-10 shadow-sm">
-    <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Backup dan Pemulihan</h1>
-    <p class="text-[14px] text-muted mt-1">Cadangkan data akademik kelas atau semester, lalu periksa paket sebelum pemulihan.</p>
-    <div class="mt-4 inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Cadangan dan audit">
-      <button type="button" role="tab" aria-selected="true" class="min-h-[44px] px-4 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-sm">Cadangan</button>
-      <button type="button" role="tab" aria-selected="false" @click="go('audit')" class="min-h-[44px] px-4 rounded-lg text-[13px] font-medium text-slate-600 hover:text-ink">Audit</button>
+  <div class="flex flex-col gap-5 md:gap-[22px]">
+    <!-- Header Halaman Cadangan dan Audit -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col gap-3.5">
+      <div class="text-[12px] text-[#667085] font-normal">
+        Sistem / Cadangan &amp; Audit
+      </div>
+      <div class="w-full flex flex-col md:flex-row gap-4 justify-between items-start md:items-end">
+        <div class="flex-1 min-w-0 flex flex-col gap-3">
+          <div>
+            <h1 class="text-[28px] md:text-[30px] font-bold text-[#1D1B3A] tracking-tight">
+              Cadangan dan Audit
+            </h1>
+            <p class="text-[14px] text-[#667085] mt-1">
+              Cadangkan data akademik kelas atau semester, lalu periksa paket sebelum pemulihan.
+            </p>
+          </div>
+          <!-- Segment Tab Cadangan & Audit Global -->
+          <div class="inline-flex items-center gap-[2px] p-[4px] bg-[#F1F5F9] border border-[#E2E8F0] rounded-[12px] w-fit" role="tablist" aria-label="Navigasi segmen Cadangan dan Audit">
+            <button type="button" role="tab" aria-selected="true" class="min-h-[40px] md:min-h-[44px] px-4 rounded-[8px] bg-white text-[13px] font-semibold text-[#1D1B3A] shadow-sm inline-flex items-center gap-2">
+              <svg class="w-[15px] h-[15px] shrink-0 text-[#3965FB]" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M6.70947 6.75391l-1.03222 1.0288q-0.07861 0.08203-0.19825 0.08204-0.11621 0-0.20166-0.08545-0.09229-0.08203-0.08886-0.20508 0.00684-0.12646 0.08886-0.2085l1.39454-1.39453q0.14014-0.14014 0.32812-0.14014 0.18799 0 0.32813 0.14014l1.39453 1.39453q0.08203 0.08203 0.08886 0.20508 0.00684 0.11963-0.08886 0.2085-0.08203 0.08203-0.20508 0.07861-0.12305-0.00684-0.2085-0.08887l-1.01855-1.01513 0 3.3872q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.24609 0.11279l3.14112 0q0.61523 0 1.03564-0.42041 0.42383-0.42383 0.42383-1.03906 0-0.61182-0.42383-1.03223-0.42041-0.42383-1.03564-0.42383l-0.875 0 0-1.16894q0-1.20996-0.85449-2.06104-0.85107-0.85449-2.06104-0.85449-1.20996 0-2.06445 0.85449-0.85107 0.85107-0.85108 2.06104l-0.31445 0q-0.81348 0-1.41846 0.59814-0.60156 0.59814-0.60156 1.4458 0 0.84424 0.59814 1.44239 0.59814 0.59814 1.44239 0.59814l1.16894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12646-0.08545 0.21191-0.08203 0.08203-0.20508 0.08203l-1.16894 0q-1.09033 0-1.85938-0.75879-0.76563-0.76221-0.76562-1.85595 0-1.03906 0.71435-1.79786 0.71436-0.76221 1.67481-0.81689 0.19824-1.2749 1.17236-2.10547 0.97754-0.83398 2.27295-0.83398 1.46289 0 2.48145 1.01855 1.01855 1.01855 1.01855 2.48145l0 0.58447 0.35889 0q0.8374 0.02734 1.40478 0.61523 0.5708 0.58789 0.5708 1.4253 0 0.85791-0.58105 1.45263-0.58105 0.59131-1.43897 0.59131l-3.16504 0q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-3.3872z"/>
+              </svg>
+              <span>Cadangan</span>
+            </button>
+            <button type="button" role="tab" aria-selected="false" @click="go('audit')" class="min-h-[40px] md:min-h-[44px] px-4 rounded-[8px] text-[13px] font-medium text-[#475467] hover:text-[#1D1B3A] inline-flex items-center gap-2 transition-colors">
+              <svg class="w-[15px] h-[15px] shrink-0 text-[#475467]" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M6.97607 11.66553q-1.67822 0-2.9497-1.02881-1.26807-1.03223-1.59961-2.64551-0.0376-0.12988 0.02392-0.23926 0.06494-0.10938 0.19483-0.12646 0.12646-0.01709 0.21875 0.05469 0.0957 0.07178 0.1333 0.20507 0.31787 1.39111 1.42871 2.29688 1.11084 0.90234 2.5498 0.90234 1.70898 0 2.89502-1.18945 1.18945-1.18945 1.18946-2.89502 0-1.70557-1.18946-2.89502-1.18604-1.18945-2.89502-1.18945-0.90234 0-1.69873 0.38281-0.79639 0.38281-1.4082 1.05273l1.15527 0q0.12646 0 0.2085 0.08545 0.08545 0.08545 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.65771 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-1.65772q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08203 0.08203 0.08203 0.20849l0 1.10059q0.67676-0.7417 1.58594-1.15528 0.90918-0.41699 1.91406-0.41699 0.97412 0 1.82178 0.36573 0.84766 0.3623 1.47998 0.99804 0.63574 0.63574 1.00147 1.4834 0.36572 0.84766 0.36572 1.81836 0 0.9707-0.36572 1.81836-0.36572 0.84766-1.00147 1.4834-0.63232 0.63574-1.47998 1.00146-0.84766 0.3623-1.82178 0.36231z m0.32813-4.78516l1.75 1.75q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.2085-0.0957 0.0957-0.2085 0.0957-0.11279 0-0.20508-0.0957l-1.78076-1.77735q-0.0752-0.07861-0.10937-0.16064-0.03076-0.08545-0.03076-0.17432l0-2.55322q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.50537z"/>
+              </svg>
+              <span>Audit Global</span>
+            </button>
+          </div>
+        </div>
+        <!-- Tombol Buat Cadangan Baru -->
+        <button type="button" @click="bukaModalBuatBackup()" class="min-h-[44px] px-4 py-2.5 rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-white text-[14px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors shrink-0">
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/>
+          </svg>
+          <span>Buat Cadangan Baru</span>
+        </button>
+      </div>
     </div>
 
-    <section class="mt-7 border-t border-border pt-5" aria-labelledby="backup-requests-title">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="backup-requests-title" class="text-[18px] font-semibold">Permintaan KM</h2>
-        <button type="button" @click="loadBackupRequests()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium">Muat ulang</button>
+    <!-- Section 1: Permintaan Cadangan dari Ketua Murid -->
+    <div class="box-border w-full flex flex-col gap-4 p-5 bg-white border border-[#E4E7EC] rounded-[16px] shadow-[0px_2px_5px_#1018280A]">
+      <div class="w-full flex flex-row justify-between items-center gap-2">
+        <div class="flex items-center gap-2.5">
+          <h2 class="text-[15px] md:text-[16px] font-bold text-[#1D1B3A]">
+            Permintaan Cadangan dari Ketua Murid
+          </h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <div x-show="backupPendingCount > 0" class="px-2.5 py-1 bg-[#FEF3C7] border border-[#FDE68A] rounded-full">
+            <span class="text-[12px] font-semibold text-[#92400E]" x-text="backupPendingCount + ' Perlu Tindakan'"></span>
+          </div>
+          <button type="button" @click="loadBackupRequests()" :disabled="backupRequestsLoading" class="min-h-[36px] px-3 py-1.5 rounded-lg border border-[#E2E8F0] hover:bg-slate-50 text-[12px] font-medium text-[#475467] inline-flex items-center gap-1.5 transition-colors" title="Muat ulang permintaan">
+            <svg class="w-3.5 h-3.5" :class="backupRequestsLoading ? 'animate-spin' : ''" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M6.97607 11.66553q-1.67822 0-2.9497-1.02881-1.26807-1.03223-1.59961-2.64551-0.0376-0.12988 0.02392-0.23926 0.06494-0.10938 0.19483-0.12646 0.12646-0.01709 0.21875 0.05469 0.0957 0.07178 0.1333 0.20507 0.31787 1.39111 1.42871 2.29688 1.11084 0.90234 2.5498 0.90234 1.70898 0 2.89502-1.18945 1.18945-1.18945 1.18946-2.89502 0-1.70557-1.18946-2.89502-1.18604-1.18945-2.89502-1.18945-0.90234 0-1.69873 0.38281-0.79639 0.38281-1.4082 1.05273l1.15527 0q0.12646 0 0.2085 0.08545 0.08545 0.08545 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.65771 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-1.65772q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08203 0.08203 0.08203 0.20849l0 1.10059q0.67676-0.7417 1.58594-1.15528 0.90918-0.41699 1.91406-0.41699 0.97412 0 1.82178 0.36573 0.84766 0.3623 1.47998 0.99804 0.63574 0.63574 1.00147 1.4834 0.36572 0.84766 0.36572 1.81836 0 0.9707-0.36572 1.81836-0.36572 0.84766-1.00147 1.4834-0.63232 0.63574-1.47998 1.00146-0.84766 0.3623-1.82178 0.36231z m0.32813-4.78516l1.75 1.75q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.2085-0.0957 0.0957-0.2085 0.0957-0.11279 0-0.20508-0.0957l-1.78076-1.77735q-0.0752-0.07861-0.10937-0.16064-0.03076-0.08545-0.03076-0.17432l0-2.55322q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.50537z"/>
+            </svg>
+            <span class="hidden sm:inline">Segarkan</span>
+          </button>
+        </div>
       </div>
-      <p x-show="backupRequestsLoading" class="mt-3 text-[13px] text-slate-500">Memuat permintaan...</p>
-      <p x-show="backupRequestsError" class="mt-3 rounded-xl bg-red-50 p-3 text-[13px] text-red-700" x-text="backupRequestsError">-</p>
-      <p x-show="!backupRequestsLoading && !backupRequestsError && backupRequests.length === 0" class="ui-empty mt-3 text-[13px] text-slate-500">Belum ada permintaan cadangan.</p>
-      <div class="mt-3 space-y-2">
+      <p class="text-[12px] text-[#667085] -mt-1">
+        Ketua murid mengajukan pencadangan berkas sebelum periode evaluasi atau pergantian pengurus.
+      </p>
+
+      <!-- Status Memuat & Eror -->
+      <div x-show="backupRequestsLoading" class="py-4 text-center text-[13px] text-slate-500">
+        Memuat permintaan cadangan...
+      </div>
+      <div x-show="backupRequestsError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700" x-text="backupRequestsError"></div>
+
+      <!-- Keadaan Kosong -->
+      <div x-show="!backupRequestsLoading && !backupRequestsError && backupRequests.length === 0" class="p-5 rounded-xl border border-dashed border-[#E2E8F0] text-center text-[13px] text-slate-400">
+        Belum ada permintaan cadangan dari ketua murid.
+      </div>
+
+      <!-- Daftar Kartu Permintaan -->
+      <div x-show="!backupRequestsLoading && backupRequests.length > 0" class="flex flex-col gap-2.5">
         <template x-for="item in backupRequests" :key="item.id">
-          <div class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border p-3">
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-[14px]" x-text="item.class_slug + (item.semester_id ? ' · Semester #' + item.semester_id : ' · Seluruh kelas')">-</p>
-              <p class="text-[12px] text-slate-600" x-text="item.reason + ' · ' + item.status">-</p>
+          <div class="box-border w-full flex flex-col md:flex-row gap-3 md:gap-[18px] p-[14px] justify-between items-start md:items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+            <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[14px] font-semibold text-[#1D1B3A]" x-text="namaKelasBySlug(item.class_slug, item.class_id)"></span>
+                <span class="px-2 py-0.5 bg-white border border-[#E2E8F0] rounded-[5px] text-[11px] font-mono text-[#475467]" x-text="item.semester_id ? ('Semester #' + item.semester_id) : 'Seluruh Kelas'"></span>
+              </div>
+              <p class="text-[12px] text-[#667085] leading-relaxed">
+                Alasan: <span class="text-[#1D1B3A]" x-text="item.reason || '-'"></span>
+                <span x-show="item.created_by" x-text="' • Diajukan oleh ' + item.created_by"></span>
+                <span x-show="item.created_at" x-text="' • ' + fmtWaktuID(item.created_at)"></span>
+              </p>
             </div>
-            <button x-show="item.status === 'PENDING'" type="button" @click="executeBackupRequest(item)" :disabled="backupRequestExecuting !== 0" class="ui-button ui-button--primary text-[13px] font-semibold" x-text="backupRequestExecuting === item.id ? 'Membuat...' : 'Buat cadangan'">Buat cadangan</button>
-            <span x-show="item.backup_id" class="text-[12px] text-slate-600" x-text="'Cadangan #' + item.backup_id">-</span>
+            <div class="shrink-0 self-end md:self-center">
+              <button x-show="item.status === 'PENDING'" type="button" @click="executeBackupRequest(item)" :disabled="backupRequestExecuting !== 0" class="min-h-[44px] px-3.5 py-2.5 rounded-lg bg-[#EFF4FF] border border-[#B9CAFF] text-[#2854D6] hover:bg-blue-100 text-[12px] font-semibold transition-colors disabled:opacity-60 inline-flex items-center gap-1.5">
+                <span x-show="backupRequestExecuting === item.id" class="w-3.5 h-3.5 border-2 border-[#2854D6] border-t-transparent rounded-full animate-spin"></span>
+                <span x-text="backupRequestExecuting === item.id ? 'Mengeksekusi...' : 'Eksekusi Cadangan'"></span>
+              </button>
+              <div x-show="item.status !== 'PENDING'" class="text-[12px] text-slate-500 font-medium">
+                <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full font-medium" x-text="'Tereksekusi · Cadangan #' + (item.backup_id || '-')"></span>
+              </div>
+            </div>
           </div>
         </template>
       </div>
-    </section>
+    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 items-start">
-      <div class="p-6 rounded-2xl border border-border">
-        <h2 class="text-[18px] font-bold text-ink">Buat cadangan</h2>
-        <div x-show="backupError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="backupError">-</div>
-        <div class="mt-4 space-y-4">
-          <div>
-            <label for="sa-backup-kelas" class="block text-[14px] font-bold text-ink mb-2">Kelas <span class="text-danger">*</span></label>
-            <select id="sa-backup-kelas" x-model="backupForm.kelas" @change="onBackupKelasChange()" class="ui-field w-full text-[14px]">
-              <option value="">-- Pilih kelas --</option>
-              <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama + ' · ' + labelStatusKelas(k.status)">-</option></template>
-            </select>
-          </div>
-          <div>
-            <label for="sa-backup-semester" class="block text-[14px] font-bold text-ink mb-2">Cakupan semester (opsional)</label>
-            <select id="sa-backup-semester" x-model="backupForm.semester" class="ui-field w-full text-[14px]">
-              <option value="">Seluruh kelas</option>
-              <template x-for="s in backupSemesterList" :key="s.id"><option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + ' · ' + (s.status || '')">-</option></template>
-            </select>
-            <p class="text-[11px] text-slate-500 mt-1">Pilih satu semester atau seluruh data akademik kelas.</p>
-          </div>
-          <div>
-            <label for="sa-backup-alasan" class="block text-[14px] font-bold text-ink mb-2">Alasan <span class="text-danger">*</span></label>
-            <input id="sa-backup-alasan" type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi semester" class="ui-field w-full text-[14px]" />
-          </div>
-          <button type="button" @click="buatBackup()" :disabled="backupLoading" class="ui-button ui-button--primary text-[14px] font-medium flex items-center gap-2">
-            <span x-show="backupLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            <span x-text="backupLoading ? 'Membuat...' : 'Buat cadangan'">Buat cadangan</span>
-          </button>
+    <!-- Section 2: Daftar Berkas Cadangan Akademik -->
+    <div class="box-border w-full flex flex-col gap-4 p-5 bg-white border border-[#E4E7EC] rounded-[16px] shadow-[0px_2px_5px_#1018280A]">
+      <div class="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div class="flex items-center gap-2.5">
+          <h2 class="text-[16px] font-bold text-[#1D1B3A]">Daftar Berkas Cadangan</h2>
+          <span class="px-2.5 py-1 bg-[#F1F5F9] rounded-full text-[12px] font-medium text-[#475467]" x-text="(backupList ? backupList.length : 0) + ' berkas tersimpan'"></span>
         </div>
-        <div x-show="backupHasil" class="mt-4 p-4 rounded-xl bg-success border border-green-200 text-[13px] text-green-800">
-          <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">check_circle</span>Cadangan siap</p>
-          <dl class="mt-2 space-y-1">
-            <div class="flex gap-2"><dt class="w-20 shrink-0">ID</dt><dd class="font-mono font-semibold" x-text="backupHasil.id">-</dd></div>
-            <div class="flex gap-2"><dt class="w-20 shrink-0">Status</dt><dd class="font-mono" x-text="backupHasil.status || 'READY'">-</dd></div>
-            <div class="flex gap-2"><dt class="w-20 shrink-0">Checksum</dt><dd class="font-mono break-all" x-text="backupHasil.checksum || ''">-</dd></div>
-            <div x-show="backupHasil.created_at" class="flex gap-2"><dt class="w-20 shrink-0">Dibuat</dt><dd class="font-mono" x-text="backupHasil.created_at ? fmtWaktuID(backupHasil.created_at) : ''">-</dd></div>
-          </dl>
-          <p class="mt-2">ID otomatis masuk daftar di bawah setelah dibuat.</p>
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+          <!-- Filter Kelas Dropdown -->
+          <div class="relative flex-1 sm:flex-none">
+            <select x-model="backupFilterKelas" @change="backupPage = 1" class="w-full sm:w-auto min-h-[44px] pl-3.5 pr-8 py-2 bg-white border border-[#CBD5E1] rounded-[8px] text-[12px] font-medium text-[#344054] outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-[#3965FB]">
+              <option value="">Semua Kelas Terdaftar</option>
+              <template x-for="k in kelasList" :key="k.slug">
+                <option :value="k.slug" x-text="k.nama"></option>
+              </template>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-[#475467]">
+              <svg class="w-4 h-4" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+              </svg>
+            </div>
+          </div>
+          <!-- Tombol Segarkan -->
+          <button type="button" @click="loadBackupList()" :disabled="backupListLoading" class="min-h-[44px] px-3.5 py-2 rounded-[8px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-medium text-[#475467] inline-flex items-center gap-1.5 transition-colors" title="Muat ulang berkas">
+            <svg class="w-3.5 h-3.5" :class="backupListLoading ? 'animate-spin' : ''" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M6.97607 11.66553q-1.67822 0-2.9497-1.02881-1.26807-1.03223-1.59961-2.64551-0.0376-0.12988 0.02392-0.23926 0.06494-0.10938 0.19483-0.12646 0.12646-0.01709 0.21875 0.05469 0.0957 0.07178 0.1333 0.20507 0.31787 1.39111 1.42871 2.29688 1.11084 0.90234 2.5498 0.90234 1.70898 0 2.89502-1.18945 1.18945-1.18945 1.18946-2.89502 0-1.70557-1.18946-2.89502-1.18604-1.18945-2.89502-1.18945-0.90234 0-1.69873 0.38281-0.79639 0.38281-1.4082 1.05273l1.15527 0q0.12646 0 0.2085 0.08545 0.08545 0.08545 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.65771 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-1.65772q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08203 0.08203 0.08203 0.20849l0 1.10059q0.67676-0.7417 1.58594-1.15528 0.90918-0.41699 1.91406-0.41699 0.97412 0 1.82178 0.36573 0.84766 0.3623 1.47998 0.99804 0.63574 0.63574 1.00147 1.4834 0.36572 0.84766 0.36572 1.81836 0 0.9707-0.36572 1.81836-0.36572 0.84766-1.00147 1.4834-0.63232 0.63574-1.47998 1.00146-0.84766 0.3623-1.82178 0.36231z m0.32813-4.78516l1.75 1.75q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.2085-0.0957 0.0957-0.2085 0.0957-0.11279 0-0.20508-0.0957l-1.78076-1.77735q-0.0752-0.07861-0.10937-0.16064-0.03076-0.08545-0.03076-0.17432l0-2.55322q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.50537z"/>
+            </svg>
+            <span class="hidden sm:inline">Segarkan</span>
+          </button>
         </div>
       </div>
 
-      <div class="p-6 rounded-2xl border border-red-200 bg-red-50/40">
-        <h2 class="text-[18px] font-bold text-red-700 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Pemulihan data akademik</h2>
-        <p class="text-[13px] text-red-800 mt-1">Pilih paket v2, periksa cakupan dan selisih, lalu konfirmasi pemulihan. Arsip v1 hanya bisa diverifikasi.</p>
-        <div x-show="restoreError" class="ui-card mt-3 p-3 text-[13px] text-red-700" x-text="restoreError">-</div>
-        <div class="mt-4 space-y-4">
-          <div>
-            <label for="sa-restore-id" class="block text-[14px] font-bold text-ink mb-2">ID cadangan <span class="text-danger">*</span></label>
-            <input id="sa-restore-id" type="text" x-model="restoreForm.id" @input="selectedBackupRestorable=false; scopedRestorePreview=null" placeholder="Contoh: 12" inputmode="numeric" class="ui-field w-full text-[14px] font-mono" />
-          </div>
-          <div>
-            <label for="sa-restore-alasan" class="block text-[14px] font-bold text-ink mb-2">Alasan <span class="text-danger">*</span></label>
-            <textarea id="sa-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan alasan pemulihan atau verifikasi" class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
-          </div>
-          <label class="flex items-start gap-2 text-[13px] text-ink select-none" for="sa-restore-paham">
-            <input id="sa-restore-paham" type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-red-700 min-w-[16px] min-h-[16px]" />
-            Saya memahami pemulihan v2 mengganti data akademik pada cakupan terpilih dan membuat titik pemulihan terlebih dahulu.
-          </label>
-          <button type="button" @click="previewRestore(restoreForm.id)" :disabled="scopedRestoreLoading || !restoreForm.id" class="ui-button ui-button--ghost h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">Pratinjau paket v2</button>
-          <div x-show="scopedRestorePreview" class="ui-card p-4 text-[13px]">
-            <p class="font-semibold" x-text="'Kelas #' + scopedRestorePreview.class_id + (scopedRestorePreview.semester_id ? ' · Semester #' + scopedRestorePreview.semester_id : ' · Seluruh kelas')"></p>
-            <p class="mt-2">Data paket → data aktif</p>
-            <template x-for="key in Object.keys(scopedRestorePreview.source_counts || {})" :key="key">
-              <p x-text="key + ': ' + scopedRestorePreview.source_counts[key] + ' → ' + (scopedRestorePreview.current_counts[key] || 0)"></p>
+      <!-- Tabel Berkas Cadangan -->
+      <div class="w-full overflow-x-auto border border-[#E4E7EC] rounded-[12px]">
+        <table class="w-full text-left border-collapse min-w-[850px]">
+          <thead>
+            <tr class="bg-[#F8FAFC] border-b border-[#E4E7EC] text-[11px] font-semibold text-[#475467] tracking-wider uppercase">
+              <th scope="col" class="py-3 px-4 w-[145px]">ID &amp; BERKAS</th>
+              <th scope="col" class="py-3 px-4 w-[165px]">CAKUPAN KELAS</th>
+              <th scope="col" class="py-3 px-4 min-w-[200px]">ALASAN PENCADANGAN</th>
+              <th scope="col" class="py-3 px-4 w-[140px]">WAKTU DIBUAT</th>
+              <th scope="col" class="py-3 px-4 w-[110px]">STATUS</th>
+              <th scope="col" class="py-3 px-4 w-[150px] text-right">AKSI</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#F2F4F7]">
+            <!-- Status Memuat -->
+            <tr x-show="backupListLoading">
+              <td colspan="6" class="py-8 text-center text-[13px] text-slate-400">
+                Memuat daftar cadangan...
+              </td>
+            </tr>
+
+            <!-- Status Eror -->
+            <tr x-show="backupListError && !backupListLoading">
+              <td colspan="6" class="py-6 px-4">
+                <div class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700 flex items-center justify-between">
+                  <span x-text="backupListError"></span>
+                  <button type="button" @click="loadBackupList()" class="underline font-semibold text-red-800 ml-3">Coba Lagi</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Keadaan Kosong -->
+            <tr x-show="!backupListLoading && !backupListError && filteredBackupList().length === 0">
+              <td colspan="6" class="py-10 px-4 text-center">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <svg class="w-10 h-10 text-slate-300" viewBox="0 0 14 14" fill="currentColor">
+                    <path d="M6.70947 6.75391l-1.03222 1.0288q-0.07861 0.08203-0.19825 0.08204-0.11621 0-0.20166-0.08545-0.09229-0.08203-0.08886-0.20508 0.00684-0.12646 0.08886-0.2085l1.39454-1.39453q0.14014-0.14014 0.32812-0.14014 0.18799 0 0.32813 0.14014l1.39453 1.39453q0.08203 0.08203 0.08886 0.20508 0.00684 0.11963-0.08886 0.2085-0.08203 0.08203-0.20508 0.07861-0.12305-0.00684-0.2085-0.08887l-1.01855-1.01513 0 3.3872q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.24609 0.11279l3.14112 0q0.61523 0 1.03564-0.42041 0.42383-0.42383 0.42383-1.03906 0-0.61182-0.42383-1.03223-0.42041-0.42383-1.03564-0.42383l-0.875 0 0-1.16894q0-1.20996-0.85449-2.06104-0.85107-0.85449-2.06104-0.85449-1.20996 0-2.06445 0.85449-0.85107 0.85107-0.85108 2.06104l-0.31445 0q-0.81348 0-1.41846 0.59814-0.60156 0.59814-0.60156 1.4458 0 0.84424 0.59814 1.44239 0.59814 0.59814 1.44239 0.59814l1.16894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12646-0.08545 0.21191-0.08203 0.08203-0.20508 0.08203l-1.16894 0q-1.09033 0-1.85938-0.75879-0.76563-0.76221-0.76562-1.85595 0-1.03906 0.71435-1.79786 0.71436-0.76221 1.67481-0.81689 0.19824-1.2749 1.17236-2.10547 0.97754-0.83398 2.27295-0.83398 1.46289 0 2.48145 1.01855 1.01855 1.01855 1.01855 2.48145l0 0.58447 0.35889 0q0.8374 0.02734 1.40478 0.61523 0.5708 0.58789 0.5708 1.4253 0 0.85791-0.58105 1.45263-0.58105 0.59131-1.43897 0.59131l-3.16504 0q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-3.3872z"/>
+                  </svg>
+                  <p class="text-[14px] font-semibold text-[#1D1B3A]">Belum ada berkas cadangan tersimpan</p>
+                  <p class="text-[12px] text-[#667085]">Buat cadangan pertama melalui tombol "+ Buat Cadangan Baru" di atas.</p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Baris Data Cadangan -->
+            <template x-for="b in paginatedBackupList()" :key="b.id">
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <!-- ID & Berkas -->
+                <td class="py-3 px-4 align-top">
+                  <div class="font-mono text-[14px] font-bold text-[#1D1B3A]" x-text="'#' + b.id"></div>
+                  <div class="font-mono text-[11px] text-[#667085] mt-0.5" x-text="fmtChecksum(b.checksum)"></div>
+                </td>
+
+                <!-- Cakupan Kelas -->
+                <td class="py-3 px-4 align-top">
+                  <div class="text-[14px] font-medium text-[#1D1B3A]" x-text="namaKelasBySlug(b.class_slug, b.class_id)"></div>
+                  <div class="text-[12px] text-[#667085] mt-0.5" x-text="b.semester_id ? ('Semester #' + b.semester_id) : 'Seluruh Semester'"></div>
+                </td>
+
+                <!-- Alasan Pencadangan -->
+                <td class="py-3 px-4 align-top">
+                  <div class="text-[12px] text-[#1D1B3A] line-clamp-2" x-text="b.reason || 'Pencadangan data akademik'"></div>
+                  <div class="text-[11px] text-[#667085] mt-0.5" x-text="'oleh ' + (b.created_by || 'Admin')"></div>
+                </td>
+
+                <!-- Waktu Dibuat -->
+                <td class="py-3 px-4 align-top">
+                  <div class="text-[12px] font-medium text-[#1D1B3A]" x-text="fmtTanggalCadangan(b.created_at)"></div>
+                  <div class="text-[11px] text-[#667085] mt-0.5" x-text="fmtJamCadangan(b.created_at)"></div>
+                </td>
+
+                <!-- Status -->
+                <td class="py-3 px-4 align-top">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide"
+                        :class="{
+                          'bg-[#EFF4FF] border border-[#BFDBFE] text-[#1D4ED8]': String(b.status || '').toUpperCase() === 'READY',
+                          'bg-[#DCFCE7] border border-[#86EFAC] text-[#15803D]': String(b.status || '').toUpperCase() === 'VERIFIED',
+                          'bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]': String(b.status || '').toUpperCase() === 'CREATING',
+                          'bg-[#FEE2E2] border border-[#FECACA] text-[#B91C1C]': String(b.status || '').toUpperCase() === 'FAILED'
+                        }"
+                        x-text="(b.status || 'READY').toUpperCase()">
+                  </span>
+                </td>
+
+                <!-- Aksi -->
+                <td class="py-3 px-4 align-top text-right">
+                  <template x-if="b.restorable">
+                    <button type="button" @click="bukaModalRestoreBackup(b)" class="min-h-[44px] px-3.5 py-2 rounded-[8px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-medium transition-colors shadow-sm inline-flex items-center gap-1.5">
+                      Pratinjau Restore
+                    </button>
+                  </template>
+                  <template x-if="!b.restorable">
+                    <button type="button" @click="bukaModalRestoreBackup(b)" class="min-h-[44px] px-3.5 py-2 rounded-[8px] bg-white hover:bg-slate-50 border border-[#D7DDE7] text-[#475467] text-[12px] font-medium transition-colors shadow-sm inline-flex items-center gap-1.5">
+                      Verifikasi v1
+                    </button>
+                  </template>
+                </td>
+              </tr>
             </template>
-            <p x-show="!scopedRestorePreview.can_restore" class="mt-2 text-red-700 font-semibold" x-text="'Tertahan oleh teaching event lintas kelas: ' + (scopedRestorePreview.cross_class_event_ids || []).join(', ')"></p>
-          </div>
-          <button x-show="scopedRestorePreview" type="button" @click="executeRestore()" :disabled="scopedRestoreLoading || !scopedRestorePreview.can_restore" class="ui-button ui-button--ghost h-11 px-8 rounded-xl bg-red-700 text-white disabled:opacity-60 text-[14px] font-semibold">Pulihkan paket v2</button>
-          <button x-show="!selectedBackupRestorable" type="button" @click="pulihkanBackup()" :disabled="restoreLoading" class="ui-button ui-button--ghost h-11 px-8 rounded-xl border border-red-200 text-red-700 disabled:opacity-60 text-[14px] font-semibold min-h-[44px] flex items-center gap-2 bg-white">
-            <span x-show="restoreLoading" class="w-4 h-4 border-2 border-red-200 border-t-transparent rounded-full animate-spin"></span>
-            <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi arsip v1'">Verifikasi arsip v1</span>
-          </button>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginasi Footer -->
+      <div x-show="!backupListLoading && filteredBackupList().length > 0" class="w-full flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-[#F2F4F7]">
+        <div class="text-[12px] text-[#667085]">
+          Menampilkan <span class="font-medium text-[#1D1B3A]" x-text="filteredBackupList().length === 0 ? 0 : ((backupPage - 1) * backupPerPage + 1)"></span>-<span class="font-medium text-[#1D1B3A]" x-text="Math.min(backupPage * backupPerPage, filteredBackupList().length)"></span> dari <span class="font-medium text-[#1D1B3A]" x-text="filteredBackupList().length"></span> berkas cadangan
         </div>
-        <p x-show="scopedRestoreResult" class="mt-3 text-[13px] text-green-800 font-semibold" x-text="'Pemulihan berhasil. Titik pemulihan #' + scopedRestoreResult.pre_restore_backup_id"></p>
-        <div x-show="restoreHasil" class="ui-card mt-4 p-4 text-[13px] text-green-800">
-          <p class="font-bold flex items-center gap-1.5"><span class="material-symbols-outlined">verified</span>Terverifikasi</p>
-          <dl class="mt-2 space-y-1">
-            <div class="flex gap-2"><dt class="w-20 shrink-0">ID</dt><dd class="font-mono font-semibold" x-text="restoreHasil.backup_id || restoreHasil.id || ''">-</dd></div>
-            <div class="flex gap-2"><dt class="w-20 shrink-0">Status</dt><dd class="font-mono" x-text="restoreHasil.status || 'VERIFIED'">-</dd></div>
-            <div x-show="restoreHasil.checksum" class="flex gap-2"><dt class="w-20 shrink-0">Checksum</dt><dd class="font-mono break-all" x-text="restoreHasil.checksum || ''">-</dd></div>
-          </dl>
-          <p class="mt-2" x-show="restoreHasil.message" x-text="restoreHasil.message"></p>
+        <div class="flex items-center gap-1.5">
+          <button type="button" @click="setBackupPage(backupPage - 1)" :disabled="backupPage === 1" class="w-10 h-10 flex items-center justify-center rounded-[7px] border border-[#E2E8F0] bg-white text-[#475467] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-[14px] font-medium transition-colors">
+            ‹
+          </button>
+          <template x-for="p in backupTotalPages()" :key="p">
+            <button type="button" @click="setBackupPage(p)" class="w-10 h-10 flex items-center justify-center rounded-[7px] text-[12px] font-bold transition-colors"
+                    :class="backupPage === p ? 'bg-[#3965FB] text-white border border-[#3965FB]' : 'bg-white text-[#475467] border border-[#E2E8F0] hover:bg-slate-50'"
+                    x-text="p">
+            </button>
+          </template>
+          <button type="button" @click="setBackupPage(backupPage + 1)" :disabled="backupPage === backupTotalPages()" class="w-10 h-10 flex items-center justify-center rounded-[7px] border border-[#E2E8F0] bg-white text-[#475467] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-[14px] font-medium transition-colors">
+            ›
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Daftar cadangan -->
-    <div class="mt-8">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-[18px] font-bold text-ink">Daftar cadangan</h2>
-        <button type="button" @click="loadBackupList()" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
-      </div>
-      <div x-show="backupListLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat daftar cadangan...</div>
-      <div x-show="backupListError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="backupListError">-</span>
-        <button type="button" @click="loadBackupList()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!backupListLoading && !backupListError && backupList.length === 0" class="ui-empty mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Belum ada cadangan. Buat cadangan pertama di atas.</div>
-      <div x-show="!backupListLoading && backupList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
-        <template x-for="b in backupList" :key="b.id">
-          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
-            <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-ink">Cadangan <span class="font-mono" x-text="'#' + b.id">-</span> <span class="font-normal text-slate-500" x-text="'· ' + (b.class_slug || ('kelas #' + b.class_id))">-</span></p>
-              <p class="text-[12px] text-slate-500 mt-0.5"><span x-show="b.semester_id" x-text="'Semester #' + b.semester_id + ' · '"></span><span x-text="b.reason || 'Tanpa alasan'">-</span><span x-show="b.created_by" x-text="' · oleh ' + b.created_by"></span></p>
-              <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-text="fmtWaktuID(b.created_at)">-</p>
-            </div>
-            <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(b.status).toUpperCase() === 'VERIFIED' ? 'bg-success text-green-800' : (String(b.status).toUpperCase() === 'READY' ? 'bg-primary-soft text-primary-hover' : 'bg-slate-100 text-slate-500')">
-              <span class="material-symbols-outlined text-[14px]" x-text="String(b.status).toUpperCase() === 'VERIFIED' ? 'verified' : 'inventory_2'">-</span>
-              <span x-text="labelStatusBackup(b.status)">-</span>
-            </span>
-            <button type="button" @click="pilihCadanganUntukVerifikasi(b)" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-border hover:bg-slate-50 text-[12px] font-medium min-h-[44px]" x-text="b.restorable ? 'Pratinjau restore' : 'Verifikasi v1'">Pilih</button>
+    <!-- Modal: Buat Cadangan Baru -->
+    <div x-show="modalBuatBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" @keydown.escape.window="tutupModalBuatBackup()">
+      <div class="relative w-full max-w-[560px] bg-white rounded-[16px] shadow-2xl border border-[#E5E7EB] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150" @click.stop>
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-[18px] font-bold text-[#1D1B3A]">Buat Cadangan Baru</h3>
+            <p class="text-[13px] text-[#667085] mt-0.5">Cadangkan snapshot data akademik kelas untuk pengarsipan aman.</p>
           </div>
-        </template>
+          <button type="button" @click="tutupModalBuatBackup()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
+            <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Notifikasi Eror -->
+        <div x-show="backupError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700" x-text="backupError"></div>
+
+        <!-- Notifikasi Berhasil -->
+        <div x-show="backupHasil" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-[13px] text-emerald-800 flex flex-col gap-2">
+          <div class="font-bold flex items-center gap-1.5 text-emerald-900">
+            <svg class="w-5 h-5 text-emerald-600" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+            </svg>
+            <span>Cadangan Berhasil Dibuat</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1 font-mono text-[12px] bg-white/70 p-2.5 rounded-lg border border-emerald-100">
+            <span class="text-slate-500">ID:</span><span class="col-span-2 font-bold" x-text="'#' + backupHasil.id"></span>
+            <span class="text-slate-500">Status:</span><span class="col-span-2 font-bold" x-text="backupHasil.status || 'READY'"></span>
+            <span class="text-slate-500">Checksum:</span><span class="col-span-2 break-all text-[11px]" x-text="backupHasil.checksum || '-'"></span>
+          </div>
+        </div>
+
+        <!-- Kolom Formulir -->
+        <div class="flex flex-col gap-4">
+          <div>
+            <label for="modal-backup-kelas" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Kelas <span class="text-red-500">*</span></label>
+            <select id="modal-backup-kelas" x-model="backupForm.kelas" @change="onBackupKelasChange()" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]">
+              <option value="">-- Pilih Kelas --</option>
+              <template x-for="k in kelasList" :key="k.slug">
+                <option :value="k.slug" x-text="k.nama + ' (' + labelStatusKelas(k.status) + ')'"></option>
+              </template>
+            </select>
+          </div>
+
+          <div>
+            <label for="modal-backup-sem" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Cakupan Semester (Opsional)</label>
+            <select id="modal-backup-sem" x-model="backupForm.semester" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]">
+              <option value="">Seluruh Semester Kelas</option>
+              <template x-for="s in backupSemesterList" :key="s.id">
+                <option :value="s.id" x-text="(s.name || s.label || ('Semester #' + s.id)) + ' • ' + (s.status || '')"></option>
+              </template>
+            </select>
+            <p class="text-[11px] text-[#667085] mt-1">Pilih satu semester atau kosongkan untuk mencadangkan seluruh data kelas.</p>
+          </div>
+
+          <div>
+            <label for="modal-backup-alasan" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Alasan Pencadangan <span class="text-red-500">*</span></label>
+            <input id="modal-backup-alasan" type="text" x-model="backupForm.alasan" placeholder="Contoh: Sebelum migrasi semester genap 2024/2025" class="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none focus:ring-2 focus:ring-[#3965FB]" />
+            <p class="text-[11px] text-[#667085] mt-1">Alasan pencadangan dicatat dalam riwayat audit sistem.</p>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Modal -->
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E5E7EB]">
+          <button type="button" @click="tutupModalBuatBackup()" class="min-h-[44px] px-4 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-medium text-[#475467] transition-colors">
+            Tutup
+          </button>
+          <button type="button" @click="buatBackup()" :disabled="backupLoading" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-60">
+            <span x-show="backupLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span x-text="backupLoading ? 'Membuat...' : 'Buat Cadangan'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Pemulihan & Verifikasi Cadangan -->
+    <div x-show="modalRestoreBackup" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" @keydown.escape.window="tutupModalRestoreBackup()">
+      <div class="relative w-full max-w-[620px] max-h-[90vh] overflow-y-auto bg-white rounded-[16px] shadow-2xl border border-[#E5E7EB] p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150" @click.stop>
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-[18px] font-bold text-[#1D1B3A]" x-text="selectedBackupRestorable ? 'Pratinjau Pemulihan Paket v2' : 'Verifikasi Integritas Arsip v1'"></h3>
+            <p class="text-[13px] text-[#667085] mt-0.5" x-text="selectedBackupRestorable ? 'Periksa cakupan data akademik sebelum menerapkan ke database aktif.' : 'Verifikasi checksum dan konsistensi arsip SQLite tanpa mengubah database aktif.'"></p>
+          </div>
+          <button type="button" @click="tutupModalRestoreBackup()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
+            <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Ringkasan Informasi Cadangan Terpilih -->
+        <div class="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[14px] font-bold text-[#1D1B3A]" x-text="'Cadangan #' + (selectedBackup?.id || restoreForm.id)"></span>
+              <span class="px-2 py-0.5 rounded-[5px] text-[11px] font-medium"
+                    :class="selectedBackupRestorable ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'"
+                    x-text="selectedBackupRestorable ? 'Format v2 (Scoped)' : 'Arsip v1 (SQLite)'"></span>
+            </div>
+            <span class="text-[12px] text-slate-500" x-text="fmtWaktuID(selectedBackup?.created_at)"></span>
+          </div>
+          <div class="text-[12px] text-[#475467] grid grid-cols-2 gap-1.5 pt-1 border-t border-[#E2E8F0]">
+            <div>Kelas: <span class="font-medium text-[#1D1B3A]" x-text="namaKelasBySlug(selectedBackup?.class_slug, selectedBackup?.class_id)"></span></div>
+            <div>Semester: <span class="font-medium text-[#1D1B3A]" x-text="selectedBackup?.semester_id ? ('#' + selectedBackup?.semester_id) : 'Seluruh Kelas'"></span></div>
+            <div class="col-span-2">Alasan: <span class="font-medium text-[#1D1B3A]" x-text="selectedBackup?.reason || '-'"></span></div>
+          </div>
+        </div>
+
+        <!-- Pratinjau Pemulihan Berlingkup (Scoped Restore) -->
+        <div x-show="selectedBackupRestorable" class="flex flex-col gap-3">
+          <div x-show="scopedRestoreLoading" class="py-4 text-center text-[13px] text-slate-500 flex items-center justify-center gap-2">
+            <span class="w-4 h-4 border-2 border-[#3965FB] border-t-transparent rounded-full animate-spin"></span>
+            <span>Menganalisis pratinjau pemulihan paket...</span>
+          </div>
+
+          <div x-show="scopedRestorePreview && !scopedRestoreLoading" class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-[12px] flex flex-col gap-2.5 text-[13px]">
+            <div class="font-semibold text-blue-950 flex items-center justify-between">
+              <span>Perbandingan Data (Paket Cadangan → Data Aktif):</span>
+              <span class="text-[11px] font-normal text-blue-700" x-text="scopedRestorePreview.can_restore ? 'Siap dipulihkan' : 'Keterkaitan konflik'"></span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white/80 p-2.5 rounded-lg border border-blue-100 font-mono text-[12px]">
+              <template x-for="key in Object.keys(scopedRestorePreview.source_counts || {})" :key="key">
+                <div class="flex flex-col">
+                  <span class="text-[11px] text-slate-500 uppercase tracking-wider" x-text="key"></span>
+                  <span class="font-bold text-[#1D1B3A]" x-text="scopedRestorePreview.source_counts[key] + ' → ' + (scopedRestorePreview.current_counts[key] || 0)"></span>
+                </div>
+              </template>
+            </div>
+            <div x-show="!scopedRestorePreview.can_restore" class="p-2.5 bg-red-100/80 border border-red-300 rounded-lg text-red-800 text-[12px] font-medium">
+              Tertahan oleh teaching event lintas kelas: <span class="font-mono font-bold" x-text="(scopedRestorePreview.cross_class_event_ids || []).join(', ')"></span>. Selesaikan konflik sebelum memulihkan.
+            </div>
+          </div>
+
+          <div x-show="scopedRestoreResult" class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-[12px] text-emerald-800 text-[13px] font-medium flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+            </svg>
+            <span x-text="'Pemulihan berhasil! Titik pemulihan aman dibuat di #' + scopedRestoreResult.pre_restore_backup_id"></span>
+          </div>
+        </div>
+
+        <!-- Hasil Verifikasi Arsip v1 -->
+        <div x-show="!selectedBackupRestorable && restoreHasil" class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-[12px] text-emerald-800 text-[13px] flex flex-col gap-1.5">
+          <div class="font-bold flex items-center gap-1.5 text-emerald-900">
+            <svg class="w-5 h-5 text-emerald-600" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M5.5 10.5l-3.5-3.5 1.05-1.05 2.45 2.45 5.45-5.45 1.05 1.05z"/>
+            </svg>
+            <span>Berkas Arsip v1 Terverifikasi Integritasnya</span>
+          </div>
+          <p class="text-[12px]" x-text="restoreHasil.message || 'Database aktif tetap utuh tanpa perubahan.'"></p>
+        </div>
+
+        <!-- Kolom Alasan & Persetujuan -->
+        <div class="flex flex-col gap-3 pt-1">
+          <div>
+            <label for="modal-restore-alasan" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">
+              Alasan <span x-text="selectedBackupRestorable ? 'Pemulihan' : 'Verifikasi'"></span> <span class="text-red-500">*</span>
+            </label>
+            <textarea id="modal-restore-alasan" x-model="restoreForm.alasan" rows="2" placeholder="Jelaskan alasan operasional untuk dicatat dalam log audit..." class="w-full p-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] outline-none resize-none focus:ring-2 focus:ring-[#3965FB]"></textarea>
+          </div>
+
+          <label class="flex items-start gap-2.5 text-[12px] text-[#344054] cursor-pointer select-none">
+            <input type="checkbox" x-model="restoreForm.paham" class="w-4 h-4 mt-0.5 accent-[#3965FB] rounded" />
+            <span x-text="selectedBackupRestorable ? 'Saya memahami bahwa pemulihan scoped akan mengganti data akademik kelas terpilih dan otomatis mencadangkan titik pemulihan sebelumnya.' : 'Saya memahami bahwa verifikasi arsip v1 hanya mengecek integritas berkas cadangan dan tidak mengubah database operasional.'"></span>
+          </label>
+        </div>
+
+        <!-- Notifikasi Eror -->
+        <div x-show="restoreError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-700" x-text="restoreError"></div>
+
+        <!-- Tombol Aksi Modal -->
+        <div class="flex items-center justify-between pt-3 border-t border-[#E5E7EB]">
+          <div>
+            <button x-show="selectedBackupRestorable" type="button" @click="previewRestore(restoreForm.id)" :disabled="scopedRestoreLoading" class="min-h-[44px] px-3.5 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-medium text-[#475467] transition-colors inline-flex items-center gap-1.5">
+              <span x-show="scopedRestoreLoading" class="w-3.5 h-3.5 border-2 border-[#475467] border-t-transparent rounded-full animate-spin"></span>
+              <span>Segarkan Pratinjau</span>
+            </button>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <button type="button" @click="tutupModalRestoreBackup()" class="min-h-[44px] px-4 py-2 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-medium text-[#475467] transition-colors">
+              Tutup
+            </button>
+            <template x-if="selectedBackupRestorable">
+              <button type="button" @click="executeRestore()" :disabled="scopedRestoreLoading || !scopedRestorePreview || !scopedRestorePreview.can_restore || !restoreForm.paham || !restoreForm.alasan.trim()" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-red-600 hover:bg-red-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="scopedRestoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Pulihkan Paket v2</span>
+              </button>
+            </template>
+            <template x-if="!selectedBackupRestorable">
+              <button type="button" @click="pulihkanBackup()" :disabled="restoreLoading || !restoreForm.paham || !restoreForm.alasan.trim()" class="min-h-[44px] px-5 py-2 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="restoreLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span x-text="restoreLoading ? 'Memverifikasi...' : 'Verifikasi Arsip v1'"></span>
+              </button>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>

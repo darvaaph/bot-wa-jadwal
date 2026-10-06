@@ -317,6 +317,12 @@ function systemAdminApp() {
     backupListLoading: false,
     backupListError: '',
     backupSemesterList: [],
+    backupFilterKelas: '',
+    backupPage: 1,
+    backupPerPage: 5,
+    modalBuatBackup: false,
+    modalRestoreBackup: false,
+    selectedBackup: null,
     restoreForm: { id: '', alasan: '', paham: false },
     restoreError: '',
     restoreHasil: null,
@@ -355,6 +361,9 @@ function systemAdminApp() {
     },
     get undanganMenungguCount() {
       return this.kelasList.filter(k => k.statusKM === 'pending').length;
+    },
+    get backupPendingCount() {
+      return (this.backupRequests || []).filter(r => r.status === 'PENDING').length;
     },
 
     getBotStatusLabel() {
@@ -2936,14 +2945,110 @@ function systemAdminApp() {
       finally { this.backupRequestExecuting = 0; }
     },
 
-    pilihCadanganUntukVerifikasi(b) {
-      this.restoreForm.id = String(b.id || '');
+    bukaModalBuatBackup() {
+      this.backupForm = { kelas: '', semester: '', alasan: '' };
+      this.backupSemesterList = [];
+      this.backupError = '';
+      this.backupHasil = null;
+      this.modalBuatBackup = true;
+    },
+
+    tutupModalBuatBackup() {
+      this.modalBuatBackup = false;
+    },
+
+    bukaModalRestoreBackup(b) {
+      if (!b) return;
+      this.selectedBackup = b;
+      this.restoreForm = { id: String(b.id || ''), alasan: '', paham: false };
       this.selectedBackupRestorable = Boolean(b.restorable);
       this.restoreError = '';
       this.restoreHasil = null;
       this.scopedRestorePreview = null;
       this.scopedRestoreResult = null;
-      if (b.restorable) this.previewRestore(b.id);
+      this.modalRestoreBackup = true;
+      if (b.restorable) {
+        this.previewRestore(b.id);
+      }
+    },
+
+    tutupModalRestoreBackup() {
+      this.modalRestoreBackup = false;
+      this.selectedBackup = null;
+    },
+
+    filteredBackupList() {
+      if (!this.backupFilterKelas) return this.backupList || [];
+      return (this.backupList || []).filter(b => {
+        const slug = b.class_slug || '';
+        return slug === this.backupFilterKelas || String(b.class_id) === this.backupFilterKelas;
+      });
+    },
+
+    backupTotalPages() {
+      const count = this.filteredBackupList().length;
+      return Math.max(1, Math.ceil(count / this.backupPerPage));
+    },
+
+    paginatedBackupList() {
+      const list = this.filteredBackupList();
+      const totalPages = this.backupTotalPages();
+      if (this.backupPage > totalPages) this.backupPage = totalPages;
+      if (this.backupPage < 1) this.backupPage = 1;
+      const start = (this.backupPage - 1) * this.backupPerPage;
+      return list.slice(start, start + this.backupPerPage);
+    },
+
+    setBackupPage(p) {
+      const total = this.backupTotalPages();
+      if (p >= 1 && p <= total) {
+        this.backupPage = p;
+      }
+    },
+
+    fmtChecksum(checksum) {
+      if (!checksum) return '-';
+      const s = String(checksum);
+      if (s.length > 16) {
+        return 'sha256: ' + s.substring(0, 4) + '…' + s.substring(s.length - 4);
+      }
+      return s;
+    },
+
+    namaKelasBySlug(slug, classId) {
+      if (slug) {
+        const k = (this.kelasList || []).find(item => item.slug === slug);
+        if (k && k.nama) return k.nama;
+        return slug;
+      }
+      if (classId) {
+        const k = (this.kelasList || []).find(item => String(item.id) === String(classId));
+        if (k && k.nama) return k.nama;
+        return 'Kelas #' + classId;
+      }
+      return '-';
+    },
+
+    fmtTanggalCadangan(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch(e) { return String(iso); }
+    },
+
+    fmtJamCadangan(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      } catch(e) { return ''; }
+    },
+
+    pilihCadanganUntukVerifikasi(b) {
+      this.bukaModalRestoreBackup(b);
     },
 
     async previewRestore(id) {
@@ -3010,7 +3115,7 @@ function systemAdminApp() {
         return;
       }
       if (v === 'antrean') this.loadAntrean();
-      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
+      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.backupFilterKelas = ''; this.backupPage = 1; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
         this.penggunaFilter = '';
