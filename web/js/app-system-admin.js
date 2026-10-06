@@ -2814,16 +2814,17 @@ function systemAdminApp() {
 
     auditTotalPages() {
       const count = this.filteredAuditList().length;
-      return Math.max(1, Math.ceil(count / this.auditPerPage));
+      return Math.max(1, Math.ceil(count / (this.auditPerPage || 10)));
     },
 
     paginatedAuditList() {
       const list = this.filteredAuditList();
+      const perPage = this.auditPerPage || 10;
       const totalPages = this.auditTotalPages();
       if (this.auditPage > totalPages) this.auditPage = totalPages;
       if (this.auditPage < 1) this.auditPage = 1;
-      const start = (this.auditPage - 1) * this.auditPerPage;
-      return list.slice(start, start + this.auditPerPage);
+      const start = (this.auditPage - 1) * perPage;
+      return list.slice(start, start + perPage);
     },
 
     setAuditPage(p) {
