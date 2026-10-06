@@ -255,6 +255,8 @@ function systemAdminApp() {
     dosenFormError: '',
     dosenQ: '',
     dosenStatusFilter: '',
+    dosenPage: 1,
+    dosenPerPage: 8,
     dosenEdit: null,
     dosenEditError: '',
     dosenMenu: null,
@@ -2190,10 +2192,72 @@ function systemAdminApp() {
       );
     },
 
+    totalBarisDosen() {
+      return (this.filteredDosen() || []).length;
+    },
+
+    totalHalamanDosen() {
+      return Math.max(1, Math.ceil(this.totalBarisDosen() / (this.dosenPerPage || 8)));
+    },
+
+    paginatedDosen() {
+      const perPage = this.dosenPerPage || 8;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      const start = (page - 1) * perPage;
+      return (this.filteredDosen() || []).slice(start, start + perPage);
+    },
+
+    mulaiItemDosen() {
+      const total = this.totalBarisDosen();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      return (page - 1) * (this.dosenPerPage || 8) + 1;
+    },
+
+    akhirItemDosen() {
+      const total = this.totalBarisDosen();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      return Math.min(page * (this.dosenPerPage || 8), total);
+    },
+
+    keHalamanDosen(p) {
+      const target = Math.max(1, Math.min(p, this.totalHalamanDosen()));
+      this.dosenPage = target;
+      this.dosenMenu = null;
+    },
+
+    halamanArrayDosen() {
+      const total = this.totalHalamanDosen();
+      const curr = this.dosenPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
     async loadDosen() {
       this.dosenLoading = true; this.dosenError = '';
       try {
         this.dosenList = await API.getMasterLecturers(this.dosenStatusFilter || '');
+        if (this.dosenPage > this.totalHalamanDosen()) {
+          this.dosenPage = Math.max(1, this.totalHalamanDosen());
+        }
       } catch (e) {
         this.dosenList = [];
         this.dosenError = 'Daftar dosen belum dapat dimuat. Periksa koneksi lalu coba lagi.';
