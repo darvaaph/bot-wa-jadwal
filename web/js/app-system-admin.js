@@ -204,17 +204,26 @@ function systemAdminApp() {
     ruangList: [],
     ruangLoading: false,
     ruangError: '',
-    ruangForm: { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' },
+    ruangForm: { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' },
     ruangFormError: '',
+    ruangFormLoading: false,
     ruangQ: '',
     ruangStatusFilter: '',
+    ruangBuildingFilter: '',
+    ruangTypeFilter: '',
+    ruangMenuId: null,
     ruangEdit: null,
     ruangEditError: '',
+    ruangEditLoading: false,
     ruangStatusConfirm: null,
+    ruangStatusLoading: false,
     modalTambahRuang: false,
     modalImportRuang: false,
     importRuangTab: 'jadwal',
-    importRuangCsvText: '',
+    importRuangJsonText: '',
+    importRuangFileName: '',
+    importRuangFileSize: '',
+    importRuangDragOver: false,
     importRuangLoading: false,
     importRuangError: '',
     importRuangSuccess: '',
@@ -255,6 +264,8 @@ function systemAdminApp() {
     dosenFormError: '',
     dosenQ: '',
     dosenStatusFilter: '',
+    dosenPage: 1,
+    dosenPerPage: 8,
     dosenEdit: null,
     dosenEditError: '',
     dosenMenu: null,
@@ -1621,12 +1632,126 @@ function systemAdminApp() {
 
     filteredRuang() {
       const q = (this.ruangQ || '').trim().toLowerCase();
-      if (!q) return this.ruangList || [];
-      return (this.ruangList || []).filter(r =>
-        (r.code && r.code.toLowerCase().includes(q)) ||
-        (r.name && r.name.toLowerCase().includes(q)) ||
-        (r.building && r.building.toLowerCase().includes(q))
-      );
+      const b = (this.ruangBuildingFilter || '').trim().toLowerCase();
+      const t = (this.ruangTypeFilter || '').trim().toUpperCase();
+      const s = (this.ruangStatusFilter || '').trim().toUpperCase();
+      return (this.ruangList || []).filter(r => {
+        if (s && String(r.status || '').toUpperCase() !== s) return false;
+        if (b && String(r.building || '').toLowerCase() !== b) return false;
+        if (t) {
+          const rt = String(r.room_type || '').toUpperCase();
+          if (t === 'LAB' && !rt.includes('LAB')) return false;
+          if (t === 'TEORI' && rt.includes('LAB')) return false;
+          if (t !== 'LAB' && t !== 'TEORI' && rt !== t) return false;
+        }
+        if (!q) return true;
+        return (
+          (r.code && r.code.toLowerCase().includes(q)) ||
+          (r.name && r.name.toLowerCase().includes(q)) ||
+          (r.building && r.building.toLowerCase().includes(q)) ||
+          (r.room_type && r.room_type.toLowerCase().includes(q))
+        );
+      });
+    },
+
+    daftarGedungRuang() {
+      const list = this.ruangList || [];
+      const set = new Set();
+      set.add('Gedung D');
+      set.add('Gedung H');
+      list.forEach(r => {
+        if (r.building && r.building.trim()) set.add(r.building.trim());
+      });
+      return Array.from(set).sort();
+    },
+
+    formatJenisRuang(type) {
+      const t = String(type || '').toUpperCase();
+      if (t === 'LAB' || t.includes('LAB')) return 'Laboratorium';
+      if (t === 'TEORI' || t.includes('TEORI')) return 'Teori';
+      return type || '—';
+    },
+
+    namaUsulanRuang(u) {
+      if (!u) return 'Ruangan Baru';
+      if (u.payload_json) {
+        try {
+          const p = typeof u.payload_json === 'string' ? JSON.parse(u.payload_json) : u.payload_json;
+          if (p && (p.code || p.name)) {
+            return (p.code || '') + (p.name ? ' · ' + p.name : '');
+          }
+        } catch (_) {}
+      }
+      return u.target_code || 'Ruangan Baru';
+    },
+
+    detailUsulanRuang(u) {
+      if (!u || !u.payload_json) return '';
+      try {
+        const p = typeof u.payload_json === 'string' ? JSON.parse(u.payload_json) : u.payload_json;
+        const parts = [];
+        const code = p.code || u.target_code || '';
+        const name = p.name || '';
+        if (code) {
+          parts.push(name && name !== code ? code + '-' + name : code);
+        } else if (name) {
+          parts.push(name);
+        }
+        if (p.building) parts.push(p.building);
+        if (p.room_type) parts.push('Tipe: ' + this.formatJenisRuang(p.room_type));
+        if (p.capacity) parts.push('(Kapasitas: ' + p.capacity + ' mhs)');
+        return parts.join(' · ');
+      } catch (_) {
+        return '';
+      }
+    },
+
+    ringkasanUsulanRuang(u) {
+      if (!u) return { kodeNama: '-', pengusul: 'KM', rincian: '-', catatan: '' };
+      let p = {};
+      if (u.payload_json) {
+        try {
+          p = typeof u.payload_json === 'string' ? JSON.parse(u.payload_json) : (u.payload_json || {});
+        } catch (_) {
+          p = {};
+        }
+      }
+      const code = p.code || u.target_code || '';
+      const name = p.name || '';
+      let kodeNama = 'Ruangan Baru';
+      if (code && name && code !== name) {
+        kodeNama = `${code}-${name}`;
+      } else if (code) {
+        kodeNama = code;
+      } else if (name) {
+        kodeNama = name;
+      }
+
+      const pengusul = u.class_slug
+        ? `Diajukan KM ${u.class_slug}`
+        : (u.proposed_by ? `Diajukan ${u.proposed_by}` : 'Diajukan KM');
+
+      const parts = [];
+      if (p.building) parts.push(p.building);
+      if (p.room_type) parts.push(this.formatJenisRuang(p.room_type));
+      if (p.capacity) parts.push(`Kapasitas: ${p.capacity} mhs`);
+      const rincian = parts.length > 0 ? parts.join(' • ') : (this.detailUsulanRuang(u) || 'Informasi ruangan');
+
+      const catatan = u.note || p.notes || p.reason || '';
+
+      return { kodeNama, pengusul, rincian, catatan };
+    },
+
+    async setujuiUsulanCepat(u) {
+      if (!u) return;
+      try {
+        await API.decideProposal(u.id, 'approve', '');
+        const judul = this.namaUsulanRuang(u) || u.target_code || 'Ruangan';
+        this.showToast(`Usulan "${judul}" disetujui dan diterapkan.`);
+        await Promise.all([this.loadUsulan('ROOM'), this.loadRuang()]);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal menyetujui usulan.');
+      }
     },
 
     async loadRuang() {
@@ -1642,30 +1767,158 @@ function systemAdminApp() {
     },
 
     bukaModalTambahRuang() {
-      this.ruangForm = { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' };
+      this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
       this.ruangFormError = '';
+      this.ruangFormLoading = false;
       this.modalTambahRuang = true;
     },
 
     tutupModalTambahRuang() {
+      if (this.ruangFormLoading) return;
       this.modalTambahRuang = false;
       this.ruangFormError = '';
     },
 
-    bukaModalImportRuang() {
+    bukaModalImportRuang(defaultTab = 'json') {
       this.modalImportRuang = true;
-      this.importRuangTab = 'jadwal';
-      this.importRuangCsvText = '';
+      this.importRuangTab = defaultTab;
+      this.isiContohJsonRuang(true);
+      this.importRuangFileName = '';
+      this.importRuangFileSize = '';
+      this.importRuangDragOver = false;
       this.importRuangLoading = false;
       this.importRuangError = '';
       this.importRuangSuccess = '';
     },
 
     tutupModalImportRuang() {
+      if (this.importRuangLoading || this.syncAllLoading) return;
       this.modalImportRuang = false;
       this.importRuangLoading = false;
       this.importRuangError = '';
       this.importRuangSuccess = '';
+    },
+
+    handleImportRuangFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      this.importRuangFileName = file.name;
+      this.importRuangFileSize = (file.size / 1024).toFixed(1) + ' KB';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.importRuangJsonText = e.target.result || '';
+      };
+      reader.readAsText(file);
+    },
+
+    handleImportRuangDrop(event) {
+      this.importRuangDragOver = false;
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (!file) return;
+      this.importRuangFileName = file.name;
+      this.importRuangFileSize = (file.size / 1024).toFixed(1) + ' KB';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.importRuangJsonText = e.target.result || '';
+      };
+      reader.readAsText(file);
+    },
+
+    isiContohJsonRuang(silent = false) {
+      const contoh = [
+        {
+          "code": "D102-Lab. MT",
+          "name": "Lab. Multimedia",
+          "building": "Gedung D",
+          "room_type": "Laboratorium",
+          "capacity": 32
+        },
+        {
+          "code": "D101-Kelas",
+          "name": "Ruang Teori 1",
+          "building": "Gedung D",
+          "room_type": "Ruang Kuliah",
+          "capacity": 32
+        }
+      ];
+      this.importRuangJsonText = JSON.stringify(contoh, null, 2);
+      this.importRuangFileName = 'contoh-ruangan.json';
+      this.importRuangFileSize = '0.4 KB';
+      this.importRuangError = '';
+      if (!silent) {
+        this.showToast('Format contoh JSON ruangan telah dimuat.');
+      }
+    },
+
+    isJsonValidRuang() {
+      const raw = (this.importRuangJsonText || '').trim();
+      if (!raw) return true;
+      try {
+        JSON.parse(raw);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
+
+    parsedImportRuang() {
+      const raw = (this.importRuangJsonText || '').trim();
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        let list = [];
+        if (Array.isArray(parsed)) {
+          list = parsed;
+        } else if (parsed && Array.isArray(parsed.rooms)) {
+          list = parsed.rooms;
+        }
+        return list.filter(item => item && (item.code || '').trim());
+      } catch (_) {
+        return [];
+      }
+    },
+
+    async prosesImportJsonRuang() {
+      const raw = (this.importRuangJsonText || '').trim();
+      if (!raw) {
+        this.importRuangError = 'Silakan masukkan teks JSON atau unggah berkas .json terlebih dahulu.';
+        return;
+      }
+      let payload;
+      try {
+        payload = JSON.parse(raw);
+      } catch (e) {
+        this.importRuangError = 'Format JSON tidak valid: ' + e.message;
+        return;
+      }
+
+      let items = [];
+      if (Array.isArray(payload)) {
+        items = payload;
+      } else if (payload && Array.isArray(payload.rooms)) {
+        items = payload.rooms;
+      }
+
+      const validItems = items.filter(r => r && (r.code || '').trim());
+      if (validItems.length === 0) {
+        this.importRuangError = 'Tidak ditemukan data ruangan yang valid dengan properti "code".';
+        return;
+      }
+
+      this.importRuangLoading = true;
+      this.importRuangError = '';
+      this.importRuangSuccess = '';
+      try {
+        const res = await API.createMasterRoom({ rooms: validItems });
+        const imported = (res && res.total_imported) || validItems.length;
+        this.importRuangSuccess = `Berhasil mengimpor ${imported} ruangan baru.`;
+        await this.loadRuang();
+        this.showToast(`Berhasil mengimpor ${imported} ruangan.`);
+      } catch (err) {
+        this.importRuangError = err.message || 'Gagal mengimpor data ruangan.';
+      } finally {
+        this.importRuangLoading = false;
+      }
     },
 
     async sinkronRuangDariJadwal() {
@@ -1684,77 +1937,184 @@ function systemAdminApp() {
       }
     },
 
-    async tambahRuang() {
-      const f = this.ruangForm;
-      if (!((f.kode || '').trim())) { this.ruangFormError = 'Kode ruangan wajib diisi.'; return; }
-      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) { this.ruangFormError = 'Kapasitas wajib angka bulat ≥ 0.'; return; }
-      this.ruangFormError = '';
+    async sinkronSemuaDariModalRuang() {
+      this.importRuangLoading = true;
+      this.importRuangError = '';
+      this.importRuangSuccess = '';
       try {
-        const payload = { code: f.kode.trim() };
-        if ((f.nama || '').trim()) payload.name = f.nama.trim();
-        if ((f.gedung || '').trim()) payload.building = f.gedung.trim();
+        const res = await API.syncMasterAllJadwal();
+        await Promise.all([this.loadRuang(), this.loadMatkul(), this.loadDosen()]);
+        const msg = res.message || `Berhasil menyinkronkan seluruh ${res.total_synced || 106} master data kampus.`;
+        this.importRuangSuccess = msg;
+        this.showToast(msg);
+      } catch (err) {
+        this.importRuangError = err.message || 'Gagal menyinkronkan master data kampus.';
+      } finally {
+        this.importRuangLoading = false;
+      }
+    },
+
+    async tambahRuang() {
+      if (this.ruangFormLoading) return;
+      const f = this.ruangForm;
+      const kode = (f.kode || '').trim();
+      const nama = (f.nama || '').trim();
+      if (!kode) {
+        this.ruangFormError = 'Kode ruangan wajib diisi.';
+        return;
+      }
+      if (!nama) {
+        this.ruangFormError = 'Nama ruangan wajib diisi.';
+        return;
+      }
+
+      let gedungFinal = (f.gedung || '').trim();
+      if (gedungFinal === '__custom__') {
+        gedungFinal = (f.gedungKustom || '').trim();
+        if (!gedungFinal) {
+          this.ruangFormError = 'Nama gedung baru wajib diisi.';
+          return;
+        }
+      }
+
+      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) {
+        this.ruangFormError = 'Kapasitas wajib berupa angka bulat ≥ 0.';
+        return;
+      }
+
+      this.ruangFormError = '';
+      this.ruangFormLoading = true;
+      try {
+        const payload = {
+          code: kode,
+          name: nama,
+          status: f.status ? 'ACTIVE' : 'INACTIVE'
+        };
+        if (gedungFinal) payload.building = gedungFinal;
         if ((f.tipe || '').trim()) payload.room_type = f.tipe.trim();
         if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
+
         await API.createMasterRoom(payload);
-        this.ruangForm = { kode: '', nama: '', gedung: '', tipe: '', kapasitas: '' };
+        this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
         await this.loadRuang();
         this.modalTambahRuang = false;
-        this.showToast('Ruangan ditambahkan.');
+        this.showToast('Ruangan baru berhasil ditambahkan.');
       } catch (err) {
         this.ruangFormError = err.message || 'Gagal menambah ruangan.';
+      } finally {
+        this.ruangFormLoading = false;
       }
     },
 
     mulaiUbahRuang(r) {
       const cap = r.capacity;
-      this.ruangEdit = { id: r.id, kode: r.code, nama: r.name || '', gedung: r.building || '', tipe: r.room_type || '', kapasitas: (cap === null || cap === undefined || cap === '') ? '' : String(cap) };
+      const statusIsActive = String(r.status || 'ACTIVE').toUpperCase() === 'ACTIVE';
+      const buildingVal = (r.building || '').trim();
+      const knownBuildings = this.daftarGedungRuang();
+      const isKnown = knownBuildings.includes(buildingVal);
+
+      this.ruangEdit = {
+        id: r.id,
+        kode: r.code,
+        nama: r.name || '',
+        gedung: isKnown ? buildingVal : (buildingVal ? '__custom__' : (knownBuildings[0] || 'Gedung D')),
+        gedungKustom: isKnown ? '' : buildingVal,
+        tipe: r.room_type || 'Laboratorium',
+        kapasitas: (cap === null || cap === undefined || cap === '') ? '' : String(cap),
+        status: statusIsActive
+      };
       this.ruangEditError = '';
+      this.ruangEditLoading = false;
     },
 
     batalUbahRuang() {
+      if (this.ruangEditLoading) return;
       this.ruangEdit = null;
       this.ruangEditError = '';
     },
 
     async simpanUbahRuang() {
+      if (this.ruangEditLoading) return;
       const f = this.ruangEdit;
       if (!f) return;
-      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) { this.ruangEditError = 'Kapasitas wajib angka bulat ≥ 0.'; return; }
+      const nama = (f.nama || '').trim();
+      if (!nama) {
+        this.ruangEditError = 'Nama ruangan wajib diisi.';
+        return;
+      }
+      if ((f.kapasitas || '') !== '' && !(/^\d+$/.test(String(f.kapasitas).trim()))) {
+        this.ruangEditError = 'Kapasitas wajib angka bulat ≥ 0.';
+        return;
+      }
+
+      let gedungFinal = (f.gedung || '').trim();
+      if (gedungFinal === '__custom__') {
+        gedungFinal = (f.gedungKustom || '').trim();
+        if (!gedungFinal) {
+          this.ruangEditError = 'Nama gedung baru wajib diisi.';
+          return;
+        }
+      }
+
+      this.ruangEditLoading = true;
       this.ruangEditError = '';
       try {
         const payload = {
-          name: (f.nama || '').trim(),
-          building: (f.gedung || '').trim(),
-          room_type: (f.tipe || '').trim()
+          name: nama,
+          building: gedungFinal,
+          room_type: (f.tipe || '').trim(),
+          status: f.status ? 'ACTIVE' : 'INACTIVE'
         };
-        if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
+        if ((f.kapasitas || '') !== '') {
+          payload.capacity = Number(String(f.kapasitas).trim());
+        }
         await API.patchMasterRoom(f.id, payload);
-        this.showToast(`Ruangan ${f.kode} diubah.`);
+        this.showToast(`Ruangan ${f.kode} berhasil diperbarui.`);
         this.ruangEdit = null;
         await this.loadRuang();
       } catch (err) {
-        this.ruangEditError = err.message || 'Gagal mengubah ruangan.';
+        this.ruangEditError = err.message || 'Gagal mengubah data ruangan.';
+      } finally {
+        this.ruangEditLoading = false;
       }
     },
 
     mintaKonfirmasiStatusRuang(r) {
-      this.ruangStatusConfirm = { id: r.id, kode: r.code, dari: String(r.status || '').toUpperCase(), ke: String(r.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' };
+      if (!r) return;
+      const kode = r.code || '';
+      const nama = r.name || '';
+      const kodeNama = kode ? (nama && nama !== kode ? `${kode}-${nama}` : kode) : (nama || 'Ruangan');
+      const gedung = r.building ? ` (${r.building})` : '';
+      this.ruangStatusConfirm = {
+        id: r.id,
+        kode: r.code,
+        nama: r.name,
+        gedung: r.building,
+        labelLengkap: `${kodeNama}${gedung}`,
+        dari: String(r.status || '').toUpperCase(),
+        ke: String(r.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+      };
+      this.ruangStatusLoading = false;
     },
 
     batalKonfirmasiStatusRuang() {
+      if (this.ruangStatusLoading) return;
       this.ruangStatusConfirm = null;
     },
 
     async jalankanUbahStatusRuang() {
       const c = this.ruangStatusConfirm;
-      if (!c) return;
+      if (!c || this.ruangStatusLoading) return;
+      this.ruangStatusLoading = true;
       try {
         await API.patchMasterRoom(c.id, { status: c.ke });
         this.ruangStatusConfirm = null;
         await this.loadRuang();
-        this.showToast(c.ke === 'ACTIVE' ? 'Ruangan diaktifkan.' : 'Ruangan dinonaktifkan. Jadwal lama tetap tampil; ruangan nonaktif tak dipakai untuk jadwal baru.');
+        this.showToast(c.ke === 'ACTIVE' ? 'Ruangan berhasil diaktifkan kembali.' : 'Ruangan dinonaktifkan. Jadwal lama tetap tampil dan aman.');
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status ruangan.');
+      } finally {
+        this.ruangStatusLoading = false;
       }
     },
 
@@ -2190,10 +2550,72 @@ function systemAdminApp() {
       );
     },
 
+    totalBarisDosen() {
+      return (this.filteredDosen() || []).length;
+    },
+
+    totalHalamanDosen() {
+      return Math.max(1, Math.ceil(this.totalBarisDosen() / (this.dosenPerPage || 8)));
+    },
+
+    paginatedDosen() {
+      const perPage = this.dosenPerPage || 8;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      const start = (page - 1) * perPage;
+      return (this.filteredDosen() || []).slice(start, start + perPage);
+    },
+
+    mulaiItemDosen() {
+      const total = this.totalBarisDosen();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      return (page - 1) * (this.dosenPerPage || 8) + 1;
+    },
+
+    akhirItemDosen() {
+      const total = this.totalBarisDosen();
+      if (total === 0) return 0;
+      const totalHalaman = this.totalHalamanDosen();
+      const page = Math.max(1, Math.min(this.dosenPage || 1, totalHalaman));
+      return Math.min(page * (this.dosenPerPage || 8), total);
+    },
+
+    keHalamanDosen(p) {
+      const target = Math.max(1, Math.min(p, this.totalHalamanDosen()));
+      this.dosenPage = target;
+      this.dosenMenu = null;
+    },
+
+    halamanArrayDosen() {
+      const total = this.totalHalamanDosen();
+      const curr = this.dosenPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
     async loadDosen() {
       this.dosenLoading = true; this.dosenError = '';
       try {
         this.dosenList = await API.getMasterLecturers(this.dosenStatusFilter || '');
+        if (this.dosenPage > this.totalHalamanDosen()) {
+          this.dosenPage = Math.max(1, this.totalHalamanDosen());
+        }
       } catch (e) {
         this.dosenList = [];
         this.dosenError = 'Daftar dosen belum dapat dimuat. Periksa koneksi lalu coba lagi.';
@@ -4219,14 +4641,14 @@ function systemAdminApp() {
       const u = this.usulanDitolakTarget;
       if (!u) return;
       const note = (this.usulanAlasanTolak || '').trim();
-      if (!note) {
-        this.showToast('Alasan penolakan wajib diisi untuk KM.');
+      if (!note || note.length < 5) {
+        this.showToast('Alasan penolakan minimal 5 karakter.');
         return;
       }
       this.usulanRejectLoading = true;
       try {
         await API.decideProposal(u.id, 'reject', note);
-        const judul = this.namaUsulanMatkul(u) || u.target_code || 'Mata Kuliah';
+        const judul = u.kind === 'ROOM' ? (this.namaUsulanRuang(u) || 'Ruangan') : (this.namaUsulanMatkul(u) || u.target_code || 'Mata Kuliah');
         this.showToast(`Usulan "${judul}" telah ditolak.`);
         this.tutupModalTolakUsulan();
         await Promise.all([this.loadUsulan(''), this.loadRuang(), this.loadMatkul()]);
