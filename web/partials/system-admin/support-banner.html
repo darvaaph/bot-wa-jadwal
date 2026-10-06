@@ -1,7 +1,13 @@
 <div x-show="dukunganAktif" x-cloak class="bg-[#FFFBEB] border-b border-[#FCD34D] px-4 md:px-8 py-3" role="status">
   <div class="max-w-[1280px] mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
     <div class="flex-1 min-w-0 flex items-center gap-3">
-      <svg width="24" height="24" viewBox="0 0 14 14" fill="#B45309" class="shrink-0" aria-hidden="true" focusable="false"><path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z"/></svg>
+      <div class="w-9 h-9 rounded-full bg-[#FEF3C7] text-[#B45309] flex items-center justify-center shrink-0 border border-[#FDE68A]">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
       <div class="min-w-0">
         <p class="text-[14px] font-bold text-[#78350F] truncate">Mode Dukungan aktif — <span x-text="namaDukungan()"></span></p>
         <p class="text-[12px] font-medium text-[#92400E] truncate">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan || '-') : ''"></span> · Berlaku s.d. <span x-text="dukunganJam()"></span> (<span x-text="dukunganSisa()"></span>)</p>
