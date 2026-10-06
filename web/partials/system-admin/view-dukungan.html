@@ -1,168 +1,629 @@
-<!-- partials/system-admin/view-dukungan.html - System Admin: Audit Global (tab Cadangan dan Audit) -->
-<section x-show="view === 'dukungan'" x-cloak>
+<!-- partials/system-admin/view-dukungan.html - System Admin: Audit Global dan Mode Dukungan (SCR-ADM-008E-AUDIT) -->
+<section x-show="view === 'dukungan'" x-cloak class="min-w-0">
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
-    <h1 class="font-display text-[24px] font-bold text-ink">Mode Dukungan</h1>
+    <h1 class="font-display text-[24px] font-bold text-[#1D1B3A]">Mode Dukungan</h1>
     <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan break-glass. Setiap perubahan dicatat sebagai akses dukungan beserta alasan.</p>
-    <div x-show="dukunganAktif" class="ui-card mt-4 p-4 text-[13px]">
-      <p class="font-bold text-ink">Aktif: <span x-text="namaDukungan()"></span></p>
+    <div x-show="dukunganAktif" class="mt-4 p-4 rounded-xl bg-white border border-amber-200 text-[13px]">
+      <p class="font-bold text-[#1D1B3A]">Aktif: <span x-text="namaDukungan()"></span></p>
       <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || '') : ''"></span></p>
       <p class="text-amber-900 mt-0.5" x-show="dukunganAktif && dukunganAktif.expires_at">Berlaku s.d. <span class="font-mono" x-text="fmtWaktuID(dukunganAktif.expires_at)"></span> (60 menit, tercatat di Audit Global).</p>
       <div class="flex flex-wrap gap-2 mt-3">
-        <button type="button" @click="bukaDetail(dukunganAktif.class_slug)" class="ui-button ui-button--primary text-[12px] font-semibold">Lihat kelas</button>
-        <button type="button" @click="bukaAuditKelas(dukunganAktif.class_slug)" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-amber-400 text-[12px] font-semibold min-h-[44px]">Lihat audit kelas</button>
-        <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold min-h-[44px] disabled:opacity-60">Keluar mode dukungan</button>
+        <button type="button" @click="bukaDetail(dukunganAktif.class_slug)" class="min-h-[40px] px-4 rounded-lg bg-[#3965FB] text-white text-[12px] font-semibold">Lihat kelas</button>
+        <button type="button" @click="bukaAuditKelas(dukunganAktif.class_slug)" class="min-h-[40px] px-4 rounded-lg border border-amber-400 text-amber-900 text-[12px] font-semibold">Lihat audit kelas</button>
+        <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="min-h-[40px] px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold disabled:opacity-60">Keluar mode dukungan</button>
       </div>
     </div>
-    <div x-show="!dukunganAktif" class="mt-4">
-      <label class="block text-[14px] font-bold mb-1" for="sa-dukungan-kelas">Kelas tujuan</label>
-      <select id="sa-dukungan-kelas" x-model="kelasAktif"
-        class="ui-field w-full max-w-xl text-[14px]">
-        <option value="">-- Pilih kelas --</option>
-        <template x-for="k in kelasList" :key="k.slug">
-          <option :value="k.slug" x-text="k.nama + ' · ' + k.prodi + ' ' + k.angkatan">-</option>
-        </template>
-      </select>
+    <div x-show="!dukunganAktif" class="mt-4 flex flex-col gap-3">
+      <div>
+        <label class="block text-[13px] font-bold text-[#1D1B3A] mb-1" for="sa-dukungan-kelas">Kelas tujuan</label>
+        <select id="sa-dukungan-kelas" x-model="kelasAktif" class="w-full max-w-xl h-11 px-3 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1D1B3A]">
+          <option value="">-- Pilih kelas --</option>
+          <template x-for="k in kelasList" :key="k.slug">
+            <option :value="k.slug" x-text="k.nama + ' · ' + k.prodi + ' ' + k.angkatan">-</option>
+          </template>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[13px] font-bold text-[#1D1B3A] mb-1" for="sa-dukungan-alasan">Alasan dukungan * <span class="font-normal text-[#667085]">(min. 10 karakter)</span></label>
+        <input id="sa-dukungan-alasan" type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM kelas D4 TI 2025 B" class="w-full max-w-xl h-11 px-3 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1D1B3A]" />
+      </div>
+      <button type="button" @click="masukDukungan()" :disabled="dukunganLoading" class="w-fit min-h-[44px] px-5 rounded-xl bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors mt-2">
+        <span x-text="dukunganLoading ? 'Memproses...' : 'Masuk Mode Dukungan'"></span>
+      </button>
+      <p class="text-[11px] text-amber-800 mt-1">Hibah server 60 menit per kelas + alasan wajib + banner global. Masuk/keluar tercatat di Audit Global sebagai SUPPORT_ENTER/EXIT.</p>
     </div>
-    <div x-show="!dukunganAktif" class="mt-4">
-      <label class="block text-[14px] font-bold mb-1" for="sa-dukungan-alasan">Alasan dukungan <span class="text-danger">*</span> <span class="font-normal text-amber-800">(min. 10 karakter)</span></label>
-      <input id="sa-dukungan-alasan" type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM kelas D4 TI 2025 B"
-        class="ui-field w-full max-w-xl text-[14px]" />
-    </div>
-    <button x-show="!dukunganAktif" type="button" @click="masukDukungan()" :disabled="dukunganLoading"
-      class="ui-button ui-button--primary mt-4 text-[14px] font-medium">Masuk mode
-      dukungan</button>
-    <p class="text-[11px] text-amber-800 mt-3">Hibah server 60 menit per kelas + alasan wajib + banner global. Masuk/keluar tercatat di Audit Global sebagai SUPPORT_ENTER/EXIT.</p>
   </div>
 </section>
 
+<!-- Tab Utama: Audit Global (SCR-ADM-008E-AUDIT) -->
 <section x-show="['audit','pembaruan'].includes(view)" x-cloak class="min-w-0">
-  <div class="ui-card md:rounded-[24px] p-3 sm:p-6 md:p-10 shadow-sm min-w-0 overflow-x-clip">
-    <div class="flex flex-wrap items-start justify-between gap-2">
-      <div class="min-w-0">
-        <h1 class="font-display text-[20px] sm:text-[22px] md:text-[30px] font-bold text-ink">Audit Global</h1>
-        <p class="text-[13px] md:text-[14px] text-slate-500 mt-0.5">Riwayat Perubahan lintas kelas: tindakan keamanan dan dukungan.</p>
-        <div class="mt-3 inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Cadangan dan audit">
-          <button type="button" role="tab" aria-selected="false" @click="go('backup')" class="min-h-[44px] px-4 rounded-lg text-[13px] font-medium text-slate-600 hover:text-ink">Cadangan</button>
-          <button type="button" role="tab" aria-selected="true" class="min-h-[44px] px-4 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-sm">Audit</button>
-        </div>
+  <div class="flex flex-col gap-[20px]">
+
+    <!-- Header Halaman Audit Global -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[14px] justify-start items-start">
+      <div class="text-[12px] text-[#667085] font-normal">
+        Sistem / Cadangan &amp; Audit
       </div>
-      <p class="text-[11px] text-slate-500 font-mono self-center whitespace-nowrap" x-show="!auditLoading" x-text="'Menampilkan ' + (auditList || []).length + ' hasil · limit ' + auditLimit">-</p>
-    </div>
-    <div class="flex flex-col">
-    <div class="mt-4 md:hidden order-1">
-      <button type="button" @click="auditFilterOpen = !auditFilterOpen" :aria-expanded="auditFilterOpen" aria-controls="sa-audit-filter"
-        class="ui-button ui-button--ghost w-full h-11 px-4 rounded-xl border border-border text-[13px] font-semibold flex items-center justify-between min-h-[44px]">
-        <span>Filter <span x-show="auditFilterCount() > 0" x-text="'· ' + auditFilterCount() + ' aktif'"></span></span>
-        <span aria-hidden="true" x-text="auditFilterOpen ? '▾' : '▸'"></span>
-      </button>
-    </div>
-    <div x-show="auditFilterCount() > 0" class="mt-3 flex flex-wrap gap-2 order-2" aria-live="polite">
-      <template x-for="c in auditChips()" :key="c.key">
-        <span class="inline-flex items-center gap-1 h-11 pl-4 pr-1 rounded-full border border-border bg-slate-50 text-[12px] min-h-[44px]">
-          <span class="text-slate-500" x-text="c.label + ':'"></span>
-          <span class="font-mono font-medium max-w-[160px] truncate" x-text="c.value"></span>
-          <button type="button" @click="removeAuditChip(c.key)" :aria-label="'Hapus filter ' + c.label" class="ui-button ui-button--ghost w-11 h-11 rounded-full hover:bg-slate-200 font-bold min-w-[44px]">×</button>
-        </span>
-      </template>
-      <button type="button" @click="resetAuditFilter(); loadAudit()" class="ui-button ui-button--ghost h-11 px-4 rounded-full text-[12px] font-semibold text-primary underline min-h-[44px]">Reset semua</button>
-    </div>
-    <div class="no-scrollbar mt-3 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden order-4 md:order-3" aria-label="Filter cepat">
-      <span class="text-[12px] text-slate-400 font-medium shrink-0">Cepat:</span>
-      <button type="button" @click="setAuditPreset('semua')" class="ui-button ui-button--ghost shrink-0 h-11 px-4 rounded-full border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]">Semua</button>
-      <button type="button" @click="setAuditPreset('kritis')" class="ui-button ui-button--ghost shrink-0 h-11 px-4 rounded-full border border-red-200 text-red-700 text-[12px] font-medium hover:bg-red-50 min-h-[44px]">Kritis</button>
-      <button type="button" @click="setAuditPreset('dukungan')" class="ui-button ui-button--ghost shrink-0 h-11 px-4 rounded-full border border-amber-300 text-amber-800 text-[12px] font-medium hover:bg-amber-50 min-h-[44px]">Dukungan</button>
-      <button type="button" @click="setAuditPreset('hari-ini')" class="ui-button ui-button--ghost shrink-0 h-11 px-4 rounded-full border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]">Hari ini</button>
-    </div>
-    <div id="sa-audit-filter" :class="auditFilterOpen ? 'block' : 'hidden md:block'" class="mt-3 order-3 md:order-4">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:flex gap-2">
-        <input id="sa-audit-kelas" type="text" x-model="auditKelas" placeholder="Slug kelas (opsional)" aria-label="Filter slug kelas" class="ui-field col-span-2 lg:col-span-1 lg:flex-1 text-[14px] min-w-0 w-full" />
-        <select id="sa-audit-aksi" x-model="auditAction" aria-label="Filter aksi" class="ui-field text-[14px] font-mono min-w-0 w-full lg:w-48">
-          <option value="">Semua aksi</option>
-          <template x-for="o in auditActionOptions" :key="o">
-            <option :value="o" x-text="o"></option>
+      
+      <div class="box-border w-full h-fit shrink-0 flex flex-col md:flex-row gap-[20px] justify-between items-start md:items-center">
+        <!-- Identitas Halaman -->
+        <div class="flex-1 min-w-0 flex flex-col gap-[4px] justify-start items-start">
+          <h1 class="text-[26px] font-bold text-[#1D1B3A] tracking-tight">
+            Cadangan dan Audit
+          </h1>
+          <p class="text-[12px] text-[#667085]">
+            Riwayat aktivitas keamanan, hak akses, dan mutasi data akademik sistem.
+          </p>
+        </div>
+
+        <!-- Tombol Aksi Mode Dukungan -->
+        <div>
+          <template x-if="!dukunganAktif">
+            <button
+              type="button"
+              @click="bukaModalDukunganGlobal()"
+              class="w-fit shrink-0 min-h-[44px] px-[16px] [box-shadow:0px_1px_3px_#1018280A] flex flex-row gap-[7px] justify-center items-center bg-[#FFFBEB] border border-[#FCD34D] hover:bg-amber-100 text-[#92400E] rounded-[12px] transition-colors"
+            >
+              <span class="text-[16px] font-medium leading-none">+</span>
+              <span class="text-[12px] font-normal">Masuk Mode Dukungan</span>
+            </button>
           </template>
-        </select>
-        <select id="sa-audit-entitas" x-model="auditEntity" aria-label="Filter tipe entitas" class="ui-field text-[14px] font-mono min-w-0 w-full lg:w-48">
-          <option value="">Semua entitas</option>
-          <template x-for="o in auditEntityOptions" :key="o">
-            <option :value="o" x-text="o"></option>
+          <template x-if="dukunganAktif">
+            <button
+              type="button"
+              @click="keluarDukungan()"
+              :disabled="dukunganLoading"
+              class="w-fit shrink-0 min-h-[44px] px-[16px] [box-shadow:0px_1px_3px_#1018280A] flex flex-row gap-[8px] justify-center items-center bg-red-50 border border-red-300 hover:bg-red-100 text-red-700 rounded-[12px] transition-colors disabled:opacity-60"
+            >
+              <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <span class="text-[12px] font-semibold">Dukungan Aktif (<span x-text="namaDukungan()"></span>) — Keluar</span>
+            </button>
           </template>
-        </select>
-        <div class="col-span-2 lg:col-span-1 flex gap-2">
-          <button type="button" @click="auditAdvancedOpen = !auditAdvancedOpen" :aria-expanded="auditAdvancedOpen" aria-controls="sa-audit-advanced"
-            class="ui-button ui-button--ghost flex-1 lg:flex-none h-11 px-4 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] whitespace-nowrap">
-            <span x-text="auditAdvancedOpen ? 'Tutup' : 'Lanjutan'"></span><span x-show="auditAdvancedCount() > 0" x-text="' · ' + auditAdvancedCount()"></span>
-          </button>
-          <button type="button" @click="loadAudit()" class="ui-button ui-button--primary flex-[2] lg:flex-none text-[14px] font-semibold whitespace-nowrap">Terapkan</button>
-        </div>
-      </div>
-      <div id="sa-audit-advanced" x-show="auditAdvancedOpen" class="mt-2 p-3 rounded-2xl border border-border bg-slate-50/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <div class="min-w-0">
-          <label for="sa-audit-entity-id" class="block text-[12px] font-semibold text-slate-500 mb-1">ID entitas</label>
-          <input id="sa-audit-entity-id" type="text" x-model="auditEntityId" placeholder="Opsional" inputmode="numeric" aria-label="Filter ID entitas" class="ui-field w-full min-w-0 text-[14px] font-mono" />
-        </div>
-        <div class="min-w-0">
-          <label for="sa-audit-actor" class="block text-[12px] font-semibold text-slate-500 mb-1">Pelaku</label>
-          <input id="sa-audit-actor" type="text" x-model="auditActor" placeholder="Identitas / ID (opsional)" aria-label="Filter pelaku" class="ui-field w-full min-w-0 text-[14px]" />
-        </div>
-        <div class="min-w-0">
-          <label for="sa-audit-since" class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
-          <input id="sa-audit-since" type="datetime-local" x-model="auditSince" aria-label="Filter sejak waktu" class="ui-field w-full min-w-0 sm:px-3 text-[14px]" />
-        </div>
-        <div class="min-w-0">
-          <label for="sa-audit-until" class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
-          <input id="sa-audit-until" type="datetime-local" x-model="auditUntil" aria-label="Filter sampai waktu" class="ui-field w-full min-w-0 sm:px-3 text-[14px]" />
-        </div>
-        <div class="col-span-2 sm:col-span-2 lg:col-span-4 flex justify-end">
-          <button type="button" @click="resetAuditFilter(); loadAudit()" class="ui-button ui-button--ghost h-10 px-4 rounded-xl text-[13px] font-medium text-slate-500 underline min-h-[40px]">Reset semua filter</button>
         </div>
       </div>
     </div>
+
+    <!-- Subnavigasi Cadangan dan Audit -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center">
+      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] justify-start items-start" role="tablist" aria-label="Cadangan dan audit">
+        <button
+          type="button"
+          role="tab"
+          aria-selected="false"
+          @click="go('backup')"
+          class="box-border w-fit shrink-0 min-h-[44px] px-[16px] flex flex-row gap-0 justify-center items-center rounded-[12px] text-[12px] font-medium text-[#667085] hover:text-[#1D1B3A] hover:bg-white/60 transition-colors"
+        >
+          Cadangan
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected="true"
+          class="box-border w-fit shrink-0 min-h-[44px] px-[16px] [box-shadow:0px_1px_3px_#1018280A] flex flex-row gap-0 justify-center items-center bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] text-[12px] font-normal text-[#1D1B3A]"
+        >
+          Audit Global
+        </button>
+      </div>
+
+      <div class="text-[12px] text-[#667085] font-mono font-medium text-left" x-text="(auditList || []).length + ' log tersimpan'">
+        348 log tersimpan
+      </div>
     </div>
-    <div x-show="auditLoading" class="mt-4 py-6 text-center text-[13px] text-slate-400" role="status">Memuat Riwayat Perubahan<span x-show="auditFilterCount() > 0"> untuk filter aktif</span>...</div>
-    <div x-show="auditError" class="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+
+    <!-- Toolbar Filter Audit -->
+    <div class="box-border w-full h-fit shrink-0 [box-shadow:0px_1px_3px_#1018280A] flex flex-wrap sm:flex-nowrap gap-[10px] p-[12px] justify-start items-center bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px]">
+      <div class="text-[12px] text-[#667085] font-medium shrink-0">
+        Filter:
+      </div>
+      
+      <!-- Preset Filter Pills -->
+      <div class="flex flex-wrap items-center gap-[8px]">
+        <button
+          type="button"
+          @click="setAuditPreset('semua')"
+          class="box-border w-fit shrink-0 min-h-[36px] px-[12px] flex flex-row justify-center items-center rounded-[8px] text-[12px] font-medium transition-colors"
+          :class="auditActivePreset === 'semua' && !auditAction && !auditSince ? 'bg-[#1D1B3A] text-[#FFFFFF]' : 'bg-[#FFFFFF] border border-[#E4E7EC] text-[#475467] hover:bg-slate-50'"
+        >
+          Semua
+        </button>
+        <button
+          type="button"
+          @click="setAuditPreset('kritis')"
+          class="box-border w-fit shrink-0 min-h-[36px] px-[12px] flex flex-row justify-center items-center rounded-[8px] text-[12px] font-medium transition-colors"
+          :class="auditActivePreset === 'kritis' ? 'bg-[#1D1B3A] text-[#FFFFFF]' : 'bg-[#FFFFFF] border border-[#E4E7EC] text-[#475467] hover:bg-slate-50'"
+        >
+          Kritis
+        </button>
+        <button
+          type="button"
+          @click="setAuditPreset('dukungan')"
+          class="box-border w-fit shrink-0 min-h-[36px] px-[12px] flex flex-row justify-center items-center rounded-[8px] text-[12px] font-medium transition-colors"
+          :class="auditActivePreset === 'dukungan' ? 'bg-[#1D1B3A] text-[#FFFFFF]' : 'bg-[#FFFFFF] border border-[#E4E7EC] text-[#475467] hover:bg-slate-50'"
+        >
+          Akses Dukungan
+        </button>
+        <button
+          type="button"
+          @click="setAuditPreset('hari-ini')"
+          class="box-border w-fit shrink-0 min-h-[36px] px-[12px] flex flex-row justify-center items-center rounded-[8px] text-[12px] font-medium transition-colors"
+          :class="auditActivePreset === 'hari-ini' ? 'bg-[#1D1B3A] text-[#FFFFFF]' : 'bg-[#FFFFFF] border border-[#E4E7EC] text-[#475467] hover:bg-slate-50'"
+        >
+          Hari Ini
+        </button>
+      </div>
+
+      <div class="hidden sm:block box-border w-[1px] shrink-0 h-[20px] bg-[#E4E7EC]"></div>
+
+      <!-- Input Pencarian -->
+      <div class="relative w-full sm:w-[260px] h-[40px] shrink-0">
+        <input
+          type="text"
+          x-model="auditSearchQuery"
+          @input="auditPage = 1"
+          placeholder="Cari aktor, kelas, atau aksi..."
+          aria-label="Cari aktivitas audit"
+          class="box-border w-full h-full px-[12px] bg-[#F8FAFC] border border-[#667085] rounded-[8px] text-[12px] text-[#1D1B3A] placeholder-[#667085] outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]"
+        />
+      </div>
+    </div>
+
+    <!-- Notifikasi Eror -->
+    <div x-show="auditError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
       <span x-text="auditError">-</span>
-      <button type="button" @click="loadAudit()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
+      <button type="button" @click="loadAudit()" class="font-semibold underline ml-2">Coba Lagi</button>
     </div>
-    <div x-show="!auditLoading && !auditError && auditList.length === 0"
-      class="ui-card mt-5 p-8 text-center">
-      <p class="text-[13px] font-semibold text-slate-600">Tidak ada hasil untuk filter ini.</p>
-      <p class="text-[12px] text-slate-400 mt-1">Longgarkan rentang tanggal atau reset filter untuk melihat semua aktivitas.</p>
-      <button type="button" @click="resetAuditFilter(); loadAudit()" class="ui-button ui-button--ghost mt-3 h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px]">Reset filter</button>
-    </div>
-    <div x-show="!auditLoading && auditList.length > 0" class="mt-4 space-y-2">
-      <template x-for="a in auditList" :key="a.id">
-        <article class="ui-card p-3 sm:p-4 min-w-0">
-          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span class="ui-badge inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-bold shrink-0" :class="auditSeverityClass(a.action)" x-text="auditSeverity(a.action)">-</span>
-            <p class="text-[13px] sm:text-[14px] font-semibold text-ink font-mono break-all min-w-0 flex-1" x-text="a.action || '-'">-</p>
-            <p class="w-full sm:w-auto sm:ml-auto text-[11px] text-slate-400 font-mono whitespace-nowrap"><span x-text="'#' + (a.id ?? '-')"></span> · <span x-text="fmtWaktuID(a.created_at)"></span></p>
+
+    <!-- Tabel Aktivitas Audit Global -->
+    <div class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_5px_#1018280A] flex flex-col gap-0 justify-start items-start bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] overflow-x-auto">
+      
+      <!-- Header Kolom Audit -->
+      <div class="w-full min-w-[960px] h-[47.5px] shrink-0 flex flex-row gap-[12px] px-[20px] justify-start items-center bg-[#F8FAFC] border-b border-[#E4E7EC]">
+        <div class="text-[11px] w-[145px] shrink-0 text-[#475467] font-normal tracking-[0.4px] text-left">
+          WAKTU
+        </div>
+        <div class="text-[11px] w-[190px] shrink-0 text-[#475467] font-normal tracking-[0.4px] text-left">
+          AKSI &amp; ID
+        </div>
+        <div class="text-[11px] w-[170px] shrink-0 text-[#475467] font-normal tracking-[0.4px] text-left">
+          PELAKU
+        </div>
+        <div class="text-[11px] w-[160px] shrink-0 text-[#475467] font-normal tracking-[0.4px] text-left">
+          LINGKUP
+        </div>
+        <div class="text-[11px] flex-1 min-w-[200px] text-[#475467] font-normal tracking-[0.4px] text-left">
+          ALASAN
+        </div>
+        <div class="text-[11px] w-[92px] shrink-0 text-[#475467] font-normal tracking-[0.4px] text-center">
+          DETAIL
+        </div>
+      </div>
+
+      <!-- Loading State: Skeleton Shimmer Rows -->
+      <template x-if="auditLoading">
+        <div class="w-full min-w-[960px] flex flex-col">
+          <template x-for="i in 5" :key="i">
+            <div class="w-full h-[87.5px] px-[20px] flex flex-row gap-[12px] items-center border-b border-[#F2F4F7] animate-pulse">
+              <div class="w-[145px] flex flex-col gap-2">
+                <div class="w-24 h-3.5 bg-slate-200 rounded"></div>
+                <div class="w-12 h-3 bg-slate-100 rounded"></div>
+              </div>
+              <div class="w-[190px] flex flex-col gap-2">
+                <div class="w-32 h-3.5 bg-slate-200 rounded"></div>
+                <div class="w-16 h-3 bg-slate-100 rounded"></div>
+              </div>
+              <div class="w-[170px] flex flex-col gap-2">
+                <div class="w-28 h-3.5 bg-slate-200 rounded"></div>
+                <div class="w-20 h-3 bg-slate-100 rounded"></div>
+              </div>
+              <div class="w-[160px] flex flex-col gap-2">
+                <div class="w-24 h-3.5 bg-slate-200 rounded"></div>
+                <div class="w-16 h-3 bg-slate-100 rounded"></div>
+              </div>
+              <div class="flex-1 h-3.5 bg-slate-200 rounded"></div>
+              <div class="w-[92px] flex justify-center">
+                <div class="w-16 h-4 bg-slate-200 rounded"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Empty State: Data Kosong -->
+      <template x-if="!auditLoading && !auditError && filteredAuditList().length === 0">
+        <div class="w-full min-w-[960px] p-12 text-center flex flex-col items-center justify-center gap-2">
+          <p class="text-[14px] font-semibold text-[#1D1B3A]">Tidak ada riwayat aktivitas untuk filter ini.</p>
+          <p class="text-[12px] text-[#667085]">Reset filter atau coba kata kunci lain untuk melihat riwayat audit sistem.</p>
+          <button type="button" @click="setAuditPreset('semua')" class="mt-2 min-h-[40px] px-4 rounded-[10px] border border-[#CBD5E1] text-[12px] font-medium text-[#475467] hover:bg-slate-50 transition-colors">
+            Reset Semua Filter
+          </button>
+        </div>
+      </template>
+
+      <!-- Rows Data Audit -->
+      <template x-if="!auditLoading && filteredAuditList().length > 0">
+        <div class="w-full min-w-[960px] flex flex-col">
+          <template x-for="a in paginatedAuditList()" :key="a.id">
+            <div class="w-full min-h-[87.5px] px-[20px] py-[16px] flex flex-row gap-[12px] items-center border-b border-[#F2F4F7] hover:bg-slate-50/50 transition-colors last:border-b-0">
+              
+              <!-- Kolom Waktu -->
+              <div class="w-[145px] shrink-0 flex flex-col gap-[4px] justify-start items-start">
+                <div class="text-[12px] text-[#1D1B3A] font-medium text-left truncate" x-text="fmtWaktuAudit(a.created_at).tanggal">
+                  Hari ini, 09:30:12
+                </div>
+                <div class="text-[11px] text-[#667085] font-normal text-left" x-text="fmtWaktuAudit(a.created_at).zona">
+                  WIB
+                </div>
+              </div>
+
+              <!-- Kolom Aksi & ID -->
+              <div class="w-[190px] shrink-0 flex flex-col gap-[4px] justify-start items-start">
+                <div class="text-[11px] text-[#1D1B3A] font-mono font-medium text-left break-all" x-text="a.action || '-'">
+                  SUPPORT_ENTER
+                </div>
+                <div class="text-[11px] text-[#667085] font-mono font-normal text-left" x-text="'#' + a.id">
+                  #1402
+                </div>
+              </div>
+
+              <!-- Kolom Pelaku -->
+              <div class="w-[170px] shrink-0 flex flex-col gap-[4px] justify-start items-start">
+                <div class="text-[12px] text-[#1D1B3A] font-semibold text-left truncate max-w-[160px]" x-text="a.actor_name || 'Sistem'">
+                  Darva
+                </div>
+                <div class="text-[11px] text-[#667085] font-normal text-left truncate max-w-[160px]" x-text="a.actor_role || 'System Admin'">
+                  System Admin
+                </div>
+              </div>
+
+              <!-- Kolom Lingkup -->
+              <div class="w-[160px] shrink-0 flex flex-col gap-[4px] justify-start items-start">
+                <div class="text-[12px] text-[#1D1B3A] font-mono font-normal text-left truncate max-w-[150px]" x-text="namaKelasBySlug(a.class_slug) || a.class_slug || 'Global'">
+                  D4 - TI 1B
+                </div>
+                <div class="text-[11px] text-[#667085] font-mono font-normal text-left truncate max-w-[150px]" x-text="auditEntityLabel(a)">
+                  CLASS #2
+                </div>
+              </div>
+
+              <!-- Kolom Alasan -->
+              <div class="flex-1 min-w-[200px] text-[12px]/[17px] text-[#475467] font-normal text-left line-clamp-2" x-text="a.reason || '-'">
+                Pemulihan konfigurasi KM dan investigasi jadwal bentrok
+              </div>
+
+              <!-- Kolom Detail (Lihat diff) -->
+              <div class="w-[92px] shrink-0 flex flex-row justify-center items-center">
+                <button
+                  type="button"
+                  @click="bukaModalAuditDiff(a)"
+                  class="min-h-[44px] px-2 text-[12px] text-[#2854D6] hover:underline font-normal text-center cursor-pointer"
+                >
+                  Lihat diff
+                </button>
+              </div>
+
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- Footer Tabel Audit (Paginasi) -->
+      <div x-show="!auditLoading && filteredAuditList().length > 0" class="w-full min-w-[960px] h-fit px-[20px] py-[16px] flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-[#F2F4F7]">
+        <div class="text-[12px] text-[#667085] font-normal flex items-center flex-wrap gap-2">
+          <span>
+            Menampilkan <span class="font-medium text-[#1D1B3A]" x-text="filteredAuditList().length === 0 ? 0 : ((auditPage - 1) * auditPerPage + 1)"></span>-<span class="font-medium text-[#1D1B3A]" x-text="Math.min(auditPage * auditPerPage, filteredAuditList().length)"></span> dari <span class="font-medium text-[#1D1B3A]" x-text="filteredAuditList().length"></span> aktivitas
+          </span>
+          <div class="flex items-center gap-1.5 pl-2 border-l border-[#E2E8F0]">
+            <label for="audit-per-page" class="text-[11px] text-[#667085]">Per hal:</label>
+            <select
+              id="audit-per-page"
+              x-model.number="auditPerPage"
+              @change="setAuditPage(1)"
+              class="h-8 rounded-[6px] border border-[#D7DDE7] bg-white px-2 text-[12px] font-medium text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
+            >
+              <option :value="5">5</option>
+              <option :value="8">8</option>
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+            </select>
           </div>
-          <dl class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-[12px]">
-            <div class="col-span-2 sm:col-span-1 min-w-0"><dt class="font-semibold text-slate-500">Pelaku</dt><dd class="text-slate-600 truncate" x-text="auditActorLabel(a)">-</dd></div>
-            <div class="min-w-0"><dt class="font-semibold text-slate-500">Kelas</dt><dd class="text-slate-600 font-mono truncate" x-text="a.class_slug || '-'">-</dd></div>
-            <div class="min-w-0"><dt class="font-semibold text-slate-500">Entitas</dt><dd class="text-slate-600 font-mono truncate" x-text="auditEntityLabel(a)">-</dd></div>
-          </dl>
-          <p x-show="a.reason" class="text-[12px] text-amber-800 mt-1 break-words">Alasan: <span x-text="a.reason"></span></p>
-          <details class="mt-1 text-[12px] text-slate-500">
-            <summary class="cursor-pointer underline py-2 inline-block">Sebelum / sesudah</summary>
-            <div class="mt-1 rounded-lg bg-slate-50 border border-border overflow-hidden">
-              <template x-for="ch in auditChanges(a)" :key="ch.key">
-                <div class="px-2 py-1.5 border-b border-border last:border-0" :class="ch.changed ? 'bg-white' : ''">
-                  <p class="font-mono font-semibold text-[11px] break-all" x-text="ch.key"></p>
-                  <p class="font-mono text-[11px] break-words whitespace-pre-wrap"><span class="text-slate-400">sebelum: </span><span x-text="ch.before"></span></p>
-                  <p class="font-mono text-[11px] break-words whitespace-pre-wrap"><span class="text-slate-400">sesudah: </span><span x-text="ch.after"></span></p>
+          <template x-if="auditHasMore">
+            <span class="text-[#94A3B8]">
+              · <button type="button" @click="loadAuditMore()" :disabled="auditLoadingMore" class="text-[#3965FB] hover:underline font-medium inline-flex items-center">
+                <span x-show="auditLoadingMore" class="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1"></span>
+                <span x-text="auditLoadingMore ? 'Memuat...' : 'Ambil 50 lagi dari server'"></span>
+              </button>
+            </span>
+          </template>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <!-- Tombol Halaman Sebelumnya -->
+          <button
+            type="button"
+            @click="setAuditPage(auditPage - 1)"
+            :disabled="auditPage === 1"
+            class="w-10 h-10 flex items-center justify-center rounded-[7px] border border-[#E2E8F0] bg-white text-[#475467] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-[14px] font-medium transition-colors"
+            aria-label="Halaman sebelumnya"
+          >
+            &lsaquo;
+          </button>
+
+          <!-- Tombol Nomor Halaman & Titik Tiga (Ellipsis) -->
+          <template x-for="p in auditPaginationPages()" :key="p">
+            <button
+              type="button"
+              @click="setAuditPage(p)"
+              :disabled="p === '...'"
+              class="w-10 h-10 flex items-center justify-center rounded-[7px] text-[12px] transition-colors"
+              :class="p === '...' ? 'cursor-default text-[#94A3B8] font-normal border-0 bg-transparent' : (auditPage === p ? 'bg-[#3965FB] text-white border border-[#3965FB] font-bold' : 'bg-white text-[#475467] border border-[#E2E8F0] hover:bg-slate-50 font-bold')"
+              x-text="p"
+            ></button>
+          </template>
+
+          <!-- Tombol Halaman Berikutnya -->
+          <button
+            type="button"
+            @click="setAuditPage(auditPage + 1)"
+            :disabled="auditPage === auditTotalPages()"
+            class="w-10 h-10 flex items-center justify-center rounded-[7px] border border-[#E2E8F0] bg-white text-[#475467] hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-[14px] font-medium transition-colors"
+            aria-label="Halaman berikutnya"
+          >
+            &rsaquo;
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Modal: Detail Log & Snapshot Diff (SCR-ADM-008E-DIFF) -->
+  <div x-show="modalAuditDiff" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalAuditDiff()">
+    <div
+      class="relative w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#E4E7EC] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150"
+      @click.stop
+    >
+      
+      <!-- Header Rincian Log Audit -->
+      <div class="w-full flex flex-row justify-between items-start pb-[12px] border-b border-[#F2F4F7]">
+        <div class="flex-1 min-w-0 flex flex-col gap-[6px]">
+          <div class="flex flex-row items-center gap-[8px] flex-wrap">
+            <h3 class="text-[18px] font-bold text-[#1D1B3A] leading-tight">
+              Rincian Log Audit
+            </h3>
+            <span
+              class="px-[8px] py-[3px] rounded-[6px] border text-[11px] font-mono font-bold uppercase leading-none"
+              :class="auditActionBadgeClass(selectedAudit?.action)"
+              x-text="selectedAudit?.action || '-'"
+            ></span>
+          </div>
+          <p class="text-[12px] text-[#667085] font-mono">
+            Log ID <span class="font-bold text-[#1D1B3A]" x-text="'#' + (selectedAudit?.id || '-')"></span> · <span x-text="fmtWaktuAudit(selectedAudit?.created_at).tanggal"></span>
+          </p>
+        </div>
+        <button
+          type="button"
+          @click="tutupModalAuditDiff()"
+          class="w-[44px] h-[44px] shrink-0 flex items-center justify-center rounded-full text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors"
+          aria-label="Tutup dialog rincian log"
+        >
+          <svg class="w-[20px] h-[20px]" viewBox="0 0 14 14" fill="currentColor">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Ringkasan Metadata Log (Box Abu-Abu) -->
+      <div class="w-full flex flex-col gap-[10px] p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+        <!-- Baris 1: Pelaku & Target -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Pelaku</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A] break-words" x-text="auditActorLabel(selectedAudit)">-</span>
+          </div>
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Target</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A] break-words" x-text="(namaKelasBySlug(selectedAudit?.class_slug) || selectedAudit?.class_slug || 'Global') + (selectedAudit?.entity_type ? ' (' + auditEntityLabel(selectedAudit) + ')' : '')">-</span>
+          </div>
+        </div>
+
+        <!-- Baris 2: Correlation ID & Jenis -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Correlation ID</span>
+            <span class="text-[12px] font-mono text-[#667085] break-all" x-text="selectedAudit?.correlation_id || '-'">-</span>
+          </div>
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Jenis</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A]" x-text="auditJenisLabel(selectedAudit)">-</span>
+          </div>
+        </div>
+
+        <!-- Baris 3: Alasan -->
+        <div class="w-full pt-[8px] border-t border-[#E2E8F0] flex flex-row gap-[6px]">
+          <span class="text-[11px] font-semibold text-[#667085] shrink-0">Alasan:</span>
+          <span class="text-[12px] font-medium text-[#1D1B3A] break-words flex-1" x-text="selectedAudit?.reason || '-'">-</span>
+        </div>
+      </div>
+
+      <!-- Perubahan Nilai Kolom -->
+      <div class="w-full flex flex-col gap-[10px]">
+        <div class="text-[12px] font-bold tracking-[0.5px] text-[#1D1B3A] uppercase">
+          PERUBAHAN NILAI KOLOM
+        </div>
+
+        <!-- Tabel Diff Tiga Kolom -->
+        <div class="w-full border border-[#E4E7EC] rounded-[12px] overflow-hidden max-h-[280px] overflow-y-auto">
+          <!-- Header Kolom Diff (Sticky) -->
+          <div class="w-full h-[39.5px] flex flex-row gap-[8px] px-[12px] items-center bg-[#F8FAFC] border-b border-[#E4E7EC] sticky top-0 z-10 text-[11px] font-normal text-[#475467]">
+            <div class="w-[130px] shrink-0 text-left">KOLOM</div>
+            <div class="w-[160px] shrink-0 text-left">SEBELUM</div>
+            <div class="flex-1 text-left">SESUDAH</div>
+          </div>
+
+          <!-- Baris Nilai Diff -->
+          <template x-if="selectedAudit && auditChanges(selectedAudit).length > 0">
+            <div class="w-full flex flex-col divide-y divide-[#F2F4F7]">
+              <template x-for="ch in auditChanges(selectedAudit)" :key="ch.key">
+                <div
+                  class="w-full min-h-[44px] px-[12px] py-[8px] flex flex-row gap-[8px] items-center text-[12px] transition-colors"
+                  :class="ch.changed ? 'bg-amber-50/25' : 'bg-white'"
+                >
+                  <!-- Nama Kolom -->
+                  <div
+                    class="w-[130px] shrink-0 font-mono text-left truncate"
+                    :class="ch.changed ? 'font-bold text-[#1D1B3A]' : 'font-normal text-[#667085]'"
+                    x-text="ch.key"
+                  ></div>
+
+                  <!-- Nilai Sebelum -->
+                  <div class="w-[160px] shrink-0 text-left">
+                    <template x-if="ch.changed">
+                      <div class="w-fit max-w-full px-[6px] py-[3px] bg-[#FEF2F2] border border-[#FECDCA] rounded-[5px] text-[11px] font-mono text-[#B42318] break-all leading-tight" x-text="ch.before"></div>
+                    </template>
+                    <template x-if="!ch.changed">
+                      <div class="text-[#667085] font-mono text-[11px] break-all" x-text="ch.before"></div>
+                    </template>
+                  </div>
+
+                  <!-- Nilai Sesudah -->
+                  <div class="flex-1 min-w-0 text-left">
+                    <template x-if="ch.changed">
+                      <div class="w-fit max-w-full px-[6px] py-[3px] bg-[#F0FDF4] border border-[#BBF7D0] rounded-[5px] text-[11px] font-mono font-semibold text-[#15803D] break-all leading-tight" x-text="ch.after"></div>
+                    </template>
+                    <template x-if="!ch.changed">
+                      <div class="text-[#667085] font-mono text-[11px] break-all" x-text="ch.after"></div>
+                    </template>
+                  </div>
                 </div>
               </template>
-              <p x-show="auditChanges(a).length === 0" class="ui-empty px-2 py-2 font-mono text-[11px] break-words whitespace-pre-wrap" x-text="'Sebelum: ' + (a.before_json || '-') + ' · Sesudah: ' + (a.after_json || '-')"></p>
             </div>
-          </details>
-        </article>
-      </template>
-    </div>
-    <div x-show="!auditLoading && auditList.length > 0" class="mt-4 text-center">
-      <p class="text-[12px] text-slate-400 font-mono" x-text="'Menampilkan ' + auditList.length + ' hasil' + (auditHasMore ? ' · masih ada data' : ' · semua data termuat')"></p>
-      <button type="button" x-show="auditHasMore" @click="loadAuditMore()" :disabled="auditLoadingMore" class="ui-button ui-button--ghost mt-2 h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="auditLoadingMore ? 'Memuat...' : 'Muat 50 lagi'"></button>
+          </template>
+
+          <!-- Empty State: Log tanpa snapshot JSON -->
+          <template x-if="selectedAudit && auditChanges(selectedAudit).length === 0">
+            <div class="w-full p-6 text-center text-[12px] text-[#667085] flex flex-col items-center justify-center gap-1">
+              <p class="font-semibold text-[#1D1B3A]">Tidak ada perubahan data JSON spesifik</p>
+              <p class="text-[11px]">Aksi ini dicatat sebagai peristiwa keamanan langsung tanpa diff tabel.</p>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Footer Rincian Audit -->
+      <div class="w-full pt-[14px] border-t border-[#F2F4F7] flex flex-row justify-between items-center">
+        <div class="text-[11px] font-mono text-[#667085] text-left">
+          Dicatat otomatis oleh server SQLite WAL
+        </div>
+        <button
+          type="button"
+          @click="tutupModalAuditDiff()"
+          class="min-h-[44px] px-[20px] flex items-center justify-center bg-[#F1F5F9] hover:bg-slate-200 text-[#1D1B3A] text-[12px] font-medium rounded-[12px] transition-colors"
+        >
+          Tutup
+        </button>
+      </div>
+
     </div>
   </div>
+
+  <!-- Modal: Masuk Mode Dukungan Global (SCR-ADM-008E-MODAL-DUKUNGAN) -->
+  <div x-show="modalDukunganGlobal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalDukunganGlobal()">
+    <div
+      class="relative w-full max-w-[480px] bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#FCD34D] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150"
+      @click.stop
+    >
+      
+      <!-- Header Mode Dukungan -->
+      <div class="w-full flex flex-row gap-[12px] items-center">
+        <div class="w-[44px] h-[44px] shrink-0 flex items-center justify-center bg-[#FEF3C7] rounded-[22px]">
+          <svg class="w-[24px] h-[24px]" viewBox="0 0 14 14" fill="#B45309">
+            <path d="M7 7.29053q-0.73828 0-1.24414-0.50586-0.50586-0.50586-0.50586-1.24414 0-0.73486 0.50586-1.24073 0.50586-0.50928 1.24414-0.50927 0.73828 0 1.24414 0.50927 0.50586 0.50586 0.50586 1.24073 0 0.73828-0.50586 1.24414-0.50586 0.50586-1.24414 0.50586z m0-0.58106q0.49219 0 0.82715-0.33838 0.33838-0.33838 0.33838-0.83056 0-0.48877-0.33838-0.82715-0.33496-0.33838-0.82715-0.33838-0.49219 0-0.83057 0.33838-0.33496 0.33838-0.33496 0.82715 0 0.49219 0.33496 0.83056 0.33838 0.33838 0.83057 0.33838z m0-4.29297l-3.5 1.30225 0 2.75488q0 0.87842 0.25635 1.6919 0.25977 0.81006 0.72802 1.49707 0.56738-0.29395 1.18604-0.45801 0.62207-0.16406 1.32959-0.16406 0.70752 0 1.32617 0.16406 0.62207 0.16406 1.18945 0.45801 0.46826-0.68701 0.72461-1.49707 0.25977-0.81348 0.25977-1.6919l0-2.75488-3.5-1.30225z m0 7.2085q-0.60498 0-1.15186 0.12988-0.54346 0.12646-1.01855 0.36231 0.44434 0.52978 0.99121 0.9126 0.54688 0.38281 1.1792 0.57763 0.63232-0.19482 1.17236-0.57763 0.54004-0.38281 0.9878-0.9126-0.4751-0.23584-1.01514-0.36231-0.54004-0.12988-1.14502-0.12988z m0 2.53271q-0.07861 0-0.16748-0.01367-0.08887-0.01367-0.16406-0.04443-1.72266-0.65625-2.7378-2.2251-1.01514-1.57227-1.01513-3.40088l0-2.49853q0-0.29395 0.1709-0.53662 0.17432-0.24268 0.44433-0.34864l3.14112-1.16894q0.16748-0.06152 0.32812-0.06152 0.16064 0 0.32813 0.06152l3.14111 1.16894q0.27002 0.10596 0.44092 0.34864 0.17432 0.24268 0.17431 0.53662l0 2.49853q0 1.82861-1.01513 3.40088-1.01514 1.56885-2.7378 2.2251-0.0752 0.03076-0.16406 0.04443-0.08887 0.01367-0.16748 0.01367z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col gap-[4px]">
+          <h3 class="text-[18px] text-[#92400E] font-bold leading-tight">
+            Masuk Mode Dukungan
+          </h3>
+          <p class="text-[12px] text-[#B45309] font-normal leading-normal">
+            Akses Darurat Teknis (Break-Glass Access)
+          </p>
+        </div>
+      </div>
+
+      <!-- Guardrail Durasi & Audit -->
+      <div class="w-full p-[14px] bg-[#FFFBEB] border border-[#FCD34D] rounded-[12px]">
+        <p class="text-[12px] leading-[18px] text-[#92400E] font-normal text-left">
+          Sesi hibah server berlaku tepat 60 menit. Anda dapat mengelola kelas target seolah-olah pengurus kelas. Setiap tindakan mutasi data dicatat permanen dalam Audit Global sebagai SUPPORT_ENTER / SUPPORT_EXIT.
+        </p>
+      </div>
+
+      <!-- Form Akses Dukungan -->
+      <div class="w-full flex flex-col gap-[16px]">
+        <!-- Kelas Sasaran -->
+        <div class="w-full flex flex-col gap-[6px]">
+          <label for="modal-dukungan-kelas" class="text-[12px] text-[#1D1B3A] font-normal text-left">
+            Pilih Kelas Tujuan *
+          </label>
+          <div class="relative w-full h-[44px]">
+            <select
+              id="modal-dukungan-kelas"
+              x-model="dukunganKelasPilihan"
+              class="w-full h-[44px] px-[14px] pr-[40px] bg-white border border-[#667085] rounded-[12px] text-[12px] text-[#1D1B3A] outline-none appearance-none cursor-pointer focus:border-[#B45309] focus:ring-1 focus:ring-[#B45309]"
+            >
+              <option value="">-- Pilih Kelas Target --</option>
+              <template x-for="k in kelasList" :key="k.slug">
+                <option :value="k.slug" x-text="k.nama + ' · ' + k.prodi + ' ' + (k.angkatan || '')"></option>
+              </template>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-[14px] text-[#667085]">
+              <svg class="w-[18px] h-[18px]" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alasan Dukungan Wajib -->
+        <div class="w-full flex flex-col gap-[6px]">
+          <label for="modal-dukungan-alasan" class="text-[12px] text-[#1D1B3A] font-normal text-left">
+            Alasan Dukungan Teknis *
+          </label>
+          <textarea
+            id="modal-dukungan-alasan"
+            x-model="dukunganAlasanGlobal"
+            rows="3"
+            placeholder="Tuliskan alasan spesifik (min. 10 karakter), contoh: Pemulihan konfigurasi KM dan pengecekan jadwal bentrok ruang D102."
+            class="w-full h-[88px] p-[12px] bg-white border border-[#667085] rounded-[12px] text-[12px] text-[#1D1B3A] placeholder-[#667085] outline-none resize-none focus:border-[#B45309] focus:ring-1 focus:ring-[#B45309]"
+          ></textarea>
+          <div class="text-[11px] text-[#667085] font-normal text-left">
+            Wajib diisi minimal 10 karakter demi kepatuhan audit sistem.
+          </div>
+        </div>
+      </div>
+
+      <!-- Aksi Elevasi Footer -->
+      <div class="w-full pt-[16px] border-t border-[#F2F4F7] flex flex-row gap-[12px] justify-end items-center">
+        <button
+          type="button"
+          @click="tutupModalDukunganGlobal()"
+          class="min-h-[44px] px-[16px] flex items-center justify-center rounded-[12px] text-[12px] text-[#667085] hover:text-[#1D1B3A] font-semibold hover:bg-slate-100 transition-colors"
+        >
+          Batal
+        </button>
+        <button
+          type="button"
+          @click="simpanMasukDukunganGlobal()"
+          :disabled="dukunganLoading || !dukunganKelasPilihan || (dukunganAlasanGlobal || '').trim().length < 10"
+          class="min-h-[44px] px-[20px] flex items-center justify-center gap-2 bg-[#B45309] hover:bg-[#92400E] text-[#FFFFFF] text-[12px] font-normal shadow-[0px_1px_3px_#1018281A] rounded-[12px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span x-show="dukunganLoading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span x-text="dukunganLoading ? 'Memproses...' : 'Masuk Mode Dukungan (60 Mnt)'"></span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 </section>

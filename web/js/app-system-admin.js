@@ -328,6 +328,12 @@ function systemAdminApp() {
     backupListLoading: false,
     backupListError: '',
     backupSemesterList: [],
+    backupFilterKelas: '',
+    backupPage: 1,
+    backupPerPage: 5,
+    modalBuatBackup: false,
+    modalRestoreBackup: false,
+    selectedBackup: null,
     restoreForm: { id: '', alasan: '', paham: false },
     restoreError: '',
     restoreHasil: null,
@@ -355,6 +361,15 @@ function systemAdminApp() {
     auditHasMore: false,
     auditActionOptions: ['SUSPEND_USER', 'RECOVER_USER', 'ROTATE_PORTAL_CODE', 'SUPPORT_ENTER', 'SUPPORT_EXIT', 'INVITE_ROLE', 'ASSIGN_ROLE', 'SUSPEND_ROLE', 'REVOKE_ROLE', 'UPDATE_CLASS_STATUS', 'CREATE_BACKUP', 'VERIFY_RESTORE', 'LOGIN', 'LOGOUT'],
     auditEntityOptions: ['USER', 'ROLE_ASSIGNMENT', 'ROLE_INVITATION', 'CLASS', 'CLASS_SETTINGS', 'BACKUP', 'PORTAL_SESSION', 'TASK', 'TEACHING_EVENT', 'MATERIAL'],
+    auditSearchQuery: '',
+    auditActivePreset: 'semua',
+    auditPage: 1,
+    auditPerPage: 10,
+    modalAuditDiff: false,
+    selectedAudit: null,
+    modalDukunganGlobal: false,
+    dukunganKelasPilihan: '',
+    dukunganAlasanGlobal: '',
 
     toast: { show: false, message: '', timer: null },
 
@@ -366,6 +381,9 @@ function systemAdminApp() {
     },
     get undanganMenungguCount() {
       return this.kelasList.filter(k => k.statusKM === 'pending').length;
+    },
+    get backupPendingCount() {
+      return (this.backupRequests || []).filter(r => r.status === 'PENDING').length;
     },
 
     getBotStatusLabel() {
@@ -3142,6 +3160,9 @@ function systemAdminApp() {
       this.auditUntil = '';
       this.auditOffset = 0;
       this.auditHasMore = false;
+      this.auditSearchQuery = '';
+      this.auditActivePreset = 'semua';
+      this.auditPage = 1;
     },
 
     auditFilterCount() {
@@ -3184,6 +3205,7 @@ function systemAdminApp() {
 
     setAuditPreset(name) {
       this.resetAuditFilter();
+      this.auditActivePreset = name;
       if (name === 'dukungan') {
         this.auditAction = 'SUPPORT_ENTER';
       } else if (name === 'kritis') {
@@ -3195,6 +3217,129 @@ function systemAdminApp() {
         this.auditSince = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T00:00';
       }
       this.loadAudit();
+    },
+
+    filteredAuditList() {
+      const q = (this.auditSearchQuery || '').trim().toLowerCase();
+      if (!q) return this.auditList || [];
+      return (this.auditList || []).filter(a => {
+        const actor = String(a.actor_name || '').toLowerCase();
+        const role = String(a.actor_role || '').toLowerCase();
+        const action = String(a.action || '').toLowerCase();
+        const classSlug = String(a.class_slug || '').toLowerCase();
+        const reason = String(a.reason || '').toLowerCase();
+        const entity = String(a.entity_type || '').toLowerCase();
+        const id = String(a.id || '');
+        return actor.includes(q) || role.includes(q) || action.includes(q) || classSlug.includes(q) || reason.includes(q) || entity.includes(q) || id.includes(q);
+      });
+    },
+
+    auditTotalPages() {
+      const count = this.filteredAuditList().length;
+      return Math.max(1, Math.ceil(count / (this.auditPerPage || 10)));
+    },
+
+    paginatedAuditList() {
+      const list = this.filteredAuditList();
+      const perPage = this.auditPerPage || 10;
+      const totalPages = this.auditTotalPages();
+      if (this.auditPage > totalPages) this.auditPage = totalPages;
+      if (this.auditPage < 1) this.auditPage = 1;
+      const start = (this.auditPage - 1) * perPage;
+      return list.slice(start, start + perPage);
+    },
+
+    setAuditPage(p) {
+      if (p === '...') return;
+      const total = this.auditTotalPages();
+      if (p >= 1 && p <= total) {
+        this.auditPage = p;
+      }
+    },
+
+    auditPaginationPages() {
+      const total = this.auditTotalPages();
+      const curr = this.auditPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
+    fmtWaktuAudit(dt) {
+      if (!dt) return { tanggal: '-', zona: 'WIB' };
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return { tanggal: String(dt), zona: 'WIB' };
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+
+      const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
+
+      if (isToday) {
+        return { tanggal: 'Hari ini, ' + timeStr, zona: 'WIB' };
+      }
+      if (isYesterday) {
+        return { tanggal: 'Kemarin, ' + timeStr, zona: 'WIB' };
+      }
+      const bln = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return { tanggal: pad(d.getDate()) + ' ' + bln[d.getMonth()] + ' ' + d.getFullYear() + ', ' + timeStr, zona: 'WIB' };
+    },
+
+    bukaModalAuditDiff(a) {
+      this.selectedAudit = a;
+      this.modalAuditDiff = true;
+    },
+
+    tutupModalAuditDiff() {
+      this.modalAuditDiff = false;
+      this.selectedAudit = null;
+    },
+
+    bukaModalDukunganGlobal() {
+      this.dukunganKelasPilihan = this.kelasAktif || '';
+      this.dukunganAlasanGlobal = '';
+      this.modalDukunganGlobal = true;
+    },
+
+    tutupModalDukunganGlobal() {
+      this.modalDukunganGlobal = false;
+      this.dukunganAlasanGlobal = '';
+    },
+
+    async simpanMasukDukunganGlobal() {
+      const slug = (this.dukunganKelasPilihan || '').trim();
+      const target = (this.kelasList || []).find(k => k.slug === slug);
+      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      const alasan = (this.dukunganAlasanGlobal || '').trim();
+      if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
+      this.dukunganLoading = true;
+      try {
+        this.dukunganAktif = await API.supportEnter(target.slug, alasan);
+        this.modalDukunganGlobal = false;
+        this.dukunganAlasanGlobal = '';
+        this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
+        await this.loadAudit();
+      } catch (err) {
+        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
+      } finally {
+        this.dukunganLoading = false;
+      }
     },
 
     auditSeverity(action) {
@@ -3234,14 +3379,51 @@ function systemAdminApp() {
       }
     },
 
+    auditActionBadgeClass(action) {
+      const act = String(action || '').toUpperCase();
+      if (act.includes('ROTATE') || act.includes('SUSPEND') || act.includes('REVOKE') || act.includes('FAIL')) {
+        return 'bg-[#FEF2F2] border-[#FECDCA] text-[#B42318]';
+      }
+      if (act.includes('SUPPORT')) {
+        return 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]';
+      }
+      if (act.includes('BACKUP') || act.includes('RESTORE')) {
+        return 'bg-[#EFF4FF] border-[#BFDBFE] text-[#1D4ED8]';
+      }
+      return 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475467]';
+    },
+
+    auditJenisLabel(a) {
+      if (!a) return '-';
+      const act = String(a.action || '').toUpperCase();
+      const ent = String(a.entity_type || '').toUpperCase();
+      if (act.startsWith('SUPPORT_')) return 'Mode Dukungan';
+      if (act === 'ROTATE_PORTAL_CODE' || act.includes('SUSPEND_USER') || act.includes('RECOVER_USER') || act === 'LOGIN' || act === 'LOGOUT') return 'Akses Keamanan';
+      if (act.includes('BACKUP') || act.includes('RESTORE') || ent === 'BACKUP') return 'Cadangan Sistem';
+      if (act.includes('ROLE') || ent.includes('ROLE')) return 'Manajemen Peran';
+      return 'Data Akademik';
+    },
+
     auditChanges(a) {
       const b = this.parseAuditJSON(a ? a.before_json : null) || {};
       const af = this.parseAuditJSON(a ? a.after_json : null) || {};
-      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 20);
+      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 30);
+      const formatVal = (v) => {
+        if (v === undefined || v === null) return '-';
+        if (typeof v === 'string') return v;
+        try {
+          return JSON.stringify(v);
+        } catch (_) {
+          return String(v);
+        }
+      };
       return keys.map(k => {
-        const bv = b[k] === undefined ? '-' : JSON.stringify(b[k]);
-        const av = af[k] === undefined ? '-' : JSON.stringify(af[k]);
-        return { key: k, before: String(bv).slice(0, 160), after: String(av).slice(0, 160), changed: bv !== av };
+        const bv = formatVal(b[k]);
+        const av = formatVal(af[k]);
+        const changed = b[k] !== undefined && af[k] !== undefined
+          ? (typeof b[k] === 'object' || typeof af[k] === 'object' ? JSON.stringify(b[k]) !== JSON.stringify(af[k]) : b[k] !== af[k])
+          : (b[k] !== af[k]);
+        return { key: k, before: bv, after: av, changed: changed };
       });
     },
 
@@ -3262,6 +3444,7 @@ function systemAdminApp() {
     async loadAudit() {
       this.auditLoading = true; this.auditError = '';
       this.auditOffset = 0; this.auditHasMore = false;
+      this.auditPage = 1;
       try {
         const rows = await API.getAudit(this.auditParams(0)).catch(() => null) || [];
         this.auditList = rows;
@@ -3299,18 +3482,22 @@ function systemAdminApp() {
 
     async buatBackup() {
       const f = this.backupForm;
-      if (!f.kelas) { this.backupError = 'Pilih kelas untuk dicadangkan.'; return; }
-      if (!((f.alasan || '').trim())) { this.backupError = 'Isi alasan pencadangan. Alasan tercatat di Riwayat Perubahan.'; return; }
+      if (!f.kelas) { this.backupError = 'Pilih kelas target untuk dicadangkan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.backupError = 'Alasan pencadangan minimal 5 karakter.';
+        return;
+      }
       this.backupError = ''; this.backupHasil = null;
       this.backupLoading = true;
       try {
-        const payload = { class_slug: f.kelas, reason: f.alasan.trim() };
+        const payload = { class_slug: f.kelas, reason: alasan };
         if (f.semester) payload.semester_id = Number(f.semester);
         this.backupHasil = await API.createBackup(payload);
-        this.showToast('Cadangan berhasil dibuat.');
+        this.showToast('Cadangan akademik berhasil dibuat.');
         await this.loadBackupList();
       } catch (err) {
-        this.backupError = err.message || 'Gagal membuat cadangan.';
+        this.backupError = err.message || 'Gagal membuat cadangan akademik.';
       } finally {
         this.backupLoading = false;
       }
@@ -3358,14 +3545,117 @@ function systemAdminApp() {
       finally { this.backupRequestExecuting = 0; }
     },
 
-    pilihCadanganUntukVerifikasi(b) {
-      this.restoreForm.id = String(b.id || '');
+    bukaModalBuatBackup() {
+      this.backupForm = { kelas: '', semester: '', alasan: '' };
+      this.backupSemesterList = [];
+      this.backupError = '';
+      this.backupHasil = null;
+      this.modalBuatBackup = true;
+    },
+
+    tutupModalBuatBackup() {
+      this.modalBuatBackup = false;
+      this.backupHasil = null;
+      this.backupError = '';
+    },
+
+    bukaModalRestoreBackup(b) {
+      if (!b) return;
+      this.selectedBackup = b;
+      this.restoreForm = { id: String(b.id || ''), alasan: '', paham: false };
       this.selectedBackupRestorable = Boolean(b.restorable);
       this.restoreError = '';
       this.restoreHasil = null;
       this.scopedRestorePreview = null;
       this.scopedRestoreResult = null;
-      if (b.restorable) this.previewRestore(b.id);
+      this.modalRestoreBackup = true;
+      if (b.restorable) {
+        this.previewRestore(b.id);
+      }
+    },
+
+    tutupModalRestoreBackup() {
+      this.modalRestoreBackup = false;
+      this.selectedBackup = null;
+      this.restoreForm = { id: '', alasan: '', paham: false };
+      this.scopedRestorePreview = null;
+      this.scopedRestoreResult = null;
+      this.restoreHasil = null;
+      this.restoreError = '';
+    },
+
+    filteredBackupList() {
+      if (!this.backupFilterKelas) return this.backupList || [];
+      return (this.backupList || []).filter(b => {
+        const slug = b.class_slug || '';
+        return slug === this.backupFilterKelas || String(b.class_id) === this.backupFilterKelas;
+      });
+    },
+
+    backupTotalPages() {
+      const count = this.filteredBackupList().length;
+      return Math.max(1, Math.ceil(count / this.backupPerPage));
+    },
+
+    paginatedBackupList() {
+      const list = this.filteredBackupList();
+      const totalPages = this.backupTotalPages();
+      if (this.backupPage > totalPages) this.backupPage = totalPages;
+      if (this.backupPage < 1) this.backupPage = 1;
+      const start = (this.backupPage - 1) * this.backupPerPage;
+      return list.slice(start, start + this.backupPerPage);
+    },
+
+    setBackupPage(p) {
+      const total = this.backupTotalPages();
+      if (p >= 1 && p <= total) {
+        this.backupPage = p;
+      }
+    },
+
+    fmtChecksum(checksum) {
+      if (!checksum) return '-';
+      const s = String(checksum);
+      if (s.length > 16) {
+        return 'sha256: ' + s.substring(0, 4) + '…' + s.substring(s.length - 4);
+      }
+      return s;
+    },
+
+    namaKelasBySlug(slug, classId) {
+      if (slug) {
+        const k = (this.kelasList || []).find(item => item.slug === slug);
+        if (k && k.nama) return k.nama;
+        return slug;
+      }
+      if (classId) {
+        const k = (this.kelasList || []).find(item => String(item.id) === String(classId));
+        if (k && k.nama) return k.nama;
+        return 'Kelas #' + classId;
+      }
+      return '-';
+    },
+
+    fmtTanggalCadangan(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch(e) { return String(iso); }
+    },
+
+    fmtJamCadangan(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      } catch(e) { return ''; }
+    },
+
+    pilihCadanganUntukVerifikasi(b) {
+      this.bukaModalRestoreBackup(b);
     },
 
     async previewRestore(id) {
@@ -3375,14 +3665,55 @@ function systemAdminApp() {
       finally { this.scopedRestoreLoading = false; }
     },
 
+    getRestoreComparisonRows() {
+      if (!this.scopedRestorePreview) return [];
+      const p = this.scopedRestorePreview;
+      const src = p.source_counts || {};
+      const cur = p.current_counts || {};
+
+      const items = [
+        { key: 'offerings', label: 'Mata Kuliah Kurikulum', unit: 'data' },
+        { key: 'patterns', label: 'Pola Jadwal Mingguan', unit: 'sesi' },
+        { key: 'events', label: 'Jadwal Kuliah Pengganti', unit: 'sesi' },
+        { key: 'tasks', label: 'Tugas & Deadline Kuliah', unit: 'tugas' },
+      ];
+
+      if (src.materials !== undefined || cur.materials !== undefined) {
+        items.push({ key: 'materials', label: 'Materi Kuliah', unit: 'berkas' });
+      }
+
+      return items.map(item => {
+        const s = src[item.key] ?? 0;
+        const c = cur[item.key] ?? 0;
+        const same = s === c;
+        return {
+          key: item.key,
+          label: item.label,
+          source: s,
+          sourceText: s + ' ' + item.unit,
+          current: c,
+          currentText: same ? (c + ' ' + item.unit + ' (Sama)') : (c + ' ' + item.unit + ' aktif'),
+          same: same,
+        };
+      });
+    },
+
     async executeRestore() {
       const f = this.restoreForm;
       const preview = this.scopedRestorePreview;
       if (!preview || !preview.can_restore) { this.restoreError = 'Selesaikan keterkaitan lintas kelas lalu muat ulang pratinjau.'; return; }
-      if (!f.alasan.trim() || !f.paham) { this.restoreError = 'Isi alasan dan konfirmasi dampak pemulihan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.restoreError = 'Alasan pemulihan minimal 5 karakter.';
+        return;
+      }
+      if (!f.paham) {
+        this.restoreError = 'Centang pernyataan pemahaman dampak terlebih dahulu.';
+        return;
+      }
       this.scopedRestoreLoading = true; this.restoreError = '';
       try {
-        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, f.alasan.trim(), preview.preview_token);
+        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, alasan, preview.preview_token);
         this.scopedRestorePreview = null;
         this.showToast('Data akademik berhasil dipulihkan.');
         await this.loadBackupList();
@@ -3432,7 +3763,7 @@ function systemAdminApp() {
         return;
       }
       if (v === 'antrean') this.loadAntrean();
-      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
+      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.backupFilterKelas = ''; this.backupPage = 1; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
         this.penggunaFilter = '';
