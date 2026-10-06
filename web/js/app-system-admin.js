@@ -2443,9 +2443,9 @@ function systemAdminApp() {
       }
     },
 
-    bukaModalImportDosen() {
+    bukaModalImportDosen(tab = 'csv') {
       this.modalImportDosen = true;
-      this.importDosenTab = 'jadwal';
+      this.importDosenTab = tab || 'csv';
       this.importDosenCsvText = '';
       this.importDosenLoading = false;
       this.importDosenError = '';
@@ -2468,7 +2468,8 @@ function systemAdminApp() {
           const list = Array.isArray(parsed) ? parsed : (parsed.lecturers || parsed.dosen || []);
           return list.map(item => ({
             code: (item.code || item.kode || item.inisial || '').trim(),
-            full_name: (item.full_name || item.name || item.nama || '').trim()
+            full_name: (item.full_name || item.name || item.nama || '').trim(),
+            status: String(item.status || 'ACTIVE').toUpperCase().trim() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'
           })).filter(item => item.code && item.full_name);
         } catch (_) {}
       }
@@ -2489,11 +2490,70 @@ function systemAdminApp() {
           const fullName = parts.slice(1).join(delimiter).trim();
           if (code && fullName && !seen.has(code.toUpperCase())) {
             seen.add(code.toUpperCase());
-            out.push({ code, full_name: fullName });
+            out.push({ code, full_name: fullName, status: 'ACTIVE' });
           }
         }
       }
       return out;
+    },
+
+    dosenJsonValidationState() {
+      const text = (this.importDosenCsvText || '').trim();
+      if (!text) {
+        return { state: 'empty', message: '' };
+      }
+      if (text.startsWith('[') || text.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(text);
+          const list = Array.isArray(parsed) ? parsed : (parsed.lecturers || parsed.dosen || []);
+          const valid = list.filter(item => (item.code || item.kode || item.inisial) && (item.full_name || item.name || item.nama));
+          if (valid.length === 0) {
+            return { state: 'invalid', count: 0, message: 'Format JSON valid tetapi objek dosen belum memiliki field "code" dan "name"' };
+          }
+          return { state: 'valid', count: valid.length, message: `Format JSON valid · ${valid.length} dosen terdeteksi siap diimpor` };
+        } catch (err) {
+          return { state: 'error', count: 0, message: 'Format JSON tidak valid: periksa tanda kurung kurawal atau koma' };
+        }
+      }
+      const parsed = this.parsedImportDosen();
+      if (parsed.length > 0) {
+        return { state: 'valid', count: parsed.length, message: `Format baris valid · ${parsed.length} dosen terdeteksi siap diimpor` };
+      }
+      return { state: 'error', count: 0, message: 'Format baris belum valid (gunakan format KODE, NAMA LENGKAP)' };
+    },
+
+    unduhTemplateJsonDosen() {
+      const template = [
+        {
+          "code": "AD",
+          "name": "Dr. Ade Chandra Nugraha, S.Si., M.T.",
+          "status": "ACTIVE"
+        },
+        {
+          "code": "BW",
+          "name": "Bambang Wisnuadhi, S.Si., M.T.",
+          "status": "ACTIVE"
+        }
+      ];
+      const jsonStr = JSON.stringify(template, null, 2);
+      if (!this.importDosenCsvText) {
+        this.importDosenCsvText = jsonStr;
+      }
+      try {
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'format-impor-dosen.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showToast('Template JSON diunduh.');
+      } catch (e) {
+        this.importDosenCsvText = jsonStr;
+        this.showToast('Contoh JSON disalin ke editor.');
+      }
     },
 
     async sinkronDosenDariJadwal() {

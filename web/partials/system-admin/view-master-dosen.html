@@ -466,6 +466,10 @@
           >
             <div class="flex flex-row gap-[5px] items-center">
               <span
+                class="text-[12px] font-mono font-bold transition-colors"
+                :class="importDosenTab === 'csv' ? 'text-[#3965FB]' : 'text-[#667085]'"
+              >{ }</span>
+              <span
                 class="text-[13px] transition-colors"
                 :class="importDosenTab === 'csv' ? 'text-[#3965FB] font-bold' : 'text-[#667085] hover:text-[#1D1B3A] font-medium'"
               >
@@ -473,7 +477,7 @@
               </span>
             </div>
             <div
-              class="w-[115px] h-[2px] transition-all"
+              class="w-[139px] h-[2px] transition-all"
               :class="importDosenTab === 'csv' ? 'bg-[#3965FB]' : 'bg-transparent'"
             ></div>
           </button>
@@ -588,27 +592,96 @@
           </div>
         </div>
 
-        <!-- KONTEN TAB 2: Impor JSON / CSV Masal -->
-        <div x-show="importDosenTab === 'csv'" class="w-full flex flex-col gap-[14px] pt-[18px]">
-          <div>
-            <label for="sa-import-dosen-csv" class="block text-[12px] font-bold text-[#1D1B3A] mb-1">Tempel Data JSON atau Baris CSV</label>
-            <p class="text-[12px] text-[#667085] mb-2">Format baris teks: <code class="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded text-[#1D1B3A]">KODE, NAMA LENGKAP & GELAR</code> atau array JSON <code class="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded text-[#1D1B3A]">[{"code":"MR","name":"..."}]</code>.</p>
-            <textarea id="sa-import-dosen-csv" x-model="importDosenCsvText" rows="6" placeholder="Contoh:&#10;MR, Muhammad Rizqi Sholahuddin, S.Si., M.T.&#10;AD, Dr. Ade Chandra Nugraha, S.Si., M.T.&#10;ZA, Zulkifli Arsyad, S.Kom., M.T." class="w-full text-[13px] font-mono leading-relaxed p-3 rounded-[10px] border border-[#D7DDE7] focus:border-[#3965FB] focus:outline-none focus:ring-1 focus:ring-[#3965FB] bg-[#F8FAFC]"></textarea>
-          </div>
-
-          <div class="flex items-center justify-between text-[12px] p-3 rounded-[10px] bg-slate-50 border border-[#D7DDE7]">
-            <span class="text-[#667085]">Data valid terdeteksi:</span>
-            <span class="font-bold text-[#1D1B3A]" x-text="parsedImportDosen().length + ' baris dosen'">0 baris dosen</span>
-          </div>
-
-          <div class="pt-3 border-t border-[#EEEEEE] flex justify-end gap-2">
-            <button type="button" @click="tutupModalImportDosen()" class="h-[38px] px-4 rounded-[8px] border border-[#D7DDE7] bg-[#F2F5FA] text-[13px] font-medium text-[#475467] hover:bg-slate-200/60 transition-colors cursor-pointer">Batal</button>
-            <button type="button" @click="prosesImportCsvDosen()" :disabled="importDosenLoading || parsedImportDosen().length === 0" class="h-[38px] px-5 rounded-[8px] bg-[#3965FB] text-white text-[13px] font-medium hover:bg-[#2b52db] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
-              <span x-show="importDosenLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <svg x-show="!importDosenLoading" viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 11v2a1 1 0 001 1h8a1 1 0 001-1v-2M8 2v9m0 0l-3-3m3 3l3-3" />
+        <!-- KONTEN TAB 1: Impor JSON Masal (SCR-ADM-004G-Tab1) -->
+        <div x-show="importDosenTab === 'csv'" class="w-full flex flex-col gap-[12px] pt-[18px]">
+          <!-- Label dan unduh template -->
+          <div class="w-full flex flex-row justify-between items-center">
+            <label for="sa-import-dosen-json" class="text-[13px] font-bold text-[#1D1B3A] whitespace-nowrap">
+              Payload JSON Dosen (Array of Objects) *
+            </label>
+            <button
+              type="button"
+              @click="unduhTemplateJsonDosen()"
+              class="inline-flex items-center gap-[5px] text-[12px] text-[#3965FB] hover:text-[#2b52db] font-normal cursor-pointer transition-colors"
+              title="Unduh file format contoh JSON"
+            >
+              <svg class="w-4 h-4 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 8.89355q-0.0957 0-0.17432-0.03076-0.07861-0.03076-0.1538-0.10595l-1.53126-1.52784q-0.08203-0.08545-0.08886-0.20166-0.00342-0.11621 0.08887-0.21191 0.09912-0.0957 0.20849-0.0957 0.11279-0.00342 0.2085 0.09228l1.15185 1.15186 0-4.7544q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849l0 4.7544 1.15185-1.15186q0.08545-0.08545 0.20166-0.08887 0.11621-0.00342 0.21533 0.09229 0.09229 0.0957 0.09229 0.2085 0.00342 0.10938-0.09228 0.20507l-1.53126 1.52784q-0.0752 0.0752-0.1538 0.10595-0.07861 0.03076-0.17432 0.03076z m-3.14111 2.19092q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.21191-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.2461 0.11279l6.28222 0q0.1333 0 0.2461-0.11279 0.11279-0.11279 0.11279-0.2461l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-6.28222 0z"/>
               </svg>
-              <span x-text="importDosenLoading ? 'Mengimpor...' : ('Impor ' + parsedImportDosen().length + ' Dosen')">Impor Dosen</span>
+              <span>Unduh Format JSON</span>
+            </button>
+          </div>
+
+          <!-- Editor JSON aktif -->
+          <div class="w-full relative">
+            <textarea
+              id="sa-import-dosen-json"
+              x-model="importDosenCsvText"
+              rows="8"
+              placeholder='[&#10;  {&#10;    "code": "AD",&#10;    "name": "Dr. Ade Chandra Nugraha, S.Si., M.T.",&#10;    "status": "ACTIVE"&#10;  },&#10;  {&#10;    "code": "BW",&#10;    "name": "Bambang Wisnuadhi, S.Si., M.T.",&#10;    "status": "ACTIVE"&#10;  }&#10;]'
+              class="w-full h-[220px] p-[14px] bg-[#F8FAFC] border border-[#D7DDE7] focus:border-[#3965FB] focus:outline-none focus:ring-1 focus:ring-[#3965FB] rounded-[12px] text-[12px] leading-[18px] font-mono text-[#1D1B3A] resize-y placeholder:text-[#94A3B8]"
+              spellcheck="false"
+            ></textarea>
+          </div>
+
+          <!-- Format JSON valid (Badge Dinamis Hijau) -->
+          <div x-show="dosenJsonValidationState().state === 'valid'" class="w-full flex flex-row gap-[6px] p-[6px_12px] items-center bg-[#E1FFB7] rounded-[8px]">
+            <svg class="w-4 h-4 shrink-0 text-[#166534]" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M6.1626 8.45264l-1.45948-1.45606q-0.07861-0.08203-0.19824-0.08545-0.11963-0.00684-0.21191 0.08545-0.0957 0.0957-0.0957 0.2085 0 0.11279 0.0957 0.20508l1.53808 1.53808q0.14014 0.14355 0.32813 0.14356 0.19141 0 0.33154-0.14356l3.1958-3.19238q0.08203-0.08203 0.08545-0.20166 0.00684-0.11963-0.08545-0.21191-0.0957-0.09229-0.20849-0.09229-0.11279 0-0.20508 0.09229l-3.11035 3.11035z m0.84082 3.79736q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+            </svg>
+            <div class="text-[11.5px] text-[#166534] font-normal whitespace-nowrap" x-text="dosenJsonValidationState().message"></div>
+          </div>
+
+          <!-- Format JSON tidak valid (Badge Dinamis Merah) -->
+          <div x-show="dosenJsonValidationState().state === 'error' || dosenJsonValidationState().state === 'invalid'" class="w-full flex flex-row gap-[6px] p-[6px_12px] items-center bg-[#FEE4E2] rounded-[8px]">
+            <svg class="w-4 h-4 shrink-0 text-[#B42318]" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z"/>
+            </svg>
+            <div class="text-[11.5px] text-[#B42318] font-normal whitespace-nowrap" x-text="dosenJsonValidationState().message"></div>
+          </div>
+
+          <!-- Aturan validasi backend -->
+          <div class="w-full flex flex-row gap-[10px] p-[10px_14px] items-start bg-[#EEF2FF] border border-[#C7D7FE] rounded-[12px]">
+            <svg class="w-[17px] h-[17px] shrink-0 text-[#3965FB] mt-0.5" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+            </svg>
+            <div class="flex-1 flex flex-col gap-[4px] text-left">
+              <div class="flex flex-row gap-[6px] items-start text-[11.5px] leading-[16px] text-[#1D1B3A]">
+                <span>•</span>
+                <span><strong>code:</strong> Wajib, inisial unik 2–4 huruf kapital resmi POLBAN.</span>
+              </div>
+              <div class="flex flex-row gap-[6px] items-start text-[11.5px] leading-[16px] text-[#1D1B3A]">
+                <span>•</span>
+                <span><strong>name:</strong> Wajib, nama lengkap beserta gelar akademik.</span>
+              </div>
+              <div class="flex flex-row gap-[6px] items-start text-[11.5px] leading-[16px] text-[#1D1B3A]">
+                <span>•</span>
+                <span><strong>status:</strong> Opsional ("ACTIVE" / "INACTIVE", default: ACTIVE).</span>
+              </div>
+              <div class="flex flex-row gap-[6px] items-start text-[11.5px] leading-[16px] text-[#1D1B3A]">
+                <span>•</span>
+                <span><strong>Bersifat merge-upsert:</strong> Data dosen lama akan diperbarui tanpa membuat duplikat.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Impor JSON -->
+          <div class="w-full flex flex-row gap-[10px] justify-end items-center pt-4 mt-2 border-t border-[#EEEEEE]">
+            <button
+              type="button"
+              @click="tutupModalImportDosen()"
+              class="h-[38px] px-4 rounded-[8px] border border-[#D7DDE7] bg-white text-[13px] font-medium text-[#475467] hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              @click="prosesImportCsvDosen()"
+              :disabled="importDosenLoading || parsedImportDosen().length === 0"
+              class="h-[38px] px-[18px] rounded-[8px] bg-[#3965FB] text-white text-[13px] font-medium hover:bg-[#2b52db] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            >
+              <span x-show="importDosenLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+              <span x-text="importDosenLoading ? 'Memproses...' : 'Validasi & Impor'">Validasi &amp; Impor</span>
             </button>
           </div>
         </div>
