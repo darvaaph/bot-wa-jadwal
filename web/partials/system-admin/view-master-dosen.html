@@ -699,11 +699,6 @@
         <div class="w-full flex flex-col gap-[5px] pb-4">
           <div class="w-full flex flex-row justify-between items-center">
             <h3 id="modal-ubah-dosen-title" class="text-[18px] font-bold text-[#1D1B3A]">Ubah Data Dosen</h3>
-            <button type="button" @click="batalUbahDosen()" class="w-[32px] h-[32px] shrink-0 rounded-[8px] border border-[#EEEEEE] bg-white flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors cursor-pointer" aria-label="Tutup dialog">
-              <svg class="w-5 h-5 shrink-0" viewBox="0 0 14 14" fill="currentColor">
-                <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
-              </svg>
-            </button>
           </div>
           <p class="text-[13px] leading-[18px] text-[#667085]">Perbarui nama lengkap, gelar akademik, dan status keaktifan dosen.</p>
         </div>
@@ -776,10 +771,16 @@
             <button
               type="button"
               @click="konfirmasiNonaktifkanDariEdit()"
-              class="text-[12px] font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+              class="text-[12px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 hover:underline"
               :class="dosenEdit && dosenEdit.aktif ? 'text-[#D92D20] hover:text-red-700' : 'text-[#3965FB] hover:text-blue-700'"
             >
-              <span class="material-symbols-outlined text-[15px]" x-text="dosenEdit && dosenEdit.aktif ? 'toggle_off' : 'toggle_on'"></span>
+              <svg x-show="dosenEdit && dosenEdit.aktif" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <svg x-show="dosenEdit && !dosenEdit.aktif" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
               <span x-text="dosenEdit && dosenEdit.aktif ? 'Nonaktifkan Dosen Ini' : 'Aktifkan Kembali Dosen Ini'"></span>
             </button>
           </div>
