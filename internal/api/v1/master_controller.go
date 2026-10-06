@@ -774,6 +774,8 @@ func (c *MasterController) PatchCourse(w http.ResponseWriter, r *http.Request) {
 type LecturerInput struct {
 	Code     string `json:"code"`
 	FullName string `json:"full_name"`
+	Name     string `json:"name,omitempty"`
+	Status   string `json:"status,omitempty"`
 }
 
 // GET /api/v1/master/lecturers
@@ -854,19 +856,23 @@ func (c *MasterController) CreateLecturer(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode inisial dan nama dosen wajib diisi")
 		return
 	}
+	status := "ACTIVE"
+	if strings.ToUpper(strings.TrimSpace(req.Status)) == "INACTIVE" {
+		status = "INACTIVE"
+	}
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi dosen")
 		return
 	}
 	defer tx.Rollback()
-	res, err := tx.Exec(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, 'ACTIVE');`, code, fullName)
+	res, err := tx.Exec(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, ?);`, code, fullName, status)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode dosen sudah dipakai atau tidak valid")
 		return
 	}
 	id, _ := res.LastInsertId()
-	afterJSON := fmt.Sprintf(`{"code":%q,"full_name":%q,"status":"ACTIVE"}`, code, fullName)
+	afterJSON := fmt.Sprintf(`{"code":%q,"full_name":%q,"status":%q}`, code, fullName, status)
 	if err := writeMasterAudit(r.Context(), tx, r, "CREATE_MASTER_LECTURER", "MASTER_LECTURER", id, "", afterJSON); err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit dosen")
 		return
@@ -875,7 +881,7 @@ func (c *MasterController) CreateLecturer(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan dosen")
 		return
 	}
-	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": "ACTIVE"})
+	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": status})
 }
 
 // PATCH /api/v1/master/lecturers/{id}
@@ -1108,8 +1114,8 @@ func (c *MasterController) bulkInsertLecturersInternal(w http.ResponseWriter, r 
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, 'ACTIVE')
-		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name;`)
+	stmt, err := tx.Prepare(`INSERT INTO lecturers (code, full_name, status) VALUES (?, ?, ?)
+		ON CONFLICT(code) DO UPDATE SET full_name = excluded.full_name, status = excluded.status;`)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyiapkan perintah impor dosen")
 		return
@@ -1121,11 +1127,18 @@ func (c *MasterController) bulkInsertLecturersInternal(w http.ResponseWriter, r 
 	for _, item := range items {
 		code := strings.ToUpper(strings.TrimSpace(item.Code))
 		name := strings.TrimSpace(item.FullName)
+		if name == "" && strings.TrimSpace(item.Name) != "" {
+			name = strings.TrimSpace(item.Name)
+		}
 		if code == "" || name == "" {
 			skipped++
 			continue
 		}
-		if _, err := stmt.Exec(code, name); err == nil {
+		status := "ACTIVE"
+		if strings.ToUpper(strings.TrimSpace(item.Status)) == "INACTIVE" {
+			status = "INACTIVE"
+		}
+		if _, err := stmt.Exec(code, name, status); err == nil {
 			inserted++
 		} else {
 			skipped++

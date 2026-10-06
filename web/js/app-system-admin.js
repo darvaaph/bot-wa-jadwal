@@ -260,16 +260,19 @@ function systemAdminApp() {
     dosenList: [],
     dosenLoading: false,
     dosenError: '',
-    dosenForm: { kode: '', nama: '' },
+    dosenForm: { kode: '', nama: '', aktif: true },
     dosenFormError: '',
+    dosenSaving: false,
     dosenQ: '',
     dosenStatusFilter: '',
     dosenPage: 1,
     dosenPerPage: 8,
     dosenEdit: null,
     dosenEditError: '',
+    dosenEditSaving: false,
     dosenMenu: null,
     dosenStatusConfirm: null,
+    dosenStatusConfirmLoading: false,
     modalTambahDosen: false,
     modalImportDosen: false,
     importDosenTab: 'jadwal',
@@ -2625,56 +2628,124 @@ function systemAdminApp() {
     },
 
     bukaModalTambahDosen() {
-      this.dosenForm = { kode: '', nama: '' };
+      this.dosenForm = { kode: '', nama: '', aktif: true };
       this.dosenFormError = '';
+      this.dosenSaving = false;
       this.modalTambahDosen = true;
     },
 
     tutupModalTambahDosen() {
       this.modalTambahDosen = false;
       this.dosenFormError = '';
+      this.dosenSaving = false;
     },
 
     async tambahDosen() {
       const f = this.dosenForm;
-      if (!((f.kode || '').trim()) || !((f.nama || '').trim())) {
+      const kode = (f.kode || '').trim().toUpperCase();
+      const nama = (f.nama || '').trim();
+      if (!kode || !nama) {
         this.dosenFormError = 'Inisial dan nama dosen wajib diisi.';
         return;
       }
       this.dosenFormError = '';
+      this.dosenSaving = true;
       try {
-        await API.createMasterLecturer({ code: f.kode.trim(), full_name: f.nama.trim() });
-        this.dosenForm = { kode: '', nama: '' };
+        await API.createMasterLecturer({
+          code: kode,
+          full_name: nama,
+          status: f.aktif ? 'ACTIVE' : 'INACTIVE'
+        });
+        this.dosenForm = { kode: '', nama: '', aktif: true };
         this.modalTambahDosen = false;
         await this.loadDosen();
-        this.showToast('Dosen ditambahkan.');
+        this.showToast('Dosen berhasil ditambahkan.');
       } catch (err) {
         this.dosenFormError = err.message || 'Gagal menambah dosen.';
+      } finally {
+        this.dosenSaving = false;
       }
     },
 
     mulaiUbahDosen(d) {
-      this.dosenEdit = { id: d.id, kode: d.code, nama: d.full_name || d.name || '' };
+      const isAktif = String(d.status || '').toUpperCase() === 'ACTIVE';
+      this.dosenEdit = {
+        id: d.id,
+        kode: d.code,
+        nama: d.full_name || d.name || '',
+        namaAwal: d.full_name || d.name || '',
+        aktif: isAktif,
+        statusAwal: d.status || 'ACTIVE',
+        konfirmasiNonaktifSelesai: false
+      };
       this.dosenEditError = '';
+      this.dosenEditSaving = false;
     },
 
     batalUbahDosen() {
       this.dosenEdit = null;
       this.dosenEditError = '';
+      this.dosenEditSaving = false;
     },
 
     async simpanUbahDosen() {
       const f = this.dosenEdit;
       if (!f) return;
-      if (!((f.nama || '').trim())) { this.dosenEditError = 'Nama dosen wajib diisi.'; return; }
+      const nama = (f.nama || '').trim();
+      if (!nama) {
+        this.dosenEditError = 'Nama dosen wajib diisi.';
+        return;
+      }
       this.dosenEditError = '';
+
+      // Intersepsi: Jika dosen awalnya aktif dan ingin dinonaktifkan namun belum dikonfirmasi
+      if (f.statusAwal === 'ACTIVE' && !f.aktif && !f.konfirmasiNonaktifSelesai) {
+        this.dosenStatusConfirm = {
+          id: f.id,
+          kode: f.kode,
+          nama: nama,
+          dari: 'ACTIVE',
+          ke: 'INACTIVE',
+          dariEditModal: true
+        };
+        this.dosenStatusConfirmLoading = false;
+        return;
+      }
+
+      this.dosenEditSaving = true;
       try {
-        await API.patchMasterLecturer(f.id, { full_name: f.nama.trim() });
-        this.showToast(`Data dosen ${f.kode} diubah.`);
+        const newStatus = f.aktif ? 'ACTIVE' : 'INACTIVE';
+        await API.patchMasterLecturer(f.id, {
+          full_name: nama,
+          status: newStatus
+        });
+        this.showToast(`Data dosen ${f.kode} berhasil diperbarui.`);
         this.dosenEdit = null;
         await this.loadDosen();
       } catch (err) {
         this.dosenEditError = err.message || 'Gagal mengubah data dosen.';
+      } finally {
+        this.dosenEditSaving = false;
+      }
+    },
+
+    konfirmasiNonaktifkanDariEdit() {
+      const f = this.dosenEdit;
+      if (!f) return;
+      const nama = (f.nama || '').trim() || f.namaAwal;
+      if (f.aktif) {
+        this.dosenStatusConfirm = {
+          id: f.id,
+          kode: f.kode,
+          nama: nama,
+          dari: 'ACTIVE',
+          ke: 'INACTIVE',
+          dariEditModal: true
+        };
+        this.dosenStatusConfirmLoading = false;
+      } else {
+        f.aktif = true;
+        f.konfirmasiNonaktifSelesai = false;
       }
     },
 
@@ -2682,32 +2753,57 @@ function systemAdminApp() {
       this.dosenStatusConfirm = {
         id: d.id,
         kode: d.code,
-        nama: d.full_name || d.name,
+        nama: d.full_name || d.name || '',
         dari: String(d.status || '').toUpperCase(),
         ke: String(d.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
       };
+      this.dosenStatusConfirmLoading = false;
     },
 
     batalKonfirmasiStatusDosen() {
+      if (this.dosenEdit && this.dosenEdit.statusAwal === 'ACTIVE' && !this.dosenEdit.konfirmasiNonaktifSelesai) {
+        this.dosenEdit.aktif = true;
+      }
       this.dosenStatusConfirm = null;
+      this.dosenStatusConfirmLoading = false;
     },
 
     async jalankanUbahStatusDosen() {
       const c = this.dosenStatusConfirm;
       if (!c) return;
+
+      // Jika konfirmasi ini berasal dari dalam dialog Ubah Dosen:
+      // Terapkan status nonaktif pada form ubah, tutup dialog konfirmasi,
+      // dan tetap berada di dalam kartu Ubah Dosen (tidak langsung menutup dialog ubah).
+      if (c.dariEditModal && this.dosenEdit) {
+        this.dosenEdit.aktif = false;
+        this.dosenEdit.konfirmasiNonaktifSelesai = true;
+        this.dosenStatusConfirm = null;
+        this.dosenStatusConfirmLoading = false;
+        return;
+      }
+
+      // Jika konfirmasi dipicu langsung dari tabel master dosen:
+      this.dosenStatusConfirmLoading = true;
       try {
-        await API.patchMasterLecturer(c.id, { status: c.ke });
+        const payload = { status: c.ke };
+        if (c.pendingFullName) {
+          payload.full_name = c.pendingFullName;
+        }
+        await API.patchMasterLecturer(c.id, payload);
         this.dosenStatusConfirm = null;
         await this.loadDosen();
-        this.showToast(c.ke === 'ACTIVE' ? 'Dosen diaktifkan.' : 'Dosen dinonaktifkan.');
+        this.showToast(c.ke === 'ACTIVE' ? `Dosen ${c.kode} berhasil diaktifkan.` : `Dosen ${c.kode} berhasil dinonaktifkan.`);
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status dosen.');
+      } finally {
+        this.dosenStatusConfirmLoading = false;
       }
     },
 
-    bukaModalImportDosen() {
+    bukaModalImportDosen(tab = 'csv') {
       this.modalImportDosen = true;
-      this.importDosenTab = 'jadwal';
+      this.importDosenTab = tab || 'csv';
       this.importDosenCsvText = '';
       this.importDosenLoading = false;
       this.importDosenError = '';
@@ -2730,7 +2826,8 @@ function systemAdminApp() {
           const list = Array.isArray(parsed) ? parsed : (parsed.lecturers || parsed.dosen || []);
           return list.map(item => ({
             code: (item.code || item.kode || item.inisial || '').trim(),
-            full_name: (item.full_name || item.name || item.nama || '').trim()
+            full_name: (item.full_name || item.name || item.nama || '').trim(),
+            status: String(item.status || 'ACTIVE').toUpperCase().trim() === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE'
           })).filter(item => item.code && item.full_name);
         } catch (_) {}
       }
@@ -2751,11 +2848,70 @@ function systemAdminApp() {
           const fullName = parts.slice(1).join(delimiter).trim();
           if (code && fullName && !seen.has(code.toUpperCase())) {
             seen.add(code.toUpperCase());
-            out.push({ code, full_name: fullName });
+            out.push({ code, full_name: fullName, status: 'ACTIVE' });
           }
         }
       }
       return out;
+    },
+
+    dosenJsonValidationState() {
+      const text = (this.importDosenCsvText || '').trim();
+      if (!text) {
+        return { state: 'empty', message: '' };
+      }
+      if (text.startsWith('[') || text.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(text);
+          const list = Array.isArray(parsed) ? parsed : (parsed.lecturers || parsed.dosen || []);
+          const valid = list.filter(item => (item.code || item.kode || item.inisial) && (item.full_name || item.name || item.nama));
+          if (valid.length === 0) {
+            return { state: 'invalid', count: 0, message: 'Format JSON valid tetapi objek dosen belum memiliki field "code" dan "name"' };
+          }
+          return { state: 'valid', count: valid.length, message: `Format JSON valid · ${valid.length} dosen terdeteksi siap diimpor` };
+        } catch (err) {
+          return { state: 'error', count: 0, message: 'Format JSON tidak valid: periksa tanda kurung kurawal atau koma' };
+        }
+      }
+      const parsed = this.parsedImportDosen();
+      if (parsed.length > 0) {
+        return { state: 'valid', count: parsed.length, message: `Format baris valid · ${parsed.length} dosen terdeteksi siap diimpor` };
+      }
+      return { state: 'error', count: 0, message: 'Format baris belum valid (gunakan format KODE, NAMA LENGKAP)' };
+    },
+
+    unduhTemplateJsonDosen() {
+      const template = [
+        {
+          "code": "AD",
+          "name": "Dr. Ade Chandra Nugraha, S.Si., M.T.",
+          "status": "ACTIVE"
+        },
+        {
+          "code": "BW",
+          "name": "Bambang Wisnuadhi, S.Si., M.T.",
+          "status": "ACTIVE"
+        }
+      ];
+      const jsonStr = JSON.stringify(template, null, 2);
+      if (!this.importDosenCsvText) {
+        this.importDosenCsvText = jsonStr;
+      }
+      try {
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'format-impor-dosen.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showToast('Template JSON diunduh.');
+      } catch (e) {
+        this.importDosenCsvText = jsonStr;
+        this.showToast('Contoh JSON disalin ke editor.');
+      }
     },
 
     async sinkronDosenDariJadwal() {
