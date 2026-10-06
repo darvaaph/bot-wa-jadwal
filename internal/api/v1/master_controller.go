@@ -106,11 +106,12 @@ func (c *MasterController) GetRooms(w http.ResponseWriter, r *http.Request) {
 
 // RoomInput mewakili format data kode, nama, gedung, tipe, dan kapasitas ruangan
 type RoomInput struct {
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	Building string `json:"building"`
-	RoomType string `json:"room_type"`
-	Capacity *int   `json:"capacity"`
+	Code     string  `json:"code"`
+	Name     string  `json:"name"`
+	Building string  `json:"building"`
+	RoomType string  `json:"room_type"`
+	Capacity *int    `json:"capacity"`
+	Status   *string `json:"status"`
 }
 
 // POST /api/v1/master/rooms
@@ -152,21 +153,25 @@ func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode ruangan wajib diisi")
 		return
 	}
+	st := "ACTIVE"
+	if req.Status != nil && strings.ToUpper(strings.TrimSpace(*req.Status)) == "INACTIVE" {
+		st = "INACTIVE"
+	}
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi ruangan")
 		return
 	}
 	defer tx.Rollback()
-	res, err := tx.Exec(`INSERT INTO rooms (code, name, building, room_type, capacity, status) VALUES (?, ?, ?, ?, ?, 'ACTIVE');`,
-		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType), req.Capacity)
+	res, err := tx.Exec(`INSERT INTO rooms (code, name, building, room_type, capacity, status) VALUES (?, ?, ?, ?, ?, ?);`,
+		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType), req.Capacity, st)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kode ruangan sudah dipakai atau tidak valid")
 		return
 	}
 	id, _ := res.LastInsertId()
-	afterJSON := fmt.Sprintf(`{"code":%q,"name":%q,"building":%q,"room_type":%q,"status":"ACTIVE"}`,
-		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType))
+	afterJSON := fmt.Sprintf(`{"code":%q,"name":%q,"building":%q,"room_type":%q,"status":%q}`,
+		code, strings.TrimSpace(req.Name), strings.TrimSpace(req.Building), strings.TrimSpace(req.RoomType), st)
 	if err := writeMasterAudit(r.Context(), tx, r, "CREATE_MASTER_ROOM", "MASTER_ROOM", id, "", afterJSON); err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan beserta auditnya")
 		return
@@ -175,7 +180,7 @@ func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan ruangan")
 		return
 	}
-	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": "ACTIVE"})
+	common.WriteV1Success(w, http.StatusCreated, map[string]any{"id": id, "code": code, "status": st})
 }
 
 // POST /api/v1/master/rooms/bulk

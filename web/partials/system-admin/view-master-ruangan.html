@@ -1,344 +1,1275 @@
 <!-- partials/system-admin/view-master-ruangan.html - System Admin: Master Ruangan -->
-<section x-show="view === 'master-ruangan'" x-cloak>
-  <div class="ui-card p-6 md:p-10 shadow-sm">
-    <!-- Header: Judul & Tombol Aksi -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <div class="flex items-center gap-3">
-          <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Master Ruangan</h1>
-          <span class="ui-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-slate-100 text-slate-700" x-text="(ruangList ? ruangList.length : 0) + ' ruangan'">-</span>
-        </div>
-        <p class="text-[14px] text-muted mt-1">Daftar seluruh ruangan kuliah kampus. Kode tidak dapat diubah. Ruangan nonaktif tidak dipakai untuk jadwal baru.</p>
-      </div>
+<section x-show="view === 'master-ruangan'" x-cloak class="w-full flex flex-col gap-6">
 
-      <!-- Tombol Aksi -->
-      <div class="flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-auto">
-        <button type="button" @click="sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--outline text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]" title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen">
-          <span x-show="syncAllLoading" class="inline-block w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></span>
-          <span class="material-symbols-outlined text-[18px]" x-show="!syncAllLoading">auto_mode</span>
-          <span>Sinkron Semua Master (106)</span>
-        </button>
-        <button type="button" @click="bukaModalImportRuang()" class="ui-button ui-button--outline text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
-          <span>Impor / Sinkron Ruangan</span>
-        </button>
-        <button type="button" @click="bukaModalTambahRuang()" class="ui-button ui-button--primary text-[14px] font-medium inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          <span>Tambah Ruangan</span>
-        </button>
+  <!-- Header: Judul, Badge Jumlah & Tombol Aksi Utama -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex flex-col gap-1.5">
+      <div class="flex items-center gap-3">
+        <h1 class="text-[26px] md:text-[30px] font-bold text-[#1F1F1F] leading-tight tracking-tight">Master Ruangan</h1>
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold bg-[#F1F5F9] text-[#475467]"
+              x-text="(ruangList ? ruangList.length : 0) + ' ruangan'">-</span>
       </div>
+      <p class="text-[14px] text-[#667085] leading-normal">
+        Kelola ruang, kapasitas, dan status untuk kebutuhan jadwal perkuliahan.
+      </p>
     </div>
 
-    <!-- Cari + filter status -->
-    <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div class="sm:col-span-2 relative">
-        <input type="text" x-model="ruangQ" placeholder="Cari kode, nama, atau gedung ruangan..." aria-label="Cari ruangan" class="ui-field text-[14px] pl-10" />
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">search</span>
+    <!-- Tombol Aksi Header -->
+    <div class="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-auto">
+      <button type="button"
+              @click="bukaModalImportRuang()"
+              class="h-[44px] px-3.5 rounded-[10px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold inline-flex items-center gap-2 transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0 text-[#3965FB]" aria-hidden="true" focusable="false">
+          <path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/>
+        </svg>
+        <span>Impor / Sinkron</span>
+      </button>
+
+      <button type="button"
+              @click="bukaModalTambahRuang()"
+              class="h-[44px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[14px] font-semibold inline-flex items-center gap-2 shadow-sm transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3965FB]">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0 text-white" aria-hidden="true" focusable="false">
+          <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"/>
+        </svg>
+        <span>Tambah Ruangan</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Konteks Master Ruangan: Kartu Informasi Edukatif -->
+  <div class="w-full p-[16px_18px] bg-[#EEF2FF] rounded-[10px] flex items-center gap-[12px]">
+    <svg width="22" height="22" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0 text-[#3965FB]" aria-hidden="true" focusable="false">
+      <path d="M2.91553 11.66553q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l0.875 0 0-8.27832q0-0.20166 0.1333-0.33496 0.13672-0.13672 0.33496-0.13672l3.73242 0q0.19824 0 0.33154 0.13672 0.13672 0.1333 0.13672 0.33496l0 0.10938 1.27832 0q0.19824 0 0.33496 0.13672 0.13672 0.13672 0.13672 0.33496l0 7.69726 0.875 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-0.98437 0q-0.2085 0-0.3418-0.1333-0.1333-0.13672-0.1333-0.33838l0-7.69385-1.16553 0 0 7.69385q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-5.07226 0z m1.45947-8.75l0 8.16894 0-8.16894z m2.78223 4.08447q0-0.18115-0.1333-0.31445-0.1333-0.1333-0.31446-0.1333-0.18115 0-0.31787 0.1333-0.1333 0.1333-0.1333 0.31445 0 0.18115 0.1333 0.31445 0.13672 0.1333 0.31787 0.1333 0.18115 0 0.31446-0.1333 0.1333-0.1333 0.1333-0.31445z m-2.78223 4.08447l3.5 0 0-8.16894-3.5 0 0 8.16894z"/>
+    </svg>
+    <p class="text-[13px] text-[#1D1B3A] font-medium leading-normal">
+      Data ruangan menjadi rujukan saat menyusun jadwal kelas dan memilih lokasi perkuliahan.
+    </p>
+  </div>
+
+  <!-- Inbox Usulan Ruangan KM · Menunggu Persetujuan (Tampil dinamis bila ada usulan PENDING) -->
+  <div x-show="!usulanLoading && usulanKindList('ROOM').length > 0" class="space-y-3">
+    <template x-for="u in usulanKindList('ROOM')" :key="u.id">
+      <div class="w-full rounded-[16px] bg-[#FEF3C7] border border-[#FCD34D] p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3.5 min-w-0 flex-1">
+          <div class="w-[38px] h-[38px] shrink-0 rounded-[10px] flex items-center justify-center text-[#92400E]" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 14 14" fill="#92400E" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M3.20947 10.94775q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l0.64942 0 0-4.62451q0-1.1416 0.72119-2.00977 0.72461-0.86816 1.83545-1.08008l0-0.31787q0-0.24268 0.1709-0.41357 0.1709-0.1709 0.41357-0.1709 0.24268 0 0.41357 0.1709 0.1709 0.1709 0.1709 0.41357l0 0.31787q1.11084 0.21191 1.83203 1.08008 0.72461 0.86816 0.72461 2.00977l0 4.62451 0.64942 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20849 0.08203l-7.58106 0z m3.78711 1.52784q-0.38965 0-0.6665-0.27686-0.27344-0.27685-0.27344-0.6665l1.88672 0q0 0.38965-0.28027 0.6665-0.27686 0.27686-0.66651 0.27686z m-2.55322-2.10889l5.11328 0 0-4.62451q0-1.06299-0.74853-1.80811-0.74512-0.74854-1.80811-0.74853-1.06299 0-1.81152 0.74853-0.74512 0.74512-0.74512 1.80811l0 4.62451z"/>
+            </svg>
+          </div>
+          <div class="flex flex-col gap-1 min-w-0 flex-1">
+            <h3 class="text-[14px] font-bold text-[#1D1B3A] leading-tight"
+                x-text="usulanKindList('ROOM').length + ' Usulan Ruangan Menunggu Persetujuan'"></h3>
+            <p class="text-[11px] text-[#92400E] font-medium">
+              Diajukan oleh <span class="font-semibold text-[#1D1B3A]" x-text="u.proposed_by"></span>
+              <span x-show="u.class_slug" x-text="' (' + u.class_slug + ')'"></span>
+              <span x-show="u.created_at" x-text="' · ' + formatWaktuRelatif(u.created_at)"></span>
+            </p>
+            <p class="text-[12px] font-semibold text-[#1D1B3A] mt-0.5" x-text="detailUsulanRuang(u) || namaUsulanRuang(u)"></p>
+            <p class="text-[11px]/[15px] text-[#78550F] italic" x-show="u.note" x-text="'“' + u.note + '”'"></p>
+          </div>
+        </div>
+
+        <!-- Aksi Keputusan Usulan -->
+        <div class="flex items-center gap-2 shrink-0 self-end md:self-center">
+          <button type="button"
+                  @click="setujuiUsulanCepat(u)"
+                  class="h-[36px] px-[13px] bg-[#15803D] hover:bg-green-800 rounded-[9px] text-white text-[12px] font-semibold inline-flex items-center justify-center transition-colors shadow-sm min-h-[36px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#15803D]">
+            Setujui
+          </button>
+          <button type="button"
+                  @click="bukaModalTolakUsulan(u)"
+                  class="h-[36px] px-[13px] bg-white hover:bg-red-50 border border-[#DC2626] rounded-[9px] text-[#DC2626] text-[12px] font-semibold inline-flex items-center justify-center transition-colors min-h-[36px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400">
+            Tolak...
+          </button>
+        </div>
       </div>
-      <select x-model="ruangStatusFilter" @change="loadRuang()" aria-label="Filter status ruangan" class="ui-field text-[13px]">
+    </template>
+  </div>
+
+  <!-- Pencarian dan Filter Bar -->
+  <div class="w-full flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+    <!-- Input Cari Ruangan -->
+    <div class="relative flex-1 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3.5 gap-2.5 focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all">
+      <svg width="19" height="19" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+        <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/>
+      </svg>
+      <input type="text"
+             x-model="ruangQ"
+             placeholder="Cari kode, nama, atau gedung ruangan..."
+             aria-label="Cari kode, nama, atau gedung ruangan"
+             class="w-full bg-transparent border-none p-0 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:ring-0" />
+      <button type="button"
+              x-show="ruangQ"
+              @click="ruangQ = ''"
+              title="Hapus pencarian"
+              class="text-slate-400 hover:text-slate-600 p-1">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+      </button>
+    </div>
+
+    <!-- Dropdown Filter Gedung -->
+    <div class="relative w-full sm:w-[170px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+      <select x-model="ruangBuildingFilter"
+              aria-label="Filter gedung"
+              class="w-full appearance-none bg-transparent pr-6 text-[12px] text-[#1D1B3A] font-medium focus:outline-none cursor-pointer">
+        <option value="">Semua gedung</option>
+        <template x-for="g in daftarGedungRuang()" :key="g">
+          <option :value="g" x-text="g"></option>
+        </template>
+      </select>
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+        <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+      </svg>
+    </div>
+
+    <!-- Dropdown Filter Jenis -->
+    <div class="relative w-full sm:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+      <select x-model="ruangTypeFilter"
+              aria-label="Filter jenis ruangan"
+              class="w-full appearance-none bg-transparent pr-6 text-[12px] text-[#1D1B3A] font-medium focus:outline-none cursor-pointer">
+        <option value="">Semua jenis</option>
+        <option value="TEORI">Teori</option>
+        <option value="LAB">Laboratorium</option>
+      </select>
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+        <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+      </svg>
+    </div>
+
+    <!-- Dropdown Filter Status -->
+    <div class="relative w-full sm:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+      <select x-model="ruangStatusFilter"
+              aria-label="Filter status ruangan"
+              class="w-full appearance-none bg-transparent pr-6 text-[12px] text-[#1D1B3A] font-medium focus:outline-none cursor-pointer">
         <option value="">Semua status</option>
         <option value="ACTIVE">Aktif</option>
         <option value="INACTIVE">Nonaktif</option>
       </select>
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+        <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card Kontainer Daftar Master Ruangan -->
+  <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-5 md:p-6 flex flex-col gap-0 shadow-sm">
+
+    <!-- Header Tabel -->
+    <div class="w-full flex items-center justify-between pb-4">
+      <h2 class="text-[16px] font-bold text-[#1D1B3A]">Daftar ruangan</h2>
+      <span class="text-[12px] text-[#667085]"
+            x-text="(filteredRuang() ? filteredRuang().length : 0) + ' ruangan'">-</span>
     </div>
 
-    <!-- Loading State -->
-    <div x-show="ruangLoading" class="p-12 text-center text-muted">
-      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      <p class="mt-3 text-[14px]">Memuat daftar ruangan...</p>
+    <!-- STATE 1: LOADING SKELETON -->
+    <div x-show="ruangLoading" class="w-full py-4 space-y-3">
+      <div class="h-10 bg-slate-100 rounded-[9px] animate-pulse"></div>
+      <template x-for="i in [1, 2, 3, 4]" :key="i">
+        <div class="h-16 bg-slate-50 border-b border-slate-100 rounded-[8px] animate-pulse flex items-center justify-between px-4 gap-4">
+          <div class="w-1/4 h-5 bg-slate-200 rounded"></div>
+          <div class="w-1/6 h-4 bg-slate-200 rounded hidden md:block"></div>
+          <div class="w-1/6 h-4 bg-slate-200 rounded hidden md:block"></div>
+          <div class="w-1/6 h-4 bg-slate-200 rounded hidden md:block"></div>
+          <div class="w-20 h-6 bg-slate-200 rounded-full"></div>
+        </div>
+      </template>
     </div>
 
-    <!-- Error State -->
-    <div x-show="ruangError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
+    <!-- STATE 2: ERROR ALERT -->
+    <div x-show="!ruangLoading && ruangError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between my-2">
       <span x-text="ruangError">-</span>
-      <button type="button" @click="loadRuang()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
+      <button type="button" @click="loadRuang()" class="font-semibold underline hover:text-red-900 ml-3 shrink-0">Coba Lagi</button>
     </div>
 
-    <!-- Empty State: Database Kosong (Belum ada ruangan sama sekali) -->
-    <div x-show="!ruangLoading && !ruangError && (!ruangList || ruangList.length === 0)" class="ui-empty p-8 md:p-12 text-center text-muted mt-6 border border-dashed border-border rounded-2xl bg-slate-50/50">
-      <div class="w-14 h-14 mx-auto rounded-2xl bg-primary-soft/60 flex items-center justify-center text-primary mb-4">
-        <span class="material-symbols-outlined text-[32px]">meeting_room</span>
+    <!-- STATE 3: EMPTY DATABASE KOSONG TOTAL -->
+    <div x-show="!ruangLoading && !ruangError && (!ruangList || ruangList.length === 0)" class="p-8 md:p-12 text-center text-[#667085] border border-dashed border-[#D7DDE7] rounded-2xl bg-slate-50/50 my-2">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-[#EEF2FF] flex items-center justify-center text-[#3965FB] mb-4">
+        <svg width="32" height="32" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+          <path d="M2.91553 11.66553q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l0.875 0 0-8.27832q0-0.20166 0.1333-0.33496 0.13672-0.13672 0.33496-0.13672l3.73242 0q0.19824 0 0.33154 0.13672 0.13672 0.1333 0.13672 0.33496l0 0.10938 1.27832 0q0.19824 0 0.33496 0.13672 0.13672 0.13672 0.13672 0.33496l0 7.69726 0.875 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-0.98437 0q-0.2085 0-0.3418-0.1333-0.1333-0.13672-0.1333-0.33838l0-7.69385-1.16553 0 0 7.69385q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-5.07226 0z m1.45947-8.75l0 8.16894 0-8.16894z m2.78223 4.08447q0-0.18115-0.1333-0.31445-0.1333-0.1333-0.31446-0.1333-0.18115 0-0.31787 0.1333-0.1333 0.1333-0.1333 0.31445 0 0.18115 0.1333 0.31445 0.13672 0.1333 0.31787 0.1333 0.18115 0 0.31446-0.1333 0.1333-0.1333 0.1333-0.31445z m-2.78223 4.08447l3.5 0 0-8.16894-3.5 0 0 8.16894z"/>
+        </svg>
       </div>
-      <p class="text-[17px] font-bold text-ink">Belum Ada Master Ruangan</p>
-      <p class="text-[13px] text-muted max-w-md mx-auto mt-1">Database ruangan kuliah masih kosong. Anda dapat menyinkronkan 18 ruangan dari berkas kurikulum POLBAN secara otomatis atau menambahkannya manual.</p>
+      <p class="text-[17px] font-bold text-[#1D1B3A]">Belum Ada Master Ruangan</p>
+      <p class="text-[13px] text-[#667085] max-w-md mx-auto mt-1">Database ruangan kuliah masih kosong. Anda dapat menyinkronkan 18 ruangan dari berkas jadwal kurikulum POLBAN secara otomatis atau menambahkannya manual.</p>
       <div class="flex flex-wrap items-center justify-center gap-3 mt-5">
-        <button type="button" @click="bukaModalImportRuang(); importRuangTab = 'jadwal'" class="ui-button ui-button--primary text-[13px] font-semibold inline-flex items-center gap-2 min-h-[44px]">
-          <span class="material-symbols-outlined text-[18px]">sync</span>
+        <button type="button" @click="bukaModalImportRuang()" class="h-[44px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors min-h-[44px]">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true" focusable="false"><path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/></svg>
           <span>Sinkronkan dari Jadwal (18 Ruangan)</span>
         </button>
-        <button type="button" @click="bukaModalTambahRuang()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-semibold hover:bg-white min-h-[44px]">
+        <button type="button" @click="bukaModalTambahRuang()" class="h-[44px] px-4 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] min-h-[44px]">
           <span>+ Tambah Manual</span>
         </button>
       </div>
     </div>
 
-    <!-- Empty State: Filter Tidak Ditemukan -->
-    <div x-show="!ruangLoading && !ruangError && (ruangList && ruangList.length > 0) && filteredRuang().length === 0" class="ui-empty p-10 text-center text-muted mt-6 border border-dashed border-border rounded-2xl">
-      <span class="material-symbols-outlined text-[36px] text-slate-300">search_off</span>
-      <p class="text-[15px] font-semibold text-ink mt-2">Tidak ada ruangan yang cocok</p>
-      <p class="text-[13px] text-muted mt-0.5">Ubah kata kunci pencarian atau reset filter status.</p>
-      <button type="button" @click="ruangQ = ''; ruangStatusFilter = ''; loadRuang()" class="ui-button ui-button--ghost mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
+    <!-- STATE 4: EMPTY FILTER HASIL PENCARIAN KOSONG -->
+    <div x-show="!ruangLoading && !ruangError && (ruangList && ruangList.length > 0) && filteredRuang().length === 0" class="p-10 text-center text-[#667085] border border-dashed border-[#D7DDE7] rounded-2xl my-2">
+      <svg width="36" height="36" viewBox="0 0 14 14" fill="#94A3B8" class="mx-auto" aria-hidden="true" focusable="false">
+        <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z"/>
+      </svg>
+      <p class="text-[15px] font-semibold text-[#1D1B3A] mt-2">Tidak ada ruangan yang cocok</p>
+      <p class="text-[13px] text-[#667085] mt-0.5">Ubah kata kunci pencarian atau sesuaikan filter gedung, jenis, dan status.</p>
+      <button type="button" @click="ruangQ = ''; ruangBuildingFilter = ''; ruangTypeFilter = ''; ruangStatusFilter = ''; loadRuang()" class="mt-3 h-[40px] px-5 rounded-[10px] border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] min-h-[40px]">
+        Reset filter
+      </button>
     </div>
 
-    <!-- Desktop: Tabel Ruangan -->
-    <div x-show="!ruangLoading && filteredRuang().length > 0" class="ui-table-wrap mt-6 hidden md:block">
-      <table class="ui-table min-w-[720px]">
-        <thead>
-          <tr class="text-left text-slate-500 border-b border-border">
-            <th class="py-2.5 pr-3 font-semibold">Kode</th>
-            <th class="py-2.5 pr-3 font-semibold">Nama Ruangan</th>
-            <th class="py-2.5 pr-3 font-semibold">Gedung</th>
-            <th class="py-2.5 pr-3 font-semibold">Tipe</th>
-            <th class="py-2.5 pr-3 font-semibold">Kapasitas</th>
-            <th class="py-2.5 pr-3 font-semibold">Status</th>
-            <th class="py-2.5 font-semibold text-right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-          <template x-for="r in filteredRuang()" :key="r.id">
-            <tr class="hover:bg-slate-50/50 transition-colors">
-              <td class="py-3 pr-3 font-mono font-semibold text-ink" x-text="r.code">-</td>
-              <td class="py-3 pr-3 font-medium text-ink" x-text="r.name || '—'">-</td>
-              <td class="py-3 pr-3 text-muted" x-text="r.building || '—'">-</td>
-              <td class="py-3 pr-3 text-muted font-medium" x-text="r.room_type || '—'">-</td>
-              <td class="py-3 pr-3 text-muted" x-text="(r.capacity ?? '') === '' ? '—' : r.capacity + ' mhs'">-</td>
-              <td class="py-3 pr-3">
-                <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
-                  :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'">
-                  <span class="material-symbols-outlined text-[12px]">meeting_room</span>
-                  <span x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
-                </span>
-              </td>
-              <td class="py-3 text-right whitespace-nowrap">
-                <button type="button" @click="mulaiUbahRuang(r)" class="ui-button ui-button--outline text-primary text-[12px] font-semibold mr-1.5">Ubah</button>
-                <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-border text-[12px] font-medium hover:bg-slate-50 min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
+    <!-- TABEL DESKTOP (Tampil saat data tersedia) -->
+    <div x-show="!ruangLoading && !ruangError && filteredRuang().length > 0" class="w-full hidden md:block overflow-x-auto">
+      <!-- Header Kolom Tabel -->
+      <div class="w-full h-[44px] bg-[#F6F7FB] rounded-[9px] px-[14px] flex items-center gap-[12px]">
+        <div class="w-[250px] shrink-0 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">RUANGAN</div>
+        <div class="flex-1 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">GEDUNG</div>
+        <div class="w-[110px] shrink-0 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">KAPASITAS</div>
+        <div class="w-[150px] shrink-0 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">JENIS</div>
+        <div class="w-[100px] shrink-0 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">STATUS</div>
+        <div class="w-[132px] shrink-0 text-[10px] font-bold text-[#667085] uppercase tracking-wider text-left">AKSI</div>
+      </div>
 
-    <!-- Mobile: Daftar Berlabel -->
-    <div x-show="!ruangLoading && filteredRuang().length > 0" class="mt-6 space-y-3 md:hidden">
-      <template x-for="r in filteredRuang()" :key="r.id">
-        <div class="ui-card p-4">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <p class="font-mono font-bold text-[15px] text-ink" x-text="r.code">-</p>
-              <p class="text-[13px] text-muted" x-text="r.name || '—'"></p>
+      <!-- Baris Data Ruangan -->
+      <div class="w-full flex flex-col divide-y divide-[#EEEEEE]">
+        <template x-for="r in filteredRuang()" :key="r.id">
+          <div class="w-full min-h-[71.5px] px-[14px] py-3 flex items-center gap-[12px] hover:bg-slate-50/70 transition-colors">
+            
+            <!-- Kolom RUANGAN: Kode & Nama -->
+            <div class="w-[250px] shrink-0 flex flex-col gap-[3px] text-left">
+              <span class="text-[13px] font-bold text-[#1D1B3A] font-mono leading-tight truncate" x-text="r.code">-</span>
+              <span class="text-[11px] text-[#667085] leading-tight truncate" x-text="r.name || '—'">-</span>
             </div>
-            <span class="ui-badge inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold"
-              :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
-              x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+
+            <!-- Kolom GEDUNG -->
+            <div class="flex-1 text-[12px] font-medium text-[#1D1B3A] text-left truncate" x-text="r.building || '—'">-</div>
+
+            <!-- Kolom KAPASITAS -->
+            <div class="w-[110px] shrink-0 text-[12px] font-medium text-[#1D1B3A] text-left" x-text="r.capacity ? r.capacity + ' kursi' : '—'">-</div>
+
+            <!-- Kolom JENIS -->
+            <div class="w-[150px] shrink-0 text-[12px] font-medium text-[#1D1B3A] text-left truncate" x-text="formatJenisRuang(r.room_type)">-</div>
+
+            <!-- Kolom STATUS -->
+            <div class="w-[100px] shrink-0 flex items-center">
+              <span class="inline-flex items-center px-[9px] py-[4px] rounded-[7px] text-[11px] font-semibold"
+                    :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#F1F5F9] text-[#64748B]'"
+                    x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+            </div>
+
+            <!-- Kolom AKSI: Tombol Ubah & Menu Titik Tiga -->
+            <div class="w-[132px] shrink-0 flex items-center gap-[6px] relative">
+              <button type="button"
+                      @click="mulaiUbahRuang(r)"
+                      class="h-[32px] px-[12px] bg-[#E9EAFF] hover:bg-[#dcdcff] rounded-[12px] text-[#3965FB] text-[12px] font-bold inline-flex items-center gap-[5px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z m8.28858-8.11084l-0.64942-0.64942 0.64942 0.64942z m-1.62354 0.97412l-0.31445-0.32813 0.64258 0.64258-0.32813-0.31445z"/>
+                </svg>
+                <span>Ubah</span>
+              </button>
+
+              <!-- Tombol Titik Tiga dengan Popover -->
+              <div class="relative">
+                <button type="button"
+                        @click="ruangMenuId = (ruangMenuId === r.id ? null : r.id)"
+                        title="Opsi lainnya"
+                        aria-label="Opsi lainnya"
+                        class="w-[32px] h-[32px] bg-white border border-[#E2E8F0] hover:bg-slate-100 rounded-[10px] flex items-center justify-center text-[#667085] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false">
+                    <path d="M3.77002 7.58447q-0.24268 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.1709-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.1709 0.1709 0.17089 0.41016 0 0.23926-0.17089 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41357-0.1709-0.1709-0.17432-0.1709-0.41357 0-0.23926 0.1709-0.41016 0.17432-0.17432 0.41357-0.17431 0.23926 0 0.41016 0.17431 0.17432 0.1709 0.17431 0.41016 0 0.23926-0.17431 0.41357-0.1709 0.1709-0.41016 0.1709z m3.22998 0q-0.23926 0-0.41016-0.1709-0.1709-0.17432-0.17089-0.41357 0-0.23926 0.17089-0.41016 0.1709-0.17432 0.41016-0.17431 0.24268 0 0.41357 0.17431 0.1709 0.1709 0.1709 0.41016 0 0.23926-0.1709 0.41357-0.1709 0.1709-0.41016 0.1709z"/>
+                  </svg>
+                </button>
+
+                <!-- Popover Menu Cepat -->
+                <div x-show="ruangMenuId === r.id"
+                     @click.outside="ruangMenuId = null"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="transform opacity-0 scale-95"
+                     x-transition:enter-end="transform opacity-100 scale-100"
+                     class="absolute right-0 top-9 z-30 w-44 bg-white border border-[#CBD5E1] rounded-[12px] shadow-lg py-1.5 text-[12px]">
+                  <button type="button"
+                          @click="mintaKonfirmasiStatusRuang(r); ruangMenuId = null"
+                          class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 text-[#1D1B3A] font-medium transition-colors">
+                    <span class="w-2 h-2 rounded-full" :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+                    <span x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan Ruangan' : 'Aktifkan Ruangan'"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
-          <dl class="mt-2 text-[13px] grid grid-cols-2 gap-2 text-muted">
-            <div><dt class="text-[11px]">Gedung</dt><dd class="font-medium text-ink" x-text="r.building || '—'">-</dd></div>
-            <div><dt class="text-[11px]">Tipe / Kapasitas</dt><dd class="font-medium text-ink" x-text="(r.room_type || '—') + ' · ' + (r.capacity ? r.capacity + ' mhs' : '—')">-</dd></div>
+        </template>
+      </div>
+    </div>
+
+    <!-- TAMPILAN MOBILE (Card View berlabel ramah jempol) -->
+    <div x-show="!ruangLoading && !ruangError && filteredRuang().length > 0" class="mt-4 space-y-3 md:hidden">
+      <template x-for="r in filteredRuang()" :key="r.id">
+        <div class="p-4 rounded-[14px] border border-[#EEEEEE] bg-white shadow-sm flex flex-col gap-2.5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex flex-col">
+              <span class="font-mono font-bold text-[15px] text-[#1D1B3A]" x-text="r.code">-</span>
+              <span class="text-[12px] text-[#667085]" x-text="r.name || '—'">-</span>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold"
+                  :class="String(r.status).toUpperCase() === 'ACTIVE' ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-[#F1F5F9] text-[#64748B]'"
+                  x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Aktif' : 'Nonaktif'">-</span>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-2 text-[12px] py-2 border-y border-[#F2F5FA]">
+            <div>
+              <dt class="text-[10px] uppercase font-bold text-[#667085]">Gedung</dt>
+              <dd class="font-medium text-[#1D1B3A] mt-0.5" x-text="r.building || '—'">-</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase font-bold text-[#667085]">Tipe / Kapasitas</dt>
+              <dd class="font-medium text-[#1D1B3A] mt-0.5" x-text="formatJenisRuang(r.room_type) + ' · ' + (r.capacity ? r.capacity + ' kursi' : '—')">-</dd>
+            </div>
           </dl>
-          <div class="mt-3 flex gap-2">
-            <button type="button" @click="mulaiUbahRuang(r)" class="ui-button ui-button--outline flex-1 text-primary text-[13px] font-semibold">Ubah</button>
-            <button type="button" @click="mintaKonfirmasiStatusRuang(r)" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border text-[13px] font-medium min-h-[44px]" x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">-</button>
+
+          <div class="flex gap-2 pt-1">
+            <button type="button"
+                    @click="mulaiUbahRuang(r)"
+                    class="flex-1 h-[44px] bg-[#E9EAFF] hover:bg-[#dcdcff] rounded-[10px] text-[#3965FB] text-[13px] font-bold inline-flex items-center justify-center gap-1.5 transition-colors min-h-[44px]">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="#3965FB"><path d="M2.91553 11.08447l0.64258 0 6.24121-6.24121-0.64258-0.64258-6.24121 6.24122 0 0.64257z m-0.10938 0.58106q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-0.60498q0-0.19482 0.0752-0.36914 0.0752-0.17432 0.20166-0.30078l7.41015-7.417q0.08887-0.08203 0.19825-0.12304 0.10938-0.04443 0.22558-0.04444 0.11963 0 0.22901 0.0376 0.10938 0.03418 0.20166 0.1333l0.62207 0.62549q0.09912 0.09229 0.1333 0.20508 0.03418 0.10938 0.03418 0.22217 0 0.11621-0.04102 0.22558-0.0376 0.10938-0.12646 0.19824l-7.417 7.40674q-0.12646 0.12646-0.30078 0.20166-0.17432 0.0752-0.36914 0.0752l-0.60498 0z m8.28858-8.11084l-0.64942-0.64942 0.64942 0.64942z m-1.62354 0.97412l-0.31445-0.32813 0.64258 0.64258-0.32813-0.31445z"/></svg>
+              <span>Ubah</span>
+            </button>
+            <button type="button"
+                    @click="mintaKonfirmasiStatusRuang(r)"
+                    class="flex-1 h-[44px] bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[10px] text-[13px] font-semibold text-[#1D1B3A] inline-flex items-center justify-center transition-colors min-h-[44px]"
+                    x-text="String(r.status).toUpperCase() === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'">
+            </button>
           </div>
         </div>
       </template>
     </div>
 
-    <!-- MODAL 1: Tambah Ruangan Baru -->
-    <div x-show="modalTambahRuang" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tutupModalTambahRuang()"></div>
-      <div class="ui-card relative max-w-lg w-full p-6 sm:p-7 shadow-2xl" role="dialog" aria-modal="true" aria-label="Tambah ruangan baru">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[18px] font-bold text-ink">Tambah Ruangan Baru</h3>
-            <p class="text-[13px] text-muted mt-0.5">Kode ruangan bersifat unik dan permanen.</p>
-          </div>
-          <button type="button" @click="tutupModalTambahRuang()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
-        </div>
-
-        <div x-show="ruangFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ruangFormError">-</div>
-
-        <form @submit.prevent="tambahRuang()" class="space-y-3.5 mt-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label for="sa-modal-ruang-kode" class="block text-[12px] font-semibold text-ink mb-1">Kode Ruangan *</label>
-              <input id="sa-modal-ruang-kode" type="text" x-model="ruangForm.kode" placeholder="Contoh: D102-Lab. MT" class="ui-field text-[14px] font-mono" required />
-            </div>
-            <div>
-              <label for="sa-modal-ruang-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama Ruangan</label>
-              <input id="sa-modal-ruang-nama" type="text" x-model="ruangForm.nama" placeholder="Contoh: Lab. Multimedia" class="ui-field text-[14px]" />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label for="sa-modal-ruang-gedung" class="block text-[12px] font-semibold text-ink mb-1">Gedung</label>
-              <input id="sa-modal-ruang-gedung" type="text" x-model="ruangForm.gedung" placeholder="Gedung D" class="ui-field text-[14px]" />
-            </div>
-            <div>
-              <label for="sa-modal-ruang-tipe" class="block text-[12px] font-semibold text-ink mb-1">Tipe</label>
-              <input id="sa-modal-ruang-tipe" type="text" x-model="ruangForm.tipe" placeholder="Lab / Teori" class="ui-field text-[14px]" />
-            </div>
-            <div>
-              <label for="sa-modal-ruang-kapasitas" class="block text-[12px] font-semibold text-ink mb-1">Kapasitas</label>
-              <input id="sa-modal-ruang-kapasitas" type="number" x-model="ruangForm.kapasitas" placeholder="32" min="0" step="1" class="ui-field text-[14px]" />
-            </div>
-          </div>
-
-          <div class="flex gap-2 pt-2 border-t border-border">
-            <button type="submit" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Tambah Ruangan</button>
-            <button type="button" @click="tutupModalTambahRuang()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-          </div>
-        </form>
-      </div>
+    <!-- Footer Keterangan Total Data -->
+    <div class="w-full pt-4 mt-3 border-t border-[#EEEEEE] flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p class="text-[11px] text-[#667085] text-left">
+        Menampilkan <span class="font-bold text-[#1D1B3A]" x-text="filteredRuang().length"></span> dari <span class="font-bold text-[#1D1B3A]" x-text="ruangList.length"></span> ruangan · master rujukan jadwal POLBAN.
+      </p>
     </div>
 
-    <!-- MODAL 2: Impor & Sinkronisasi Ruangan -->
-    <div x-show="modalImportRuang" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tutupModalImportRuang()"></div>
-      <div class="ui-card relative max-w-xl w-full p-6 sm:p-7 shadow-2xl" role="dialog" aria-modal="true" aria-label="Impor dan sinkronisasi ruangan">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[18px] font-bold text-ink">Impor / Sinkronisasi Ruangan</h3>
-            <p class="text-[13px] text-muted mt-0.5">Ekstrak seluruh ruangan dari berkas jadwal kurikulum POLBAN.</p>
-          </div>
-          <button type="button" @click="tutupModalImportRuang()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+  </div>
+
+  <!-- ==================== MODAL 1: TAMBAH RUANGAN BARU (SCR-ADM-003C) ==================== -->
+  <div x-show="modalTambahRuang" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1D1B3A66] backdrop-blur-[2px]">
+    <!-- Backdrop dismiss overlay -->
+    <div class="absolute inset-0" @click="tutupModalTambahRuang()"></div>
+
+    <!-- Modal Dialog Card -->
+    <div
+      class="relative w-full max-w-[540px] bg-white rounded-[16px] p-6 shadow-[0px_18px_42px_#1018283D] border border-[#E5E7EB] z-10 flex flex-col gap-0 text-left"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-tambah-ruang-title"
+    >
+      <!-- Header Modal -->
+      <div class="w-full pb-[14px] flex flex-col gap-1 border-b border-[#EEEEEE]">
+        <div class="w-full flex items-center justify-between">
+          <h3 id="modal-tambah-ruang-title" class="text-[18px] font-bold text-[#1D1B3A]">
+            Tambah Ruangan
+          </h3>
+          <button
+            type="button"
+            @click="tutupModalTambahRuang()"
+            :disabled="ruangFormLoading"
+            class="w-[32px] h-[32px] rounded-lg text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 flex items-center justify-center transition-colors min-h-[32px] min-w-[32px]"
+            aria-label="Tutup modal"
+          >
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
           </button>
         </div>
+        <p class="text-[13px] text-[#667085] leading-[18px]">
+          Isi identitas ruang agar dapat dipilih saat menyusun jadwal kelas.
+        </p>
+      </div>
 
-        <div x-show="importRuangError" class="mt-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="importRuangError">-</div>
-        <div x-show="importRuangSuccess" class="mt-3 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800" x-text="importRuangSuccess">-</div>
+      <!-- Callout Edukatif: Peringatan Kode Permanen -->
+      <div class="w-full mt-3.5 p-[10px_14px] bg-[#EEF2FF] border border-[#C7D7FE] rounded-[10px] flex items-start gap-[9px] text-[#3965FB]">
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0 mt-0.5" aria-hidden="true">
+          <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+        </svg>
+        <div class="text-[12px] leading-[17px] font-normal">
+          Kode ruangan bersifat permanen (immutable) dan tidak dapat diubah setelah disimpan untuk menjaga relasi jadwal kelas. Pastikan format sesuai standar POLBAN (contoh: D102-Lab. MT).
+        </div>
+      </div>
 
-        <div class="mt-4 space-y-4">
-          <div class="p-4 rounded-2xl border border-border bg-slate-50/70">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <span class="material-symbols-outlined text-[24px]">meeting_room</span>
+      <!-- Error Box -->
+      <div x-show="ruangFormError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2" x-cloak>
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="#B91C1C" class="shrink-0" aria-hidden="true">
+          <path d="M7 12.25q-2.17188 0-3.71094-1.53906-1.53906-1.53906-1.53906-3.71094 0-2.17188 1.53906-3.71094 1.53906-1.53906 3.71094-1.53906 2.17188 0 3.71094 1.53906 1.53906 1.53906 1.53906 3.71094 0 2.17188-1.53906 3.71094-1.53906 1.53906-3.71094 1.53906z M6.475 9.8h1.05v-1.05h-1.05v1.05z M6.475 7.7h1.05V4.2h-1.05v3.5z"/>
+        </svg>
+        <span x-text="ruangFormError">-</span>
+      </div>
+
+      <!-- Form Tambah Ruangan -->
+      <form @submit.prevent="tambahRuang()" class="w-full flex flex-col gap-4 pt-4">
+        <!-- Baris Identitas: Kode ruangan & Nama ruangan -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Field Kode ruangan * -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-kode" class="text-[12px] font-semibold text-[#1D1B3A]">
+              Kode ruangan <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="sa-ruang-kode"
+              type="text"
+              x-model="ruangForm.kode"
+              placeholder="Contoh: D102-Lab. MT atau RT-01"
+              required
+              class="w-full h-[44px] px-3 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] font-mono text-[#1D1B3A] placeholder:text-[#94A3B8] placeholder:font-sans focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+            />
+          </div>
+
+          <!-- Field Nama ruangan * -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-nama" class="text-[12px] font-semibold text-[#1D1B3A]">
+              Nama ruangan <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="sa-ruang-nama"
+              type="text"
+              x-model="ruangForm.nama"
+              placeholder="Contoh: Lab. Multimedia"
+              required
+              class="w-full h-[44px] px-3 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+            />
+          </div>
+        </div>
+
+        <!-- Baris Atribut: Gedung, Tipe ruangan, Kapasitas -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Field Gedung (opsional) -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-gedung" class="text-[12px] font-normal text-[#1D1B3A]">
+              Gedung (opsional)
+            </label>
+            <div class="relative">
+              <select
+                id="sa-ruang-gedung"
+                x-model="ruangForm.gedung"
+                class="w-full h-[44px] pl-3 pr-8 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] appearance-none focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors cursor-pointer"
+              >
+                <template x-for="g in daftarGedungRuang()" :key="g">
+                  <option :value="g" x-text="g"></option>
+                </template>
+                <option value="__custom__">+ Tambah gedung baru...</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#667085]">
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
               </div>
-              <div>
-                <p class="text-[14px] font-bold text-ink">18 Ruangan Kuliah POLBAN Terdeteksi</p>
-                <p class="text-[12px] text-muted mt-0.5">Sistem memindai 19 berkas jadwal dan mengekstrak seluruh <strong>18 ruangan unik</strong> (seperti D101-Kelas, D102-Lab. MT, D106-Lab. SDB, H501-Lab. TI) lengkap dengan pemetaan gedung dan tipe ruangan.</p>
+            </div>
+            <!-- Input nama gedung baru jika pilih custom -->
+            <div x-show="ruangForm.gedung === '__custom__'" class="mt-1" x-cloak>
+              <input
+                type="text"
+                x-model="ruangForm.gedungKustom"
+                placeholder="Ketik nama gedung..."
+                class="w-full h-[38px] px-3 bg-white border border-[#D7DDE7] rounded-[8px] text-[12px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]"
+              />
+            </div>
+          </div>
+
+          <!-- Field Tipe ruangan (opsional) -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-tipe" class="text-[12px] font-normal text-[#1D1B3A]">
+              Tipe ruangan (opsional)
+            </label>
+            <div class="relative">
+              <select
+                id="sa-ruang-tipe"
+                x-model="ruangForm.tipe"
+                class="w-full h-[44px] pl-3 pr-8 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] appearance-none focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors cursor-pointer"
+              >
+                <option value="Laboratorium">Laboratorium</option>
+                <option value="Teori">Teori</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#667085]">
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
               </div>
             </div>
           </div>
 
-          <div class="pt-3 border-t border-border flex flex-col sm:flex-row gap-2">
-            <button type="button" @click="sinkronRuangDariJadwal()" :disabled="importRuangLoading" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2">
-              <span x-show="importRuangLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <span class="material-symbols-outlined text-[18px]" x-show="!importRuangLoading">sync</span>
-              <span x-text="importRuangLoading ? 'Menyinkronkan...' : 'Sinkronkan 18 Ruangan Saja'">Sinkronkan 18 Ruangan Saja</span>
+          <!-- Field Kapasitas (opsional) -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-kapasitas" class="text-[12px] font-normal text-[#1D1B3A]">
+              Kapasitas (opsional)
+            </label>
+            <div class="relative flex items-center">
+              <input
+                id="sa-ruang-kapasitas"
+                type="number"
+                min="0"
+                step="1"
+                x-model="ruangForm.kapasitas"
+                placeholder="32"
+                class="w-full h-[44px] pl-3 pr-12 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+              />
+              <span class="pointer-events-none absolute right-3 text-[11px] text-[#98A2B3]">kursi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Baris Status Ruangan Toggle Card -->
+        <div class="w-full p-3 bg-white border border-[#EEEEEE] rounded-[12px] flex items-center justify-between">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[13px] font-bold text-[#1D1B3A]">Status ruangan</span>
+            <span class="text-[12px] text-[#667085]">Aktifkan untuk menandai ruangan siap digunakan.</span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="ruangForm.status"
+            @click="ruangForm.status = !ruangForm.status"
+            class="relative inline-flex h-[24px] w-[40px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:ring-offset-2"
+            :class="ruangForm.status ? 'bg-[#3965FB]' : 'bg-[#D7DDE7]'"
+          >
+            <span class="sr-only">Status ruangan</span>
+            <span
+              aria-hidden="true"
+              class="pointer-events-none inline-block h-[20px] w-[20px] transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              :class="ruangForm.status ? 'translate-x-4' : 'translate-x-0'"
+            ></span>
+          </button>
+        </div>
+
+        <!-- Footer Tombol Aksi -->
+        <div class="w-full pt-4 flex items-center justify-end gap-3 border-t border-[#EEEEEE]">
+          <button
+            type="button"
+            @click="tutupModalTambahRuang()"
+            :disabled="ruangFormLoading"
+            class="h-[42px] px-5 rounded-[10px] text-[13px] font-medium text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors disabled:opacity-50 min-h-[42px] inline-flex items-center justify-center cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            :disabled="ruangFormLoading"
+            class="h-[42px] px-6 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-bold shadow-[0px_2px_4px_#3965FB33] transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2 min-h-[42px] cursor-pointer"
+          >
+            <svg x-show="ruangFormLoading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span x-text="ruangFormLoading ? 'Menyimpan...' : 'Simpan Ruangan'">Simpan Ruangan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: IMPOR & SINKRONISASI RUANGAN (SCR-ADM-003G) ==================== -->
+  <div x-show="modalImportRuang" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1D1B3A66] backdrop-blur-[2px]">
+    <!-- Backdrop dismiss overlay -->
+    <div class="absolute inset-0" @click="tutupModalImportRuang()"></div>
+
+    <!-- Modal Dialog Card -->
+    <div
+      class="relative w-full max-w-[540px] max-h-[92vh] overflow-y-auto bg-white rounded-[16px] p-6 shadow-[0px_20px_48px_#10182845] border border-[#E2E8F0] z-10 flex flex-col gap-0 text-left"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-import-ruang-title"
+    >
+      <!-- Header Impor dan Sinkronisasi -->
+      <div class="w-full pb-4 flex flex-col gap-1 border-b border-[#EEEEEE]">
+        <div class="w-full flex items-center justify-between">
+          <h3 id="modal-import-ruang-title" class="text-[18px] font-bold text-[#1D1B3A]">
+            Impor &amp; Sinkronisasi Ruangan
+          </h3>
+          <button
+            type="button"
+            @click="tutupModalImportRuang()"
+            :disabled="importRuangLoading"
+            class="w-[32px] h-[32px] rounded-lg text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 flex items-center justify-center transition-colors min-h-[32px] min-w-[32px] cursor-pointer"
+            aria-label="Tutup dialog"
+          >
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="text-[13px] text-[#667085] leading-[18px]">
+          Tambahkan data master ruangan secara masal atau sinkronkan otomatis dari kurikulum POLBAN.
+        </p>
+      </div>
+
+      <!-- Alert Pesan Galat & Sukses -->
+      <div x-show="importRuangError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2" x-cloak>
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="#B91C1C" class="shrink-0" aria-hidden="true">
+          <path d="M7 12.25q-2.17188 0-3.71094-1.53906-1.53906-1.53906-1.53906-3.71094 0-2.17188 1.53906-3.71094 1.53906-1.53906 3.71094-1.53906 2.17188 0 3.71094 1.53906 1.53906 1.53906 1.53906 3.71094 0 2.17188-1.53906 3.71094-1.53906 1.53906-3.71094 1.53906z M6.475 9.8h1.05v-1.05h-1.05v1.05z M6.475 7.7h1.05V4.2h-1.05v3.5z"/>
+        </svg>
+        <span x-text="importRuangError">-</span>
+      </div>
+      <div x-show="importRuangSuccess" class="mt-3.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2" x-cloak>
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="#15803D" class="shrink-0" aria-hidden="true">
+          <path d="M5.5 10.5L2 7l1.05-1.05L5.5 8.4l5.45-5.45L12 4l-6.5 6.5z"/>
+        </svg>
+        <span x-text="importRuangSuccess">-</span>
+      </div>
+
+      <!-- Tab Metode Impor -->
+      <div class="w-full h-[44px] shrink-0 flex flex-row gap-1 p-1 bg-[#F1F5F9] rounded-[10px] mt-4">
+        <button
+          type="button"
+          @click="importRuangTab = 'json'"
+          class="flex-1 h-full rounded-[8px] text-[12px] transition-all flex items-center justify-center cursor-pointer"
+          :class="importRuangTab === 'json' ? 'bg-white text-[#3965FB] font-bold shadow-[0px_1px_3px_#1018281F]' : 'text-[#667085] hover:text-[#1D1B3A] font-medium'"
+        >
+          Impor Format JSON
+        </button>
+        <button
+          type="button"
+          @click="importRuangTab = 'jadwal'"
+          class="flex-1 h-full rounded-[8px] text-[12px] transition-all flex items-center justify-center cursor-pointer"
+          :class="importRuangTab === 'jadwal' ? 'bg-white text-[#3965FB] font-bold shadow-[0px_1px_3px_#1018281F]' : 'text-[#667085] hover:text-[#1D1B3A] font-medium'"
+        >
+          Sinkronisasi Otomatis POLBAN
+        </button>
+      </div>
+
+      <!-- ================= TAB 1: SINKRONISASI OTOMATIS POLBAN ================= -->
+      <div x-show="importRuangTab === 'jadwal'" class="w-full flex flex-col gap-3 pt-4">
+        <!-- Opsi 1: Ekstrak Ruangan dari Jadwal POLBAN -->
+        <div class="w-full p-4 flex flex-col gap-2.5 bg-white border border-[#D7DDE7] rounded-[12px]">
+          <div class="w-full flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <svg width="21" height="21" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true">
+                <path d="M2.91553 11.66553q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l0.875 0 0-8.27832q0-0.20166 0.1333-0.33496 0.13672-0.13672 0.33496-0.13672l3.73242 0q0.19824 0 0.33154 0.13672 0.13672 0.1333 0.13672 0.33496l0 0.10938 1.27832 0q0.19824 0 0.33496 0.13672 0.13672 0.13672 0.13672 0.33496l0 7.69726 0.875 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-0.98437 0q-0.2085 0-0.3418-0.1333-0.1333-0.13672-0.1333-0.33838l0-7.69385-1.16553 0 0 7.69385q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-5.07226 0z m1.45947-8.75l0 8.16894 0-8.16894z m2.78223 4.08447q0-0.18115-0.1333-0.31445-0.1333-0.1333-0.31446-0.1333-0.18115 0-0.31787 0.1333-0.1333 0.1333-0.1333 0.31445 0 0.18115 0.1333 0.31445 0.13672 0.1333 0.31787 0.1333 0.18115 0 0.31446-0.1333 0.1333-0.1333 0.1333-0.31445z m-2.78223 4.08447l3.5 0 0-8.16894-3.5 0 0 8.16894z"/>
+              </svg>
+              <span class="text-[14px] font-bold text-[#1D1B3A]">Ekstrak Ruangan dari Jadwal POLBAN</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#E9EAFF] text-[#3965FB] shrink-0">
+              18 Ruangan Resmi
+            </span>
+          </div>
+          <p class="text-[12px] text-[#667085] leading-[17px]">
+            Memindai 19 berkas jadwal kurikulum POLBAN untuk mendeteksi 18 ruangan perkuliahan di Gedung D dan Gedung H.
+          </p>
+          <div class="pt-1">
+            <button
+              type="button"
+              @click="sinkronRuangDariJadwal()"
+              :disabled="importRuangLoading"
+              class="h-[36px] px-3.5 rounded-[8px] bg-white border border-[#3965FB] hover:bg-blue-50/60 text-[#3965FB] text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
+            >
+              <svg x-show="!importRuangLoading" width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true">
+                <path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/>
+              </svg>
+              <svg x-show="importRuangLoading" class="animate-spin h-4 w-4 text-[#3965FB]" fill="none" viewBox="0 0 24 24" x-cloak>
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span x-text="importRuangLoading ? 'Menyinkronkan...' : 'Sinkronkan Ruangan Saja'">Sinkronkan Ruangan Saja</span>
             </button>
-            <button type="button" @click="tutupModalImportRuang(); sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--outline text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2" title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen">
-              <span class="material-symbols-outlined text-[18px]">auto_mode</span>
-              <span>Sinkron Semua (106)</span>
+          </div>
+        </div>
+
+        <!-- Opsi 2: Seluruh Master Kampus -->
+        <div class="w-full p-4 flex flex-col gap-2.5 bg-[#F8FAFF] border border-[#C7D7FE] rounded-[12px]">
+          <div class="w-full flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <svg width="21" height="21" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true">
+                <path d="M6.15576 10.61621l3.01807-3.61621-2.33447 0 0.42382-3.31201-2.70019 3.89648 2.03027 0-0.4375 3.03174z m-0.23242-2.45068l-1.73975 0q-0.23926 0-0.34521-0.20508-0.10596-0.2085 0.03076-0.3999l3.28467-4.7544q0.08887-0.12646 0.21875-0.16748 0.1333-0.04102 0.28027 0.01367 0.14697 0.05469 0.21192 0.17774 0.06836 0.12305 0.05127 0.27002l-0.41016 3.31543 2.0918 0q0.24268 0 0.34521 0.22558 0.10254 0.22217-0.05469 0.41358l-3.65381 4.375q-0.09229 0.11279-0.22558 0.14355-0.1333 0.03076-0.25977-0.02734-0.12988-0.0581-0.19824-0.17432-0.06836-0.11621-0.04785-0.26318l0.42041-2.94287z"/>
+              </svg>
+              <span class="text-[14px] font-bold text-[#1D1B3A]">Sinkronkan Seluruh Master Kampus</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#E1FFB7] text-[#1A4D00] shrink-0">
+              106 Master Data
+            </span>
+          </div>
+          <p class="text-[12px] text-[#667085] leading-[17px]">
+            Sinkronisasi terpadu sekaligus: 41 Mata Kuliah, 18 Ruangan, dan 47 Dosen dalam satu kali klik.
+          </p>
+          <div class="pt-1">
+            <button
+              type="button"
+              @click="sinkronSemuaDariModalRuang()"
+              :disabled="importRuangLoading"
+              class="h-[36px] px-3.5 rounded-[8px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-bold inline-flex items-center gap-1.5 shadow-[0px_2px_4px_#3965FB2E] transition-colors disabled:opacity-60 cursor-pointer"
+            >
+              <svg x-show="!importRuangLoading" width="17" height="17" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true">
+                <path d="M6.15576 10.61621l3.01807-3.61621-2.33447 0 0.42382-3.31201-2.70019 3.89648 2.03027 0-0.4375 3.03174z m-0.23242-2.45068l-1.73975 0q-0.23926 0-0.34521-0.20508-0.10596-0.2085 0.03076-0.3999l3.28467-4.7544q0.08887-0.12646 0.21875-0.16748 0.1333-0.04102 0.28027 0.01367 0.14697 0.05469 0.21192 0.17774 0.06836 0.12305 0.05127 0.27002l-0.41016 3.31543 2.0918 0q0.24268 0 0.34521 0.22558 0.10254 0.22217-0.05469 0.41358l-3.65381 4.375q-0.09229 0.11279-0.22558 0.14355-0.1333 0.03076-0.25977-0.02734-0.12988-0.0581-0.19824-0.17432-0.06836-0.11621-0.04785-0.26318l0.42041-2.94287z"/>
+              </svg>
+              <svg x-show="importRuangLoading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>Sinkronkan Semua Master (106)</span>
             </button>
-            <button type="button" @click="tutupModalImportRuang()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Tutup</button>
+          </div>
+        </div>
+
+        <!-- Banner: Jaminan Integritas Data -->
+        <div class="w-full p-3 bg-[#EEF2FF] border border-[#C7D7FE] rounded-[10px] flex items-start gap-2.5 text-[#3965FB]">
+          <svg width="19" height="19" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0 mt-0.5" aria-hidden="true">
+            <path d="M6.38818 7.83398l-1.04248-1.03906q-0.08545-0.08545-0.20166-0.09228-0.11279-0.00684-0.21191 0.09228-0.0957 0.0957-0.0957 0.2085 0 0.10938 0.0957 0.20508l1.12451 1.12793q0.14355 0.14355 0.33154 0.14355 0.18799 0 0.32813-0.14355l2.3584-2.35498q0.08203-0.08545 0.08886-0.20166 0.00684-0.11963-0.08886-0.21534-0.09912-0.0957-0.21192-0.0957-0.10938 0-0.20508 0.0957l-2.26953 2.26953z m0.61182 4.32373q-0.07861 0-0.16748-0.01367-0.08887-0.01367-0.16406-0.04443-1.72266-0.65625-2.7378-2.2251-1.01514-1.57227-1.01513-3.40088l0-2.49853q0-0.29395 0.1709-0.53662 0.17432-0.24268 0.44433-0.34864l3.14112-1.16894q0.16748-0.06152 0.32812-0.06153 0.16064 0 0.32813 0.06153l3.14111 1.16894q0.27002 0.10596 0.44092 0.34864 0.17432 0.24268 0.17431 0.53662l0 2.49853q0 1.82861-1.01513 3.40088-1.01514 1.56885-2.7378 2.2251-0.0752 0.03076-0.16406 0.04443-0.08887 0.01367-0.16748 0.01367z m0-0.55029q1.51758-0.48193 2.50879-1.92431 0.99121-1.44238 0.99121-3.20948l0-2.50879q0-0.11279-0.06152-0.20166-0.06152-0.08887-0.17432-0.1333l-3.14111-1.16894q-0.05469-0.02051-0.12305-0.02051-0.06836 0-0.12305 0.02051l-3.14111 1.16894q-0.11279 0.04443-0.17432 0.1333-0.06152 0.08887-0.06152 0.20166l0 2.50879q0 1.76709 0.99121 3.20948 0.99121 1.44238 2.50879 1.92431z"/>
+          </svg>
+          <div class="text-[12px] leading-[17px]">
+            <strong>Jaminan Integritas:</strong> Sinkronisasi bersifat aman &amp; idempotent (merge-upsert). Data ruangan manual tidak akan terhapus, data tidak akan berlipat ganda, dan status nonaktif tetap aman.
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- MODAL 3: Ubah Ruangan -->
-    <div x-show="ruangEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="batalUbahRuang()"></div>
-      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Ubah data ruangan">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[17px] font-bold text-ink">Ubah Data Ruangan</h3>
-            <p class="text-[12px] text-muted mt-0.5">Kode: <span class="font-mono font-semibold text-ink" x-text="ruangEdit ? ruangEdit.kode : ''">-</span> (tidak dapat diubah)</p>
-          </div>
-          <button type="button" @click="batalUbahRuang()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+      <!-- ================= TAB 2: IMPOR FORMAT JSON ================= -->
+      <div x-show="importRuangTab === 'json'" class="w-full flex flex-col gap-3 pt-4" x-cloak>
+        <!-- Header Editor JSON -->
+        <div class="w-full flex items-center justify-between">
+          <label for="sa-import-ruang-json" class="text-[13px] font-bold text-[#1D1B3A]">
+            Payload JSON (Array Ruangan)
+          </label>
+          <button
+            type="button"
+            @click="isiContohJsonRuang()"
+            class="inline-flex items-center gap-1 text-[12px] font-medium text-[#3965FB] hover:underline cursor-pointer min-h-[32px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7 8.89355q-0.0957 0-0.17432-0.03076-0.07861-0.03076-0.1538-0.10595l-1.53126-1.52784q-0.08203-0.08545-0.08886-0.20166-0.00342-0.11621 0.08887-0.21191 0.09912-0.0957 0.20849-0.0957 0.11279-0.00342 0.2085 0.09228l1.15185 1.15186 0-4.7544q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20849l0 4.7544 1.15185-1.15186q0.08545-0.08545 0.20166-0.08887 0.11621-0.00342 0.21533 0.09229 0.09229 0.0957 0.09229 0.2085 0.00342 0.10938-0.09228 0.20507l-1.53126 1.52784q-0.0752 0.0752-0.1538 0.10595-0.07861 0.03076-0.17432 0.03076z m-3.14111 2.19092q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.21191-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.2461 0.11279l6.28222 0q0.1333 0 0.2461-0.11279 0.11279-0.11279 0.11279-0.2461l0-1.12109q0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.2085l0 1.12109q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-6.28222 0z"/>
+            </svg>
+            <span>Unduh Format JSON</span>
           </button>
         </div>
 
-        <div x-show="ruangEditError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ruangEditError"></div>
+        <!-- Editor Payload JSON -->
+        <div class="w-full">
+          <textarea
+            id="sa-import-ruang-json"
+            x-model="importRuangJsonText"
+            @dragover.prevent="importRuangDragOver = true"
+            @dragleave.prevent="importRuangDragOver = false"
+            @drop.prevent="handleImportRuangDrop($event)"
+            :class="importRuangDragOver ? 'border-[#3965FB] ring-2 ring-[#3965FB]/20 bg-blue-50/40' : 'border-[#D7DDE7] bg-[#F8FAFC]'"
+            rows="8"
+            class="w-full h-[190px] p-3 border rounded-[12px] font-mono text-[12px] leading-[18px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors resize-y"
+            placeholder='[&#10;  {&#10;    "code": "D102-Lab. MT",&#10;    "name": "Lab. Multimedia",&#10;    "building": "Gedung D",&#10;    "room_type": "Laboratorium",&#10;    "capacity": 32&#10;  },&#10;  {&#10;    "code": "D101-Kelas",&#10;    "name": "Ruang Teori 1",&#10;    "building": "Gedung D",&#10;    "room_type": "Ruang Kuliah",&#10;    "capacity": 32&#10;  }&#10;]'
+          ></textarea>
+        </div>
 
-        <form @submit.prevent="simpanUbahRuang()" class="mt-4 space-y-3.5">
-          <div>
-            <label for="sa-ruang-ubah-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama Ruangan</label>
-            <input id="sa-ruang-ubah-nama" type="text" x-model="ruangEdit.nama" class="ui-field text-[14px]" />
+        <!-- Petunjuk Format dan Validasi -->
+        <div class="w-full p-3 bg-[#F6F7FB] border border-[#EEEEEE] rounded-[10px] flex flex-col gap-1">
+          <div class="flex items-start gap-1.5 text-[11px]/[15px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Field <strong class="text-[#1D1B3A]">code</strong> wajib diisi dan unik sebagai identitas ruangan.</span>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label for="sa-ruang-ubah-gedung" class="block text-[12px] font-semibold text-ink mb-1">Gedung</label>
-              <input id="sa-ruang-ubah-gedung" type="text" x-model="ruangEdit.gedung" class="ui-field text-[14px]" />
-            </div>
-            <div>
-              <label for="sa-ruang-ubah-tipe" class="block text-[12px] font-semibold text-ink mb-1">Tipe</label>
-              <input id="sa-ruang-ubah-tipe" type="text" x-model="ruangEdit.tipe" class="ui-field text-[14px]" />
-            </div>
+          <div class="flex items-start gap-1.5 text-[11px]/[15px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Field <strong class="text-[#1D1B3A]">building</strong>, <strong class="text-[#1D1B3A]">room_type</strong>, dan <strong class="text-[#1D1B3A]">capacity</strong> bersifat opsional (default kapasitas: 32).</span>
           </div>
-          <div>
-            <label for="sa-ruang-ubah-kapasitas" class="block text-[12px] font-semibold text-ink mb-1">Kapasitas</label>
-            <input id="sa-ruang-ubah-kapasitas" type="number" x-model="ruangEdit.kapasitas" min="0" step="1" class="ui-field text-[14px]" />
+          <div class="flex items-start gap-1.5 text-[11px]/[15px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Sistem otomatis memperbarui nama dan kapasitas jika kode sudah terdaftar (<strong class="text-[#1D1B3A]">idempotent</strong>).</span>
           </div>
-
-          <div class="flex gap-2 pt-2 border-t border-border">
-            <button type="submit" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Simpan Perubahan</button>
-            <button type="button" @click="batalUbahRuang()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL 4: Dialog Konfirmasi Status Ruangan -->
-    <div x-show="ruangStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="batalKonfirmasiStatusRuang()"></div>
-      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status ruangan">
-        <h3 class="text-[17px] font-bold text-ink">Ubah Status Ruangan?</h3>
-        <p class="text-[13px] text-muted mt-1">Ruangan <span class="font-mono font-semibold text-ink" x-text="ruangStatusConfirm ? ruangStatusConfirm.kode : ''"></span> dari <span class="font-mono" x-text="ruangStatusConfirm ? ruangStatusConfirm.dari : ''"></span> ke <span class="font-mono font-semibold text-ink" x-text="ruangStatusConfirm ? ruangStatusConfirm.ke : ''"></span>.</p>
-        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah pemakaian untuk jadwal baru. Referensi lama tetap tampil di riwayat.</p>
-        <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatusRuang()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatusRuang()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
         </div>
       </div>
-    </div>
 
-    <!-- Usulan KM Ruangan Menunggu -->
-    <div class="mt-10 pt-8 border-t border-border">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-[16px] font-bold text-ink">Usulan KM Ruangan Menunggu</h2>
-          <p class="text-[12px] text-muted">Usulan ruangan baru atau perubahan dari Ketua Murid kelas.</p>
+      <!-- ================= FOOTER DIALOG: TAB JSON ================= -->
+      <div x-show="importRuangTab === 'json'" class="w-full pt-[18px] mt-2 flex items-center justify-between border-t border-[#EEEEEE]" x-cloak>
+        <!-- Status Deteksi Kiri -->
+        <div class="flex items-center gap-1.5 min-h-[32px]">
+          <!-- Kondisi 1: JSON valid & ada ruangan -->
+          <template x-if="isJsonValidRuang() && parsedImportRuang().length > 0">
+            <div class="flex items-center gap-1.5 text-[#12B76A]">
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="#12B76A" class="shrink-0" aria-hidden="true" focusable="false">
+                <path d="M6.1626 8.45264l-1.45948-1.45606q-0.07861-0.08203-0.19824-0.08545-0.11963-0.00684-0.21191 0.08545-0.0957 0.0957-0.0957 0.2085 0 0.11279 0.0957 0.20508l1.53808 1.53808q0.14014 0.14355 0.32813 0.14356 0.19141 0 0.33154-0.14356l3.1958-3.19238q0.08203-0.08203 0.08545-0.20166 0.00684-0.11963-0.08545-0.21191-0.0957-0.09229-0.20849-0.09229-0.11279 0-0.20508 0.09229l-3.11035 3.11035z m0.84082 3.79736q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+              </svg>
+              <span class="text-[12px] font-medium" x-text="parsedImportRuang().length + ' ruangan terdeteksi valid'"></span>
+            </div>
+          </template>
+
+          <!-- Kondisi 2: Format JSON tidak valid -->
+          <template x-if="!isJsonValidRuang()">
+            <div class="flex items-center gap-1.5 text-[#EF4444]">
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="#EF4444" class="shrink-0" aria-hidden="true" focusable="false">
+                <path d="M7 12.25q-2.17188 0-3.71094-1.53906-1.53906-1.53906-1.53906-3.71094 0-2.17188 1.53906-3.71094 1.53906-1.53906 3.71094-1.53906 2.17188 0 3.71094 1.53906 1.53906 1.53906 1.53906 3.71094 0 2.17188-1.53906 3.71094-1.53906 1.53906-3.71094 1.53906z M6.475 9.8h1.05v-1.05h-1.05v1.05z M6.475 7.7h1.05V4.2h-1.05v3.5z"/>
+              </svg>
+              <span class="text-[12px] font-medium">Format JSON tidak valid</span>
+            </div>
+          </template>
+
+          <!-- Kondisi 3: Editor kosong / 0 ruangan valid -->
+          <template x-if="isJsonValidRuang() && parsedImportRuang().length === 0">
+            <span class="text-[12px] font-medium text-[#667085]">0 ruangan terdeteksi</span>
+          </template>
         </div>
-        <button type="button" @click="loadUsulan('ROOM')" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Muat ulang</button>
+
+        <!-- Tombol Aksi Kanan -->
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            @click="tutupModalImportRuang()"
+            :disabled="importRuangLoading"
+            class="h-[40px] px-3.5 rounded-[10px] text-[13px] font-medium text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer min-h-[40px]"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            @click="prosesImportJsonRuang()"
+            :disabled="importRuangLoading || parsedImportRuang().length === 0"
+            class="h-[40px] px-5 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-bold shadow-[0px_2px_4px_#3965FB30] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 min-h-[40px]"
+          >
+            <svg x-show="importRuangLoading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span x-text="importRuangLoading ? 'Mengimpor...' : 'Validasi & Impor'">Validasi &amp; Impor</span>
+          </button>
+        </div>
       </div>
-      <div x-show="usulanLoading" class="mt-3 py-6 text-center text-[13px] text-slate-400">Memuat usulan...</div>
-      <div x-show="usulanError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="usulanError">-</span>
-        <button type="button" @click="loadUsulan('ROOM')" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-      </div>
-      <div x-show="!usulanLoading && !usulanError && usulanKindList('ROOM').length === 0" class="ui-empty mt-3 p-6 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Tidak ada usulan ruangan menunggu.</div>
-      <div x-show="!usulanLoading && usulanKindList('ROOM').length > 0" class="mt-3 space-y-3">
-        <template x-for="u in usulanKindList('ROOM')" :key="u.id">
-          <div class="p-4 rounded-2xl border border-amber-300 bg-amber-50/40">
-            <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="u.target_code || 'Ruangan baru'">-</span> <span class="font-normal text-slate-500" x-text="'· ' + u.class_slug">-</span></p>
-            <p class="text-[12px] text-slate-500 mt-0.5">Oleh <span x-text="u.proposed_by">-</span><span x-show="u.note" x-text="' · ' + u.note"></span></p>
-            <details class="mt-1 text-[11px] text-slate-500">
-              <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi usulan</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(u.payload_json)"></pre>
-            </details>
-            <div class="flex gap-2 mt-2">
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'approve')" class="ui-button ui-button--primary text-[12px] font-semibold">Setujui</button>
-              <button type="button" @click="mulaiKeputusanUsulan(u, 'reject')" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
-            </div>
-            <div x-show="usulanKeputusan && usulanKeputusan.id === u.id" class="ui-card mt-3 p-4">
-              <p class="text-[13px] font-semibold" x-text="(usulanKeputusan.keputusan === 'approve' ? 'Setujui ' : 'Tolak ') + usulanKeputusan.judul">-</p>
-              <p x-show="usulanKeputusan.keputusan === 'approve'" class="text-[12px] text-slate-500 mt-1">Diterapkan ke master dan tercatat di Audit Global.</p>
-              <label :for="'sa-usulan-catatan-room-' + u.id" class="block text-[13px] font-medium mt-2 mb-1">Catatan <span x-show="usulanKeputusan.keputusan === 'reject'" class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input aria-label="Catatan" :id="'sa-usulan-catatan-room-' + u.id" type="text" x-model="usulanCatatan" placeholder="Catatan keputusan" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanKeputusanUsulan()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="usulanKeputusan = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-              </div>
-            </div>
-          </div>
-        </template>
+
+      <!-- ================= FOOTER DIALOG: TAB JADWAL ================= -->
+      <div x-show="importRuangTab === 'jadwal'" class="w-full pt-4 mt-2 flex items-center justify-end border-t border-[#EEEEEE]">
+        <button
+          type="button"
+          @click="tutupModalImportRuang()"
+          :disabled="importRuangLoading"
+          class="h-[40px] px-4 rounded-[10px] text-[13px] font-medium text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer min-h-[40px]"
+        >
+          Tutup
+        </button>
       </div>
     </div>
   </div>
+
+  <!-- ==================== MODAL 3: UBAH DATA RUANGAN (SCR-ADM-003D) ==================== -->
+  <div
+    x-show="ruangEdit"
+    x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1D1B3A66] backdrop-blur-[2px]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-ubah-ruang-title"
+  >
+    <!-- Backdrop dismiss overlay -->
+    <div class="absolute inset-0" @click="batalUbahRuang()"></div>
+
+    <!-- Modal Dialog Card -->
+    <div
+      class="relative w-full max-w-[540px] max-h-[92vh] overflow-y-auto bg-white rounded-[16px] p-6 shadow-[0px_18px_42px_#1018283D] border border-[#E5E7EB] z-10 flex flex-col gap-0 text-left"
+      @click.stop
+    >
+      <!-- Header Modal Ubah Ruangan -->
+      <div class="w-full pb-3.5 flex flex-col gap-1 border-b border-[#EEEEEE]">
+        <div class="w-full flex items-center justify-between">
+          <h3 id="modal-ubah-ruang-title" class="text-[18px] font-bold text-[#1D1B3A]">
+            Ubah Ruangan
+          </h3>
+          <button
+            type="button"
+            @click="batalUbahRuang()"
+            :disabled="ruangEditLoading"
+            class="w-[32px] h-[32px] rounded-lg text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 flex items-center justify-center transition-colors min-h-[32px] min-w-[32px] cursor-pointer"
+            aria-label="Tutup dialog"
+          >
+            <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="text-[13px] text-[#667085] leading-[18px]">
+          Perbarui informasi nama, gedung, kapasitas, atau status operasional ruangan.
+        </p>
+      </div>
+
+      <!-- Pesan Galat / Error Banner -->
+      <div x-show="ruangEditError" class="mt-3.5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2" x-cloak>
+        <svg width="16" height="16" viewBox="0 0 14 14" fill="#B91C1C" class="shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 12.25q-2.17188 0-3.71094-1.53906-1.53906-1.53906-1.53906-3.71094 0-2.17188 1.53906-3.71094 1.53906-1.53906 3.71094-1.53906 2.17188 0 3.71094 1.53906 1.53906 1.53906 1.53906 3.71094 0 2.17188-1.53906 3.71094-1.53906 1.53906-3.71094 1.53906z M6.475 9.8h1.05v-1.05h-1.05v1.05z M6.475 7.7h1.05V4.2h-1.05v3.5z"/>
+        </svg>
+        <span x-text="ruangEditError">-</span>
+      </div>
+
+      <!-- Form Ubah Ruangan -->
+      <form @submit.prevent="simpanUbahRuang()" class="w-full flex flex-col gap-4 pt-4">
+        <!-- Baris Identitas Ruang (Kode Permanen & Nama Ruangan) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- Kode Ruangan Terkunci -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[12px] font-normal text-[#1D1B3A]">
+              Kode ruangan
+            </label>
+            <div class="w-full h-[44px] px-3 bg-[#F6F7FB] border border-[#D7DDE7] rounded-[10px] flex items-center justify-between">
+              <span class="text-[12px] font-mono font-semibold text-[#667085]" x-text="ruangEdit ? ruangEdit.kode : '-'">-</span>
+              <svg width="17" height="17" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false">
+                <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0z m0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m3.14111-2.04053q0.36914 0 0.62207-0.25293 0.25293-0.25293 0.25293-0.62207 0-0.36914-0.25293-0.62207-0.25293-0.25293-0.62207-0.25293-0.36914 0-0.62207 0.25293-0.25293 0.25293-0.25293 0.62207 0 0.36914 0.25293 0.62207 0.25293 0.25293 0.62207 0.25293z m-1.75-4.375l3.5 0 0-1.16553q0-0.73145-0.5127-1.24072-0.50928-0.50928-1.2373-0.50928-0.72803 0-1.24072 0.50928-0.50928 0.50928-0.50928 1.24072l0 1.16553z m-1.75 6.41553q0 0 0-0.09912 0-0.10254 0-0.25977l0-5.11328q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.10254 0 0.09912 0 0.25635l0 5.11328q0 0.15723 0 0.25977 0 0.09912 0 0.09912z"/>
+              </svg>
+            </div>
+            <p class="text-[11px] text-[#667085] leading-[15px]">
+              Kode bersifat permanen dan tidak dapat diubah.
+            </p>
+          </div>
+
+          <!-- Nama Ruangan * -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-ubah-nama" class="text-[12px] font-normal text-[#1D1B3A]">
+              Nama ruangan *
+            </label>
+            <input
+              id="sa-ruang-ubah-nama"
+              type="text"
+              x-model="ruangEdit.nama"
+              required
+              placeholder="Contoh: Lab. Multimedia"
+              class="w-full h-[44px] px-3 bg-white border border-[#D7DDE7] rounded-[10px] text-[13px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+            />
+          </div>
+        </div>
+
+        <!-- Baris Atribut Ruang (Gedung, Tipe Ruangan, Kapasitas) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- Gedung -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-ubah-gedung" class="text-[12px] font-normal text-[#1D1B3A]">
+              Gedung
+            </label>
+            <div class="relative">
+              <select
+                id="sa-ruang-ubah-gedung"
+                x-model="ruangEdit.gedung"
+                class="w-full h-[44px] pl-3 pr-8 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] appearance-none focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors cursor-pointer"
+              >
+                <template x-for="g in daftarGedungRuang()" :key="g">
+                  <option :value="g" x-text="g"></option>
+                </template>
+                <option value="__custom__">+ Tambah Gedung Baru...</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#667085]">
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
+              </div>
+            </div>
+            <!-- Input nama gedung baru jika pilih custom -->
+            <div x-show="ruangEdit.gedung === '__custom__'" class="mt-1" x-cloak>
+              <input
+                type="text"
+                x-model="ruangEdit.gedungKustom"
+                placeholder="Ketik nama gedung..."
+                class="w-full h-[38px] px-3 bg-white border border-[#D7DDE7] rounded-[8px] text-[12px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB]"
+              />
+            </div>
+          </div>
+
+          <!-- Tipe ruangan -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-ubah-tipe" class="text-[12px] font-normal text-[#1D1B3A]">
+              Tipe ruangan
+            </label>
+            <div class="relative">
+              <select
+                id="sa-ruang-ubah-tipe"
+                x-model="ruangEdit.tipe"
+                class="w-full h-[44px] pl-3 pr-8 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] appearance-none focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors cursor-pointer"
+              >
+                <option value="Laboratorium">Laboratorium</option>
+                <option value="Teori">Teori</option>
+                <option value="Ruang Kuliah">Ruang Kuliah</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#667085]">
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0" aria-hidden="true" focusable="false">
+                  <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kapasitas -->
+          <div class="flex flex-col gap-1.5">
+            <label for="sa-ruang-ubah-kapasitas" class="text-[12px] font-normal text-[#1D1B3A]">
+              Kapasitas
+            </label>
+            <div class="relative flex items-center">
+              <input
+                id="sa-ruang-ubah-kapasitas"
+                type="number"
+                min="0"
+                step="1"
+                x-model="ruangEdit.kapasitas"
+                placeholder="32"
+                class="w-full h-[44px] pl-3 pr-12 bg-white border border-[#D7DDE7] rounded-[10px] text-[12px] text-[#1D1B3A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"
+              />
+              <span class="pointer-events-none absolute right-3 text-[11px] text-[#98A2B3]">kursi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Baris Status Ruangan Toggle Switch Box -->
+        <div class="w-full p-3 bg-white border border-[#EEEEEE] rounded-[12px] flex items-center justify-between">
+          <div class="flex flex-col gap-0.5">
+            <span class="text-[13px] font-bold text-[#1D1B3A]">Status ruangan</span>
+            <span
+              class="text-[12px] text-[#667085]"
+              x-text="ruangEdit && ruangEdit.status ? 'Ruangan aktif dan dapat dijadwalkan.' : 'Ruangan nonaktif dan tidak dapat dijadwalkan.'"
+            >
+              Ruangan aktif dan dapat dijadwalkan.
+            </span>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="ruangEdit && ruangEdit.status"
+            @click="ruangEdit.status = !ruangEdit.status"
+            class="relative inline-flex h-[24px] w-[40px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:ring-offset-2"
+            :class="ruangEdit && ruangEdit.status ? 'bg-[#3965FB]' : 'bg-[#D7DDE7]'"
+          >
+            <span class="sr-only">Status ruangan</span>
+            <span
+              aria-hidden="true"
+              class="pointer-events-none inline-block h-[20px] w-[20px] transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              :class="ruangEdit && ruangEdit.status ? 'translate-x-4' : 'translate-x-0'"
+            ></span>
+          </button>
+        </div>
+
+        <!-- Footer Modal Ubah Ruangan -->
+        <div class="w-full pt-5 mt-1 flex items-center justify-between border-t border-[#EEEEEE]">
+          <!-- Kiri: Aksi Cepat Toggle Status -->
+          <div>
+            <template x-if="ruangEdit && ruangEdit.status">
+              <button
+                type="button"
+                @click="ruangEdit.status = false"
+                :disabled="ruangEditLoading"
+                class="text-[12px] font-medium text-[#E03137] hover:underline cursor-pointer min-h-[40px] inline-flex items-center disabled:opacity-50"
+              >
+                Nonaktifkan ruangan
+              </button>
+            </template>
+            <template x-if="ruangEdit && !ruangEdit.status">
+              <button
+                type="button"
+                @click="ruangEdit.status = true"
+                :disabled="ruangEditLoading"
+                class="text-[12px] font-medium text-[#166534] hover:underline cursor-pointer min-h-[40px] inline-flex items-center disabled:opacity-50"
+              >
+                Aktifkan ruangan
+              </button>
+            </template>
+          </div>
+
+          <!-- Kanan: Tombol Batal & Simpan Perubahan -->
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              @click="batalUbahRuang()"
+              :disabled="ruangEditLoading"
+              class="h-[42px] px-[18px] rounded-[10px] text-[13px] font-medium text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors disabled:opacity-50 min-h-[42px] inline-flex items-center justify-center cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              :disabled="ruangEditLoading"
+              class="h-[42px] px-5 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-bold shadow-[0px_2px_4px_#3965FB33] transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2 min-h-[42px] cursor-pointer"
+            >
+              <svg x-show="ruangEditLoading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span x-text="ruangEditLoading ? 'Menyimpan...' : 'Simpan Perubahan'">Simpan Perubahan</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: DIALOG KONFIRMASI STATUS RUANGAN (SCR-ADM-003F) ==================== -->
+  <div x-show="ruangStatusConfirm"
+       x-cloak
+       class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1D1B3A66] backdrop-blur-[2px]"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-konfirmasi-status-ruang-title">
+    <div class="absolute inset-0" @click="batalKonfirmasiStatusRuang()"></div>
+    <div class="relative w-full max-w-[440px] bg-white rounded-[16px] shadow-[0px_18px_42px_#10182840] flex flex-col p-6 z-10" @click.stop>
+      <!-- Header Konfirmasi -->
+      <div class="w-full flex items-start justify-between">
+        <!-- Ikon Peringatan Amber (Nonaktifkan) -->
+        <div x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'INACTIVE'"
+             class="w-[44px] h-[44px] shrink-0 flex items-center justify-center bg-[#FEF0C7] rounded-[22px] text-[#DC6803]">
+          <svg class="w-[22px] h-[22px] shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M7 9.60107q0.15381 0 0.25635-0.10253 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10253z m0-1.92773q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.91894q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.91894q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0.00342 4.57666q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+          </svg>
+        </div>
+        <!-- Ikon Sukses Hijau (Aktifkan Kembali) -->
+        <div x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'ACTIVE'"
+             class="w-[44px] h-[44px] shrink-0 flex items-center justify-center bg-[#E1FFB7] rounded-[22px] text-[#166534]">
+          <svg class="w-[22px] h-[22px] shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z m0-1.32617q1.94141 0 3.28125-1.33984 1.34326-1.34326 1.34326-3.28467 0-1.94141-1.34326-3.28125-1.33984-1.34326-3.28125-1.34326-1.94141 0-3.28467 1.34326-1.33984 1.33984-1.33984 3.28125 0 1.94141 1.33984 3.28467 1.34326 1.33984 3.28467 1.33984z"/>
+          </svg>
+        </div>
+        <!-- Tombol Tutup X -->
+        <button type="button"
+                @click="batalKonfirmasiStatusRuang()"
+                :disabled="ruangStatusLoading"
+                class="w-[32px] h-[32px] shrink-0 flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+                aria-label="Tutup dialog konfirmasi status ruangan">
+          <svg class="w-[20px] h-[20px] shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.20508 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="w-full flex flex-col gap-1 pt-3">
+        <h3 id="modal-konfirmasi-status-ruang-title"
+            class="text-[18px] font-bold text-[#1D1B3A]"
+            x-text="ruangStatusConfirm && ruangStatusConfirm.ke === 'ACTIVE' ? 'Aktifkan Ruangan?' : 'Nonaktifkan Ruangan?'">
+          Nonaktifkan Ruangan?
+        </h3>
+      </div>
+
+      <!-- Pesan Konfirmasi -->
+      <div class="w-full flex flex-col gap-2 pt-3.5">
+        <p class="text-[14px]/[20px] text-[#1D1B3A] font-medium">
+          <span x-text="ruangStatusConfirm && ruangStatusConfirm.ke === 'ACTIVE' ? 'Apakah Anda yakin ingin mengaktifkan kembali ruangan ' : 'Apakah Anda yakin ingin menonaktifkan ruangan '"></span><span class="font-bold text-[#1D1B3A]" x-text="ruangStatusConfirm ? ruangStatusConfirm.labelLengkap : ''"></span>?
+        </p>
+
+        <!-- Penjelasan Integritas Data (Nonaktifkan) -->
+        <div x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'INACTIVE'"
+             class="w-full flex flex-col gap-[5px] p-3 bg-[#F8FAFC] border border-[#EEEEEE] rounded-[10px]">
+          <div class="flex items-start gap-1.5 text-[12px]/[17px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Ruangan tidak akan muncul pada pilihan jadwal kelas semester baru.</span>
+          </div>
+          <div class="flex items-start gap-1.5 text-[12px]/[17px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Riwayat jadwal perkuliahan semester lalu yang menggunakan ruangan ini tetap utuh dan aman.</span>
+          </div>
+          <div class="flex items-start gap-1.5 text-[12px]/[17px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Anda dapat mengaktifkannya kembali kapan saja melalui menu ubah status.</span>
+          </div>
+        </div>
+
+        <!-- Penjelasan Integritas Data (Aktifkan) -->
+        <div x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'ACTIVE'"
+             class="w-full flex flex-col gap-[5px] p-3 bg-[#F8FAFC] border border-[#EEEEEE] rounded-[10px]">
+          <div class="flex items-start gap-1.5 text-[12px]/[17px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Ruangan akan kembali tersedia untuk dijadwalkan pada kelas perkuliahan semester berjalan.</span>
+          </div>
+          <div class="flex items-start gap-1.5 text-[12px]/[17px] text-[#667085]">
+            <span class="shrink-0">•</span>
+            <span>Kapasitas dan seluruh atribut ruangan langsung aktif pada master data.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Konfirmasi -->
+      <div class="w-full flex items-center justify-end gap-3 mt-5">
+        <button type="button"
+                @click="batalKonfirmasiStatusRuang()"
+                :disabled="ruangStatusLoading"
+                class="h-[42px] px-3.5 rounded-[10px] hover:bg-slate-100 text-[#667085] hover:text-[#1D1B3A] text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50">
+          Batal
+        </button>
+
+        <!-- Tombol Nonaktifkan -->
+        <button type="button"
+                x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'INACTIVE'"
+                @click="jalankanUbahStatusRuang()"
+                :disabled="ruangStatusLoading"
+                class="h-[42px] px-5 rounded-[10px] bg-[#D92D20] hover:bg-[#b91c1c] text-white text-[13px] font-bold shadow-[0px_2px_4px_#D92D2033] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-text="ruangStatusLoading ? 'Menonaktifkan...' : 'Nonaktifkan'">Nonaktifkan</span>
+        </button>
+
+        <!-- Tombol Aktifkan -->
+        <button type="button"
+                x-show="ruangStatusConfirm && ruangStatusConfirm.ke === 'ACTIVE'"
+                @click="jalankanUbahStatusRuang()"
+                :disabled="ruangStatusLoading"
+                class="h-[42px] px-5 rounded-[10px] bg-[#15803D] hover:bg-green-800 text-white text-[13px] font-bold shadow-[0px_2px_4px_#15803D33] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-text="ruangStatusLoading ? 'Mengaktifkan...' : 'Aktifkan Ruangan'">Aktifkan Ruangan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: TOLAK USULAN RUANGAN KM (SCR-ADM-003E) ==================== -->
+  <div x-show="modalTolakUsulan && usulanDitolakTarget && usulanDitolakTarget.kind === 'ROOM'"
+       x-cloak
+       class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1D1B3A66] backdrop-blur-[2px]"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-tolak-usulan-ruang-title">
+    <div class="absolute inset-0" @click="tutupModalTolakUsulan()"></div>
+    <div class="relative w-full max-w-[480px] bg-white rounded-[16px] shadow-[0px_18px_42px_#10182840] flex flex-col p-6 z-10" @click.stop>
+      <!-- Header Penolakan -->
+      <div class="w-full flex items-start justify-between">
+        <div class="w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#FEE4E2] rounded-full text-[#D92D20]">
+          <svg class="w-[20px] h-[20px] shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.20508 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </div>
+        <button type="button"
+                @click="tutupModalTolakUsulan()"
+                :disabled="usulanRejectLoading"
+                class="w-[32px] h-[32px] shrink-0 flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+                aria-label="Tutup dialog tolak usulan">
+          <svg class="w-[20px] h-[20px] shrink-0" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.20508 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="w-full flex flex-col gap-1 pt-3">
+        <h3 id="modal-tolak-usulan-ruang-title" class="text-[18px] font-bold text-[#1D1B3A]">Tolak Usulan Ruangan</h3>
+        <p class="text-[13px] text-[#667085]">
+          Usulan ruangan dari Ketua Murid akan ditolak dan tidak dimasukkan ke master data.
+        </p>
+      </div>
+
+      <!-- Ringkasan Usulan Ruangan -->
+      <div class="w-full bg-[#F8FAFC] border border-[#EEEEEE] rounded-[12px] p-3 mt-4 flex flex-col gap-1.5">
+        <div class="w-full flex items-center justify-between gap-2">
+          <div class="text-[14px] font-bold text-[#1D1B3A] truncate"
+               x-text="ringkasanUsulanRuang(usulanDitolakTarget).kodeNama"></div>
+          <div class="shrink-0 px-2.5 py-1 bg-[#F2F5FA] rounded-full text-[11px] font-medium text-[#667085]"
+               x-text="ringkasanUsulanRuang(usulanDitolakTarget).pengusul"></div>
+        </div>
+        <div class="text-[12px] text-[#667085]"
+             x-text="ringkasanUsulanRuang(usulanDitolakTarget).rincian"></div>
+        <div class="text-[12px]/[17px] text-[#475467] italic"
+             x-show="ringkasanUsulanRuang(usulanDitolakTarget).catatan"
+             x-text="'“' + ringkasanUsulanRuang(usulanDitolakTarget).catatan + '”'"></div>
+      </div>
+
+      <!-- Form Alasan Wajib -->
+      <div class="w-full flex flex-col gap-1.5 mt-4">
+        <label for="usulan-ruang-alasan-tolak-input" class="text-[13px] font-bold text-[#1D1B3A]">
+          Alasan Penolakan (Catatan Review) <span class="text-[#D92D20]">*</span>
+        </label>
+        <textarea id="usulan-ruang-alasan-tolak-input"
+                  x-model="usulanAlasanTolak"
+                  :disabled="usulanRejectLoading"
+                  rows="3"
+                  placeholder="Contoh: Ruangan D117 sedang dalam tahap renovasi dan belum siap digunakan untuk perkuliahan semester ini."
+                  class="w-full h-[84px] text-[13px] leading-[18px] p-3 text-[#1D1B3A] placeholder-[#667085] bg-white border border-[#D7DDE7] rounded-[10px] focus:outline-none focus:border-[#D92D20] focus:ring-1 focus:ring-[#D92D20] resize-none transition-colors disabled:bg-slate-50"></textarea>
+        <p class="text-[11px]/[15px] text-[#667085]">
+          Minimal 5 karakter. Catatan ini akan dikirimkan sebagai notifikasi ke WhatsApp KM pengusul.
+        </p>
+      </div>
+
+      <!-- Footer Modal Tolak Usulan -->
+      <div class="w-full flex items-center justify-end gap-3 mt-5">
+        <button type="button"
+                @click="tutupModalTolakUsulan()"
+                :disabled="usulanRejectLoading"
+                class="h-[42px] px-3.5 rounded-[10px] hover:bg-slate-100 text-[#667085] hover:text-[#1D1B3A] text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50">
+          Batal
+        </button>
+        <button type="button"
+                @click="prosesTolakUsulan()"
+                :disabled="!usulanAlasanTolak || usulanAlasanTolak.trim().length < 5 || usulanRejectLoading"
+                class="h-[42px] px-5 rounded-[10px] bg-[#D92D20] hover:bg-[#b91c1c] text-white text-[13px] font-bold shadow-[0px_2px_4px_#D92D2033] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-text="usulanRejectLoading ? 'Menolak...' : 'Tolak Usulan'">Tolak Usulan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </section>
