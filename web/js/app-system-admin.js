@@ -263,6 +263,7 @@ function systemAdminApp() {
     dosenEditSaving: false,
     dosenMenu: null,
     dosenStatusConfirm: null,
+    dosenStatusConfirmLoading: false,
     modalTambahDosen: false,
     modalImportDosen: false,
     importDosenTab: 'jadwal',
@@ -2314,8 +2315,10 @@ function systemAdminApp() {
         id: d.id,
         kode: d.code,
         nama: d.full_name || d.name || '',
+        namaAwal: d.full_name || d.name || '',
         aktif: isAktif,
-        statusAwal: d.status || 'ACTIVE'
+        statusAwal: d.status || 'ACTIVE',
+        konfirmasiNonaktifSelesai: false
       };
       this.dosenEditError = '';
       this.dosenEditSaving = false;
@@ -2336,6 +2339,21 @@ function systemAdminApp() {
         return;
       }
       this.dosenEditError = '';
+
+      // Intersepsi: Jika dosen awalnya aktif dan ingin dinonaktifkan namun belum dikonfirmasi
+      if (f.statusAwal === 'ACTIVE' && !f.aktif && !f.konfirmasiNonaktifSelesai) {
+        this.dosenStatusConfirm = {
+          id: f.id,
+          kode: f.kode,
+          nama: nama,
+          dari: 'ACTIVE',
+          ke: 'INACTIVE',
+          dariEditModal: true
+        };
+        this.dosenStatusConfirmLoading = false;
+        return;
+      }
+
       this.dosenEditSaving = true;
       try {
         const newStatus = f.aktif ? 'ACTIVE' : 'INACTIVE';
@@ -2353,30 +2371,75 @@ function systemAdminApp() {
       }
     },
 
+    konfirmasiNonaktifkanDariEdit() {
+      const f = this.dosenEdit;
+      if (!f) return;
+      const nama = (f.nama || '').trim() || f.namaAwal;
+      if (f.aktif) {
+        this.dosenStatusConfirm = {
+          id: f.id,
+          kode: f.kode,
+          nama: nama,
+          dari: 'ACTIVE',
+          ke: 'INACTIVE',
+          dariEditModal: true
+        };
+        this.dosenStatusConfirmLoading = false;
+      } else {
+        f.aktif = true;
+        f.konfirmasiNonaktifSelesai = false;
+      }
+    },
+
     mintaKonfirmasiStatusDosen(d) {
       this.dosenStatusConfirm = {
         id: d.id,
         kode: d.code,
-        nama: d.full_name || d.name,
+        nama: d.full_name || d.name || '',
         dari: String(d.status || '').toUpperCase(),
         ke: String(d.status).toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
       };
+      this.dosenStatusConfirmLoading = false;
     },
 
     batalKonfirmasiStatusDosen() {
+      if (this.dosenEdit && this.dosenEdit.statusAwal === 'ACTIVE' && !this.dosenEdit.konfirmasiNonaktifSelesai) {
+        this.dosenEdit.aktif = true;
+      }
       this.dosenStatusConfirm = null;
+      this.dosenStatusConfirmLoading = false;
     },
 
     async jalankanUbahStatusDosen() {
       const c = this.dosenStatusConfirm;
       if (!c) return;
+
+      // Jika konfirmasi ini berasal dari dalam dialog Ubah Dosen:
+      // Terapkan status nonaktif pada form ubah, tutup dialog konfirmasi,
+      // dan tetap berada di dalam kartu Ubah Dosen (tidak langsung menutup dialog ubah).
+      if (c.dariEditModal && this.dosenEdit) {
+        this.dosenEdit.aktif = false;
+        this.dosenEdit.konfirmasiNonaktifSelesai = true;
+        this.dosenStatusConfirm = null;
+        this.dosenStatusConfirmLoading = false;
+        return;
+      }
+
+      // Jika konfirmasi dipicu langsung dari tabel master dosen:
+      this.dosenStatusConfirmLoading = true;
       try {
-        await API.patchMasterLecturer(c.id, { status: c.ke });
+        const payload = { status: c.ke };
+        if (c.pendingFullName) {
+          payload.full_name = c.pendingFullName;
+        }
+        await API.patchMasterLecturer(c.id, payload);
         this.dosenStatusConfirm = null;
         await this.loadDosen();
-        this.showToast(c.ke === 'ACTIVE' ? 'Dosen diaktifkan.' : 'Dosen dinonaktifkan.');
+        this.showToast(c.ke === 'ACTIVE' ? `Dosen ${c.kode} berhasil diaktifkan.` : `Dosen ${c.kode} berhasil dinonaktifkan.`);
       } catch (err) {
         this.showToast(err.message || 'Gagal mengubah status dosen.');
+      } finally {
+        this.dosenStatusConfirmLoading = false;
       }
     },
 

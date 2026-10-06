@@ -594,7 +594,7 @@
               type="button"
               role="switch"
               :aria-checked="dosenEdit && dosenEdit.aktif"
-              @click="dosenEdit.aktif = !dosenEdit.aktif"
+              @click="dosenEdit.aktif ? konfirmasiNonaktifkanDariEdit() : (dosenEdit.aktif = true)"
               :class="dosenEdit && dosenEdit.aktif ? 'bg-[#3965FB]' : 'bg-[#CBD5E1]'"
               class="relative inline-flex h-[24px] w-[40px] shrink-0 cursor-pointer rounded-full p-[2px] transition-colors duration-200 ease-in-out focus:outline-none"
               aria-label="Toggle status dosen aktif"
@@ -610,7 +610,7 @@
           <div class="w-full flex flex-row justify-start items-center pt-1">
             <button
               type="button"
-              @click="dosenEdit.aktif = !dosenEdit.aktif"
+              @click="konfirmasiNonaktifkanDariEdit()"
               class="text-[12px] font-medium transition-colors cursor-pointer flex items-center gap-1.5"
               :class="dosenEdit && dosenEdit.aktif ? 'text-[#D92D20] hover:text-red-700' : 'text-[#3965FB] hover:text-blue-700'"
             >
@@ -643,15 +643,100 @@
     </div>
 
     <!-- MODAL 4: Dialog Konfirmasi Status Dosen -->
-    <div x-show="dosenStatusConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="batalKonfirmasiStatusDosen()"></div>
-      <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi status dosen">
-        <h3 class="text-[17px] font-bold text-ink">Ubah Status Dosen?</h3>
-        <p class="text-[13px] text-muted mt-1">Dosen <span class="font-mono font-semibold text-ink" x-text="dosenStatusConfirm ? dosenStatusConfirm.kode : ''"></span> (<span x-text="dosenStatusConfirm ? dosenStatusConfirm.nama : ''"></span>) dari <span class="font-mono" x-text="dosenStatusConfirm ? dosenStatusConfirm.dari : ''"></span> ke <span class="font-mono font-semibold text-ink" x-text="dosenStatusConfirm ? dosenStatusConfirm.ke : ''"></span>.</p>
-        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Nonaktif mencegah penugasan baru pada penawaran semester. Jadwal lama tetap tercatat.</p>
-        <div class="flex gap-2 mt-4">
-          <button type="button" @click="jalankanUbahStatusDosen()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
-          <button type="button" @click="batalKonfirmasiStatusDosen()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
+    <div x-show="dosenStatusConfirm" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-konfirmasi-status-title" @keydown.escape.window="batalKonfirmasiStatusDosen()">
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="batalKonfirmasiStatusDosen()"></div>
+
+      <!-- Card Dialog -->
+      <div class="relative w-full max-w-[460px] bg-white rounded-[16px] p-6 shadow-[0px_18px_42px_rgba(16,24,40,0.25)] border border-[#E5E7EB] flex flex-col gap-0 z-10">
+        <!-- Header Peringatan -->
+        <div class="w-full flex flex-col gap-[10px] pb-4">
+          <!-- Ikon peringatan -->
+          <div class="w-[44px] h-[44px] shrink-0 rounded-[22px] flex items-center justify-center"
+               :class="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE' ? 'bg-[#FEE4E2]' : 'bg-[#EEF2FF]'">
+            <template x-if="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE'">
+              <svg class="w-[22px] h-[22px] shrink-0 text-[#D92D20]" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0zm0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447zm4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254zm0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"/>
+              </svg>
+            </template>
+            <template x-if="dosenStatusConfirm && dosenStatusConfirm.ke === 'ACTIVE'">
+              <svg class="w-[22px] h-[22px] shrink-0 text-[#3965FB]" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+              </svg>
+            </template>
+          </div>
+
+          <!-- Judul Dialog -->
+          <h3 id="modal-konfirmasi-status-title" class="text-[18px] font-bold text-[#1D1B3A]"
+              x-text="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE' ? 'Nonaktifkan Dosen?' : 'Aktifkan Dosen?'">
+          </h3>
+
+          <!-- Pertanyaan Konfirmasi -->
+          <p class="text-[13px] leading-[18px] text-[#667085]">
+            <span x-text="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE' ? 'Apakah Anda yakin ingin menonaktifkan dosen ' : 'Apakah Anda yakin ingin mengaktifkan kembali dosen '"></span>
+            <strong class="text-[#1D1B3A]" x-text="dosenStatusConfirm ? dosenStatusConfirm.nama : ''"></strong>
+            (<span class="font-mono font-semibold text-[#1D1B3A]" x-text="dosenStatusConfirm ? dosenStatusConfirm.kode : ''"></span>)?
+          </p>
+        </div>
+
+        <!-- Box Dampak Perubahan Status (Ketika Nonaktif) -->
+        <template x-if="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE'">
+          <div class="w-full flex flex-col gap-[8px] p-[14px_16px] bg-[#FEF3F2] border border-[#FECDCA] rounded-[12px]">
+            <div class="text-[12px] font-bold text-[#B42318]">Dampak perubahan status keaktifan:</div>
+
+            <div class="w-full flex flex-row gap-[7px] items-start">
+              <span class="text-[11.5px] font-semibold text-[#B42318]">1.</span>
+              <p class="text-[11.5px] leading-[16px] text-[#B42318] flex-1">
+                <strong>Jadwal Kuliah Aman:</strong> Seluruh data riwayat jadwal kelas semester lalu maupun yang sedang berjalan tetap tersimpan utuh.
+              </p>
+            </div>
+
+            <div class="w-full flex flex-row gap-[7px] items-start">
+              <span class="text-[11.5px] font-semibold text-[#B42318]">2.</span>
+              <p class="text-[11.5px] leading-[16px] text-[#B42318] flex-1">
+                <strong>Penyusunan Jadwal Baru:</strong> Inisial dosen ini tidak akan muncul dalam daftar pilihan pengampu mata kuliah baru.
+              </p>
+            </div>
+
+            <div class="w-full flex flex-row gap-[7px] items-start">
+              <span class="text-[11.5px] font-semibold text-[#B42318]">3.</span>
+              <p class="text-[11.5px] leading-[16px] text-[#B42318] flex-1">
+                <strong>Dapat Dipulihkan:</strong> Status keaktifan dapat diaktifkan kembali kapan saja melalui menu Ubah Dosen.
+              </p>
+            </div>
+          </div>
+        </template>
+
+        <!-- Box Info (Ketika Mengaktifkan Kembali) -->
+        <template x-if="dosenStatusConfirm && dosenStatusConfirm.ke === 'ACTIVE'">
+          <div class="w-full flex flex-col gap-[8px] p-[14px_16px] bg-[#EEF2FF] border border-[#C7D7FE] rounded-[12px]">
+            <div class="text-[12px] font-bold text-[#2D31A6]">Dampak pengaktifan kembali dosen:</div>
+            <p class="text-[11.5px] leading-[16px] text-[#2D31A6]">
+              Dosen ini akan kembali tersedia dalam daftar pengampu mata kuliah untuk penyusunan jadwal semester berjalan maupun mendatang.
+            </p>
+          </div>
+        </template>
+
+        <!-- Footer Konfirmasi -->
+        <div class="w-full flex flex-row gap-[10px] pt-[20px] justify-end items-center">
+          <button
+            type="button"
+            @click="batalKonfirmasiStatusDosen()"
+            :disabled="dosenStatusConfirmLoading"
+            class="h-[40px] px-[16px] rounded-[8px] border border-[#D7DDE7] bg-white text-[13px] font-medium text-[#475467] hover:bg-slate-50 transition-colors min-h-[44px] cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            @click="jalankanUbahStatusDosen()"
+            :disabled="dosenStatusConfirmLoading"
+            :class="dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE' ? 'bg-[#D92D20] hover:bg-red-700' : 'bg-[#3965FB] hover:bg-blue-600'"
+            class="h-[40px] px-[18px] rounded-[8px] text-[13px] font-medium text-white shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
+          >
+            <span x-show="dosenStatusConfirmLoading" class="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span x-text="dosenStatusConfirmLoading ? 'Memproses...' : (dosenStatusConfirm && dosenStatusConfirm.ke === 'INACTIVE' ? 'Ya, Nonaktifkan Dosen' : 'Ya, Aktifkan Dosen')"></span>
+          </button>
         </div>
       </div>
     </div>
