@@ -361,77 +361,149 @@
 
   </div>
 
-  <!-- Modal: Detail Perubahan (Diff) -->
+  <!-- Modal: Detail Log & Snapshot Diff (SCR-ADM-008E-DIFF) -->
   <div x-show="modalAuditDiff" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalAuditDiff()">
-    <div class="relative w-full max-w-[620px] max-h-[90vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#E4E7EC] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150" @click.stop>
+    <div
+      class="relative w-full max-w-[560px] max-h-[90vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#E4E7EC] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150"
+      @click.stop
+    >
       
-      <!-- Header Modal Diff -->
-      <div class="w-full flex flex-row justify-between items-start pb-3 border-b border-[#F2F4F7]">
-        <div class="flex-1 min-w-0 flex flex-col gap-1">
-          <h3 class="text-[18px] font-bold text-[#1D1B3A]">
-            Detail Perubahan Log <span class="font-mono text-[#3965FB]" x-text="'#' + (selectedAudit?.id || '-')"></span>
-          </h3>
+      <!-- Header Rincian Log Audit -->
+      <div class="w-full flex flex-row justify-between items-start pb-[12px] border-b border-[#F2F4F7]">
+        <div class="flex-1 min-w-0 flex flex-col gap-[6px]">
+          <div class="flex flex-row items-center gap-[8px] flex-wrap">
+            <h3 class="text-[18px] font-bold text-[#1D1B3A] leading-tight">
+              Rincian Log Audit
+            </h3>
+            <span
+              class="px-[8px] py-[3px] rounded-[6px] border text-[11px] font-mono font-bold uppercase leading-none"
+              :class="auditActionBadgeClass(selectedAudit?.action)"
+              x-text="selectedAudit?.action || '-'"
+            ></span>
+          </div>
           <p class="text-[12px] text-[#667085] font-mono">
-            Aksi: <span class="font-bold text-[#1D1B3A]" x-text="selectedAudit?.action || '-'"></span> · Pelaku: <span x-text="auditActorLabel(selectedAudit)"></span>
+            Log ID <span class="font-bold text-[#1D1B3A]" x-text="'#' + (selectedAudit?.id || '-')"></span> · <span x-text="fmtWaktuAudit(selectedAudit?.created_at).tanggal"></span>
           </p>
         </div>
-        <button type="button" @click="tutupModalAuditDiff()" class="w-[44px] h-[44px] flex items-center justify-center rounded-full text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors" aria-label="Tutup dialog">
-          <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
+        <button
+          type="button"
+          @click="tutupModalAuditDiff()"
+          class="w-[44px] h-[44px] shrink-0 flex items-center justify-center rounded-full text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors"
+          aria-label="Tutup dialog rincian log"
+        >
+          <svg class="w-[20px] h-[20px]" viewBox="0 0 14 14" fill="currentColor">
             <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
           </svg>
         </button>
       </div>
 
-      <!-- Ringkasan Info Log -->
-      <div class="p-3 bg-slate-50 border border-slate-200 rounded-[12px] text-[12px] grid grid-cols-2 gap-2">
-        <div><span class="text-slate-500">Kelas:</span> <span class="font-medium text-[#1D1B3A]" x-text="namaKelasBySlug(selectedAudit?.class_slug) || selectedAudit?.class_slug || 'Global'"></span></div>
-        <div><span class="text-slate-500">Entitas:</span> <span class="font-mono font-medium text-[#1D1B3A]" x-text="auditEntityLabel(selectedAudit)"></span></div>
-        <div class="col-span-2"><span class="text-slate-500">Alasan:</span> <span class="font-medium text-[#1D1B3A]" x-text="selectedAudit?.reason || '-'"></span></div>
+      <!-- Ringkasan Metadata Log (Box Abu-Abu) -->
+      <div class="w-full flex flex-col gap-[10px] p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+        <!-- Baris 1: Pelaku & Target -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Pelaku</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A] break-words" x-text="auditActorLabel(selectedAudit)">-</span>
+          </div>
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Target</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A] break-words" x-text="(namaKelasBySlug(selectedAudit?.class_slug) || selectedAudit?.class_slug || 'Global') + (selectedAudit?.entity_type ? ' (' + auditEntityLabel(selectedAudit) + ')' : '')">-</span>
+          </div>
+        </div>
+
+        <!-- Baris 2: Correlation ID & Jenis -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Correlation ID</span>
+            <span class="text-[12px] font-mono text-[#667085] break-all" x-text="selectedAudit?.correlation_id || '-'">-</span>
+          </div>
+          <div class="flex flex-col gap-[2px]">
+            <span class="text-[11px] font-semibold text-[#667085]">Jenis</span>
+            <span class="text-[12px] font-medium text-[#1D1B3A]" x-text="auditJenisLabel(selectedAudit)">-</span>
+          </div>
+        </div>
+
+        <!-- Baris 3: Alasan -->
+        <div class="w-full pt-[8px] border-t border-[#E2E8F0] flex flex-row gap-[6px]">
+          <span class="text-[11px] font-semibold text-[#667085] shrink-0">Alasan:</span>
+          <span class="text-[12px] font-medium text-[#1D1B3A] break-words flex-1" x-text="selectedAudit?.reason || '-'">-</span>
+        </div>
       </div>
 
-      <!-- Visual Diff Per Field -->
-      <div class="flex flex-col gap-2">
-        <span class="text-[12px] font-semibold text-[#1D1B3A]">Perubahan Data (Sebelum vs Sesudah):</span>
-        
-        <div class="border border-[#E4E7EC] rounded-[12px] overflow-hidden max-h-[360px] overflow-y-auto">
+      <!-- Perubahan Nilai Kolom -->
+      <div class="w-full flex flex-col gap-[10px]">
+        <div class="text-[12px] font-bold tracking-[0.5px] text-[#1D1B3A] uppercase">
+          PERUBAHAN NILAI KOLOM
+        </div>
+
+        <!-- Tabel Diff Tiga Kolom -->
+        <div class="w-full border border-[#E4E7EC] rounded-[12px] overflow-hidden max-h-[280px] overflow-y-auto">
+          <!-- Header Kolom Diff (Sticky) -->
+          <div class="w-full h-[39.5px] flex flex-row gap-[8px] px-[12px] items-center bg-[#F8FAFC] border-b border-[#E4E7EC] sticky top-0 z-10 text-[11px] font-normal text-[#475467]">
+            <div class="w-[130px] shrink-0 text-left">KOLOM</div>
+            <div class="w-[160px] shrink-0 text-left">SEBELUM</div>
+            <div class="flex-1 text-left">SESUDAH</div>
+          </div>
+
+          <!-- Baris Nilai Diff -->
           <template x-if="selectedAudit && auditChanges(selectedAudit).length > 0">
-            <div class="flex flex-col divide-y divide-[#F2F4F7]">
+            <div class="w-full flex flex-col divide-y divide-[#F2F4F7]">
               <template x-for="ch in auditChanges(selectedAudit)" :key="ch.key">
-                <div class="p-3 flex flex-col gap-1.5" :class="ch.changed ? 'bg-amber-50/30' : 'bg-white'">
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[12px] font-bold text-[#1D1B3A]" x-text="ch.key"></span>
-                    <span x-show="ch.changed" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">BERUBAH</span>
+                <div
+                  class="w-full min-h-[44px] px-[12px] py-[8px] flex flex-row gap-[8px] items-center text-[12px] transition-colors"
+                  :class="ch.changed ? 'bg-amber-50/25' : 'bg-white'"
+                >
+                  <!-- Nama Kolom -->
+                  <div
+                    class="w-[130px] shrink-0 font-mono text-left truncate"
+                    :class="ch.changed ? 'font-bold text-[#1D1B3A]' : 'font-normal text-[#667085]'"
+                    x-text="ch.key"
+                  ></div>
+
+                  <!-- Nilai Sebelum -->
+                  <div class="w-[160px] shrink-0 text-left">
+                    <template x-if="ch.changed">
+                      <div class="w-fit max-w-full px-[6px] py-[3px] bg-[#FEF2F2] border border-[#FECDCA] rounded-[5px] text-[11px] font-mono text-[#B42318] break-all leading-tight" x-text="ch.before"></div>
+                    </template>
+                    <template x-if="!ch.changed">
+                      <div class="text-[#667085] font-mono text-[11px] break-all" x-text="ch.before"></div>
+                    </template>
                   </div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
-                    <div class="p-2 rounded bg-red-50 border border-red-100 text-red-800 break-words whitespace-pre-wrap">
-                      <span class="text-red-500 font-sans block text-[10px] font-semibold">SEBELUM:</span>
-                      <span x-text="ch.before"></span>
-                    </div>
-                    <div class="p-2 rounded bg-emerald-50 border border-emerald-100 text-emerald-800 break-words whitespace-pre-wrap">
-                      <span class="text-emerald-500 font-sans block text-[10px] font-semibold">SESUDAH:</span>
-                      <span x-text="ch.after"></span>
-                    </div>
+
+                  <!-- Nilai Sesudah -->
+                  <div class="flex-1 min-w-0 text-left">
+                    <template x-if="ch.changed">
+                      <div class="w-fit max-w-full px-[6px] py-[3px] bg-[#F0FDF4] border border-[#BBF7D0] rounded-[5px] text-[11px] font-mono font-semibold text-[#15803D] break-all leading-tight" x-text="ch.after"></div>
+                    </template>
+                    <template x-if="!ch.changed">
+                      <div class="text-[#667085] font-mono text-[11px] break-all" x-text="ch.after"></div>
+                    </template>
                   </div>
                 </div>
               </template>
             </div>
           </template>
 
+          <!-- Empty State: Log tanpa snapshot JSON -->
           <template x-if="selectedAudit && auditChanges(selectedAudit).length === 0">
-            <div class="p-4 text-center text-[12px] text-[#667085]">
-              <p>Tidak ada detail JSON spesifik yang berubah untuk log ini.</p>
-              <div class="mt-2 text-left font-mono text-[11px] bg-slate-50 p-2.5 rounded border border-slate-200">
-                <p><strong class="font-sans">Sebelum:</strong> <span x-text="selectedAudit?.before_json || '-'"></span></p>
-                <p class="mt-1"><strong class="font-sans">Sesudah:</strong> <span x-text="selectedAudit?.after_json || '-'"></span></p>
-              </div>
+            <div class="w-full p-6 text-center text-[12px] text-[#667085] flex flex-col items-center justify-center gap-1">
+              <p class="font-semibold text-[#1D1B3A]">Tidak ada perubahan data JSON spesifik</p>
+              <p class="text-[11px]">Aksi ini dicatat sebagai peristiwa keamanan langsung tanpa diff tabel.</p>
             </div>
           </template>
         </div>
       </div>
 
-      <!-- Footer Modal Diff -->
-      <div class="w-full pt-3 border-t border-[#F2F4F7] flex justify-end">
-        <button type="button" @click="tutupModalAuditDiff()" class="min-h-[44px] px-5 rounded-[12px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-semibold transition-colors">
+      <!-- Footer Rincian Audit -->
+      <div class="w-full pt-[14px] border-t border-[#F2F4F7] flex flex-row justify-between items-center">
+        <div class="text-[11px] font-mono text-[#667085] text-left">
+          Dicatat otomatis oleh server SQLite WAL
+        </div>
+        <button
+          type="button"
+          @click="tutupModalAuditDiff()"
+          class="min-h-[44px] px-[20px] flex items-center justify-center bg-[#F1F5F9] hover:bg-slate-200 text-[#1D1B3A] text-[12px] font-medium rounded-[12px] transition-colors"
+        >
           Tutup
         </button>
       </div>

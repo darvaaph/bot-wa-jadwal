@@ -2956,14 +2956,51 @@ function systemAdminApp() {
       }
     },
 
+    auditActionBadgeClass(action) {
+      const act = String(action || '').toUpperCase();
+      if (act.includes('ROTATE') || act.includes('SUSPEND') || act.includes('REVOKE') || act.includes('FAIL')) {
+        return 'bg-[#FEF2F2] border-[#FECDCA] text-[#B42318]';
+      }
+      if (act.includes('SUPPORT')) {
+        return 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]';
+      }
+      if (act.includes('BACKUP') || act.includes('RESTORE')) {
+        return 'bg-[#EFF4FF] border-[#BFDBFE] text-[#1D4ED8]';
+      }
+      return 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475467]';
+    },
+
+    auditJenisLabel(a) {
+      if (!a) return '-';
+      const act = String(a.action || '').toUpperCase();
+      const ent = String(a.entity_type || '').toUpperCase();
+      if (act.startsWith('SUPPORT_')) return 'Mode Dukungan';
+      if (act === 'ROTATE_PORTAL_CODE' || act.includes('SUSPEND_USER') || act.includes('RECOVER_USER') || act === 'LOGIN' || act === 'LOGOUT') return 'Akses Keamanan';
+      if (act.includes('BACKUP') || act.includes('RESTORE') || ent === 'BACKUP') return 'Cadangan Sistem';
+      if (act.includes('ROLE') || ent.includes('ROLE')) return 'Manajemen Peran';
+      return 'Data Akademik';
+    },
+
     auditChanges(a) {
       const b = this.parseAuditJSON(a ? a.before_json : null) || {};
       const af = this.parseAuditJSON(a ? a.after_json : null) || {};
-      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 20);
+      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 30);
+      const formatVal = (v) => {
+        if (v === undefined || v === null) return '-';
+        if (typeof v === 'string') return v;
+        try {
+          return JSON.stringify(v);
+        } catch (_) {
+          return String(v);
+        }
+      };
       return keys.map(k => {
-        const bv = b[k] === undefined ? '-' : JSON.stringify(b[k]);
-        const av = af[k] === undefined ? '-' : JSON.stringify(af[k]);
-        return { key: k, before: String(bv).slice(0, 160), after: String(av).slice(0, 160), changed: bv !== av };
+        const bv = formatVal(b[k]);
+        const av = formatVal(af[k]);
+        const changed = b[k] !== undefined && af[k] !== undefined
+          ? (typeof b[k] === 'object' || typeof af[k] === 'object' ? JSON.stringify(b[k]) !== JSON.stringify(af[k]) : b[k] !== af[k])
+          : (b[k] !== af[k]);
+        return { key: k, before: bv, after: av, changed: changed };
       });
     },
 
