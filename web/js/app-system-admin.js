@@ -290,7 +290,9 @@ function systemAdminApp() {
     usulanKeputusan: null,
     usulanCatatan: '',
 
-    notifFilter: '',
+    notifTab: 'menunggu',
+    notifSearch: '',
+    notifFilter: 'PENDING',
     notifKelas: '',
     notifJenis: '',
     notifSince: '',
@@ -532,9 +534,18 @@ function systemAdminApp() {
     filteredNotif() {
       const fk = (this.notifKelas || '').trim();
       const fj = (this.notifJenis || '').trim();
+      const q = (this.notifSearch || '').toLowerCase().trim();
       return (this.notifList || []).filter(n => {
         if (fk && String(n.class_id ?? '') !== fk) return false;
         if (fj && String(n.event_type || '') !== fj) return false;
+        if (q) {
+          const matchJid = (n.channel_jid || '').toLowerCase().includes(q);
+          const matchName = (n.channel_name || '').toLowerCase().includes(q);
+          const matchEvent = (n.event_type || '').toLowerCase().includes(q);
+          const matchSlug = (n.class_slug || '').toLowerCase().includes(q);
+          const matchPayload = (n.payload_json || '').toLowerCase().includes(q);
+          if (!matchJid && !matchName && !matchEvent && !matchSlug && !matchPayload) return false;
+        }
         return true;
       });
     },
@@ -938,6 +949,65 @@ function systemAdminApp() {
       if (n.channel_name) return n.channel_name + (n.channel_jid ? ' · ' + n.channel_jid : '');
       if (n.channel_jid) return n.channel_jid;
       return '— (tanpa kanal terdaftar)';
+    },
+
+    formatPenerimaUtama(n) {
+      if (!n) return '-';
+      if (n.channel_jid && n.channel_jid.endsWith('@s.whatsapp.net')) {
+        const num = n.channel_jid.replace('@s.whatsapp.net', '');
+        return '+' + num;
+      }
+      if (n.channel_name) return n.channel_name;
+      if (n.channel_jid) return n.channel_jid;
+      return '—';
+    },
+
+    formatPenerimaSub(n) {
+      if (!n) return '-';
+      if (n.channel_name && n.channel_jid && n.channel_jid.endsWith('@s.whatsapp.net')) {
+        return n.channel_name;
+      }
+      if (n.class_slug) {
+        return n.class_slug.toUpperCase();
+      }
+      if (n.channel_jid) {
+        return n.channel_jid;
+      }
+      return 'Belum tertaut kanal';
+    },
+
+    formatJenisNotif(eventType) {
+      const t = String(eventType || '').toUpperCase();
+      if (t === 'TASK_PUBLISHED') return 'Pengingat tenggat';
+      if (t === 'TASK_UPDATED') return 'Pembaruan tugas';
+      if (t === 'SCHEDULE_REPLACEMENT' || t === 'TEACHING_EVENT_PUBLISHED') return 'Perubahan ruang';
+      if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') return 'Pembatalan kuliah';
+      if (t === 'ACADEMIC_RESTORE_CORRECTION') return 'Koreksi jadwal & tugas';
+      if (t === 'DAILY_DIGEST') return 'Pengingat jadwal';
+      if (t === 'PORTAL_ACCESS') return 'Kode akses portal';
+      return eventType || 'Pengumuman kelas';
+    },
+
+    formatKonteksNotif(n) {
+      if (!n) return '';
+      const slug = n.class_slug ? n.class_slug.toUpperCase() : ('Kelas #' + (n.class_id ?? ''));
+      let payload = null;
+      if (n.payload_json) {
+        try {
+          payload = typeof n.payload_json === 'object' ? n.payload_json : JSON.parse(n.payload_json);
+        } catch (_) {}
+      }
+      if (payload) {
+        const course = payload.course || payload.course_name;
+        const title = payload.title;
+        if (course && title) return slug + ' · ' + course + ' (' + title + ')';
+        if (course) return slug + ' · ' + course;
+        if (title) return slug + ' · ' + title;
+      }
+      if (n.entity_type) {
+        return slug + ' · ' + n.entity_type + (n.entity_id ? ' #' + n.entity_id : '');
+      }
+      return slug + ' · pemberitahuan sistem';
     },
 
     bukaAuditEntitas(entityType) {
@@ -3079,8 +3149,24 @@ function systemAdminApp() {
       }
     },
 
+    setNotifTab(tab) {
+      this.notifTab = tab;
+      if (tab === 'menunggu') {
+        this.notifFilter = 'PENDING';
+      } else if (tab === 'gagal') {
+        this.notifFilter = 'FAILED';
+      } else if (tab === 'riwayat') {
+        this.notifFilter = 'SENT';
+      } else {
+        this.notifFilter = '';
+      }
+      this.notifDetailId = null;
+      this.loadAntrean();
+    },
+
     resetNotifFilter() {
-      this.notifFilter = '';
+      this.notifSearch = '';
+      this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
       this.notifKelas = '';
       this.notifJenis = '';
       this.notifSince = '';
@@ -3431,7 +3517,11 @@ function systemAdminApp() {
         this.bukaModalBuatKelas();
         return;
       }
-      if (v === 'antrean') this.loadAntrean();
+      if (v === 'antrean') {
+        if (!this.notifTab) this.notifTab = 'menunggu';
+        this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
+        this.loadAntrean();
+      }
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
