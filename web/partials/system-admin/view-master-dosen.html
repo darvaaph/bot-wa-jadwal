@@ -435,89 +435,181 @@
     </div>
 
     <!-- MODAL 2: Impor & Sinkronisasi Dosen -->
-    <div x-show="modalImportDosen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tutupModalImportDosen()"></div>
-      <div class="ui-card relative max-w-xl w-full p-6 sm:p-7 shadow-2xl" role="dialog" aria-modal="true" aria-label="Impor dan sinkronisasi dosen">
-        <div class="flex items-start justify-between pb-3 border-b border-border">
-          <div>
-            <h3 class="text-[18px] font-bold text-ink">Impor / Sinkronisasi Dosen</h3>
-            <p class="text-[13px] text-muted mt-0.5">Pilih metode impor otomatis dari kurikulum POLBAN atau impor manual.</p>
+    <div x-show="modalImportDosen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-import-dosen-title" @keydown.escape.window="tutupModalImportDosen()">
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="tutupModalImportDosen()"></div>
+
+      <!-- Card Modal -->
+      <div class="relative w-full max-w-[620px] bg-white rounded-[16px] p-6 shadow-[0px_18px_42px_rgba(16,24,40,0.25)] border border-[#E5E7EB] flex flex-col gap-0 z-10 max-h-[90vh] overflow-y-auto">
+        <!-- Header modal -->
+        <div class="w-full flex flex-col gap-[5px] pb-1">
+          <div class="w-full flex flex-row justify-between items-center">
+            <h3 id="modal-import-dosen-title" class="text-[18px] font-bold text-[#1D1B3A]">Impor &amp; Sinkronisasi Dosen</h3>
+            <button type="button" @click="tutupModalImportDosen()" class="w-[32px] h-[32px] shrink-0 rounded-[8px] border border-[#EEEEEE] bg-white flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors cursor-pointer" aria-label="Tutup dialog">
+              <svg class="w-5 h-5 shrink-0" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+              </svg>
+            </button>
           </div>
-          <button type="button" @click="tutupModalImportDosen()" class="ui-button ui-button--ghost p-2 rounded-lg text-slate-400 hover:text-ink min-h-[44px] min-w-[44px] inline-flex items-center justify-center">
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          <p class="text-[13px] leading-[18px] text-[#667085] font-normal text-left">
+            Tambahkan banyak dosen sekaligus via format JSON atau sinkronkan otomatis dari kurikulum POLBAN.
+          </p>
         </div>
 
-        <!-- Tab Switcher -->
-        <div class="flex border-b border-border mt-3">
-          <button type="button" @click="importDosenTab = 'jadwal'" class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
-            :class="importDosenTab === 'jadwal' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'">
-            <span class="inline-flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">sync</span>
-              <span>Sinkron Jadwal POLBAN</span>
-            </span>
+        <!-- Navigasi tab -->
+        <div class="w-full shrink-0 flex flex-row gap-[20px] pt-[14px] justify-start items-start border-b border-[#EEEEEE]">
+          <!-- Tab 1: Impor JSON Masal -->
+          <button
+            type="button"
+            @click="importDosenTab = 'csv'"
+            class="w-fit shrink-0 flex flex-col gap-[10px] justify-end items-center cursor-pointer transition-colors"
+          >
+            <div class="flex flex-row gap-[5px] items-center">
+              <span
+                class="text-[13px] transition-colors"
+                :class="importDosenTab === 'csv' ? 'text-[#3965FB] font-bold' : 'text-[#667085] hover:text-[#1D1B3A] font-medium'"
+              >
+                Impor JSON Masal
+              </span>
+            </div>
+            <div
+              class="w-[115px] h-[2px] transition-all"
+              :class="importDosenTab === 'csv' ? 'bg-[#3965FB]' : 'bg-transparent'"
+            ></div>
           </button>
-          <button type="button" @click="importDosenTab = 'csv'" class="py-2.5 px-4 text-[13px] font-semibold border-b-2 transition-colors min-h-[44px]"
-            :class="importDosenTab === 'csv' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'">
-            <span class="inline-flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
-              <span>CSV / Teks Bebas</span>
-            </span>
+
+          <!-- Tab 2: Sinkronisasi Kurikulum POLBAN -->
+          <button
+            type="button"
+            @click="importDosenTab = 'jadwal'"
+            class="w-fit shrink-0 flex flex-col gap-[10px] justify-end items-center cursor-pointer transition-colors"
+          >
+            <div class="flex flex-row gap-[5px] items-center">
+              <svg
+                viewBox="0 0 14 14"
+                class="w-4 h-4 shrink-0 transition-colors"
+                :class="importDosenTab === 'jadwal' ? 'text-[#3965FB]' : 'text-[#667085]'"
+                fill="currentColor"
+              >
+                <path d="M6.15576 10.61621l3.01807-3.61621-2.33447 0 0.42382-3.31201-2.70019 3.89648 2.03027 0-0.4375 3.03174z m-0.23242-2.45068l-1.73975 0q-0.23926 0-0.34521-0.20508-0.10596-0.2085 0.03076-0.3999l3.28467-4.7544q0.08887-0.12646 0.21875-0.16748 0.1333-0.04102 0.28027 0.01367 0.14697 0.05469 0.21192 0.17774 0.06836 0.12305 0.05127 0.27002l-0.41016 3.31543 2.0918 0q0.24268 0 0.34521 0.22558 0.10254 0.22217-0.05469 0.41358l-3.65381 4.375q-0.09229 0.11279-0.22558 0.14355-0.1333 0.03076-0.25977-0.02734-0.12988-0.0581-0.19824-0.17432-0.06836-0.11621-0.04785-0.26318l0.42041-2.94287z"/>
+              </svg>
+              <span
+                class="text-[13px] transition-colors"
+                :class="importDosenTab === 'jadwal' ? 'text-[#3965FB] font-bold' : 'text-[#667085] hover:text-[#1D1B3A] font-medium'"
+              >
+                Sinkronisasi Kurikulum POLBAN
+              </span>
+            </div>
+            <div
+              class="w-[224px] h-[2px] transition-all"
+              :class="importDosenTab === 'jadwal' ? 'bg-[#3965FB]' : 'bg-transparent'"
+            ></div>
           </button>
         </div>
 
         <!-- Alert Error & Success -->
-        <div x-show="importDosenError" class="mt-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="importDosenError">-</div>
-        <div x-show="importDosenSuccess" class="mt-3 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800" x-text="importDosenSuccess">-</div>
+        <div x-show="importDosenError" x-cloak class="w-full mt-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium" x-text="importDosenError"></div>
+        <div x-show="importDosenSuccess" x-cloak class="w-full mt-3 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800 font-medium" x-text="importDosenSuccess"></div>
 
-        <!-- TAB 1: Sinkron Jadwal POLBAN -->
-        <div x-show="importDosenTab === 'jadwal'" class="mt-4 space-y-4">
-          <div class="p-4 rounded-2xl border border-border bg-slate-50/70">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <span class="material-symbols-outlined text-[24px]">school</span>
-              </div>
-              <div>
-                <p class="text-[14px] font-bold text-ink">47 Dosen Pengampu POLBAN Terdeteksi</p>
-                <p class="text-[12px] text-muted mt-0.5">Sistem memindai 19 berkas <code class="font-mono text-ink text-[11px] bg-slate-200/60 px-1 py-0.5 rounded">data/jadwal/*.json</code> dan mengekstrak seluruh <strong>47 dosen pengampu</strong> lengkap dengan inisial dan nama resminya.</p>
-              </div>
+        <!-- KONTEN TAB 1: Sinkronisasi Kurikulum POLBAN -->
+        <div x-show="importDosenTab === 'jadwal'" class="w-full flex flex-col gap-[12px] pt-[18px]">
+          <!-- Edukasi sistem pemindaian -->
+          <div class="w-full flex flex-row gap-[10px] p-[12px_14px] items-start bg-[#EEF2FF] border border-[#C7D7FE] rounded-[12px]">
+            <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-[#3965FB] mt-0.5" fill="currentColor">
+              <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+            </svg>
+            <div class="text-[12px] leading-[17px] flex-1 text-[#1D1B3A] font-normal text-left">
+              Sistem memindai seluruh berkas kurikulum resmi <code class="font-mono text-[11px] bg-[#E0E7FF] px-1 py-0.5 rounded text-[#3538CD]">data/jadwal/*.json</code>. Inisial tim teaching bertanda ‘+’ otomatis difilter menjadi 47 dosen resmi unik. Data yang sudah ada tidak akan diduplikasi (Idempotent Safe).
             </div>
           </div>
 
-          <div class="pt-3 border-t border-border flex flex-col sm:flex-row gap-2">
-            <button type="button" @click="sinkronDosenDariJadwal()" :disabled="importDosenLoading" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2">
+          <!-- Opsi 1: sinkron dosen saja -->
+          <div class="w-full flex flex-col sm:flex-row gap-3 p-4 justify-between items-start sm:items-center bg-[#FFFFFF] border border-[#D7DDE7] rounded-[12px]">
+            <div class="flex-1 flex flex-col gap-[6px] text-left">
+              <div class="text-[14px] leading-[18px] text-[#1D1B3A] font-bold">
+                Sinkronkan 47 Dosen POLBAN
+              </div>
+              <div class="text-[12px] leading-[17px] text-[#667085] font-normal">
+                Hanya memperbarui atau mendaftarkan master inisial dan nama dosen.
+              </div>
+              <div class="w-fit flex flex-row items-center px-2 py-1 bg-[#F1F5F9] rounded-full">
+                <span class="text-[11px] text-[#475467] font-medium whitespace-nowrap">
+                  47 Dosen Terdeteksi
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="sinkronDosenDariJadwal()"
+              :disabled="importDosenLoading"
+              class="w-full sm:w-fit shrink-0 h-[38px] min-h-[38px] px-[15px] flex flex-row gap-[6px] justify-center items-center bg-[#3965FB] text-white rounded-[8px] hover:bg-[#2b52db] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-medium text-[13px]"
+            >
               <span x-show="importDosenLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <span class="material-symbols-outlined text-[18px]" x-show="!importDosenLoading">sync</span>
-              <span x-text="importDosenLoading ? 'Menyinkronkan...' : 'Sinkronkan 47 Dosen Saja'">Sinkronkan 47 Dosen Saja</span>
+              <svg x-show="!importDosenLoading" viewBox="0 0 14 14" class="w-[17px] h-[17px] shrink-0" fill="currentColor">
+                <path d="M6.15576 10.61621l3.01807-3.61621-2.33447 0 0.42382-3.31201-2.70019 3.89648 2.03027 0-0.4375 3.03174z m-0.23242-2.45068l-1.73975 0q-0.23926 0-0.34521-0.20508-0.10596-0.2085 0.03076-0.3999l3.28467-4.7544q0.08887-0.12646 0.21875-0.16748 0.1333-0.04102 0.28027 0.01367 0.14697 0.05469 0.21192 0.17774 0.06836 0.12305 0.05127 0.27002l-0.41016 3.31543 2.0918 0q0.24268 0 0.34521 0.22558 0.10254 0.22217-0.05469 0.41358l-3.65381 4.375q-0.09229 0.11279-0.22558 0.14355-0.1333 0.03076-0.25977-0.02734-0.12988-0.0581-0.19824-0.17432-0.06836-0.11621-0.04785-0.26318l0.42041-2.94287z"/>
+              </svg>
+              <span x-text="importDosenLoading ? 'Menyinkronkan...' : 'Sinkronkan Dosen'">Sinkronkan Dosen</span>
             </button>
-            <button type="button" @click="tutupModalImportDosen(); sinkronSemuaMaster()" :disabled="syncAllLoading" class="ui-button ui-button--outline text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2" title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen">
-              <span class="material-symbols-outlined text-[18px]">auto_mode</span>
-              <span>Sinkron Semua (106)</span>
+          </div>
+
+          <!-- Opsi 2: sinkron seluruh master -->
+          <div class="w-full flex flex-col sm:flex-row gap-3 p-4 justify-between items-start sm:items-center bg-[#F8FAFC] border border-dashed border-[#CBD5E1] rounded-[12px]">
+            <div class="flex-1 flex flex-col gap-[6px] text-left">
+              <div class="text-[14px] leading-[18px] text-[#1D1B3A] font-bold">
+                Sinkronkan Semua Master (106 Master)
+              </div>
+              <div class="text-[12px] leading-[17px] text-[#667085] font-normal">
+                Mencakup 41 Mata Kuliah + 18 Ruangan + 47 Dosen sekaligus dalam 1 klik.
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="tutupModalImportDosen(); sinkronSemuaMaster()"
+              :disabled="syncAllLoading"
+              class="w-full sm:w-fit shrink-0 h-[38px] min-h-[38px] px-[15px] flex flex-row gap-[6px] justify-center items-center bg-white border border-[#3965FB] text-[#3965FB] rounded-[8px] hover:bg-blue-50/50 transition-colors cursor-pointer disabled:opacity-50 font-medium text-[13px]"
+              title="Sinkronkan sekaligus 41 Matkul, 18 Ruangan, dan 47 Dosen"
+            >
+              <svg viewBox="0 0 14 14" class="w-[17px] h-[17px] shrink-0" fill="currentColor">
+                <path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/>
+              </svg>
+              <span>Sinkronkan Semua</span>
             </button>
-            <button type="button" @click="tutupModalImportDosen()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Tutup</button>
+          </div>
+
+          <!-- Footer dialog Tab Jadwal -->
+          <div class="w-full flex flex-row justify-end items-center pt-4 mt-2 border-t border-[#EEEEEE]">
+            <button
+              type="button"
+              @click="tutupModalImportDosen()"
+              class="h-[38px] px-[18px] flex items-center justify-center bg-[#F2F5FA] border border-[#D7DDE7] rounded-[8px] text-[#475467] font-medium text-[13px] hover:bg-slate-200/60 transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
           </div>
         </div>
 
-        <!-- TAB 2: CSV / Teks Bebas -->
-        <div x-show="importDosenTab === 'csv'" class="mt-4 space-y-4">
+        <!-- KONTEN TAB 2: Impor JSON / CSV Masal -->
+        <div x-show="importDosenTab === 'csv'" class="w-full flex flex-col gap-[14px] pt-[18px]">
           <div>
-            <label for="sa-import-dosen-csv" class="block text-[12px] font-semibold text-ink mb-1">Tempel Data CSV atau Baris Teks</label>
-            <p class="text-[12px] text-muted mb-2">Format: <code class="font-mono text-ink text-[11px] bg-slate-100 px-1 py-0.5 rounded">INISIAL, NAMA LENGKAP & GELAR</code> (satu baris per dosen, dipisahkan koma atau tab) atau format JSON array.</p>
-            <textarea id="sa-import-dosen-csv" x-model="importDosenCsvText" rows="6" placeholder="Contoh:&#10;MR, Muhammad Rizqi Sholahuddin, S.Si., M.T.&#10;AD, Dr. Ade Chandra Nugraha, S.Si., M.T.&#10;ZA, Zulkifli Arsyad, S.Kom., M.T." class="ui-field text-[13px] font-mono leading-relaxed"></textarea>
+            <label for="sa-import-dosen-csv" class="block text-[12px] font-bold text-[#1D1B3A] mb-1">Tempel Data JSON atau Baris CSV</label>
+            <p class="text-[12px] text-[#667085] mb-2">Format baris teks: <code class="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded text-[#1D1B3A]">KODE, NAMA LENGKAP & GELAR</code> atau array JSON <code class="font-mono text-[11px] bg-slate-100 px-1 py-0.5 rounded text-[#1D1B3A]">[{"code":"MR","name":"..."}]</code>.</p>
+            <textarea id="sa-import-dosen-csv" x-model="importDosenCsvText" rows="6" placeholder="Contoh:&#10;MR, Muhammad Rizqi Sholahuddin, S.Si., M.T.&#10;AD, Dr. Ade Chandra Nugraha, S.Si., M.T.&#10;ZA, Zulkifli Arsyad, S.Kom., M.T." class="w-full text-[13px] font-mono leading-relaxed p-3 rounded-[10px] border border-[#D7DDE7] focus:border-[#3965FB] focus:outline-none focus:ring-1 focus:ring-[#3965FB] bg-[#F8FAFC]"></textarea>
           </div>
 
-          <div class="flex items-center justify-between text-[12px] p-3 rounded-xl bg-slate-50 border border-border">
-            <span class="text-muted">Data valid terdeteksi:</span>
-            <span class="font-bold text-ink" x-text="parsedImportDosen().length + ' baris dosen'">0 baris dosen</span>
+          <div class="flex items-center justify-between text-[12px] p-3 rounded-[10px] bg-slate-50 border border-[#D7DDE7]">
+            <span class="text-[#667085]">Data valid terdeteksi:</span>
+            <span class="font-bold text-[#1D1B3A]" x-text="parsedImportDosen().length + ' baris dosen'">0 baris dosen</span>
           </div>
 
-          <div class="pt-3 border-t border-border flex gap-2">
-            <button type="button" @click="prosesImportCsvDosen()" :disabled="importDosenLoading || parsedImportDosen().length === 0" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold min-h-[44px] inline-flex items-center justify-center gap-2">
+          <div class="pt-3 border-t border-[#EEEEEE] flex justify-end gap-2">
+            <button type="button" @click="tutupModalImportDosen()" class="h-[38px] px-4 rounded-[8px] border border-[#D7DDE7] bg-[#F2F5FA] text-[13px] font-medium text-[#475467] hover:bg-slate-200/60 transition-colors cursor-pointer">Batal</button>
+            <button type="button" @click="prosesImportCsvDosen()" :disabled="importDosenLoading || parsedImportDosen().length === 0" class="h-[38px] px-5 rounded-[8px] bg-[#3965FB] text-white text-[13px] font-medium hover:bg-[#2b52db] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
               <span x-show="importDosenLoading" class="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-              <span class="material-symbols-outlined text-[18px]" x-show="!importDosenLoading">upload_file</span>
+              <svg x-show="!importDosenLoading" viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 11v2a1 1 0 001 1h8a1 1 0 001-1v-2M8 2v9m0 0l-3-3m3 3l3-3" />
+              </svg>
               <span x-text="importDosenLoading ? 'Mengimpor...' : ('Impor ' + parsedImportDosen().length + ' Dosen')">Impor Dosen</span>
             </button>
-            <button type="button" @click="tutupModalImportDosen()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
           </div>
         </div>
       </div>
