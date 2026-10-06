@@ -350,6 +350,15 @@ function systemAdminApp() {
     auditHasMore: false,
     auditActionOptions: ['SUSPEND_USER', 'RECOVER_USER', 'ROTATE_PORTAL_CODE', 'SUPPORT_ENTER', 'SUPPORT_EXIT', 'INVITE_ROLE', 'ASSIGN_ROLE', 'SUSPEND_ROLE', 'REVOKE_ROLE', 'UPDATE_CLASS_STATUS', 'CREATE_BACKUP', 'VERIFY_RESTORE', 'LOGIN', 'LOGOUT'],
     auditEntityOptions: ['USER', 'ROLE_ASSIGNMENT', 'ROLE_INVITATION', 'CLASS', 'CLASS_SETTINGS', 'BACKUP', 'PORTAL_SESSION', 'TASK', 'TEACHING_EVENT', 'MATERIAL'],
+    auditSearchQuery: '',
+    auditActivePreset: 'semua',
+    auditPage: 1,
+    auditPerPage: 10,
+    modalAuditDiff: false,
+    selectedAudit: null,
+    modalDukunganGlobal: false,
+    dukunganKelasPilihan: '',
+    dukunganAlasanGlobal: '',
 
     toast: { show: false, message: '', timer: null },
 
@@ -2729,6 +2738,9 @@ function systemAdminApp() {
       this.auditUntil = '';
       this.auditOffset = 0;
       this.auditHasMore = false;
+      this.auditSearchQuery = '';
+      this.auditActivePreset = 'semua';
+      this.auditPage = 1;
     },
 
     auditFilterCount() {
@@ -2771,6 +2783,7 @@ function systemAdminApp() {
 
     setAuditPreset(name) {
       this.resetAuditFilter();
+      this.auditActivePreset = name;
       if (name === 'dukungan') {
         this.auditAction = 'SUPPORT_ENTER';
       } else if (name === 'kritis') {
@@ -2782,6 +2795,128 @@ function systemAdminApp() {
         this.auditSince = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T00:00';
       }
       this.loadAudit();
+    },
+
+    filteredAuditList() {
+      const q = (this.auditSearchQuery || '').trim().toLowerCase();
+      if (!q) return this.auditList || [];
+      return (this.auditList || []).filter(a => {
+        const actor = String(a.actor_name || '').toLowerCase();
+        const role = String(a.actor_role || '').toLowerCase();
+        const action = String(a.action || '').toLowerCase();
+        const classSlug = String(a.class_slug || '').toLowerCase();
+        const reason = String(a.reason || '').toLowerCase();
+        const entity = String(a.entity_type || '').toLowerCase();
+        const id = String(a.id || '');
+        return actor.includes(q) || role.includes(q) || action.includes(q) || classSlug.includes(q) || reason.includes(q) || entity.includes(q) || id.includes(q);
+      });
+    },
+
+    auditTotalPages() {
+      const count = this.filteredAuditList().length;
+      return Math.max(1, Math.ceil(count / this.auditPerPage));
+    },
+
+    paginatedAuditList() {
+      const list = this.filteredAuditList();
+      const totalPages = this.auditTotalPages();
+      if (this.auditPage > totalPages) this.auditPage = totalPages;
+      if (this.auditPage < 1) this.auditPage = 1;
+      const start = (this.auditPage - 1) * this.auditPerPage;
+      return list.slice(start, start + this.auditPerPage);
+    },
+
+    setAuditPage(p) {
+      if (p === '...') return;
+      const total = this.auditTotalPages();
+      if (p >= 1 && p <= total) {
+        this.auditPage = p;
+      }
+    },
+
+    auditPaginationPages() {
+      const total = this.auditTotalPages();
+      const curr = this.auditPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
+    fmtWaktuAudit(dt) {
+      if (!dt) return { tanggal: '-', zona: 'WIB' };
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return { tanggal: String(dt), zona: 'WIB' };
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+
+      const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
+
+      if (isToday) {
+        return { tanggal: 'Hari ini, ' + timeStr, zona: 'WIB' };
+      }
+      if (isYesterday) {
+        return { tanggal: 'Kemarin, ' + timeStr, zona: 'WIB' };
+      }
+      const bln = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return { tanggal: pad(d.getDate()) + ' ' + bln[d.getMonth()] + ' ' + d.getFullYear() + ', ' + timeStr, zona: 'WIB' };
+    },
+
+    bukaModalAuditDiff(a) {
+      this.selectedAudit = a;
+      this.modalAuditDiff = true;
+    },
+
+    tutupModalAuditDiff() {
+      this.modalAuditDiff = false;
+      this.selectedAudit = null;
+    },
+
+    bukaModalDukunganGlobal() {
+      this.dukunganKelasPilihan = this.kelasAktif || '';
+      this.dukunganAlasanGlobal = '';
+      this.modalDukunganGlobal = true;
+    },
+
+    tutupModalDukunganGlobal() {
+      this.modalDukunganGlobal = false;
+      this.dukunganAlasanGlobal = '';
+    },
+
+    async simpanMasukDukunganGlobal() {
+      const slug = (this.dukunganKelasPilihan || '').trim();
+      const target = (this.kelasList || []).find(k => k.slug === slug);
+      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      const alasan = (this.dukunganAlasanGlobal || '').trim();
+      if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
+      this.dukunganLoading = true;
+      try {
+        this.dukunganAktif = await API.supportEnter(target.slug, alasan);
+        this.modalDukunganGlobal = false;
+        this.dukunganAlasanGlobal = '';
+        this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
+        await this.loadAudit();
+      } catch (err) {
+        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
+      } finally {
+        this.dukunganLoading = false;
+      }
     },
 
     auditSeverity(action) {
@@ -2849,6 +2984,7 @@ function systemAdminApp() {
     async loadAudit() {
       this.auditLoading = true; this.auditError = '';
       this.auditOffset = 0; this.auditHasMore = false;
+      this.auditPage = 1;
       try {
         const rows = await API.getAudit(this.auditParams(0)).catch(() => null) || [];
         this.auditList = rows;
