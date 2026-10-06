@@ -251,8 +251,9 @@ function systemAdminApp() {
     dosenList: [],
     dosenLoading: false,
     dosenError: '',
-    dosenForm: { kode: '', nama: '' },
+    dosenForm: { kode: '', nama: '', aktif: true },
     dosenFormError: '',
+    dosenSaving: false,
     dosenQ: '',
     dosenStatusFilter: '',
     dosenPage: 1,
@@ -2267,31 +2268,42 @@ function systemAdminApp() {
     },
 
     bukaModalTambahDosen() {
-      this.dosenForm = { kode: '', nama: '' };
+      this.dosenForm = { kode: '', nama: '', aktif: true };
       this.dosenFormError = '';
+      this.dosenSaving = false;
       this.modalTambahDosen = true;
     },
 
     tutupModalTambahDosen() {
       this.modalTambahDosen = false;
       this.dosenFormError = '';
+      this.dosenSaving = false;
     },
 
     async tambahDosen() {
       const f = this.dosenForm;
-      if (!((f.kode || '').trim()) || !((f.nama || '').trim())) {
+      const kode = (f.kode || '').trim().toUpperCase();
+      const nama = (f.nama || '').trim();
+      if (!kode || !nama) {
         this.dosenFormError = 'Inisial dan nama dosen wajib diisi.';
         return;
       }
       this.dosenFormError = '';
+      this.dosenSaving = true;
       try {
-        await API.createMasterLecturer({ code: f.kode.trim(), full_name: f.nama.trim() });
-        this.dosenForm = { kode: '', nama: '' };
+        await API.createMasterLecturer({
+          code: kode,
+          full_name: nama,
+          status: f.aktif ? 'ACTIVE' : 'INACTIVE'
+        });
+        this.dosenForm = { kode: '', nama: '', aktif: true };
         this.modalTambahDosen = false;
         await this.loadDosen();
-        this.showToast('Dosen ditambahkan.');
+        this.showToast('Dosen berhasil ditambahkan.');
       } catch (err) {
         this.dosenFormError = err.message || 'Gagal menambah dosen.';
+      } finally {
+        this.dosenSaving = false;
       }
     },
 
