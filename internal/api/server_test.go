@@ -64,8 +64,52 @@ func TestAPIServer_WebStatic(t *testing.T) {
 
 	server.httpServer.Handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("Expected status 200 for index.html, got %d", rr.Code)
+	if rr.Code != http.StatusFound {
+		t.Errorf("Expected status 302 for / -> /login.html, got %d", rr.Code)
+	}
+	if loc := rr.Header().Get("Location"); loc != "/login.html" {
+		t.Errorf("Expected Location /login.html, got %q", loc)
+	}
+
+	reqLogin := httptest.NewRequest("GET", "/login.html", nil)
+	rrLogin := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrLogin, reqLogin)
+	if rrLogin.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /login.html, got %d", rrLogin.Code)
+	}
+
+	reqIndex := httptest.NewRequest("GET", "/index.html", nil)
+	rrIndex := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrIndex, reqIndex)
+	if rrIndex.Code != http.StatusFound {
+		t.Errorf("Expected status 302 for /index.html -> /login.html, got %d", rrIndex.Code)
+	}
+	if loc := rrIndex.Header().Get("Location"); loc != "/login.html" {
+		t.Errorf("Expected Location /login.html, got %q", loc)
+	}
+
+	assertLoginRedirect := func(method, target, wantLoc string) {
+		t.Helper()
+		req := httptest.NewRequest(method, target, nil)
+		rr := httptest.NewRecorder()
+		server.httpServer.Handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusFound {
+			t.Errorf("%s %s: status = %d, mau 302", method, target, rr.Code)
+		}
+		if loc := rr.Header().Get("Location"); loc != wantLoc {
+			t.Errorf("%s %s: Location = %q, mau %q", method, target, loc, wantLoc)
+		}
+	}
+	assertLoginRedirect("GET", "/?role=sa", "/login.html?role=sa")
+	assertLoginRedirect("GET", "/index.html?role=sa", "/login.html?role=sa")
+	assertLoginRedirect("HEAD", "/", "/login.html")
+	assertLoginRedirect("HEAD", "/index.html", "/login.html")
+
+	reqPortal := httptest.NewRequest("GET", "/c/kelas-coba", nil)
+	rrPortal := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrPortal, reqPortal)
+	if rrPortal.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /c/kelas-coba (portal index.html), got %d", rrPortal.Code)
 	}
 
 	reqJS := httptest.NewRequest("GET", "/js/vendor/tailwindcss.play.js", nil)

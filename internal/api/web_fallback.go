@@ -21,6 +21,16 @@ func isWebPagePath(p string) bool {
 	return ext == "" || ext == ".html"
 }
 
+// redirectToLogin mengalihkan ke /login.html dengan query string dipertahankan.
+// Dipakai bersama oleh handler "/" dan "/index.html" agar semantik GET/HEAD sama.
+func redirectToLogin(w http.ResponseWriter, r *http.Request) {
+	target := "/login.html"
+	if r.URL.RawQuery != "" {
+		target += "?" + r.URL.RawQuery
+	}
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
 // serveWebNotFound menyajikan halaman 404 kustom dengan status 404.
 func serveWebNotFound(w http.ResponseWriter, r *http.Request) {
 	page, err := web.Files.ReadFile("404.html")
