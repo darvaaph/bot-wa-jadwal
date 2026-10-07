@@ -73,8 +73,11 @@ function systemAdminApp() {
     detailSettingsError: '',
     portalModeConfirm: null,
     detailMenu: null,
-    dukunganFormTerbuka: false,
+    dialogDukunganTerbuka: false,
+    dialogDukunganKelas: null,
+    dialogDukunganPemicu: null,
     portalCodeReveal: '',
+    portalCodeRevealTimer: null,
     kmPenugasan: null,
     kmPenugasanLoading: false,
     smBuatTerbuka: false,
@@ -138,8 +141,15 @@ function systemAdminApp() {
     undangLink: '',
 
     dukunganAlasan: '',
+    dukunganDialogError: '',
     dukunganAktif: null,
     dukunganLoading: false,
+    dukunganSekarang: Date.now(),
+    dukunganError: '',
+    pengingatFormTerbuka: false,
+    pengingatForm: { morning_reminder_time: '', afternoon_reminder_time: '', replacement_reminder_minutes: 60 },
+    pengingatSaving: false,
+    pengingatError: '',
 
     penggunaTab: 'akun',
     penggunaQ: '',
@@ -367,9 +377,17 @@ function systemAdminApp() {
     auditPerPage: 10,
     modalAuditDiff: false,
     selectedAudit: null,
-    modalDukunganGlobal: false,
+    auditSesiTerbuka: false,
+    auditSesiGrant: null,
+    auditSesiRows: [],
+    auditSesiLoading: false,
+    auditSesiLoadingMore: false,
+    auditSesiError: '',
+    auditSesiHasMore: false,
+    auditSesiOffset: 0,
+    auditSesiUntil: '',
+    auditSesiPemicu: null,
     dukunganKelasPilihan: '',
-    dukunganAlasanGlobal: '',
 
     toast: { show: false, message: '', timer: null },
 
@@ -599,19 +617,41 @@ function systemAdminApp() {
       return (d && (d.class_slug || d.slug)) || '';
     },
 
+    dukunganMasihAktif() {
+      const akhir = Date.parse(this.dukunganAktif && this.dukunganAktif.expires_at);
+      return !!this.dukunganAktif && Number.isFinite(akhir) && akhir > this.dukunganSekarang;
+    },
+
+    dukunganHitungMundur() {
+      const akhir = Date.parse(this.dukunganAktif && this.dukunganAktif.expires_at);
+      const detik = Number.isFinite(akhir) ? Math.max(0, Math.ceil((akhir - this.dukunganSekarang) / 1000)) : 0;
+      return String(Math.floor(detik / 60)).padStart(2, '0') + ':' + String(detik % 60).padStart(2, '0');
+    },
+
+    bukaKelasDukungan() {
+      const slug = this.dukunganKelasSlug();
+      const kelas = (this.kelasList || []).find(k => k.slug === slug);
+      if (kelas) this.bukaDetail(kelas);
+      else this.showToast('Kelas dukungan belum tersedia. Muat ulang daftar kelas.');
+    },
+
+    urlRuangKerjaKM() {
+      const slug = this.dukunganKelasSlug();
+      return '/km.html?class=' + encodeURIComponent(slug);
+    },
+
     dukunganJam() {
       try {
         const d = new Date(this.dukunganAktif && this.dukunganAktif.expires_at);
         if (isNaN(d)) return '-';
-        const p = (v) => String(v).padStart(2, '0');
-        return p(d.getHours()) + ':' + p(d.getMinutes());
+        return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) + ' WIB';
       } catch (e) { return '-'; }
     },
 
     dukunganSisa() {
       try {
         const d = new Date(this.dukunganAktif && this.dukunganAktif.expires_at);
-        const ms = d.getTime() - Date.now();
+        const ms = d.getTime() - this.dukunganSekarang;
         if (isNaN(ms)) return '';
         if (ms <= 0) return 'sudah berakhir';
         const mnt = Math.floor(ms / 60000);
@@ -720,6 +760,9 @@ function systemAdminApp() {
       setInterval(() => {
         if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
       }, 30000);
+      setInterval(() => {
+        this.dukunganSekarang = Date.now();
+      }, 1000);
     },
 
     async loadPartials(slots) {
@@ -3312,34 +3355,7 @@ function systemAdminApp() {
     },
 
     bukaModalDukunganGlobal() {
-      this.dukunganKelasPilihan = this.kelasAktif || '';
-      this.dukunganAlasanGlobal = '';
-      this.modalDukunganGlobal = true;
-    },
-
-    tutupModalDukunganGlobal() {
-      this.modalDukunganGlobal = false;
-      this.dukunganAlasanGlobal = '';
-    },
-
-    async simpanMasukDukunganGlobal() {
-      const slug = (this.dukunganKelasPilihan || '').trim();
-      const target = (this.kelasList || []).find(k => k.slug === slug);
-      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
-      const alasan = (this.dukunganAlasanGlobal || '').trim();
-      if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
-      this.dukunganLoading = true;
-      try {
-        this.dukunganAktif = await API.supportEnter(target.slug, alasan);
-        this.modalDukunganGlobal = false;
-        this.dukunganAlasanGlobal = '';
-        this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
-        await this.loadAudit();
-      } catch (err) {
-        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
-      } finally {
-        this.dukunganLoading = false;
-      }
+      this.bukaDialogDukungan(null);
     },
 
     auditSeverity(action) {
@@ -3866,8 +3882,10 @@ function systemAdminApp() {
       this.kelasAktif = obj.slug;
       this.kelasStatusConfirm = null;
       this.detailMenu = null;
-      this.dukunganFormTerbuka = false;
+      clearTimeout(this.portalCodeRevealTimer);
       this.portalCodeReveal = '';
+      this.pengingatFormTerbuka = false;
+      this.pengingatError = '';
       this.kmPenugasan = null;
       this.smPreviewMap = {};
       this.smPratinjau = null;
@@ -4783,6 +4801,99 @@ function systemAdminApp() {
       this.go('audit');
     },
 
+    bukaAuditSesi() {
+      const grant = this.dukunganAktif;
+      if (!grant || !grant.class_slug || !grant.created_at || !this.currentUser?.id) {
+        this.showToast('Sesi dukungan belum tersedia untuk diaudit.');
+        return;
+      }
+      this.auditSesiPemicu = document.activeElement;
+      this.auditSesiGrant = { ...grant };
+      this.auditSesiRows = [];
+      this.auditSesiOffset = 0;
+      this.auditSesiHasMore = false;
+      this.auditSesiError = '';
+      this.auditSesiLoading = false;
+      this.auditSesiLoadingMore = false;
+      this.auditSesiUntil = new Date().toISOString();
+      this.auditSesiTerbuka = true;
+      this.$nextTick(() => document.getElementById('sa-audit-sesi-tutup')?.focus());
+      this.muatAuditSesi();
+    },
+
+    tutupAuditSesi() {
+      this.auditSesiTerbuka = false;
+      this.auditSesiGrant = null;
+      this.auditSesiRequestId = (this.auditSesiRequestId || 0) + 1;
+      this.auditSesiLoading = false;
+      this.auditSesiLoadingMore = false;
+      this.$nextTick(() => this.auditSesiPemicu?.focus?.());
+    },
+
+    auditSesiParams(offset) {
+      const raw = String(this.auditSesiGrant.created_at).trim().replace(' ', 'T');
+      const since = /(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z';
+      return {
+        class_slug: this.auditSesiGrant.class_slug,
+        actor: this.currentUser.id,
+        since,
+        until: this.auditSesiUntil,
+        limit: 50,
+        offset
+      };
+    },
+
+    async muatAuditSesi(more = false) {
+      if (!this.auditSesiTerbuka || !this.auditSesiGrant) return;
+      if (more && (this.auditSesiLoadingMore || !this.auditSesiHasMore)) return;
+      const requestId = this.auditSesiRequestId = (this.auditSesiRequestId || 0) + 1;
+      const offset = more ? this.auditSesiOffset : 0;
+      if (more) this.auditSesiLoadingMore = true;
+      else this.auditSesiLoading = true;
+      this.auditSesiError = '';
+      try {
+        const rows = await API.getAudit(this.auditSesiParams(offset), true);
+        if (requestId !== this.auditSesiRequestId) return;
+        this.auditSesiRows = more ? [...rows.slice().reverse(), ...this.auditSesiRows] : rows.slice().reverse();
+        this.auditSesiOffset = offset + rows.length;
+        this.auditSesiHasMore = rows.length === 50;
+      } catch (err) {
+        if (requestId === this.auditSesiRequestId) this.auditSesiError = err.message || 'Riwayat audit gagal dimuat.';
+      } finally {
+        if (requestId === this.auditSesiRequestId) {
+          this.auditSesiLoading = false;
+          this.auditSesiLoadingMore = false;
+        }
+      }
+    },
+
+    fmtWaktuAuditSesi(value) {
+      if (!value) return '-';
+      const raw = String(value).trim().replace(' ', 'T');
+      const date = new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z');
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(date).replace('.', ':') + ' WIB';
+    },
+
+    fmtTanggalAuditSesi(value) {
+      if (!value) return '-';
+      const raw = String(value).trim().replace(' ', 'T');
+      const date = new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z');
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+    },
+
+    deskripsiAuditSesi(row) {
+      const action = String(row.action || '');
+      if (action === 'SUPPORT_ENTER') return 'Sesi dukungan dimulai: ' + (row.reason || this.auditSesiGrant?.reason || '-');
+      if (action === 'SUPPORT_EXIT') return 'Sesi dukungan ditutup' + (row.reason ? ': ' + row.reason : '.');
+      if (action === 'ROTATE_PORTAL_CODE') return 'Kode portal dirotasi; kode sebelumnya dinonaktifkan.';
+      if (row.reason) return row.reason;
+      const changes = this.auditChanges(row).map(change => change.key).filter(key => !/code|token|secret|password|hash/i.test(key));
+      if (changes.length) return 'Perubahan pada ' + changes.slice(0, 3).join(', ') + (changes.length > 3 ? ', dan lainnya.' : '.');
+      return 'Aktivitas pada ' + (row.entity_type || 'data kelas') + ' dicatat.';
+    },
+
     bukaAntreanKelas(classId) {
       this.notifFilter = '';
       this.notifKelas = String(classId || '');
@@ -5068,12 +5179,14 @@ function systemAdminApp() {
 
     async rotasiKodePortal() {
       if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
+      clearTimeout(this.portalCodeRevealTimer);
       this.portalCodeReveal = '';
       try {
         const res = await API.rotatePortalCode(this.kelasAktifObj.slug);
         if (res && res.portal_code) {
           this.portalCodeReveal = res.portal_code;
-          this.showToast('Kode portal dirotasi. Kode hanya tampil sekali, salin sekarang.');
+          this.portalCodeRevealTimer = setTimeout(() => { this.portalCodeReveal = ''; }, 60000);
+          this.showToast('Kode portal hanya tampil selama 60 detik. Salin sekarang.');
         } else {
           this.showToast('Kode portal kelas berhasil dirotasi.');
         }
@@ -5092,6 +5205,60 @@ function systemAdminApp() {
         if (!this.detailSettings) this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat.';
       } catch (e) {
         this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      }
+    },
+
+    bukaPengingatForm() {
+      if (!this.detailSettings) return;
+      this.pengingatForm = {
+        morning_reminder_time: this.detailSettings.morning_reminder_time || '',
+        afternoon_reminder_time: this.detailSettings.afternoon_reminder_time || '',
+        replacement_reminder_minutes: this.detailSettings.replacement_reminder_minutes ?? 60
+      };
+      this.pengingatError = '';
+      this.pengingatFormTerbuka = true;
+    },
+
+    semesterAktifDetail() {
+      return (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'ACTIVE') || null;
+    },
+
+    bukaDaftarSemester() {
+      const section = document.getElementById('sa-detail-semester');
+      if (!section) return;
+      const headerHeight = document.querySelector('header')?.getBoundingClientRect().height || 0;
+      const bannerHeight = document.getElementById('sa-banner')?.getBoundingClientRect().height || 0;
+      window.scrollTo({ top: window.scrollY + section.getBoundingClientRect().top - headerHeight - bannerHeight - 16, behavior: 'smooth' });
+    },
+
+    async simpanPengingat() {
+      const slug = this.kelasAktifObj && this.kelasAktifObj.slug;
+      if (!slug || !this.detailSettings || this.pengingatSaving) return;
+      const f = this.pengingatForm;
+      const validJam = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+      const menit = Number(f.replacement_reminder_minutes);
+      if (!validJam(f.morning_reminder_time) || !validJam(f.afternoon_reminder_time) || !Number.isInteger(menit) || menit < 0 || menit > 1440) {
+        this.pengingatError = 'Isi jam dalam format HH:MM dan interval 0–1440 menit.';
+        return;
+      }
+      this.pengingatError = '';
+      this.pengingatSaving = true;
+      try {
+        await API.updateClassSettings(slug, {
+          version: this.detailSettings.version,
+          morning_reminder_time: f.morning_reminder_time,
+          afternoon_reminder_time: f.afternoon_reminder_time,
+          replacement_reminder_minutes: menit
+        });
+        await this.loadDetailSettings(slug);
+        this.pengingatFormTerbuka = false;
+        this.showToast('Jam pengingat berhasil disimpan.');
+      } catch (err) {
+        this.pengingatError = err.code === 'VERSION_CONFLICT'
+          ? 'Pengaturan berubah di tempat lain. Muat ulang halaman ini sebelum menyimpan.'
+          : (err.message || 'Gagal menyimpan jam pengingat.');
+      } finally {
+        this.pengingatSaving = false;
       }
     },
 
@@ -5242,33 +5409,62 @@ function systemAdminApp() {
     },
 
     bukaDialogDukungan(k) {
-      this.dialogDukunganKelas = k;
-      this.kelasAktif = k.slug;
+      if (this.dukunganAktif || this.dukunganLoading || this.dukunganError) return;
+      this.dialogDukunganPemicu = document.activeElement;
+      this.dialogDukunganKelas = k || null;
+      this.dukunganKelasPilihan = k ? k.slug : '';
       this.dukunganAlasan = '';
+      this.dukunganDialogError = '';
+      this.dialogDukunganTerbuka = true;
+      this.$nextTick(() => document.getElementById(k ? 'sa-dukungan-alasan-modal' : 'sa-dukungan-kelas-modal')?.focus());
+    },
+
+    bukaDialogDukunganDariPilihan() {
+      const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
+      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      this.bukaDialogDukungan(target);
+    },
+
+    tutupDialogDukungan() {
+      if (this.dukunganLoading) return;
+      this.dialogDukunganTerbuka = false;
+      this.dialogDukunganKelas = null;
+      this.dukunganDialogError = '';
+      this.$nextTick(() => this.dialogDukunganPemicu?.focus?.());
+    },
+
+    fokusDialogDukungan(event) {
+      if (event.key !== 'Tab') return;
+      const items = [...event.currentTarget.querySelectorAll('button:not(:disabled), select:not(:disabled), textarea:not(:disabled)')];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    },
+
+    panjangAlasanDukungan() {
+      return Array.from((this.dukunganAlasan || '').trim()).length;
     },
 
     async jalankanMasukDukungan() {
-      if (!this.dialogDukunganKelas) return;
-      this.kelasAktif = this.dialogDukunganKelas.slug;
-      await this.masukDukungan();
-      if (this.dukunganAktif) {
-        this.dialogDukunganKelas = null;
-      }
-    },
-
-    async masukDukungan() {
-      const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
-      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      if (this.dukunganLoading || !this.dialogDukunganTerbuka) return;
+      const target = this.dialogDukunganKelas || (this.kelasList || []).find(k => k.slug === this.dukunganKelasPilihan);
+      if (!target) { this.dukunganDialogError = 'Pilih kelas tujuan terlebih dahulu.'; return; }
       const alasan = (this.dukunganAlasan || '').trim();
-      if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
+      if (this.panjangAlasanDukungan() < 10) { this.dukunganDialogError = 'Alasan dukungan minimal 10 karakter.'; return; }
+      this.dukunganDialogError = '';
       this.dukunganLoading = true;
       try {
         this.dukunganAktif = await API.supportEnter(target.slug, alasan);
+        this.kelasAktif = target.slug;
         this.dukunganAlasan = '';
+        this.dialogDukunganTerbuka = false;
+        this.dialogDukunganKelas = null;
+        this.$nextTick(() => this.dialogDukunganPemicu?.focus?.());
         this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
         window.scrollTo({ top: 0 });
       } catch (err) {
-        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
+        this.dukunganDialogError = err.message || 'Gagal mengaktifkan Mode Dukungan. Coba lagi.';
       } finally {
         this.dukunganLoading = false;
       }
@@ -5291,13 +5487,14 @@ function systemAdminApp() {
     async muatDukunganAktif() {
       try {
         this.dukunganAktif = await API.supportActive();
+        this.dukunganError = '';
       } catch (e) {
-        this.dukunganAktif = null;
+        this.dukunganError = 'Status Mode Dukungan belum dapat diperiksa. Coba lagi.';
       }
     },
 
     isDukunganUntuk(slug) {
-      return !!(this.dukunganAktif && (this.dukunganAktif.class_slug === slug || this.dukunganAktif.slug === slug));
+      return !!(this.dukunganMasihAktif() && (this.dukunganAktif.class_slug === slug || this.dukunganAktif.slug === slug));
     },
 
     namaDukungan() {

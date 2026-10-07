@@ -2,7 +2,7 @@
 <section x-show="view === 'dukungan'" x-cloak class="min-w-0">
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
     <h1 class="font-display text-[24px] font-bold text-[#1D1B3A]">Mode Dukungan</h1>
-    <p class="text-[13px] text-amber-900 mt-1">Masuk ke kelas untuk dukungan break-glass. Setiap perubahan dicatat sebagai akses dukungan beserta alasan.</p>
+    <p class="text-[13px] text-amber-900 mt-1">Pilih kelas, lalu tulis alasan operasional untuk mengaktifkan sesi dukungan 60 menit.</p>
     <div x-show="dukunganAktif" class="mt-4 p-4 rounded-xl bg-white border border-amber-200 text-[13px]">
       <p class="font-bold text-[#1D1B3A]">Aktif: <span x-text="namaDukungan()"></span></p>
       <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || '') : ''"></span></p>
@@ -23,14 +23,8 @@
           </template>
         </select>
       </div>
-      <div>
-        <label class="block text-[13px] font-bold text-[#1D1B3A] mb-1" for="sa-dukungan-alasan">Alasan dukungan * <span class="font-normal text-[#667085]">(min. 10 karakter)</span></label>
-        <input id="sa-dukungan-alasan" type="text" x-model="dukunganAlasan" placeholder="Contoh: Pemulihan akses KM kelas D4 TI 2025 B" class="w-full max-w-xl h-11 px-3 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1D1B3A]" />
-      </div>
-      <button type="button" @click="masukDukungan()" :disabled="dukunganLoading" class="w-fit min-h-[44px] px-5 rounded-xl bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors mt-2">
-        <span x-text="dukunganLoading ? 'Memproses...' : 'Masuk Mode Dukungan'"></span>
-      </button>
-      <p class="text-[11px] text-amber-800 mt-1">Hibah server 60 menit per kelas + alasan wajib + banner global. Masuk/keluar tercatat di Audit Global sebagai SUPPORT_ENTER/EXIT.</p>
+      <button type="button" @click="bukaDialogDukunganDariPilihan()" :disabled="!kelasAktif || !!dukunganError" class="w-fit min-h-[44px] px-5 rounded-xl bg-[#3965FB] text-white text-[13px] font-semibold disabled:opacity-50">Lanjut ke alasan dukungan</button>
+      <p class="text-[11px] text-amber-800 mt-1">Aktivasi dan penutupan sesi tercatat di Audit Global sebagai SUPPORT_ENTER/EXIT.</p>
     </div>
   </div>
 </section>
@@ -62,6 +56,7 @@
             <button
               type="button"
               @click="bukaModalDukunganGlobal()"
+              :disabled="!!dukunganError"
               class="w-fit shrink-0 min-h-[44px] px-[16px] [box-shadow:0px_1px_3px_#1018280A] flex flex-row gap-[7px] justify-center items-center bg-[#FFFBEB] border border-[#FCD34D] hover:bg-amber-100 text-[#92400E] rounded-[12px] transition-colors"
             >
               <span class="text-[16px] font-medium leading-none">+</span>
@@ -528,102 +523,5 @@
     </div>
   </div>
 
-  <!-- Modal: Masuk Mode Dukungan Global (SCR-ADM-008E-MODAL-DUKUNGAN) -->
-  <div x-show="modalDukunganGlobal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px]" @keydown.escape.window="tutupModalDukunganGlobal()">
-    <div
-      class="relative w-full max-w-[480px] bg-[#FFFFFF] rounded-[16px] [box-shadow:0px_20px_48px_#10182840] border border-[#FCD34D] p-[24px] flex flex-col gap-[16px] animate-in fade-in zoom-in-95 duration-150"
-      @click.stop
-    >
-      
-      <!-- Header Mode Dukungan -->
-      <div class="w-full flex flex-row gap-[12px] items-center">
-        <div class="w-[44px] h-[44px] shrink-0 flex items-center justify-center bg-[#FEF3C7] rounded-[22px]">
-          <svg class="w-[24px] h-[24px]" viewBox="0 0 14 14" fill="#B45309">
-            <path d="M7 7.29053q-0.73828 0-1.24414-0.50586-0.50586-0.50586-0.50586-1.24414 0-0.73486 0.50586-1.24073 0.50586-0.50928 1.24414-0.50927 0.73828 0 1.24414 0.50927 0.50586 0.50586 0.50586 1.24073 0 0.73828-0.50586 1.24414-0.50586 0.50586-1.24414 0.50586z m0-0.58106q0.49219 0 0.82715-0.33838 0.33838-0.33838 0.33838-0.83056 0-0.48877-0.33838-0.82715-0.33496-0.33838-0.82715-0.33838-0.49219 0-0.83057 0.33838-0.33496 0.33838-0.33496 0.82715 0 0.49219 0.33496 0.83056 0.33838 0.33838 0.83057 0.33838z m0-4.29297l-3.5 1.30225 0 2.75488q0 0.87842 0.25635 1.6919 0.25977 0.81006 0.72802 1.49707 0.56738-0.29395 1.18604-0.45801 0.62207-0.16406 1.32959-0.16406 0.70752 0 1.32617 0.16406 0.62207 0.16406 1.18945 0.45801 0.46826-0.68701 0.72461-1.49707 0.25977-0.81348 0.25977-1.6919l0-2.75488-3.5-1.30225z m0 7.2085q-0.60498 0-1.15186 0.12988-0.54346 0.12646-1.01855 0.36231 0.44434 0.52978 0.99121 0.9126 0.54688 0.38281 1.1792 0.57763 0.63232-0.19482 1.17236-0.57763 0.54004-0.38281 0.9878-0.9126-0.4751-0.23584-1.01514-0.36231-0.54004-0.12988-1.14502-0.12988z m0 2.53271q-0.07861 0-0.16748-0.01367-0.08887-0.01367-0.16406-0.04443-1.72266-0.65625-2.7378-2.2251-1.01514-1.57227-1.01513-3.40088l0-2.49853q0-0.29395 0.1709-0.53662 0.17432-0.24268 0.44433-0.34864l3.14112-1.16894q0.16748-0.06152 0.32812-0.06152 0.16064 0 0.32813 0.06152l3.14111 1.16894q0.27002 0.10596 0.44092 0.34864 0.17432 0.24268 0.17431 0.53662l0 2.49853q0 1.82861-1.01513 3.40088-1.01514 1.56885-2.7378 2.2251-0.0752 0.03076-0.16406 0.04443-0.08887 0.01367-0.16748 0.01367z"/>
-          </svg>
-        </div>
-        <div class="flex-1 min-w-0 flex flex-col gap-[4px]">
-          <h3 class="text-[18px] text-[#92400E] font-bold leading-tight">
-            Masuk Mode Dukungan
-          </h3>
-          <p class="text-[12px] text-[#B45309] font-normal leading-normal">
-            Akses Darurat Teknis (Break-Glass Access)
-          </p>
-        </div>
-      </div>
-
-      <!-- Guardrail Durasi & Audit -->
-      <div class="w-full p-[14px] bg-[#FFFBEB] border border-[#FCD34D] rounded-[12px]">
-        <p class="text-[12px] leading-[18px] text-[#92400E] font-normal text-left">
-          Sesi hibah server berlaku tepat 60 menit. Anda dapat mengelola kelas target seolah-olah pengurus kelas. Setiap tindakan mutasi data dicatat permanen dalam Audit Global sebagai SUPPORT_ENTER / SUPPORT_EXIT.
-        </p>
-      </div>
-
-      <!-- Form Akses Dukungan -->
-      <div class="w-full flex flex-col gap-[16px]">
-        <!-- Kelas Sasaran -->
-        <div class="w-full flex flex-col gap-[6px]">
-          <label for="modal-dukungan-kelas" class="text-[12px] text-[#1D1B3A] font-normal text-left">
-            Pilih Kelas Tujuan *
-          </label>
-          <div class="relative w-full h-[44px]">
-            <select
-              id="modal-dukungan-kelas"
-              x-model="dukunganKelasPilihan"
-              class="w-full h-[44px] px-[14px] pr-[40px] bg-white border border-[#667085] rounded-[12px] text-[12px] text-[#1D1B3A] outline-none appearance-none cursor-pointer focus:border-[#B45309] focus:ring-1 focus:ring-[#B45309]"
-            >
-              <option value="">-- Pilih Kelas Target --</option>
-              <template x-for="k in kelasList" :key="k.slug">
-                <option :value="k.slug" x-text="k.nama + ' · ' + k.prodi + ' ' + (k.angkatan || '')"></option>
-              </template>
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-[14px] text-[#667085]">
-              <svg class="w-[18px] h-[18px]" viewBox="0 0 14 14" fill="currentColor">
-                <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alasan Dukungan Wajib -->
-        <div class="w-full flex flex-col gap-[6px]">
-          <label for="modal-dukungan-alasan" class="text-[12px] text-[#1D1B3A] font-normal text-left">
-            Alasan Dukungan Teknis *
-          </label>
-          <textarea
-            id="modal-dukungan-alasan"
-            x-model="dukunganAlasanGlobal"
-            rows="3"
-            placeholder="Tuliskan alasan spesifik (min. 10 karakter), contoh: Pemulihan konfigurasi KM dan pengecekan jadwal bentrok ruang D102."
-            class="w-full h-[88px] p-[12px] bg-white border border-[#667085] rounded-[12px] text-[12px] text-[#1D1B3A] placeholder-[#667085] outline-none resize-none focus:border-[#B45309] focus:ring-1 focus:ring-[#B45309]"
-          ></textarea>
-          <div class="text-[11px] text-[#667085] font-normal text-left">
-            Wajib diisi minimal 10 karakter demi kepatuhan audit sistem.
-          </div>
-        </div>
-      </div>
-
-      <!-- Aksi Elevasi Footer -->
-      <div class="w-full pt-[16px] border-t border-[#F2F4F7] flex flex-row gap-[12px] justify-end items-center">
-        <button
-          type="button"
-          @click="tutupModalDukunganGlobal()"
-          class="min-h-[44px] px-[16px] flex items-center justify-center rounded-[12px] text-[12px] text-[#667085] hover:text-[#1D1B3A] font-semibold hover:bg-slate-100 transition-colors"
-        >
-          Batal
-        </button>
-        <button
-          type="button"
-          @click="simpanMasukDukunganGlobal()"
-          :disabled="dukunganLoading || !dukunganKelasPilihan || (dukunganAlasanGlobal || '').trim().length < 10"
-          class="min-h-[44px] px-[20px] flex items-center justify-center gap-2 bg-[#B45309] hover:bg-[#92400E] text-[#FFFFFF] text-[12px] font-normal shadow-[0px_1px_3px_#1018281A] rounded-[12px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span x-show="dukunganLoading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-          <span x-text="dukunganLoading ? 'Memproses...' : 'Masuk Mode Dukungan (60 Mnt)'"></span>
-        </button>
-      </div>
-
-    </div>
-  </div>
 
 </section>
