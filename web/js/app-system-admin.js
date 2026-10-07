@@ -298,6 +298,9 @@ function systemAdminApp() {
     notifSince: '',
     notifUntil: '',
     notifDetailId: null,
+    modalNotifDetail: false,
+    selectedNotif: null,
+    showRawPayload: false,
     notifAttempts: [],
     notifAttemptsLoading: false,
     notifAttemptsError: '',
@@ -793,9 +796,27 @@ function systemAdminApp() {
     },
 
     toggleNotifDetail(id) {
-      const membuka = this.notifDetailId !== id;
-      this.notifDetailId = membuka ? id : null;
-      if (membuka) this.loadNotifAttempts(id);
+      const n = (this.notifList || []).find(item => item.id === id);
+      if (n) {
+        this.bukaNotifDetail(n);
+      }
+    },
+
+    bukaNotifDetail(n) {
+      if (!n) return;
+      this.selectedNotif = n;
+      this.modalNotifDetail = true;
+      this.showRawPayload = false;
+      this.notifDetailId = n.id;
+      this.loadNotifAttempts(n.id);
+    },
+
+    tutupNotifDetail() {
+      this.modalNotifDetail = false;
+      this.selectedNotif = null;
+      this.notifDetailId = null;
+      this.notifAttempts = [];
+      this.showRawPayload = false;
     },
 
     async loadKanal() {
@@ -1008,6 +1029,102 @@ function systemAdminApp() {
         return slug + ' · ' + n.entity_type + (n.entity_id ? ' #' + n.entity_id : '');
       }
       return slug + ' · pemberitahuan sistem';
+    },
+
+    formatJenisNotifLengkap(eventType) {
+      const t = String(eventType || '').toUpperCase();
+      let label = 'Pengumuman Kelas';
+      if (t === 'TASK_PUBLISHED') label = 'Tugas Baru';
+      else if (t === 'TASK_UPDATED') label = 'Pembaruan Tugas';
+      else if (t === 'SCHEDULE_REPLACEMENT' || t === 'TEACHING_EVENT_PUBLISHED') label = 'Perubahan Ruang';
+      else if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') label = 'Pembatalan Kuliah';
+      else if (t === 'ACADEMIC_RESTORE_CORRECTION') label = 'Koreksi Akademik';
+      else if (t === 'DAILY_DIGEST') label = 'Pengingat Jadwal';
+      else if (t === 'PORTAL_ACCESS') label = 'Kode Akses Portal';
+      return eventType ? `${label} (${eventType})` : label;
+    },
+
+    formatKelasTerkait(n) {
+      if (!n) return '—';
+      const target = (this.kelasList || []).find(k => k.slug === n.class_slug || String(k.id) === String(n.class_id));
+      if (target && target.nama) return target.nama;
+      if (n.class_slug) return n.class_slug.toUpperCase();
+      if (n.class_id) return 'Kelas #' + n.class_id;
+      return '—';
+    },
+
+    formatKanalTujuan(n) {
+      if (!n) return '—';
+      if (n.channel_name && n.channel_name.trim()) return n.channel_name.trim();
+      if (n.channel_jid) {
+        if (n.channel_jid.endsWith('@g.us')) {
+          const k = (this.kelasList || []).find(x => x.slug === n.class_slug || String(x.id) === String(n.class_id));
+          return 'Grup WhatsApp ' + (k ? (k.nama || k.slug) : (n.class_slug ? n.class_slug.toUpperCase() : 'Kelas'));
+        }
+        if (n.channel_jid.endsWith('@s.whatsapp.net')) {
+          return '+' + n.channel_jid.replace('@s.whatsapp.net', '');
+        }
+      }
+      return 'Kanal WhatsApp';
+    },
+
+    getNotifPayload(n) {
+      if (!n || !n.payload_json) return {};
+      try {
+        return typeof n.payload_json === 'object' ? n.payload_json : JSON.parse(n.payload_json);
+      } catch (_) {
+        return {};
+      }
+    },
+
+    getNotifBubbleData(n) {
+      if (!n) return null;
+      const payload = this.getNotifPayload(n);
+      const event = String(n.event_type || '').toUpperCase();
+
+      let title = '📢 PENGUMUMAN KELAS';
+      if (event === 'TASK_PUBLISHED') title = '📝 TUGAS BARU DITERBITKAN';
+      else if (event === 'TASK_UPDATED') title = '✏️ PEMBARUAN INFORMASI TUGAS';
+      else if (event === 'SCHEDULE_REPLACEMENT' || event === 'TEACHING_EVENT_PUBLISHED') title = '📢 PENGUMUMAN KULIAH PENGGANTI';
+      else if (event === 'SCHEDULE_REVOKED' || event === 'TEACHING_EVENT_REVOKED') title = '⚠️ PEMBATALAN KULIAH PENGGANTI';
+      else if (event === 'ACADEMIC_RESTORE_CORRECTION') title = '📌 KOREKSI INFORMASI AKADEMIK';
+      else if (event === 'DAILY_DIGEST') title = '📅 JADWAL KULIAH HARI INI';
+      else if (event === 'PORTAL_ACCESS') title = '🔑 KODE AKSES PORTAL KELAS';
+
+      const course = payload.course || payload.course_name || '';
+      const taskTitle = payload.title || '';
+      const deadline = payload.deadline || '';
+      const instructions = payload.instructions || '';
+      const url = payload.submission_url || payload.url || payload.link || '';
+      const startsAt = payload.starts_at || '';
+      const room = payload.room || '';
+      const reason = payload.reason || '';
+      const message = payload.message || payload.text || '';
+      const portalCode = payload.portal_code || payload.code || '';
+
+      let timeStr = '09:30';
+      try {
+        const d = new Date(n.scheduled_at || n.created_at);
+        if (!isNaN(d)) {
+          timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+      } catch (_) {}
+
+      return {
+        event,
+        title,
+        course,
+        taskTitle,
+        deadline,
+        instructions,
+        url,
+        startsAt,
+        room,
+        reason,
+        message,
+        portalCode,
+        timeStr
+      };
     },
 
     bukaAuditEntitas(entityType) {

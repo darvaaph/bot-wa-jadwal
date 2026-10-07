@@ -290,111 +290,10 @@
                   <!-- Kolom AKSI -->
                   <div class="w-[90px] shrink-0 min-w-0 flex flex-row justify-start items-center">
                     <button type="button"
-                            @click="toggleNotifDetail(n.id)"
-                            :aria-expanded="String(notifDetailId === n.id)"
+                            @click="bukaNotifDetail(n)"
                             :aria-label="'Lihat detail pesan #' + n.id"
                             class="text-[12px] text-[#3965FB] font-semibold text-left hover:underline cursor-pointer bg-transparent border-none p-0 min-h-[32px] flex items-center">
                       Lihat
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Accordion Expandable Row (Detail Pesan & Riwayat Attempts) -->
-                <div x-show="notifDetailId === n.id"
-                     x-collapse
-                     class="box-border w-full p-4 sm:p-5 bg-[#F8FAFC] border-t border-[#D7DDE7] text-[12px] flex flex-col gap-3.5">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-[#D7DDE7]">
-                    <div>
-                      <span class="block text-[11px] font-semibold text-[#667085] uppercase">ID Notifikasi</span>
-                      <span class="font-mono text-[#1D1B3A] font-bold" x-text="'#' + n.id">-</span>
-                    </div>
-                    <div>
-                      <span class="block text-[11px] font-semibold text-[#667085] uppercase">Kunci Idempotensi</span>
-                      <span class="font-mono text-[#1D1B3A] break-all truncate block" :title="n.idempotency_key" x-text="n.idempotency_key || '—'">-</span>
-                    </div>
-                    <div>
-                      <span class="block text-[11px] font-semibold text-[#667085] uppercase">Dibuat Pada</span>
-                      <span class="font-mono text-[#1D1B3A]" x-text="fmtWaktuID(n.created_at)">-</span>
-                    </div>
-                    <div>
-                      <span class="block text-[11px] font-semibold text-[#667085] uppercase">Percobaan Terakhir</span>
-                      <span class="font-mono text-[#1D1B3A]" x-text="n.last_attempt_at ? fmtWaktuID(n.last_attempt_at) : '—'">-</span>
-                    </div>
-                  </div>
-
-                  <!-- Banner Galat Terakhir -->
-                  <div x-show="n.last_attempt_error" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[12px]">
-                    <div class="flex items-center gap-1.5 font-bold">
-                      <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="shrink-0" aria-hidden="true" focusable="false">
-                        <path d="M6.3 8.4h1.4V3.5H6.3zm0 2.1h1.4V9.1H6.3zM7 12.6A5.6 5.6 0 1 0 1.4 7 5.6 5.6 0 0 0 7 12.6z"/>
-                      </svg>
-                      <span>Galat Pengiriman Terakhir:</span>
-                    </div>
-                    <p class="font-mono mt-1 text-[11px] break-all" x-text="n.last_attempt_error">-</p>
-                  </div>
-
-                  <!-- Payload Pesan (Collapsible) -->
-                  <details class="group bg-white rounded-xl border border-[#D7DDE7] overflow-hidden">
-                    <summary class="px-4 py-2.5 font-semibold text-[#1D1B3A] hover:bg-slate-50 cursor-pointer flex items-center justify-between text-[12px] select-none min-h-[40px]">
-                      <span>Isi payload pesan mentah (JSON)</span>
-                      <span class="text-[#667085] text-[11px] group-open:rotate-180 transition-transform">▾</span>
-                    </summary>
-                    <div class="p-3 bg-slate-900 border-t border-[#D7DDE7] overflow-x-auto">
-                      <pre class="font-mono text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap" x-text="prettyPayload(n.payload_json)"></pre>
-                    </div>
-                  </details>
-
-                  <!-- Riwayat Percobaan Pengiriman -->
-                  <div class="bg-white p-4 rounded-xl border border-[#D7DDE7]">
-                    <div class="flex items-center justify-between mb-2">
-                      <h3 class="text-[13px] font-bold text-[#1D1B3A]">Riwayat Percobaan Pengiriman</h3>
-                      <button type="button" @click="loadNotifAttempts(n.id)" class="text-[11px] font-semibold text-[#3965FB] hover:underline" :disabled="notifAttemptsLoading">
-                        Muat Ulang Riwayat
-                      </button>
-                    </div>
-
-                    <div x-show="notifAttemptsLoading" class="py-3 text-center text-[#667085] text-[12px]">
-                      Memuat riwayat percobaan...
-                    </div>
-                    <div x-show="notifAttemptsError" class="py-2 text-red-700 text-[12px]">
-                      <span x-text="notifAttemptsError"></span>
-                      <button type="button" @click="loadNotifAttempts(n.id)" class="underline ml-1 font-semibold">Coba lagi</button>
-                    </div>
-                    <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="py-2 text-[#667085] text-[12px]">
-                      Belum ada percobaan pengiriman yang tercatat.
-                    </div>
-
-                    <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="space-y-2 mt-2">
-                      <template x-for="t in notifAttempts" :key="t.attempt_number">
-                        <div class="p-3 rounded-lg border border-[#D7DDE7] bg-slate-50/60 flex flex-col gap-1 text-[12px]">
-                          <div class="flex items-center justify-between">
-                            <span class="font-mono font-bold text-[#1D1B3A]" x-text="'Percobaan #' + t.attempt_number"></span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase"
-                                  :class="String(t.result).toLowerCase() === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-                                  x-text="t.result || 'berjalan'"></span>
-                          </div>
-                          <div class="text-[#667085] font-mono text-[11px]" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')"></div>
-                          <div x-show="t.error_message" class="text-red-700 text-[11px] font-mono" x-text="t.error_message"></div>
-                          <div x-show="t.provider_message_id" class="text-slate-400 text-[10px] font-mono" x-text="'ID Provider: ' + t.provider_message_id"></div>
-                        </div>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- Aksi Tambahan dalam Accordion -->
-                  <div class="flex flex-wrap items-center gap-2 pt-1">
-                    <button type="button"
-                            x-show="notifDapatDiulang(n.status)"
-                            @click="ulangiPesan(n.id)"
-                            class="px-4 py-2 rounded-[10px] bg-[#3965FB] hover:bg-blue-700 text-white text-[12px] font-semibold transition-colors min-h-[38px] flex items-center gap-1.5 cursor-pointer">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/></svg>
-                      <span>Jadwalkan Ulang</span>
-                    </button>
-                    <button type="button"
-                            x-show="n.entity_type"
-                            @click="bukaAuditEntitas(n.entity_type)"
-                            class="px-4 py-2 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[#1D1B3A] text-[12px] font-medium transition-colors min-h-[38px] cursor-pointer">
-                      Lihat di Audit Global
                     </button>
                   </div>
                 </div>
@@ -415,6 +314,326 @@
                   :disabled="notifLoadingMore"
                   class="w-full sm:w-auto h-9 px-4 rounded-[8px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#1D1B3A] transition-colors disabled:opacity-50 min-h-[36px]">
             <span x-text="notifLoadingMore ? 'Memuat...' : 'Muat 50 lagi'">Muat 50 lagi</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Dialog Detail Pesan Notifikasi WhatsApp -->
+  <div x-show="modalNotifDetail"
+       x-cloak
+       role="dialog"
+       aria-modal="true"
+       :aria-label="'Detail Pesan Notifikasi #' + (selectedNotif?.id || '')"
+       @keydown.escape.window="tutupNotifDetail()"
+       class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-[#101828]/60 backdrop-blur-xs transition-opacity">
+    
+    <!-- Backdrop Click to Close -->
+    <div class="fixed inset-0" @click="tutupNotifDetail()" aria-hidden="true"></div>
+
+    <!-- Container Modal (560px) -->
+    <div class="relative w-full max-w-[560px] bg-white rounded-[16px] shadow-2xl flex flex-col overflow-hidden border border-[#D7DDE7]/60 max-h-[92vh] z-10 transition-transform"
+         @click.stop>
+      
+      <!-- Header Detail Pesan -->
+      <div class="box-border w-full shrink-0 flex flex-row gap-3 p-[22px_24px_18px_24px] justify-between items-start border-b border-[#F1F5F9]">
+        <div class="flex-1 flex flex-col gap-1.5 min-w-0">
+          <h3 class="text-[18px] text-[#1D1B3A] font-semibold text-left truncate">
+            Detail Pesan Notifikasi
+          </h3>
+          <div class="text-[12px]/[16px] text-[#64748B] font-mono font-normal text-left truncate w-full"
+               :title="'ID: #' + (selectedNotif?.id || '') + ' • Kunci Idempotensi: ' + (selectedNotif?.idempotency_key || '—')">
+            <span x-text="'ID: #' + (selectedNotif?.id ? String(selectedNotif.id).padStart(4, '0') : '')">ID: #-</span> • 
+            <span>Kunci Idempotensi: </span>
+            <span class="text-[#1D1B3A]" x-text="selectedNotif?.idempotency_key || '—'">—</span>
+          </div>
+        </div>
+        <button type="button"
+                @click="tutupNotifDetail()"
+                title="Tutup (Esc)"
+                aria-label="Tutup detail pesan"
+                class="w-[36px] h-[36px] shrink-0 flex items-center justify-center rounded-[8px] text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false" class="shrink-0">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Isi Detail Pesan (Scrollable) -->
+      <div class="w-full flex-1 overflow-y-auto scroll-slim p-[20px_24px] flex flex-col gap-[18px]">
+        
+        <!-- Grid Informasi Utama (2 Kolom) -->
+        <div class="box-border w-full flex flex-row gap-[22px] p-[16px] justify-start items-start bg-[#F8FAFC] rounded-[9px] border border-[#E2E8F0]">
+          <!-- Kolom Informasi Kiri -->
+          <div class="flex-1 flex flex-col gap-[13px] min-w-0">
+            <!-- Status Pesan -->
+            <div class="flex flex-col gap-[4px] items-start">
+              <span class="text-[11px] text-[#64748B] font-medium">Status</span>
+              <div class="w-fit flex p-[4px_10px] items-center rounded-full text-[12px] font-medium"
+                   :class="{
+                     'bg-[#FEF3C7] text-[#D97706]': String(selectedNotif?.status).toUpperCase() === 'PENDING',
+                     'bg-[#E1FFB7] text-[#166534]': String(selectedNotif?.status).toUpperCase() === 'SENT',
+                     'bg-[#FEE2E2] text-[#991B1B]': notifDapatDiulang(selectedNotif?.status),
+                     'bg-[#EEF2FF] text-[#3965FB]': String(selectedNotif?.status).toUpperCase() === 'PROCESSING'
+                   }">
+                <span x-text="statusNotifLabel(selectedNotif?.status)">Menunggu</span>
+              </div>
+            </div>
+
+            <!-- Jenis Pesan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Jenis Pesan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    :title="formatJenisNotifLengkap(selectedNotif?.event_type)"
+                    x-text="formatJenisNotifLengkap(selectedNotif?.event_type)">
+                -
+              </span>
+            </div>
+
+            <!-- Kelas Terkait -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Kelas Terkait</span>
+              <span class="text-[13px]/[17px] text-[#3965FB] font-medium truncate w-full"
+                    :title="formatKelasTerkait(selectedNotif)"
+                    x-text="formatKelasTerkait(selectedNotif)">
+                -
+              </span>
+            </div>
+          </div>
+
+          <!-- Kolom Informasi Kanan -->
+          <div class="flex-1 flex flex-col gap-[13px] min-w-0">
+            <!-- Kanal Tujuan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Kanal Tujuan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    :title="formatKanalTujuan(selectedNotif)"
+                    x-text="formatKanalTujuan(selectedNotif)">
+                -
+              </span>
+            </div>
+
+            <!-- JID Penerima -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">JID Penerima</span>
+              <span class="text-[13px]/[17px] text-[#64748B] font-mono font-medium truncate w-full"
+                    :title="selectedNotif?.channel_jid || '—'"
+                    x-text="selectedNotif?.channel_jid || '—'">
+                -
+              </span>
+            </div>
+
+            <!-- Waktu Jadwal -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Waktu Jadwal</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    x-text="fmtWaktuID(selectedNotif?.scheduled_at || selectedNotif?.created_at)">
+                -
+              </span>
+            </div>
+
+            <!-- Riwayat Percobaan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Riwayat Percobaan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium"
+                    x-text="(selectedNotif?.attempt_count || selectedNotif?.attempts || 0) + ' kali percobaan'">
+                0 kali percobaan
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Galat Pengiriman Terakhir (Kondisional jika ada) -->
+        <div x-show="selectedNotif?.last_attempt_error"
+             class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[12px] flex flex-col gap-1">
+          <div class="flex items-center gap-1.5 font-bold">
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M6.3 8.4h1.4V3.5H6.3zm0 2.1h1.4V9.1H6.3zM7 12.6A5.6 5.6 0 1 0 1.4 7 5.6 5.6 0 0 0 7 12.6z"/>
+            </svg>
+            <span>Galat Pengiriman Terakhir:</span>
+          </div>
+          <p class="font-mono text-[11px] break-all leading-relaxed" x-text="selectedNotif?.last_attempt_error">-</p>
+        </div>
+
+        <!-- Pratinjau Pesan Siaran (WhatsApp Chat Canvas) -->
+        <div class="box-border w-full flex flex-col gap-[9px]">
+          <div class="text-[11px] text-[#94A3B8] font-semibold tracking-[1px] uppercase">
+            PRATINJAU PESAN SIARAN
+          </div>
+          <div class="box-border w-full p-[14px] bg-[#EFEAE2] rounded-[9px]">
+            <template x-if="getNotifBubbleData(selectedNotif)">
+              <div class="box-border w-full shadow-sm flex flex-col gap-[7px] p-[14px_14px_10px_14px] bg-white rounded-[9px] text-[#1D1B3A]">
+                <!-- Judul Pesan WhatsApp -->
+                <div class="text-[13px] font-bold text-[#1D1B3A]"
+                     x-text="getNotifBubbleData(selectedNotif).title">
+                  📝 TUGAS BARU DITERBITKAN
+                </div>
+
+                <!-- Pemisah Pesan -->
+                <div class="w-full h-[1px] bg-[#D7DDE7]"></div>
+
+                <!-- Isi Mata Kuliah -->
+                <div x-show="getNotifBubbleData(selectedNotif).course" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📚 Mata Kuliah:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).course"></span>
+                </div>
+
+                <!-- Isi Judul Tugas -->
+                <div x-show="getNotifBubbleData(selectedNotif).taskTitle" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📌 Judul:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).taskTitle"></span>
+                </div>
+
+                <!-- Isi Tenggat Waktu -->
+                <div x-show="getNotifBubbleData(selectedNotif).deadline" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">⏰ Tenggat Waktu:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).deadline"></span>
+                </div>
+
+                <!-- Isi Instruksi -->
+                <div x-show="getNotifBubbleData(selectedNotif).instructions" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📋 Instruksi:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).instructions"></span>
+                </div>
+
+                <!-- Isi Waktu Pelaksanaan (Kuliah Pengganti) -->
+                <div x-show="getNotifBubbleData(selectedNotif).startsAt" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📅 Waktu:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).startsAt"></span>
+                </div>
+
+                <!-- Isi Ruangan (Kuliah Pengganti) -->
+                <div x-show="getNotifBubbleData(selectedNotif).room" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🏢 Ruangan:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).room"></span>
+                </div>
+
+                <!-- Isi Alasan / Keterangan -->
+                <div x-show="getNotifBubbleData(selectedNotif).reason" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">💬 Keterangan:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).reason"></span>
+                </div>
+
+                <!-- Isi Kode Portal -->
+                <div x-show="getNotifBubbleData(selectedNotif).portalCode" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🔑 Kode Akses:</span>
+                  <span class="font-mono font-bold flex-1" x-text="getNotifBubbleData(selectedNotif).portalCode"></span>
+                </div>
+
+                <!-- Isi Pesan Bebas (Umum) -->
+                <div x-show="getNotifBubbleData(selectedNotif).message" class="text-[12px]/[16px] whitespace-pre-wrap" x-text="getNotifBubbleData(selectedNotif).message"></div>
+
+                <!-- Isi Tautan -->
+                <div x-show="getNotifBubbleData(selectedNotif).url" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🔗 Tautan:</span>
+                  <span class="font-normal flex-1 break-all text-blue-600 hover:underline" x-text="getNotifBubbleData(selectedNotif).url"></span>
+                </div>
+
+                <!-- Ajakan Portal -->
+                <div class="text-[12px] text-[#475569] italic pt-1">
+                  Lihat selengkapnya melalui Portal Mahasiswa.
+                </div>
+
+                <!-- Jam Pesan WhatsApp (Kanan Bawah) -->
+                <div class="w-full flex justify-end items-center pt-0.5">
+                  <span class="text-[10px] text-[#94A3B8]" x-text="getNotifBubbleData(selectedNotif).timeStr">09:30</span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Accordion Payload JSON Mentah -->
+        <div class="w-full flex flex-col gap-2">
+          <button type="button"
+                  @click="showRawPayload = !showRawPayload"
+                  class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-[12px] font-mono text-[#64748B] transition-colors cursor-pointer select-none">
+            <div class="flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="currentColor"
+                   class="shrink-0 transition-transform" :class="showRawPayload ? 'rotate-90' : ''"
+                   aria-hidden="true" focusable="false">
+                <path d="M7.75537 7l-2.47803-2.47803q-0.08203-0.08203-0.08886-0.19824-0.00342-0.11963 0.08886-0.21191 0.09229-0.0957 0.20508-0.09571 0.11279 0 0.2085 0.09571l2.56006 2.56005q0.0752 0.0752 0.10595 0.15381 0.03076 0.07861 0.03077 0.17432 0 0.0957-0.03077 0.17432-0.03076 0.07861-0.10595 0.1538l-2.56006 2.56006q-0.08203 0.08203-0.20166 0.08887-0.11963 0.00684-0.21192-0.08887-0.09229-0.09229-0.09228-0.20507 0-0.11279 0.09228-0.20508l2.47803-2.47803z"/>
+              </svg>
+              <span>Tampilkan Payload JSON Mentah</span>
+            </div>
+            <span class="text-[11px] text-slate-400" x-text="showRawPayload ? 'Tutup' : 'Buka'">Buka</span>
+          </button>
+          <div x-show="showRawPayload" x-collapse class="p-3 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+            <pre class="font-mono text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap" x-text="prettyPayload(selectedNotif?.payload_json)"></pre>
+          </div>
+        </div>
+
+        <!-- Riwayat Percobaan Baileys (Troubleshooting Log) -->
+        <div class="w-full flex flex-col gap-2 pt-1 border-t border-[#F1F5F9]">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94A3B8] font-semibold tracking-[1px] uppercase">
+              LOG PERCOBAAN PENGIRIMAN
+            </span>
+            <button type="button"
+                    @click="loadNotifAttempts(selectedNotif?.id)"
+                    :disabled="notifAttemptsLoading"
+                    class="text-[11px] font-semibold text-[#3965FB] hover:underline cursor-pointer disabled:opacity-50">
+              Segarkan Log
+            </button>
+          </div>
+
+          <!-- Loading log -->
+          <div x-show="notifAttemptsLoading" class="py-2.5 text-center text-[#667085] text-[12px] animate-pulse">
+            Memuat log percobaan...
+          </div>
+
+          <!-- Error log -->
+          <div x-show="notifAttemptsError" class="py-2 text-red-700 text-[12px] flex items-center justify-between">
+            <span x-text="notifAttemptsError"></span>
+            <button type="button" @click="loadNotifAttempts(selectedNotif?.id)" class="underline font-semibold ml-2">Coba lagi</button>
+          </div>
+
+          <!-- Empty log -->
+          <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="py-2 text-[#64748B] text-[12px]">
+            Belum ada log percobaan yang tercatat untuk pesan ini.
+          </div>
+
+          <!-- List log -->
+          <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="space-y-2">
+            <template x-for="t in notifAttempts" :key="t.attempt_number">
+              <div class="p-3 rounded-lg border border-[#E2E8F0] bg-slate-50 flex flex-col gap-1 text-[12px]">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono font-bold text-[#1D1B3A]" x-text="'Percobaan #' + t.attempt_number"></span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase"
+                        :class="String(t.result).toLowerCase() === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                        x-text="t.result || 'berjalan'"></span>
+                </div>
+                <div class="text-[#64748B] font-mono text-[11px]" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')"></div>
+                <div x-show="t.error_message" class="text-red-700 text-[11px] font-mono" x-text="t.error_message"></div>
+                <div x-show="t.provider_message_id" class="text-slate-400 text-[10px] font-mono" x-text="'ID Provider: ' + t.provider_message_id"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Detail Pesan -->
+      <div class="box-border w-full min-h-[75.5px] p-[16px_24px] flex flex-row items-center justify-between border-t border-[#F1F5F9] gap-3 bg-white">
+        <div class="text-[12px]/[16px] text-[#94A3B8] font-normal flex-1">
+          Pesan otomatis dikirim oleh worker WhatsApp saat jadwal tiba.
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Tombol Jadwalkan Ulang (Kondisional FAILED/CANCELLED) -->
+          <button type="button"
+                  x-show="notifDapatDiulang(selectedNotif?.status)"
+                  @click="ulangiPesan(selectedNotif?.id); tutupNotifDetail()"
+                  class="h-[44px] px-4 rounded-[8px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false" class="shrink-0"><path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/></svg>
+            <span>Jadwalkan Ulang</span>
+          </button>
+
+          <!-- Tombol Tutup -->
+          <button type="button"
+                  @click="tutupNotifDetail()"
+                  class="h-[44px] px-5 rounded-[8px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition-colors cursor-pointer">
+            Tutup
           </button>
         </div>
       </div>
