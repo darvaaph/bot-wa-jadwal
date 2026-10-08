@@ -27,6 +27,8 @@ const AsteriskShell = (() => {
     return {
       shellRoleKey: role,
       shellDrawerTrigger: null,
+      modalLogout: false,
+      logoutLoading: false,
       shellNavSections() { return this.navSections || []; },
       shellIdentity() {
         if (role === 'portal') return { label: 'Portal Kelas', detail: this.selectedClass || 'Pilih kelas', sub: this.semesterLabel || 'Hanya lihat', short: 'PK' };

@@ -61,7 +61,7 @@
             <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate" x-text="shellIdentity().detail"></span>
             <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
           </div>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
+          <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
             </svg>
@@ -104,7 +104,7 @@
   </template>
 </aside>
 
-<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer">
+<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer || (shellRoleKey === 'sa' && modalLogout)">
   <header class="app-header sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
     <div class="flex items-center gap-2 md:gap-3 px-4 md:px-8 h-16 md:h-[72px] max-w-[1280px] mx-auto w-full min-w-0">
       <template x-if="shellRoleKey === 'sa'">
@@ -244,7 +244,7 @@
             <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate" x-text="shellIdentity().detail"></span>
             <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
           </div>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
+          <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
             </svg>
@@ -268,10 +268,76 @@
   </template>
 </aside>
 
-<nav aria-label="Navigasi bawah" :inert="drawer" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
+<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && modalLogout)" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
     <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
   </div>
 </nav>
 
 <div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
+
+<!-- Dialog Konfirmasi Keluar (SCR-ADM-LOGOUT-MODAL) -->
+<div x-show="shellRoleKey === 'sa' && modalLogout"
+     x-cloak
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-logout-title"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#00000080] transition-opacity">
+  <!-- Scrim Backdrop -->
+  <div class="fixed inset-0" @click="tutupModalLogout()" aria-hidden="true"></div>
+
+  <!-- Dialog Box (400px) -->
+  <div class="relative w-full max-w-[400px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+       @click.stop>
+    <!-- Tombol Tutup (X) -->
+    <button type="button"
+            @click="tutupModalLogout()"
+            :disabled="logoutLoading"
+            aria-label="Tutup dialog keluar"
+            title="Tutup dialog"
+            class="absolute right-[12px] top-[12px] w-[44px] h-[44px] flex items-center justify-center rounded-full text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+      <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+        <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"></path>
+      </svg>
+    </button>
+
+    <!-- Peringatan Sesi Berakhir (Header) -->
+    <div class="flex items-start gap-[14px]">
+      <div class="w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#FEE4E2] rounded-full">
+        <svg width="24" height="24" viewBox="0 0 14 14" fill="#D92D20" class="w-6 h-6 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M3.27441 11.66553q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.66992l0-7.45118q0-0.3999 0.27002-0.66992 0.27002-0.27002 0.66992-0.27002l3.44532 0q0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20507 0.08203l-3.44532 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279l3.44532 0q0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20507 0.08203l-3.44532 0z m7.25977-4.375l-4.88086 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l4.88086 0-1.14844-1.15185q-0.08203-0.08203-0.08886-0.19483-0.00342-0.11621 0.08886-0.21533 0.09229-0.0957 0.20508-0.0957 0.11279-0.00342 0.21191 0.09228l1.52442 1.52783q0.14014 0.14014 0.14014 0.32813 0 0.18799-0.14014 0.32812l-1.52442 1.52784q-0.08545 0.08203-0.20507 0.08886-0.11621 0.00342-0.21192-0.09228-0.09229-0.09912-0.09228-0.2085 0.00342-0.11279 0.0957-0.20508l1.14502-1.14843z"></path>
+        </svg>
+      </div>
+      <div class="flex-1 flex flex-col gap-1 pr-6 min-w-0">
+        <h2 id="modal-logout-title" class="text-[18px] leading-[23px] text-[#1D1B3A] font-bold">Keluar dari Akun?</h2>
+        <p class="text-[12px] leading-[18px] text-[#667085]">Sesi aktif Anda di peramban ini akan diakhiri. Anda perlu memasukkan nomor WhatsApp dan kata sandi kembali untuk masuk.</p>
+      </div>
+    </div>
+
+    <!-- Identitas Sesi Saat Ini -->
+    <div class="w-full flex items-center gap-[12px] p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+      <div class="w-[36px] h-[36px] shrink-0 rounded-[18px] bg-[#E9EAFF] text-[#2854D6] text-[12px] font-bold flex items-center justify-center" aria-hidden="true" x-text="typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')">SA</div>
+      <div class="min-w-0 flex-1 flex flex-col gap-[3px]">
+        <div class="text-[12px] leading-tight text-[#1D1B3A] font-semibold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'System Admin'">System Admin</div>
+        <div class="text-[11px] leading-tight text-[#667085] font-mono truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '+62 811-1111-1111'">+62 811-1111-1111</div>
+      </div>
+    </div>
+
+    <!-- Aksi Konfirmasi Keluar -->
+    <div class="w-full flex items-center gap-[10px] pt-[8px]">
+      <button type="button"
+              @click="tutupModalLogout()"
+              :disabled="logoutLoading"
+              class="flex-1 h-[44px] flex items-center justify-center bg-white border border-[#667085] rounded-[12px] text-[12px] font-semibold text-[#475467] hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-50">
+        Batal
+      </button>
+      <button type="button"
+              @click="jalankanLogout()"
+              :disabled="logoutLoading"
+              class="flex-1 h-[44px] flex items-center justify-center bg-[#D92D20] hover:bg-[#B42318] rounded-[12px] text-[12px] font-semibold text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50">
+        <span x-show="logoutLoading" class="inline-block w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+        <span x-text="logoutLoading ? 'Mengeluarkan...' : 'Ya, Keluar'">Ya, Keluar</span>
+      </button>
+    </div>
+  </div>
+</div>
