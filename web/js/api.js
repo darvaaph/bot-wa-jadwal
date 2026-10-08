@@ -960,13 +960,17 @@ const BotApi = {
     return json.data || [];
   },
 
-  async getAudit(params) {
+  async getAudit(params, strict = false) {
     const qs = new URLSearchParams(params || {}).toString();
     const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), {
       headers: authHeaders(),
       credentials: 'same-origin'
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (!strict) return null;
+      const json = await res.json().catch(() => null);
+      throw new Error((json && json.error && json.error.message) || 'Riwayat audit gagal dimuat.');
+    }
     return (await res.json()).data || [];
   },
 
@@ -1247,6 +1251,20 @@ const BotApi = {
     const res = await fetch('/api/status', { credentials: 'same-origin' });
     if (!res.ok) return null;
     return await res.json();
+  },
+
+  async getKMDashboard() {
+    const res = await fetch('/api/v1/km/dashboard', {
+      credentials: 'same-origin', headers: authHeaders(), cache: 'no-store'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(json?.error?.message || 'Ringkasan kelas gagal dimuat.');
+      error.status = res.status;
+      throw error;
+    }
+    if (!json?.data) throw new Error('Ringkasan kelas tidak lengkap.');
+    return json.data;
   },
 
   portalHeaders(slug) {
@@ -1553,10 +1571,13 @@ const BotApi = {
     return json.data;
   },
 
-  async recoverUser(userId, reason, newPassword) {
+  async recoverUser(userId, reason, newPassword, oldPassword) {
     const payload = { reason: reason || '' };
     if (newPassword && newPassword.trim()) {
       payload.new_password = newPassword.trim();
+    }
+    if (oldPassword && oldPassword.trim()) {
+      payload.old_password = oldPassword.trim();
     }
     const res = await fetch('/api/v1/admin/users/' + encodeURIComponent(userId) + '/recover', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
@@ -1828,7 +1849,7 @@ const BotApi = {
     const res = await fetch('/api/v1/admin/support/active', {
       headers: authHeaders(), credentials: 'same-origin'
     });
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error('Gagal memeriksa status Mode Dukungan.');
     const json = await res.json().catch(() => null);
     return (json && json.data) || null;
   },

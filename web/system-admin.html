@@ -6,7 +6,7 @@
   <title>Asterisk - Area System Admin</title>
   <link rel="stylesheet" href="/css/tailwind.css?v=20261005" />
   <link rel="stylesheet" href="/css/fonts.css?v=20261005" />
-  <link rel="stylesheet" href="/css/style.css?v=20261005" />
+  <link rel="stylesheet" href="/css/style.css?v=20261007e" />
   <link rel="stylesheet" href="/css/tokens.css?v=20261005" />
   <link rel="stylesheet" href="/css/components.css?v=20261005" />
   <script src="/js/vendor/tailwindcss.play.js?v=20261005"></script>
@@ -19,9 +19,9 @@
     })();
   </script>
   <script defer src="/js/vendor/alpine.cdn.min.js?v=20261005"></script>
-  <script src="/js/api.js?v=20261005"></script>
-  <script src="/js/shell.js?v=20261005"></script>
-  <script src="/js/app-system-admin.js?v=20261005d"></script>
+  <script src="/js/api.js?v=20261007b"></script>
+  <script src="/js/shell.js?v=20261007d"></script>
+  <script src="/js/app-system-admin.js?v=20261007c"></script>
 </head>
 <!--
   AREA SYSTEM ADMIN (REVISI Figma, terpisah dari Area KM, tanpa role switcher).
@@ -29,7 +29,7 @@
   View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna,
   antrean, audit (+pembaruan), master-ruangan, master-matkul, master-dosen, backup.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); kelasMenu = null; penggunaMenu = null; matkulMenu = null; dosenMenu = null; detailMenu = null; smMenu = null; smPratinjau = null; kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; ruangMenuId = null; batalUbahMatkul(); matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null; tutupModalTambahMatkul(); tutupModalImportMatkul(); tutupModalTambahRuang(); tutupModalImportRuang(); tutupModalTolakUsulan()">
+<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); tutupModalLogout(); tutupModalProfilAdmin(); tutupModalResetPassword(); kelasMenu = null; penggunaMenu = null; matkulMenu = null; dosenMenu = null; detailMenu = null; smMenu = null; smPratinjau = null; kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; ruangMenuId = null; batalUbahMatkul(); matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null; tutupModalTambahMatkul(); tutupModalImportMatkul(); tutupModalTambahRuang(); tutupModalImportRuang(); tutupModalTolakUsulan()">
   <div id="app-shell"></div>
 </body>
 </html>

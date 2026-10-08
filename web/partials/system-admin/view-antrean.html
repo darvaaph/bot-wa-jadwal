@@ -1,154 +1,731 @@
-<!-- partials/system-admin/view-antrean.html - System Admin: Antrean Notifikasi -->
+<!-- partials/system-admin/view-antrean.html - System Admin: Antrean WhatsApp -->
 <section x-show="view === 'antrean'" x-cloak class="min-w-0">
-  <div class="ui-card md:rounded-[24px] p-3 sm:p-6 md:p-10 shadow-sm min-w-0 overflow-x-clip">
-    <div class="flex flex-wrap items-start justify-between gap-2">
-      <div class="min-w-0">
-        <h1 class="font-display text-[20px] sm:text-[28px] md:text-[32px] font-bold text-ink">Antrean Notifikasi</h1>
-        <p class="text-[13px] md:text-[14px] text-muted mt-0.5">Status pengiriman WhatsApp seluruh kelas. Publikasi web tidak menunggu antrean ini.</p>
+  <div class="flex flex-col gap-5 md:gap-[22px]">
+    <!-- Header Antrean WhatsApp -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col sm:flex-row gap-4 sm:gap-[20px] justify-between items-start sm:items-center">
+      <div class="box-border flex-1 h-fit flex flex-col gap-[6px] justify-start items-start min-w-0">
+        <h1 class="text-[26px] sm:text-[30px] font-bold text-[#1D1B3A] tracking-tight whitespace-nowrap">
+          Antrean WhatsApp
+        </h1>
+        <p class="text-[14px] text-[#667085] font-normal text-left">
+          Pantau pesan yang menunggu, gagal dikirim, dan riwayat pengiriman.
+        </p>
       </div>
-      <p class="text-[11px] text-slate-500 font-mono self-center whitespace-nowrap" x-show="!notifLoading" x-text="'Menampilkan ' + filteredNotif().length + ' hasil · limit ' + notifLimit">-</p>
-    </div>
-    <div class="flex flex-col">
-    <div class="mt-4 md:hidden order-1">
-      <button type="button" @click="notifFilterOpen = !notifFilterOpen" :aria-expanded="notifFilterOpen" aria-controls="sa-notif-filter"
-        class="ui-button ui-button--ghost w-full h-11 px-4 rounded-xl border border-border text-[13px] font-semibold flex items-center justify-between min-h-[44px]">
-        <span>Filter <span x-show="notifFilterCount() > 0" x-text="'· ' + notifFilterCount() + ' aktif'"></span></span>
-        <span aria-hidden="true" x-text="notifFilterOpen ? '▾' : '▸'"></span>
+      <button type="button"
+              @click="loadAntrean(); loadFailedCount()"
+              :disabled="notifLoading"
+              class="box-border w-fit shrink-0 h-[44px] flex flex-row gap-[8px] px-4 justify-start items-center bg-white border border-[#D7DDE7] rounded-[10px] hover:bg-slate-50 transition-colors cursor-pointer min-h-[44px] disabled:opacity-60">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB"
+             class="shrink-0" :class="notifLoading ? 'animate-spin' : ''"
+             aria-hidden="true" focusable="false">
+          <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+        </svg>
+        <span class="text-[13px] text-[#1D1B3A] font-semibold whitespace-nowrap">
+          Perbarui antrean
+        </span>
       </button>
     </div>
-    <div x-show="notifFilterCount() > 0" class="mt-3 flex flex-wrap gap-2 order-2" aria-live="polite">
-      <template x-for="c in notifChips()" :key="c.key">
-        <span class="inline-flex items-center gap-1 h-11 pl-4 pr-1 rounded-full border border-border bg-slate-50 text-[12px] min-h-[44px]">
-          <span class="text-slate-500" x-text="c.label + ':'"></span>
-          <span class="font-mono font-medium max-w-[160px] truncate" x-text="c.value"></span>
-          <button type="button" @click="removeNotifChip(c.key)" :aria-label="'Hapus filter ' + c.label" class="ui-button ui-button--ghost w-11 h-11 rounded-full hover:bg-slate-200 font-bold min-w-[44px]">×</button>
+
+    <!-- Tab Status Pengiriman -->
+    <div class="w-full flex flex-row gap-6 border-b border-[#D7DDE7]" role="tablist" aria-label="Status Antrean WhatsApp">
+      <!-- Tab Menunggu -->
+      <button type="button"
+              role="tab"
+              :aria-selected="String(notifTab === 'menunggu')"
+              @click="setNotifTab('menunggu')"
+              class="pb-2.5 flex flex-col gap-2.5 items-start text-left cursor-pointer transition-colors relative min-h-[44px]">
+        <span class="text-[14px]"
+              :class="notifTab === 'menunggu' ? 'text-[#3965FB] font-bold' : 'text-[#667085] font-normal hover:text-[#1D1B3A]'">
+          Menunggu
         </span>
-      </template>
-      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="ui-button ui-button--ghost h-11 px-4 rounded-full text-[12px] font-semibold text-primary underline min-h-[44px]">Reset semua</button>
+        <span class="w-full h-[2px] transition-colors"
+              :class="notifTab === 'menunggu' ? 'bg-[#3965FB]' : 'bg-transparent'"></span>
+      </button>
+
+      <!-- Tab Gagal -->
+      <button type="button"
+              role="tab"
+              :aria-selected="String(notifTab === 'gagal')"
+              @click="setNotifTab('gagal')"
+              class="pb-2.5 flex flex-col gap-2.5 items-start text-left cursor-pointer transition-colors relative min-h-[44px]">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[14px]"
+                :class="notifTab === 'gagal' ? 'text-[#3965FB] font-bold' : 'text-[#667085] font-normal hover:text-[#1D1B3A]'">
+            Gagal
+          </span>
+          <span x-show="failedCount > 0"
+                class="px-2 py-0.5 rounded-full bg-[#FEE4E2] border border-[#FECDCA] text-[#B42318] text-[11px] font-bold leading-none"
+                x-text="failedCount"></span>
+        </div>
+        <span class="w-full h-[2px] transition-colors"
+              :class="notifTab === 'gagal' ? 'bg-[#3965FB]' : 'bg-transparent'"></span>
+      </button>
+
+      <!-- Tab Riwayat -->
+      <button type="button"
+              role="tab"
+              :aria-selected="String(notifTab === 'riwayat')"
+              @click="setNotifTab('riwayat')"
+              class="pb-2.5 flex flex-col gap-2.5 items-start text-left cursor-pointer transition-colors relative min-h-[44px]">
+        <span class="text-[14px]"
+              :class="notifTab === 'riwayat' ? 'text-[#3965FB] font-bold' : 'text-[#667085] font-normal hover:text-[#1D1B3A]'">
+          Riwayat
+        </span>
+        <span class="w-full h-[2px] transition-colors"
+              :class="notifTab === 'riwayat' ? 'bg-[#3965FB]' : 'bg-transparent'"></span>
+      </button>
     </div>
-    <div id="sa-notif-filter" :class="notifFilterOpen ? 'block' : 'hidden md:block'" class="mt-3 order-3">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:flex gap-2">
-        <select x-model="notifFilter" @change="loadAntrean()" aria-label="Filter status pesan" class="ui-field text-[13px] min-w-0 w-full lg:w-44">
-          <option value="">Semua status</option>
-          <option value="PENDING">Menunggu</option>
-          <option value="PROCESSING">Diproses</option>
-          <option value="SENT">Terkirim</option>
-          <option value="FAILED">Gagal</option>
-          <option value="CANCELLED">Dibatalkan</option>
-        </select>
-        <select x-model="notifJenis" @change="loadAntrean()" aria-label="Filter jenis pesan" class="ui-field text-[13px] min-w-0 w-full lg:w-44">
-          <option value="">Semua jenis</option>
+
+    <!-- Pencarian & Filter Antrean -->
+    <div class="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+      <!-- Input Cari -->
+      <div class="relative flex-1 bg-white border border-[#D7DDE7] rounded-[10px] h-[44px] flex items-center px-3.5 gap-2.5 focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all">
+        <svg width="19" height="19" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+          <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/>
+        </svg>
+        <input type="text"
+               x-model="notifSearch"
+               placeholder="Cari penerima atau jenis pesan..."
+               aria-label="Cari penerima atau jenis pesan"
+               class="w-full bg-transparent border-none p-0 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:ring-0" />
+        <button type="button"
+                x-show="notifSearch"
+                @click="notifSearch = ''"
+                title="Hapus pencarian"
+                class="text-slate-400 hover:text-slate-600 p-1">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/></svg>
+        </button>
+      </div>
+
+      <!-- Filter Dropdown Jenis Pesan -->
+      <div class="relative w-full sm:w-[200px] shrink-0 bg-white border border-[#D7DDE7] rounded-[10px] h-[44px] flex items-center px-3 gap-2">
+        <select x-model="notifJenis"
+                aria-label="Filter jenis pesan"
+                class="w-full bg-transparent border-none p-0 text-[12px] text-[#1D1B3A] focus:outline-none focus:ring-0 cursor-pointer pr-6 appearance-none">
+          <option value="">Semua jenis pesan</option>
           <template x-for="j in notifJenisOptions()" :key="j">
-            <option :value="j" x-text="j">-</option>
+            <option :value="j" x-text="j"></option>
           </template>
         </select>
-        <div class="col-span-2 lg:col-span-1 flex gap-2">
-          <button type="button" @click="notifAdvancedOpen = !notifAdvancedOpen" :aria-expanded="notifAdvancedOpen" aria-controls="sa-notif-advanced"
-            class="ui-button ui-button--ghost flex-1 lg:flex-none h-11 px-4 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] whitespace-nowrap">
-            <span x-text="notifAdvancedOpen ? 'Tutup' : 'Lanjutan'"></span><span x-show="notifAdvancedCount() > 0" x-text="' · ' + notifAdvancedCount()"></span>
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Banner Peringatan Pesan Gagal (Khusus Tab Gagal jika terdapat pesan gagal) -->
+    <div x-show="notifTab === 'gagal' && !notifLoading && !notifError && filteredNotif().length > 0"
+         class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[12px_16px] justify-start items-center bg-[#FEF3F2] border border-[#FECDCA] rounded-[10px] transition-all">
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#D92D20" class="shrink-0" aria-hidden="true" focusable="false">
+        <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z m4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254z m0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"/>
+      </svg>
+      <div class="text-[12.5px]/[18px] flex-1 min-w-0 text-[#B42318] font-medium text-left">
+        <span x-text="bannerTeksGagal()">
+          Beberapa pesan gagal dikirim. Silakan periksa detail kendala dan lakukan tindakan yang diperlukan.
+        </span>
+      </div>
+    </div>
+
+    <!-- Daftar Antrean WhatsApp Card -->
+    <div class="box-border w-full flex flex-col gap-0 p-4 sm:p-5 bg-white border border-[#D7DDE7] rounded-[16px] shadow-sm">
+      <!-- Judul Daftar Antrean -->
+      <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[12px] pb-4 justify-between items-center">
+        <h2 class="text-[16px] text-[#1D1B3A] font-bold text-left whitespace-nowrap">
+          <span x-show="notifTab === 'menunggu'">Pesan menunggu</span>
+          <span x-show="notifTab === 'gagal'">Pesan gagal</span>
+          <span x-show="notifTab === 'riwayat'">Riwayat pengiriman</span>
+        </h2>
+        <span class="text-[12px] text-[#667085] font-medium whitespace-nowrap"
+              x-show="!notifLoading">
+          <span x-show="notifTab === 'gagal' && filteredNotif().length > 0" x-text="ringkasanStatusGagal()"></span>
+          <span x-show="notifTab !== 'gagal' || filteredNotif().length === 0" x-text="filteredNotif().length === 0 ? 'Belum ada pesan' : filteredNotif().length + ' pesan termuat'"></span>
+        </span>
+      </div>
+
+      <!-- Header Tabel Antrean -->
+      <div class="overflow-x-auto scroll-slim -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div class="min-w-[860px]">
+          <div class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[12px] px-3.5 justify-start items-center bg-[#F6F7FB] rounded-[9px] text-[10px] text-[#667085] font-semibold tracking-wider uppercase">
+            <div class="w-[210px] shrink-0">PENERIMA</div>
+            <div class="flex-1 min-w-[170px]">JENIS PESAN</div>
+            <div class="w-[170px] shrink-0">
+              <span x-show="notifTab === 'gagal'">TERAKHIR DICOBA &amp; KENDALA</span>
+              <span x-show="notifTab !== 'gagal'">DIJADWALKAN</span>
+            </div>
+            <div class="w-[100px] shrink-0">PERCOBAAN</div>
+            <div class="w-[110px] shrink-0">STATUS</div>
+            <div :class="notifTab === 'gagal' ? 'w-[160px] text-right pr-2' : 'w-[90px] text-left'" class="shrink-0">AKSI</div>
+          </div>
+
+          <!-- Loading State (Skeleton) -->
+          <div x-show="notifLoading" class="divide-y divide-[#F2F5FA] py-2" role="status" aria-label="Memuat data antrean">
+            <template x-for="i in [1, 2, 3, 4]" :key="i">
+              <div class="flex items-center gap-3 py-4 px-3.5 animate-pulse min-h-[79.5px]">
+                <div class="w-[210px] shrink-0 space-y-1.5">
+                  <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
+                  <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
+                </div>
+                <div class="flex-1 min-w-[170px] space-y-1.5">
+                  <div class="h-3.5 bg-slate-200 rounded w-1/2"></div>
+                  <div class="h-2.5 bg-slate-100 rounded w-1/3"></div>
+                </div>
+                <div class="w-[170px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
+                <div class="w-[100px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
+                <div class="w-[110px] shrink-0 h-6 bg-slate-100 rounded-[7px]"></div>
+                <div :class="notifTab === 'gagal' ? 'w-[160px]' : 'w-[90px]'" class="shrink-0 h-4 bg-slate-100 rounded"></div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Error State -->
+          <div x-show="notifError" class="my-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+            <span x-text="notifError">Antrean notifikasi belum dapat dimuat.</span>
+            <button type="button" @click="loadAntrean()" class="font-semibold underline hover:text-red-800 ml-3">Coba Lagi</button>
+          </div>
+
+          <!-- Empty State -->
+          <div x-show="!notifLoading && !notifError && filteredNotif().length === 0"
+               class="box-border w-full flex flex-col gap-[11px] py-14 justify-center items-center text-center">
+            <!-- Kasus Filter / Search Tidak Menemukan Hasil -->
+            <template x-if="notifSearch || notifJenis">
+              <div class="contents">
+                <div class="box-border w-[56px] h-[56px] shrink-0 flex items-center justify-center bg-slate-100 text-slate-500 rounded-[14px]">
+                  <svg width="28" height="28" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z"/>
+                  </svg>
+                </div>
+                <p class="text-[18px] text-[#1D1B3A] font-bold">Pesan tidak ditemukan</p>
+                <p class="text-[13px] text-[#667085] max-w-sm">Tidak ada pesan yang cocok dengan kata kunci atau filter yang Anda pilih.</p>
+                <button type="button" @click="resetNotifFilter(); loadAntrean()" class="mt-2 px-4 py-2 text-[13px] font-semibold text-[#3965FB] hover:underline">
+                  Reset filter
+                </button>
+              </div>
+            </template>
+
+            <!-- Kasus Tab Menunggu Kosong -->
+            <template x-if="!notifSearch && !notifJenis && notifTab === 'menunggu'">
+              <div class="contents">
+                <div class="box-border w-[56px] h-[56px] shrink-0 flex items-center justify-center bg-[#EEF2FF] rounded-[14px]">
+                  <svg width="28" height="28" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false">
+                    <path d="M2.44385 10.1001l0-6.24121q0-0.26318 0.21191-0.40332 0.21191-0.14014 0.44434-0.03418l5.62939 2.41308q0.14355 0.05811 0.1709 0.17432 0.03076 0.11279-0.01025 0.21875-0.04443 0.10254-0.14698 0.16406-0.10254 0.05811-0.25634-0.00342l-5.4585-2.30371 0 2.26612 1.32617 0.3042q0.13672 0.0376 0.20508 0.1333 0.07178 0.09229 0.07178 0.21191 0 0.11963-0.07178 0.21533-0.06836 0.09229-0.20508 0.12988l-1.32617 0.3042 0 2.26612 2.99072-1.26465q0.1333-0.06152 0.23242-0.00684 0.09912 0.05469 0.14356 0.15723 0.04443 0.10254 0.01367 0.21875-0.02734 0.11279-0.1709 0.1709l-3.13427 1.34326q-0.23242 0.10596-0.44776-0.03076-0.21191-0.14014-0.21191-0.40332z m7.3623 1.92431q-0.97754 0-1.65771-0.67675-0.67676-0.68018-0.67676-1.6543 0-0.97754 0.67676-1.6543 0.68018-0.68018 1.65771-0.68017 0.97412 0 1.65088 0.68017 0.68018 0.67676 0.68018 1.6543 0 0.97412-0.68018 1.6543-0.67676 0.67676-1.65088 0.67675z m0.22217-2.41992l0-1.3706q0-0.08887-0.06836-0.15723-0.06494-0.06836-0.15381-0.06836-0.09229 0-0.16064 0.06836-0.06494 0.06836-0.06494 0.15723l0 1.36035q0 0.08887 0.03076 0.17431 0.03418 0.08203 0.10937 0.16065l0.88868 0.88525q0.06494 0.06494 0.15039 0.07178 0.08887 0.00342 0.16748-0.07178 0.07519-0.0752 0.07519-0.15722 0-0.08545-0.07519-0.16065l-0.89893-0.89209z"/>
+                  </svg>
+                </div>
+                <p class="text-[18px] text-[#1D1B3A] font-bold">Tidak ada pesan menunggu</p>
+                <p class="text-[13px] text-[#667085] max-w-md">Pesan yang dijadwalkan untuk dikirim akan muncul di sini beserta statusnya.</p>
+                <button type="button" @click="setNotifTab('gagal')" class="flex items-center gap-1.5 pt-1 text-[12px] font-semibold text-[#3965FB] hover:underline cursor-pointer">
+                  <svg width="16" height="16" viewBox="0 0 14 14" fill="#3965FB" aria-hidden="true" focusable="false">
+                    <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
+                  </svg>
+                  <span>Periksa tab Gagal bila ada pesan yang perlu ditindaklanjuti.</span>
+                </button>
+              </div>
+            </template>
+
+            <!-- Kasus Tab Gagal Kosong -->
+            <template x-if="!notifSearch && !notifJenis && notifTab === 'gagal'">
+              <div class="contents">
+                <div class="box-border w-[56px] h-[56px] shrink-0 flex items-center justify-center bg-[#E1FFB7] rounded-[14px]">
+                  <svg width="28" height="28" viewBox="0 0 14 14" fill="#166534" aria-hidden="true" focusable="false">
+                    <path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z"/>
+                  </svg>
+                </div>
+                <p class="text-[18px] text-[#1D1B3A] font-bold">Tidak ada pesan gagal</p>
+                <p class="text-[13px] text-[#667085] max-w-md">Semua pengiriman pesan WhatsApp berhasil diproses tanpa kendala.</p>
+              </div>
+            </template>
+
+            <!-- Kasus Tab Riwayat Kosong -->
+            <template x-if="!notifSearch && !notifJenis && notifTab === 'riwayat'">
+              <div class="contents">
+                <div class="box-border w-[56px] h-[56px] shrink-0 flex items-center justify-center bg-[#EEF2FF] rounded-[14px]">
+                  <svg width="28" height="28" viewBox="0 0 14 14" fill="#667085" aria-hidden="true" focusable="false">
+                    <path d="M6.99316 12.36963q-1.86279 0-3.30175-1.1211-1.43896-1.12451-1.88672-2.87451-0.06836-0.24609 0.09912-0.45117 0.16748-0.20508 0.44433-0.24267 0.2666-0.03418 0.48536 0.09912 0.21875 0.12988 0.3042 0.38965 0.36572 1.26807 1.43212 2.07128 1.06982 0.79981 2.42334 0.79981 1.68848 0 2.86426-1.17578 1.17578-1.17578 1.17578-2.86426 0-1.68848-1.17578-2.86426-1.17578-1.17578-2.86426-1.17578-0.96387 0-1.81152 0.4375-0.84766 0.43408-1.43555 1.20996l0.89551 0q0.25977 0 0.43408 0.17774 0.17773 0.17432 0.17774 0.43408 0 0.25635-0.17774 0.4375-0.17432 0.17773-0.43408 0.17773l-2.31738 0q-0.28027 0-0.4751-0.1914-0.19141-0.19482-0.19141-0.47168l0-2.31739q0-0.25977 0.17774-0.43408 0.17773-0.17432 0.43408-0.17431 0.25977 0 0.43408 0.17431 0.17432 0.17432 0.17432 0.43408l0 0.71094q0.76221-0.92627 1.83545-1.42871 1.07666-0.50586 2.27978-0.50586 1.11426 0 2.0918 0.42725 0.97754 0.42383 1.70215 1.14843 0.72461 0.72461 1.14844 1.70215 0.42725 0.97754 0.42724 2.0918 0 1.11426-0.42724 2.0918-0.42383 0.97754-1.14844 1.70214-0.72461 0.72461-1.70215 1.15186-0.97754 0.42383-2.0918 0.42383z"/>
+                  </svg>
+                </div>
+                <p class="text-[18px] text-[#1D1B3A] font-bold">Belum ada riwayat pengiriman</p>
+                <p class="text-[13px] text-[#667085] max-w-md">Pesan yang telah berhasil terkirim akan tercatat dalam riwayat ini.</p>
+              </div>
+            </template>
+          </div>
+
+          <!-- Populated Rows & Accordion Expandable Row -->
+          <div x-show="!notifLoading && !notifError && filteredNotif().length > 0" class="divide-y divide-[#F2F5FA]">
+            <template x-for="n in filteredNotif()" :key="n.id">
+              <div class="flex flex-col transition-colors" :class="notifDetailId === n.id ? 'bg-slate-50/70' : 'hover:bg-slate-50/50'">
+                <!-- Main Row -->
+                <div class="box-border w-full min-h-[79.5px] flex flex-row gap-[12px] px-3.5 py-3.5 items-center text-[13px] text-[#1D1B3A] border-b border-[#EEEEEE]">
+                  <!-- Kolom PENERIMA -->
+                  <div class="w-[210px] shrink-0 min-w-0 pr-2 flex flex-col gap-[3px]">
+                    <div class="text-[13px] text-[#1D1B3A] font-medium text-left truncate w-full"
+                         :title="formatPenerimaUtama(n)"
+                         x-text="formatPenerimaUtama(n)">
+                      -
+                    </div>
+                    <div class="text-[11px] text-[#64748B] font-mono font-normal text-left truncate w-full"
+                         x-text="formatPenerimaSub(n)">
+                      -
+                    </div>
+                  </div>
+
+                  <!-- Kolom JENIS PESAN -->
+                  <div class="flex-1 min-w-[170px] pr-2 flex flex-col gap-[3px]">
+                    <div class="text-[13px] text-[#1D1B3A] font-semibold text-left truncate w-full"
+                         x-text="formatJenisNotif(n.event_type)">
+                      -
+                    </div>
+                    <div class="text-[11px] text-[#667085] font-normal text-left truncate w-full"
+                         x-text="formatKonteksNotif(n)">
+                    </div>
+                  </div>
+
+                  <!-- Kolom DIJADWALKAN / TERAKHIR DICOBA & KENDALA -->
+                  <div class="w-[170px] shrink-0 min-w-0 flex flex-col gap-[3px] text-left">
+                    <!-- Tampilan Khusus Tab Gagal: Waktu Terakhir Dicoba + Keterangan Kendala -->
+                    <template x-if="notifTab === 'gagal'">
+                      <div class="contents">
+                        <div class="text-[12px] text-[#1D1B3A] font-medium truncate w-full"
+                             x-text="fmtWaktuID(n.last_attempt_at || n.scheduled_at || n.created_at)">
+                          -
+                        </div>
+                        <div class="text-[11px] text-[#B42318] font-normal truncate w-full"
+                             :title="n.last_attempt_error || 'Gagal dikirim'"
+                             x-text="'⚠ ' + formatKendalaError(n.last_attempt_error)">
+                          ⚠ Kendala pengiriman
+                        </div>
+                      </div>
+                    </template>
+                    <!-- Tampilan Tab Menunggu / Riwayat: Waktu Terjadwal Biasa -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <div class="text-[12px] text-[#1D1B3A] font-medium truncate w-full"
+                           x-text="fmtWaktuID(n.scheduled_at || n.created_at)">
+                        -
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- Kolom PERCOBAAN -->
+                  <div class="w-[100px] shrink-0 min-w-0 text-[12px] text-[#667085] font-normal text-left"
+                       x-text="(n.attempt_count || n.attempts || 0) + ' kali'">
+                    0 kali
+                  </div>
+
+                  <!-- Kolom STATUS -->
+                  <div class="w-[110px] shrink-0 min-w-0 flex flex-row justify-start items-center">
+                    <!-- Badge Tab Gagal Khusus Sesuai Desain Figma -->
+                    <template x-if="notifTab === 'gagal'">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEE4E2] text-[#B42318] border border-[#FECDCA]">
+                        Gagal
+                      </span>
+                    </template>
+                    <!-- Badge Tab Menunggu / Riwayat -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <div class="w-fit shrink-0 flex flex-row p-[5px_9px] justify-start items-center rounded-[7px] text-[11px] font-normal"
+                           :class="{
+                             'bg-[#FEF3C7] text-[#92400E]': String(n.status).toUpperCase() === 'PENDING',
+                             'bg-[#E1FFB7] text-[#166534]': String(n.status).toUpperCase() === 'SENT',
+                             'bg-[#FEE2E2] text-[#991B1B]': notifDapatDiulang(n.status),
+                             'bg-[#EEF2FF] text-[#3965FB]': String(n.status).toUpperCase() === 'PROCESSING'
+                           }">
+                        <span x-text="statusNotifLabel(n.status)">Menunggu</span>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- Kolom AKSI -->
+                  <div :class="notifTab === 'gagal' ? 'w-[160px] justify-end pr-2' : 'w-[90px] justify-start'" class="shrink-0 min-w-0 flex flex-row items-center gap-2">
+                    <!-- Aksi Tab Gagal: Tombol Ganda (Periksa nomor / Coba lagi + Lihat) -->
+                    <template x-if="notifTab === 'gagal'">
+                      <div class="flex items-center gap-2 justify-end w-full">
+                        <!-- Jika Kendala Nomor: Tombol 'Periksa nomor' (Opsi 1: Buka Modal Detail Pesan) -->
+                        <button type="button"
+                                x-show="isKendalaNomor(n.last_attempt_error)"
+                                @click="bukaNotifDetail(n)"
+                                title="Periksa nomor pada modal detail"
+                                class="h-[34px] px-3 flex items-center justify-center bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[12px] font-medium text-[#1D1B3A] rounded-[8px] transition-colors whitespace-nowrap cursor-pointer">
+                          Periksa nomor
+                        </button>
+
+                        <!-- Jika Bukan Kendala Nomor: Tombol 'Coba lagi' (Trigger Ulangi Pengiriman) -->
+                        <button type="button"
+                                x-show="!isKendalaNomor(n.last_attempt_error)"
+                                @click="ulangiPesan(n.id)"
+                                :disabled="retryingNotifId === n.id"
+                                title="Coba kirim ulang pesan"
+                                class="h-[34px] px-3 flex items-center justify-center bg-[#3965FB] hover:bg-blue-600 disabled:opacity-60 text-[12px] font-semibold text-white rounded-[8px] transition-colors whitespace-nowrap cursor-pointer shadow-xs">
+                          <svg x-show="retryingNotifId === n.id" class="animate-spin -ml-0.5 mr-1.5 h-3.5 w-3.5 text-white shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          <span x-text="retryingNotifId === n.id ? 'Mengulang...' : 'Coba lagi'">Coba lagi</span>
+                        </button>
+
+                        <!-- Tombol Sekunder 'Lihat' -->
+                        <button type="button"
+                                @click="bukaNotifDetail(n)"
+                                title="Lihat detail pesan"
+                                class="h-[34px] px-1 text-[12px] text-[#3965FB] font-normal hover:underline cursor-pointer bg-transparent border-none">
+                          Lihat
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- Aksi Standar Tab Non-Gagal -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <button type="button"
+                              @click="bukaNotifDetail(n)"
+                              :aria-label="'Lihat detail pesan #' + n.id"
+                              class="text-[12px] text-[#3965FB] font-semibold text-left hover:underline cursor-pointer bg-transparent border-none p-0 min-h-[32px] flex items-center">
+                        Lihat
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Daftar Antrean -->
+      <div class="box-border w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 mt-2 border-t border-[#EEEEEE]">
+        <div class="text-[12px] text-[#667085] font-normal text-left">
+          <span x-show="notifTab === 'gagal' && filteredNotif().length > 0"
+                x-text="'Menampilkan ' + filteredNotif().length + ' pesan gagal yang membutuhkan tindakan admin.'">
+            Menampilkan pesan gagal yang membutuhkan tindakan admin.
+          </span>
+          <span x-show="notifTab !== 'gagal' || filteredNotif().length === 0">
+            Daftar ini menampilkan pesan berdasarkan status yang dipilih.
+          </span>
+        </div>
+        <div x-show="notifHasMore" class="self-stretch sm:self-auto">
+          <button type="button"
+                  @click="loadAntreanMore()"
+                  :disabled="notifLoadingMore"
+                  class="w-full sm:w-auto h-9 px-4 rounded-[8px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#1D1B3A] transition-colors disabled:opacity-50 min-h-[36px]">
+            <span x-text="notifLoadingMore ? 'Memuat...' : 'Muat 50 lagi'">Muat 50 lagi</span>
           </button>
         </div>
       </div>
-      <div id="sa-notif-advanced" x-show="notifAdvancedOpen" class="mt-2 p-3 rounded-2xl border border-border bg-slate-50/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-        <div class="min-w-0 col-span-2 lg:col-span-1">
-          <label for="sa-notif-kelas" class="block text-[12px] font-semibold text-slate-500 mb-1">Kelas</label>
-          <select id="sa-notif-kelas" x-model="notifKelas" @change="loadAntrean()" aria-label="Filter kelas" class="ui-field w-full min-w-0 text-[13px]">
-            <option value="">Semua kelas</option>
-            <template x-for="opt in notifKelasOptions()" :key="opt.id">
-              <option :value="opt.id" x-text="opt.label">-</option>
+    </div>
+  </div>
+
+  <!-- Modal Dialog Detail Pesan Notifikasi WhatsApp -->
+  <div x-show="modalNotifDetail"
+       x-cloak
+       role="dialog"
+       aria-modal="true"
+       :aria-label="'Detail Pesan Notifikasi #' + (selectedNotif?.id || '')"
+       @keydown.escape.window="tutupNotifDetail()"
+       class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-[#101828]/60 backdrop-blur-xs transition-opacity">
+    
+    <!-- Backdrop Click to Close -->
+    <div class="fixed inset-0" @click="tutupNotifDetail()" aria-hidden="true"></div>
+
+    <!-- Container Modal (560px) -->
+    <div class="relative w-full max-w-[560px] bg-white rounded-[16px] shadow-2xl flex flex-col overflow-hidden border border-[#D7DDE7]/60 max-h-[92vh] z-10 transition-transform"
+         @click.stop>
+      
+      <!-- Header Detail Pesan -->
+      <div class="box-border w-full shrink-0 flex flex-row gap-3 p-[22px_24px_18px_24px] justify-between items-start border-b border-[#F1F5F9]">
+        <div class="flex-1 flex flex-col gap-1.5 min-w-0">
+          <h3 class="text-[18px] text-[#1D1B3A] font-semibold text-left truncate">
+            Detail Pesan Notifikasi
+          </h3>
+          <div class="text-[12px]/[16px] text-[#64748B] font-mono font-normal text-left truncate w-full"
+               :title="'ID: #' + (selectedNotif?.id || '') + ' • Kunci Idempotensi: ' + (selectedNotif?.idempotency_key || '—')">
+            <span x-text="'ID: #' + (selectedNotif?.id ? String(selectedNotif.id).padStart(4, '0') : '')">ID: #-</span> • 
+            <span>Kunci Idempotensi: </span>
+            <span class="text-[#1D1B3A]" x-text="selectedNotif?.idempotency_key || '—'">—</span>
+          </div>
+        </div>
+        <button type="button"
+                @click="tutupNotifDetail()"
+                title="Tutup (Esc)"
+                aria-label="Tutup detail pesan"
+                class="w-[36px] h-[36px] shrink-0 flex items-center justify-center rounded-[8px] text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors cursor-pointer">
+          <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false" class="shrink-0">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Isi Detail Pesan (Scrollable) -->
+      <div class="w-full flex-1 overflow-y-auto scroll-slim p-[20px_24px] flex flex-col gap-[18px]">
+        
+        <!-- Grid Informasi Utama (2 Kolom) -->
+        <div class="box-border w-full flex flex-row gap-[22px] p-[16px] justify-start items-start bg-[#F8FAFC] rounded-[9px] border border-[#E2E8F0]">
+          <!-- Kolom Informasi Kiri -->
+          <div class="flex-1 flex flex-col gap-[13px] min-w-0">
+            <!-- Status Pesan -->
+            <div class="flex flex-col gap-[4px] items-start">
+              <span class="text-[11px] text-[#64748B] font-medium">Status</span>
+              <div class="w-fit flex p-[4px_10px] items-center rounded-full text-[12px] font-medium"
+                   :class="{
+                     'bg-[#FEF3C7] text-[#D97706]': String(selectedNotif?.status).toUpperCase() === 'PENDING',
+                     'bg-[#E1FFB7] text-[#166534]': String(selectedNotif?.status).toUpperCase() === 'SENT',
+                     'bg-[#FEE2E2] text-[#991B1B]': notifDapatDiulang(selectedNotif?.status),
+                     'bg-[#EEF2FF] text-[#3965FB]': String(selectedNotif?.status).toUpperCase() === 'PROCESSING'
+                   }">
+                <span x-text="statusNotifLabel(selectedNotif?.status)">Menunggu</span>
+              </div>
+            </div>
+
+            <!-- Jenis Pesan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Jenis Pesan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    :title="formatJenisNotifLengkap(selectedNotif?.event_type)"
+                    x-text="formatJenisNotifLengkap(selectedNotif?.event_type)">
+                -
+              </span>
+            </div>
+
+            <!-- Kelas Terkait -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Kelas Terkait</span>
+              <span class="text-[13px]/[17px] text-[#3965FB] font-medium truncate w-full"
+                    :title="formatKelasTerkait(selectedNotif)"
+                    x-text="formatKelasTerkait(selectedNotif)">
+                -
+              </span>
+            </div>
+          </div>
+
+          <!-- Kolom Informasi Kanan -->
+          <div class="flex-1 flex flex-col gap-[13px] min-w-0">
+            <!-- Kanal Tujuan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Kanal Tujuan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    :title="formatKanalTujuan(selectedNotif)"
+                    x-text="formatKanalTujuan(selectedNotif)">
+                -
+              </span>
+            </div>
+
+            <!-- JID Penerima -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">JID Penerima</span>
+              <span class="text-[13px]/[17px] text-[#64748B] font-mono font-medium truncate w-full"
+                    :title="selectedNotif?.channel_jid || '—'"
+                    x-text="selectedNotif?.channel_jid || '—'">
+                -
+              </span>
+            </div>
+
+            <!-- Waktu Jadwal -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Waktu Jadwal</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium truncate w-full"
+                    x-text="fmtWaktuID(selectedNotif?.scheduled_at || selectedNotif?.created_at)">
+                -
+              </span>
+            </div>
+
+            <!-- Riwayat Percobaan -->
+            <div class="flex flex-col gap-[3px]">
+              <span class="text-[11px] text-[#64748B] font-medium">Riwayat Percobaan</span>
+              <span class="text-[13px]/[17px] text-[#1D1B3A] font-medium"
+                    x-text="(selectedNotif?.attempt_count || selectedNotif?.attempts || 0) + ' kali percobaan'">
+                0 kali percobaan
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Galat Pengiriman Terakhir (Kondisional jika ada) -->
+        <div x-show="selectedNotif?.last_attempt_error"
+             class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[12px] flex flex-col gap-1">
+          <div class="flex items-center gap-1.5 font-bold">
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="shrink-0" aria-hidden="true" focusable="false">
+              <path d="M6.3 8.4h1.4V3.5H6.3zm0 2.1h1.4V9.1H6.3zM7 12.6A5.6 5.6 0 1 0 1.4 7 5.6 5.6 0 0 0 7 12.6z"/>
+            </svg>
+            <span>Galat Pengiriman Terakhir:</span>
+          </div>
+          <p class="font-mono text-[11px] break-all leading-relaxed" x-text="selectedNotif?.last_attempt_error">-</p>
+        </div>
+
+        <!-- Pratinjau Pesan Siaran (WhatsApp Chat Canvas) -->
+        <div class="box-border w-full flex flex-col gap-[9px]">
+          <div class="text-[11px] text-[#94A3B8] font-semibold tracking-[1px] uppercase">
+            PRATINJAU PESAN SIARAN
+          </div>
+          <div class="box-border w-full p-[14px] bg-[#EFEAE2] rounded-[9px]">
+            <template x-if="getNotifBubbleData(selectedNotif)">
+              <div class="box-border w-full shadow-sm flex flex-col gap-[7px] p-[14px_14px_10px_14px] bg-white rounded-[9px] text-[#1D1B3A]">
+                <!-- Judul Pesan WhatsApp -->
+                <div class="text-[13px] font-bold text-[#1D1B3A]"
+                     x-text="getNotifBubbleData(selectedNotif).title">
+                  📝 TUGAS BARU DITERBITKAN
+                </div>
+
+                <!-- Pemisah Pesan -->
+                <div class="w-full h-[1px] bg-[#D7DDE7]"></div>
+
+                <!-- Isi Mata Kuliah -->
+                <div x-show="getNotifBubbleData(selectedNotif).course" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📚 Mata Kuliah:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).course"></span>
+                </div>
+
+                <!-- Isi Judul Tugas -->
+                <div x-show="getNotifBubbleData(selectedNotif).taskTitle" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📌 Judul:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).taskTitle"></span>
+                </div>
+
+                <!-- Isi Tenggat Waktu -->
+                <div x-show="getNotifBubbleData(selectedNotif).deadline" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">⏰ Tenggat Waktu:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).deadline"></span>
+                </div>
+
+                <!-- Isi Instruksi -->
+                <div x-show="getNotifBubbleData(selectedNotif).instructions" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📋 Instruksi:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).instructions"></span>
+                </div>
+
+                <!-- Isi Waktu Pelaksanaan (Kuliah Pengganti) -->
+                <div x-show="getNotifBubbleData(selectedNotif).startsAt" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">📅 Waktu:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).startsAt"></span>
+                </div>
+
+                <!-- Isi Ruangan (Kuliah Pengganti) -->
+                <div x-show="getNotifBubbleData(selectedNotif).room" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🏢 Ruangan:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).room"></span>
+                </div>
+
+                <!-- Isi Alasan / Keterangan -->
+                <div x-show="getNotifBubbleData(selectedNotif).reason" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">💬 Keterangan:</span>
+                  <span class="font-normal flex-1" x-text="getNotifBubbleData(selectedNotif).reason"></span>
+                </div>
+
+                <!-- Isi Kode Portal -->
+                <div x-show="getNotifBubbleData(selectedNotif).portalCode" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🔑 Kode Akses:</span>
+                  <span class="font-mono font-bold flex-1" x-text="getNotifBubbleData(selectedNotif).portalCode"></span>
+                </div>
+
+                <!-- Isi Pesan Bebas (Umum) -->
+                <div x-show="getNotifBubbleData(selectedNotif).message" class="text-[12px]/[16px] whitespace-pre-wrap" x-text="getNotifBubbleData(selectedNotif).message"></div>
+
+                <!-- Isi Tautan -->
+                <div x-show="getNotifBubbleData(selectedNotif).url" class="flex flex-row gap-1 text-[12px]/[16px]">
+                  <span class="font-normal shrink-0">🔗 Tautan:</span>
+                  <span class="font-normal flex-1 break-all text-blue-600 hover:underline" x-text="getNotifBubbleData(selectedNotif).url"></span>
+                </div>
+
+                <!-- Ajakan Portal -->
+                <div class="text-[12px] text-[#475569] italic pt-1">
+                  Lihat selengkapnya melalui Portal Mahasiswa.
+                </div>
+
+                <!-- Jam Pesan WhatsApp (Kanan Bawah) -->
+                <div class="w-full flex justify-end items-center pt-0.5">
+                  <span class="text-[10px] text-[#94A3B8]" x-text="getNotifBubbleData(selectedNotif).timeStr">09:30</span>
+                </div>
+              </div>
             </template>
-          </select>
+          </div>
         </div>
-        <div class="min-w-0">
-          <label for="sa-notif-since" class="block text-[12px] font-semibold text-slate-500 mb-1">Sejak</label>
-          <input id="sa-notif-since" type="datetime-local" x-model="notifSince" @change="loadAntrean()" aria-label="Filter sejak waktu" class="ui-field w-full min-w-0 sm:px-3 text-[13px]" />
+
+        <!-- Accordion Payload JSON Mentah -->
+        <div class="w-full flex flex-col gap-2">
+          <button type="button"
+                  @click="showRawPayload = !showRawPayload"
+                  class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-[12px] font-mono text-[#64748B] transition-colors cursor-pointer select-none">
+            <div class="flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="currentColor"
+                   class="shrink-0 transition-transform" :class="showRawPayload ? 'rotate-90' : ''"
+                   aria-hidden="true" focusable="false">
+                <path d="M7.75537 7l-2.47803-2.47803q-0.08203-0.08203-0.08886-0.19824-0.00342-0.11963 0.08886-0.21191 0.09229-0.0957 0.20508-0.09571 0.11279 0 0.2085 0.09571l2.56006 2.56005q0.0752 0.0752 0.10595 0.15381 0.03076 0.07861 0.03077 0.17432 0 0.0957-0.03077 0.17432-0.03076 0.07861-0.10595 0.1538l-2.56006 2.56006q-0.08203 0.08203-0.20166 0.08887-0.11963 0.00684-0.21192-0.08887-0.09229-0.09229-0.09228-0.20507 0-0.11279 0.09228-0.20508l2.47803-2.47803z"/>
+              </svg>
+              <span>Tampilkan Payload JSON Mentah</span>
+            </div>
+            <span class="text-[11px] text-slate-400" x-text="showRawPayload ? 'Tutup' : 'Buka'">Buka</span>
+          </button>
+          <div x-show="showRawPayload" x-collapse class="p-3 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+            <pre class="font-mono text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap" x-text="prettyPayload(selectedNotif?.payload_json)"></pre>
+          </div>
         </div>
-        <div class="min-w-0">
-          <label for="sa-notif-until" class="block text-[12px] font-semibold text-slate-500 mb-1">Sampai</label>
-          <input id="sa-notif-until" type="datetime-local" x-model="notifUntil" @change="loadAntrean()" aria-label="Filter sampai waktu" class="ui-field w-full min-w-0 sm:px-3 text-[13px]" />
+
+        <!-- Riwayat Percobaan Baileys (Troubleshooting Log) -->
+        <div class="w-full flex flex-col gap-2 pt-1 border-t border-[#F1F5F9]">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-[#94A3B8] font-semibold tracking-[1px] uppercase">
+              LOG PERCOBAAN PENGIRIMAN
+            </span>
+            <button type="button"
+                    @click="loadNotifAttempts(selectedNotif?.id)"
+                    :disabled="notifAttemptsLoading"
+                    class="text-[11px] font-semibold text-[#3965FB] hover:underline cursor-pointer disabled:opacity-50">
+              Segarkan Log
+            </button>
+          </div>
+
+          <!-- Loading log -->
+          <div x-show="notifAttemptsLoading" class="py-2.5 text-center text-[#667085] text-[12px] animate-pulse">
+            Memuat log percobaan...
+          </div>
+
+          <!-- Error log -->
+          <div x-show="notifAttemptsError" class="py-2 text-red-700 text-[12px] flex items-center justify-between">
+            <span x-text="notifAttemptsError"></span>
+            <button type="button" @click="loadNotifAttempts(selectedNotif?.id)" class="underline font-semibold ml-2">Coba lagi</button>
+          </div>
+
+          <!-- Empty log -->
+          <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="py-2 text-[#64748B] text-[12px]">
+            Belum ada log percobaan yang tercatat untuk pesan ini.
+          </div>
+
+          <!-- List log -->
+          <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="space-y-2">
+            <template x-for="t in notifAttempts" :key="t.attempt_number">
+              <div class="p-3 rounded-lg border border-[#E2E8F0] bg-slate-50 flex flex-col gap-1 text-[12px]">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono font-bold text-[#1D1B3A]" x-text="'Percobaan #' + t.attempt_number"></span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase"
+                        :class="String(t.result).toLowerCase() === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                        x-text="t.result || 'berjalan'"></span>
+                </div>
+                <div class="text-[#64748B] font-mono text-[11px]" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')"></div>
+                <div x-show="t.error_message" class="text-red-700 text-[11px] font-mono" x-text="t.error_message"></div>
+                <div x-show="t.provider_message_id" class="text-slate-400 text-[10px] font-mono" x-text="'ID Provider: ' + t.provider_message_id"></div>
+              </div>
+            </template>
+          </div>
         </div>
-        <div class="col-span-2 lg:col-span-3 flex flex-wrap items-center justify-between gap-2">
-          <p class="text-[11px] text-slate-400">Opsi kelas/jenis diambil dari data termuat (limit <span x-text="notifLimit"></span>).</p>
-          <button type="button" @click="resetNotifFilter(); loadAntrean()" class="ui-button ui-button--ghost h-10 px-4 rounded-xl text-[13px] font-medium text-slate-500 underline min-h-[40px]">Reset semua filter</button>
+
+      </div>
+
+      <!-- Footer Detail Pesan -->
+      <div class="box-border w-full min-h-[75.5px] p-[16px_24px] flex flex-row items-center justify-between border-t border-[#F1F5F9] gap-3 bg-white">
+        <div class="text-[12px]/[16px] text-[#94A3B8] font-normal flex-1">
+          Pesan otomatis dikirim oleh worker WhatsApp saat jadwal tiba.
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Tombol Jadwalkan Ulang (Kondisional FAILED/CANCELLED) -->
+          <button type="button"
+                  x-show="notifDapatDiulang(selectedNotif?.status)"
+                  @click="ulangiPesan(selectedNotif?.id); tutupNotifDetail()"
+                  class="h-[44px] px-4 rounded-[8px] bg-[#3965FB] hover:bg-blue-700 text-white text-[13px] font-semibold transition-colors flex items-center gap-1.5 cursor-pointer">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false" class="shrink-0"><path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/></svg>
+            <span>Jadwalkan Ulang</span>
+          </button>
+
+          <!-- Tombol Tutup -->
+          <button type="button"
+                  @click="tutupNotifDetail()"
+                  class="h-[44px] px-5 rounded-[8px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition-colors cursor-pointer">
+            Tutup
+          </button>
         </div>
       </div>
-    </div>
-    </div>
-    <p class="text-[11px] text-slate-400 mt-2">Filter diproses server dan langsung diterapkan. Detail memuat penerima, idempotensi, dan galat terakhir.</p>
-
-    <div x-show="notifLoading" class="p-12 text-center text-muted">
-      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      <p class="mt-3 text-[14px]">Memuat antrean notifikasi...</p>
-    </div>
-    <div x-show="notifError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-      <span x-text="notifError">-</span>
-      <button type="button" @click="loadAntrean()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
-    </div>
-    <div x-show="!notifLoading && !notifError && filteredNotif().length === 0" class="ui-empty p-12 text-center text-muted mt-6 border border-dashed border-border rounded-2xl">
-      <span class="material-symbols-outlined text-[36px] text-slate-300">mark_chat_read</span>
-      <p class="mt-2 text-[15px] font-semibold text-ink">Antrean kosong</p>
-      <p class="text-[13px] text-muted mt-0.5">Tidak ada pesan dengan filter yang dipilih.</p>
-      <button type="button" @click="resetNotifFilter(); loadAntrean()" class="ui-button ui-button--ghost mt-3 h-10 px-5 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset filter</button>
-    </div>
-
-    <div x-show="!notifLoading && filteredNotif().length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
-      <template x-for="n in filteredNotif()" :key="n.id">
-        <div class="py-4">
-          <div class="flex flex-col md:flex-row md:items-center gap-2">
-            <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-ink"><span class="font-mono" x-text="n.event_type || '—'">-</span> <span class="text-slate-400 font-normal" x-text="'#' + n.id">-</span> <span class="text-slate-400 font-normal font-mono" x-text="'· ' + notifKelasLabel(n)">-</span></p>
-              <p class="text-[12px] text-muted font-mono mt-0.5" x-text="'Dibuat ' + fmtWaktuID(n.created_at) + (n.sent_at ? ' · Terkirim ' + fmtWaktuID(n.sent_at) : '') + ' · ' + (n.attempt_count || n.attempts || 0) + ' percobaan'">-</p>
-              <p x-show="n.entity_type" class="text-[12px] text-slate-500 mt-0.5">Terkait: <span class="font-mono" x-text="(n.entity_type || '') + (n.entity_id ? ' #' + n.entity_id : '')"></span></p>
-              <p class="text-[12px] text-slate-500 mt-0.5">Penerima: <span class="font-mono" x-text="notifPenerima(n)"></span></p>
-              <p x-show="n.last_attempt_error" class="text-[12px] text-red-700 mt-0.5">Galat terakhir: <span x-text="n.last_attempt_error"></span></p>
-            </div>
-            <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(n.status).toUpperCase() === 'SENT' ? 'bg-success text-green-800' : (notifDapatDiulang(n.status) ? 'bg-red-700 text-white' : 'bg-amber-50 text-amber-900')">
-              <span class="material-symbols-outlined text-[14px]" x-text="String(n.status).toUpperCase() === 'SENT' ? 'check_circle' : (notifDapatDiulang(n.status) ? 'error' : 'pending')">-</span>
-              <span x-text="statusNotifLabel(n.status)">-</span>
-            </span>
-            <div class="flex gap-2">
-              <button type="button" @click="toggleNotifDetail(n.id)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]" x-text="notifDetailId === n.id ? 'Tutup detail' : 'Detail'">Detail</button>
-              <button type="button" @click="ulangiPesan(n.id)" x-show="notifDapatDiulang(n.status)" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Jadwalkan ulang</button>
-            </div>
-          </div>
-          <div x-show="notifDetailId === n.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border text-[12px] space-y-2">
-            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div><dt class="text-slate-500">Dijadwalkan</dt><dd class="font-mono" x-text="n.scheduled_at ? fmtWaktuID(n.scheduled_at) : '—'">-</dd></div>
-              <div><dt class="text-slate-500">Percobaan</dt><dd class="font-mono" x-text="n.attempt_count || n.attempts || 0">-</dd></div>
-              <div><dt class="text-slate-500">Kunci idempotensi</dt><dd class="font-mono break-all" x-text="n.idempotency_key || '—'">-</dd></div>
-              <div><dt class="text-slate-500">Percobaan terakhir</dt><dd class="font-mono" x-text="n.last_attempt_at ? fmtWaktuID(n.last_attempt_at) : '—'">-</dd></div>
-            </dl>
-            <details>
-              <summary class="cursor-pointer underline min-h-[44px] inline-flex items-center text-[13px]">Isi mentah (payload)</summary>
-              <pre class="mt-1 p-2 rounded-lg bg-white border border-border overflow-x-auto font-mono text-[11px]" x-text="prettyPayload(n.payload_json)"></pre>
-            </details>
-            <div>
-              <p class="text-[13px] font-semibold text-ink mt-1">Riwayat percobaan</p>
-              <div x-show="notifAttemptsLoading" class="py-3 text-center text-[12px] text-slate-400">Memuat riwayat...</div>
-              <div x-show="notifAttemptsError" class="mt-1 text-[12px] text-red-700"><span x-text="notifAttemptsError"></span>
-                <button type="button" @click="loadNotifAttempts(n.id)" class="ui-button ui-button--ghost ml-1 font-semibold underline">Coba lagi</button>
-              </div>
-              <div x-show="!notifAttemptsLoading && !notifAttemptsError && notifAttempts.length === 0" class="ui-empty mt-1 text-[12px] text-slate-400">Belum ada percobaan tercatat.</div>
-              <div x-show="!notifAttemptsLoading && notifAttempts.length > 0" class="mt-2 space-y-1.5">
-                <template x-for="t in notifAttempts" :key="t.attempt_number">
-                  <div class="ui-card p-2.5">
-                    <p class="font-mono font-semibold" x-text="'#' + t.attempt_number + ' · ' + (t.result || 'berjalan')">-</p>
-                    <p class="font-mono text-slate-500 mt-0.5" x-text="fmtWaktuID(t.started_at) + (t.finished_at ? ' → ' + fmtWaktuID(t.finished_at) : '')">-</p>
-                    <p x-show="t.error_message" class="text-red-700 mt-0.5" x-text="t.error_message">-</p>
-                    <p x-show="t.provider_message_id" class="font-mono text-slate-400 mt-0.5" x-text="'provider: ' + t.provider_message_id">-</p>
-                  </div>
-                </template>
-              </div>
-            </div>
-            <button type="button" @click="bukaAuditEntitas(n.entity_type)" x-show="n.entity_type" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-border bg-white text-[12px] font-medium min-h-[44px]">Lihat di Audit Global</button>
-          </div>
-        </div>
-      </template>
-    </div>
-    <div x-show="!notifLoading && !notifError && filteredNotif().length > 0" class="mt-4 text-center">
-      <p class="text-[12px] text-slate-400 font-mono" x-text="'Menampilkan ' + filteredNotif().length + ' hasil' + (notifHasMore ? ' · masih ada data' : ' · semua data termuat')"></p>
-      <button type="button" x-show="notifHasMore" @click="loadAntreanMore()" :disabled="notifLoadingMore" class="ui-button ui-button--ghost mt-2 h-11 px-5 rounded-xl border border-border text-[13px] font-semibold min-h-[44px] disabled:opacity-60" x-text="notifLoadingMore ? 'Memuat...' : 'Muat 50 lagi'"></button>
     </div>
   </div>
 </section>

@@ -30,6 +30,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", s.handleConfirmRecovery)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
 	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
+	mux.HandleFunc("GET /api/v1/km/dashboard", s.RequireAuth(s.RequireRole("KM")(s.handleKMDashboard)))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
 	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1ClassesAccess)
 	mux.HandleFunc("POST /api/v1/classes", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateV1Class)))
@@ -178,11 +179,22 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, "/system-admin.html", http.StatusMovedPermanently)
 	})
 
+	// Root (/) dan /index.html dialihkan ke halaman login (Opsi A).
+	// Portal mahasiswa tetap dapat diakses via /c/{slug} yang menyajikan index.html.
+	// GET dan HEAD disamakan agar semantik HTTP konsisten di kedua path.
+	for _, method := range []string{"GET", "HEAD"} {
+		mux.HandleFunc(method+" /index.html", redirectToLogin)
+	}
+
 	// Menyajikan aset web statis dari web.Files embedded.
 	// Path halaman yang tidak ada (mis. salah ketik *.html) mendapat
 	// halaman 404 kustom, bukan teks polos FileServer.
 	webFS := http.FileServer(http.FS(web.Files))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			redirectToLogin(w, r)
+			return
+		}
 		if isWebPagePath(r.URL.Path) {
 			if _, err := web.Files.Open(strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")); err != nil {
 				serveWebNotFound(w, r)

@@ -5,6 +5,12 @@
 
 [x-cloak] { display: none !important; }
 
+#app-shell { --support-banner-height: 0px; padding-top: var(--support-banner-height); }
+#app-shell .app-support-banner { position: fixed; inset: 0 0 auto; z-index: 60; width: 100%; }
+#app-shell .app-sidebar { top: var(--support-banner-height); height: calc(100dvh - var(--support-banner-height)); }
+#app-shell .app-header { top: var(--support-banner-height); }
+#app-shell .app-mobile-drawer { top: var(--support-banner-height); height: calc(100dvh - var(--support-banner-height)); }
+
 html, body { overflow-x: hidden; max-width: 100vw; }
 body { min-width: 0; font-family: 'Montserrat', system-ui, sans-serif; }
 h1, h2, .font-display { font-family: 'Poppins', sans-serif; }

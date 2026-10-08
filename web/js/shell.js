@@ -10,6 +10,12 @@ const AsteriskShell = (() => {
       const template = await response.text();
       const slots = views.map(name => `<div id="${prefix}-${name}"></div>`).join('\n');
       root.innerHTML = template.replaceAll('{{prefix}}', prefix).replace('{{viewSlots}}', slots);
+      const banner = document.getElementById(`${prefix}-banner`);
+      if (banner) {
+        const syncBannerHeight = () => root.style.setProperty('--support-banner-height', `${banner.getBoundingClientRect().height}px`);
+        syncBannerHeight();
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncBannerHeight).observe(banner);
+      }
     } catch (error) {
       root.innerHTML = '<main class="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center" role="alert"><h1 class="text-[24px] font-bold">Halaman belum dapat dimuat</h1><p>Periksa koneksi, lalu coba lagi.</p><button type="button" class="min-h-[44px] px-6 rounded-xl bg-primary text-white font-semibold">Coba lagi</button></main>';
       root.querySelector('button').addEventListener('click', () => location.reload());
@@ -21,6 +27,9 @@ const AsteriskShell = (() => {
     return {
       shellRoleKey: role,
       shellDrawerTrigger: null,
+      modalLogout: false,
+      logoutLoading: false,
+      modalProfilAdmin: false,
       shellNavSections() { return this.navSections || []; },
       shellIdentity() {
         if (role === 'portal') return { label: 'Portal Kelas', detail: this.selectedClass || 'Pilih kelas', sub: this.semesterLabel || 'Hanya lihat', short: 'PK' };
@@ -58,7 +67,8 @@ const AsteriskShell = (() => {
           .find(navItem => this.shellIsActive(navItem));
         const activeId = activeNav?.id || this.view;
         if (item.id === '__more') {
-          return role !== 'portal' && !!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId);
+          return role !== 'portal' && ((!!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId))
+            || (role === 'km' && !activeNav && (this.hiddenNav || []).some(hiddenItem => hiddenItem.id === this.view)));
         }
         if ((item.active || []).includes(activeId)) return true;
         return item.id === activeId;

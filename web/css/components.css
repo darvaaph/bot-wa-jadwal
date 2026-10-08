@@ -141,6 +141,14 @@ textarea.ui-field { min-height: 7rem; resize: vertical; }
 .ui-icon--room { --ui-icon: url('/assets/icons/room.svg'); }
 .ui-icon--bot { --ui-icon: url('/assets/icons/bot.svg'); }
 .ui-icon--classes { --ui-icon: url('/assets/icons/classes.svg'); }
+.ui-icon--km-dashboard { --ui-icon: url('/assets/icons/km-dashboard.svg'); }
+.ui-icon--km-tugas { --ui-icon: url('/assets/icons/km-tugas.svg'); }
+.ui-icon--km-jadwal { --ui-icon: url('/assets/icons/km-jadwal.svg'); }
+.ui-icon--km-ruangan { --ui-icon: url('/assets/icons/km-ruangan.svg'); }
+.ui-icon--km-materi { --ui-icon: url('/assets/icons/km-materi.svg'); }
+.ui-icon--km-anggota { --ui-icon: url('/assets/icons/km-anggota.svg'); }
+.ui-icon--km-pengaturan { --ui-icon: url('/assets/icons/km-pengaturan.svg'); }
+.ui-icon--km-audit { --ui-icon: url('/assets/icons/km-audit.svg'); }
 
 @media (prefers-reduced-motion: reduce) {
   .ui-button { transition: none; }

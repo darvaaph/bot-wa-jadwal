@@ -262,7 +262,7 @@
                   <!-- Popup Menu Dropdown -->
                   <div x-show="kelasMenu === k.slug" x-cloak :class="(i >= filteredKelas().length - 2 && filteredKelas().length > 2) ? 'bottom-full mb-1.5' : 'top-full mt-1.5'" class="absolute right-0 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
                     <!-- Opsi Mode Dukungan (Highlight sesuai Figma) -->
-                    <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" role="menuitem" class="w-full text-left px-3 py-2 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px]">
+                    <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" :disabled="!!dukunganAktif || !!dukunganError" role="menuitem" class="w-full text-left px-3 py-2 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px] disabled:cursor-not-allowed disabled:opacity-50">
                       <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
                         <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
                       </svg>
@@ -337,7 +337,7 @@
                 <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.00342 11.82617q-0.50586 0-0.86475-0.35547-0.35889-0.35889-0.35888-0.86132 0-0.50586 0.35888-0.86475 0.35889-0.35889 0.86133-0.35889 0.50586 0 0.86133 0.35889 0.35889 0.35889 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35547-0.85791 0.35547z m0-3.60596q-0.50586 0-0.86475-0.35888-0.35889-0.35889-0.35888-0.86133 0-0.50586 0.35888-0.86133 0.35889-0.35889 0.86133-0.35888 0.50586 0 0.86133 0.35888 0.35889 0.35547 0.35888 0.85791 0 0.50586-0.35888 0.86475-0.35547 0.35889-0.85791 0.35888z m0-3.60595q-0.50586 0-0.86475-0.35889-0.35889-0.35889-0.35888-0.86474 0-0.50586 0.35888-0.86133 0.35889-0.35547 0.86133-0.35547 0.50586 0 0.86133 0.35547 0.35889 0.35547 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35889-0.85791 0.35889z"/></svg>
               </button>
               <div x-show="kelasMenu === 'm-' + k.slug" x-cloak class="absolute right-0 top-full mt-1.5 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
-                <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px]">
+                <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" :disabled="!!dukunganAktif || !!dukunganError" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px] disabled:cursor-not-allowed disabled:opacity-50">
                   <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
                     <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
                   </svg>
@@ -357,46 +357,100 @@
       </template>
     </div>
 
-    <!-- Modal Dialog Masuk Mode Dukungan -->
-    <div x-show="dialogDukunganKelas" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="dialogDukunganKelas = null"></div>
-      <div class="relative max-w-md w-full bg-white rounded-[16px] p-6 shadow-2xl border border-[#D7DDE7]" role="dialog" aria-modal="true" aria-label="Masuk Mode Dukungan">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-[10px] bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
-            <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
-              <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42725 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="text-[16px] font-bold text-[#1D1B3A]">Mode Dukungan</h3>
-            <p class="text-[12px] text-[#667085]">Akses break-glass 60 menit untuk <span class="font-bold text-[#1D1B3A]" x-text="dialogDukunganKelas ? dialogDukunganKelas.nama : ''"></span></p>
-          </div>
-        </div>
-
-        <div class="mt-4">
-          <label class="block text-[12px] font-semibold text-[#1D1B3A] mb-1.5" for="sa-dukungan-alasan-modal">
-            Alasan Dukungan <span class="text-red-500">*</span> <span class="text-[11px] font-normal text-[#667085]">(minimal 10 karakter)</span>
-          </label>
-          <textarea id="sa-dukungan-alasan-modal" x-model="dukunganAlasan" rows="3" placeholder="Contoh: Pemulihan konfigurasi jadwal dan akses pengurus kelas..." class="w-full rounded-[10px] border border-[#CBD5E1] p-3 text-[13px] text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors"></textarea>
-        </div>
-
-        <p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-[8px] p-2.5 mt-3">
-          Sesi hibah server berlaku 60 menit. Seluruh aksi selama mode ini dicatat permanen dalam Audit Global sebagai SUPPORT_ENTER/EXIT.
-        </p>
-
-        <div class="flex gap-2.5 mt-5">
-          <button type="button" @click="jalankanMasukDukungan()" :disabled="dukunganLoading || (dukunganAlasan || '').trim().length < 10" class="flex-1 h-11 rounded-[10px] bg-[#3965FB] hover:bg-blue-600 disabled:opacity-50 text-white text-[13px] font-semibold flex items-center justify-center transition-colors shadow-sm">
-            <span x-text="dukunganLoading ? 'Memproses...' : 'Aktifkan Mode Dukungan'"></span>
-          </button>
-          <button type="button" @click="dialogDukunganKelas = null" class="h-11 px-5 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[#1D1B3A] text-[13px] font-semibold transition-colors">
-            Batal
-          </button>
-        </div>
-      </div>
-    </div>
-
   </div>
 </section>
+
+<!-- Dialog Akses Dukungan Kelas -->
+<div x-show="dialogDukunganTerbuka" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" @keydown.escape.window="if (dialogDukunganTerbuka) tutupDialogDukungan()" @keydown="fokusDialogDukungan($event)">
+  <div class="absolute inset-0 bg-[#101828]/60" @click="tutupDialogDukungan()"></div>
+  <div class="relative w-full max-w-[640px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[16px] bg-white p-5 shadow-[0_20px_48px_rgba(16,24,40,0.25)] sm:p-8" role="dialog" aria-modal="true" aria-labelledby="sa-dukungan-dialog-title" aria-describedby="sa-dukungan-dialog-desc">
+    <div class="flex items-start gap-4">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] bg-[#FEF3C7] text-[#B45309] sm:h-14 sm:w-14" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" focusable="false"><path d="M12 2.5 20 6v6c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3.5Z"/></svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <h2 id="sa-dukungan-dialog-title" class="font-display text-[20px] font-bold leading-tight text-[#1D1B3A] sm:text-[24px]">Akses Dukungan Kelas</h2>
+        <p id="sa-dukungan-dialog-desc" class="mt-1 break-words text-[14px] leading-relaxed text-[#667085]" x-text="(dialogDukunganKelas || kelasList.find(k => k.slug === dukunganKelasPilihan)) ? 'Akses darurat 60 menit untuk ' + (dialogDukunganKelas || kelasList.find(k => k.slug === dukunganKelasPilihan)).nama : 'Pilih kelas untuk akses darurat 60 menit'"></p>
+      </div>
+      <button type="button" @click="tutupDialogDukungan()" :disabled="dukunganLoading" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#667085] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB] disabled:opacity-50" aria-label="Tutup dialog">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5 19 19M19 5 5 19"/></svg>
+      </button>
+    </div>
+    <div class="mt-6 space-y-5">
+      <div x-show="!dialogDukunganKelas">
+        <label for="sa-dukungan-kelas-modal" class="mb-2 block text-[14px] font-semibold text-[#1D1B3A]">Kelas tujuan <span class="text-red-600">*</span></label>
+        <select id="sa-dukungan-kelas-modal" x-model="dukunganKelasPilihan" @change="dukunganDialogError = ''" class="ui-field min-h-[48px] w-full">
+          <option value="">Pilih kelas</option>
+          <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
+        </select>
+      </div>
+      <div>
+        <label for="sa-dukungan-alasan-modal" class="mb-2 block text-[14px] font-semibold text-[#1D1B3A]">Alasan Dukungan Operasional <span class="text-red-600">*</span></label>
+        <textarea id="sa-dukungan-alasan-modal" x-model="dukunganAlasan" @input="dukunganDialogError = ''" rows="4" aria-describedby="sa-dukungan-alasan-hint" :aria-invalid="String(!!dukunganDialogError)" placeholder="Contoh: Pemulihan kode portal bocor dan koreksi jadwal darurat kuliah pengganti..." class="ui-field min-h-[120px] w-full resize-y p-4 text-[14px] leading-relaxed placeholder:text-[#667085]"></textarea>
+        <div id="sa-dukungan-alasan-hint" class="mt-2 flex items-start justify-between gap-4 text-[12px] leading-relaxed text-[#667085]"><span>Wajib ≥10 karakter untuk pertanggungjawaban audit.</span><span class="shrink-0 tabular-nums" x-text="panjangAlasanDukungan() + '/10'"></span></div>
+      </div>
+      <div class="flex items-start gap-3 rounded-[12px] border border-[#D7DDE7] bg-[#F8FAFC] p-4 text-[13px] leading-relaxed text-[#667085]">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="mt-0.5 shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+        <p>Sesi berlaku 60 menit. Aktivasi dan penutupan dicatat dalam Audit Global sebagai SUPPORT_ENTER / SUPPORT_EXIT.</p>
+      </div>
+      <p x-show="dukunganDialogError" x-text="dukunganDialogError" role="alert" class="text-[13px] text-red-700"></p>
+    </div>
+    <div class="mt-6 flex flex-col-reverse gap-3 border-t border-[#E2E8F0] pt-5 sm:flex-row sm:justify-end">
+      <button type="button" @click="tutupDialogDukungan()" :disabled="dukunganLoading" class="min-h-[44px] rounded-[10px] border border-[#CBD5E1] bg-white px-5 text-[14px] font-semibold text-[#1D1B3A] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB] disabled:opacity-50">Batal</button>
+      <button type="button" @click="jalankanMasukDukungan()" :disabled="dukunganLoading || panjangAlasanDukungan() < 10 || (!dialogDukunganKelas && !dukunganKelasPilihan)" class="min-h-[44px] rounded-[10px] bg-[#3965FB] px-5 text-[14px] font-semibold text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3965FB] disabled:cursor-not-allowed disabled:bg-[#9DB0FF]" x-text="dukunganLoading ? 'Mengaktifkan...' : 'Aktifkan Mode Dukungan'"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Riwayat audit untuk sesi dukungan aktif -->
+<div x-show="auditSesiTerbuka" x-cloak class="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6" @keydown.escape.window="if (auditSesiTerbuka) tutupAuditSesi()" @keydown="fokusDialogDukungan($event)">
+  <div class="absolute inset-0 bg-[#101828]/60" @click="tutupAuditSesi()"></div>
+  <div class="relative flex w-full max-w-[860px] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[16px] bg-white p-5 shadow-[0_20px_48px_rgba(16,24,40,0.25)] sm:p-7" role="dialog" aria-modal="true" aria-labelledby="sa-audit-sesi-title" aria-describedby="sa-audit-sesi-desc">
+    <div class="flex items-start gap-4">
+      <div class="min-w-0 flex-1">
+        <h2 id="sa-audit-sesi-title" class="font-display break-words text-[18px] font-bold leading-snug text-[#1D1B3A] sm:text-[22px]" x-text="'Riwayat Audit Sesi: ' + (auditSesiGrant ? namaKelasBySlug(auditSesiGrant.class_slug) || auditSesiGrant.class_code || auditSesiGrant.class_slug : '')"></h2>
+        <p id="sa-audit-sesi-desc" class="mt-2 text-[13px] leading-relaxed text-[#667085]">Aktivitas akun admin pada kelas ini sejak sesi dukungan dimulai.</p>
+      </div>
+      <button id="sa-audit-sesi-tutup" type="button" @click="tutupAuditSesi()" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#667085] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]" aria-label="Tutup riwayat audit sesi">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5 19 19M19 5 5 19"/></svg>
+      </button>
+    </div>
+
+    <div class="mt-5 min-h-0 flex-1 overflow-auto rounded-[10px] border border-[#E2E8F0]">
+      <table class="w-full min-w-[680px] table-fixed border-collapse text-left">
+        <thead class="sticky top-0 bg-[#F8FAFC] text-[11px] font-semibold uppercase tracking-wide text-[#667085]">
+          <tr><th scope="col" class="w-[140px] px-4 py-3">Waktu</th><th scope="col" class="w-[190px] px-4 py-3">Aksi &amp; entitas</th><th scope="col" class="px-4 py-3">Keterangan mutasi</th></tr>
+        </thead>
+        <tbody class="text-[13px] leading-relaxed text-[#1D1B3A]">
+          <template x-if="auditSesiLoading">
+            <tr><td colspan="3" class="px-4 py-8 text-center text-[#667085]" role="status">Memuat riwayat audit sesi...</td></tr>
+          </template>
+          <template x-for="row in auditSesiRows" :key="row.id">
+            <tr class="border-t border-[#E2E8F0] align-top">
+              <td class="px-4 py-4 tabular-nums"><span x-text="fmtWaktuAuditSesi(row.created_at)"></span><span class="mt-0.5 block text-[11px] text-[#667085]" x-text="fmtTanggalAuditSesi(row.created_at)"></span></td>
+              <td class="px-4 py-4"><span class="block break-all font-mono text-[12px] font-medium" x-text="row.action || '-'"></span><span class="mt-1 block break-words font-mono text-[11px] text-[#667085]" x-text="(row.entity_type || '-') + (row.entity_id ? ' #' + row.entity_id : '')"></span></td>
+              <td class="break-words px-4 py-4" x-text="deskripsiAuditSesi(row)"></td>
+            </tr>
+          </template>
+          <template x-if="!auditSesiLoading && !auditSesiRows.length && !auditSesiError">
+            <tr><td colspan="3" class="px-4 py-8 text-center text-[#667085]">Belum ada catatan audit untuk sesi ini.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <div x-show="auditSesiError" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-red-200 bg-red-50 p-3 text-[13px] text-red-700" role="alert">
+      <span x-text="auditSesiError"></span>
+      <button type="button" @click="muatAuditSesi(auditSesiRows.length > 0)" class="min-h-[44px] font-semibold underline">Coba lagi</button>
+    </div>
+    <div x-show="auditSesiHasMore && !auditSesiError" class="mt-3 text-center">
+      <button type="button" @click="muatAuditSesi(true)" :disabled="auditSesiLoadingMore" class="min-h-[44px] px-4 text-[13px] font-semibold text-[#3965FB] hover:underline disabled:opacity-50" x-text="auditSesiLoadingMore ? 'Memuat...' : 'Muat catatan lebih lama'"></button>
+    </div>
+    <div class="mt-5 flex justify-end border-t border-[#E2E8F0] pt-5">
+      <button type="button" @click="tutupAuditSesi()" class="min-h-[44px] rounded-[10px] border border-[#CBD5E1] bg-white px-5 text-[14px] font-semibold text-[#1D1B3A] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">Tutup</button>
+    </div>
+  </div>
+</div>
 
 <!-- 2. MODAL BUAT KELAS BARU (SCR-ADM-005B) -->
 <div
@@ -758,8 +812,9 @@
       >
         <button
           type="button"
-          @click="dukunganFormTerbuka = !dukunganFormTerbuka"
-          :aria-expanded="String(dukunganFormTerbuka)"
+          @click="bukaDialogDukungan(kelasAktifObj)"
+          :disabled="!!dukunganAktif || !!dukunganError"
+          aria-haspopup="dialog"
           class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[7px] px-[13px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[9px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer"
         >
           <svg
@@ -821,24 +876,52 @@
       </div>
     </div>
 
-    <!-- Form Masuk / Keluar Mode Dukungan -->
-    <div x-show="dukunganFormTerbuka" x-cloak class="w-full p-4 rounded-xl border border-amber-300 bg-amber-50">
-      <template x-if="!dukunganAktif">
-        <div>
-          <p class="text-[14px] font-bold text-ink">Masuk Mode Dukungan untuk <span x-text="kelasAktifObj ? kelasAktifObj.nama : ''"></span></p>
-          <p class="text-[12px] text-amber-900 mt-0.5">Hibah 60 menit + alasan wajib. Masuk/keluar tercatat di Audit Global.</p>
-          <div class="flex flex-col sm:flex-row gap-2 mt-3">
-            <input type="text" x-model="dukunganAlasan" placeholder="Alasan dukungan (min. 10 karakter)" aria-label="Alasan dukungan" class="ui-field flex-1 text-[14px]" />
-            <button type="button" @click="masukDukungan()" :disabled="dukunganLoading" class="h-11 px-5 rounded-[10px] bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-semibold min-h-[44px] disabled:opacity-60 transition-colors" x-text="dukunganLoading ? 'Memproses...' : 'Masuk mode dukungan'"></button>
+    <div x-show="kelasAktifObj && isDukunganUntuk(kelasAktifObj.slug)" x-cloak class="w-full rounded-xl border border-warning-soft bg-amber-50 px-4 py-3 text-[13px] text-amber-950" role="status">
+      Anda sedang mengelola kelas ini dalam Mode Dukungan (aktif s.d. <span x-text="dukunganJam()"></span>).
+    </div>
+
+    <div x-show="kelasAktifObj && isDukunganUntuk(kelasAktifObj.slug)" x-cloak class="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+      <section class="ui-card min-w-0 p-5" aria-labelledby="sa-pengingat-title">
+        <h2 id="sa-pengingat-title" class="font-display text-[16px] font-bold text-deep-ink">Jadwal Notifikasi Otomatis</h2>
+        <p x-show="!detailSettings && !detailSettingsError" class="mt-3 text-[13px] text-muted" role="status">Memuat pengaturan kelas...</p>
+        <div x-show="detailSettingsError" class="mt-3 text-[13px] text-amber-900" role="alert">
+          <span x-text="detailSettingsError"></span>
+          <button type="button" @click="loadDetailSettings(kelasAktifObj.slug)" class="ml-2 min-h-[44px] font-semibold underline">Coba lagi</button>
+        </div>
+        <dl x-show="detailSettings" class="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 text-[13px]">
+          <dt class="text-muted">Pengingat Jadwal Pagi</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.morning_reminder_time ? detailSettings.morning_reminder_time : 'Belum diatur'"></dd>
+          <dt class="text-muted">Rekap Tugas Sore</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.afternoon_reminder_time ? detailSettings.afternoon_reminder_time : 'Belum diatur'"></dd>
+          <dt class="text-muted">Kuliah Pengganti</dt><dd class="text-right font-semibold text-deep-ink" x-text="detailSettings?.replacement_reminder_minutes != null ? detailSettings.replacement_reminder_minutes + ' menit sebelum sesi' : 'Belum diatur'"></dd>
+        </dl>
+        <p x-show="detailSettings" class="mt-2 text-[12px] text-muted">Zona waktu: <span x-text="detailSettings?.timezone || '-'"></span></p>
+        <button type="button" x-show="detailSettings && !pengingatFormTerbuka" @click="bukaPengingatForm()" class="ui-button ui-button--outline mt-4">Ubah Jam Pengingat</button>
+        <form x-show="pengingatFormTerbuka" x-cloak @submit.prevent="simpanPengingat()" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label class="text-[13px] font-semibold text-deep-ink">Jam pagi<input type="time" x-model="pengingatForm.morning_reminder_time" required class="ui-field mt-1 w-full"></label>
+          <label class="text-[13px] font-semibold text-deep-ink">Jam sore<input type="time" x-model="pengingatForm.afternoon_reminder_time" required class="ui-field mt-1 w-full"></label>
+          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Kuliah pengganti, menit sebelumnya<input type="number" x-model="pengingatForm.replacement_reminder_minutes" min="0" max="1440" step="1" required class="ui-field mt-1 w-full"></label>
+          <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-danger sm:col-span-2" role="alert"></p>
+          <div class="flex flex-wrap gap-2 sm:col-span-2">
+            <button type="submit" :disabled="pengingatSaving" class="ui-button ui-button--primary" x-text="pengingatSaving ? 'Menyimpan...' : 'Simpan pengingat'"></button>
+            <button type="button" :disabled="pengingatSaving" @click="pengingatFormTerbuka = false; pengingatError = ''" class="ui-button ui-button--secondary">Batal</button>
           </div>
+        </form>
+      </section>
+      <section class="ui-card min-w-0 p-5" aria-labelledby="sa-semester-aktif-title">
+        <h2 id="sa-semester-aktif-title" class="font-display text-[16px] font-bold text-deep-ink">Semester Berjalan</h2>
+        <p x-show="detailSemesterLoading" class="mt-3 text-[13px] text-muted" role="status">Memuat semester...</p>
+        <div x-show="detailSemesterError" class="mt-3 text-[13px] text-amber-900" role="alert">
+          <span x-text="detailSemesterError"></span>
+          <button type="button" @click="loadDetailSemester(kelasAktifObj.slug)" class="ml-2 min-h-[44px] font-semibold underline">Coba lagi</button>
         </div>
-      </template>
-      <template x-if="dukunganAktif">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-          <p class="flex-1 text-[13px] text-amber-900"><span class="font-bold">Aktif: <span x-text="namaDukungan()"></span></span> · Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || dukunganAktif.alasan || '-') : ''"></span><span x-show="dukunganAktif && dukunganAktif.expires_at"> · s.d. <span class="font-mono" x-text="dukunganJam()"></span> (<span x-text="dukunganSisa()"></span>)</span></p>
-          <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="h-11 px-5 rounded-[10px] bg-[#DC2626] hover:bg-red-700 text-white text-[13px] font-bold min-h-[44px] disabled:opacity-60 transition-colors self-start sm:self-auto" x-text="dukunganLoading ? 'Keluar...' : 'Keluar Dukungan'"></button>
-        </div>
-      </template>
+        <template x-if="!detailSemesterLoading && !detailSemesterError && semesterAktifDetail()">
+          <div class="mt-3">
+            <p class="font-semibold text-deep-ink" x-text="'Semester ' + semesterAktifDetail().term + ' ' + semesterAktifDetail().academic_year"></p>
+            <p class="mt-1 text-[13px] text-muted" x-text="(smJumlah(semesterAktifDetail().id, 'offerings') ?? '–') + ' mata kuliah terdaftar · ' + (smJumlah(semesterAktifDetail().id, 'lecturers') ?? '–') + ' dosen pengampu'"></p>
+          </div>
+        </template>
+        <p x-show="!detailSemesterLoading && !detailSemesterError && !semesterAktifDetail()" class="mt-3 text-[13px] text-muted">Belum ada semester aktif untuk kelas ini.</p>
+        <button type="button" @click="bukaDaftarSemester()" class="ui-button ui-button--outline mt-4">Kelola Jadwal dan Mata Kuliah</button>
+      </section>
     </div>
 
     <!-- Pengurus dan Akses Portal -->
@@ -977,7 +1060,7 @@
         </div>
 
         <!-- Mode Tautan Langsung View -->
-        <template x-if="!detailSettings || detailSettings.portal_access_mode !== 'CODE'">
+        <template x-if="detailSettings && detailSettings.portal_access_mode !== 'CODE'">
           <div class="w-full flex flex-col gap-1.5">
             <div class="text-[12px]/[normal] text-[#667085] font-normal">Tautan Portal Publik:</div>
             <div class="flex items-center gap-2">
@@ -1031,7 +1114,7 @@
               data-pencil-name="Keterangan Versi Kode"
               class="text-[11px]/[15px] box-border w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left"
             >
-              Versi kode: v<span x-text="detailSettings.portal_code_version ?? '-'"></span> • Mahasiswa wajib memasukkan kode ini untuk membuka portal.
+              Versi kode: v<span x-text="detailSettings.portal_code_version ?? '-'"></span> • Kode asli hanya tampil selama 60 detik setelah rotasi. Mahasiswa memasukkannya untuk membuka portal.
             </div>
           </div>
         </template>
@@ -1066,6 +1149,7 @@
 
     <!-- Daftar Semester dan Jadwal Kuliah -->
     <div
+      id="sa-detail-semester"
       data-pencil-name="Daftar Semester dan Jadwal Kuliah"
       class="box-border w-full flex flex-col gap-[16px] p-[24px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] relative"
     >
