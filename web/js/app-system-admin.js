@@ -1801,9 +1801,13 @@ function systemAdminApp() {
       this.resetPasswordTarget = target;
       this.resetPasswordIsSelf = isSelf;
       this.resetPasswordForm = {
+        old_password: '',
         password: '',
         confirm: '',
         reason: isSelf ? 'Perubahan kata sandi akun mandiri' : '',
+        showOld: false,
+        showNew: false,
+        showConfirm: false,
         show: false
       };
       this.resetPasswordLoading = false;
@@ -1819,13 +1823,20 @@ function systemAdminApp() {
 
     async simpanResetPassword() {
       const f = this.resetPasswordForm;
+      if (this.resetPasswordIsSelf) {
+        const oldPwd = (f.old_password || '').trim();
+        if (!oldPwd) {
+          this.resetPasswordError = 'Kata sandi saat ini wajib diisi.';
+          return;
+        }
+      }
       const pwd = (f.password || '').trim();
       if (pwd.length < 12) {
-        this.resetPasswordError = 'Kata sandi minimal 12 karakter.';
+        this.resetPasswordError = 'Kata sandi baru minimal 12 karakter.';
         return;
       }
       if (this.resetPasswordIsSelf && pwd !== (f.confirm || '').trim()) {
-        this.resetPasswordError = 'Konfirmasi kata sandi tidak cocok.';
+        this.resetPasswordError = 'Konfirmasi kata sandi tidak cocok. Pastikan kedua kata sandi identik.';
         return;
       }
       if (!this.resetPasswordIsSelf && !((f.reason || '').trim())) {
@@ -1849,7 +1860,8 @@ function systemAdminApp() {
         }
 
         const reason = (f.reason || '').trim() || (this.resetPasswordIsSelf ? 'Pembaruan kata sandi akun administrator' : 'Reset kata sandi oleh System Admin');
-        await API.recoverUser(targetId, reason, pwd);
+        const oldPwd = this.resetPasswordIsSelf ? (f.old_password || '').trim() : '';
+        await API.recoverUser(targetId, reason, pwd, oldPwd);
 
         if (this.resetPasswordIsSelf) {
           this.showToast('Kata sandi berhasil diubah! Sesi aktif diperbarui. Mengalihkan ke login...', 4000);
@@ -5824,10 +5836,7 @@ function systemAdminApp() {
 
     aksiGantiPasswordDariProfil() {
       this.modalProfilAdmin = false;
-      this.go('pengguna');
-      this.$nextTick(() => {
-        this.bukaModalResetPassword(this.currentUser, true);
-      });
+      this.bukaModalResetPassword(this.currentUser, true);
     },
 
     aksiLogoutDariProfil() {

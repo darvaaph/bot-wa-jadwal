@@ -444,3 +444,156 @@
     </div>
   </div>
 </div>
+
+<!-- Dialog Ganti Kata Sandi Akun Administrator (SCR-ADM-PASSWORD-MODAL) -->
+<div x-show="shellRoleKey === 'sa' && modalResetPassword && resetPasswordIsSelf"
+     x-cloak
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-password-title"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#00000080] transition-opacity">
+  <!-- Scrim Backdrop -->
+  <div class="fixed inset-0" @click="!resetPasswordLoading && tutupModalResetPassword()" aria-hidden="true"></div>
+
+  <!-- Dialog Box (460px) -->
+  <div class="relative w-full max-w-[460px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+       @click.stop>
+    <!-- Header Modal -->
+    <div class="w-full flex items-start justify-between pb-[12px] border-b border-[#F2F4F7]">
+      <div class="flex-1 flex flex-col gap-1 pr-4 min-w-0">
+        <h2 id="modal-password-title" class="text-[18px] leading-[23px] text-[#1D1B3A] font-bold">Ganti Kata Sandi Akun</h2>
+        <p class="text-[12px] leading-[18px] text-[#667085]">Perbarui kata sandi untuk akun System Admin Anda.</p>
+      </div>
+      <button type="button"
+              @click="tutupModalResetPassword()"
+              :disabled="resetPasswordLoading"
+              aria-label="Tutup dialog ganti kata sandi"
+              title="Tutup dialog"
+              class="w-[44px] h-[44px] shrink-0 -mr-2 -mt-2 flex items-center justify-center rounded-full text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Peringatan Keamanan Sesi -->
+    <div class="w-full flex items-start gap-[10px] p-[14px] bg-[#EFF4FF] border border-[#BFDBFE] rounded-[12px]">
+      <svg width="20" height="20" viewBox="0 0 14 14" fill="#1D4ED8" class="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" focusable="false">
+        <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0z m0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m3.14111-2.04053q0.36914 0 0.62207-0.25293 0.25293-0.25293 0.25293-0.62207 0-0.36914-0.25293-0.62207-0.25293-0.25293-0.62207-0.25293-0.36914 0-0.62207 0.25293-0.25293 0.25293-0.25293 0.62207 0 0.36914 0.25293 0.62207 0.25293 0.25293 0.62207 0.25293z m-1.75-4.375l3.5 0 0-1.16553q0-0.73145-0.5127-1.24072-0.50928-0.50928-1.2373-0.50928-0.72803 0-1.24072 0.50928-0.50928 0.50928-0.50928 1.24072l0 1.16553z"></path>
+      </svg>
+      <div class="flex-1 text-[12px] leading-[18px] text-[#1D4ED8]">
+        <strong>Keamanan Sesi:</strong> Seluruh sesi aktif di peramban lain akan dicabut seketika. Anda akan diminta login ulang setelah berhasil mengganti kata sandi.
+      </div>
+    </div>
+
+    <!-- Banner Galat Validasi / Server -->
+    <div x-show="resetPasswordError"
+         x-cloak
+         class="w-full p-3 rounded-[12px] bg-red-50 border border-red-200 text-[12px] leading-[18px] text-red-700 flex items-start gap-2">
+      <svg class="w-4 h-4 shrink-0 text-red-600 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="flex-1" x-text="resetPasswordError"></span>
+    </div>
+
+    <!-- Formulir Kata Sandi -->
+    <div class="w-full flex flex-col gap-[14px]">
+      <!-- 1. Kata Sandi Saat Ini -->
+      <div class="w-full flex flex-col gap-[6px]">
+        <label for="admin-current-password" class="text-[12px] text-[#1D1B3A] font-medium">
+          Kata Sandi Saat Ini <span class="text-red-500">*</span>
+        </label>
+        <div class="w-full h-[44px] flex items-center bg-[#FFFFFF] border border-[#667085] focus-within:border-[#3965FB] focus-within:ring-1 focus-within:ring-[#3965FB] rounded-[12px] px-[14px] transition-all">
+          <input id="admin-current-password"
+                 :type="resetPasswordForm.showOld ? 'text' : 'password'"
+                 x-model="resetPasswordForm.old_password"
+                 placeholder="Masukkan kata sandi saat ini..."
+                 class="flex-1 min-w-0 bg-transparent text-[12px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none" />
+          <button type="button"
+                  @click="resetPasswordForm.showOld = !resetPasswordForm.showOld"
+                  aria-label="Tampilkan atau sembunyikan kata sandi saat ini"
+                  class="w-[36px] h-[36px] -mr-2 flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] transition-colors rounded-lg cursor-pointer">
+            <svg x-show="!resetPasswordForm.showOld" width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7.00342 8.83887q0.88867 0 1.50732-0.62207 0.62207-0.62207 0.62207-1.51075 0-0.88867-0.62549-1.50732-0.62207-0.62207-1.51074-0.62207-0.88867 0-1.51074 0.62207-0.61865 0.62207-0.61865 1.51074 0 0.89209 0.62207 1.51074 0.62549 0.61865 1.51416 0.61866z m-0.00342-0.55713q-0.65625 0-1.11768-0.45801-0.45801-0.45801-0.458-1.11426 0-0.65625 0.458-1.11426 0.46143-0.46143 1.11768-0.46142 0.65625 0 1.11426 0.46142 0.46143 0.45801 0.46142 1.11426 0 0.65625-0.46142 1.11426-0.45801 0.45801-1.11426 0.45801z m0 2.21826q-1.72949 0-3.17529-0.91602-1.44238-0.91602-2.33106-2.39941-0.07178-0.11963-0.10254-0.23584-0.03076-0.11963-0.03076-0.24268 0-0.11963 0.03076-0.23584 0.03076-0.11621 0.10254-0.23583 0.88867-1.48682 2.33106-2.40284 1.4458-0.91602 3.17529-0.91601 1.72949 0 3.17188 0.91601 1.4458 0.91602 2.33447 2.40284 0.07178 0.11963 0.10254 0.23583 0.03076 0.11621 0.03076 0.23926 0 0.12305-0.03076 0.23926-0.03076 0.11621-0.10254 0.23584-0.88867 1.4834-2.33447 2.39941-1.44238 0.91602-3.17188 0.91602z m0-0.58447q1.64746 0 3.0249-0.86475 1.38086-0.86816 2.10889-2.34131-0.72803-1.47314-2.10889-2.34131-1.37744-0.86816-3.0249-0.86816-1.64746 0-3.02832 0.86816-1.37744 0.86816-2.10547 2.34131 0.72803 1.47314 2.10547 2.34131 1.38086 0.86475 3.02832 0.86475z"></path>
+            </svg>
+            <svg x-show="resetPasswordForm.showOld" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Kata Sandi Baru -->
+      <div class="w-full flex flex-col gap-[6px]">
+        <div class="w-full flex items-center justify-between">
+          <label for="admin-new-password" class="text-[12px] text-[#1D1B3A] font-medium">
+            Kata Sandi Baru <span class="text-red-500">*</span>
+          </label>
+          <span class="text-[11px] text-[#667085]">Min. 12 karakter</span>
+        </div>
+        <div class="w-full h-[44px] flex items-center bg-[#FFFFFF] border border-[#667085] focus-within:border-[#3965FB] focus-within:ring-1 focus-within:ring-[#3965FB] rounded-[12px] px-[14px] transition-all">
+          <input id="admin-new-password"
+                 :type="resetPasswordForm.showNew ? 'text' : 'password'"
+                 x-model="resetPasswordForm.password"
+                 placeholder="Minimal 12 karakter unik..."
+                 class="flex-1 min-w-0 bg-transparent text-[12px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none" />
+          <button type="button"
+                  @click="resetPasswordForm.showNew = !resetPasswordForm.showNew"
+                  aria-label="Tampilkan atau sembunyikan kata sandi baru"
+                  class="w-[36px] h-[36px] -mr-2 flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] transition-colors rounded-lg cursor-pointer">
+            <svg x-show="!resetPasswordForm.showNew" width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7.00342 8.83887q0.88867 0 1.50732-0.62207 0.62207-0.62207 0.62207-1.51075 0-0.88867-0.62549-1.50732-0.62207-0.62207-1.51074-0.62207-0.88867 0-1.51074 0.62207-0.61865 0.62207-0.61865 1.51074 0 0.89209 0.62207 1.51074 0.62549 0.61865 1.51416 0.61866z m-0.00342-0.55713q-0.65625 0-1.11768-0.45801-0.45801-0.45801-0.458-1.11426 0-0.65625 0.458-1.11426 0.46143-0.46143 1.11768-0.46142 0.65625 0 1.11426 0.46142 0.46143 0.45801 0.46142 1.11426 0 0.65625-0.46142 1.11426-0.45801 0.45801-1.11426 0.45801z m0 2.21826q-1.72949 0-3.17529-0.91602-1.44238-0.91602-2.33106-2.39941-0.07178-0.11963-0.10254-0.23584-0.03076-0.11963-0.03076-0.24268 0-0.11963 0.03076-0.23584 0.03076-0.11621 0.10254-0.23583 0.88867-1.48682 2.33106-2.40284 1.4458-0.91602 3.17529-0.91601 1.72949 0 3.17188 0.91601 1.4458 0.91602 2.33447 2.40284 0.07178 0.11963 0.10254 0.23583 0.03076 0.11621 0.03076 0.23926 0 0.12305-0.03076 0.23926-0.03076 0.11621-0.10254 0.23584-0.88867 1.4834-2.33447 2.39941-1.44238 0.91602-3.17188 0.91602z m0-0.58447q1.64746 0 3.0249-0.86475 1.38086-0.86816 2.10889-2.34131-0.72803-1.47314-2.10889-2.34131-1.37744-0.86816-3.0249-0.86816-1.64746 0-3.02832 0.86816-1.37744 0.86816-2.10547 2.34131 0.72803 1.47314 2.10547 2.34131 1.38086 0.86475 3.02832 0.86475z"></path>
+            </svg>
+            <svg x-show="resetPasswordForm.showNew" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Konfirmasi Kata Sandi Baru -->
+      <div class="w-full flex flex-col gap-[6px]">
+        <label for="admin-confirm-password" class="text-[12px] text-[#1D1B3A] font-medium">
+          Konfirmasi Kata Sandi Baru <span class="text-red-500">*</span>
+        </label>
+        <div class="w-full h-[44px] flex items-center bg-[#FFFFFF] border border-[#667085] focus-within:border-[#3965FB] focus-within:ring-1 focus-within:ring-[#3965FB] rounded-[12px] px-[14px] transition-all">
+          <input id="admin-confirm-password"
+                 :type="resetPasswordForm.showConfirm ? 'text' : 'password'"
+                 x-model="resetPasswordForm.confirm"
+                 placeholder="Ulangi kata sandi baru..."
+                 class="flex-1 min-w-0 bg-transparent text-[12px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none" />
+          <button type="button"
+                  @click="resetPasswordForm.showConfirm = !resetPasswordForm.showConfirm"
+                  aria-label="Tampilkan atau sembunyikan konfirmasi kata sandi"
+                  class="w-[36px] h-[36px] -mr-2 flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] transition-colors rounded-lg cursor-pointer">
+            <svg x-show="!resetPasswordForm.showConfirm" width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7.00342 8.83887q0.88867 0 1.50732-0.62207 0.62207-0.62207 0.62207-1.51075 0-0.88867-0.62549-1.50732-0.62207-0.62207-1.51074-0.62207-0.88867 0-1.51074 0.62207-0.61865 0.62207-0.61865 1.51074 0 0.89209 0.62207 1.51074 0.62549 0.61865 1.51416 0.61866z m-0.00342-0.55713q-0.65625 0-1.11768-0.45801-0.45801-0.45801-0.458-1.11426 0-0.65625 0.458-1.11426 0.46143-0.46143 1.11768-0.46142 0.65625 0 1.11426 0.46142 0.46143 0.45801 0.46142 1.11426 0 0.65625-0.46142 1.11426-0.45801 0.45801-1.11426 0.45801z m0 2.21826q-1.72949 0-3.17529-0.91602-1.44238-0.91602-2.33106-2.39941-0.07178-0.11963-0.10254-0.23584-0.03076-0.11963-0.03076-0.24268 0-0.11963 0.03076-0.23584 0.03076-0.11621 0.10254-0.23583 0.88867-1.48682 2.33106-2.40284 1.4458-0.91602 3.17529-0.91601 1.72949 0 3.17188 0.91601 1.4458 0.91602 2.33447 2.40284 0.07178 0.11963 0.10254 0.23583 0.03076 0.11621 0.03076 0.23926 0 0.12305-0.03076 0.23926-0.03076 0.11621-0.10254 0.23584-0.88867 1.4834-2.33447 2.39941-1.44238 0.91602-3.17188 0.91602z m0-0.58447q1.64746 0 3.0249-0.86475 1.38086-0.86816 2.10889-2.34131-0.72803-1.47314-2.10889-2.34131-1.37744-0.86816-3.0249-0.86816-1.64746 0-3.02832 0.86816-1.37744 0.86816-2.10547 2.34131 0.72803 1.47314 2.10547 2.34131 1.38086 0.86475 3.02832 0.86475z"></path>
+            </svg>
+            <svg x-show="resetPasswordForm.showConfirm" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+        <p class="text-[11px] leading-[15px] text-[#667085]">Pastikan kedua kata sandi identik.</p>
+      </div>
+    </div>
+
+    <!-- Aksi Perubahan Kata Sandi (Footer) -->
+    <div class="w-full flex items-center justify-end gap-[10px] pt-[16px] border-t border-[#F2F4F7]">
+      <button type="button"
+              @click="tutupModalResetPassword()"
+              :disabled="resetPasswordLoading"
+              class="h-[44px] px-[16px] flex items-center justify-center bg-[#FFFFFF] border border-[#D7DDE7] hover:bg-slate-50 text-[12px] font-medium text-[#475467] rounded-[12px] transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
+        Batal
+      </button>
+      <button type="button"
+              @click="simpanResetPassword()"
+              :disabled="resetPasswordLoading"
+              class="h-[44px] px-[20px] flex items-center justify-center bg-[#3965FB] hover:bg-[#2854D6] text-white text-[12px] font-medium rounded-[12px] shadow-[0px_1px_3px_rgba(16,24,40,0.1)] transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <span x-show="resetPasswordLoading" class="inline-block w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+        <span x-text="resetPasswordLoading ? 'Menyimpan...' : 'Simpan & Masuk Ulang'">Simpan & Masuk Ulang</span>
+      </button>
+    </div>
+  </div>
+</div>

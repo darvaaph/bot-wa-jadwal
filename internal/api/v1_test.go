@@ -1746,6 +1746,51 @@ func TestV1Admin_StatusAndUserSuspendRecover(t *testing.T) {
 	if pjToken == "" {
 		t.Errorf("Login PJ setelah pemulihan gagal")
 	}
+
+	// 4. Verifikasi pemulihan kata sandi akun mandiri admin (ID 3) dengan old_password
+	// a. Tanpa old_password -> 400 Bad Request
+	selfNoOld, _ := json.Marshal(map[string]string{
+		"new_password": "adminBaru12345",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/admin/users/3/recover", bytes.NewReader(selfNoOld))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("POST self recover tanpa old_password expected 400, got %d", w.Code)
+	}
+
+	// b. Dengan old_password salah -> 400 Bad Request
+	selfWrongOld, _ := json.Marshal(map[string]string{
+		"old_password": "sandiSalah1234",
+		"new_password": "adminBaru12345",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/admin/users/3/recover", bytes.NewReader(selfWrongOld))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("POST self recover dengan old_password salah expected 400, got %d", w.Code)
+	}
+
+	// c. Dengan old_password benar -> 200 OK
+	selfCorrect, _ := json.Marshal(map[string]string{
+		"old_password": "password123",
+		"new_password": "adminBaru12345",
+	})
+	req = httptest.NewRequest("POST", "/api/v1/admin/users/3/recover", bytes.NewReader(selfCorrect))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST self recover dengan old_password benar expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// d. Verifikasi login admin dengan kata sandi baru
+	newAdminToken := helperLogin(t, s, "+6281111111111", "adminBaru12345")
+	if newAdminToken == "" {
+		t.Errorf("Login Admin setelah ganti kata sandi mandiri gagal")
+	}
 }
 
 func TestV1Curriculum_ImportValidateAndApply(t *testing.T) {
