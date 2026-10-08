@@ -300,15 +300,21 @@ function systemAdminApp() {
     usulanKeputusan: null,
     usulanCatatan: '',
 
-    notifFilter: '',
+    notifTab: 'menunggu',
+    notifSearch: '',
+    notifFilter: 'PENDING',
     notifKelas: '',
     notifJenis: '',
     notifSince: '',
     notifUntil: '',
     notifDetailId: null,
+    modalNotifDetail: false,
+    selectedNotif: null,
+    showRawPayload: false,
     notifAttempts: [],
     notifAttemptsLoading: false,
     notifAttemptsError: '',
+    retryingNotifId: null,
 
     kanalList: [],
     kanalLoading: false,
@@ -568,9 +574,18 @@ function systemAdminApp() {
     filteredNotif() {
       const fk = (this.notifKelas || '').trim();
       const fj = (this.notifJenis || '').trim();
+      const q = (this.notifSearch || '').toLowerCase().trim();
       return (this.notifList || []).filter(n => {
         if (fk && String(n.class_id ?? '') !== fk) return false;
         if (fj && String(n.event_type || '') !== fj) return false;
+        if (q) {
+          const matchJid = (n.channel_jid || '').toLowerCase().includes(q);
+          const matchName = (n.channel_name || '').toLowerCase().includes(q);
+          const matchEvent = (n.event_type || '').toLowerCase().includes(q);
+          const matchSlug = (n.class_slug || '').toLowerCase().includes(q);
+          const matchPayload = (n.payload_json || '').toLowerCase().includes(q);
+          if (!matchJid && !matchName && !matchEvent && !matchSlug && !matchPayload) return false;
+        }
         return true;
       });
     },
@@ -843,9 +858,27 @@ function systemAdminApp() {
     },
 
     toggleNotifDetail(id) {
-      const membuka = this.notifDetailId !== id;
-      this.notifDetailId = membuka ? id : null;
-      if (membuka) this.loadNotifAttempts(id);
+      const n = (this.notifList || []).find(item => item.id === id);
+      if (n) {
+        this.bukaNotifDetail(n);
+      }
+    },
+
+    bukaNotifDetail(n) {
+      if (!n) return;
+      this.selectedNotif = n;
+      this.modalNotifDetail = true;
+      this.showRawPayload = false;
+      this.notifDetailId = n.id;
+      this.loadNotifAttempts(n.id);
+    },
+
+    tutupNotifDetail() {
+      this.modalNotifDetail = false;
+      this.selectedNotif = null;
+      this.notifDetailId = null;
+      this.notifAttempts = [];
+      this.showRawPayload = false;
     },
 
     async loadKanal() {
@@ -999,6 +1032,213 @@ function systemAdminApp() {
       if (n.channel_name) return n.channel_name + (n.channel_jid ? ' · ' + n.channel_jid : '');
       if (n.channel_jid) return n.channel_jid;
       return '— (tanpa kanal terdaftar)';
+    },
+
+    formatPenerimaUtama(n) {
+      if (!n) return '-';
+      if (n.channel_jid && n.channel_jid.endsWith('@s.whatsapp.net')) {
+        const num = n.channel_jid.replace('@s.whatsapp.net', '');
+        return '+' + num;
+      }
+      if (n.channel_name) return n.channel_name;
+      if (n.channel_jid) return n.channel_jid;
+      return '—';
+    },
+
+    formatPenerimaSub(n) {
+      if (!n) return '-';
+      if (n.channel_name && n.channel_jid && n.channel_jid.endsWith('@s.whatsapp.net')) {
+        return n.channel_name;
+      }
+      if (n.class_slug) {
+        return n.class_slug.toUpperCase();
+      }
+      if (n.channel_jid) {
+        return n.channel_jid;
+      }
+      return 'Belum tertaut kanal';
+    },
+
+    formatJenisNotif(eventType) {
+      const t = String(eventType || '').toUpperCase();
+      if (t === 'TASK_PUBLISHED') return 'Pengingat tenggat';
+      if (t === 'TASK_UPDATED') return 'Pembaruan tugas';
+      if (t === 'SCHEDULE_REPLACEMENT' || t === 'TEACHING_EVENT_PUBLISHED') return 'Perubahan ruang';
+      if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') return 'Pembatalan kuliah';
+      if (t === 'ACADEMIC_RESTORE_CORRECTION') return 'Koreksi jadwal & tugas';
+      if (t === 'DAILY_DIGEST') return 'Pengingat jadwal';
+      if (t === 'PORTAL_ACCESS') return 'Kode akses portal';
+      return eventType || 'Pengumuman kelas';
+    },
+
+    formatKonteksNotif(n) {
+      if (!n) return '';
+      const slug = n.class_slug ? n.class_slug.toUpperCase() : ('Kelas #' + (n.class_id ?? ''));
+      let payload = null;
+      if (n.payload_json) {
+        try {
+          payload = typeof n.payload_json === 'object' ? n.payload_json : JSON.parse(n.payload_json);
+        } catch (_) {}
+      }
+      if (payload) {
+        const course = payload.course || payload.course_name;
+        const title = payload.title;
+        if (course && title) return slug + ' · ' + course + ' (' + title + ')';
+        if (course) return slug + ' · ' + course;
+        if (title) return slug + ' · ' + title;
+      }
+      if (n.entity_type) {
+        return slug + ' · ' + n.entity_type + (n.entity_id ? ' #' + n.entity_id : '');
+      }
+      return slug + ' · pemberitahuan sistem';
+    },
+
+    formatJenisNotifLengkap(eventType) {
+      const t = String(eventType || '').toUpperCase();
+      let label = 'Pengumuman Kelas';
+      if (t === 'TASK_PUBLISHED') label = 'Tugas Baru';
+      else if (t === 'TASK_UPDATED') label = 'Pembaruan Tugas';
+      else if (t === 'SCHEDULE_REPLACEMENT' || t === 'TEACHING_EVENT_PUBLISHED') label = 'Perubahan Ruang';
+      else if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') label = 'Pembatalan Kuliah';
+      else if (t === 'ACADEMIC_RESTORE_CORRECTION') label = 'Koreksi Akademik';
+      else if (t === 'DAILY_DIGEST') label = 'Pengingat Jadwal';
+      else if (t === 'PORTAL_ACCESS') label = 'Kode Akses Portal';
+      return eventType ? `${label} (${eventType})` : label;
+    },
+
+    formatKelasTerkait(n) {
+      if (!n) return '—';
+      const target = (this.kelasList || []).find(k => k.slug === n.class_slug || String(k.id) === String(n.class_id));
+      if (target && target.nama) return target.nama;
+      if (n.class_slug) return n.class_slug.toUpperCase();
+      if (n.class_id) return 'Kelas #' + n.class_id;
+      return '—';
+    },
+
+    formatKanalTujuan(n) {
+      if (!n) return '—';
+      if (n.channel_name && n.channel_name.trim()) return n.channel_name.trim();
+      if (n.channel_jid) {
+        if (n.channel_jid.endsWith('@g.us')) {
+          const k = (this.kelasList || []).find(x => x.slug === n.class_slug || String(x.id) === String(n.class_id));
+          return 'Grup WhatsApp ' + (k ? (k.nama || k.slug) : (n.class_slug ? n.class_slug.toUpperCase() : 'Kelas'));
+        }
+        if (n.channel_jid.endsWith('@s.whatsapp.net')) {
+          return '+' + n.channel_jid.replace('@s.whatsapp.net', '');
+        }
+      }
+      return 'Kanal WhatsApp';
+    },
+
+    getNotifPayload(n) {
+      if (!n || !n.payload_json) return {};
+      try {
+        return typeof n.payload_json === 'object' ? n.payload_json : JSON.parse(n.payload_json);
+      } catch (_) {
+        return {};
+      }
+    },
+
+    getNotifBubbleData(n) {
+      if (!n) return null;
+      const payload = this.getNotifPayload(n);
+      const event = String(n.event_type || '').toUpperCase();
+
+      let title = '📢 PENGUMUMAN KELAS';
+      if (event === 'TASK_PUBLISHED') title = '📝 TUGAS BARU DITERBITKAN';
+      else if (event === 'TASK_UPDATED') title = '✏️ PEMBARUAN INFORMASI TUGAS';
+      else if (event === 'SCHEDULE_REPLACEMENT' || event === 'TEACHING_EVENT_PUBLISHED') title = '📢 PENGUMUMAN KULIAH PENGGANTI';
+      else if (event === 'SCHEDULE_REVOKED' || event === 'TEACHING_EVENT_REVOKED') title = '⚠️ PEMBATALAN KULIAH PENGGANTI';
+      else if (event === 'ACADEMIC_RESTORE_CORRECTION') title = '📌 KOREKSI INFORMASI AKADEMIK';
+      else if (event === 'DAILY_DIGEST') title = '📅 JADWAL KULIAH HARI INI';
+      else if (event === 'PORTAL_ACCESS') title = '🔑 KODE AKSES PORTAL KELAS';
+
+      const course = payload.course || payload.course_name || '';
+      const taskTitle = payload.title || '';
+      const deadline = payload.deadline || '';
+      const instructions = payload.instructions || '';
+      const url = payload.submission_url || payload.url || payload.link || '';
+      const startsAt = payload.starts_at || '';
+      const room = payload.room || '';
+      const reason = payload.reason || '';
+      const message = payload.message || payload.text || '';
+      const portalCode = payload.portal_code || payload.code || '';
+
+      let timeStr = '09:30';
+      try {
+        const d = new Date(n.scheduled_at || n.created_at);
+        if (!isNaN(d)) {
+          timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+      } catch (_) {}
+
+      return {
+        event,
+        title,
+        course,
+        taskTitle,
+        deadline,
+        instructions,
+        url,
+        startsAt,
+        room,
+        reason,
+        message,
+        portalCode,
+        timeStr
+      };
+    },
+
+    isKendalaNomor(errMsg) {
+      if (!errMsg) return false;
+      const s = String(errMsg).toLowerCase();
+      return s.includes('jid') || s.includes('tidak terdaftar') || s.includes('not registered') || s.includes('nomor') || s.includes('number') || s.includes('not-authorized') || s.includes('invalid');
+    },
+
+    formatKendalaError(err) {
+      if (!err) return 'Gagal dikirim';
+      const s = String(err).toLowerCase();
+      if (s.includes('timeout') || s.includes('deadline')) return 'Gateway timeout';
+      if (s.includes('not registered') || s.includes('tidak terdaftar') || s.includes('not-authorized') || s.includes('invalid jid') || s.includes('format jid')) return 'Nomor tidak terdaftar';
+      if (s.includes('disconnected') || s.includes('koneksi') || s.includes('connection')) return 'Koneksi terputus';
+      if (s.includes('rate limit') || s.includes('terlalu banyak')) return 'Batas kuota pengiriman';
+      return err.length > 25 ? err.slice(0, 25) + '…' : err;
+    },
+
+    ringkasanStatusGagal() {
+      const list = this.filteredNotif() || [];
+      let cekNomor = 0;
+      let cobaLagi = 0;
+      list.forEach(n => {
+        if (this.isKendalaNomor(n.last_attempt_error)) cekNomor++;
+        else cobaLagi++;
+      });
+      const parts = [];
+      if (cobaLagi > 0) parts.push(`${cobaLagi} dapat dicoba ulang`);
+      if (cekNomor > 0) parts.push(`${cekNomor} perlu periksa nomor`);
+      return parts.join(' · ') || `${list.length} pesan gagal`;
+    },
+
+    bannerTeksGagal() {
+      const list = this.filteredNotif() || [];
+      const total = list.length;
+      if (total === 0) return '';
+      let cekNomor = 0;
+      let cobaLagi = 0;
+      list.forEach(n => {
+        if (this.isKendalaNomor(n.last_attempt_error)) cekNomor++;
+        else cobaLagi++;
+      });
+      if (cobaLagi > 0 && cekNomor > 0) {
+        const kataCoba = cobaLagi === 1 ? 'Satu pesan' : `${cobaLagi} pesan`;
+        return `${kataCoba} gagal karena gangguan gateway/jaringan dan dapat dicoba ulang setelah koneksi pulih. Nomor pada ${cekNomor === 1 ? 'pesan lainnya' : cekNomor + ' pesan lainnya'} perlu diperiksa sebelum dikirim kembali.`;
+      }
+      if (cobaLagi > 0) {
+        const kataCoba = cobaLagi === 1 ? 'Satu pesan' : `${cobaLagi} pesan`;
+        return `${kataCoba} gagal karena gangguan koneksi atau gateway dan dapat dicoba ulang setelah koneksi pulih.`;
+      }
+      const kataNomor = cekNomor === 1 ? 'Satu pesan' : `${cekNomor} pesan`;
+      return `${kataNomor} gagal karena kendala nomor tujuan tidak terdaftar. Periksa nomor penerima sebelum mengirim kembali.`;
     },
 
     bukaAuditEntitas(entityType) {
@@ -3140,8 +3380,24 @@ function systemAdminApp() {
       }
     },
 
+    setNotifTab(tab) {
+      this.notifTab = tab;
+      if (tab === 'menunggu') {
+        this.notifFilter = 'PENDING';
+      } else if (tab === 'gagal') {
+        this.notifFilter = 'FAILED';
+      } else if (tab === 'riwayat') {
+        this.notifFilter = 'SENT';
+      } else {
+        this.notifFilter = '';
+      }
+      this.notifDetailId = null;
+      this.loadAntrean();
+    },
+
     resetNotifFilter() {
-      this.notifFilter = '';
+      this.notifSearch = '';
+      this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
       this.notifKelas = '';
       this.notifJenis = '';
       this.notifSince = '';
@@ -3170,12 +3426,16 @@ function systemAdminApp() {
     },
 
     async ulangiPesan(id) {
+      if (this.retryingNotifId) return;
+      this.retryingNotifId = id;
       try {
         await API.retryNotification(id);
         this.showToast('Pengiriman ulang dijadwalkan.');
         await Promise.all([this.loadAntrean(), this.loadFailedCount()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal menjadwalkan ulang.');
+      } finally {
+        this.retryingNotifId = null;
       }
     },
 
@@ -3778,8 +4038,12 @@ function systemAdminApp() {
         this.bukaModalBuatKelas();
         return;
       }
-      if (v === 'antrean') this.loadAntrean();
-      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.backupFilterKelas = ''; this.backupPage = 1; this.loadBackupList(); this.loadBackupRequests(); }
+      if (v === 'antrean') {
+        if (!this.notifTab) this.notifTab = 'menunggu';
+        this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
+        this.loadAntrean();
+      }
+      if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
       if (v === 'pengguna') {
         this.penggunaFilter = '';
