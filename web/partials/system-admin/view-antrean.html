@@ -54,7 +54,7 @@
             Gagal
           </span>
           <span x-show="failedCount > 0"
-                class="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[11px] font-bold leading-none"
+                class="px-2 py-0.5 rounded-full bg-[#FEE4E2] border border-[#FECDCA] text-[#B42318] text-[11px] font-bold leading-none"
                 x-text="failedCount"></span>
         </div>
         <span class="w-full h-[2px] transition-colors"
@@ -113,6 +113,19 @@
       </div>
     </div>
 
+    <!-- Banner Peringatan Pesan Gagal (Khusus Tab Gagal jika terdapat pesan gagal) -->
+    <div x-show="notifTab === 'gagal' && !notifLoading && !notifError && filteredNotif().length > 0"
+         class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[12px_16px] justify-start items-center bg-[#FEF3F2] border border-[#FECDCA] rounded-[10px] transition-all">
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="#D92D20" class="shrink-0" aria-hidden="true" focusable="false">
+        <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z m4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254z m0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"/>
+      </svg>
+      <div class="text-[12.5px]/[18px] flex-1 min-w-0 text-[#B42318] font-medium text-left">
+        <span x-text="bannerTeksGagal()">
+          Beberapa pesan gagal dikirim. Silakan periksa detail kendala dan lakukan tindakan yang diperlukan.
+        </span>
+      </div>
+    </div>
+
     <!-- Daftar Antrean WhatsApp Card -->
     <div class="box-border w-full flex flex-col gap-0 p-4 sm:p-5 bg-white border border-[#D7DDE7] rounded-[16px] shadow-sm">
       <!-- Judul Daftar Antrean -->
@@ -122,41 +135,44 @@
           <span x-show="notifTab === 'gagal'">Pesan gagal</span>
           <span x-show="notifTab === 'riwayat'">Riwayat pengiriman</span>
         </h2>
-        <span class="text-[12px] text-[#667085] font-normal whitespace-nowrap"
-              x-show="!notifLoading"
-              x-text="filteredNotif().length === 0 ? 'Belum ada pesan' : filteredNotif().length + ' pesan termuat'">
-          Belum ada pesan
+        <span class="text-[12px] text-[#667085] font-medium whitespace-nowrap"
+              x-show="!notifLoading">
+          <span x-show="notifTab === 'gagal' && filteredNotif().length > 0" x-text="ringkasanStatusGagal()"></span>
+          <span x-show="notifTab !== 'gagal' || filteredNotif().length === 0" x-text="filteredNotif().length === 0 ? 'Belum ada pesan' : filteredNotif().length + ' pesan termuat'"></span>
         </span>
       </div>
 
       <!-- Header Tabel Antrean -->
       <div class="overflow-x-auto scroll-slim -mx-4 sm:mx-0 px-4 sm:px-0">
-        <div class="min-w-[760px]">
+        <div class="min-w-[860px]">
           <div class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[12px] px-3.5 justify-start items-center bg-[#F6F7FB] rounded-[9px] text-[10px] text-[#667085] font-semibold tracking-wider uppercase">
-            <div class="w-[190px] shrink-0">PENERIMA</div>
-            <div class="flex-1 min-w-0">JENIS PESAN</div>
-            <div class="w-[160px] shrink-0">DIJADWALKAN</div>
-            <div class="w-[120px] shrink-0">PERCOBAAN</div>
-            <div class="w-[120px] shrink-0">STATUS</div>
-            <div class="w-[90px] shrink-0 text-left">AKSI</div>
+            <div class="w-[210px] shrink-0">PENERIMA</div>
+            <div class="flex-1 min-w-[170px]">JENIS PESAN</div>
+            <div class="w-[170px] shrink-0">
+              <span x-show="notifTab === 'gagal'">TERAKHIR DICOBA &amp; KENDALA</span>
+              <span x-show="notifTab !== 'gagal'">DIJADWALKAN</span>
+            </div>
+            <div class="w-[100px] shrink-0">PERCOBAAN</div>
+            <div class="w-[110px] shrink-0">STATUS</div>
+            <div :class="notifTab === 'gagal' ? 'w-[160px] text-right pr-2' : 'w-[90px] text-left'" class="shrink-0">AKSI</div>
           </div>
 
           <!-- Loading State (Skeleton) -->
           <div x-show="notifLoading" class="divide-y divide-[#F2F5FA] py-2" role="status" aria-label="Memuat data antrean">
             <template x-for="i in [1, 2, 3, 4]" :key="i">
               <div class="flex items-center gap-3 py-4 px-3.5 animate-pulse min-h-[79.5px]">
-                <div class="w-[190px] shrink-0 space-y-1.5">
+                <div class="w-[210px] shrink-0 space-y-1.5">
                   <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
                   <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
                 </div>
-                <div class="flex-1 space-y-1.5">
+                <div class="flex-1 min-w-[170px] space-y-1.5">
                   <div class="h-3.5 bg-slate-200 rounded w-1/2"></div>
                   <div class="h-2.5 bg-slate-100 rounded w-1/3"></div>
                 </div>
-                <div class="w-[160px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
-                <div class="w-[120px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
-                <div class="w-[120px] shrink-0 h-6 bg-slate-100 rounded-[7px]"></div>
-                <div class="w-[90px] shrink-0 h-4 bg-slate-100 rounded w-10"></div>
+                <div class="w-[170px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
+                <div class="w-[100px] shrink-0 h-3.5 bg-slate-100 rounded"></div>
+                <div class="w-[110px] shrink-0 h-6 bg-slate-100 rounded-[7px]"></div>
+                <div :class="notifTab === 'gagal' ? 'w-[160px]' : 'w-[90px]'" class="shrink-0 h-4 bg-slate-100 rounded"></div>
               </div>
             </template>
           </div>
@@ -239,20 +255,20 @@
                 <!-- Main Row -->
                 <div class="box-border w-full min-h-[79.5px] flex flex-row gap-[12px] px-3.5 py-3.5 items-center text-[13px] text-[#1D1B3A] border-b border-[#EEEEEE]">
                   <!-- Kolom PENERIMA -->
-                  <div class="w-[190px] shrink-0 min-w-0 pr-2 flex flex-col gap-[3px]">
-                    <div class="text-[12px] text-[#1D1B3A] font-semibold text-left truncate w-full"
+                  <div class="w-[210px] shrink-0 min-w-0 pr-2 flex flex-col gap-[3px]">
+                    <div class="text-[13px] text-[#1D1B3A] font-medium text-left truncate w-full"
                          :title="formatPenerimaUtama(n)"
                          x-text="formatPenerimaUtama(n)">
                       -
                     </div>
-                    <div class="text-[11px] text-[#667085] font-normal text-left truncate w-full"
+                    <div class="text-[11px] text-[#64748B] font-mono font-normal text-left truncate w-full"
                          x-text="formatPenerimaSub(n)">
                       -
                     </div>
                   </div>
 
                   <!-- Kolom JENIS PESAN -->
-                  <div class="flex-1 min-w-0 pr-2 flex flex-col gap-[3px]">
+                  <div class="flex-1 min-w-[170px] pr-2 flex flex-col gap-[3px]">
                     <div class="text-[13px] text-[#1D1B3A] font-semibold text-left truncate w-full"
                          x-text="formatJenisNotif(n.event_type)">
                       -
@@ -262,39 +278,106 @@
                     </div>
                   </div>
 
-                  <!-- Kolom DIJADWALKAN -->
-                  <div class="w-[160px] shrink-0 min-w-0 text-[12px] text-[#1D1B3A] font-medium text-left truncate"
-                       x-text="fmtWaktuID(n.scheduled_at || n.created_at)">
-                    -
+                  <!-- Kolom DIJADWALKAN / TERAKHIR DICOBA & KENDALA -->
+                  <div class="w-[170px] shrink-0 min-w-0 flex flex-col gap-[3px] text-left">
+                    <!-- Tampilan Khusus Tab Gagal: Waktu Terakhir Dicoba + Keterangan Kendala -->
+                    <template x-if="notifTab === 'gagal'">
+                      <div class="contents">
+                        <div class="text-[12px] text-[#1D1B3A] font-medium truncate w-full"
+                             x-text="fmtWaktuID(n.last_attempt_at || n.scheduled_at || n.created_at)">
+                          -
+                        </div>
+                        <div class="text-[11px] text-[#B42318] font-normal truncate w-full"
+                             :title="n.last_attempt_error || 'Gagal dikirim'"
+                             x-text="'⚠ ' + formatKendalaError(n.last_attempt_error)">
+                          ⚠ Kendala pengiriman
+                        </div>
+                      </div>
+                    </template>
+                    <!-- Tampilan Tab Menunggu / Riwayat: Waktu Terjadwal Biasa -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <div class="text-[12px] text-[#1D1B3A] font-medium truncate w-full"
+                           x-text="fmtWaktuID(n.scheduled_at || n.created_at)">
+                        -
+                      </div>
+                    </template>
                   </div>
 
                   <!-- Kolom PERCOBAAN -->
-                  <div class="w-[120px] shrink-0 min-w-0 text-[12px] text-[#667085] font-normal text-left"
+                  <div class="w-[100px] shrink-0 min-w-0 text-[12px] text-[#667085] font-normal text-left"
                        x-text="(n.attempt_count || n.attempts || 0) + ' kali'">
                     0 kali
                   </div>
 
                   <!-- Kolom STATUS -->
-                  <div class="w-[120px] shrink-0 min-w-0 flex flex-row justify-start items-start">
-                    <div class="w-fit shrink-0 flex flex-row p-[5px_9px] justify-start items-center rounded-[7px] text-[11px] font-normal"
-                         :class="{
-                           'bg-[#FEF3C7] text-[#92400E]': String(n.status).toUpperCase() === 'PENDING',
-                           'bg-[#E1FFB7] text-[#166534]': String(n.status).toUpperCase() === 'SENT',
-                           'bg-[#FEE2E2] text-[#991B1B]': notifDapatDiulang(n.status),
-                           'bg-[#EEF2FF] text-[#3965FB]': String(n.status).toUpperCase() === 'PROCESSING'
-                         }">
-                      <span x-text="statusNotifLabel(n.status)">Menunggu</span>
-                    </div>
+                  <div class="w-[110px] shrink-0 min-w-0 flex flex-row justify-start items-center">
+                    <!-- Badge Tab Gagal Khusus Sesuai Desain Figma -->
+                    <template x-if="notifTab === 'gagal'">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEE4E2] text-[#B42318] border border-[#FECDCA]">
+                        Gagal
+                      </span>
+                    </template>
+                    <!-- Badge Tab Menunggu / Riwayat -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <div class="w-fit shrink-0 flex flex-row p-[5px_9px] justify-start items-center rounded-[7px] text-[11px] font-normal"
+                           :class="{
+                             'bg-[#FEF3C7] text-[#92400E]': String(n.status).toUpperCase() === 'PENDING',
+                             'bg-[#E1FFB7] text-[#166534]': String(n.status).toUpperCase() === 'SENT',
+                             'bg-[#FEE2E2] text-[#991B1B]': notifDapatDiulang(n.status),
+                             'bg-[#EEF2FF] text-[#3965FB]': String(n.status).toUpperCase() === 'PROCESSING'
+                           }">
+                        <span x-text="statusNotifLabel(n.status)">Menunggu</span>
+                      </div>
+                    </template>
                   </div>
 
                   <!-- Kolom AKSI -->
-                  <div class="w-[90px] shrink-0 min-w-0 flex flex-row justify-start items-center">
-                    <button type="button"
-                            @click="bukaNotifDetail(n)"
-                            :aria-label="'Lihat detail pesan #' + n.id"
-                            class="text-[12px] text-[#3965FB] font-semibold text-left hover:underline cursor-pointer bg-transparent border-none p-0 min-h-[32px] flex items-center">
-                      Lihat
-                    </button>
+                  <div :class="notifTab === 'gagal' ? 'w-[160px] justify-end pr-2' : 'w-[90px] justify-start'" class="shrink-0 min-w-0 flex flex-row items-center gap-2">
+                    <!-- Aksi Tab Gagal: Tombol Ganda (Periksa nomor / Coba lagi + Lihat) -->
+                    <template x-if="notifTab === 'gagal'">
+                      <div class="flex items-center gap-2 justify-end w-full">
+                        <!-- Jika Kendala Nomor: Tombol 'Periksa nomor' (Opsi 1: Buka Modal Detail Pesan) -->
+                        <button type="button"
+                                x-show="isKendalaNomor(n.last_attempt_error)"
+                                @click="bukaNotifDetail(n)"
+                                title="Periksa nomor pada modal detail"
+                                class="h-[34px] px-3 flex items-center justify-center bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[12px] font-medium text-[#1D1B3A] rounded-[8px] transition-colors whitespace-nowrap cursor-pointer">
+                          Periksa nomor
+                        </button>
+
+                        <!-- Jika Bukan Kendala Nomor: Tombol 'Coba lagi' (Trigger Ulangi Pengiriman) -->
+                        <button type="button"
+                                x-show="!isKendalaNomor(n.last_attempt_error)"
+                                @click="ulangiPesan(n.id)"
+                                :disabled="retryingNotifId === n.id"
+                                title="Coba kirim ulang pesan"
+                                class="h-[34px] px-3 flex items-center justify-center bg-[#3965FB] hover:bg-blue-600 disabled:opacity-60 text-[12px] font-semibold text-white rounded-[8px] transition-colors whitespace-nowrap cursor-pointer shadow-xs">
+                          <svg x-show="retryingNotifId === n.id" class="animate-spin -ml-0.5 mr-1.5 h-3.5 w-3.5 text-white shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          <span x-text="retryingNotifId === n.id ? 'Mengulang...' : 'Coba lagi'">Coba lagi</span>
+                        </button>
+
+                        <!-- Tombol Sekunder 'Lihat' -->
+                        <button type="button"
+                                @click="bukaNotifDetail(n)"
+                                title="Lihat detail pesan"
+                                class="h-[34px] px-1 text-[12px] text-[#3965FB] font-normal hover:underline cursor-pointer bg-transparent border-none">
+                          Lihat
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- Aksi Standar Tab Non-Gagal -->
+                    <template x-if="notifTab !== 'gagal'">
+                      <button type="button"
+                              @click="bukaNotifDetail(n)"
+                              :aria-label="'Lihat detail pesan #' + n.id"
+                              class="text-[12px] text-[#3965FB] font-semibold text-left hover:underline cursor-pointer bg-transparent border-none p-0 min-h-[32px] flex items-center">
+                        Lihat
+                      </button>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -306,7 +389,13 @@
       <!-- Footer Daftar Antrean -->
       <div class="box-border w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 mt-2 border-t border-[#EEEEEE]">
         <div class="text-[12px] text-[#667085] font-normal text-left">
-          Daftar ini menampilkan pesan berdasarkan status yang dipilih.
+          <span x-show="notifTab === 'gagal' && filteredNotif().length > 0"
+                x-text="'Menampilkan ' + filteredNotif().length + ' pesan gagal yang membutuhkan tindakan admin.'">
+            Menampilkan pesan gagal yang membutuhkan tindakan admin.
+          </span>
+          <span x-show="notifTab !== 'gagal' || filteredNotif().length === 0">
+            Daftar ini menampilkan pesan berdasarkan status yang dipilih.
+          </span>
         </div>
         <div x-show="notifHasMore" class="self-stretch sm:self-auto">
           <button type="button"

@@ -304,6 +304,7 @@ function systemAdminApp() {
     notifAttempts: [],
     notifAttemptsLoading: false,
     notifAttemptsError: '',
+    retryingNotifId: null,
 
     kanalList: [],
     kanalLoading: false,
@@ -1125,6 +1126,58 @@ function systemAdminApp() {
         portalCode,
         timeStr
       };
+    },
+
+    isKendalaNomor(errMsg) {
+      if (!errMsg) return false;
+      const s = String(errMsg).toLowerCase();
+      return s.includes('jid') || s.includes('tidak terdaftar') || s.includes('not registered') || s.includes('nomor') || s.includes('number') || s.includes('not-authorized') || s.includes('invalid');
+    },
+
+    formatKendalaError(err) {
+      if (!err) return 'Gagal dikirim';
+      const s = String(err).toLowerCase();
+      if (s.includes('timeout') || s.includes('deadline')) return 'Gateway timeout';
+      if (s.includes('not registered') || s.includes('tidak terdaftar') || s.includes('not-authorized') || s.includes('invalid jid') || s.includes('format jid')) return 'Nomor tidak terdaftar';
+      if (s.includes('disconnected') || s.includes('koneksi') || s.includes('connection')) return 'Koneksi terputus';
+      if (s.includes('rate limit') || s.includes('terlalu banyak')) return 'Batas kuota pengiriman';
+      return err.length > 25 ? err.slice(0, 25) + '…' : err;
+    },
+
+    ringkasanStatusGagal() {
+      const list = this.filteredNotif() || [];
+      let cekNomor = 0;
+      let cobaLagi = 0;
+      list.forEach(n => {
+        if (this.isKendalaNomor(n.last_attempt_error)) cekNomor++;
+        else cobaLagi++;
+      });
+      const parts = [];
+      if (cobaLagi > 0) parts.push(`${cobaLagi} dapat dicoba ulang`);
+      if (cekNomor > 0) parts.push(`${cekNomor} perlu periksa nomor`);
+      return parts.join(' · ') || `${list.length} pesan gagal`;
+    },
+
+    bannerTeksGagal() {
+      const list = this.filteredNotif() || [];
+      const total = list.length;
+      if (total === 0) return '';
+      let cekNomor = 0;
+      let cobaLagi = 0;
+      list.forEach(n => {
+        if (this.isKendalaNomor(n.last_attempt_error)) cekNomor++;
+        else cobaLagi++;
+      });
+      if (cobaLagi > 0 && cekNomor > 0) {
+        const kataCoba = cobaLagi === 1 ? 'Satu pesan' : `${cobaLagi} pesan`;
+        return `${kataCoba} gagal karena gangguan gateway/jaringan dan dapat dicoba ulang setelah koneksi pulih. Nomor pada ${cekNomor === 1 ? 'pesan lainnya' : cekNomor + ' pesan lainnya'} perlu diperiksa sebelum dikirim kembali.`;
+      }
+      if (cobaLagi > 0) {
+        const kataCoba = cobaLagi === 1 ? 'Satu pesan' : `${cobaLagi} pesan`;
+        return `${kataCoba} gagal karena gangguan koneksi atau gateway dan dapat dicoba ulang setelah koneksi pulih.`;
+      }
+      const kataNomor = cekNomor === 1 ? 'Satu pesan' : `${cekNomor} pesan`;
+      return `${kataNomor} gagal karena kendala nomor tujuan tidak terdaftar. Periksa nomor penerima sebelum mengirim kembali.`;
     },
 
     bukaAuditEntitas(entityType) {
@@ -3312,12 +3365,16 @@ function systemAdminApp() {
     },
 
     async ulangiPesan(id) {
+      if (this.retryingNotifId) return;
+      this.retryingNotifId = id;
       try {
         await API.retryNotification(id);
         this.showToast('Pengiriman ulang dijadwalkan.');
         await Promise.all([this.loadAntrean(), this.loadFailedCount()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal menjadwalkan ulang.');
+      } finally {
+        this.retryingNotifId = null;
       }
     },
 
