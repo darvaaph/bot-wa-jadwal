@@ -10,6 +10,12 @@ const AsteriskShell = (() => {
       const template = await response.text();
       const slots = views.map(name => `<div id="${prefix}-${name}"></div>`).join('\n');
       root.innerHTML = template.replaceAll('{{prefix}}', prefix).replace('{{viewSlots}}', slots);
+      const banner = document.getElementById(`${prefix}-banner`);
+      if (banner) {
+        const syncBannerHeight = () => root.style.setProperty('--support-banner-height', `${banner.getBoundingClientRect().height}px`);
+        syncBannerHeight();
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncBannerHeight).observe(banner);
+      }
     } catch (error) {
       root.innerHTML = '<main class="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center" role="alert"><h1 class="text-[24px] font-bold">Halaman belum dapat dimuat</h1><p>Periksa koneksi, lalu coba lagi.</p><button type="button" class="min-h-[44px] px-6 rounded-xl bg-primary text-white font-semibold">Coba lagi</button></main>';
       root.querySelector('button').addEventListener('click', () => location.reload());

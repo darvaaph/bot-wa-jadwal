@@ -178,11 +178,22 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, "/system-admin.html", http.StatusMovedPermanently)
 	})
 
+	// Root (/) dan /index.html dialihkan ke halaman login (Opsi A).
+	// Portal mahasiswa tetap dapat diakses via /c/{slug} yang menyajikan index.html.
+	// GET dan HEAD disamakan agar semantik HTTP konsisten di kedua path.
+	for _, method := range []string{"GET", "HEAD"} {
+		mux.HandleFunc(method+" /index.html", redirectToLogin)
+	}
+
 	// Menyajikan aset web statis dari web.Files embedded.
 	// Path halaman yang tidak ada (mis. salah ketik *.html) mendapat
 	// halaman 404 kustom, bukan teks polos FileServer.
 	webFS := http.FileServer(http.FS(web.Files))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			redirectToLogin(w, r)
+			return
+		}
 		if isWebPagePath(r.URL.Path) {
 			if _, err := web.Files.Open(strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")); err != nil {
 				serveWebNotFound(w, r)

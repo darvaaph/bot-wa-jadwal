@@ -434,6 +434,10 @@ function kmApp() {
     // (mis. d4-ti-smt3-a) memakai active_assignment + daftar classes dari /me.
     resolveClassSlug(me) {
       const asg = (me && me.active_assignment) || {};
+      if (asg.role === 'SYSTEM_ADMIN') {
+        const requested = new URLSearchParams(window.location.search).get('class');
+        if (requested) return requested;
+      }
       if (asg.class_slug) return String(asg.class_slug);
       const list = (me && me.classes) || [];
       const code = String(this.selectedClass || '').toLowerCase();

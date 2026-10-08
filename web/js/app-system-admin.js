@@ -73,8 +73,11 @@ function systemAdminApp() {
     detailSettingsError: '',
     portalModeConfirm: null,
     detailMenu: null,
-    dukunganFormTerbuka: false,
+    dialogDukunganTerbuka: false,
+    dialogDukunganKelas: null,
+    dialogDukunganPemicu: null,
     portalCodeReveal: '',
+    portalCodeRevealTimer: null,
     kmPenugasan: null,
     kmPenugasanLoading: false,
     smBuatTerbuka: false,
@@ -138,8 +141,15 @@ function systemAdminApp() {
     undangLink: '',
 
     dukunganAlasan: '',
+    dukunganDialogError: '',
     dukunganAktif: null,
     dukunganLoading: false,
+    dukunganSekarang: Date.now(),
+    dukunganError: '',
+    pengingatFormTerbuka: false,
+    pengingatForm: { morning_reminder_time: '', afternoon_reminder_time: '', replacement_reminder_minutes: 60 },
+    pengingatSaving: false,
+    pengingatError: '',
 
     penggunaTab: 'akun',
     penggunaQ: '',
@@ -334,6 +344,12 @@ function systemAdminApp() {
     backupListLoading: false,
     backupListError: '',
     backupSemesterList: [],
+    backupFilterKelas: '',
+    backupPage: 1,
+    backupPerPage: 5,
+    modalBuatBackup: false,
+    modalRestoreBackup: false,
+    selectedBackup: null,
     restoreForm: { id: '', alasan: '', paham: false },
     restoreError: '',
     restoreHasil: null,
@@ -361,6 +377,23 @@ function systemAdminApp() {
     auditHasMore: false,
     auditActionOptions: ['SUSPEND_USER', 'RECOVER_USER', 'ROTATE_PORTAL_CODE', 'SUPPORT_ENTER', 'SUPPORT_EXIT', 'INVITE_ROLE', 'ASSIGN_ROLE', 'SUSPEND_ROLE', 'REVOKE_ROLE', 'UPDATE_CLASS_STATUS', 'CREATE_BACKUP', 'VERIFY_RESTORE', 'LOGIN', 'LOGOUT'],
     auditEntityOptions: ['USER', 'ROLE_ASSIGNMENT', 'ROLE_INVITATION', 'CLASS', 'CLASS_SETTINGS', 'BACKUP', 'PORTAL_SESSION', 'TASK', 'TEACHING_EVENT', 'MATERIAL'],
+    auditSearchQuery: '',
+    auditActivePreset: 'semua',
+    auditPage: 1,
+    auditPerPage: 10,
+    modalAuditDiff: false,
+    selectedAudit: null,
+    auditSesiTerbuka: false,
+    auditSesiGrant: null,
+    auditSesiRows: [],
+    auditSesiLoading: false,
+    auditSesiLoadingMore: false,
+    auditSesiError: '',
+    auditSesiHasMore: false,
+    auditSesiOffset: 0,
+    auditSesiUntil: '',
+    auditSesiPemicu: null,
+    dukunganKelasPilihan: '',
 
     toast: { show: false, message: '', timer: null },
 
@@ -372,6 +405,9 @@ function systemAdminApp() {
     },
     get undanganMenungguCount() {
       return this.kelasList.filter(k => k.statusKM === 'pending').length;
+    },
+    get backupPendingCount() {
+      return (this.backupRequests || []).filter(r => r.status === 'PENDING').length;
     },
 
     getBotStatusLabel() {
@@ -596,19 +632,41 @@ function systemAdminApp() {
       return (d && (d.class_slug || d.slug)) || '';
     },
 
+    dukunganMasihAktif() {
+      const akhir = Date.parse(this.dukunganAktif && this.dukunganAktif.expires_at);
+      return !!this.dukunganAktif && Number.isFinite(akhir) && akhir > this.dukunganSekarang;
+    },
+
+    dukunganHitungMundur() {
+      const akhir = Date.parse(this.dukunganAktif && this.dukunganAktif.expires_at);
+      const detik = Number.isFinite(akhir) ? Math.max(0, Math.ceil((akhir - this.dukunganSekarang) / 1000)) : 0;
+      return String(Math.floor(detik / 60)).padStart(2, '0') + ':' + String(detik % 60).padStart(2, '0');
+    },
+
+    bukaKelasDukungan() {
+      const slug = this.dukunganKelasSlug();
+      const kelas = (this.kelasList || []).find(k => k.slug === slug);
+      if (kelas) this.bukaDetail(kelas);
+      else this.showToast('Kelas dukungan belum tersedia. Muat ulang daftar kelas.');
+    },
+
+    urlRuangKerjaKM() {
+      const slug = this.dukunganKelasSlug();
+      return '/km.html?class=' + encodeURIComponent(slug);
+    },
+
     dukunganJam() {
       try {
         const d = new Date(this.dukunganAktif && this.dukunganAktif.expires_at);
         if (isNaN(d)) return '-';
-        const p = (v) => String(v).padStart(2, '0');
-        return p(d.getHours()) + ':' + p(d.getMinutes());
+        return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) + ' WIB';
       } catch (e) { return '-'; }
     },
 
     dukunganSisa() {
       try {
         const d = new Date(this.dukunganAktif && this.dukunganAktif.expires_at);
-        const ms = d.getTime() - Date.now();
+        const ms = d.getTime() - this.dukunganSekarang;
         if (isNaN(ms)) return '';
         if (ms <= 0) return 'sudah berakhir';
         const mnt = Math.floor(ms / 60000);
@@ -717,6 +775,9 @@ function systemAdminApp() {
       setInterval(() => {
         if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
       }, 30000);
+      setInterval(() => {
+        this.dukunganSekarang = Date.now();
+      }, 1000);
     },
 
     async loadPartials(slots) {
@@ -3402,6 +3463,9 @@ function systemAdminApp() {
       this.auditUntil = '';
       this.auditOffset = 0;
       this.auditHasMore = false;
+      this.auditSearchQuery = '';
+      this.auditActivePreset = 'semua';
+      this.auditPage = 1;
     },
 
     auditFilterCount() {
@@ -3444,6 +3508,7 @@ function systemAdminApp() {
 
     setAuditPreset(name) {
       this.resetAuditFilter();
+      this.auditActivePreset = name;
       if (name === 'dukungan') {
         this.auditAction = 'SUPPORT_ENTER';
       } else if (name === 'kritis') {
@@ -3455,6 +3520,102 @@ function systemAdminApp() {
         this.auditSince = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T00:00';
       }
       this.loadAudit();
+    },
+
+    filteredAuditList() {
+      const q = (this.auditSearchQuery || '').trim().toLowerCase();
+      if (!q) return this.auditList || [];
+      return (this.auditList || []).filter(a => {
+        const actor = String(a.actor_name || '').toLowerCase();
+        const role = String(a.actor_role || '').toLowerCase();
+        const action = String(a.action || '').toLowerCase();
+        const classSlug = String(a.class_slug || '').toLowerCase();
+        const reason = String(a.reason || '').toLowerCase();
+        const entity = String(a.entity_type || '').toLowerCase();
+        const id = String(a.id || '');
+        return actor.includes(q) || role.includes(q) || action.includes(q) || classSlug.includes(q) || reason.includes(q) || entity.includes(q) || id.includes(q);
+      });
+    },
+
+    auditTotalPages() {
+      const count = this.filteredAuditList().length;
+      return Math.max(1, Math.ceil(count / (this.auditPerPage || 10)));
+    },
+
+    paginatedAuditList() {
+      const list = this.filteredAuditList();
+      const perPage = this.auditPerPage || 10;
+      const totalPages = this.auditTotalPages();
+      if (this.auditPage > totalPages) this.auditPage = totalPages;
+      if (this.auditPage < 1) this.auditPage = 1;
+      const start = (this.auditPage - 1) * perPage;
+      return list.slice(start, start + perPage);
+    },
+
+    setAuditPage(p) {
+      if (p === '...') return;
+      const total = this.auditTotalPages();
+      if (p >= 1 && p <= total) {
+        this.auditPage = p;
+      }
+    },
+
+    auditPaginationPages() {
+      const total = this.auditTotalPages();
+      const curr = this.auditPage;
+      if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+      }
+      const pages = [];
+      pages.push(1);
+      if (curr > 3) pages.push('...');
+      const start = Math.max(2, curr - 1);
+      const end = Math.min(total - 1, curr + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (curr < total - 2) pages.push('...');
+      pages.push(total);
+      return pages;
+    },
+
+    fmtWaktuAudit(dt) {
+      if (!dt) return { tanggal: '-', zona: 'WIB' };
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return { tanggal: String(dt), zona: 'WIB' };
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+
+      const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
+
+      if (isToday) {
+        return { tanggal: 'Hari ini, ' + timeStr, zona: 'WIB' };
+      }
+      if (isYesterday) {
+        return { tanggal: 'Kemarin, ' + timeStr, zona: 'WIB' };
+      }
+      const bln = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return { tanggal: pad(d.getDate()) + ' ' + bln[d.getMonth()] + ' ' + d.getFullYear() + ', ' + timeStr, zona: 'WIB' };
+    },
+
+    bukaModalAuditDiff(a) {
+      this.selectedAudit = a;
+      this.modalAuditDiff = true;
+    },
+
+    tutupModalAuditDiff() {
+      this.modalAuditDiff = false;
+      this.selectedAudit = null;
+    },
+
+    bukaModalDukunganGlobal() {
+      this.bukaDialogDukungan(null);
     },
 
     auditSeverity(action) {
@@ -3494,14 +3655,51 @@ function systemAdminApp() {
       }
     },
 
+    auditActionBadgeClass(action) {
+      const act = String(action || '').toUpperCase();
+      if (act.includes('ROTATE') || act.includes('SUSPEND') || act.includes('REVOKE') || act.includes('FAIL')) {
+        return 'bg-[#FEF2F2] border-[#FECDCA] text-[#B42318]';
+      }
+      if (act.includes('SUPPORT')) {
+        return 'bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]';
+      }
+      if (act.includes('BACKUP') || act.includes('RESTORE')) {
+        return 'bg-[#EFF4FF] border-[#BFDBFE] text-[#1D4ED8]';
+      }
+      return 'bg-[#F8FAFC] border-[#E2E8F0] text-[#475467]';
+    },
+
+    auditJenisLabel(a) {
+      if (!a) return '-';
+      const act = String(a.action || '').toUpperCase();
+      const ent = String(a.entity_type || '').toUpperCase();
+      if (act.startsWith('SUPPORT_')) return 'Mode Dukungan';
+      if (act === 'ROTATE_PORTAL_CODE' || act.includes('SUSPEND_USER') || act.includes('RECOVER_USER') || act === 'LOGIN' || act === 'LOGOUT') return 'Akses Keamanan';
+      if (act.includes('BACKUP') || act.includes('RESTORE') || ent === 'BACKUP') return 'Cadangan Sistem';
+      if (act.includes('ROLE') || ent.includes('ROLE')) return 'Manajemen Peran';
+      return 'Data Akademik';
+    },
+
     auditChanges(a) {
       const b = this.parseAuditJSON(a ? a.before_json : null) || {};
       const af = this.parseAuditJSON(a ? a.after_json : null) || {};
-      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 20);
+      const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(af)])).slice(0, 30);
+      const formatVal = (v) => {
+        if (v === undefined || v === null) return '-';
+        if (typeof v === 'string') return v;
+        try {
+          return JSON.stringify(v);
+        } catch (_) {
+          return String(v);
+        }
+      };
       return keys.map(k => {
-        const bv = b[k] === undefined ? '-' : JSON.stringify(b[k]);
-        const av = af[k] === undefined ? '-' : JSON.stringify(af[k]);
-        return { key: k, before: String(bv).slice(0, 160), after: String(av).slice(0, 160), changed: bv !== av };
+        const bv = formatVal(b[k]);
+        const av = formatVal(af[k]);
+        const changed = b[k] !== undefined && af[k] !== undefined
+          ? (typeof b[k] === 'object' || typeof af[k] === 'object' ? JSON.stringify(b[k]) !== JSON.stringify(af[k]) : b[k] !== af[k])
+          : (b[k] !== af[k]);
+        return { key: k, before: bv, after: av, changed: changed };
       });
     },
 
@@ -3522,6 +3720,7 @@ function systemAdminApp() {
     async loadAudit() {
       this.auditLoading = true; this.auditError = '';
       this.auditOffset = 0; this.auditHasMore = false;
+      this.auditPage = 1;
       try {
         const rows = await API.getAudit(this.auditParams(0)).catch(() => null) || [];
         this.auditList = rows;
@@ -3559,18 +3758,22 @@ function systemAdminApp() {
 
     async buatBackup() {
       const f = this.backupForm;
-      if (!f.kelas) { this.backupError = 'Pilih kelas untuk dicadangkan.'; return; }
-      if (!((f.alasan || '').trim())) { this.backupError = 'Isi alasan pencadangan. Alasan tercatat di Riwayat Perubahan.'; return; }
+      if (!f.kelas) { this.backupError = 'Pilih kelas target untuk dicadangkan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.backupError = 'Alasan pencadangan minimal 5 karakter.';
+        return;
+      }
       this.backupError = ''; this.backupHasil = null;
       this.backupLoading = true;
       try {
-        const payload = { class_slug: f.kelas, reason: f.alasan.trim() };
+        const payload = { class_slug: f.kelas, reason: alasan };
         if (f.semester) payload.semester_id = Number(f.semester);
         this.backupHasil = await API.createBackup(payload);
-        this.showToast('Cadangan berhasil dibuat.');
+        this.showToast('Cadangan akademik berhasil dibuat.');
         await this.loadBackupList();
       } catch (err) {
-        this.backupError = err.message || 'Gagal membuat cadangan.';
+        this.backupError = err.message || 'Gagal membuat cadangan akademik.';
       } finally {
         this.backupLoading = false;
       }
@@ -3618,14 +3821,117 @@ function systemAdminApp() {
       finally { this.backupRequestExecuting = 0; }
     },
 
-    pilihCadanganUntukVerifikasi(b) {
-      this.restoreForm.id = String(b.id || '');
+    bukaModalBuatBackup() {
+      this.backupForm = { kelas: '', semester: '', alasan: '' };
+      this.backupSemesterList = [];
+      this.backupError = '';
+      this.backupHasil = null;
+      this.modalBuatBackup = true;
+    },
+
+    tutupModalBuatBackup() {
+      this.modalBuatBackup = false;
+      this.backupHasil = null;
+      this.backupError = '';
+    },
+
+    bukaModalRestoreBackup(b) {
+      if (!b) return;
+      this.selectedBackup = b;
+      this.restoreForm = { id: String(b.id || ''), alasan: '', paham: false };
       this.selectedBackupRestorable = Boolean(b.restorable);
       this.restoreError = '';
       this.restoreHasil = null;
       this.scopedRestorePreview = null;
       this.scopedRestoreResult = null;
-      if (b.restorable) this.previewRestore(b.id);
+      this.modalRestoreBackup = true;
+      if (b.restorable) {
+        this.previewRestore(b.id);
+      }
+    },
+
+    tutupModalRestoreBackup() {
+      this.modalRestoreBackup = false;
+      this.selectedBackup = null;
+      this.restoreForm = { id: '', alasan: '', paham: false };
+      this.scopedRestorePreview = null;
+      this.scopedRestoreResult = null;
+      this.restoreHasil = null;
+      this.restoreError = '';
+    },
+
+    filteredBackupList() {
+      if (!this.backupFilterKelas) return this.backupList || [];
+      return (this.backupList || []).filter(b => {
+        const slug = b.class_slug || '';
+        return slug === this.backupFilterKelas || String(b.class_id) === this.backupFilterKelas;
+      });
+    },
+
+    backupTotalPages() {
+      const count = this.filteredBackupList().length;
+      return Math.max(1, Math.ceil(count / this.backupPerPage));
+    },
+
+    paginatedBackupList() {
+      const list = this.filteredBackupList();
+      const totalPages = this.backupTotalPages();
+      if (this.backupPage > totalPages) this.backupPage = totalPages;
+      if (this.backupPage < 1) this.backupPage = 1;
+      const start = (this.backupPage - 1) * this.backupPerPage;
+      return list.slice(start, start + this.backupPerPage);
+    },
+
+    setBackupPage(p) {
+      const total = this.backupTotalPages();
+      if (p >= 1 && p <= total) {
+        this.backupPage = p;
+      }
+    },
+
+    fmtChecksum(checksum) {
+      if (!checksum) return '-';
+      const s = String(checksum);
+      if (s.length > 16) {
+        return 'sha256: ' + s.substring(0, 4) + '…' + s.substring(s.length - 4);
+      }
+      return s;
+    },
+
+    namaKelasBySlug(slug, classId) {
+      if (slug) {
+        const k = (this.kelasList || []).find(item => item.slug === slug);
+        if (k && k.nama) return k.nama;
+        return slug;
+      }
+      if (classId) {
+        const k = (this.kelasList || []).find(item => String(item.id) === String(classId));
+        if (k && k.nama) return k.nama;
+        return 'Kelas #' + classId;
+      }
+      return '-';
+    },
+
+    fmtTanggalCadangan(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch(e) { return String(iso); }
+    },
+
+    fmtJamCadangan(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      } catch(e) { return ''; }
+    },
+
+    pilihCadanganUntukVerifikasi(b) {
+      this.bukaModalRestoreBackup(b);
     },
 
     async previewRestore(id) {
@@ -3635,14 +3941,55 @@ function systemAdminApp() {
       finally { this.scopedRestoreLoading = false; }
     },
 
+    getRestoreComparisonRows() {
+      if (!this.scopedRestorePreview) return [];
+      const p = this.scopedRestorePreview;
+      const src = p.source_counts || {};
+      const cur = p.current_counts || {};
+
+      const items = [
+        { key: 'offerings', label: 'Mata Kuliah Kurikulum', unit: 'data' },
+        { key: 'patterns', label: 'Pola Jadwal Mingguan', unit: 'sesi' },
+        { key: 'events', label: 'Jadwal Kuliah Pengganti', unit: 'sesi' },
+        { key: 'tasks', label: 'Tugas & Deadline Kuliah', unit: 'tugas' },
+      ];
+
+      if (src.materials !== undefined || cur.materials !== undefined) {
+        items.push({ key: 'materials', label: 'Materi Kuliah', unit: 'berkas' });
+      }
+
+      return items.map(item => {
+        const s = src[item.key] ?? 0;
+        const c = cur[item.key] ?? 0;
+        const same = s === c;
+        return {
+          key: item.key,
+          label: item.label,
+          source: s,
+          sourceText: s + ' ' + item.unit,
+          current: c,
+          currentText: same ? (c + ' ' + item.unit + ' (Sama)') : (c + ' ' + item.unit + ' aktif'),
+          same: same,
+        };
+      });
+    },
+
     async executeRestore() {
       const f = this.restoreForm;
       const preview = this.scopedRestorePreview;
       if (!preview || !preview.can_restore) { this.restoreError = 'Selesaikan keterkaitan lintas kelas lalu muat ulang pratinjau.'; return; }
-      if (!f.alasan.trim() || !f.paham) { this.restoreError = 'Isi alasan dan konfirmasi dampak pemulihan.'; return; }
+      const alasan = (f.alasan || '').trim();
+      if (!alasan || alasan.length < 5) {
+        this.restoreError = 'Alasan pemulihan minimal 5 karakter.';
+        return;
+      }
+      if (!f.paham) {
+        this.restoreError = 'Centang pernyataan pemahaman dampak terlebih dahulu.';
+        return;
+      }
       this.scopedRestoreLoading = true; this.restoreError = '';
       try {
-        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, f.alasan.trim(), preview.preview_token);
+        this.scopedRestoreResult = await API.executeScopedRestore(preview.backup_id, alasan, preview.preview_token);
         this.scopedRestorePreview = null;
         this.showToast('Data akademik berhasil dipulihkan.');
         await this.loadBackupList();
@@ -3799,8 +4146,10 @@ function systemAdminApp() {
       this.kelasAktif = obj.slug;
       this.kelasStatusConfirm = null;
       this.detailMenu = null;
-      this.dukunganFormTerbuka = false;
+      clearTimeout(this.portalCodeRevealTimer);
       this.portalCodeReveal = '';
+      this.pengingatFormTerbuka = false;
+      this.pengingatError = '';
       this.kmPenugasan = null;
       this.smPreviewMap = {};
       this.smPratinjau = null;
@@ -4716,6 +5065,99 @@ function systemAdminApp() {
       this.go('audit');
     },
 
+    bukaAuditSesi() {
+      const grant = this.dukunganAktif;
+      if (!grant || !grant.class_slug || !grant.created_at || !this.currentUser?.id) {
+        this.showToast('Sesi dukungan belum tersedia untuk diaudit.');
+        return;
+      }
+      this.auditSesiPemicu = document.activeElement;
+      this.auditSesiGrant = { ...grant };
+      this.auditSesiRows = [];
+      this.auditSesiOffset = 0;
+      this.auditSesiHasMore = false;
+      this.auditSesiError = '';
+      this.auditSesiLoading = false;
+      this.auditSesiLoadingMore = false;
+      this.auditSesiUntil = new Date().toISOString();
+      this.auditSesiTerbuka = true;
+      this.$nextTick(() => document.getElementById('sa-audit-sesi-tutup')?.focus());
+      this.muatAuditSesi();
+    },
+
+    tutupAuditSesi() {
+      this.auditSesiTerbuka = false;
+      this.auditSesiGrant = null;
+      this.auditSesiRequestId = (this.auditSesiRequestId || 0) + 1;
+      this.auditSesiLoading = false;
+      this.auditSesiLoadingMore = false;
+      this.$nextTick(() => this.auditSesiPemicu?.focus?.());
+    },
+
+    auditSesiParams(offset) {
+      const raw = String(this.auditSesiGrant.created_at).trim().replace(' ', 'T');
+      const since = /(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z';
+      return {
+        class_slug: this.auditSesiGrant.class_slug,
+        actor: this.currentUser.id,
+        since,
+        until: this.auditSesiUntil,
+        limit: 50,
+        offset
+      };
+    },
+
+    async muatAuditSesi(more = false) {
+      if (!this.auditSesiTerbuka || !this.auditSesiGrant) return;
+      if (more && (this.auditSesiLoadingMore || !this.auditSesiHasMore)) return;
+      const requestId = this.auditSesiRequestId = (this.auditSesiRequestId || 0) + 1;
+      const offset = more ? this.auditSesiOffset : 0;
+      if (more) this.auditSesiLoadingMore = true;
+      else this.auditSesiLoading = true;
+      this.auditSesiError = '';
+      try {
+        const rows = await API.getAudit(this.auditSesiParams(offset), true);
+        if (requestId !== this.auditSesiRequestId) return;
+        this.auditSesiRows = more ? [...rows.slice().reverse(), ...this.auditSesiRows] : rows.slice().reverse();
+        this.auditSesiOffset = offset + rows.length;
+        this.auditSesiHasMore = rows.length === 50;
+      } catch (err) {
+        if (requestId === this.auditSesiRequestId) this.auditSesiError = err.message || 'Riwayat audit gagal dimuat.';
+      } finally {
+        if (requestId === this.auditSesiRequestId) {
+          this.auditSesiLoading = false;
+          this.auditSesiLoadingMore = false;
+        }
+      }
+    },
+
+    fmtWaktuAuditSesi(value) {
+      if (!value) return '-';
+      const raw = String(value).trim().replace(' ', 'T');
+      const date = new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z');
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).format(date).replace('.', ':') + ' WIB';
+    },
+
+    fmtTanggalAuditSesi(value) {
+      if (!value) return '-';
+      const raw = String(value).trim().replace(' ', 'T');
+      const date = new Date(/(?:Z|[+-]\d\d:\d\d)$/.test(raw) ? raw : raw + 'Z');
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+    },
+
+    deskripsiAuditSesi(row) {
+      const action = String(row.action || '');
+      if (action === 'SUPPORT_ENTER') return 'Sesi dukungan dimulai: ' + (row.reason || this.auditSesiGrant?.reason || '-');
+      if (action === 'SUPPORT_EXIT') return 'Sesi dukungan ditutup' + (row.reason ? ': ' + row.reason : '.');
+      if (action === 'ROTATE_PORTAL_CODE') return 'Kode portal dirotasi; kode sebelumnya dinonaktifkan.';
+      if (row.reason) return row.reason;
+      const changes = this.auditChanges(row).map(change => change.key).filter(key => !/code|token|secret|password|hash/i.test(key));
+      if (changes.length) return 'Perubahan pada ' + changes.slice(0, 3).join(', ') + (changes.length > 3 ? ', dan lainnya.' : '.');
+      return 'Aktivitas pada ' + (row.entity_type || 'data kelas') + ' dicatat.';
+    },
+
     bukaAntreanKelas(classId) {
       this.notifFilter = '';
       this.notifKelas = String(classId || '');
@@ -5001,12 +5443,14 @@ function systemAdminApp() {
 
     async rotasiKodePortal() {
       if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
+      clearTimeout(this.portalCodeRevealTimer);
       this.portalCodeReveal = '';
       try {
         const res = await API.rotatePortalCode(this.kelasAktifObj.slug);
         if (res && res.portal_code) {
           this.portalCodeReveal = res.portal_code;
-          this.showToast('Kode portal dirotasi. Kode hanya tampil sekali, salin sekarang.');
+          this.portalCodeRevealTimer = setTimeout(() => { this.portalCodeReveal = ''; }, 60000);
+          this.showToast('Kode portal hanya tampil selama 60 detik. Salin sekarang.');
         } else {
           this.showToast('Kode portal kelas berhasil dirotasi.');
         }
@@ -5025,6 +5469,60 @@ function systemAdminApp() {
         if (!this.detailSettings) this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat.';
       } catch (e) {
         this.detailSettingsError = 'Pengaturan kelas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      }
+    },
+
+    bukaPengingatForm() {
+      if (!this.detailSettings) return;
+      this.pengingatForm = {
+        morning_reminder_time: this.detailSettings.morning_reminder_time || '',
+        afternoon_reminder_time: this.detailSettings.afternoon_reminder_time || '',
+        replacement_reminder_minutes: this.detailSettings.replacement_reminder_minutes ?? 60
+      };
+      this.pengingatError = '';
+      this.pengingatFormTerbuka = true;
+    },
+
+    semesterAktifDetail() {
+      return (this.detailSemesterList || []).find(s => String(s.status || '').toUpperCase() === 'ACTIVE') || null;
+    },
+
+    bukaDaftarSemester() {
+      const section = document.getElementById('sa-detail-semester');
+      if (!section) return;
+      const headerHeight = document.querySelector('header')?.getBoundingClientRect().height || 0;
+      const bannerHeight = document.getElementById('sa-banner')?.getBoundingClientRect().height || 0;
+      window.scrollTo({ top: window.scrollY + section.getBoundingClientRect().top - headerHeight - bannerHeight - 16, behavior: 'smooth' });
+    },
+
+    async simpanPengingat() {
+      const slug = this.kelasAktifObj && this.kelasAktifObj.slug;
+      if (!slug || !this.detailSettings || this.pengingatSaving) return;
+      const f = this.pengingatForm;
+      const validJam = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+      const menit = Number(f.replacement_reminder_minutes);
+      if (!validJam(f.morning_reminder_time) || !validJam(f.afternoon_reminder_time) || !Number.isInteger(menit) || menit < 0 || menit > 1440) {
+        this.pengingatError = 'Isi jam dalam format HH:MM dan interval 0–1440 menit.';
+        return;
+      }
+      this.pengingatError = '';
+      this.pengingatSaving = true;
+      try {
+        await API.updateClassSettings(slug, {
+          version: this.detailSettings.version,
+          morning_reminder_time: f.morning_reminder_time,
+          afternoon_reminder_time: f.afternoon_reminder_time,
+          replacement_reminder_minutes: menit
+        });
+        await this.loadDetailSettings(slug);
+        this.pengingatFormTerbuka = false;
+        this.showToast('Jam pengingat berhasil disimpan.');
+      } catch (err) {
+        this.pengingatError = err.code === 'VERSION_CONFLICT'
+          ? 'Pengaturan berubah di tempat lain. Muat ulang halaman ini sebelum menyimpan.'
+          : (err.message || 'Gagal menyimpan jam pengingat.');
+      } finally {
+        this.pengingatSaving = false;
       }
     },
 
@@ -5175,33 +5673,62 @@ function systemAdminApp() {
     },
 
     bukaDialogDukungan(k) {
-      this.dialogDukunganKelas = k;
-      this.kelasAktif = k.slug;
+      if (this.dukunganAktif || this.dukunganLoading || this.dukunganError) return;
+      this.dialogDukunganPemicu = document.activeElement;
+      this.dialogDukunganKelas = k || null;
+      this.dukunganKelasPilihan = k ? k.slug : '';
       this.dukunganAlasan = '';
+      this.dukunganDialogError = '';
+      this.dialogDukunganTerbuka = true;
+      this.$nextTick(() => document.getElementById(k ? 'sa-dukungan-alasan-modal' : 'sa-dukungan-kelas-modal')?.focus());
+    },
+
+    bukaDialogDukunganDariPilihan() {
+      const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
+      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      this.bukaDialogDukungan(target);
+    },
+
+    tutupDialogDukungan() {
+      if (this.dukunganLoading) return;
+      this.dialogDukunganTerbuka = false;
+      this.dialogDukunganKelas = null;
+      this.dukunganDialogError = '';
+      this.$nextTick(() => this.dialogDukunganPemicu?.focus?.());
+    },
+
+    fokusDialogDukungan(event) {
+      if (event.key !== 'Tab') return;
+      const items = [...event.currentTarget.querySelectorAll('button:not(:disabled), select:not(:disabled), textarea:not(:disabled)')];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    },
+
+    panjangAlasanDukungan() {
+      return Array.from((this.dukunganAlasan || '').trim()).length;
     },
 
     async jalankanMasukDukungan() {
-      if (!this.dialogDukunganKelas) return;
-      this.kelasAktif = this.dialogDukunganKelas.slug;
-      await this.masukDukungan();
-      if (this.dukunganAktif) {
-        this.dialogDukunganKelas = null;
-      }
-    },
-
-    async masukDukungan() {
-      const target = (this.kelasList || []).find(k => k.slug === this.kelasAktif);
-      if (!target) { this.showToast('Pilih kelas tujuan dulu.'); return; }
+      if (this.dukunganLoading || !this.dialogDukunganTerbuka) return;
+      const target = this.dialogDukunganKelas || (this.kelasList || []).find(k => k.slug === this.dukunganKelasPilihan);
+      if (!target) { this.dukunganDialogError = 'Pilih kelas tujuan terlebih dahulu.'; return; }
       const alasan = (this.dukunganAlasan || '').trim();
-      if (alasan.length < 10) { this.showToast('Alasan dukungan minimal 10 karakter.'); return; }
+      if (this.panjangAlasanDukungan() < 10) { this.dukunganDialogError = 'Alasan dukungan minimal 10 karakter.'; return; }
+      this.dukunganDialogError = '';
       this.dukunganLoading = true;
       try {
         this.dukunganAktif = await API.supportEnter(target.slug, alasan);
+        this.kelasAktif = target.slug;
         this.dukunganAlasan = '';
+        this.dialogDukunganTerbuka = false;
+        this.dialogDukunganKelas = null;
+        this.$nextTick(() => this.dialogDukunganPemicu?.focus?.());
         this.showToast(`Mode Dukungan aktif untuk ${target.nama} (60 menit).`);
         window.scrollTo({ top: 0 });
       } catch (err) {
-        this.showToast(err.message || 'Gagal masuk Mode Dukungan.');
+        this.dukunganDialogError = err.message || 'Gagal mengaktifkan Mode Dukungan. Coba lagi.';
       } finally {
         this.dukunganLoading = false;
       }
@@ -5224,13 +5751,14 @@ function systemAdminApp() {
     async muatDukunganAktif() {
       try {
         this.dukunganAktif = await API.supportActive();
+        this.dukunganError = '';
       } catch (e) {
-        this.dukunganAktif = null;
+        this.dukunganError = 'Status Mode Dukungan belum dapat diperiksa. Coba lagi.';
       }
     },
 
     isDukunganUntuk(slug) {
-      return !!(this.dukunganAktif && (this.dukunganAktif.class_slug === slug || this.dukunganAktif.slug === slug));
+      return !!(this.dukunganMasihAktif() && (this.dukunganAktif.class_slug === slug || this.dukunganAktif.slug === slug));
     },
 
     namaDukungan() {

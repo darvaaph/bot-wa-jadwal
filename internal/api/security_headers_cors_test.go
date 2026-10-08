@@ -316,7 +316,28 @@ func TestBE014_NoStoreOnSensitiveResponses(t *testing.T) {
 func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 	_, s := setupV1TestEnv(t)
 
-	pages := []string{"/", "/system-admin.html", "/login.html", "/km.html", "/pj.html"}
+	// Root (/) dan /index.html dialihkan ke /login.html (Opsi A).
+	// GET dan HEAD disamakan; query string dipertahankan.
+	for _, tc := range []struct{ method, target, wantLoc string }{
+		{http.MethodGet, "/", "/login.html"},
+		{http.MethodGet, "/index.html", "/login.html"},
+		{http.MethodHead, "/", "/login.html"},
+		{http.MethodHead, "/index.html", "/login.html"},
+		{http.MethodGet, "/?role=sa", "/login.html?role=sa"},
+		{http.MethodGet, "/index.html?role=sa", "/login.html?role=sa"},
+	} {
+		req := httptest.NewRequest(tc.method, tc.target, nil)
+		w := httptest.NewRecorder()
+		s.httpServer.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusFound {
+			t.Fatalf("%s %s expected 302 ke /login.html, got %d", tc.method, tc.target, w.Code)
+		}
+		if loc := w.Header().Get("Location"); loc != tc.wantLoc {
+			t.Fatalf("%s %s expected Location %q, got %q", tc.method, tc.target, tc.wantLoc, loc)
+		}
+	}
+
+	pages := []string{"/login.html", "/system-admin.html", "/km.html", "/pj.html"}
 	for _, page := range pages {
 		req := httptest.NewRequest(http.MethodGet, page, nil)
 		w := httptest.NewRecorder()

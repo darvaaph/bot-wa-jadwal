@@ -161,6 +161,7 @@ type AuditLogResponseItem struct {
 	BeforeJSON  *string `json:"before_json,omitempty"`
 	AfterJSON   *string `json:"after_json,omitempty"`
 	Reason      *string `json:"reason,omitempty"`
+	CorrelationID *string `json:"correlation_id,omitempty"`
 	CreatedAt   string  `json:"created_at"`
 }
 
@@ -577,7 +578,7 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT al.id, al.class_id, cl.slug, al.actor_user_id, u.display_name,
 		       ra.role, al.action, al.entity_type, al.entity_id,
-		       al.before_json, al.after_json, al.reason, al.created_at
+		       al.before_json, al.after_json, al.reason, al.correlation_id, al.created_at
 		FROM audit_logs al
 		LEFT JOIN classes cl ON al.class_id = cl.id
 		LEFT JOIN users u ON al.actor_user_id = u.id
@@ -721,13 +722,13 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item AuditLogResponseItem
 		var classID, actorUID, entityID sql.NullInt64
-		var classSlug, actorName, actorRole, entityType, beforeJSON, afterJSON, reason sql.NullString
+		var classSlug, actorName, actorRole, entityType, beforeJSON, afterJSON, reason, correlationID sql.NullString
 		var createdAt common.DBTimestamp
 
 		if err := rows.Scan(
 			&item.ID, &classID, &classSlug, &actorUID, &actorName,
 			&actorRole, &item.Action, &entityType, &entityID,
-			&beforeJSON, &afterJSON, &reason, &createdAt,
+			&beforeJSON, &afterJSON, &reason, &correlationID, &createdAt,
 		); err == nil {
 			if classID.Valid {
 				item.ClassID = &classID.Int64
@@ -758,6 +759,9 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 			}
 			if reason.Valid {
 				item.Reason = &reason.String
+			}
+			if correlationID.Valid {
+				item.CorrelationID = &correlationID.String
 			}
 			item.CreatedAt = createdAt.Time.Format(time.RFC3339)
 			logs = append(logs, item)

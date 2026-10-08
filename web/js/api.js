@@ -960,13 +960,17 @@ const BotApi = {
     return json.data || [];
   },
 
-  async getAudit(params) {
+  async getAudit(params, strict = false) {
     const qs = new URLSearchParams(params || {}).toString();
     const res = await fetch('/api/v1/audit' + (qs ? '?' + qs : ''), {
       headers: authHeaders(),
       credentials: 'same-origin'
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (!strict) return null;
+      const json = await res.json().catch(() => null);
+      throw new Error((json && json.error && json.error.message) || 'Riwayat audit gagal dimuat.');
+    }
     return (await res.json()).data || [];
   },
 
@@ -1828,7 +1832,7 @@ const BotApi = {
     const res = await fetch('/api/v1/admin/support/active', {
       headers: authHeaders(), credentials: 'same-origin'
     });
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error('Gagal memeriksa status Mode Dukungan.');
     const json = await res.json().catch(() => null);
     return (json && json.data) || null;
   },

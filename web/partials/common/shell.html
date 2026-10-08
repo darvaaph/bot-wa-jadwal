@@ -1,4 +1,6 @@
-<aside class="hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
+<div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer"></div>
+
+<aside class="app-sidebar hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
       <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] shrink-0" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
@@ -103,7 +105,7 @@
 </aside>
 
 <div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer">
-  <header class="sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
+  <header class="app-header sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
     <div class="flex items-center gap-2 md:gap-3 px-4 md:px-8 h-16 md:h-[72px] max-w-[1280px] mx-auto w-full min-w-0">
       <template x-if="shellRoleKey === 'sa'">
         <div class="contents">
@@ -167,7 +169,6 @@
       </template>
     </div>
   </header>
-  <div id="{{prefix}}-banner"></div>
   <main id="main-content" tabindex="-1" class="flex-1 w-full min-w-0 max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
     <div x-show="view === '__error' && pageState" x-cloak class="ui-empty max-w-[480px]" role="alert">
       <div class="w-28 h-28 mx-auto rounded-full bg-primary-soft flex items-center justify-center text-primary text-[32px] font-bold" x-text="pageState?.status === 'offline' ? '↯' : pageState?.status"></div>
@@ -181,7 +182,7 @@
 </div>
 
 <div x-show="drawer" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-40 md:hidden" @click="shellCloseDrawer()" aria-hidden="true"></div>
-<aside x-show="drawer" x-cloak x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" @keydown="shellTrapDrawer($event)" class="ui-drawer scroll-slim fixed left-0 top-0 z-50 md:hidden flex flex-col px-4 py-5" role="dialog" aria-modal="true" :aria-label="'Menu ' + shellIdentity().label">
+<aside x-show="drawer" x-cloak x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" @keydown="shellTrapDrawer($event)" class="app-mobile-drawer ui-drawer scroll-slim fixed left-0 top-0 z-50 md:hidden flex flex-col px-4 py-5" role="dialog" aria-modal="true" :aria-label="'Menu ' + shellIdentity().label">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
       <div class="flex items-center gap-3 px-1">

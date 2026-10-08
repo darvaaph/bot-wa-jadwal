@@ -18,6 +18,10 @@ Saat mendesain ulang (redesign) antarmuka ini di Pencil.dev, ikuti aturan mutlak
 4. **Tujuan Utama Redesign**:
    - Menghilangkan inkonsistensi layout (misal: sebelumnya ada form statis abu-abu di atas tabel, penempatan tombol aksi yang tidak seragam, atau spacing yang acak).
    - Memperkuat hierarki visual, kenyamanan keterbacaan data (table di desktop, card di mobile), responsive grid, konsistensi dialog/modal, dan *empty state* yang informatif.
+5. **Pedoman Anti-Slop UI/UX (Bebas Klise AI)**:
+   - Wajib mematuhi dokumen resmi [Pedoman Anti-Slop UI/UX](ANTI_SLOP_GUIDELINES.md).
+   - Dilarang keras menerapkan *Container Inception* (kotak di dalam kotak bertumpuk), *Rainbow UI Slop* (warna-warni pastel berlebihan), *Checklist Clutter* (duplikasi teks syarat di bawah input), *Gratuitous Emojis*, serta *Broken Font Ligatures*.
+   - Utamakan struktur data tabel monokromatik bersih dan gunakan warna murni sebagai status aksen kecil.
 
 ---
 
