@@ -110,6 +110,7 @@ function kmApp() {
     tugasDari: '', tugasSampai: '',
     tugasLoading: false, tugasListError: '',
     tugasMatkul: 'Semua',
+    tugasRentang: '',
     tugasSort: 'dekat',
     tugasForm: { offeringId: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' },
     tugasError: '',
@@ -253,6 +254,14 @@ function kmApp() {
       return nowHM > s.timeEnd;
     },
 
+    isSessionNext(s) {
+      return !!(this.nextSession && s && String(this.nextSession.id) === String(s.id));
+    },
+
+    get replacementCount() {
+      return (this.fullSchedule || []).filter(s => String(s.eventKind || '').toUpperCase() === 'REPLACEMENT').length;
+    },
+
     get withUrgency() {
       const rank = { mendesak: 0, mendekati: 1, aman: 2 };
       return [...this.tugasAktif].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));
@@ -272,13 +281,13 @@ function kmApp() {
     },
 
     get tugasTabCounts() {
-      const c = { aktif: 0, draf: 0, review: 0, selesai: 0, terlewat: 0, arsip: 0 };
+      const c = { aktif: 0, draf: 0, review: 0, selesai: 0, terlewat: 0, arsip: 0, selesai_terlewat: 0 };
       (this.tasks || []).forEach(t => {
         if (t.archived_at) { c.arsip++; return; }
-        if (t.completed_at) { c.selesai++; return; }
+        if (t.completed_at) { c.selesai++; c.selesai_terlewat++; return; }
         if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { c.draf++; return; }
         if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') { c.review++; return; }
-        if (this.lewatDeadline(t)) { c.terlewat++; return; }
+        if (this.lewatDeadline(t)) { c.terlewat++; c.selesai_terlewat++; return; }
         c.aktif++;
       });
       return c;
@@ -290,12 +299,20 @@ function kmApp() {
       return (this.tasks || []).filter(t => {
         if (this.tugasMatkul !== 'Semua' && t.matkul !== this.tugasMatkul) return false;
         if (t.archived_at) { if (this.tugasTab !== 'arsip') return false; }
-        else if (t.completed_at) { if (this.tugasTab !== 'selesai') return false; }
+        else if (t.completed_at) { if (this.tugasTab !== 'selesai' && this.tugasTab !== 'selesai_terlewat') return false; }
         else if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { if (this.tugasTab !== 'draf') return false; }
         else if (String(t.review_state || 'NOT_REVIEWED').toUpperCase() === 'NOT_REVIEWED') { if (this.tugasTab !== 'review') return false; }
-        else if (this.tugasTab === 'review') return false;
-        else if (this.lewatDeadline(t)) { if (this.tugasTab !== 'terlewat') return false; }
+        else if (this.lewatDeadline(t)) { if (this.tugasTab !== 'terlewat' && this.tugasTab !== 'selesai_terlewat') return false; }
         else if (this.tugasTab !== 'aktif') return false;
+
+        if (this.tugasRentang) {
+          const d = t.deadline_at ? new Date(t.deadline_at) : null;
+          if (d) {
+            const diffDays = (d - new Date()) / (3600000 * 24);
+            const days = parseInt(this.tugasRentang, 10);
+            if (days && (diffDays < -days || diffDays > days)) return false;
+          }
+        }
         if (dari || sampai) {
           const d = t.deadline_at ? new Date(t.deadline_at) : null;
           if (!d) return false;
@@ -307,8 +324,16 @@ function kmApp() {
       }).slice().sort((a, b) => this.bandingDeadline(a.deadline_at, b.deadline_at, this.tugasSort === 'dekat'));
     },
 
-    get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
-    hapusTugasFilter() { this.tugasDari = ''; this.tugasSampai = ''; this.tugasMatkul = 'Semua'; },
+    tugasTabTitle() {
+      if (this.tugasTab === 'review') return 'Daftar Perlu Review';
+      if (this.tugasTab === 'draf') return 'Daftar Draf Tugas';
+      if (this.tugasTab === 'selesai_terlewat' || this.tugasTab === 'selesai' || this.tugasTab === 'terlewat') return 'Daftar Tugas Selesai & Terlewat';
+      if (this.tugasTab === 'arsip') return 'Daftar Arsip Tugas';
+      return 'Daftar Tugas Aktif';
+    },
+
+    get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || this.tugasRentang || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
+    hapusTugasFilter() { this.tugasDari = ''; this.tugasSampai = ''; this.tugasRentang = ''; this.tugasMatkul = 'Semua'; },
 
     pubLabel(st) {
       const s = String(st || '').toUpperCase();
@@ -341,6 +366,120 @@ function kmApp() {
     },
 
     deadlineBadge(iso, completed) { return API.deadlineBadge(iso, completed); },
+
+    fmtDeadlineShort(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const isToday = d.toDateString() === now.toDateString();
+        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const timePart = d.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace('.', ':') + ' WIB';
+        if (isToday) return `Hari ini, ${timePart}`;
+        if (isTomorrow) return `Besok, ${timePart}`;
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const dayName = dayNames[d.getDay()];
+        return `${dayName}, ${timePart}`;
+      } catch (e) {
+        return String(iso);
+      }
+    },
+
+    deadlineRelative(iso) {
+      if (!iso) return 'Aktif';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return 'Aktif';
+        const now = new Date();
+        const diffH = (d - now) / 3600000;
+        if (diffH < 0) return 'Terlewat';
+        if (diffH <= 48) {
+          const jam = Math.max(1, Math.round(diffH));
+          return `Sisa ${jam} jam`;
+        }
+        const hari = Math.ceil(diffH / 24);
+        return `Sisa ${hari} hari`;
+      } catch (e) {
+        return 'Aktif';
+      }
+    },
+
+    fmtDeadlineDetailed(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const isToday = d.toDateString() === now.toDateString();
+        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const timePart = d.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace('.', ':') + ' WIB';
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dayName = isToday ? 'Hari ini' : (isTomorrow ? 'Besok' : dayNames[d.getDay()]);
+        const datePart = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+        return `${dayName}, ${datePart} · ${timePart}`;
+      } catch (e) {
+        return String(iso);
+      }
+    },
+
+    urgencyStyle(iso) {
+      if (!iso) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+        const now = new Date();
+        const diffH = (d - now) / 3600000;
+        if (diffH <= 28) {
+          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+        }
+        if (diffH <= 72) {
+          return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#D97706]' };
+        }
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      } catch (e) {
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      }
+    },
+
+    waktuRelatif(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMin = Math.round(diffMs / 60000);
+        if (diffMin < 1) return 'Baru saja';
+        if (diffMin < 60) return `${diffMin} menit yang lalu`;
+        const diffH = Math.round(diffMin / 60);
+        if (diffH < 24) return `${diffH} jam yang lalu`;
+        const diffDay = Math.round(diffH / 24);
+        if (diffDay === 1) {
+          const pad = n => String(n).padStart(2, '0');
+          return `Kemarin, ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+        }
+        if (diffDay < 7) return `${diffDay} hari yang lalu`;
+        return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' });
+      } catch (e) {
+        return '';
+      }
+    },
 
     get urgent3() { return this.withUrgency.slice(0, 3); },
     get nearCount() { return this.withUrgency.filter(t => t.urgency !== 'aman').length; },
@@ -1614,6 +1753,22 @@ function kmApp() {
           this.showToast(err.message || 'Gagal menyimpan keputusan pemeriksaan.');
         }
       }
+    },
+
+    async reviewAksi(id, mode) {
+      const isBatal = mode === 'batal';
+      const promptMsg = isBatal
+        ? 'Alasan penolakan / pembatalan tugas (wajib):'
+        : 'Catatan koreksi untuk PJ mata kuliah (wajib):';
+      const note = window.prompt(promptMsg);
+      if (note === null) return;
+      if (!note.trim()) {
+        this.showToast('Catatan wajib diisi untuk ' + (isBatal ? 'penolakan tugas.' : 'minta koreksi.'));
+        return;
+      }
+      this.reviewMode = mode;
+      this.reviewNote = note.trim();
+      await this.kirimReview(id);
     },
 
     async muatUlangAntrean() {

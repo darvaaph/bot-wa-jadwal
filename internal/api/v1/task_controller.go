@@ -89,10 +89,12 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT t.id, t.course_offering_id, co.display_name, t.title, t.instructions,
 		       t.deadline_at, t.task_type, t.submission_text, t.submission_url,
-		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at
+		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at,
+		       t.created_at, t.created_by_user_id, COALESCE(u.display_name, '')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN users u ON t.created_by_user_id = u.id
 		WHERE t.deleted_at IS NULL
 	`
 	var args []any
@@ -147,8 +149,11 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		var taskType, subText, subURL sql.NullString
 		var version int
 		var completedAt, archivedAt common.DBTimestamp
+		var createdAt common.DBTimestamp
+		var createdByUserID sql.NullInt64
+		var creatorName sql.NullString
 
-		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt); err == nil {
+		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &createdAt, &createdByUserID, &creatorName); err == nil {
 			tasks = append(tasks, map[string]any{
 				"id":                 id,
 				"offering_id":        offID,
@@ -162,6 +167,19 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 				"publication_status": pubStatus,
 				"review_state":       revState,
 				"version":            version,
+				"created_at": func() any {
+					if createdAt.Valid {
+						return createdAt.RFC3339()
+					}
+					return nil
+				}(),
+				"created_by_user_id": func() any {
+					if createdByUserID.Valid {
+						return createdByUserID.Int64
+					}
+					return nil
+				}(),
+				"creator_name": creatorName.String,
 				"completed_at": func() any {
 					if completedAt.Valid {
 						return completedAt.RFC3339()
@@ -400,20 +418,25 @@ func (c *TaskController) GetTaskDetail(w http.ResponseWriter, r *http.Request) {
 		completedAt common.DBTimestamp
 		archivedAt  common.DBTimestamp
 		classID     int64
+		createdAt   common.DBTimestamp
+		createdBy   sql.NullInt64
+		creatorName sql.NullString
 	)
 
 	err := c.db.QueryRow(`
 		SELECT t.id, t.course_offering_id, co.display_name, t.title, t.instructions,
 		       t.deadline_at, t.task_type, t.submission_text, t.submission_url,
 		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at,
-		       sem.class_id
+		       sem.class_id, t.created_at, t.created_by_user_id, COALESCE(u.display_name, '')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN users u ON t.created_by_user_id = u.id
 		WHERE t.id = ? AND t.deleted_at IS NULL;
 	`, taskID).Scan(
 		&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText,
 		&subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &classID,
+		&createdAt, &createdBy, &creatorName,
 	)
 
 	if err == sql.ErrNoRows {
@@ -476,6 +499,19 @@ func (c *TaskController) GetTaskDetail(w http.ResponseWriter, r *http.Request) {
 			"version":            version,
 			"is_completed":       completedAt.Valid,
 			"is_archived":        archivedAt.Valid,
+			"created_at": func() any {
+				if createdAt.Valid {
+					return createdAt.RFC3339()
+				}
+				return nil
+			}(),
+			"created_by_user_id": func() any {
+				if createdBy.Valid {
+					return createdBy.Int64
+				}
+				return nil
+			}(),
+			"creator_name": creatorName.String,
 			"completed_at": func() any {
 				if completedAt.Valid {
 					return completedAt.RFC3339()
