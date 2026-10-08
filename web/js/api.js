@@ -1253,6 +1253,20 @@ const BotApi = {
     return await res.json();
   },
 
+  async getKMDashboard() {
+    const res = await fetch('/api/v1/km/dashboard', {
+      credentials: 'same-origin', headers: authHeaders(), cache: 'no-store'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(json?.error?.message || 'Ringkasan kelas gagal dimuat.');
+      error.status = res.status;
+      throw error;
+    }
+    if (!json?.data) throw new Error('Ringkasan kelas tidak lengkap.');
+    return json.data;
+  },
+
   portalHeaders(slug) {
     const headers = {};
     try {

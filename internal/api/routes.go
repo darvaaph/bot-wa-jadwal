@@ -30,6 +30,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", s.handleConfirmRecovery)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.RequireAuth(s.handleLogout))
 	mux.HandleFunc("GET /api/v1/auth/me", s.RequireAuth(s.handleGetMe))
+	mux.HandleFunc("GET /api/v1/km/dashboard", s.RequireAuth(s.RequireRole("KM")(s.handleKMDashboard)))
 	mux.HandleFunc("POST /api/v1/auth/switch-context", s.RequireAuth(s.handleSwitchContext))
 	mux.HandleFunc("GET /api/v1/classes", s.handleGetV1ClassesAccess)
 	mux.HandleFunc("POST /api/v1/classes", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleCreateV1Class)))

@@ -64,7 +64,8 @@ const AsteriskShell = (() => {
           .find(navItem => this.shellIsActive(navItem));
         const activeId = activeNav?.id || this.view;
         if (item.id === '__more') {
-          return role !== 'portal' && !!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId);
+          return role !== 'portal' && ((!!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId))
+            || (role === 'km' && !activeNav && (this.hiddenNav || []).some(hiddenItem => hiddenItem.id === this.view)));
         }
         if ((item.active || []).includes(activeId)) return true;
         return item.id === activeId;

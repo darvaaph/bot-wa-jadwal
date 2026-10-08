@@ -73,32 +73,42 @@
   <template x-if="shellRoleKey !== 'sa'">
     <div class="contents">
       <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-2'">
-        <img src="/assets/icons/logo.svg" alt="Asterisk" :class="sidebarCollapsed ? 'h-8 w-8 object-left object-cover' : 'h-9 w-auto'" />
+        <template x-if="shellRoleKey === 'km'"><span class="flex items-center gap-3 min-w-0"><span class="w-[42px] h-[42px] shrink-0 rounded-xl bg-primary flex items-center justify-center"><img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" /></span><span x-show="!sidebarCollapsed" class="sidebar-label text-left min-w-0"><span class="block font-display text-[17px] font-bold leading-tight text-deep-ink">Bot Jadwal</span><span class="block text-[11px] font-semibold text-primary">Ketua Murid</span></span></span></template>
+        <template x-if="shellRoleKey !== 'km'"><img src="/assets/icons/logo.svg" alt="Asterisk" :class="sidebarCollapsed ? 'h-8 w-8 object-left object-cover' : 'h-9 w-auto'" /></template>
       </button>
+      <template x-if="shellRoleKey === 'km' && !sidebarCollapsed"><button type="button" @click="go('akun')" class="sidebar-section mt-5 w-full min-w-0 rounded-xl border border-border bg-surface-subtle px-3.5 py-3 text-left hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" aria-label="Buka pemilih kelas atau peran">
+        <span class="block text-[10px] font-bold tracking-wide text-muted">KELAS AKTIF</span>
+        <span class="mt-1 flex items-center gap-1"><span class="min-w-0 flex-1 truncate text-[11px] font-semibold text-deep-ink leading-tight" x-text="dashboardData?.class?.label || selectedClass || 'Kelas belum tersedia'"></span><img src="/assets/icons/km-chevron.svg" alt="" width="20" height="20" class="h-5 w-5 shrink-0" /></span>
+      </button></template>
       <nav aria-label="Navigasi utama" class="mt-6 flex flex-col gap-1 text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
           <div class="contents">
             <p class="sidebar-section px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p>
             <template x-for="item in section.items" :key="item.id">
-              <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
+              <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="shellRoleKey === 'km' && item.id === 'tugas' && dashboardData?.tasks?.review_count > 0 ? item.label + ', ' + dashboardData.tasks.review_count + ' perlu review' : (sidebarCollapsed ? item.label : null)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]">
                 <span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span>
                 <span class="sidebar-label" x-text="item.label"></span>
+                <span x-show="shellRoleKey === 'km' && item.id === 'tugas' && dashboardData?.tasks?.review_count > 0 && !sidebarCollapsed" class="ml-auto min-w-[22px] h-5 shrink-0 rounded-[7px] bg-warning-soft px-1.5 text-[11px] font-bold text-amber-900 flex items-center justify-center" x-text="dashboardData?.tasks?.review_count"></span>
               </button>
             </template>
           </div>
         </template>
       </nav>
       <div class="mt-auto pt-4 px-2 border-t border-border shrink-0">
-        <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-muted">Ruang kerja
+        <label x-show="shellRoleKey !== 'portal' && shellRoleKey !== 'km' && contextAssignments && contextAssignments.length > 1" class="sidebar-footer-text block pb-3 text-[11px] font-semibold text-muted">Ruang kerja
           <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1 text-[12px]">
             <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
           </select>
         </label>
-        <p class="sidebar-footer-text text-[13px] font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p>
-        <p class="sidebar-footer-text text-[12px] text-muted truncate" x-text="shellIdentity().sub"></p>
-        <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" :title="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" :aria-label="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" class="mt-2 min-w-[44px] min-h-[44px] flex items-center gap-2 rounded-lg text-muted hover:text-danger">
+        <p x-show="shellRoleKey !== 'km'" class="sidebar-footer-text text-[13px] font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p>
+        <p x-show="shellRoleKey !== 'km'" class="sidebar-footer-text text-[12px] text-muted truncate" x-text="shellIdentity().sub"></p>
+        <button x-show="shellRoleKey !== 'km'" type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" :title="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" :aria-label="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar dari akun'" class="mt-2 min-w-[44px] min-h-[44px] flex items-center gap-2 rounded-lg text-muted hover:text-danger">
           <span class="material-symbols-outlined" x-text="shellRoleKey === 'portal' ? 'lock' : 'logout'"></span><span class="sidebar-footer-text" x-text="shellRoleKey === 'portal' ? 'Kunci portal' : 'Keluar'"></span>
         </button>
+        <template x-if="shellRoleKey === 'km'"><div class="flex items-center gap-2" :class="sidebarCollapsed ? 'flex-col' : ''">
+          <button type="button" @click="go('akun')" class="min-w-0 flex-1 flex items-center gap-2 text-left rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" :aria-label="'Buka akun ' + (currentUser?.display_name || 'Ketua Murid')"><span class="w-[38px] h-[38px] shrink-0 rounded-full bg-primary-soft text-primary-hover text-[12px] font-bold flex items-center justify-center" x-text="kmInitials()"></span><span x-show="!sidebarCollapsed" class="min-w-0"><span class="block text-[13px] font-semibold text-deep-ink truncate" x-text="currentUser?.display_name || 'Ketua Murid'"></span><span class="block text-[11px] text-muted">Ketua Murid</span></span></button>
+          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[38px] min-h-[38px] rounded-lg text-muted hover:text-danger flex items-center justify-center"><img src="/assets/icons/km-logout.svg" alt="" width="20" height="20" class="h-5 w-5" /></button>
+        </div></template>
       </div>
     </div>
   </template>
@@ -155,16 +165,18 @@
       <template x-if="shellRoleKey !== 'sa'">
         <div class="contents">
       <button type="button" @click="shellOpenDrawer($event)" aria-label="Buka menu" :aria-expanded="String(drawer)" class="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">menu</span></button>
-      <div class="relative flex-1 min-w-0 max-w-xl">
+      <template x-if="shellRoleKey === 'km'"><nav aria-label="Breadcrumb" class="flex-1 min-w-0 flex items-center gap-2 text-[13px] sm:text-[14px]"><span class="text-muted truncate" x-text="dashboardData?.class?.code || selectedClass || 'Kelas'"></span><span class="text-muted" aria-hidden="true">/</span><span class="font-semibold text-deep-ink truncate" x-text="(nav.find(item => item.id === view)?.label) || 'Dashboard'"></span></nav></template>
+      <div x-show="shellRoleKey !== 'km'" class="relative flex-1 min-w-0 max-w-xl">
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" aria-hidden="true">search</span>
         <input type="search" x-model="q" @keydown.enter="shellSearch()" :aria-label="shellRoleKey === 'sa' ? 'Cari kelas' : 'Cari tugas atau jadwal'" :placeholder="shellRoleKey === 'sa' ? 'Cari kelas' : 'Cari tugas atau jadwal'" class="ui-field h-11 pl-10" />
       </div>
-      <span class="hidden sm:flex items-center gap-1.5 text-[12px] text-muted shrink-0" :title="shellRoleKey === 'portal' ? 'Status bot tidak tersedia' : botOnline ? 'Bot terhubung' : 'Bot terputus'"><span class="w-2 h-2 rounded-full" :class="shellRoleKey === 'portal' ? 'bg-slate-400' : botOnline ? 'bg-emerald-600' : 'bg-danger'" aria-hidden="true"></span><span x-text="shellRoleKey === 'portal' ? 'Status bot tidak tersedia' : botOnline ? 'Bot terhubung' : 'Bot terputus'"></span></span>
+      <span x-show="shellRoleKey !== 'km'" class="hidden sm:flex items-center gap-1.5 text-[12px] text-muted shrink-0" :title="shellRoleKey === 'portal' ? 'Status bot tidak tersedia' : botOnline ? 'Bot terhubung' : 'Bot terputus'"><span class="w-2 h-2 rounded-full" :class="shellRoleKey === 'portal' ? 'bg-slate-400' : botOnline ? 'bg-emerald-600' : 'bg-danger'" aria-hidden="true"></span><span x-text="shellRoleKey === 'portal' ? 'Status bot tidak tersedia' : botOnline ? 'Bot terhubung' : 'Bot terputus'"></span></span>
+      <template x-if="shellRoleKey === 'km'"><button type="button" @click="checkBot()" class="hidden sm:flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold shrink-0" :class="botStatus === 'connected' ? 'bg-success text-emerald-800' : 'bg-surface-subtle text-muted'" title="Periksa ulang status bot WhatsApp"><span class="h-2 w-2 rounded-full" :class="botStatus === 'connected' ? 'bg-emerald-700' : 'bg-slate-400'" aria-hidden="true"></span><span x-text="'WhatsApp ' + kmBotLabel().toLowerCase()"></span></button></template>
       <button type="button" @click="shellGo({id: shellBellTarget()})" :aria-label="shellRoleKey === 'sa' ? 'Buka antrean notifikasi' : shellRoleKey === 'portal' ? 'Buka perubahan terbaru' : 'Buka notifikasi'" class="relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-slate-50">
         <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
         <span x-show="shellAttentionCount() > 0" class="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-ink text-[10px] font-bold flex items-center justify-center" x-text="shellAttentionCount() > 9 ? '9+' : shellAttentionCount()"></span>
       </button>
-      <span class="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl bg-primary-soft text-primary-hover text-[12px] font-bold" :title="shellIdentity().label" x-text="shellIdentity().short"></span>
+      <span x-show="shellRoleKey !== 'km'" class="hidden md:flex min-w-[44px] min-h-[44px] items-center justify-center rounded-xl bg-primary-soft text-primary-hover text-[12px] font-bold" :title="shellIdentity().label" x-text="shellIdentity().short"></span>
         </div>
       </template>
     </div>
@@ -255,14 +267,20 @@
   </template>
   <template x-if="shellRoleKey !== 'sa'">
     <div class="contents">
-      <div class="flex items-center justify-between px-2"><img src="/assets/icons/logo.svg" alt="Asterisk" class="h-7 w-auto" /><button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button></div>
+      <div class="flex items-center justify-between px-2">
+        <template x-if="shellRoleKey === 'km'"><span class="flex items-center gap-3"><span class="w-[42px] h-[42px] rounded-xl bg-primary flex items-center justify-center"><img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" /></span><span><span class="block font-display text-[17px] font-bold leading-tight text-deep-ink">Bot Jadwal</span><span class="block text-[11px] font-semibold text-primary">Ketua Murid</span></span></span></template>
+        <template x-if="shellRoleKey !== 'km'"><img src="/assets/icons/logo.svg" alt="Asterisk" class="h-7 w-auto" /></template>
+        <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <template x-if="shellRoleKey === 'km'"><button type="button" @click="go('akun'); shellCloseDrawer()" class="mt-5 w-full rounded-xl border border-border bg-surface-subtle px-3.5 py-3 text-left" aria-label="Buka pemilih kelas atau peran"><span class="block text-[10px] font-bold tracking-wide text-muted">KELAS AKTIF</span><span class="mt-1 flex items-center gap-2"><span class="min-w-0 flex-1 truncate text-[11px] font-semibold text-deep-ink" x-text="dashboardData?.class?.label || selectedClass || 'Kelas belum tersedia'"></span><img src="/assets/icons/km-chevron.svg" alt="" width="20" height="20" class="h-5 w-5 shrink-0" /></span></button></template>
       <nav aria-label="Navigasi mobile" class="mt-6 flex flex-col gap-1 text-[14px]">
-        <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]"><span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span><span x-text="item.label"></span></button></template></div></template>
+        <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wider text-muted" x-text="section.title"></p><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink hover:bg-slate-50'" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left min-h-[44px]"><span class="ui-icon" :class="shellIconClass(item)" aria-hidden="true"></span><span class="flex-1 text-left" x-text="item.label"></span><span x-show="shellRoleKey === 'km' && item.id === 'tugas' && dashboardData?.tasks?.review_count > 0" class="min-w-[22px] h-5 rounded-[7px] bg-warning-soft px-1.5 text-[11px] font-bold text-amber-900 flex items-center justify-center" x-text="dashboardData?.tasks?.review_count"></span></button></template></div></template>
       </nav>
       <div class="mt-auto pt-4 px-2 border-t border-border text-[13px]">
-        <label x-show="shellRoleKey !== 'portal' && contextAssignments && contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-muted">Ruang kerja<select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1"><template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template></select></label>
-        <p class="font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p><p class="text-muted truncate" x-text="shellIdentity().sub"></p>
-        <button type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" class="mt-2 min-h-[44px] text-danger font-semibold" x-text="shellRoleKey === 'portal' ? 'Kunci portal / Ganti kelas' : 'Keluar dari akun'"></button>
+        <label x-show="shellRoleKey !== 'portal' && shellRoleKey !== 'km' && contextAssignments && contextAssignments.length > 1" class="block pb-3 text-[11px] font-semibold text-muted">Ruang kerja<select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-1"><template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template></select></label>
+        <template x-if="shellRoleKey === 'km'"><div class="flex items-center gap-2"><button type="button" @click="go('akun'); shellCloseDrawer()" class="min-w-0 flex-1 flex items-center gap-2 text-left"><span class="w-[38px] h-[38px] shrink-0 rounded-full bg-primary-soft text-primary-hover text-[12px] font-bold flex items-center justify-center" x-text="kmInitials()"></span><span class="min-w-0"><span class="block text-[13px] font-semibold text-deep-ink truncate" x-text="currentUser?.display_name || 'Ketua Murid'"></span><span class="block text-[11px] text-muted">Ketua Murid</span></span></button><button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[44px] min-h-[44px] flex items-center justify-center"><img src="/assets/icons/km-logout.svg" alt="" width="20" height="20" class="h-5 w-5" /></button></div></template>
+        <p x-show="shellRoleKey !== 'km'" class="font-semibold text-ink truncate" x-text="shellIdentity().label + ' · ' + shellIdentity().detail"></p><p x-show="shellRoleKey !== 'km'" class="text-muted truncate" x-text="shellIdentity().sub"></p>
+        <button x-show="shellRoleKey !== 'km'" type="button" @click="shellRoleKey === 'portal' ? kunciPortal() : logout()" class="mt-2 min-h-[44px] text-danger font-semibold" x-text="shellRoleKey === 'portal' ? 'Kunci portal / Ganti kelas' : 'Keluar dari akun'"></button>
       </div>
     </div>
   </template>

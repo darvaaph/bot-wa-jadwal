@@ -172,6 +172,14 @@ Authorization: Bearer <access_token>
 
 `POST /api/tasks` dan `DELETE /api/tasks/:id` telah dihentikan dan selalu mengembalikan `410 Gone`. Seluruh perubahan tugas wajib menggunakan endpoint `/api/v1/tasks` dengan sesi pengelola yang valid.
 
+### 2.8 Ringkasan Dashboard KM
+
+`GET /api/v1/km/dashboard` memerlukan Bearer dengan peran aktif `KM`. Kelas diambil dari penugasan aktif pada sesi; endpoint ini tidak menerima slug atau ID kelas dari klien. Peran lain menerima `403`.
+
+Respons `data` berisi `class` (`code`, `slug`, `label`, `timezone`), `semester` aktif atau `null`, `date` menurut zona waktu kelas, `tasks` (`active_count`, `review_count`, `near_count`, `priority`), `schedule` (`week_count`, `today`), dan `attention` (`failed_messages`, `draft_events`, `pending_invitations`). `priority` memuat paling banyak tiga tugas dengan tenggat terdekat. `today` memuat sesi efektif hari ini, sudah memperhitungkan pengganti dan pembatalan yang diterbitkan.
+
+`active_count` menghitung tugas terbit, belum selesai, dan belum diarsipkan pada semester aktif. `review_count` adalah bagian dari hitungan itu dengan `review_state=NOT_REVIEWED`; `near_count` adalah tugas yang tenggatnya dalam 72 jam mendatang. `week_count` menghitung sesi efektif Senin–Minggu pada semester aktif. Ketika belum ada semester aktif, `semester=null`, daftar `priority`/`today` kosong, dan hitungan semester bernilai nol. `failed_messages` serta `pending_invitations` tetap dihitung pada kelas aktif.
+
 ---
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)
