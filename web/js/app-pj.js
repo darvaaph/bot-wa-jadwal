@@ -10,6 +10,9 @@ function pjApp() {
     sidebarCollapsed: false,
     pageState: null,
     dashboardLoading: true,
+    dashboardRefreshing: false,
+    dashboardData: null,
+    dashboardError: '',
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -153,13 +156,21 @@ function pjApp() {
         String(t.publication_status || '').toUpperCase() === 'PUBLISHED' && !t.completed_at && !t.archived_at);
     },
 
+    tabLabel(t) {
+      if (t === 'draf' || t === 'draf_review') return 'Draf & Review';
+      if (t === 'selesai') return 'Selesai';
+      if (t === 'arsip') return 'Arsip';
+      return 'Aktif';
+    },
+
     get tugasTabCounts() {
-      const c = { aktif: 0, draf: 0, selesai: 0, terlewat: 0, arsip: 0 };
+      const c = { aktif: 0, draf: 0, selesai: 0, arsip: 0 };
       (this.tasks || []).forEach(t => {
         if (t.archived_at) { c.arsip++; return; }
         if (t.completed_at) { c.selesai++; return; }
-        if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { c.draf++; return; }
-        if (this.lewatDeadline(t)) { c.terlewat++; return; }
+        const isDraft = String(t.publication_status || '').toUpperCase() === 'DRAFT';
+        const isReview = String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED' || String(t.review_state || '').toUpperCase() === 'CHANGES_REQUESTED';
+        if (isDraft || isReview) { c.draf++; return; }
         c.aktif++;
       });
       return c;
@@ -169,11 +180,17 @@ function pjApp() {
       const dari = this.tugasDari ? new Date(this.tugasDari + 'T00:00:00+07:00') : null;
       const sampai = this.tugasSampai ? new Date(this.tugasSampai + 'T23:59:59+07:00') : null;
       return (this.tasks || []).filter(t => {
-        if (t.archived_at) { if (this.tugasTab !== 'arsip') return false; }
-        else if (t.completed_at) { if (this.tugasTab !== 'selesai') return false; }
-        else if (String(t.publication_status || '').toUpperCase() === 'DRAFT') { if (this.tugasTab !== 'draf') return false; }
-        else if (this.lewatDeadline(t)) { if (this.tugasTab !== 'terlewat') return false; }
-        else if (this.tugasTab !== 'aktif') return false;
+        const isDraft = String(t.publication_status || '').toUpperCase() === 'DRAFT';
+        const isReview = String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED' || String(t.review_state || '').toUpperCase() === 'CHANGES_REQUESTED';
+        if (t.archived_at) {
+          if (this.tugasTab !== 'arsip') return false;
+        } else if (t.completed_at) {
+          if (this.tugasTab !== 'selesai') return false;
+        } else if (isDraft || isReview) {
+          if (this.tugasTab !== 'draf' && this.tugasTab !== 'draf_review') return false;
+        } else {
+          if (this.tugasTab !== 'aktif') return false;
+        }
         if (dari || sampai) {
           const d = t.deadline_at ? new Date(t.deadline_at) : null;
           if (!d) return false;
@@ -188,6 +205,113 @@ function pjApp() {
     get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai); },
     hapusTugasFilter() { this.tugasDari = ''; this.tugasSampai = ''; },
 
+    get tugasKoreksi() {
+      if (this.dashboardData && this.dashboardData.correction && this.dashboardData.correction.task_id) {
+        return this.dashboardData.correction;
+      }
+      const rev = (this.tasks || []).find(t => String(t.review_state || '').toUpperCase() === 'CHANGES_REQUESTED');
+      if (rev) {
+        return {
+          task_id: rev.id,
+          task_title: rev.title || rev.deskripsi,
+          reviewer_name: 'Ketua Murid',
+          note: 'Instruksi tugas perlu disesuaikan sebelum disetujui KM.'
+        };
+      }
+      return null;
+    },
+
+    perbaikiKoreksi(taskId) {
+      if (!taskId) return;
+      this.bukaDetailTugas(taskId);
+    },
+
+    tugasDosen(t) {
+      if (this.dashboardData && this.dashboardData.offering && Array.isArray(this.dashboardData.offering.lecturers) && this.dashboardData.offering.lecturers.length > 0) {
+        return this.dashboardData.offering.lecturers.join(', ');
+      }
+      const sched = (this.fullSchedule || []).find(s => s.dosen && (!t || !t.matkul || s.matkul === t.matkul));
+      if (sched && sched.dosen) return sched.dosen;
+      return 'Dosen Pengampu';
+    },
+
+    tugasTempat(t) {
+      if (!t) return 'LMS Kampus';
+      if (t.submission_text && t.submission_text.trim()) return t.submission_text.trim();
+      if (t.submission_url && t.submission_url.trim()) return t.submission_url.trim();
+      return 'LMS Kampus';
+    },
+
+    countdownLabel(iso, completed) {
+      if (completed) return 'Selesai';
+      if (!iso) return 'Aktif';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return 'Aktif';
+        const now = new Date();
+        const diffH = Math.round((d - now) / 3600000);
+        if (diffH < 0) {
+          const daysOver = Math.abs(Math.floor(diffH / 24));
+          return daysOver > 0 ? `Terlewat ${daysOver} Hari` : `Terlewat ${Math.abs(diffH)} Jam`;
+        }
+        if (diffH < 48) {
+          return `Sisa ${diffH} Jam`;
+        }
+        const days = Math.round(diffH / 24);
+        return `Sisa ${days} Hari`;
+      } catch (e) {
+        return 'Aktif';
+      }
+    },
+
+    countdownClass(t) {
+      if (t.completed_at) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      if (!t.deadline_at) return 'bg-slate-100 text-slate-700 border-slate-200';
+      try {
+        const d = new Date(t.deadline_at);
+        if (isNaN(d)) return 'bg-slate-100 text-slate-700 border-slate-200';
+        const diffH = (d - new Date()) / 3600000;
+        if (diffH < 0) return 'bg-rose-50 text-rose-800 border-rose-200';
+        if (diffH < 48) return 'bg-amber-50 text-amber-900 border-amber-200';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+      } catch (e) {
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+      }
+    },
+
+    formatDeadlineShort(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+        const datePart = d.toLocaleDateString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: 'numeric',
+          month: 'short'
+        });
+        const timePart = d.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace('.', ':') + ' WIB';
+
+        let prefix = '';
+        if (isToday) prefix = 'Hari ini, ';
+        else if (isTomorrow) prefix = 'Besok, ';
+
+        return `${prefix}${datePart} · ${timePart}`;
+      } catch (e) {
+        return String(iso);
+      }
+    },
+
     pubLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'DRAFT') return 'Draf';
@@ -199,7 +323,7 @@ function pjApp() {
     reviewLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'NOT_REVIEWED') return 'Perlu diperiksa KM';
-      if (s === 'APPROVED') return 'Disetujui';
+      if (s === 'APPROVED') return 'Disetujui KM';
       if (s === 'CHANGES_REQUESTED') return 'Perlu koreksi';
       if (s === 'REVOKED') return 'Dibatalkan';
       return st || '-';
@@ -796,15 +920,121 @@ function pjApp() {
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
       await this.checkBot();
-      await this.loadClasses();
-      await this.loadOfferings();
-      await this.loadSchedule();
-      await this.loadTasks();
-      await this.loadPatterns();
-      await this.loadEvents();
-      await this.loadSemesterPJ();
+      await this.loadPJDashboard();
+      this.loadClasses().catch(() => {});
+      this.loadOfferings().catch(() => {});
+      this.loadSchedule().catch(() => {});
+      this.loadTasks().catch(() => {});
+      this.loadPatterns().catch(() => {});
+      this.loadEvents().catch(() => {});
+      this.loadSemesterPJ().catch(() => {});
       setInterval(() => this.checkBot(), 30000);
       this.dashboardLoading = false;
+    },
+
+    async loadPJDashboard() {
+      this.dashboardError = '';
+      if (!this.dashboardData) this.dashboardLoading = true;
+      else this.dashboardRefreshing = true;
+      try {
+        const data = await API.getPJDashboard(this.offeringId || '');
+        this.dashboardData = data;
+        if (data.class) {
+          this.selectedClass = data.class.label || data.class.code;
+          this.classSlug = data.class.slug;
+        }
+        if (data.offering && data.offering.id) {
+          this.offeringId = String(data.offering.id);
+          this.pjMatkul = data.offering.display_name;
+          try {
+            localStorage.setItem('pj_offering_id', this.offeringId);
+            localStorage.setItem('pj_matkul', this.pjMatkul);
+          } catch (e) {}
+        }
+        if (Array.isArray(data.offerings)) {
+          this.offeringList = data.offerings;
+        }
+        this.unreadCount = (data.correction && data.correction.needed) ? data.correction.count : 0;
+      } catch (e) {
+        this.dashboardError = e.message || 'Ringkasan ruang kerja PJ belum dapat dimuat.';
+      } finally {
+        this.dashboardLoading = false;
+        this.dashboardRefreshing = false;
+      }
+    },
+
+    async gantiOffering(offId) {
+      if (!offId || String(offId) === String(this.offeringId)) return;
+      this.offeringId = String(offId);
+      try {
+        localStorage.setItem('pj_offering_id', this.offeringId);
+      } catch (e) {}
+      await this.loadPJDashboard();
+      this.loadTasks().catch(() => {});
+      this.loadSchedule().catch(() => {});
+    },
+
+    pjTime(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return '-';
+      return new Intl.DateTimeFormat('id-ID', {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        timeZone: this.dashboardData?.class?.timezone || 'Asia/Jakarta'
+      }).format(date);
+    },
+    kmTime(iso) { return this.pjTime(iso); },
+
+    pjDeadlineBadge(deadlineAt) {
+      if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
+      const d = new Date(deadlineAt);
+      if (isNaN(d)) return { text: '—', class: 'bg-slate-100 text-slate-700' };
+      const diffMs = d.getTime() - Date.now();
+      const diffH = Math.round(diffMs / (1000 * 60 * 60));
+      if (diffMs < 0) {
+        return { text: 'Terlewat', class: 'bg-rose-50 text-rose-700 border border-rose-200' };
+      }
+      if (diffH <= 48) {
+        return { text: `Sisa ${diffH} Jam`, class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      }
+      const diffDays = Math.ceil(diffH / 24);
+      return { text: `Sisa ${diffDays} Hari`, class: 'bg-emerald-50 text-emerald-800 border border-emerald-200' };
+    },
+
+    waktuRelatif(iso) {
+      if (!iso) return 'Baru saja';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return 'Baru saja';
+        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (sec < 60) return 'Baru saja';
+        const min = Math.floor(sec / 60);
+        if (min < 60) return `${min} menit lalu`;
+        const jam = Math.floor(min / 60);
+        if (jam < 24) return `${jam} jam lalu`;
+        const hari = Math.floor(jam / 24);
+        return `${hari} hari lalu`;
+      } catch (e) {
+        return 'Baru saja';
+      }
+    },
+
+    perbaikiTugas(taskId) {
+      if (!taskId) return;
+      this.bukaDetailTugas(taskId);
+    },
+
+    pjInitials() {
+      const name = this.currentUser?.display_name || 'PJ';
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return 'PJ';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    pjReviewCount() {
+      const corr = this.dashboardData?.correction?.count || 0;
+      const pend = this.dashboardData?.metrics?.pending_review_count || 0;
+      return corr > 0 ? corr : pend;
     },
 
     async loadPartials(slots) {

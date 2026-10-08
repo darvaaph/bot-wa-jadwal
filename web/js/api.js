@@ -1267,6 +1267,21 @@ const BotApi = {
     return json.data;
   },
 
+  async getPJDashboard(offeringId) {
+    const qs = offeringId ? `?offering_id=${encodeURIComponent(offeringId)}` : '';
+    const res = await fetch('/api/v1/pj/dashboard' + qs, {
+      credentials: 'same-origin', headers: authHeaders(), cache: 'no-store'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(json?.error?.message || 'Ringkasan ruang kerja PJ gagal dimuat.');
+      error.status = res.status;
+      throw error;
+    }
+    if (!json?.data) throw new Error('Ringkasan ruang kerja PJ tidak lengkap.');
+    return json.data;
+  },
+
   portalHeaders(slug) {
     const headers = {};
     try {
