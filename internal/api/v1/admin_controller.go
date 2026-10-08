@@ -67,6 +67,7 @@ type SuspendUserRequest struct {
 
 // RecoverUserRequest payload pemulihan akun pengguna
 type RecoverUserRequest struct {
+	OldPassword *string `json:"old_password,omitempty"`
 	NewPassword *string `json:"new_password,omitempty"`
 	Reason      *string `json:"reason,omitempty"`
 }
@@ -149,20 +150,20 @@ func (c *AdminController) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 // AuditLogResponseItem merepresentasikan catatan riwayat audit sistem
 type AuditLogResponseItem struct {
-	ID          int64   `json:"id"`
-	ClassID     *int64  `json:"class_id,omitempty"`
-	ClassSlug   *string `json:"class_slug,omitempty"`
-	ActorUserID *int64  `json:"actor_user_id,omitempty"`
-	ActorName   *string `json:"actor_name,omitempty"`
-	ActorRole   *string `json:"actor_role,omitempty"`
-	Action      string  `json:"action"`
-	EntityType  *string `json:"entity_type,omitempty"`
-	EntityID    *int64  `json:"entity_id,omitempty"`
-	BeforeJSON  *string `json:"before_json,omitempty"`
-	AfterJSON   *string `json:"after_json,omitempty"`
-	Reason      *string `json:"reason,omitempty"`
+	ID            int64   `json:"id"`
+	ClassID       *int64  `json:"class_id,omitempty"`
+	ClassSlug     *string `json:"class_slug,omitempty"`
+	ActorUserID   *int64  `json:"actor_user_id,omitempty"`
+	ActorName     *string `json:"actor_name,omitempty"`
+	ActorRole     *string `json:"actor_role,omitempty"`
+	Action        string  `json:"action"`
+	EntityType    *string `json:"entity_type,omitempty"`
+	EntityID      *int64  `json:"entity_id,omitempty"`
+	BeforeJSON    *string `json:"before_json,omitempty"`
+	AfterJSON     *string `json:"after_json,omitempty"`
+	Reason        *string `json:"reason,omitempty"`
 	CorrelationID *string `json:"correlation_id,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 // BackupRequest merepresentasikan pembuatan paket akademik oleh Admin.
@@ -456,13 +457,26 @@ func (c *AdminController) RecoverUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var curStatus string
-	err = c.db.QueryRow(`SELECT status FROM users WHERE id = ?;`, targetUserID).Scan(&curStatus)
+	var curPasswordHash string
+	err = c.db.QueryRow(`SELECT status, password_hash FROM users WHERE id = ?;`, targetUserID).Scan(&curStatus, &curPasswordHash)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Pengguna tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi pengguna")
 		return
+	}
+
+	// Jika admin mengubah kata sandi akun mandiri (self-recovery), validasi kata sandi lama
+	if targetUserID == u.UserID && req.NewPassword != nil && strings.TrimSpace(*req.NewPassword) != "" {
+		if req.OldPassword == nil || strings.TrimSpace(*req.OldPassword) == "" {
+			common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Kata sandi saat ini wajib diisi")
+			return
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(curPasswordHash), []byte(strings.TrimSpace(*req.OldPassword))); err != nil {
+			common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Kata sandi saat ini tidak cocok")
+			return
+		}
 	}
 
 	var updateQuery string
