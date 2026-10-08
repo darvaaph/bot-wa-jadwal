@@ -39,6 +39,9 @@ function systemAdminApp() {
     contextAssignments: [],
     contextSwitching: false,
     sessionRedirecting: false,
+    modalLogout: false,
+    logoutLoading: false,
+    modalProfilAdmin: false,
 
     botOnline: false,
     botStatusDetails: null,
@@ -1798,9 +1801,13 @@ function systemAdminApp() {
       this.resetPasswordTarget = target;
       this.resetPasswordIsSelf = isSelf;
       this.resetPasswordForm = {
+        old_password: '',
         password: '',
         confirm: '',
         reason: isSelf ? 'Perubahan kata sandi akun mandiri' : '',
+        showOld: false,
+        showNew: false,
+        showConfirm: false,
         show: false
       };
       this.resetPasswordLoading = false;
@@ -1816,13 +1823,20 @@ function systemAdminApp() {
 
     async simpanResetPassword() {
       const f = this.resetPasswordForm;
+      if (this.resetPasswordIsSelf) {
+        const oldPwd = (f.old_password || '').trim();
+        if (!oldPwd) {
+          this.resetPasswordError = 'Kata sandi saat ini wajib diisi.';
+          return;
+        }
+      }
       const pwd = (f.password || '').trim();
       if (pwd.length < 12) {
-        this.resetPasswordError = 'Kata sandi minimal 12 karakter.';
+        this.resetPasswordError = 'Kata sandi baru minimal 12 karakter.';
         return;
       }
       if (this.resetPasswordIsSelf && pwd !== (f.confirm || '').trim()) {
-        this.resetPasswordError = 'Konfirmasi kata sandi tidak cocok.';
+        this.resetPasswordError = 'Konfirmasi kata sandi tidak cocok. Pastikan kedua kata sandi identik.';
         return;
       }
       if (!this.resetPasswordIsSelf && !((f.reason || '').trim())) {
@@ -1846,7 +1860,8 @@ function systemAdminApp() {
         }
 
         const reason = (f.reason || '').trim() || (this.resetPasswordIsSelf ? 'Pembaruan kata sandi akun administrator' : 'Reset kata sandi oleh System Admin');
-        await API.recoverUser(targetId, reason, pwd);
+        const oldPwd = this.resetPasswordIsSelf ? (f.old_password || '').trim() : '';
+        await API.recoverUser(targetId, reason, pwd, oldPwd);
 
         if (this.resetPasswordIsSelf) {
           this.showToast('Kata sandi berhasil diubah! Sesi aktif diperbarui. Mengalihkan ke login...', 4000);
@@ -5778,7 +5793,19 @@ function systemAdminApp() {
       }
     },
 
-    async logout() {
+    konfirmasiLogout() {
+      if (this.drawer) this.drawer = false;
+      this.modalLogout = true;
+    },
+
+    tutupModalLogout() {
+      if (this.logoutLoading) return;
+      this.modalLogout = false;
+    },
+
+    async jalankanLogout() {
+      if (this.logoutLoading) return;
+      this.logoutLoading = true;
       try {
         await API.logout();
       } catch (e) {}
@@ -5791,7 +5818,44 @@ function systemAdminApp() {
       this.showToast('Berhasil keluar. Mengarahkan ke login...');
       setTimeout(() => {
         window.location.href = '/login.html?role=sa';
-      }, 500);
+      }, 400);
+    },
+
+    logout() {
+      this.konfirmasiLogout();
+    },
+
+    bukaModalProfilAdmin() {
+      if (this.drawer) this.drawer = false;
+      this.modalProfilAdmin = true;
+    },
+
+    tutupModalProfilAdmin() {
+      this.modalProfilAdmin = false;
+    },
+
+    aksiGantiPasswordDariProfil() {
+      this.modalProfilAdmin = false;
+      this.bukaModalResetPassword(this.currentUser, true);
+    },
+
+    aksiLogoutDariProfil() {
+      this.modalProfilAdmin = false;
+      this.konfirmasiLogout();
+    },
+
+    formatNomorWA(num) {
+      if (!num) return '-';
+      const clean = String(num).replace(/[^0-9]/g, '');
+      if (clean.startsWith('62')) {
+        const rest = clean.slice(2);
+        return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+      }
+      if (clean.startsWith('08')) {
+        const rest = clean.slice(1);
+        return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+      }
+      return String(num);
     },
 
     showToast(msg) {

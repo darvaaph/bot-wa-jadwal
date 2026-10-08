@@ -489,8 +489,8 @@
     </div>
   </div>
 
-  <!-- 2. Modal Reset / Ganti Kata Sandi -->
-  <div x-show="modalResetPassword" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" @click.self="tutupModalResetPassword()">
+  <!-- 2. Modal Reset Kata Sandi Pengguna (Pihak Ketiga) -->
+  <div x-show="modalResetPassword && !resetPasswordIsSelf" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" @click.self="tutupModalResetPassword()">
     <div class="w-full max-w-md bg-white rounded-2xl border border-[#D7DDE7] shadow-2xl p-6 animate-scaleUp">
       <div class="flex items-center justify-between gap-3 mb-2">
         <h3 class="text-[17px] font-bold text-[#1D1B3A]" x-text="resetPasswordIsSelf ? 'Ganti Kata Sandi Saya' : 'Reset Kata Sandi Pengguna'"></h3>

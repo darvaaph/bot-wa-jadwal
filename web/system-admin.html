@@ -29,7 +29,7 @@
   View kanonis: dashboard, kelas (+buat/detail/undang/undang-siap), pengguna,
   antrean, audit (+pembaruan), master-ruangan, master-matkul, master-dosen, backup.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); kelasMenu = null; penggunaMenu = null; matkulMenu = null; dosenMenu = null; detailMenu = null; smMenu = null; smPratinjau = null; kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; ruangMenuId = null; batalUbahMatkul(); matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null; tutupModalTambahMatkul(); tutupModalImportMatkul(); tutupModalTambahRuang(); tutupModalImportRuang(); tutupModalTolakUsulan()">
+<body class="bg-white text-ink min-h-screen" x-data="systemAdminApp()" x-init="initSystemAdmin()" @keydown.escape.window="shellCloseDrawer(); tutupModalLogout(); tutupModalProfilAdmin(); tutupModalResetPassword(); kelasMenu = null; penggunaMenu = null; matkulMenu = null; dosenMenu = null; detailMenu = null; smMenu = null; smPratinjau = null; kelasStatusConfirm = null; portalModeConfirm = null; penggunaAksi = null; penugasanAksi = null; penugasanGuard = false; penugasanForce = false; undanganAksi = null; kanalLepas = null; ruangEdit = null; ruangStatusConfirm = null; ruangMenuId = null; batalUbahMatkul(); matkulStatusConfirm = null; usulanKeputusan = null; notifDetailId = null; tutupModalTambahMatkul(); tutupModalImportMatkul(); tutupModalTambahRuang(); tutupModalImportRuang(); tutupModalTolakUsulan()">
   <div id="app-shell"></div>
 </body>
 </html>
