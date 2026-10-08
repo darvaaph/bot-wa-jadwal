@@ -56,11 +56,19 @@
       </nav>
       <div class="mt-auto pt-3 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
-          <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0" :title="sidebarCollapsed ? shellIdentity().detail + ' (' + shellIdentity().sub + ')' : ''" aria-hidden="true" x-text="saInitials()"></div>
-          <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-            <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate" x-text="shellIdentity().detail"></span>
-            <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
-          </div>
+          <button type="button"
+                  @click="bukaModalProfilAdmin()"
+                  title="Lihat profil administrator"
+                  aria-label="Lihat profil administrator"
+                  aria-haspopup="dialog"
+                  class="flex items-center text-left rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
+                  :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
+            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" :title="sidebarCollapsed ? shellIdentity().detail + ' (' + shellIdentity().sub + ')' : ''" aria-hidden="true" x-text="saInitials()"></div>
+            <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="shellIdentity().detail"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
+            </div>
+          </button>
           <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
@@ -104,7 +112,7 @@
   </template>
 </aside>
 
-<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer || (shellRoleKey === 'sa' && modalLogout)">
+<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))">
   <header class="app-header sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
     <div class="flex items-center gap-2 md:gap-3 px-4 md:px-8 h-16 md:h-[72px] max-w-[1280px] mx-auto w-full min-w-0">
       <template x-if="shellRoleKey === 'sa'">
@@ -239,11 +247,18 @@
       </nav>
       <div class="mt-auto pt-3 mt-6 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center gap-[10px] p-[8px]">
-          <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0" aria-hidden="true" x-text="saInitials()"></div>
-          <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-            <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate" x-text="shellIdentity().detail"></span>
-            <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
-          </div>
+          <button type="button"
+                  @click="bukaModalProfilAdmin()"
+                  title="Lihat profil administrator"
+                  aria-label="Lihat profil administrator"
+                  aria-haspopup="dialog"
+                  class="flex items-center text-left rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 gap-[10px] group">
+            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" aria-hidden="true" x-text="saInitials()"></div>
+            <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="shellIdentity().detail"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
+            </div>
+          </button>
           <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
@@ -268,13 +283,101 @@
   </template>
 </aside>
 
-<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && modalLogout)" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
+<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
     <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
   </div>
 </nav>
 
 <div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
+
+<!-- Dialog Profil Administrator (SCR-ADM-PROFILE-MODAL) -->
+<div x-show="shellRoleKey === 'sa' && modalProfilAdmin"
+     x-cloak
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-profile-title"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px] transition-opacity">
+  <!-- Scrim Backdrop -->
+  <div class="fixed inset-0" @click="tutupModalProfilAdmin()" aria-hidden="true"></div>
+
+  <!-- Dialog Box (460px) -->
+  <div class="relative w-full max-w-[460px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+       @click.stop>
+    <!-- Header Profil -->
+    <div class="w-full flex items-start justify-between pb-3 border-b border-[#F2F4F7]">
+      <div class="flex-1 flex flex-col gap-1 min-w-0 pr-3">
+        <h2 id="modal-profile-title" class="text-[18px] leading-[23px] text-[#1D1B3A] font-bold">Profil Administrator</h2>
+        <p class="text-[12px] leading-[18px] text-[#667085]">Identitas akun dan hak akses sistem aktif.</p>
+      </div>
+      <!-- Tombol Tutup (X) -->
+      <button type="button"
+              @click="tutupModalProfilAdmin()"
+              aria-label="Tutup profil"
+              title="Tutup dialog"
+              class="w-[44px] h-[44px] shrink-0 flex items-center justify-center rounded-full text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Identitas Akun Aktif -->
+    <div class="w-full flex items-center gap-[14px] p-[16px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px]">
+      <div class="w-[48px] h-[48px] shrink-0 rounded-full bg-[#E9EAFF] ring-2 ring-white shadow-sm flex items-center justify-center text-[16px] font-bold text-[#2854D6]" aria-hidden="true" x-text="typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')">SA</div>
+      <div class="min-w-0 flex-1 flex flex-col gap-1">
+        <div class="text-[14px] leading-tight text-[#1D1B3A] font-bold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'System Admin'">System Admin</div>
+        <div class="text-[12px] leading-tight text-[#475467] font-mono tracking-tight truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '+62 811-1111-1111'">+62 811-1111-1111</div>
+        <div class="mt-0.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#DCFCE7] border border-[#BBF7D0] text-[10px] leading-tight text-[#15803D] font-medium">Akses Penuh Seluruh Kampus</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rincian Akun dan Sesi -->
+    <div class="w-full bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] overflow-hidden divide-y divide-[#F2F4F7]">
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Peran Akun</span>
+        <span class="text-[#1D1B3A] font-medium">SYSTEM_ADMIN (Tingkat Tertinggi)</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Status Bot WA</span>
+        <span :class="botConnected ? 'text-[#15803D]' : 'text-[#B42318]'" class="font-medium" x-text="botConnected ? 'Terhubung & Siap Kirim' : 'Terputus / Perlu Tautan'">Terhubung & Siap Kirim</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Sesi Kedaluwarsa</span>
+        <span class="text-[#475467] font-medium">7 Hari (Auto-refresh)</span>
+      </div>
+    </div>
+
+    <!-- Akses Keamanan Akun -->
+    <div class="w-full flex flex-col gap-2">
+      <button type="button"
+              @click="aksiGantiPasswordDariProfil()"
+              class="w-full h-[44px] flex items-center justify-center gap-2 bg-[#FFFFFF] border border-[#D7DDE7] hover:bg-slate-50 text-[12px] text-[#1D1B3A] font-medium rounded-[12px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+        <svg width="17" height="17" viewBox="0 0 14 14" fill="#1D1B3A" class="w-4 h-4 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M4.08447 7.71777q-0.29736 0-0.50927-0.20849-0.2085-0.21191-0.2085-0.50928 0-0.29736 0.2085-0.50586 0.21191-0.21191 0.50927-0.21191 0.29395 0 0.50586 0.21191 0.21191 0.2085 0.21192 0.50586 0 0.29736-0.21192 0.50928-0.21191 0.2085-0.50586 0.20849z m0 2.19776q-1.2168 0-2.06787-0.84766-0.85107-0.85107-0.85107-2.06445 0-1.21338 0.85107-2.06446 0.85107-0.85449 2.06787-0.85449 0.89893 0 1.62012 0.48877 0.72119 0.48535 1.05273 1.26123l5.17823 0q0.08887 0 0.1709 0.03418 0.08545 0.03076 0.16064 0.10596l0.69726 0.69726q0.0752 0.0752 0.10596 0.15723 0.03076 0.07861 0.03076 0.1709 0 0.0957-0.03076 0.17432-0.03076 0.07861-0.10596 0.1538l-1.2373 1.22706q-0.05811 0.06152-0.14014 0.09912-0.07861 0.0376-0.16064 0.04101-0.07861 0.00342-0.15723-0.02051-0.07861-0.02393-0.15722-0.07519l-0.68018-0.5127-0.79639 0.58448q-0.06152 0.04443-0.12646 0.06494-0.06494 0.01709-0.14014 0.01709-0.07861 0-0.14697-0.02393-0.06494-0.02393-0.12647-0.0581l-0.75537-0.50586-1.58252 0q-0.33154 0.76563-1.05273 1.25781-0.72119 0.49219-1.62012 0.49219z m0-0.58106q0.86133 0 1.46973-0.51953 0.6084-0.51953 0.7793-1.23047l2.19091 0 0.83741 0.56397q-0.01367 0-0.00684 0.00342 0.00684 0 0.00684-0.00342l1.08349-0.7793 0.94336 0.71436q0-0.01367 0-0.00684 0 0.00684 0 0.00684l1.0835-1.0835q-0.00342 0-0.00342 0 0.00342 0 0.00342 0l-0.58447-0.58447q0-0.00342 0 0l-5.5542 0q-0.1709-0.71094-0.7793-1.23047-0.6084-0.51953-1.46973-0.51953-0.96387 0-1.65088 0.68701-0.68359 0.68359-0.68359 1.64746 0 0.96387 0.68359 1.65088 0.68701 0.68359 1.65088 0.68359z"></path>
+        </svg>
+        <span>Ganti Kata Sandi Akun</span>
+      </button>
+      <p class="text-[11px] leading-[15px] text-[#667085] text-center w-full">Nomor WhatsApp akun administrator terhubung ke berkas database sesi lokal.</p>
+    </div>
+
+    <!-- Aksi Profil (Footer) -->
+    <div class="w-full flex items-center justify-between pt-4 border-t border-[#F2F4F7]">
+      <button type="button"
+              @click="aksiLogoutDariProfil()"
+              class="min-h-[44px] px-2 text-[12px] text-[#B42318] hover:text-[#912018] hover:underline font-medium transition-colors cursor-pointer">
+        Keluar dari Akun
+      </button>
+      <button type="button"
+              @click="tutupModalProfilAdmin()"
+              class="h-[44px] px-5 flex items-center justify-center bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[12px] text-[#1D1B3A] font-semibold rounded-[12px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300">
+        Tutup
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- Dialog Konfirmasi Keluar (SCR-ADM-LOGOUT-MODAL) -->
 <div x-show="shellRoleKey === 'sa' && modalLogout"

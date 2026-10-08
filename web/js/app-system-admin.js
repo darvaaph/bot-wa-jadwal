@@ -41,6 +41,7 @@ function systemAdminApp() {
     sessionRedirecting: false,
     modalLogout: false,
     logoutLoading: false,
+    modalProfilAdmin: false,
 
     botOnline: false,
     botStatusDetails: null,
@@ -5809,6 +5810,28 @@ function systemAdminApp() {
     },
 
     logout() {
+      this.konfirmasiLogout();
+    },
+
+    bukaModalProfilAdmin() {
+      if (this.drawer) this.drawer = false;
+      this.modalProfilAdmin = true;
+    },
+
+    tutupModalProfilAdmin() {
+      this.modalProfilAdmin = false;
+    },
+
+    aksiGantiPasswordDariProfil() {
+      this.modalProfilAdmin = false;
+      this.go('pengguna');
+      this.$nextTick(() => {
+        this.bukaModalResetPassword(this.currentUser, true);
+      });
+    },
+
+    aksiLogoutDariProfil() {
+      this.modalProfilAdmin = false;
       this.konfirmasiLogout();
     },
 
