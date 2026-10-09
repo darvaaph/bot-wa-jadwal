@@ -14,6 +14,7 @@
 html, body { overflow-x: hidden; max-width: 100vw; }
 body { min-width: 0; font-family: 'Montserrat', system-ui, sans-serif; }
 h1, h2, .font-display { font-family: 'Poppins', sans-serif; }
+.font-mono, code, kbd, samp, pre { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
