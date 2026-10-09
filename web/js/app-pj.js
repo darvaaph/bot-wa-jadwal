@@ -1066,6 +1066,23 @@ function pjApp() {
       }
     },
 
+    get alasanSlotKosong() {
+      const className = this.selectedClass || this.profile?.class_name || 'D4-TI 1A';
+      const day = this.roomFilterDay;
+      const typeLabel = this.roomFilterType === 'lab' ? 'lab komputer' : (this.roomFilterType === 'teori' ? 'ruang teori' : 'ruangan');
+      
+      if (day && day !== 'all') {
+        const sessions = this.daySessions(day);
+        if (sessions && sessions.length > 0) {
+          const firstStart = (sessions[0].timeStart || '').slice(0, 5);
+          const lastEnd = (sessions[sessions.length - 1].timeEnd || '').slice(0, 5);
+          return `Jadwal kelas ${className} terisi penuh sepanjang hari ${day} (${firstStart} - ${lastEnd} WIB), atau seluruh ${typeLabel} sedang dipakai kelas lain.`;
+        }
+        return `Seluruh ${typeLabel} pada hari ${day} sedang dipakai kelas lain atau tidak tersedia untuk durasi yang dipilih.`;
+      }
+      return `Seluruh jadwal kelas pada pekan ini terisi penuh atau tidak ditemukan ${typeLabel} yang tersedia untuk durasi minimal yang dipilih.`;
+    },
+
     pilihSlotKosong(slot) {
       this.showRoomQuickCheck = false;
       this.bukaModalPengganti({
@@ -1074,6 +1091,25 @@ function pjApp() {
         start: slot.startTime,
         end: slot.endTime
       });
+    },
+
+    pilihSesiDaring() {
+      this.showRoomQuickCheck = false;
+      const targetDate = (this.roomFilterDay !== 'all' && (this.allWeekDaysWithSaturday || []).find(d => d.name === this.roomFilterDay)?.dateStr) || '';
+      this.bukaModalPengganti({
+        isOnline: true,
+        date: targetDate,
+        start: '08:40',
+        end: '11:10',
+        roomId: ''
+      });
+    },
+
+    resetFilterDanCari() {
+      this.roomFilterDay = 'all';
+      this.roomFilterDuration = 0;
+      this.roomFilterType = 'all';
+      this.hitungSlotRekomendasi();
     },
 
     pilihRuanganCepat(r) {
@@ -1122,7 +1158,7 @@ function pjApp() {
 
         isLocked = true;
         display = `${s.hari || ''}, ${(d && d.dateNum) || ''} (${start} – ${end})`;
-      } else if (context && (context.roomId || context.date)) {
+      } else if (context && (context.roomId || context.date || context.isOnline)) {
         if (context.roomId) roomId = String(context.roomId);
         if (context.date) origDate = context.date;
         if (context.start) start = context.start;
@@ -1141,7 +1177,7 @@ function pjApp() {
         roomId: roomId,
         tuStatus: 'PENDING',
         tuContact: '',
-        note: ''
+        note: (context && context.isOnline) ? 'Kuliah pengganti daring (Online)' : ''
       };
 
       if (!isLocked && !this.penggantiForm.originKey && this.pjAvailableOriginSessions.length > 0) {
