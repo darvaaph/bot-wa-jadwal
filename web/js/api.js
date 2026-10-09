@@ -176,6 +176,7 @@ const BotApi = {
       version: item.version || 0,
       completed_at: item.completed_at || null,
       archived_at: item.archived_at || null,
+      created_at: item.created_at || null,
       is_done: !!item.completed_at,
       is_completed: !!item.completed_at,
       is_archived: !!item.archived_at,
@@ -220,8 +221,10 @@ const BotApi = {
       throw err;
     }
     if (!res.ok) {
-      const err = new Error('Gagal menyimpan tugas di server.');
-      err.code = 'SAVE_FAILED';
+      const json = await res.json().catch(() => null);
+      const msg = (json && json.error && json.error.message) || 'Gagal menyimpan tugas di server.';
+      const err = new Error(msg);
+      err.code = (json && json.error && json.error.code) || 'SAVE_FAILED';
       throw err;
     }
     return await res.json();
@@ -329,12 +332,14 @@ const BotApi = {
       throw err;
     }
     if (!res.ok) {
-      const err = new Error('Gagal mengubah tugas.');
-      err.code = 'SAVE_FAILED';
+      const json = await res.json().catch(() => null);
+      const msg = (json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah tugas.';
+      const err = new Error(msg);
+      err.code = (json && json.error && json.error.code) || 'SAVE_FAILED';
       throw err;
     }
-    const json = await res.json();
-    return json.data;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || true;
   },
 
   versionConflictErr(fallbackMsg) {

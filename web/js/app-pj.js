@@ -41,12 +41,12 @@ function pjApp() {
     contextSwitching: false,
 
     navSections: [
-      { title: 'PJ', items: [
+      { title: 'UTAMA', items: [
         { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
       ] },
       { title: 'AKADEMIK', items: [
-        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg', active: ['tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'] },
-        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg', active: ['jadwal', 'pindah', 'perubahan'] },
+        { id: 'tugas', label: 'Tugas Dikelola', img: '/assets/icons/tasks.svg', active: ['tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'] },
+        { id: 'jadwal', label: 'Jadwal Kuliah', img: '/assets/icons/calendar.svg', active: ['jadwal', 'pindah', 'perubahan'] },
         { id: 'ruangan', label: 'Ruangan', img: '/assets/icons/event.svg' },
         { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
       ] },
@@ -119,6 +119,8 @@ function pjApp() {
 
     tugasForm: { judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' },
     tugasError: '',
+    tugasSubmitting: false,
+    tugasSubmittingDraf: false,
     terbitOk: false,
     tugasTab: 'aktif',
     tugasDari: '', tugasSampai: '',
@@ -312,21 +314,117 @@ function pjApp() {
       }
     },
 
-    pubLabel(st) {
+    pubLabel(st, rev) {
       const s = String(st || '').toUpperCase();
       if (s === 'DRAFT') return 'Draf';
-      if (s === 'PUBLISHED') return 'Terbit';
+      if (s === 'PUBLISHED') {
+        if (String(rev || '').toUpperCase() === 'NOT_REVIEWED') return 'Diajukan';
+        return 'Terbit';
+      }
       if (s === 'REVOKED') return 'Publikasi Dicabut';
       return st || '-';
     },
 
     reviewLabel(st) {
       const s = String(st || '').toUpperCase();
-      if (s === 'NOT_REVIEWED') return 'Perlu diperiksa KM';
+      if (s === 'NOT_REVIEWED') return 'Menunggu Review KM';
       if (s === 'APPROVED') return 'Disetujui KM';
-      if (s === 'CHANGES_REQUESTED') return 'Perlu koreksi';
+      if (s === 'CHANGES_REQUESTED') return 'Perlu Perbaikan';
       if (s === 'REVOKED') return 'Dibatalkan';
       return st || '-';
+    },
+
+    formatSubmittedTime(iso) {
+      if (!iso) return 'baru saja';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const isYesterday = d.toDateString() === yesterday.toDateString();
+
+        const timePart = d.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace('.', ':') + ' WIB';
+
+        if (isToday) return 'hari ini, ' + timePart;
+        if (isYesterday) return 'kemarin, ' + timePart;
+
+        const datePart = d.toLocaleDateString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: 'numeric',
+          month: 'short'
+        });
+        return `${datePart}, ${timePart}`;
+      } catch (e) {
+        return String(iso);
+      }
+    },
+
+    tugasMetaSub(t) {
+      if (!t) return '';
+      const rev = String(t.review_state || '').toUpperCase();
+      const isDraft = String(t.publication_status || '').toUpperCase() === 'DRAFT';
+      const matkul = t.matkul || this.offeringName() || 'Mata Kuliah';
+      if (rev === 'CHANGES_REQUESTED') {
+        return `${matkul} · Koreksi instruksi diminta Ketua Murid`;
+      }
+      if (isDraft) {
+        return `${matkul} · Disimpan sebagai draf ${this.formatSubmittedTime(t.created_at)}`;
+      }
+      if (rev === 'NOT_REVIEWED') {
+        return `${matkul} · Diajukan ke KM ${this.formatSubmittedTime(t.created_at)}`;
+      }
+      return `${matkul} · Pengumpulan: ${this.tugasTempat(t)} · Dosen: ${this.tugasDosen(t)}`;
+    },
+
+    tugasIconBoxClass(t) {
+      if (!t) return 'bg-blue-50 text-blue-600';
+      const rev = String(t.review_state || '').toUpperCase();
+      const isDraft = String(t.publication_status || '').toUpperCase() === 'DRAFT';
+      if (rev === 'CHANGES_REQUESTED') {
+        return 'bg-[#FFF1F2] text-[#E11D48]';
+      }
+      if (isDraft || rev === 'NOT_REVIEWED') {
+        return 'bg-[#F1F5F9] text-[#64748B]';
+      }
+      return 'bg-blue-50 text-blue-600';
+    },
+
+    reviewBadgeClass(t) {
+      const st = String((t && (t.review_state || t.review_status)) || '').toUpperCase();
+      if (st === 'CHANGES_REQUESTED') {
+        return 'bg-[#FFF1F2] text-[#9F1239] border border-[#FDA4AF]';
+      }
+      if (st === 'NOT_REVIEWED') {
+        return 'bg-[#FEF3C7] text-[#78350F] border border-[#FCD34D]';
+      }
+      if (st === 'APPROVED') {
+        return 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]';
+      }
+      return 'bg-slate-100 text-slate-700 border border-slate-200';
+    },
+
+    pubBadgeClass(t) {
+      const st = String((t && (t.publication_status || t.status)) || '').toUpperCase();
+      if (st === 'DRAFT') {
+        return 'bg-[#F1F5F9] text-[#334155]';
+      }
+      return 'bg-[#EFF6FF] text-[#1D4ED8]';
+    },
+
+    tugasActionLabel(t) {
+      if (!t) return 'Detail';
+      const rev = String(t.review_state || '').toUpperCase();
+      const isDraft = String(t.publication_status || '').toUpperCase() === 'DRAFT';
+      if (rev === 'CHANGES_REQUESTED') return 'Perbaiki Draf';
+      if (isDraft || rev === 'NOT_REVIEWED') return 'Edit Draf';
+      return 'Detail';
     },
 
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
@@ -1034,7 +1132,11 @@ function pjApp() {
     pjReviewCount() {
       const corr = this.dashboardData?.correction?.count || 0;
       const pend = this.dashboardData?.metrics?.pending_review_count || 0;
-      return corr > 0 ? corr : pend;
+      if (corr > 0 || pend > 0) return corr > 0 ? corr : pend;
+      const needFix = (this.tasks || []).filter(t => String(t.review_state || '').toUpperCase() === 'CHANGES_REQUESTED').length;
+      if (needFix > 0) return needFix;
+      const waiting = (this.tasks || []).filter(t => String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED').length;
+      return waiting > 0 ? waiting : 0;
     },
 
     async loadPartials(slots) {
@@ -1276,6 +1378,7 @@ function pjApp() {
                    submission_text: t.submission_text, submission_url: t.submission_url,
                    publication_status: t.publication_status, review_state: t.review_state,
                    version: t.version, completed_at: t.completed_at, archived_at: t.archived_at,
+                   created_at: t.created_at || null,
                    offering_id: t.offering_id,
                    urgency: u.level, countdown: u.badge };
         });
@@ -1324,12 +1427,32 @@ function pjApp() {
 
     mulaiTambah() {
       if (!this.offeringId) { this.showToast('Pilih mata kuliah di kelas ini yang ditugaskan dulu di Dashboard.'); return; }
-      this.tugasForm = { judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' };
+      this.tugasForm = { judul: '', tanggal: '', jam: '23:59', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' };
       this.tugasError = '';
+      this.tugasSubmitting = false;
+      this.tugasSubmittingDraf = false;
       this.terbitOk = false;
       this.editTugasId = ''; this.editTugasVersion = 0; this.tugasConflict = null;
       this.view = 'tambah';
       window.scrollTo({ top: 0 });
+    },
+
+    previewDeadlineText() {
+      const f = this.tugasForm;
+      if (!f || !f.tanggal) return 'Tenggat: Belum ditentukan';
+      try {
+        const parts = f.tanggal.split('-');
+        if (parts.length === 3) {
+          const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!isNaN(d.getTime())) {
+            const dayName = d.toLocaleDateString('id-ID', { weekday: 'long' });
+            const monthName = d.toLocaleDateString('id-ID', { month: 'short' });
+            const jamStr = f.jam ? `${f.jam} WIB` : '23:59 WIB';
+            return `Tenggat: ${dayName}, ${Number(parts[2])} ${monthName} ${parts[0]} · ${jamStr}`;
+          }
+        }
+      } catch (e) {}
+      return `Tenggat: ${f.tanggal} ${f.jam ? ('· ' + f.jam + ' WIB') : ''}`;
     },
 
     validasiTugasTerbit() {
@@ -1338,8 +1461,8 @@ function pjApp() {
       if (!f.judul || f.judul.trim().length < 5) return 'Judul tugas minimal 5 karakter.';
       if (!f.tanggal || !f.jam) return 'Tanggal dan jam deadline wajib diisi.';
       if (!f.deskripsi || f.deskripsi.trim().length < 5) return 'Instruksi tugas minimal 5 karakter.';
-      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan atau tautan).';
-      if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.';
+      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan tempat atau tautan URL).';
+      if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak valid. Gunakan format YYYY-MM-DD dan HH:MM.';
       return '';
     },
 
@@ -1362,57 +1485,65 @@ function pjApp() {
     async simpanDrafTugas() {
       const f = this.tugasForm || {};
       if (!this.offeringId) { this.showToast('Pilih mata kuliah di kelas ini di Dashboard dulu.'); return; }
-      if (!f.judul || f.judul.trim().length < 5) { this.showToast('Judul tugas minimal 5 karakter.'); return; }
+      if (!f.judul || f.judul.trim().length < 5) {
+        this.tugasError = 'Judul tugas minimal 5 karakter untuk disimpan sebagai draf.';
+        this.showToast(this.tugasError);
+        return;
+      }
+      this.tugasError = '';
+      this.tugasSubmittingDraf = true;
       try {
         await API.createTask(this.rakitTugasPayload('draft'));
         await this.loadTasks();
         this.tugasTab = 'draf';
-        this.showToast('Draf tersimpan di server.');
+        this.showToast('Draf tugas berhasil disimpan di server database.');
         this.view = 'tugas';
       } catch (err) {
-        this.showToast(err.message || 'Gagal menyimpan draf di server.');
+        this.tugasError = err.message || 'Gagal menyimpan draf di server.';
+        this.showToast(this.tugasError);
+      } finally {
+        this.tugasSubmittingDraf = false;
       }
     },
     async simpanDraf() { return this.simpanDrafTugas(); },
 
-    tinjauTugas() {
+    async ajukanKeKM() {
       const err = this.validasiTugasTerbit();
-      if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
+      if (err) {
+        this.tugasError = err;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
       this.tugasError = '';
-      const f = this.tugasForm;
-      this.tugasPreview = {
-        matkul: this.offeringName() || this.pjMatkul || '',
-        judul: f.judul.trim(),
-        deadline_at: this.parseDeadlineID(f.tanggal, f.jam),
-        deskripsi: f.deskripsi.trim(),
-        jenis: f.jenis || '',
-        kumpul: (f.kumpul || '').trim(),
-        kumpulUrl: (f.kumpulUrl || '').trim()
-      };
-      this.view = 'tinjau-tugas';
-      window.scrollTo({ top: 0 });
-    },
-
-    async terbitTugas() {
-      if (!this.tugasPreview) { this.tinjauTugas(); return; }
-      this.tugasError = '';
+      this.tugasSubmitting = true;
       try {
         const res = await API.createTask(this.rakitTugasPayload('published'));
         const newId = res && res.data && res.data.id;
         await this.loadTasks();
         this.terbitOk = true;
-        this.tugasPublishMsg = 'Tugas diterbitkan dan perlu diperiksa KM.';
+        this.tugasPublishMsg = 'Tugas berhasil diajukan ke Ketua Murid untuk ditinjau.';
         this.tugasPreview = null;
+        this.showToast('Draf tugas berhasil diajukan ke Ketua Murid.');
         if (newId) {
           await this.bukaDetailTugas(newId);
         } else {
+          this.tugasTab = 'draf';
           this.view = 'tugas';
-          this.showToast(this.tugasPublishMsg);
         }
       } catch (err) {
-        this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
-        this.view = 'tinjau-tugas';
+        this.tugasError = err.message || 'Gagal mengajukan draf tugas ke server.';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } finally {
+        this.tugasSubmitting = false;
       }
+    },
+
+    tinjauTugas() {
+      return this.ajukanKeKM();
+    },
+
+    async terbitTugas() {
+      return this.ajukanKeKM();
     },
 
     async bukaDetailTugas(id) {
@@ -1474,19 +1605,36 @@ function pjApp() {
       window.scrollTo({ top: 0 });
     },
 
-    async simpanUbahTugas() {
+    async simpanUbahTugas(targetMode) {
       if (!this.editTugasId) return;
-      const err = this.validasiTugasTerbit();
-      if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
+      if (this.tugasSubmitting) return;
+
+      const isCurrentDraft = this.tugasDetail && String(this.tugasDetail.publication_status || '').toUpperCase() === 'DRAFT';
+      const wantPublish = targetMode === 'published' || (!targetMode && !isCurrentDraft);
+
+      if (wantPublish) {
+        const err = this.validasiTugasTerbit();
+        if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
+      } else {
+        if (!this.tugasForm.judul || !this.tugasForm.judul.trim()) {
+          this.tugasError = 'Judul tugas wajib diisi.';
+          window.scrollTo({ top: 0 });
+          return;
+        }
+      }
       this.tugasError = '';
+      this.tugasSubmitting = true;
       try {
-        const payload = this.rakitTugasPayload(undefined);
+        const payload = this.rakitTugasPayload(wantPublish ? 'published' : 'draft');
         delete payload.offering_id;
-        delete payload.save_as;
         payload.version = Number(this.editTugasVersion) || 0;
         await API.updateTask(this.editTugasId, payload);
         await this.loadTasks();
-        this.showToast('Perubahan tersimpan sebagai versi baru dan perlu diperiksa KM.');
+        if (wantPublish) {
+          this.showToast('Tugas berhasil diajukan ke Ketua Murid untuk ditinjau!');
+        } else {
+          this.showToast('Perubahan draf berhasil disimpan.');
+        }
         await this.bukaDetailTugas(this.editTugasId);
       } catch (e) {
         if (e.code === 'VERSION_CONFLICT') {
@@ -1494,6 +1642,57 @@ function pjApp() {
         } else {
           this.tugasError = e.message || 'Gagal menyimpan perubahan.';
         }
+      } finally {
+        this.tugasSubmitting = false;
+      }
+    },
+
+    async ajukanDrafKeKM() {
+      const d = this.tugasDetail;
+      if (!d || !d.id) return;
+      if (this.tugasSubmitting) return;
+
+      // Validasi kelengkapan data draf sebelum diajukan ke KM
+      if (!d.title || !d.title.trim()) {
+        this.showToast('Judul tugas wajib diisi sebelum diajukan.');
+        this.mulaiUbahTugas();
+        return;
+      }
+      if (!d.instructions || !d.instructions.trim()) {
+        this.showToast('Instruksi tugas wajib diisi sebelum diajukan.');
+        this.mulaiUbahTugas();
+        return;
+      }
+      if (!d.deadline_at) {
+        this.showToast('Tenggat tugas wajib diisi sebelum diajukan.');
+        this.mulaiUbahTugas();
+        return;
+      }
+      const hasSub = (d.submission_text && d.submission_text.trim()) || (d.submission_url && d.submission_url.trim());
+      if (!hasSub) {
+        this.showToast('Tempat atau tautan pengumpulan wajib diisi sebelum diajukan.');
+        this.mulaiUbahTugas();
+        return;
+      }
+
+      this.tugasSubmitting = true;
+      try {
+        await API.updateTask(d.id, {
+          version: Number(d.version) || 0,
+          save_as: 'published'
+        });
+        await this.loadTasks();
+        this.showToast('Tugas berhasil diajukan ke Ketua Murid untuk ditinjau!');
+        await this.bukaDetailTugas(d.id);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.showToast('Versi data tugas telah berubah di server. Memuat ulang...');
+          await this.bukaDetailTugas(d.id);
+        } else {
+          this.showToast(e.message || 'Gagal mengajukan draf ke Ketua Murid.');
+        }
+      } finally {
+        this.tugasSubmitting = false;
       }
     },
 

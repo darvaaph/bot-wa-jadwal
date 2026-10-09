@@ -89,7 +89,8 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT t.id, t.course_offering_id, co.display_name, t.title, t.instructions,
 		       t.deadline_at, t.task_type, t.submission_text, t.submission_url,
-		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at
+		       t.publication_status, t.review_state, t.version, t.completed_at, t.archived_at,
+		       t.created_at
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -146,9 +147,9 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		var deadlineAt common.DBTimestamp
 		var taskType, subText, subURL sql.NullString
 		var version int
-		var completedAt, archivedAt common.DBTimestamp
+		var completedAt, archivedAt, createdAt common.DBTimestamp
 
-		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt); err == nil {
+		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &createdAt); err == nil {
 			tasks = append(tasks, map[string]any{
 				"id":                 id,
 				"offering_id":        offID,
@@ -171,6 +172,12 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 				"archived_at": func() any {
 					if archivedAt.Valid {
 						return archivedAt.RFC3339()
+					}
+					return nil
+				}(),
+				"created_at": func() any {
+					if createdAt.Valid {
+						return createdAt.RFC3339()
 					}
 					return nil
 				}(),
@@ -629,6 +636,18 @@ func (c *TaskController) PatchTask(w http.ResponseWriter, r *http.Request) {
 			newPubStatus = "PUBLISHED"
 		} else if saveAs == "DRAFT" {
 			newPubStatus = "DRAFT"
+		}
+	}
+
+	if newPubStatus == "PUBLISHED" {
+		if strings.TrimSpace(newTitle) == "" || strings.TrimSpace(newInstr) == "" || newDeadline.IsZero() {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Publikasi tugas wajib menyertakan judul, petunjuk pengerjaan, dan batas waktu")
+			return
+		}
+		hasSubmission := (newSubText.Valid && strings.TrimSpace(newSubText.String) != "") || (newSubURL.Valid && strings.TrimSpace(newSubURL.String) != "")
+		if !hasSubmission {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Publikasi tugas wajib menyertakan salah satu tempat pengumpulan (submission_url atau submission_text)")
+			return
 		}
 	}
 

@@ -101,9 +101,6 @@
           x-model="tugasDari"
           class="border-0 bg-transparent text-slate-700 focus:outline-none text-[12px] p-0 font-sans cursor-pointer"
         />
-        <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="text-slate-400 shrink-0 pointer-events-none">
-          <path d="M3.27441 12.25q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-7.44775q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.66992-0.27002l1.03223 0 0-0.98438q0-0.13672 0.08887-0.22558 0.08887-0.08887 0.22558-0.08887 0.13672 0 0.22559 0.08887 0.08887 0.08887 0.08887 0.22558l0 0.98438 4.17334 0 0-1.0083q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 1.0083 1.03223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 7.44775q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.66992 0.27002l-7.45118 0zm0-0.58447l7.45118 0q0.1333 0 0.24609-0.10938 0.11279-0.11279 0.11279-0.24951l0-5.11328-8.16894 0 0 5.11328q0 0.13672 0.11279 0.24951 0.11279 0.10938 0.24609 0.10938zm-0.35888-6.05664l8.16894 0 0-1.75q0-0.1333-0.11279-0.2461-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.2461l0 1.75z"/>
-        </svg>
       </div>
 
       <div class="flex items-center gap-1.5 h-9 px-3 bg-white border border-slate-300 rounded-[10px] text-[12px] shadow-2xs">
@@ -114,9 +111,6 @@
           x-model="tugasSampai"
           class="border-0 bg-transparent text-slate-700 focus:outline-none text-[12px] p-0 font-sans cursor-pointer"
         />
-        <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="text-slate-400 shrink-0 pointer-events-none">
-          <path d="M3.27441 12.25q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-7.44775q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.66992-0.27002l1.03223 0 0-0.98438q0-0.13672 0.08887-0.22558 0.08887-0.08887 0.22558-0.08887 0.13672 0 0.22559 0.08887 0.08887 0.08887 0.08887 0.22558l0 0.98438 4.17334 0 0-1.0083q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 1.0083 1.03223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 7.44775q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.66992 0.27002l-7.45118 0zm0-0.58447l7.45118 0q0.1333 0 0.24609-0.10938 0.11279-0.11279 0.11279-0.24951l0-5.11328-8.16894 0 0 5.11328q0 0.13672 0.11279 0.24951 0.11279 0.10938 0.24609 0.10938zm-0.35888-6.05664l8.16894 0 0-1.75q0-0.1333-0.11279-0.2461-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.2461l0 1.75z"/>
-        </svg>
       </div>
 
       <button
@@ -135,8 +129,9 @@
     <!-- Header Card -->
     <div class="flex items-center justify-between pb-3 border-b border-border">
       <h2 class="text-[16px] font-bold text-ink">
-        Daftar Tugas <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'"></span>
-        <span class="text-muted font-normal" x-text="'(' + (tugasTabCounts[tugasTab] || 0) + ' ' + tabLabel(tugasTab) + ')'"></span>
+        <span x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Draf & Menunggu Review ' : (tugasTab === 'selesai' ? 'Tugas Selesai ' : (tugasTab === 'arsip' ? 'Arsip Tugas ' : 'Daftar Tugas '))"></span>
+        <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'"></span>
+        <span class="text-muted font-normal" x-text="'(' + (tugasTabCounts[tugasTab] || 0) + ')'"></span>
       </h2>
       <span class="text-[12px] text-muted font-medium hidden sm:inline">Urutkan: Tenggat Terdekat</span>
     </div>
@@ -182,10 +177,13 @@
 
     <!-- State: Empty (Filter Tidak Menemukan Tugas) -->
     <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0" class="py-10 text-center space-y-2">
-      <p class="text-[15px] font-bold text-ink">Tidak ada tugas yang cocok</p>
-      <p class="text-[13px] text-muted" x-text="q.trim() ? 'Tidak ada tugas yang cocok dengan pencarian dan filter rentang tenggat.' : 'Tidak ada tugas pada tab atau rentang tenggat yang dipilih.'"></p>
-      <button type="button" @click="q = ''; hapusTugasFilter(); tugasTab = 'aktif'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold h-9 px-4 rounded-xl mt-2">
+      <p class="text-[15px] font-bold text-ink" x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Belum ada draf atau tugas yang menunggu review' : 'Tidak ada tugas yang cocok'"></p>
+      <p class="text-[13px] text-muted" x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Semua tugas draf telah disetujui atau Anda belum membuat draf baru.' : (q.trim() ? 'Tidak ada tugas yang cocok dengan pencarian dan filter rentang tenggat.' : 'Tidak ada tugas pada tab atau rentang tenggat yang dipilih.')"></p>
+      <button type="button" x-show="tugasTab !== 'draf' && tugasTab !== 'draf_review'" @click="q = ''; hapusTugasFilter(); tugasTab = 'aktif'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold h-9 px-4 rounded-xl mt-2">
         Hapus Semua Filter
+      </button>
+      <button type="button" x-show="tugasTab === 'draf' || tugasTab === 'draf_review'" @click="mulaiTambah()" class="ui-button ui-button--primary text-[13px] font-semibold h-9 px-4 rounded-xl mt-2">
+        Buat Draf Tugas
       </button>
     </div>
 
@@ -195,23 +193,25 @@
         <div class="py-4 first:pt-1 last:pb-1 flex flex-col md:flex-row md:items-center justify-between gap-4 group">
           <!-- Info Utama Kiri -->
           <div class="flex items-start gap-3.5 min-w-0 flex-1">
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-blue-100 transition">
+            <div
+              class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition"
+              :class="tugasIconBoxClass(t)"
+            >
               <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor">
                 <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0zm0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279zm1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203zm0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203zm0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203zm2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z"/>
               </svg>
             </div>
             <div class="min-w-0 flex-1 space-y-1">
               <h3 class="text-[14px] font-semibold text-ink line-clamp-1" x-text="t.title || t.deskripsi"></h3>
-              <p class="text-[12px] text-slate-500 line-clamp-1">
-                <span x-text="t.matkul || offeringName() || 'Mata Kuliah'"></span> · Pengumpulan: <span x-text="tugasTempat(t)"></span> · Dosen: <span x-text="tugasDosen(t)"></span>
-              </p>
+              <p class="text-[12px] text-slate-500 line-clamp-1" x-text="tugasMetaSub(t)"></p>
               <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <!-- Status Publikasi -->
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-[6px] bg-slate-100 text-slate-700" x-text="pubLabel(t.publication_status)"></span>
-                <!-- Status Review KM -->
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-[6px]" :class="pubBadgeClass(t)" x-text="pubLabel(t.publication_status, t.review_state)"></span>
+                <!-- Status Review KM (hanya tampil jika sudah diajukan/terbit atau perlu perbaikan) -->
                 <span
+                  x-show="t.publication_status === 'PUBLISHED' || t.review_state === 'CHANGES_REQUESTED'"
                   class="text-[10px] font-semibold px-2 py-0.5 rounded-[6px]"
-                  :class="t.review_state === 'APPROVED' ? 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]' : (t.review_state === 'CHANGES_REQUESTED' ? 'bg-[#FFF1F2] text-[#881337] border border-[#FECDD3]' : 'bg-amber-50 text-amber-900 border border-amber-200')"
+                  :class="reviewBadgeClass(t)"
                   x-text="reviewLabel(t.review_state)"
                 ></span>
               </div>
@@ -219,20 +219,31 @@
           </div>
 
           <!-- Tenggat, Countdown & Aksi Kanan -->
-          <div class="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-            <div class="font-mono text-[12px] font-semibold text-slate-700 whitespace-nowrap" x-text="formatDeadlineShort(t.deadline_at)"></div>
+          <div class="flex items-center justify-between md:justify-end gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+            <!-- Jika Perlu Perbaikan (Koreksi KM) -->
+            <div x-show="t.review_state === 'CHANGES_REQUESTED'" class="text-[12px] text-[#BE123C] font-semibold whitespace-nowrap">
+              Catatan KM tersedia
+            </div>
+
+            <!-- Jika Bukan Perlu Perbaikan (Tenggat Monospace) -->
+            <div x-show="t.review_state !== 'CHANGES_REQUESTED'" class="font-mono text-[12px] font-semibold text-slate-700 whitespace-nowrap" x-text="formatDeadlineShort(t.deadline_at)"></div>
+
+            <!-- Countdown Pill (hanya untuk tugas aktif approved atau selesai/arsip) -->
             <span
+              x-show="(t.publication_status === 'PUBLISHED' && t.review_state === 'APPROVED') || t.completed_at || t.archived_at"
               class="text-[11px] font-bold px-2.5 py-1 rounded-[6px] border whitespace-nowrap"
               :class="countdownClass(t)"
               x-text="countdownLabel(t.deadline_at, t.completed_at)"
             ></span>
+
+            <!-- Tombol Aksi Adaptif -->
             <button
               type="button"
               @click="bukaDetailTugas(t.id)"
               class="h-8 px-3 rounded-[8px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-[12px] font-medium transition flex items-center gap-1 shadow-2xs"
             >
-              <span>Detail</span>
-              <span>&rarr;</span>
+              <span x-text="tugasActionLabel(t)">Detail</span>
+              <span x-show="tugasActionLabel(t) === 'Detail'">&rarr;</span>
             </button>
           </div>
         </div>
@@ -251,100 +262,239 @@
   </div>
 </section>
 
-<!-- Form tambah tugas -->
-<section x-show="view === 'tambah'" x-cloak>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+<!-- Form tambah draf tugas baru (SCR-PJ-TASK-002) — Redesign Split-View & Live Preview -->
+<section x-show="view === 'tambah'" x-cloak class="space-y-5">
+  <!-- Header Ruang Kerja PJ -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
     <div>
-      <h1 class="font-display text-[26px] md:text-[30px] font-bold">Tambah Tugas Baru</h1>
-      <p class="text-[14px] text-slate-500 mt-1">Isi informasi tugas, tinjau, lalu terbitkan</p>
+      <h1 class="text-[22px] md:text-[24px] font-bold text-ink">Buat Draf Tugas Baru</h1>
+      <p class="text-[12px] md:text-[13px] text-muted mt-0.5">
+        Isi instruksi tugas <span class="font-semibold text-ink" x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span>. Draf akan diajukan ke Ketua Murid untuk disetujui sebelum disiarkan.
+      </p>
     </div>
-    <button type="button" @click="simpanDrafTugas()" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border text-[14px] font-medium hover:bg-slate-50 self-start min-h-[44px]">Simpan sebagai Draf</button>
+    <button
+      type="button"
+      @click="simpanDrafTugas()"
+      :disabled="tugasSubmitting || tugasSubmittingDraf"
+      class="shrink-0 h-10 px-4 rounded-xl bg-white border border-[#CBD5E1] text-[#334155] text-[12px] font-semibold hover:bg-slate-50 transition flex items-center gap-1.5 shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      <span x-show="!tugasSubmittingDraf">Simpan sebagai Draf Lokal</span>
+      <span x-show="tugasSubmittingDraf" class="flex items-center gap-1.5">
+        <svg class="animate-spin h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        <span>Menyimpan Draf...</span>
+      </span>
+    </button>
   </div>
-  <p class="mt-4 text-[13px] font-medium"><span class="px-3 py-1.5 rounded-lg bg-success">1. Isi data</span> <span class="text-slate-300 mx-1">—</span> <span class="px-3 py-1.5 rounded-lg bg-warning-soft">2. Tinjau</span> <span class="text-slate-300 mx-1">—</span> <span class="text-slate-400">3. Terbit</span></p>
-  <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="ui-card lg:col-span-3 p-5">
-      <h2 class="text-[18px] font-semibold">Informasi tugas</h2>
-      <p class="text-[12px] text-slate-500">Mata kuliah: <strong x-text="offeringName() || '—'">-</strong> (terkunci untuk penugasan ini)</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-        <div class="sm:col-span-2">
-          <label class="block text-[13px] font-medium mb-1">Judul tugas <span class="text-danger">*</span></label>
-          <input aria-label="Judul tugas" type="text" x-model="tugasForm.judul" placeholder="Contoh: Analisis basis data" class="ui-field w-full text-[14px]" />
-        </div>
-      </div>
-      <h2 class="text-[18px] font-semibold mt-6">Tenggat</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Tanggal deadline <span class="text-danger">*</span></label>
-          <input aria-label="Tanggal deadline" type="date" x-model="tugasForm.tanggal" class="ui-field w-full text-[14px]" />
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Jam deadline <span class="text-danger">*</span></label>
-          <input aria-label="Jam deadline" type="time" x-model="tugasForm.jam" class="ui-field w-full text-[14px] font-mono" />
-        </div>
-        <div class="sm:col-span-2">
-          <label class="block text-[13px] font-medium mb-1">Instruksi tugas <span class="text-danger">*</span></label>
-          <textarea aria-label="Instruksi tugas" x-model="tugasForm.deskripsi" rows="3" placeholder="Jelaskan instruksi dan ketentuan dari dosen..." class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
-        </div>
-      </div>
-      <h2 class="text-[18px] font-semibold mt-6">Pengumpulan <span class="text-danger">*</span></h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Jenis tugas</label>
-          <select aria-label="Jenis tugas" x-model="tugasForm.jenis" class="ui-field w-full text-[14px]">
-            <option>Individu</option><option>Kelompok</option><option>Kuis</option><option>Proyek</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Keterangan pengumpulan</label>
-          <input aria-label="Keterangan pengumpulan" type="text" x-model="tugasForm.kumpul" placeholder="Tautan LMS kelas" class="ui-field w-full text-[14px]" />
-        </div>
-        <div class="sm:col-span-2">
-          <label class="block text-[13px] font-medium mb-1">Tautan pengumpulan</label>
-          <input aria-label="Tautan pengumpulan" type="text" x-model="tugasForm.kumpulUrl" placeholder="https://..." class="ui-field w-full text-[14px]" />
-          <p class="text-[12px] text-slate-500 mt-1">Isi minimal salah satu: keterangan atau tautan.</p>
-        </div>
-      </div>
-      <div class="flex flex-col sm:flex-row gap-3 mt-5">
-        <button type="button" @click="view = 'tugas'" class="ui-button ui-button--outline flex-1 text-primary font-medium">Kembali</button>
-        <button type="button" @click="tinjauTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Tinjau Sebelum Terbit</button>
-      </div>
-    </div>
-    <div class="ui-card lg:col-span-2 p-5">
-      <h2 class="text-[18px] font-semibold">Ringkasan dampak</h2>
-      <p class="text-[12px] text-slate-500">Tugas terbit langsung tampil di portal mahasiswa dan masuk antrean pemeriksaan KM.</p>
-      <div class="mt-3 p-4 rounded-2xl bg-slate-50 border border-border text-[13px] leading-relaxed">
-        <p class="text-[11px] font-semibold tracking-wide text-slate-600">MATA KULIAH • <span x-text="offeringName() || '—'">-</span></p>
-        <p class="text-[17px] font-semibold mt-1" x-text="tugasForm.judul || '—'">-</p>
-        <p class="mt-2">Tenggat: <span class="font-mono" x-text="(tugasForm.tanggal || '—') + ' • ' + (tugasForm.jam || '')">-</span></p>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- Tinjau sebelum terbit -->
-<section x-show="view === 'tinjau-tugas'" x-cloak>
-  <button type="button" @click="view = 'tambah'" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
-  <div class="ui-card p-5 md:p-6 mt-4">
-    <h1 class="text-[24px] font-bold">Tinjau Sebelum Terbit</h1>
-    <p class="text-[13px] text-slate-500 mt-1">Tampilan persis seperti yang dilihat mahasiswa, plus ringkasan dampak.</p>
-    <div x-show="tugasError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="tugasError">-</div>
-    <div x-show="tugasPreview" class="mt-4 p-4 rounded-2xl bg-success/60 border border-success-border text-[13px] leading-relaxed">
-      <p class="text-[11px] font-semibold tracking-wide text-slate-600">TUGAS BARU • <span x-text="selectedClass">-</span></p>
-      <p class="text-[17px] font-semibold mt-1" x-text="tugasPreview.judul">-</p>
-      <p class="mt-2">Mata kuliah: <span x-text="tugasPreview.matkul">-</span></p>
-      <p>Tenggat: <span class="font-mono" x-text="fmtDeadlineID(tugasPreview.deadline_at)">-</span></p>
-      <p x-show="tugasPreview.jenis">Jenis: <span x-text="tugasPreview.jenis">-</span></p>
-      <p class="mt-1 text-slate-600" x-text="tugasPreview.deskripsi">-</p>
-      <p class="mt-1">Kumpulkan: <span x-text="tugasPreview.kumpulUrl || tugasPreview.kumpul">-</span></p>
+  <!-- Peringatan jika belum ada mata kuliah aktif -->
+  <div x-show="!offeringId" class="p-4 rounded-2xl border border-amber-300 bg-amber-50 text-[13px] text-amber-900 flex items-center gap-2">
+    <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="text-amber-700 shrink-0">
+      <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z"/>
+    </svg>
+    <span>Pilih dulu mata kuliah di kelas ini di Dashboard agar draf tugas dapat diajukan.</span>
+  </div>
+
+  <!-- Alert Error Validasi / Server -->
+  <div x-show="tugasError" class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-[13px] text-rose-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="text-rose-600 shrink-0">
+        <path d="M7 12.25q-2.17 0-3.69-1.52-1.52-1.52-1.52-3.73t1.52-3.69q1.52-1.52 3.69-1.52t3.69 1.52q1.52 1.52 1.52 3.69t-1.52 3.73q-1.52 1.52-3.69 1.52zm-0.58-3.5h1.16v-5.25h-1.16v5.25zm0 2.33h1.16v-1.16h-1.16v1.16z"/>
+      </svg>
+      <span x-text="tugasError">-</span>
     </div>
-    <div class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
-      <span class="material-symbols-outlined shrink-0">campaign</span>
-      <p>Tugas terbit langsung tampil di portal dan masuk antrean pemeriksaan KM. Kegagalan pesan WhatsApp tidak membatalkan penerbitan.</p>
+    <button type="button" @click="tugasError = ''" class="text-rose-600 hover:text-rose-800 text-[13px] font-bold px-1">&times;</button>
+  </div>
+
+  <!-- Grid Formulir & Pratinjau Draf (Split View) -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <!-- Formulir Tugas (Kiri) -->
+    <div class="lg:col-span-7 bg-white p-5 md:p-6 rounded-2xl border border-[#E2E8F0] shadow-2xs space-y-4">
+      <!-- Field Mata Kuliah Binaan -->
+      <div class="space-y-1.5">
+        <label class="block text-[12px] font-semibold text-[#334155]">Mata Kuliah Binaan</label>
+        <div class="w-full h-[42px] px-3.5 flex items-center justify-between bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-[13px] text-[#334155]">
+          <span class="font-semibold truncate" x-text="offeringName() || pjMatkul || 'Mata Kuliah Belum Dipilih'">Basis Data</span>
+          <span class="text-[11px] font-medium text-[#64748B] shrink-0 ml-2">Terkunci (Penugasan Anda)</span>
+        </div>
+      </div>
+
+      <!-- Field Judul Tugas -->
+      <div class="space-y-1.5">
+        <label class="block text-[12px] font-semibold text-[#334155]">Judul Tugas <span class="text-rose-600">*</span></label>
+        <input
+          aria-label="Judul tugas"
+          type="text"
+          x-model="tugasForm.judul"
+          placeholder="Contoh: Praktikum 03 - Pemodelan Data Relasional (BCNF)"
+          class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition"
+        />
+      </div>
+
+      <!-- Tenggat Pengumpulan (Tanggal & Jam) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div class="space-y-1.5">
+          <label class="block text-[12px] font-semibold text-[#334155]">Tanggal Deadline <span class="text-rose-600">*</span></label>
+          <input
+            aria-label="Tanggal deadline"
+            type="date"
+            x-model="tugasForm.tanggal"
+            class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition cursor-pointer"
+          />
+        </div>
+        <div class="space-y-1.5">
+          <label class="block text-[12px] font-semibold text-[#334155]">Jam Deadline <span class="text-rose-600">*</span></label>
+          <input
+            aria-label="Jam deadline"
+            type="time"
+            x-model="tugasForm.jam"
+            class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] font-mono text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <!-- Field Instruksi Tugas -->
+      <div class="space-y-1.5">
+        <label class="block text-[12px] font-semibold text-[#334155]">Instruksi dari Dosen / Ketentuan Pengumpulan <span class="text-rose-600">*</span></label>
+        <textarea
+          aria-label="Instruksi tugas"
+          rows="3"
+          x-model="tugasForm.deskripsi"
+          placeholder="Jelaskan detail instruksi, format file (cth: PDF/ZIP), dan kriteria penilaian dari dosen..."
+          class="w-full p-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition resize-none leading-relaxed"
+        ></textarea>
+      </div>
+
+      <!-- Jenis dan Tempat Pengumpulan -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div class="space-y-1.5">
+          <label class="block text-[12px] font-semibold text-[#334155]">Jenis Pengumpulan</label>
+          <div class="relative flex items-center">
+            <select
+              aria-label="Jenis pengumpulan"
+              x-model="tugasForm.jenis"
+              class="w-full h-[42px] px-3.5 pr-8 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition appearance-none cursor-pointer"
+            >
+              <option value="Individu">Individu</option>
+              <option value="Kelompok">Kelompok</option>
+              <option value="Kuis">Kuis</option>
+              <option value="Proyek">Proyek</option>
+            </select>
+            <div class="absolute right-3 pointer-events-none text-[#64748B]">
+              <svg class="w-4 h-4" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <label class="block text-[12px] font-semibold text-[#334155]">Keterangan Tempat</label>
+          <input
+            aria-label="Keterangan tempat"
+            type="text"
+            x-model="tugasForm.kumpul"
+            placeholder="Google Classroom / LMS Kampus"
+            class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition"
+          />
+        </div>
+      </div>
+
+      <!-- Field Tautan URL -->
+      <div class="space-y-1.5">
+        <label class="block text-[12px] font-semibold text-[#334155]">Tautan URL</label>
+        <input
+          aria-label="Tautan URL"
+          type="url"
+          x-model="tugasForm.kumpulUrl"
+          placeholder="https://classroom.google.com/c/..."
+          class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition font-mono text-[12px]"
+        />
+        <p class="text-[11px] text-[#64748B]">Isi keterangan tempat atau tautan agar mahasiswa tahu ke mana mengumpulkan tugas.</p>
+      </div>
+
+      <!-- Aksi Form Draf Tugas -->
+      <div class="pt-4 border-t border-[#F1F5F9] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <button
+          type="button"
+          @click="view = 'tugas'"
+          class="w-full sm:w-auto h-10 px-4 rounded-xl bg-white border border-[#E2E8F0] text-[#475569] text-[12px] font-semibold hover:bg-slate-50 transition"
+        >
+          Batal / Kembali
+        </button>
+        <button
+          type="button"
+          @click="ajukanKeKM()"
+          :disabled="tugasSubmitting || tugasSubmittingDraf"
+          class="w-full sm:w-auto h-10 px-5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold transition flex items-center justify-center gap-2 shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <span x-show="!tugasSubmitting">Ajukan ke Ketua Murid untuk Ditinjau</span>
+          <span x-show="tugasSubmitting" class="flex items-center gap-2">
+            <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span>Mengajukan Draf...</span>
+          </span>
+        </button>
+      </div>
     </div>
-    <div class="flex flex-col sm:flex-row gap-3 mt-5">
-      <button type="button" @click="view = 'tambah'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Ubah Lagi</button>
-      <button type="button" @click="terbitTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Terbitkan Tugas</button>
+
+    <!-- Pratinjau dan Alur Persetujuan (Kanan) -->
+    <div class="lg:col-span-5 space-y-4">
+      <!-- Pratinjau Tampilan Mahasiswa -->
+      <div class="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-2xs space-y-3">
+        <div>
+          <h2 class="text-[11px] font-bold tracking-[0.5px] text-[#64748B] uppercase">PRATINJAU TAMPILAN MAHASISWA</h2>
+          <p class="text-[11px] text-[#64748B] mt-0.5">Pratinjau saja. Mahasiswa melihat tugas setelah disetujui KM.</p>
+        </div>
+
+        <!-- Kartu Tugas untuk Mahasiswa -->
+        <div class="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
+          <div class="flex items-start gap-2.5">
+            <div class="w-9 h-9 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center shrink-0 text-[#2563EB]">
+              <svg class="w-[19px] h-[19px]" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0zm0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279zm1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203zm0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203zm0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203zm2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z"/>
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[14px] font-bold text-[#0F172A] leading-snug line-clamp-2" x-text="tugasForm.judul || 'Contoh: Praktikum 03 - Pemodelan Data Relasional (BCNF)'"></h3>
+              <p class="text-[12px] text-[#64748B] mt-0.5 line-clamp-1">
+                <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span> · Dosen: <span x-text="tugasDosen()">Dosen Pengampu</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Status Draf Diajukan -->
+          <div class="inline-flex px-2 py-0.5 rounded-[5px] bg-[#FEF3C7] text-[#78350F] text-[10px] font-bold">
+            Draf Diajukan
+          </div>
+
+          <!-- Tenggat di Pratinjau Monospace -->
+          <div class="text-[12px] text-[#334155] font-mono font-medium">
+            <span x-text="previewDeadlineText()">Tenggat: Belum ditentukan</span>
+          </div>
+
+          <!-- Pratinjau Tautan Pengumpulan -->
+          <a
+            :href="tugasForm.kumpulUrl || '#'"
+            :target="tugasForm.kumpulUrl ? '_blank' : '_self'"
+            :class="tugasForm.kumpulUrl ? 'hover:bg-slate-50 cursor-pointer' : 'cursor-default opacity-80'"
+            class="w-full h-9 flex items-center justify-center bg-white border border-[#E2E8F0] rounded-lg text-[12px] font-semibold text-[#334155] transition gap-1"
+          >
+            <span x-text="tugasForm.kumpul ? ('Buka ' + tugasForm.kumpul) : (tugasForm.kumpulUrl ? 'Buka Tautan Pengumpulan' : 'Buka Google Classroom')">Buka Google Classroom</span>
+            <span class="text-[11px]">&nearr;</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Alur Persetujuan Ketua Murid -->
+      <div class="p-4 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] flex items-start gap-2.5">
+        <svg class="w-5 h-5 text-[#2563EB] shrink-0 mt-0.5" viewBox="0 0 14 14" fill="currentColor">
+          <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203zm0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254zm0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z"/>
+        </svg>
+        <div class="space-y-1 text-[#1E3A8A]">
+          <h3 class="text-[13px] font-bold">Persetujuan Ketua Murid</h3>
+          <p class="text-[12px] leading-relaxed">
+            Setelah Anda klik “Ajukan ke Ketua Murid”, tugas masuk antrean validasi KM. Begitu disetujui, bot WhatsApp akan mengabarkan seluruh teman sekelas.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -361,8 +511,8 @@
       <p class="text-[12px] font-bold text-primary uppercase tracking-wider" x-text="tugasDetail.matkul">-</p>
       <h1 class="text-[22px] font-bold mt-1 leading-snug" x-text="tugasDetail.title || tugasDetail.deskripsi">-</h1>
       <div class="mt-2 flex flex-wrap gap-1.5">
-        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[14px]">publish</span><span x-text="pubLabel(tugasDetail.publication_status)">-</span></span>
-        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[14px]">fact_check</span><span x-text="reviewLabel(tugasDetail.review_state) + ' · versi ' + tugasDetail.version">-</span></span>
+        <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600"><span class="material-symbols-outlined text-[14px]">publish</span><span x-text="pubLabel(tugasDetail.publication_status, tugasDetail.review_state)">-</span></span>
+        <span x-show="tugasDetail.publication_status === 'PUBLISHED' || tugasDetail.review_state === 'CHANGES_REQUESTED'" class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-warning-soft/60 text-amber-900"><span class="material-symbols-outlined text-[14px]">fact_check</span><span x-text="reviewLabel(tugasDetail.review_state) + ' · versi ' + tugasDetail.version">-</span></span>
         <span x-show="tugasDetail.completed_at" class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-success text-green-800"><span class="material-symbols-outlined text-[14px]">check_circle</span>Selesai</span>
         <span x-show="tugasDetail.archived_at" class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-200 text-slate-600"><span class="material-symbols-outlined text-[14px]">archive</span>Arsip</span>
       </div>
@@ -373,17 +523,51 @@
             class="ui-button ui-button--ghost pb-2 px-1 text-[14px] border-b-2 min-h-[44px]" x-text="tb[1]">-</button>
         </template>
       </div>
-      <div x-show="tugasDetailTab === 'detail'" class="mt-4 space-y-2 text-[13px]">
+      <div x-show="tugasDetailTab === 'detail'" class="mt-4 space-y-3 text-[13px]">
+        <!-- Banner Draf Siap Diajukan ke KM -->
+        <div x-show="tugasDetail.publication_status === 'DRAFT' && !tugasDetail.archived_at" class="p-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="space-y-0.5">
+            <h4 class="text-[13px] font-bold text-[#1E3A8A]">Draf belum masuk antrean review KM</h4>
+            <p class="text-[12px] text-[#2563EB]">Ajukan tugas ini agar masuk ke antrean pemeriksaan Ketua Murid dan disiarkan ke kelas.</p>
+          </div>
+          <button
+            type="button"
+            @click="ajukanDrafKeKM()"
+            :disabled="tugasSubmitting"
+            class="h-10 px-4 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-bold shadow-2xs transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <span class="material-symbols-outlined text-[18px]">send</span>
+            <span x-text="tugasSubmitting ? 'Mengajukan...' : 'Ajukan ke Ketua Murid'">Ajukan ke Ketua Murid</span>
+          </button>
+        </div>
+
         <p><span class="text-slate-500">Tenggat:</span> <span class="font-mono font-semibold" x-text="tugasDetail.deadline">-</span></p>
         <p x-show="tugasDetail.task_type"><span class="text-slate-500">Jenis:</span> <span x-text="tugasDetail.task_type">-</span></p>
         <p><span class="text-slate-500">Instruksi:</span></p>
         <p class="whitespace-pre-line" x-text="tugasDetail.instructions || tugasDetail.deskripsi">-</p>
         <p><span class="text-slate-500">Tempat pengumpulan:</span> <span x-text="tugasDetail.submission_url || tugasDetail.submission_text || '—'">-</span></p>
-        <div class="flex flex-wrap gap-2 pt-2">
-          <button type="button" @click="mulaiUbahTugas()" x-show="!tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
-          <button type="button" @click="tandaiSelesai(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.completed_at && !tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-green-600 text-green-700 text-[13px] font-semibold min-h-[44px]">Tandai Selesai</button>
+
+        <div class="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+          <!-- Tombol Ajukan ke KM untuk Draf -->
+          <button
+            type="button"
+            x-show="tugasDetail.publication_status === 'DRAFT' && !tugasDetail.archived_at"
+            @click="ajukanDrafKeKM()"
+            :disabled="tugasSubmitting"
+            class="ui-button ui-button--primary text-[13px] font-bold flex items-center gap-1.5 min-h-[44px]"
+          >
+            <span class="material-symbols-outlined text-[18px]">send</span>
+            <span x-text="tugasSubmitting ? 'Mengajukan...' : 'Ajukan ke Ketua Murid'">Ajukan ke Ketua Murid</span>
+          </button>
+
+          <button type="button" @click="mulaiUbahTugas()" x-show="!tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold flex items-center gap-1 min-h-[44px]">
+            <span class="material-symbols-outlined text-[18px]">edit</span>
+            <span x-text="tugasDetail.publication_status === 'DRAFT' ? 'Ubah Draf' : 'Ubah'">Ubah</span>
+          </button>
+
+          <button type="button" @click="tandaiSelesai(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.publication_status === 'PUBLISHED' && !tugasDetail.completed_at && !tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-green-600 text-green-700 text-[13px] font-semibold min-h-[44px]">Tandai Selesai</button>
           <button type="button" @click="arsipkanTugas(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">archive</span>Arsipkan</button>
-          <button type="button" @click="pulihkanTugas(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Pulihkan</button>
+          <button type="button" @click="pulihkanTugas(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold min-h-[44px]">Pulihkan</button>
         </div>
       </div>
       <div x-show="tugasDetailTab === 'riwayat'" class="mt-4">
@@ -413,8 +597,8 @@
 <section x-show="view === 'ubah-tugas'" x-cloak>
   <button type="button" @click="bukaDetailTugas(editTugasId)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke detail</button>
   <div class="ui-card p-5 md:p-6 mt-4">
-    <h1 class="text-[24px] font-bold">Ubah Tugas</h1>
-    <p class="text-[13px] text-slate-500 mt-1">Versi bertambah dan mahasiswa mungkin menerima notifikasi pembaruan. Versi baru perlu diperiksa KM.</p>
+    <h1 class="text-[24px] font-bold" x-text="tugasDetail && tugasDetail.publication_status === 'DRAFT' ? 'Ubah Draf Tugas' : 'Ubah Tugas'">Ubah Tugas</h1>
+    <p class="text-[13px] text-slate-500 mt-1" x-text="tugasDetail && tugasDetail.publication_status === 'DRAFT' ? 'Lengkapi draf tugas, lalu simpan sebagai draf atau ajukan langsung ke Ketua Murid untuk ditinjau.' : 'Versi bertambah dan mahasiswa mungkin menerima notifikasi pembaruan. Versi baru perlu diperiksa KM.'"></p>
     <div x-show="tugasConflict" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900">
       <p class="font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Ada perubahan yang lebih baru</p>
       <p class="mt-1">Data di server sudah berubah. Input Anda dipertahankan.</p>
@@ -454,8 +638,29 @@
       </div>
     </div>
     <div class="flex flex-col sm:flex-row gap-3 mt-5">
-      <button type="button" @click="bukaDetailTugas(editTugasId)" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Batal</button>
-      <button type="button" @click="simpanUbahTugas()" class="ui-button ui-button--primary flex-1 font-semibold">Simpan Perubahan</button>
+      <button type="button" @click="bukaDetailTugas(editTugasId)" class="ui-button ui-button--ghost h-11 px-5 rounded-xl border border-border font-medium min-h-[44px]">Batal</button>
+      
+      <!-- Tombol Simpan sebagai Draf (jika saat ini status DRAFT) -->
+      <button
+        type="button"
+        x-show="tugasDetail && tugasDetail.publication_status === 'DRAFT'"
+        @click="simpanUbahTugas('draft')"
+        :disabled="tugasSubmitting"
+        class="ui-button ui-button--outline text-slate-700 h-11 px-5 rounded-xl font-medium min-h-[44px]"
+      >
+        <span x-text="tugasSubmitting ? 'Menyimpan...' : 'Simpan sebagai Draf'">Simpan sebagai Draf</span>
+      </button>
+
+      <!-- Tombol Utama: Ajukan ke Ketua Murid -->
+      <button
+        type="button"
+        @click="simpanUbahTugas('published')"
+        :disabled="tugasSubmitting"
+        class="ui-button ui-button--primary flex-1 h-11 font-semibold flex items-center justify-center gap-1.5"
+      >
+        <span class="material-symbols-outlined text-[18px]">send</span>
+        <span x-text="tugasSubmitting ? 'Menyimpan...' : (tugasDetail && tugasDetail.publication_status === 'DRAFT' ? 'Ajukan ke Ketua Murid untuk Ditinjau' : 'Simpan & Ajukan Pembaruan ke KM')">Ajukan ke Ketua Murid untuk Ditinjau</span>
+      </button>
     </div>
   </div>
 </section>
