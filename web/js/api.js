@@ -624,6 +624,15 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async fetchLegacySchedule(classCode) {
+    const res = await fetch('/api/schedule?class=' + encodeURIComponent(classCode || ''), {
+      credentials: 'same-origin'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) return [];
+    return (json && json.data && Array.isArray(json.data.items)) ? json.data.items : [];
+  },
+
   async getPatterns(params) {
     const qs = new URLSearchParams(params || {}).toString();
     const res = await fetch('/api/v1/schedule/patterns' + (qs ? '?' + qs : ''), {
@@ -716,11 +725,13 @@ const BotApi = {
   },
 
   async getTeachingEvents(filters) {
-    // Backend: GET /api/v1/teaching-events?status= (DRAFT/PUBLISHED/REVOKED).
-    let url = '/api/v1/teaching-events';
-    if (filters && (filters.status || filters.lifecycle)) {
-      url += '?status=' + encodeURIComponent(filters.status || filters.lifecycle);
+    const params = new URLSearchParams();
+    if (filters) {
+      if (filters.status || filters.lifecycle) params.set('status', filters.status || filters.lifecycle);
+      if (filters.scope) params.set('scope', filters.scope);
     }
+    const qs = params.toString();
+    const url = '/api/v1/teaching-events' + (qs ? '?' + qs : '');
     const res = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
     const json = await res.json().catch(() => null);
     if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Perubahan jadwal gagal dimuat.');

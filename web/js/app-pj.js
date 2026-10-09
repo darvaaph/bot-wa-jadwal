@@ -42,21 +42,73 @@ function pjApp() {
 
     navSections: [
       { title: 'UTAMA', items: [
-        { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
+        { id: 'dashboard', label: 'Dashboard', icon: 'space_dashboard' },
       ] },
       { title: 'AKADEMIK', items: [
-        { id: 'tugas', label: 'Tugas Dikelola', img: '/assets/icons/tasks.svg', active: ['tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'] },
-        { id: 'jadwal', label: 'Jadwal Kuliah', img: '/assets/icons/calendar.svg', active: ['jadwal', 'pindah', 'perubahan'] },
-        { id: 'ruangan', label: 'Ruangan', img: '/assets/icons/event.svg' },
-        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
-      ] },
-      { title: 'LAINNYA', items: [
-        { id: 'semester', label: 'Semester', img: '/assets/icons/event.svg' },
-        { id: 'audit', label: 'Riwayat Perubahan', img: '/assets/icons/activity.svg' },
-        { id: 'status', label: 'Status pemeriksaan', img: '/assets/icons/ext-check.svg' },
-        { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' },
+        { id: 'tugas', label: 'Tugas Dikelola', icon: 'assignment', active: ['tugas', 'tambah', 'tinjau-tugas', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'] },
+        { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month', active: ['jadwal', 'pindah', 'perubahan'] },
+        { id: 'materi', label: 'Materi', icon: 'menu_book' },
       ] },
     ],
+
+    pjNavIcon(item) {
+      const icon = item && item.icon;
+      const paths = {
+        'space_dashboard': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l8.08008 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93994l0 8.08008q0 0.55371-0.38965 0.94336-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32959l3.45557 0 0-8.08008-3.45557 0 0 8.08008z m4.62451 0l3.45557 0 0-4.04004-3.45557 0 0 4.04004z m0-5.20557l3.45557 0 0-2.87451-3.45557 0 0 2.87451z"/></svg>',
+        'assignment': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55029 0-0.93994-0.38965-0.38965-0.38965-0.38965-0.93994l0-8.08008q0-0.55029 0.38623-0.93994 0.38965-0.38965 0.93994-0.38965l2.33447 0q0.21191-0.52979 0.67334-0.84766 0.46484-0.31787 1.03223-0.31787 0.56738 0 1.02881 0.31787 0.46484 0.31787 0.67676 0.84766l2.33447 0q0.55029 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55029-0.38965 0.93994-0.38965 0.38965-0.93994 0.38965l-8.08008 0z m0-1.32959l8.08008 0 0-8.08008-8.08008 0 0 8.08008z m1.75-1.16553l2.86426 0q0.24609 0 0.41357-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24609-0.16748-0.41358-0.16748-0.16748-0.41357-0.16748l-2.86426 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41358 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29004l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29345l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41358 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m2.29004-2.78565q0.20166 0 0.33154-0.12988 0.1333-0.1333 0.1333-0.33496 0-0.20166-0.1333-0.33155-0.12988-0.1333-0.33154-0.1333-0.20166 0-0.33496 0.1333-0.12988 0.12988-0.12988 0.33155 0 0.20166 0.12988 0.33496 0.1333 0.12988 0.33496 0.12988z m-4.04004 8.53467l0-8.08008 0 8.08008z"/></svg>',
+        'calendar_month': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z m0 0l0-1.12451 0 1.12451z m4.04004 3.52734q-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408 0-0.25977 0.17432-0.43408 0.17773-0.17773 0.4375-0.17773 0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43408 0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432z m-2.33447 0q-0.25977 0-0.43408-0.17432-0.17432-0.17432-0.17432-0.43408 0-0.25977 0.17432-0.43408 0.17432-0.17773 0.43408-0.17773 0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.43408-0.17432 0.17774-0.43408 0.17773z m4.66894 0q-0.25635 0-0.43408-0.17432-0.17773-0.17773-0.17773-0.43408 0-0.25635 0.17773-0.43067 0.17773-0.17773 0.43408-0.17773 0.25635 0 0.43067 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17432 0.43408-0.17432 0.17774-0.43408 0.17773z m-2.33447 2.33447q-0.25977 0-0.4375-0.17773-0.17432-0.17773-0.17432-0.43408 0-0.25635 0.17432-0.43067 0.17773-0.17773 0.4375-0.17773 0.25977 0 0.43408 0.17432 0.17773 0.17432 0.17774 0.43408 0 0.25635-0.17774 0.43408-0.17432 0.17774-0.43408 0.17773z m-2.33447 0q-0.25977 0-0.43408-0.17773-0.17432-0.17773-0.17432-0.43408 0-0.25635 0.17432-0.43067 0.17432-0.17773 0.43408-0.17773 0.25977 0 0.43408 0.17432 0.17773 0.17773 0.17773 0.43408 0 0.25977-0.17773 0.43408-0.17432 0.17774-0.43408 0.17773z m4.66894 0q-0.25635 0-0.43408-0.17773-0.17773-0.17773-0.17773-0.43408 0-0.25635 0.17773-0.43067 0.17773-0.17773 0.43408-0.17773 0.25635 0 0.43067 0.17432 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17432 0.43408-0.17432 0.17774-0.43408 0.17773z"/></svg>',
+        'menu_book': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z m1.15528-6.36767q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.03418 0.56055 0.09229 0.1333 0.03076 0.22558 0.15039 0.0957 0.11621 0.09571 0.26318 0 0.24609-0.16065 0.3623-0.16064 0.11279-0.40673 0.05469-0.2085-0.04102-0.43067-0.06152-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.06836-0.69726 0.18799-0.26318 0.09912-0.43408-0.01709-0.1709-0.11621-0.1709-0.38281z m0 3.20947q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.22217 0.42725-0.0752 0.89551-0.07519 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.03076 0.22558 0.14697 0.0957 0.11621 0.09571 0.26318 0 0.24951-0.16065 0.36573-0.16064 0.11279-0.40673 0.05468-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02392-0.37939 0-0.7417 0.06494-0.3623 0.06494-0.69726 0.18115-0.26318 0.10254-0.43408-0.00683-0.1709-0.11279-0.1709-0.37598z m0-1.60303q0-0.12988 0.09228-0.26318 0.09229-0.13672 0.2085-0.18115 0.42383-0.14355 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.02734 0.22558 0.14697 0.0957 0.11621 0.09571 0.26319 0 0.24951-0.16065 0.36572-0.16064 0.11279-0.40673 0.05469-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.07178-0.69726 0.18799-0.26318 0.10254-0.43408-0.01368-0.1709-0.11963-0.1709-0.38281z"/></svg>'
+      };
+      return paths[icon] || '';
+    },
+
+    pjBreadcrumbs() {
+      const c = [];
+      c.push({ label: 'Sistem', action: () => this.go('dashboard'), clickable: true });
+      const kelas = this.dashboardData?.class?.code || this.dashboardData?.class?.label || this.selectedClass || 'D4-TI 1A';
+      c.push({ label: kelas, action: () => this.go('dashboard'), clickable: false });
+
+      if (this.view === 'dashboard') {
+        c.push({ label: 'Ruang Kerja PJ', active: true });
+      } else if (['tugas', 'tambah', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'].includes(this.view)) {
+        if (this.view === 'tugas') {
+          c.push({ label: 'Tugas Dikelola', active: true });
+        } else {
+          c.push({ label: 'Tugas Dikelola', action: () => this.go('tugas'), clickable: true });
+          if (this.view === 'tambah') {
+            c.push({ label: 'Tambah Draf Baru', active: true });
+          } else if (this.view === 'ubah-tugas') {
+            const id = this.editTugasId || this.tugasDetail?.id || '';
+            const isFix = this.tugasKoreksi || (this.tugasDetail && String(this.tugasDetail.review_state || '').toUpperCase() === 'CHANGES_REQUESTED');
+            c.push({ label: isFix ? `Perbaiki Draf #${id || ''}`.trim() : `Ubah Draf #${id || ''}`.trim(), active: true });
+          } else if (this.view === 'detail-tugas') {
+            c.push({ label: 'Detail Tugas', active: true });
+          } else if (this.view === 'preview') {
+            c.push({ label: 'Pratinjau Pesan', active: true });
+          } else if (this.view === 'konfirmasi') {
+            c.push({ label: 'Konfirmasi Pengajuan', active: true });
+          } else {
+            c.push({ label: this.view, active: true });
+          }
+        }
+      } else if (['jadwal', 'pindah', 'perubahan'].includes(this.view)) {
+        if (this.view === 'jadwal') {
+          c.push({ label: 'Jadwal Kuliah', active: true });
+        } else {
+          c.push({ label: 'Jadwal Kuliah', action: () => this.go('jadwal'), clickable: true });
+          c.push({ label: this.view === 'pindah' ? 'Pindah Jadwal' : 'Perubahan Jadwal', active: true });
+        }
+      } else if (this.view === 'materi') {
+        c.push({ label: 'Materi Kuliah', active: true });
+      } else if (this.view === 'akun') {
+        c.push({ label: 'Pengaturan Akun', active: true });
+      } else if (this.view === 'audit') {
+        c.push({ label: 'Riwayat Perubahan', active: true });
+      } else {
+        c.push({ label: (this.nav?.find(item => item.id === this.view)?.label) || this.view, active: true });
+      }
+      return c;
+    },
 
     get nav() { return this.navSections.flatMap(s => s.items); },
     get pjNav() { return this.nav; },
@@ -462,9 +514,55 @@ function pjApp() {
     },
 
     get weekLabel() {
-      const fmt = (d) => d.getDate() + ' ' + d.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
       const days = this.weekDays;
-      return `${fmt(days[0].full)} – ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+      const startDay = days[0].dateNum;
+      const endDay = days[4].dateNum;
+      const month = days[4].full.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
+      const year = days[4].full.getFullYear();
+      return `${startDay} – ${endDay} ${month} ${year}`;
+    },
+
+    get pekanNum() {
+      return Math.max(1, 6 + this.weekOffset);
+    },
+
+    activeSemesterLabel() {
+      if (this.semesterData && this.semesterData.active) {
+        const s = this.semesterData.active;
+        return `${s.term === 'ODD' ? 'Semester Ganjil' : 'Semester Genap'} ${s.academic_year || ''} (Aktif)`;
+      }
+      return 'Semester Ganjil 2026/2027 (Aktif)';
+    },
+
+    isMatkulSaya(s) {
+      if (!s) return false;
+      if (this.offeringId && s.offeringId && String(s.offeringId) === String(this.offeringId)) return true;
+      const sm = String(s.matkul || '').trim().toLowerCase();
+      const pm = String(this.pjMatkul || '').trim().toLowerCase();
+      if (pm && sm && (sm === pm || sm.includes(pm) || pm.includes(sm))) return true;
+      return false;
+    },
+
+    sesiType(s) {
+      if (!s) return 'Teori';
+      if (s.eventKind === 'REPLACEMENT') return 'Pengganti';
+      const m = String(s.matkul || '').toLowerCase();
+      const act = String(s.activityType || '').toLowerCase();
+      if (m.includes('praktikum') || m.includes('praktik') || act.includes('practic')) return 'Praktikum';
+      return 'Teori';
+    },
+
+    sesiTypeBadgeClass(s) {
+      const type = this.sesiType(s);
+      if (type === 'Pengganti') return 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]';
+      if (type === 'Praktikum') return 'bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]';
+      return 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]';
+    },
+
+    daySessionCountLabel(dayName) {
+      const cnt = this.daySessions(dayName).length;
+      if (cnt === 0) return '0 Sesi';
+      return `${cnt} Sesi`;
     },
 
     // Slot jam unik ascending. Fixed baseline agar grid stabil saat data kosong,
@@ -504,7 +602,7 @@ function pjApp() {
     },
 
     daySessions(dayName) {
-      return this.scopeList
+      return (this.fullSchedule || [])
         .filter(s => s.hari === dayName)
         .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
         .slice()
@@ -512,7 +610,7 @@ function pjApp() {
     },
 
     goPindah(dayName, slotHH) {
-      this.mulaiUbah({ dayName: dayName, slotHH: slotHH });
+      this.mulaiUbah({ dayName: dayName, slotHH: slotHH, kind: 'REPLACEMENT' });
     },
 
     // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
@@ -537,6 +635,18 @@ function pjApp() {
     // SCR-SCH-001 daftar pola · SCR-SCH-002 form · SCR-SCH-003 tinjau
     // SCR-SCH-004 detail · SCR-SCH-005 partisipasi kelas (KM pemilik)
     jadwalSub: 'daftar',
+    schedViewMode: 'calendar', // 'calendar' | 'list'
+    scheduleLoading: false,
+    scheduleError: '',
+    showRoomQuickCheck: false,
+    showLabGuide: false,
+    roomQuickDate: '',
+    roomQuickStart: '08:40',
+    roomQuickEnd: '10:20',
+    roomQuickBuilding: '',
+    roomQuickLoading: false,
+    roomQuickResults: [],
+    roomQuickError: '',
     filtMatkul: '', filtDosen: '', filtRuang: '',
     polaLoading: false, polaError: '',
     polaForm: { id: '', version: 0, offeringId: '', day: '1', start: '', end: '', roomId: '', link: '', effectiveDate: '' },
@@ -623,6 +733,62 @@ function pjApp() {
     },
 
     hapusPolaFilter() { this.filtMatkul = ''; this.filtDosen = ''; this.filtRuang = ''; },
+
+    bukaCekRuangan() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      this.roomQuickDate = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      this.showRoomQuickCheck = true;
+      this.cariRuanganCepat();
+    },
+
+    async cariRuanganCepat() {
+      this.roomQuickLoading = true;
+      this.roomQuickError = '';
+      try {
+        const d = this.roomQuickDate || new Date().toISOString().slice(0, 10);
+        const startsAt = `${d}T${this.roomQuickStart || '08:40'}:00Z`;
+        const endsAt = `${d}T${this.roomQuickEnd || '10:20'}:00Z`;
+        const [rooms, candidates] = await Promise.all([
+          API.getMasterRooms('ACTIVE').catch(() => []),
+          API.getRoomAvailability(startsAt, endsAt).catch(() => [])
+        ]);
+        const candidateSet = new Set((candidates || []).map(c => String(c.id || c.room_id)));
+        
+        let list = (rooms || []).map(r => {
+          const isCandidate = candidateSet.size === 0 || candidateSet.has(String(r.id));
+          return {
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            building: r.building || 'Gedung Kuliah',
+            capacity: r.capacity || 40,
+            available: isCandidate
+          };
+        });
+
+        if (this.roomQuickBuilding) {
+          list = list.filter(r => String(r.building).toLowerCase().includes(this.roomQuickBuilding.toLowerCase()));
+        }
+        this.roomQuickResults = list;
+      } catch (e) {
+        this.roomQuickError = 'Gagal memuat ketersediaan ruangan.';
+        this.roomQuickResults = [];
+      } finally {
+        this.roomQuickLoading = false;
+      }
+    },
+
+    pilihRuanganCepat(r) {
+      this.showRoomQuickCheck = false;
+      this.mulaiUbah({
+        roomId: r.id,
+        date: this.roomQuickDate,
+        start: this.roomQuickStart,
+        end: this.roomQuickEnd,
+        kind: 'REPLACEMENT'
+      });
+    },
 
     bukaDaftar() { this.jadwalSub = 'daftar'; window.scrollTo({ top: 0 }); },
 
@@ -1339,33 +1505,85 @@ function pjApp() {
       this.classSlug = scopedClass;
     },
     async loadSchedule() {
+      this.scheduleLoading = true;
+      this.scheduleError = '';
       try {
-        const [rawPatterns, rawEvents] = await Promise.all([API.getPatterns(), API.getTeachingEvents()]);
-        const raw = (rawPatterns || []).filter(p => !this.offeringId || String(p.course_offering_id) === String(this.offeringId));
+        const [rawPatterns, rawEvents] = await Promise.all([
+          API.getPatterns({ scope: 'class' }).catch(() => []),
+          API.getTeachingEvents({ scope: 'class' }).catch(() => [])
+        ]);
         const seen = new Set();
         const list = [];
-        (raw || []).forEach((s, i) => {
+        (rawPatterns || []).forEach((s, i) => {
           const entry = {
-            id: `pattern-${s.id || i}`, hari: this.polaHariName(s.day_of_week),
+            id: `pattern-${s.id || i}`,
+            offeringId: s.course_offering_id,
+            hari: this.polaHariName(s.day_of_week),
             jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
             matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
-            dosen: s.lecturer || s.dosen || '', ruang: s.room || s.room_code || '',
-            timeStart: String(s.start_time || '').slice(0, 5), timeEnd: String(s.end_time || '').slice(0, 5)
+            dosen: s.lecturer || s.dosen || '',
+            ruang: s.room || s.room_code || '',
+            timeStart: String(s.start_time || '').slice(0, 5),
+            timeEnd: String(s.end_time || '').slice(0, 5),
+            activityType: s.activity_type || ''
           };
           const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
           if (seen.has(key)) return;
           seen.add(key);
           list.push(entry);
         });
-        (rawEvents || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED' && (!this.offeringId || String(e.offering_id) === String(this.offeringId))).forEach((e, i) => {
+        (rawEvents || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED').forEach((e, i) => {
           const start = new Date(e.starts_at), end = new Date(e.ends_at);
           if (Number.isNaN(start.getTime())) return;
           const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
           const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-          list.push({ id: `event-${e.id || i}`, hari, jam: `${hm(start)} - ${hm(end)}`, matkul: e.offering || 'Mata Kuliah', dosen: '', ruang: e.room || '', timeStart: hm(start), timeEnd: hm(end), eventKind: e.event_kind });
+          let originDateNote = '';
+          if (e.origin_occurrence_date) {
+            try {
+              const od = new Date(e.origin_occurrence_date);
+              originDateNote = od.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
+            } catch (err) { originDateNote = e.origin_occurrence_date; }
+          }
+          list.push({
+            id: `event-${e.id || i}`,
+            offeringId: e.offering_id,
+            hari,
+            jam: `${hm(start)} - ${hm(end)}`,
+            matkul: e.offering || 'Mata Kuliah',
+            dosen: '',
+            ruang: e.room || '',
+            timeStart: hm(start),
+            timeEnd: hm(end),
+            eventKind: e.event_kind,
+            originDateNote
+          });
         });
+
+        // Fallback jika database pola kosong: muat dari data legacy kelas jika ada
+        if (list.length === 0 && this.classSlug) {
+          const legacyItems = await API.fetchLegacySchedule(this.classSlug).catch(() => []);
+          (legacyItems || []).forEach((item, idx) => {
+            const parts = (item.jam || '').split('-');
+            list.push({
+              id: `leg-${idx}`,
+              hari: item.hari,
+              jam: item.jam,
+              matkul: item.matkul,
+              dosen: item.dosen,
+              ruang: item.ruang,
+              timeStart: (parts[0] || '').trim(),
+              timeEnd: (parts[1] || '').trim()
+            });
+          });
+        }
+
         this.fullSchedule = list;
-      } catch (e) { this.fullSchedule = []; }
+      } catch (e) {
+        this.fullSchedule = [];
+        this.scheduleError = 'Jadwal perkuliahan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.scheduleLoading = false;
+      }
     },
 
     async loadTasks() {

@@ -293,11 +293,11 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 		WHERE sp.status = 'ACTIVE'
 	`
 	var args []any
-
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid {
+	scopeParam := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
+	if u.ActiveRole == "PJ" && scopeParam != "class" && u.ActiveCourseOfferingID.Valid {
 		query += " AND sp.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" && u.ActiveClassID.Valid {
+	} else if (u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class")) && u.ActiveClassID.Valid {
 		query += " AND sem.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	}
@@ -699,16 +699,17 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 	`
 	var args []any
 
-	if u.ActiveRole == "PJ" {
+	scopeParam := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
+	if u.ActiveRole == "PJ" && scopeParam != "class" {
 		if !u.ActiveCourseOfferingID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
 			return
 		}
 		query += " AND co.id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") {
 		if !u.ActiveClassID.Valid {
-			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak aktif")
 			return
 		}
 		query += ` AND EXISTS (
