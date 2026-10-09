@@ -37,50 +37,142 @@
     </button>
   </div>
 
-  <!-- Form Tambah / Ubah Materi (Terbuka hanya saat tombol ditekan) -->
-  <div x-show="materiFormOpen" class="box-border w-full p-5 bg-white border border-[#E2E8F0] rounded-[16px] shadow-sm flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-[16px] font-bold text-[#0F172A]" x-text="editMateriId ? 'Ubah Berkas Materi' : 'Tambah Berkas Materi'">Tambah Berkas Materi</h2>
-      <button type="button" @click="batalUbahMateri()" class="text-slate-400 hover:text-slate-600 text-[13px] font-medium cursor-pointer">Batal</button>
-    </div>
+  <!-- Modal Tambah / Ubah Materi (SCR-PJ-MAT-002) -->
+  <div x-show="materiFormOpen" x-transition.opacity.duration.200ms
+       class="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 overflow-y-auto"
+       @click.self="batalUbahMateri()"
+       @keydown.escape.window="if (materiFormOpen) batalUbahMateri()">
+    
+    <div class="box-border w-full max-w-[512px] h-fit shadow-[0px_18px_40px_rgba(15,23,42,0.28)] flex flex-col gap-0 justify-start items-start bg-[#FFFFFF] outline outline-1 outline-[#E2E8F0] -outline-offset-[0.5px] rounded-[16px] overflow-hidden my-auto"
+         role="dialog" aria-modal="true" :aria-label="editMateriId ? 'Ubah Materi Kuliah' : 'Tambah Materi Kuliah'">
 
-    <div x-show="materiFormError" class="p-3 rounded-[10px] bg-red-50 border border-red-200 text-[12px] text-red-700" x-text="materiFormError"></div>
+      <!-- Header Tambah Materi -->
+      <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[16px] p-[24px] justify-between items-start border-b border-[#F1F5F9]">
+        <div class="box-border flex-1 h-fit flex flex-col gap-[6px] justify-start items-start">
+          <!-- Konteks Mata Kuliah Terkunci -->
+          <div class="box-border w-fit h-fit shrink-0 flex flex-row gap-[5px] p-[4px_8px] justify-start items-center bg-[#EFF6FF] outline outline-1 outline-[#BFDBFE] -outline-offset-[0.5px] rounded-[6px]">
+            <svg viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="box-border w-[12px] shrink-0 h-[12px] text-[#1D4ED8]" aria-hidden="true">
+              <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0z m0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m3.14111-2.04053q0.36914 0 0.62207-0.25293 0.25293-0.25293 0.25293-0.62207 0-0.36914-0.25293-0.62207-0.25293-0.25293-0.62207-0.25293-0.36914 0-0.62207 0.25293-0.25293 0.25293-0.25293 0.62207 0 0.36914 0.25293 0.62207 0.25293 0.25293 0.62207 0.25293z m-1.75-4.375l3.5 0 0-1.16553q0-0.73145-0.5127-1.24072-0.50928-0.50928-1.2373-0.50928-0.72803 0-1.24072 0.50928-0.50928 0.50928-0.50928 1.24072l0 1.16553z m-1.75 6.41553q0 0 0-0.09912 0-0.10254 0-0.25977l0-5.11328q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.10254 0 0.09912 0 0.25635l0 5.11328q0 0.15723 0 0.25977 0 0.09912 0 0.09912z" fill="#1D4ED8"></path>
+            </svg>
+            <div class="text-[10px] leading-normal box-border text-[#1D4ED8] font-bold text-left whitespace-nowrap uppercase"
+                 x-text="'MATA KULIAH: ' + String(pjMatkul || 'BASIS DATA').toUpperCase()">
+              MATA KULIAH: BASIS DATA
+            </div>
+          </div>
+          <!-- Judul Dialog -->
+          <div class="text-[18px] leading-normal box-border text-[#0F172A] font-bold text-left whitespace-nowrap"
+               x-text="editMateriId ? 'Ubah Materi Kuliah' : 'Tambah Materi Kuliah'">
+            Tambah Materi Kuliah
+          </div>
+          <!-- Penjelasan Publikasi Materi -->
+          <div class="text-[12px] leading-[17px] box-border w-full text-[#64748B] font-normal text-left">
+            Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.
+          </div>
+        </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="sm:col-span-2">
-        <label class="block text-[12px] font-semibold text-[#475569] mb-1">Judul Berkas <span class="text-rose-500">*</span></label>
-        <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide Normalisasi Database: 1NF hingga BCNF" class="ui-field w-full text-[13px] h-[40px] px-3 border border-[#E2E8F0] rounded-[10px]" />
+        <!-- Tutup Dialog -->
+        <button type="button" @click="batalUbahMateri()" aria-label="Tutup dialog"
+                class="box-border w-[32px] shrink-0 h-[32px] flex flex-row gap-0 justify-center items-center hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-[#64748B]">
+          <svg viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="box-border w-[20px] shrink-0 h-[20px]" aria-hidden="true">
+            <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z" fill="currentColor"></path>
+          </svg>
+        </button>
       </div>
 
-      <div>
-        <label class="block text-[12px] font-semibold text-[#475569] mb-1">Kategori Berkas</label>
-        <select x-model="materiForm.material_type" class="ui-field w-full text-[13px] h-[40px] px-3 border border-[#E2E8F0] rounded-[10px] bg-white">
-          <option value="DOCUMENT">Slide &amp; Dokumen (PDF)</option>
-          <option value="MEETING">Rekaman Kuliah (Video)</option>
-          <option value="REPOSITORY">Repositori &amp; Skrip SQL</option>
-          <option value="PORTAL">Referensi &amp; Tautan</option>
-          <option value="OTHER">Lainnya</option>
-        </select>
+      <!-- Form Tambah Materi -->
+      <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[16px] p-[24px] justify-start items-start">
+        
+        <!-- Error Banner jika ada -->
+        <div x-show="materiFormError" class="box-border w-full p-3 rounded-[12px] bg-rose-50 border border-rose-200 text-[12px] text-rose-700 font-medium" x-text="materiFormError"></div>
+
+        <!-- Judul Materi -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <label class="text-[12px] leading-normal box-border text-[#334155] font-semibold text-left whitespace-nowrap">
+            Judul Materi / Berkas *
+          </label>
+          <input type="text" x-model="materiForm.title"
+                 placeholder="Contoh: Slide Pertemuan 04 - Normalisasi BCNF & SQL DDL"
+                 class="box-border w-full h-[44px] shrink-0 px-[14px] bg-[#FFFFFF] outline outline-1 outline-[#CBD5E1] -outline-offset-[0.5px] focus:outline-2 focus:outline-[#2563EB] rounded-[12px] text-[12px] text-[#1E293B] placeholder-[#64748B] transition-all" />
+        </div>
+
+        <!-- Kategori Jenis Materi -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <label class="text-[12px] leading-normal box-border text-[#334155] font-semibold text-left whitespace-nowrap">
+            Kategori Jenis Materi *
+          </label>
+          <div class="relative w-full h-[44px] shrink-0">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#475569]">
+              <svg viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="box-border w-[18px] shrink-0 h-[18px]" aria-hidden="true">
+                <path d="M5.25 10.20947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.21191 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508 0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08203z m0-2.33447l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m-1.39111 4.375q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-8.61328q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.20752 0q0.18799 0 0.36572 0.07861 0.17773 0.0752 0.3042 0.20166l2.06787 2.06446q0.12646 0.12646 0.20166 0.3042 0.07861 0.17773 0.07861 0.36914l0 6.53857q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-6.28222 0z m4.30664-8.05615l0-1.85938-4.30664 0q-0.1333 0-0.2461 0.1128-0.11279 0.10938-0.11279 0.24609l0 8.61328q0 0.13672 0.11279 0.24951 0.11279 0.10938 0.2461 0.10938l6.28222 0q0.1333 0 0.2461-0.10938 0.11279-0.11279 0.11279-0.24951l0-6.64111-1.86279 0q-0.20166 0-0.33838-0.1333-0.1333-0.1333-0.1333-0.33838z m-4.66553-1.85938l0 1.85938q0 0.20508 0 0.33838 0 0.1333 0 0.1333l0-2.33106 0 1.85938q0 0.20508 0 0.33838 0 0.1333 0 0.1333l0 6.64111q0 0.13672 0 0.24951 0 0.10938 0 0.10938 0 0 0-0.10938 0-0.11279 0-0.24951l0-8.61328q0-0.13672 0-0.24609 0-0.11279 0-0.1128z" fill="currentColor"></path>
+              </svg>
+            </div>
+            <select x-model="materiForm.material_type"
+                    class="box-border w-full h-[44px] pl-10 pr-9 bg-[#FFFFFF] outline outline-1 outline-[#CBD5E1] -outline-offset-[0.5px] focus:outline-2 focus:outline-[#2563EB] rounded-[12px] text-[12px] text-[#1E293B] font-medium appearance-none cursor-pointer">
+              <option value="DOCUMENT">Dokumen / Slide Presentasi (PDF, PPT, DOCX)</option>
+              <option value="MEETING">Rekaman Kuliah (Video / Audio)</option>
+              <option value="REPOSITORY">Repositori &amp; Skrip SQL (GitHub, GitLab, .sql)</option>
+              <option value="PORTAL">Referensi &amp; Tautan (Web Portal, LMS)</option>
+              <option value="OTHER">Lainnya</option>
+            </select>
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#64748B]">
+              <svg viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="box-border w-[18px] shrink-0 h-[18px]" aria-hidden="true">
+                <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z" fill="currentColor"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tautan URL Materi -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <label class="text-[12px] leading-normal box-border text-[#334155] font-semibold text-left whitespace-nowrap">
+            Tautan URL Materi (Opsional bila hanya catatan)
+          </label>
+          <input type="url" x-model="materiForm.url"
+                 placeholder="https://drive.google.com/file/d/... atau https://github.com/..."
+                 class="box-border w-full h-[44px] shrink-0 px-[14px] bg-[#FFFFFF] outline outline-1 outline-[#CBD5E1] -outline-offset-[0.5px] focus:outline-2 focus:outline-[#2563EB] rounded-[12px] font-mono text-[11px] text-[#1E293B] placeholder-[#64748B] transition-all" />
+          <div class="text-[11px] leading-[16px] box-border w-full text-[#64748B] font-normal text-left">
+            Pastikan izin akses Google Drive diatur ke “Siapa saja yang memiliki tautan dapat melihat”.
+          </div>
+        </div>
+
+        <!-- Deskripsi dan Instruksi Dosen -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <label class="text-[12px] leading-normal box-border text-[#334155] font-semibold text-left whitespace-nowrap">
+            Deskripsi &amp; Instruksi Dosen
+          </label>
+          <textarea x-model="materiForm.description" rows="3"
+                    placeholder="Jelaskan ringkasan materi atau bagian yang harus dipelajari sebelum praktikum..."
+                    class="box-border w-full h-[88px] shrink-0 p-[12px] bg-[#FFFFFF] outline outline-1 outline-[#CBD5E1] -outline-offset-[0.5px] focus:outline-2 focus:outline-[#2563EB] rounded-[12px] text-[12px] text-[#1E293B] placeholder-[#64748B] resize-none transition-all"></textarea>
+        </div>
+
+        <!-- Catatan Pengelompokan Otomatis -->
+        <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[12px] justify-start items-center bg-[#F8FAFC] outline outline-1 outline-[#E2E8F0] -outline-offset-[0.5px] rounded-[12px]">
+          <svg viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="box-border w-[18px] shrink-0 h-[18px] text-[#2563EB]" aria-hidden="true">
+            <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z" fill="#2563EB"></path>
+          </svg>
+          <div class="text-[11px] leading-[17px] box-border flex-1 text-[#475569] font-normal text-left"
+               x-text="'Materi ini akan dikelompokkan otomatis di bawah mata kuliah ' + (pjMatkul || 'Basis Data') + ' pada portal publik kelas.'">
+            Materi ini akan dikelompokkan otomatis di bawah mata kuliah Basis Data pada portal publik kelas.
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label class="block text-[12px] font-semibold text-[#475569] mb-1">Tautan Berkas (URL)</label>
-        <input type="url" x-model="materiForm.url" placeholder="https://drive.google.com/... atau https://github.com/..." class="ui-field w-full text-[13px] h-[40px] px-3 border border-[#E2E8F0] rounded-[10px]" />
+      <!-- Aksi Simpan Materi (Footer Dialog) -->
+      <div class="box-border w-full h-[75.5px] shrink-0 flex flex-row gap-[12px] p-[16px_24px] justify-end items-center bg-[#F8FAFC] border-t border-[#F1F5F9]">
+        <button type="button" @click="batalUbahMateri()"
+                class="box-border w-fit shrink-0 h-[44px] flex flex-row gap-0 px-[18px] justify-start items-center bg-[#FFFFFF] outline outline-1 outline-[#CBD5E1] -outline-offset-[0.5px] hover:bg-slate-50 rounded-[12px] transition-colors cursor-pointer text-[12px] text-[#334155] font-semibold">
+          Batal
+        </button>
+
+        <button type="button" @click="simpanMateri()" :disabled="materiSaving"
+                class="box-border w-fit shrink-0 h-[44px] shadow-[0px_2px_6px_#3B82F633] flex flex-row gap-2 px-[20px] justify-center items-center bg-[#2563EB] hover:bg-[#1D4ED8] rounded-[12px] transition-colors cursor-pointer text-[12px] text-[#FFFFFF] font-semibold disabled:opacity-50">
+          <span x-show="materiSaving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan Perubahan' : 'Simpan & Publikasikan')">
+            Simpan &amp; Publikasikan
+          </span>
+        </button>
       </div>
 
-      <div class="sm:col-span-2">
-        <label class="block text-[12px] font-semibold text-[#475569] mb-1">Deskripsi / Keterangan Singkat</label>
-        <input type="text" x-model="materiForm.description" placeholder="Contoh: Format: PDF · Modul pekan ke-5" class="ui-field w-full text-[13px] h-[40px] px-3 border border-[#E2E8F0] rounded-[10px]" />
-      </div>
-    </div>
-
-    <div class="flex items-center gap-2 pt-2">
-      <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold rounded-[10px] transition-colors cursor-pointer disabled:opacity-50">
-        <span x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan Perubahan' : 'Simpan Berkas')">Simpan Berkas</span>
-      </button>
-      <button type="button" @click="batalUbahMateri()" class="h-[40px] px-4 border border-[#E2E8F0] hover:bg-slate-50 text-[#475569] text-[12px] font-medium rounded-[10px] transition-colors cursor-pointer">
-        Batal
-      </button>
     </div>
   </div>
 

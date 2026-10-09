@@ -2988,6 +2988,10 @@ function pjApp() {
       if (!slug) { this.materiFormError = 'Kelas belum termuat.'; return; }
       if (!this.offeringId) { this.materiFormError = 'Pilih mata kuliah penugasan di Dashboard dulu.'; return; }
       if (!((f.title || '').trim()) || String(f.title).trim().length < 3) { this.materiFormError = 'Judul materi minimal 3 karakter.'; return; }
+      if ((f.url || '').trim() && !/^https?:\/\//i.test(f.url.trim())) {
+        this.materiFormError = 'Tautan URL harus diawali dengan http:// atau https://';
+        return;
+      }
       this.materiFormError = '';
       this.materiSaving = true;
       try {
