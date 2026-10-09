@@ -1786,7 +1786,9 @@ const BotApi = {
   },
 
   async changeAssignmentStatus(id, aksi, reason, force) {
-    const endpoint = aksi === 'cabut' ? 'revoke' : 'suspend';
+    let endpoint = 'suspend';
+    if (aksi === 'cabut') endpoint = 'revoke';
+    else if (aksi === 'aktifkan') endpoint = 'activate';
     const res = await fetch('/api/v1/admin/assignments/' + encodeURIComponent(id) + '/' + endpoint, {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
       body: JSON.stringify({ reason: reason || '', force: !!force })

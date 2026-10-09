@@ -171,18 +171,24 @@ function kmApp() {
     notifAttemptsLoading: false,
     notifAttemptsError: '',
 
-    // Penugasan Peran (daftar PJ + undangan + tangguhkan/cabut).
+    // Penugasan Peran (daftar PJ + undangan + tangguhkan/cabut/aktifkan).
     penugasanList: [],
     penugasanLoading: false,
     penugasanError: '',
     undanganList: [],
     undanganLoading: false,
     undanganError: '',
-    penugasanAksi: null,
-    penugasanAlasan: '',
-    penugasanError: '',
-    penugasanSaving: false,
-    penugasanPemicu: null,
+    cachedInviteLinks: {},
+    menuPJOpenId: null,
+
+    // Modal Undang PJ (SCR-KM-MEM-002)
+    modalUndangOpen: false,
+    modalUndangForm: { offeringId: '', nomor: '', saving: false, error: '' },
+    modalUndangHasil: null,
+    modalUndangCopied: false,
+
+    // Modal Konfirmasi Aksi PJ (SCR-KM-MEM-001)
+    modalAksiPJ: { open: false, aksi: 'tangguhkan', pj: null, alasan: '', saving: false, error: '' },
 
     reviewId: null,
     reviewMode: 'koreksi',
@@ -1830,7 +1836,13 @@ function kmApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'tugas') this.tugasSub = 'list';
-      if (v === 'anggota') { this.anggotaSub = 'list'; this.loadPenugasan(); this.loadUndanganKM(); }
+      if (v === 'anggota') {
+        this.loadPenugasan();
+        this.loadUndanganKM();
+        if (!this.offeringList || this.offeringList.length === 0) {
+          this.loadOfferings().catch(() => {});
+        }
+      }
       if (v === 'semester') this.loadSemesters();
       if (v === 'materi') this.loadMateri();
       if (v === 'ruangan') { this.loadDirectoryRooms(); this.loadRoomHistory(); }
@@ -3480,77 +3492,233 @@ function kmApp() {
       return this.penugasanList.filter(a => String(a.role || '').toUpperCase() === 'KM');
     },
 
-    mulaiAksiPenugasan(a, aksi, pemicu) {
-      const status = String(a.status || '').toUpperCase();
-      if (String(a.role || '').toUpperCase() !== 'PJ') return;
-      if (aksi === 'tangguhkan' && status !== 'ACTIVE') return;
-      if (aksi === 'cabut' && status !== 'ACTIVE' && status !== 'SUSPENDED') return;
-      this.penugasanAksi = {
-        id: a.id,
-        aksi: aksi,
-        nama: a.display_name || a.username || ('#' + a.id),
-        mataKuliah: a.offering_display || a.course_name || a.course_code || 'Mata kuliah belum tercatat',
-        kode: a.course_code || ''
-      };
-      this.penugasanAlasan = '';
-      this.penugasanError = '';
-      this.penugasanPemicu = pemicu || null;
-      this.$nextTick(() => {
-        const dialog = document.getElementById('km-penugasan-dialog');
-        if (dialog && !dialog.open) dialog.showModal();
-      });
+    pjInisial(name) {
+      if (!name) return 'PJ';
+      const parts = String(name).trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     },
 
-    tutupAksiPenugasan() {
-      if (this.penugasanSaving) return;
-      const dialog = document.getElementById('km-penugasan-dialog');
-      if (dialog?.open) dialog.close();
-      else this.selesaikanAksiPenugasan();
+    pjOfferingBadge(a) {
+      if (!a) return 'PJ';
+      let title = a.offering_display || a.course_name || '';
+      let code = a.course_code || '';
+      if (!title && a.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(a.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = code || off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+      return 'PJ · ' + title + (code && !title.includes(code) ? ' (' + code + ')' : '');
     },
 
-    selesaikanAksiPenugasan() {
-      const pemicu = this.penugasanPemicu;
-      this.penugasanAksi = null;
-      this.penugasanAlasan = '';
-      this.penugasanError = '';
-      this.penugasanPemicu = null;
-      this.$nextTick(() => {
-        if (pemicu?.isConnected) pemicu.focus();
-        else document.getElementById('km-penugasan-heading')?.focus();
-      });
+    undanganOfferingBadge(u) {
+      if (!u) return 'PJ';
+      let title = '';
+      let code = '';
+      if (u.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(u.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+      return 'PJ · ' + title + (code && !title.includes(code) ? ' (' + code + ')' : '');
     },
 
-    async jalankanAksiPenugasan() {
-      const a = this.penugasanAksi;
-      if (!a || this.penugasanSaving) return;
-      if (!((this.penugasanAlasan || '').trim())) {
-        this.penugasanError = 'Isi alasan tindakan terlebih dahulu.';
-        document.getElementById('km-penugasan-alasan')?.focus();
+    sisaHariUndangan(expiresAt) {
+      if (!expiresAt) return '';
+      try {
+        const exp = new Date(expiresAt).getTime();
+        const now = Date.now();
+        const diffMs = exp - now;
+        if (diffMs <= 0) return 'Kedaluwarsa';
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays <= 1) return 'Sisa < 1 hari';
+        return `Sisa ${diffDays} hari`;
+      } catch (e) {
+        return '';
+      }
+    },
+
+    fmtTanggalUndangan(expiresAt) {
+      if (!expiresAt) return '-';
+      try {
+        const d = new Date(expiresAt);
+        if (isNaN(d.getTime())) return expiresAt;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      } catch (e) {
+        return expiresAt;
+      }
+    },
+
+    bukaModalUndangPJ() {
+      this.modalUndangOpen = true;
+      this.modalUndangForm = { offeringId: '', nomor: '', saving: false, error: '' };
+      this.modalUndangHasil = null;
+      this.modalUndangCopied = false;
+      if (!this.offeringList || this.offeringList.length === 0) {
+        this.loadOfferings().catch(() => {});
+      }
+    },
+
+    tutupModalUndangPJ() {
+      if (this.modalUndangForm.saving) return;
+      this.modalUndangOpen = false;
+      this.modalUndangHasil = null;
+      this.modalUndangForm.error = '';
+    },
+
+    async simpanUndangPJ() {
+      const f = this.modalUndangForm;
+      f.error = '';
+      if (!f.offeringId) {
+        f.error = 'Mata kuliah di kelas ini wajib dipilih.';
         return;
       }
-      this.penugasanSaving = true;
-      this.penugasanError = '';
+      let nomor = String(f.nomor || '').trim();
+      const digitsOnly = nomor.replace(/\D/g, '');
+      if (digitsOnly.length < 9) {
+        f.error = 'Nomor WhatsApp calon PJ tidak valid (minimal 9 digit).';
+        return;
+      }
+      if (nomor.startsWith('08')) {
+        nomor = '+62' + nomor.substring(1);
+      } else if (!nomor.startsWith('+')) {
+        nomor = '+' + nomor;
+      }
+
+      if (!this.semesterId) {
+        f.error = 'Semester aktif tidak ditemukan untuk kelas ini.';
+        return;
+      }
+
+      f.saving = true;
       try {
-        await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), false);
-        this.penugasanSaving = false;
-        this.tutupAksiPenugasan();
-        await this.loadPenugasan();
-        document.getElementById('km-penugasan-heading')?.focus();
-        this.showToast(a.aksi === 'cabut' ? 'Penugasan PJ dicabut.' : 'Penugasan PJ ditangguhkan.');
-      } catch (e) {
-        this.penugasanError = e.message || 'Gagal mengubah penugasan. Coba lagi.';
+        const res = await API.createInvitation({
+          role: 'PJ',
+          class_slug: this.classSlug || this.selectedClass,
+          semester_id: Number(this.semesterId),
+          offering_id: Number(f.offeringId),
+          invited_identity_key: nomor
+        });
+        const token = (res && res.token) ? res.token : '';
+        const link = `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}`;
+        const off = Array.isArray(this.offeringList) ? this.offeringList.find(o => String(o.id) === String(f.offeringId)) : null;
+
+        this.modalUndangHasil = {
+          link: link,
+          token: token,
+          offeringName: off ? (off.display_name || off.course_code) : 'PJ Mata Kuliah',
+          nomor: nomor,
+          invitationId: res && res.invitation_id
+        };
+
+        if (res && res.invitation_id) {
+          this.cachedInviteLinks[res.invitation_id] = link;
+        }
+
+        await this.loadUndanganKM();
+        this.showToast('Undangan PJ berhasil dibuat.');
+      } catch (err) {
+        f.error = err.message || 'Gagal membuat tautan undangan PJ.';
       } finally {
-        this.penugasanSaving = false;
+        f.saving = false;
       }
     },
 
-    async cabutUndanganKM(id) {
+    salinTautanUndangBaru() {
+      if (!this.modalUndangHasil || !this.modalUndangHasil.link) return;
+      this.copyText(this.modalUndangHasil.link, 'Tautan undangan disalin ke clipboard.');
+      this.modalUndangCopied = true;
+      setTimeout(() => { this.modalUndangCopied = false; }, 2000);
+    },
+
+    toggleMenuPJ(id) {
+      this.menuPJOpenId = this.menuPJOpenId === id ? null : id;
+    },
+
+    tutupMenuPJ() {
+      this.menuPJOpenId = null;
+    },
+
+    bukaKonfirmasiPJ(pj, aksi) {
+      this.tutupMenuPJ();
+      if (!pj) return;
+      this.modalAksiPJ = {
+        open: true,
+        aksi: aksi,
+        pj: pj,
+        alasan: '',
+        saving: false,
+        error: ''
+      };
+      this.$nextTick(() => {
+        const el = document.getElementById('pj-konfirmasi-alasan');
+        if (el) el.focus();
+      });
+    },
+
+    tutupKonfirmasiPJ() {
+      if (this.modalAksiPJ.saving) return;
+      this.modalAksiPJ.open = false;
+      this.modalAksiPJ.pj = null;
+      this.modalAksiPJ.alasan = '';
+      this.modalAksiPJ.error = '';
+    },
+
+    async eksekusiAksiPJ() {
+      const m = this.modalAksiPJ;
+      if (!m.pj || m.saving) return;
+      const alasan = (m.alasan || '').trim();
+      if (!alasan) {
+        m.error = 'Alasan tindakan wajib diisi.';
+        const el = document.getElementById('pj-konfirmasi-alasan');
+        if (el) el.focus();
+        return;
+      }
+      m.saving = true;
+      m.error = '';
       try {
-        await API.revokeInvitation(id, 'Dicabut KM');
-        this.showToast('Undangan dicabut.');
+        await API.changeAssignmentStatus(m.pj.id, m.aksi, alasan, false);
+        this.tutupKonfirmasiPJ();
+        await this.loadPenugasan();
+        let msg = 'Status penugasan PJ berhasil diperbarui.';
+        if (m.aksi === 'cabut') msg = 'Penugasan PJ berhasil dicabut.';
+        else if (m.aksi === 'tangguhkan') msg = 'Penugasan PJ berhasil ditangguhkan.';
+        else if (m.aksi === 'aktifkan') msg = 'Penugasan PJ berhasil diaktifkan kembali.';
+        this.showToast(msg);
+      } catch (err) {
+        m.error = err.message || 'Gagal memproses tindakan. Silakan coba lagi.';
+      } finally {
+        m.saving = false;
+      }
+    },
+
+    salinTautanUndangan(u) {
+      if (!u) return;
+      const cached = this.cachedInviteLinks[u.id];
+      if (cached) {
+        this.copyText(cached, 'Tautan undangan disalin ke clipboard.');
+      } else {
+        const portalLink = `${window.location.origin}/invite.html`;
+        this.copyText(portalLink, 'Tautan aktivasi disalin ke clipboard.');
+      }
+    },
+
+    async batalkanUndangan(u) {
+      if (!u) return;
+      if (!confirm('Apakah Anda yakin ingin membatalkan undangan aktivasi PJ ini?')) return;
+      try {
+        await API.revokeInvitation(u.id, 'Dibatalkan oleh KM');
+        this.showToast('Undangan berhasil dibatalkan.');
         await this.loadUndanganKM();
       } catch (e) {
-        this.showToast(e.message || 'Gagal mencabut undangan.');
+        this.showToast(e.message || 'Gagal membatalkan undangan.');
       }
     },
 

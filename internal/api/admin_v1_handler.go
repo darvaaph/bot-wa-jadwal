@@ -65,6 +65,15 @@ func (s *Server) handleAdminSuspendAssignment(w http.ResponseWriter, r *http.Req
 	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
+// handleAdminActivateAssignment menangani POST /api/v1/admin/assignments/{id}/activate
+func (s *Server) handleAdminActivateAssignment(w http.ResponseWriter, r *http.Request) {
+	if s.adminController != nil {
+		s.adminController.ActivateAssignment(w, r)
+		return
+	}
+	http.Error(w, "Admin controller belum diinisialisasi", http.StatusInternalServerError)
+}
+
 // handleAdminRevokeAssignment menangani POST /api/v1/admin/assignments/{id}/revoke
 func (s *Server) handleAdminRevokeAssignment(w http.ResponseWriter, r *http.Request) {
 	if s.adminController != nil {

@@ -119,6 +119,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/users", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetAdminUsers)))
 	mux.HandleFunc("GET /api/v1/admin/assignments", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleGetAdminAssignments)))
 	mux.HandleFunc("POST /api/v1/admin/assignments/{id}/suspend", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminSuspendAssignment)))
+	mux.HandleFunc("POST /api/v1/admin/assignments/{id}/activate", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminActivateAssignment)))
 	mux.HandleFunc("POST /api/v1/admin/assignments/{id}/revoke", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminRevokeAssignment)))
 	mux.HandleFunc("GET /api/v1/admin/invitations", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleGetAdminInvitations)))
 	mux.HandleFunc("POST /api/v1/admin/invitations/{id}/revoke", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN", "KM")(s.handleAdminRevokeInvitation)))
