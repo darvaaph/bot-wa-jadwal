@@ -1,100 +1,192 @@
-<!-- partials/pj/view-dashboard.html — PJ Dashboard -->
-<section x-show="view === 'dashboard'" x-cloak>
-  <div x-show="!dashboardLoading">
-  <div class="p-4 rounded-2xl border border-border bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-2">
-    <div class="min-w-0">
-      <p class="text-[11px] font-semibold tracking-widest text-slate-400">SEDANG MENGELOLA</p>
-      <p class="text-[14px] font-semibold truncate"><span x-text="selectedClass || '—'">-</span> · PJ Mata Kuliah · <span x-text="offeringName() || pjMatkul || '—'">-</span></p>
+<!-- partials/pj/view-dashboard.html — Dashboard PJ Mata Kuliah (SCR-PJ-001) -->
+<section x-show="view === 'dashboard'" x-cloak aria-label="Dashboard Penanggung Jawab Mata Kuliah">
+  <!-- Loading Skeleton State -->
+  <div x-show="dashboardLoading" class="space-y-5" role="status" aria-label="Memuat ruang kerja PJ">
+    <span class="sr-only">Memuat ruang kerja PJ...</span>
+    <div class="h-20 bg-slate-200/70 rounded-2xl animate-pulse"></div>
+    <div class="h-10 w-1/3 bg-slate-200/70 rounded-xl animate-pulse"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="h-32 bg-slate-200/70 rounded-2xl animate-pulse"></div>
+      <div class="h-32 bg-slate-200/70 rounded-2xl animate-pulse"></div>
+      <div class="h-32 bg-slate-200/70 rounded-2xl animate-pulse"></div>
     </div>
-    <button type="button" @click="go('akun')" class="ui-button ui-button--ghost sm:ml-auto h-11 px-4 rounded-xl border border-border bg-white text-[13px] font-medium hover:bg-slate-100 min-h-[44px] shrink-0">Pindah kelas atau peran</button>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">
+      <div class="lg:col-span-7 h-72 bg-slate-200/70 rounded-2xl animate-pulse"></div>
+      <div class="lg:col-span-5 h-72 bg-slate-200/70 rounded-2xl animate-pulse"></div>
+    </div>
   </div>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-4">
+
+  <!-- Error Alert State -->
+  <div x-show="!dashboardLoading && dashboardError" role="alert" class="p-4 rounded-2xl border border-rose-300 bg-rose-50 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 shadow-xs">
     <div>
-      <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Selamat datang di Asterisk</h1>
-      <p class="text-[14px] text-slate-500 mt-1">Ringkasan kelas dan aktivitas bot hari ini</p>
+      <p class="font-bold text-[14px]">Data ruang kerja PJ belum dapat dimuat</p>
+      <p class="text-[12px] text-rose-700 mt-0.5" x-text="dashboardError"></p>
     </div>
-    <button type="button" @click="mulaiTambah()" class="ui-button ui-button--primary text-[14px] font-semibold flex items-center gap-2 self-start">
-      <img src="/assets/icons/plus.svg" alt="" class="w-4 h-4" /><span>Tambah tugas</span>
+    <button type="button" @click="loadPJDashboard()" :disabled="dashboardRefreshing" class="h-9 px-4 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-[12px] font-semibold shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-700">
+      <span x-text="dashboardRefreshing ? 'Memuat ulang...' : 'Coba Lagi'"></span>
     </button>
   </div>
 
-  <div class="p-4 rounded-2xl border border-primary/40 bg-primary-soft/50 mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
-    <p class="text-[13px] font-semibold shrink-0">Mata kuliah yang ditugaskan</p>
-    <select aria-label="Mata kuliah yang ditugaskan" x-model="offeringId" @change="simpanOffering()" class="ui-field flex-1 text-[14px]">
-      <option value="">-- Pilih mata kuliah --</option>
-      <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
-    </select>
-  </div>
-  <p x-show="offeringLoading" class="mt-2 text-[12px] text-slate-500">Memuat daftar mata kuliah...</p>
-  <p x-show="!offeringLoading && pesanOffering()" class="mt-2 text-[12px] text-amber-800">
-    <span x-text="pesanOffering()">-</span>
-    <button type="button" @click="loadOfferings()" class="ui-button ui-button--ghost font-semibold underline ml-1">Muat ulang</button>
-  </p>
-
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-    <div class="ui-card p-5">
-      <p class="text-[13px] text-slate-500">Tugas saya</p>
-      <p class="text-[32px] font-bold leading-tight" x-text="tugasSaya.length">0</p>
-      <p class="text-[12px] text-primary" x-text="nearSaya + ' mendekati deadline'">-</p>
-    </div>
-    <div class="ui-card p-5">
-      <p class="text-[13px] text-slate-500">Jadwal hari ini</p>
-      <p class="text-[32px] font-bold leading-tight" x-text="todayList.length">0</p>
-      <p class="text-[12px] text-primary">sesi kuliah</p>
-    </div>
-    <div class="ui-card p-5">
-      <p class="text-[13px] text-slate-500">Perlu perhatian</p>
-      <p class="text-[32px] font-bold leading-tight" x-text="perluCount">0</p>
-      <p class="text-[12px] text-slate-400">koreksi + terlewat</p>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4 items-start">
-    <div class="ui-card lg:col-span-3 p-5">
-      <div class="flex items-center justify-between">
-        <h2 class="text-[18px] font-semibold">Tugas mendekati deadline</h2>
-        <button type="button" @click="go('tugas')" class="ui-button ui-button--ghost text-[13px] text-primary font-medium hover:underline min-h-[44px]">Lihat semua</button>
+  <!-- Main Content Dashboard PJ -->
+  <div x-show="!dashboardLoading && !dashboardError" class="space-y-5">
+    <!-- Konteks Mata Kuliah Dikelola -->
+    <div class="p-4 rounded-2xl border border-border bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="min-w-0 flex-1">
+        <p class="text-[11px] font-bold tracking-wider text-muted uppercase">SEDANG MENGELOLA</p>
+        <p class="text-[14px] font-bold text-deep-ink truncate mt-0.5">
+          <span x-text="dashboardData?.class?.label || selectedClass || 'Kelas'"></span> · PJ Mata Kuliah: <span x-text="dashboardData?.offering?.display_name || pjMatkul || 'Mata Kuliah'"></span> <span x-show="dashboardData?.offering?.course_code" x-text="'(' + dashboardData?.offering?.course_code + ')'"></span>
+        </p>
       </div>
-      <div x-show="urgentSaya.length === 0" class="ui-empty py-8 text-center">
-        <p class="text-[13px] text-slate-400">Tidak ada tugas mendesak.</p>
-        <button type="button" @click="go('tugas')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Lihat semua tugas</button>
+      <div class="relative shrink-0 flex items-center">
+        <label class="sr-only" for="pj-offering-select">Ganti Mata Kuliah</label>
+        <div class="h-[38px] px-3 bg-white border border-slate-300 rounded-xl flex items-center gap-2 shadow-2xs hover:border-primary transition-colors">
+          <span class="text-[12px] font-medium text-muted shrink-0">Ganti Matkul:</span>
+          <select id="pj-offering-select" :value="offeringId" @change="gantiOffering($event.target.value)" class="text-[12px] font-semibold text-slate-700 bg-transparent cursor-pointer focus:outline-none pr-1">
+            <template x-for="o in (dashboardData?.offerings || offeringList || [])" :key="o.id">
+              <option :value="String(o.id)" x-text="(o.display_name || o.name || o.course_name) + (o.course_code ? ' (' + o.course_code + ')' : '')"></option>
+            </template>
+          </select>
+        </div>
       </div>
-      <div class="divide-y divide-border">
-        <template x-for="t in urgentSaya" :key="t.id">
-          <div class="py-4 flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-[15px] font-medium line-clamp-1" x-text="t.deskripsi">-</p>
-              <p class="text-[12px] text-slate-500 mt-0.5" x-text="t.matkul">-</p>
+    </div>
+
+    <!-- Header Ruang Kerja PJ -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+      <div>
+        <h1 class="font-display text-[24px] font-bold text-deep-ink leading-tight">Ruang Kerja PJ</h1>
+        <p class="text-[12px] text-muted mt-1">Kelola draf tugas, materi, dan pantau jadwal perkuliahan <span class="font-medium text-ink" x-text="dashboardData?.offering?.course_name || pjMatkul || ''"></span>.</p>
+      </div>
+      <button type="button" @click="mulaiTambah()" class="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold flex items-center gap-2 shadow-xs shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
+          <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"></path>
+        </svg>
+        <span>Buat Draf Tugas</span>
+      </button>
+    </div>
+
+    <!-- Banner Koreksi KM (Perbaikan Tugas Diminta KM) -->
+    <div x-show="dashboardData?.correction?.needed" x-cloak class="p-4 rounded-2xl bg-[#FFFBEB] border border-[#FCD34D] flex flex-col sm:flex-row sm:items-center gap-3 shadow-2xs" role="alert">
+      <div class="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center shrink-0 text-[#92400E]">
+        <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
+          <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z m4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254z m0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"></path>
+        </svg>
+      </div>
+      <p class="flex-1 text-[12px] sm:text-[13px] text-[#78350F] font-medium leading-relaxed">
+        <strong class="font-semibold" x-text="dashboardData?.correction?.count + ' Usulan Tugas Memerlukan Perbaikan: '"></strong>
+        <span x-text="'Ketua Murid (' + (dashboardData?.correction?.reviewer_name || 'KM') + ') meminta koreksi pada \u201C' + (dashboardData?.correction?.task_title || '') + '\u201D.'"></span>
+        <span x-show="dashboardData?.correction?.note" class="block text-[11px] text-[#92400E] mt-0.5" x-text="'Catatan koreksi: ' + dashboardData?.correction?.note"></span>
+      </p>
+      <button type="button" @click="perbaikiTugas(dashboardData?.correction?.task_id)" class="h-[34px] px-3 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#78350F] border border-[#FCD34D] rounded-lg text-[12px] font-semibold shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
+        Perbaiki Sekarang →
+      </button>
+    </div>
+
+    <!-- Ringkasan Aktivitas PJ (3 Kartu Metrik) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="p-[18px] bg-white border border-border rounded-[14px] flex flex-col gap-1.5 shadow-xs">
+        <p class="text-[12px] font-medium text-muted">Tugas <span x-text="dashboardData?.offering?.course_name || 'Mata Kuliah'"></span> Terbit</p>
+        <p class="text-[30px] font-bold text-deep-ink leading-tight" x-text="dashboardData?.metrics?.published_count ?? 0">0</p>
+        <p class="text-[12px] font-medium text-primary" x-text="(dashboardData?.metrics?.near_count ?? 0) + ' mendekati tenggat'">0 mendekati tenggat</p>
+      </div>
+      <div class="p-[18px] bg-white border border-border rounded-[14px] flex flex-col gap-1.5 shadow-xs">
+        <p class="text-[12px] font-medium text-muted">Menunggu Review KM</p>
+        <p class="text-[30px] font-bold text-amber-600 leading-tight" x-text="dashboardData?.metrics?.pending_review_count ?? 0">0</p>
+        <p class="text-[12px] font-medium text-muted" x-text="dashboardData?.metrics?.pending_submitted_at ? 'Diajukan ' + waktuRelatif(dashboardData.metrics.pending_submitted_at) : 'Belum ada antrean'">Belum ada antrean</p>
+      </div>
+      <div class="p-[18px] bg-white border border-border rounded-[14px] flex flex-col gap-1.5 shadow-xs">
+        <p class="text-[12px] font-medium text-muted">Jadwal Perkuliahan Hari Ini</p>
+        <p class="text-[30px] font-bold text-deep-ink leading-tight" x-text="(dashboardData?.metrics?.today_total_sessions ?? 0) + ' Sesi'">0 Sesi</p>
+        <p class="text-[12px] font-medium text-emerald-700" x-text="'Termasuk ' + (dashboardData?.metrics?.today_pj_sessions ?? 0) + ' sesi ' + (dashboardData?.offering?.course_name || 'Mata Kuliah')">Termasuk 0 sesi</p>
+      </div>
+    </div>
+
+    <!-- Tugas dan Jadwal PJ (Dua Kolom) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <!-- Panel Tugas Mata Kuliah Saya -->
+      <section class="lg:col-span-7 bg-white border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-3" aria-labelledby="pj-tasks-heading">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 id="pj-tasks-heading" class="text-[16px] font-bold text-deep-ink">Draf &amp; Tugas <span x-text="dashboardData?.offering?.course_name || 'Mata Kuliah'"></span></h2>
+            <p class="text-[12px] text-muted mt-0.5">Daftar tugas mata kuliah <span x-text="dashboardData?.offering?.display_name || ''"></span> yang Anda kelola untuk kelas <span x-text="dashboardData?.class?.code || selectedClass || ''"></span>.</p>
+          </div>
+          <button type="button" @click="go('tugas')" class="text-[12px] font-semibold text-primary hover:underline shrink-0 whitespace-nowrap">
+            Lihat Semua Tugas <span aria-hidden="true">➔</span>
+          </button>
+        </div>
+
+        <!-- Empty state jika belum ada tugas -->
+        <div x-show="!dashboardData?.tasks?.list?.length" class="py-8 text-center" role="status">
+          <p class="text-[13px] text-slate-400 font-medium">Belum ada draf atau tugas aktif untuk mata kuliah ini.</p>
+          <button type="button" @click="mulaiTambah()" class="ui-button ui-button--outline mt-3 text-primary text-[12px] font-semibold">Buat Draf Tugas</button>
+        </div>
+
+        <!-- List tugas -->
+        <div x-show="dashboardData?.tasks?.list?.length" class="divide-y divide-border">
+          <template x-for="t in dashboardData?.tasks?.list || []" :key="t.id">
+            <div class="py-3.5 flex items-center justify-between gap-3 group">
+              <div class="min-w-0 flex-1">
+                <button type="button" @click="bukaDetailTugas(t.id)" class="text-left font-semibold text-[14px] text-deep-ink hover:text-primary transition-colors line-clamp-1" x-text="t.title"></button>
+                <p class="text-[12px] text-muted mt-1 line-clamp-1">
+                  <span x-text="t.offering"></span>
+                  <span x-show="t.lecturers" x-text="' · Dosen: ' + t.lecturers"></span>
+                  <span x-show="t.deadline_at" x-text="' · Batas: ' + fmtDeadlineID(t.deadline_at)"></span>
+                </p>
+                <p x-show="t.review_state === 'NOT_REVIEWED'" class="text-[11px] text-amber-700 font-medium mt-0.5" x-text="'Status: Menunggu Persetujuan KM · Diajukan ' + (t.created_by_name || 'PJ')"></p>
+                <p x-show="t.review_state === 'CHANGES_REQUESTED'" class="text-[11px] text-[#B45309] font-medium mt-0.5">Status: Memerlukan Perbaikan dari Anda</p>
+              </div>
+              <div class="shrink-0 flex items-center">
+                <template x-if="t.review_state === 'CHANGES_REQUESTED'">
+                  <span class="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">Perlu Perbaikan</span>
+                </template>
+                <template x-if="t.review_state === 'NOT_REVIEWED'">
+                  <span class="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#78350F]">Menunggu Review</span>
+                </template>
+                <template x-if="t.review_state === 'APPROVED' && t.deadline_at">
+                  <span class="px-2 py-1 rounded-md text-[11px] font-bold" :class="pjDeadlineBadge(t.deadline_at).class" x-text="pjDeadlineBadge(t.deadline_at).text"></span>
+                </template>
+              </div>
             </div>
-            <span class="ui-badge px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0" :class="t.urgency === 'mendesak' ? 'bg-danger text-ink' : (t.urgency === 'mendekati' ? 'bg-warning-soft' : 'bg-success')" x-text="t.countdown">-</span>
-          </div>
-        </template>
-      </div>
-    </div>
-    <div class="ui-card lg:col-span-2 p-5">
-      <h2 class="text-[18px] font-semibold">Jadwal hari ini</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull">-</p>
-      <div x-show="todayList.length === 0" class="ui-empty py-6 text-center">
-        <p class="text-[13px] text-slate-400">Tidak ada jadwal hari ini.</p>
-        <button type="button" @click="go('jadwal')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Lihat jadwal minggu ini</button>
-      </div>
-      <div class="mt-2 divide-y divide-border">
-        <template x-for="s in todayList" :key="s.id">
-          <div class="py-3 flex gap-3">
-            <span class="font-mono text-[13px] font-semibold text-primary whitespace-nowrap w-24" x-text="s.timeEnd ? s.timeStart + '–' + s.timeEnd : s.timeStart">-</span>
-            <div class="min-w-0"><p class="text-[14px] font-medium line-clamp-1" x-text="s.matkul">-</p><p class="text-[12px] text-slate-500" x-text="s.ruang">-</p></div>
-          </div>
-        </template>
-      </div>
-    </div>
-  </div>
+          </template>
+        </div>
+      </section>
 
-  <div class="ui-card p-5 mt-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-[18px] font-semibold">Riwayat Perubahan</h2>
-      <span class="text-[13px] text-slate-400">Butuh endpoint audit</span>
+      <!-- Panel Jadwal Hari Ini -->
+      <section class="lg:col-span-5 bg-white border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-3" aria-labelledby="pj-schedule-heading">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-deep-ink">Jadwal Hari Ini</h2>
+            <p class="text-[12px] text-muted mt-0.5" x-text="todayFull || 'Hari Ini'"></p>
+          </div>
+          <button type="button" @click="go('jadwal')" class="text-[12px] font-medium text-primary hover:underline">
+            Pekan ini →
+          </button>
+        </div>
+
+        <!-- Empty state jika tidak ada jadwal hari ini -->
+        <div x-show="!dashboardData?.schedule?.today?.length" class="py-8 text-center" role="status">
+          <p class="text-[13px] text-slate-400 font-medium">Tidak ada perkuliahan hari ini.</p>
+          <button type="button" @click="go('jadwal')" class="ui-button ui-button--outline mt-3 text-primary text-[12px] font-semibold">Lihat Jadwal Sepekan</button>
+        </div>
+
+        <!-- List sesi hari ini -->
+        <div x-show="dashboardData?.schedule?.today?.length" class="flex flex-col gap-2.5 mt-1">
+          <template x-for="s in dashboardData?.schedule?.today || []" :key="s.id">
+            <div class="p-3 rounded-xl border flex flex-col gap-1.5 transition-colors" :class="s.is_my_course ? 'bg-primary-soft/40 border-primary/30' : 'bg-surface-subtle border-border'">
+              <div class="font-mono text-[12px] font-bold" :class="s.is_my_course ? 'text-primary' : 'text-slate-700'" x-text="s.starts_at && s.ends_at ? pjTime(s.starts_at) + ' - ' + pjTime(s.ends_at) + ' WIB' : 'Waktu kuliah'"></div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[14px] font-bold text-deep-ink" x-text="s.title"></span>
+                <span x-show="s.is_my_course" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-white">Mata Kuliah Anda</span>
+                <span x-show="s.kind === 'REPLACEMENT'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Pengganti</span>
+                <span x-show="s.kind === 'EXTRA'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">Tambahan</span>
+              </div>
+              <p class="text-[12px] text-slate-600">
+                <span x-text="s.room || 'Ruang belum ditentukan'"></span>
+                <span x-show="s.lecturers" x-text="' · ' + s.lecturers"></span>
+              </p>
+            </div>
+          </template>
+        </div>
+      </section>
     </div>
-    <div class="py-6 text-center text-[13px] text-slate-400">Riwayat tampil setelah backend siap.</div>
-  </div>
   </div>
 </section>

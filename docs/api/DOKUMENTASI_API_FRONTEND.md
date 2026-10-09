@@ -180,6 +180,30 @@ Respons `data` berisi `class` (`code`, `slug`, `label`, `timezone`), `semester` 
 
 `active_count` menghitung tugas terbit, belum selesai, dan belum diarsipkan pada semester aktif. `review_count` adalah bagian dari hitungan itu dengan `review_state=NOT_REVIEWED`; `near_count` adalah tugas yang tenggatnya dalam 72 jam mendatang. `week_count` menghitung sesi efektif Senin–Minggu pada semester aktif. Ketika belum ada semester aktif, `semester=null`, daftar `priority`/`today` kosong, dan hitungan semester bernilai nol. `failed_messages` serta `pending_invitations` tetap dihitung pada kelas aktif.
 
+### 2.9 Ringkasan Dashboard PJ
+
+`GET /api/v1/pj/dashboard` memerlukan token Bearer dengan peran aktif `PJ` atau `SYSTEM_ADMIN`. Menerima query parameter opsional `?offering_id=<id>` untuk mengganti fokus mata kuliah yang dikelola. Peran lain menerima `403`.
+
+Respons `data` berisi:
+- `class`: identitas kelas aktif (`code`, `slug`, `label`, `timezone`).
+- `semester`: semester aktif saat ini atau `null`.
+- `offering`: mata kuliah yang sedang aktif dikelola (`id`, `display_name`, `course_code`, `course_name`).
+- `offerings`: seluruh daftar mata kuliah aktif pada semester berjalan untuk dropdown pengalih matkul.
+- `date`: tanggal hari ini menurut zona waktu kelas (`YYYY-MM-DD`).
+- `metrics`:
+  - `published_count`: jumlah tugas terbit aktif pada matkul terpilih.
+  - `near_count`: jumlah tugas terbit mendekati tenggat (dalam 72 jam).
+  - `pending_review_count`: jumlah usulan tugas yang menunggu persetujuan KM (`NOT_REVIEWED`).
+  - `pending_submitted_at`: timestamp pengajuan tugas terakhir (format RFC 3339).
+  - `today_total_sessions`: total seluruh sesi perkuliahan kelas hari ini.
+  - `today_pj_sessions`: jumlah sesi hari ini yang merupakan mata kuliah binaan PJ.
+- `correction`:
+  - `needed`: bernilai `true` jika terdapat draf tugas yang diminta koreksi oleh KM (`review_state=CHANGES_REQUESTED`).
+  - `count`: jumlah tugas yang memerlukan perbaikan.
+  - `task_id`, `task_title`, `reviewer_name`, `note`: data tugas dan catatan koreksi dari KM.
+- `tasks.list`: daftar tugas pada mata kuliah terpilih, diprioritaskan dari yang membutuhkan perbaikan, tugas terbit mendekati tenggat, dan draf review.
+- `schedule.today`: seluruh sesi perkuliahan kelas hari ini dengan penanda `is_my_course: true` untuk sesi matkul binaan PJ.
+
 ---
 
 ## 3. Portal Mahasiswa (`/api/v1/portal/:slug/*`)
