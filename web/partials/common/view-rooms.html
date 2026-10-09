@@ -413,117 +413,262 @@
     </div>
   </div>
 
-  <!-- MODAL 2: Usulkan Ruangan Baru / Koreksi Master (Opsi 'ya') -->
-  <div x-show="usulanRuangModal.open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" @keydown.escape.window="usulanRuangModal.open = false">
-    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity" @click="usulanRuangModal.open = false"></div>
-    <div class="flex min-h-full items-center justify-center p-4">
-      <div class="relative w-full max-w-xl bg-white rounded-[20px] shadow-xl border border-[#E2E8F0] overflow-hidden flex flex-col">
-        <!-- Header Modal -->
-        <div class="p-6 border-b border-[#E2E8F0] bg-slate-50/60 flex items-start justify-between">
-          <div>
-            <h2 class="text-[18px] font-bold text-[#0F172A]" x-text="usulanRuangForm.isEdit ? 'Usulkan Koreksi Ruangan' : 'Usulkan Ruangan Baru'">-</h2>
-            <p class="text-[12px] text-[#64748B] mt-0.5">
-              Usulan akan ditinjau dan diterapkan ke sistem oleh System Admin &amp; Tata Usaha.
+  <!-- MODAL 2: Usulkan Ruangan Baru / Koreksi (SCR-KM-ROOM-002) -->
+  <div x-show="usulanRuangModal.open"
+       x-cloak
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @keydown.escape.window="usulanRuangModal.open = false"
+       class="fixed inset-0 z-50 overflow-y-auto"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-usulan-ruangan-title">
+
+    <!-- Backdrop Usulan Ruangan -->
+    <div data-pencil-name="Backdrop Usulan Ruangan"
+         class="fixed inset-0 bg-[#0F172A66] backdrop-blur-[2px] transition-opacity"
+         @click="usulanRuangModal.open = false"></div>
+
+    <!-- Dialog Usulkan Ruangan Kuliah -->
+    <div class="min-h-full flex items-center justify-center p-4">
+      <div data-pencil-name="Dialog Usulkan Ruangan Kuliah"
+           class="box-border w-full max-w-[520px] bg-[#FFFFFF] border border-[#E2E8F0] shadow-[0px_20px_48px_#0F172A55] rounded-[16px] overflow-hidden relative z-10 flex flex-col text-left"
+           @click.stop>
+        
+        <!-- Header Usulan Ruangan -->
+        <div data-pencil-name="Header Usulan Ruangan"
+             class="box-border w-full p-[24px] flex flex-row justify-between items-start border-b border-[#F1F5F9]">
+          <div data-pencil-name="Judul dan Penjelasan Usulan"
+               class="flex-1 min-w-0 flex flex-col gap-[5px] justify-start items-start pr-3">
+            <h2 id="modal-usulan-ruangan-title"
+                data-pencil-name="Judul Modal Usulan"
+                class="text-[18px] text-[#0F172A] font-[Inter,system-ui,sans-serif] font-bold leading-normal">
+              Usulkan Ruangan Kuliah
+            </h2>
+            <p data-pencil-name="Subjudul Modal Usulan"
+               class="text-[12px] leading-[17px] text-[#64748B] font-[Inter,system-ui,sans-serif] font-normal">
+              Usulan akan ditinjau oleh System Admin kampus sebelum masuk ke master data resmi.
             </p>
           </div>
-          <button type="button" @click="usulanRuangModal.open = false" aria-label="Tutup modal usulan" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 min-h-[44px]">
-            <svg class="w-5 h-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          <button type="button"
+                  @click="usulanRuangModal.open = false"
+                  data-pencil-name="Tutup Dialog Usulan"
+                  class="box-border w-[28px] shrink-0 h-[28px] flex items-center justify-center rounded-[8px] hover:bg-slate-100 text-[#94A3B8] transition-colors cursor-pointer"
+                  aria-label="Tutup modal usulan">
+            <svg data-pencil-name="Ikon Tutup Usulan"
+                 viewBox="0 0 14 14"
+                 preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg"
+                 class="w-[18px] shrink-0 h-[18px] fill-current">
+              <path d="M3.34619 2.93945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.25293 0.04443 0.08203 1.62353 1.66455l1.58252 1.58252-1.58252 1.58252q-1.5791 1.58252-1.62353 1.66797-0.04102 0.08203-0.04102 0.23584 0 0.15381 0.03418 0.23926 0.0376 0.08203 0.1333 0.18115 0.09912 0.0957 0.18115 0.1333 0.08545 0.03418 0.23926 0.03418 0.15381 0 0.23584-0.04102 0.08545-0.04443 1.66797-1.62353l1.58252-1.58252 1.58252 1.58252q1.58252 1.5791 1.66455 1.62353 0.08545 0.04102 0.23926 0.04102 0.15381 0 0.23584-0.03418 0.08545-0.0376 0.18115-0.1333 0.09912-0.09912 0.1333-0.18115 0.0376-0.08545 0.0376-0.23926 0-0.15381-0.04443-0.23584-0.04101-0.08545-1.62012-1.66797l-1.58252-1.58252 1.58252-1.58252q1.5791-1.58252 1.62012-1.66455 0.04443-0.08545 0.04443-0.25293 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"></path>
             </svg>
           </button>
         </div>
 
-        <!-- Form Body -->
-        <div class="p-6 space-y-4">
-          <!-- Error Alert -->
-          <div x-show="usulanRuangFormError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="usulanRuangFormError"></div>
+        <!-- Form Usulan Ruangan -->
+        <div data-pencil-name="Form Usulan Ruangan"
+             class="box-border w-full flex flex-col gap-[15px] p-[24px] justify-start items-start">
+          
+          <!-- Error Alert Banner -->
+          <div x-show="usulanRuangFormError"
+               class="box-border w-full p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium"
+               x-text="usulanRuangFormError"></div>
 
-          <!-- Mode Toggle -->
-          <div>
-            <label class="block text-[12px] font-semibold text-slate-700 mb-1.5">Jenis Usulan</label>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" @click="usulanRuangForm.isEdit = false; usulanRuangForm.targetId = '';"
-                :class="!usulanRuangForm.isEdit ? 'border-[#2563EB] bg-blue-50/50 text-[#2563EB] font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
-                class="p-2.5 rounded-xl border text-[13px] text-center transition-colors min-h-[44px]">
-                Ruangan Baru
-              </button>
-              <button type="button" @click="usulanRuangForm.isEdit = true;"
-                :class="usulanRuangForm.isEdit ? 'border-[#2563EB] bg-blue-50/50 text-[#2563EB] font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
-                class="p-2.5 rounded-xl border text-[13px] text-center transition-colors min-h-[44px]">
-                Koreksi Ruangan Terdaftar
-              </button>
-            </div>
-          </div>
-
-          <!-- Target Ruangan Dropdown (Jika Mode Koreksi) -->
-          <div x-show="usulanRuangForm.isEdit">
-            <label class="block text-[12px] font-semibold text-slate-700 mb-1">Pilih Target Ruangan *</label>
-            <select x-model="usulanRuangForm.targetId" @change="onSelectTargetRuang(usulanRuangForm.targetId)" class="ui-field text-[13px] w-full">
-              <option value="">— Pilih Ruangan yang Ingin Dikoreksi —</option>
-              <template x-for="r in masterRoomsList" :key="r.id">
-                <option :value="r.id" x-text="r.code + ' · ' + r.name"></option>
-              </template>
-            </select>
-          </div>
-
-          <!-- Input Fields -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-[12px] font-semibold text-slate-700 mb-1">
-                Kode Ruang <span x-show="!usulanRuangForm.isEdit" class="text-red-500">*</span>
-                <span x-show="usulanRuangForm.isEdit" class="text-slate-400 font-normal">(tetap)</span>
-              </label>
-              <input type="text" x-model="usulanRuangForm.kode" :disabled="usulanRuangForm.isEdit"
-                placeholder="Contoh: LAB-IOT"
-                class="ui-field text-[13px] font-mono w-full disabled:bg-slate-100 disabled:text-slate-500" />
-            </div>
-
-            <div>
-              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Nama Ruangan *</label>
-              <input type="text" x-model="usulanRuangForm.nama" placeholder="Contoh: Lab Internet of Things" class="ui-field text-[13px] w-full" />
-            </div>
-
-            <div>
-              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Gedung &amp; Lantai</label>
-              <input type="text" x-model="usulanRuangForm.gedung" placeholder="Contoh: Gedung Baru Lt. 1" class="ui-field text-[13px] w-full" />
-            </div>
-
-            <div>
-              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Tipe Ruangan</label>
-              <select x-model="usulanRuangForm.tipe" class="ui-field text-[13px] w-full">
-                <option value="Laboratorium">Laboratorium</option>
-                <option value="Teori">Ruang Teori</option>
-                <option value="Bengkel">Bengkel</option>
-                <option value="Studio">Studio</option>
-                <option value="Lainnya">Lainnya</option>
+          <!-- Jenis Pengajuan -->
+          <div data-pencil-name="Jenis Pengajuan"
+               class="box-border w-full flex flex-col gap-[7px] justify-start items-start">
+            <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+              Jenis Pengajuan *
+            </label>
+            <div class="relative w-full">
+              <select x-model="usulanRuangForm.jenisPengajuan"
+                      @change="usulanRuangForm.isEdit = (usulanRuangForm.jenisPengajuan === 'koreksi'); if (!usulanRuangForm.isEdit) { usulanRuangForm.targetId = ''; }"
+                      class="box-border w-full h-[42px] px-[12px] pr-9 bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#334155] font-[Inter,system-ui,sans-serif] font-medium appearance-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer">
+                <option value="baru">+ Ruangan Baru (Belum ada di sistem)</option>
+                <option value="koreksi">✎ Koreksi Ruangan (Sudah terdaftar di sistem)</option>
               </select>
-            </div>
-
-            <div class="sm:col-span-2">
-              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Kapasitas Mahasiswa (orang)</label>
-              <input type="number" min="0" step="1" x-model="usulanRuangForm.kapasitas" placeholder="Contoh: 30" class="ui-field text-[13px] w-full" />
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#64748B]">
+                <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] fill-current">
+                  <path d="M3.34619 4.68945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04785 0.25977 0.05127 0.08887 1.8628 1.9038 1.81494 1.81152 1.9038 1.8628 0.09229 0.04785 0.25977 0.04785 0.16748 0 0.25635-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"></path>
+                </svg>
+              </div>
             </div>
           </div>
 
-          <!-- Catatan Usulan -->
-          <div>
-            <label class="block text-[12px] font-semibold text-slate-700 mb-1">Catatan untuk Peninjau</label>
-            <textarea rows="2" x-model="usulanRuangForm.catatan" placeholder="Contoh: Ruang laboratorium baru selesai renovasi, telah diverifikasi kepala lab." class="ui-field text-[13px] w-full"></textarea>
+          <!-- Target Ruangan Dropdown (Khusus Mode Koreksi) -->
+          <div x-show="usulanRuangForm.isEdit"
+               class="box-border w-full flex flex-col gap-[7px] justify-start items-start">
+            <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+              Pilih Target Ruangan *
+            </label>
+            <div class="relative w-full">
+              <select x-model="usulanRuangForm.targetId"
+                      @change="onSelectTargetRuang(usulanRuangForm.targetId)"
+                      class="box-border w-full h-[42px] px-[12px] pr-9 bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#334155] font-[Inter,system-ui,sans-serif] font-medium appearance-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer">
+                <option value="">— Pilih Ruangan yang Ingin Dikoreksi —</option>
+                <template x-for="r in masterRoomsList" :key="r.id">
+                  <option :value="r.id" x-text="r.code + ' · ' + r.name + (r.building ? ' (' + r.building + ')' : '')"></option>
+                </template>
+              </select>
+              <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#64748B]">
+                <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] fill-current">
+                  <path d="M3.34619 4.68945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04785 0.25977 0.05127 0.08887 1.8628 1.9038 1.81494 1.81152 1.9038 1.8628 0.09229 0.04785 0.25977 0.04785 0.16748 0 0.25635-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"></path>
+                </svg>
+              </div>
+            </div>
           </div>
+
+          <!-- Kode dan Tipe Ruangan (2 Kolom) -->
+          <div data-pencil-name="Kode dan Tipe Ruangan"
+               class="box-border w-full flex flex-col sm:flex-row gap-[12px] justify-start items-start">
+            
+            <!-- Kode Ruangan -->
+            <div data-pencil-name="Kode Ruangan"
+                 class="box-border flex-1 min-w-0 w-full flex flex-col gap-[7px] justify-start items-start">
+              <div class="w-full flex items-center justify-between">
+                <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+                  Kode Ruangan *
+                </label>
+                <span x-show="usulanRuangForm.isEdit" class="text-[11px] text-[#64748B] font-normal">(tetap)</span>
+              </div>
+              <input type="text"
+                     x-model="usulanRuangForm.kode"
+                     :disabled="usulanRuangForm.isEdit"
+                     placeholder="cth: LAB-AI-1"
+                     class="box-border w-full h-[42px] px-[12px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] font-['JetBrains_Mono',system-ui,sans-serif] text-[#0F172A] placeholder-[#94A3B8] disabled:bg-[#F1F5F9] disabled:text-[#64748B] disabled:cursor-not-allowed focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all uppercase" />
+              <div data-pencil-name="Bantuan Kode Ruangan"
+                   class="text-[11px] text-[#94A3B8] font-[Inter,system-ui,sans-serif] font-normal">
+                Kode unik pengenal ruang.
+              </div>
+            </div>
+
+            <!-- Tipe Ruangan -->
+            <div data-pencil-name="Tipe Ruangan"
+                 class="box-border flex-1 min-w-0 w-full flex flex-col gap-[7px] justify-start items-start">
+              <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+                Tipe Ruangan *
+              </label>
+              <div class="relative w-full">
+                <select x-model="usulanRuangForm.tipe"
+                        class="box-border w-full h-[42px] px-[12px] pr-9 bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#334155] font-[Inter,system-ui,sans-serif] font-medium appearance-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer">
+                  <option value="Laboratorium Komputer">Laboratorium Komputer</option>
+                  <option value="Ruang Teori">Ruang Teori</option>
+                  <option value="Bengkel / Workshop">Bengkel / Workshop</option>
+                  <option value="Studio">Studio</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[#64748B]">
+                  <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] fill-current">
+                    <path d="M3.34619 4.68945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04785 0.25977 0.05127 0.08887 1.8628 1.9038 1.81494 1.81152 1.9038 1.8628 0.09229 0.04785 0.25977 0.04785 0.16748 0 0.25635-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nama Lengkap Ruangan -->
+          <div data-pencil-name="Nama Lengkap Ruangan"
+               class="box-border w-full flex flex-col gap-[7px] justify-start items-start">
+            <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+              Nama Lengkap Ruangan *
+            </label>
+            <input type="text"
+                   x-model="usulanRuangForm.nama"
+                   placeholder="cth: Laboratorium Artificial Intelligence &amp; Data Science"
+                   class="box-border w-full h-[42px] px-[12px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#0F172A] placeholder-[#94A3B8] font-[Inter,system-ui,sans-serif] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all" />
+          </div>
+
+          <!-- Lokasi dan Kapasitas (2 Kolom) -->
+          <div data-pencil-name="Lokasi dan Kapasitas"
+               class="box-border w-full flex flex-col sm:flex-row gap-[12px] justify-start items-start">
+            
+            <!-- Lokasi / Gedung -->
+            <div data-pencil-name="Lokasi / Gedung"
+                 class="box-border flex-1 min-w-0 w-full flex flex-col gap-[7px] justify-start items-start">
+              <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+                Lokasi / Gedung
+              </label>
+              <input type="text"
+                     x-model="usulanRuangForm.gedung"
+                     placeholder="cth: Gedung Riset Terpadu Lt. 2"
+                     class="box-border w-full h-[42px] px-[12px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#0F172A] placeholder-[#94A3B8] font-[Inter,system-ui,sans-serif] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+
+            <!-- Kapasitas Mahasiswa -->
+            <div data-pencil-name="Kapasitas Mahasiswa"
+                 class="box-border flex-1 min-w-0 w-full flex flex-col gap-[7px] justify-start items-start">
+              <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+                Kapasitas Mahasiswa
+              </label>
+              <div class="relative w-full">
+                <input type="number" min="0" step="1"
+                       x-model="usulanRuangForm.kapasitas"
+                       placeholder="40"
+                       class="box-border w-full h-[42px] pl-[12px] pr-14 bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] font-['JetBrains_Mono',system-ui,sans-serif] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all" />
+                <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-[11px] text-[#64748B] pointer-events-none font-[Inter,system-ui,sans-serif]">
+                  Kursi
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Catatan untuk Admin Kampus -->
+          <div data-pencil-name="Catatan untuk Admin Kampus"
+               class="box-border w-full flex flex-col gap-[7px] justify-start items-start">
+            <label class="text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold">
+              Catatan untuk Admin Kampus
+            </label>
+            <textarea rows="2"
+                      x-model="usulanRuangForm.catatan"
+                      placeholder="Contoh: Ruangan baru selesai renovasi dari TU, sudah siap dipakai praktikum semester ini."
+                      class="box-border w-full min-h-[68px] p-[10px_12px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px] text-[12px] leading-[17px] text-[#0F172A] placeholder-[#94A3B8] font-[Inter,system-ui,sans-serif] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all resize-y"></textarea>
+          </div>
+
+          <!-- Catatan Kode Resmi TU (Callout Info) -->
+          <div data-pencil-name="Catatan Kode Resmi TU"
+               class="box-border w-full flex flex-row gap-[9px] p-[12px] items-start bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+            <svg data-pencil-name="Ikon Informasi Kode Ruangan"
+                 viewBox="0 0 14 14"
+                 preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg"
+                 class="box-border w-[16px] shrink-0 h-[16px] fill-[#64748B] mt-0.5">
+              <path d="M6.69238 0.60156q-1.16211 0.04102-2.22851 0.50586-1.06299 0.46143-1.90381 1.26807-0.8374 0.80322-1.34326 1.85254-0.48877 1.0083-0.60157 2.15674-0.02734 0.19482-0.02734 0.61523 0 0.42041 0.02734 0.61523 0.11279 1.14844 0.60157 2.15674 0.65967 1.40137 1.89697 2.33789 1.24072 0.93652 2.75146 1.20313 0.5332 0.09912 1.13477 0.09912 0.75537 0 1.43213-0.15381 0.68018-0.15381 1.35351-0.4751 1.26123-0.61865 2.16358-1.70215 0.90234-1.0835 1.25439-2.44384 0.29395-1.11768 0.18116-2.25244-0.11279-1.13477-0.60157-2.17041-0.58789-1.20313-1.62011-2.08497-1.02881-0.88184-2.31397-1.2749-1.0083-0.30762-2.15674-0.25293z m0.96729 1.18946q1.07666 0.14014 1.99267 0.68017 0.91602 0.54004 1.56201 1.4082 0.82715 1.104 1.00831 2.54639 0.01367 0.16748 0.01367 0.57422 0 0.40674-0.01367 0.57422-0.14014 1.16211-0.7212 2.12939-0.58105 0.96387-1.53466 1.62354-0.4751 0.33496-1.04932 0.56055-0.57422 0.22217-1.18945 0.30761-0.25293 0.04102-0.72803 0.04102-0.4751 0-0.72803-0.04102-1.07666-0.15381-1.95849-0.68701-0.88184-0.5332-1.52784-1.3877-0.82715-1.104-1.0083-2.54638-0.01367-0.16748-0.01367-0.57422 0-0.40674 0.01367-0.57422 0.14014-1.12109 0.66993-2.05078 0.5332-0.92969 1.43212-1.58936 0.54346-0.40674 1.20655-0.66992 0.6665-0.2666 1.32617-0.3247l0.25293-0.02735q0.0957-0.01367 0.4751 0 0.37939 0.01367 0.51953 0.02735z m-0.75879 2.31054q-0.18115 0.02734-0.32129 0.16748-0.2085 0.21191-0.15381 0.50586 0.05469 0.29395 0.32129 0.42041 0.09912 0.04102 0.25293 0.04102 0.25293 0 0.42041-0.16748 0.12646-0.12646 0.15381-0.30762 0.05469-0.29395-0.15723-0.50244-0.2085-0.21191-0.51611-0.15723z m-0.05469 2.33789q-0.25293 0.08545-0.37939 0.30762l-0.04102 0.08545 0 2.46436q0 0.18115 0.03418 0.2666 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.11963-0.16748 0.0376-0.08545 0.0376-0.2666l0-2.46436-0.04102-0.08545q-0.09912-0.18115-0.28027-0.2666-0.08545-0.04102-0.22559-0.04785-0.14014-0.00684-0.18115 0.00683z"></path>
+            </svg>
+            <div data-pencil-name="Pesan Kode Tidak Berubah"
+                 class="text-[11px] leading-[15px] flex-1 text-[#475569] font-[Inter,system-ui,sans-serif] font-normal">
+              Kode ruangan tidak dapat diubah setelah disetujui. Pastikan kode sesuai label resmi dari Tata Usaha.
+            </div>
+          </div>
+
         </div>
 
-        <!-- Footer Modal -->
-        <div class="p-4 border-t border-[#E2E8F0] bg-slate-50 flex items-center justify-end gap-2">
-          <button type="button" @click="usulanRuangModal.open = false"
-            class="h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium text-[13px] transition-colors min-h-[44px]">
+        <!-- Aksi Pengajuan Ruangan (Footer Modal) -->
+        <div data-pencil-name="Aksi Pengajuan Ruangan"
+             class="box-border w-full h-[71.5px] px-[24px] flex flex-row gap-[12px] justify-end items-center bg-[#F8FAFC] border-t border-[#F1F5F9]">
+          
+          <!-- Tombol Batal -->
+          <button type="button"
+                  @click="usulanRuangModal.open = false"
+                  data-pencil-name="Tombol Batal"
+                  class="box-border w-fit shrink-0 h-[40px] px-[16px] flex justify-center items-center bg-[#FFFFFF] border border-[#CBD5E1] hover:bg-slate-50 hover:border-[#94A3B8] rounded-[12px] text-[12px] text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold transition-colors cursor-pointer">
             Batal
           </button>
-          <button type="button" @click="kirimUsulanRuang()" :disabled="usulanRuangSaving"
-            class="h-10 px-5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[13px] shadow-sm disabled:opacity-50 transition-colors flex items-center gap-2 min-h-[44px]">
-            <span x-show="usulanRuangSaving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            <span x-text="usulanRuangSaving ? 'Mengirim...' : 'Kirim Usulan'"></span>
+
+          <!-- Tombol Kirim Usulan ke Admin -->
+          <button type="button"
+                  @click="kirimUsulanRuang()"
+                  :disabled="usulanRuangSaving"
+                  data-pencil-name="Tombol Kirim Usulan ke Admin"
+                  class="box-border w-fit shrink-0 h-[40px] px-[20px] flex justify-center items-center bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-[12px] text-[#FFFFFF] font-[Inter,system-ui,sans-serif] font-semibold rounded-[12px] shadow-[0px_2px_7px_#3B82F633] transition-all cursor-pointer">
+            <span x-show="usulanRuangSaving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+            <span x-text="usulanRuangSaving ? 'Mengirim...' : 'Kirim Usulan ke Admin'">Kirim Usulan ke Admin</span>
           </button>
         </div>
+
       </div>
     </div>
   </div>

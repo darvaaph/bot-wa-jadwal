@@ -1893,23 +1893,25 @@ function kmApp() {
     bukaModalUsulanRuang(targetRoom = null) {
       if (targetRoom) {
         this.usulanRuangForm = {
+          jenisPengajuan: 'koreksi',
           isEdit: true,
           targetId: String(targetRoom.id),
           kode: targetRoom.code || '',
           nama: targetRoom.name || '',
           gedung: targetRoom.building && targetRoom.building !== '-' ? targetRoom.building : '',
-          tipe: targetRoom.room_type || 'Laboratorium',
+          tipe: targetRoom.room_type || 'Laboratorium Komputer',
           kapasitas: targetRoom.capacity ? String(targetRoom.capacity) : '',
           catatan: ''
         };
       } else {
         this.usulanRuangForm = {
+          jenisPengajuan: 'baru',
           isEdit: false,
           targetId: '',
           kode: '',
           nama: '',
           gedung: '',
-          tipe: 'Laboratorium',
+          tipe: 'Laboratorium Komputer',
           kapasitas: '',
           catatan: ''
         };
@@ -1924,13 +1926,14 @@ function kmApp() {
         this.usulanRuangForm.kode = r.code || '';
         this.usulanRuangForm.nama = r.name || '';
         this.usulanRuangForm.gedung = r.building && r.building !== '-' ? r.building : '';
-        this.usulanRuangForm.tipe = r.room_type || 'Laboratorium';
+        this.usulanRuangForm.tipe = r.room_type || 'Laboratorium Komputer';
         this.usulanRuangForm.kapasitas = r.capacity ? String(r.capacity) : '';
       }
     },
 
     async kirimUsulanRuang() {
       const f = this.usulanRuangForm;
+      f.isEdit = (f.jenisPengajuan === 'koreksi');
       this.usulanRuangFormError = '';
       if (!f.isEdit && !((f.kode || '').trim())) {
         this.usulanRuangFormError = 'Kode ruangan wajib diisi untuk ruangan baru.';
