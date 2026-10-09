@@ -273,7 +273,9 @@
               <span class="contents">
                 <button type="button" @click="tugasSub = 'list'" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Tugas</button>
                 <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
-                <span class="text-[#1D1B3A] font-semibold truncate">Tinjau Tugas</span>
+                <button type="button" @click="tugasSub = 'tambah'" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Tambah Tugas Baru</button>
+                <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
+                <span class="text-[#1D1B3A] font-semibold truncate">Tinjau</span>
               </span>
             </template>
             <template x-if="!(view === 'tugas' && ['tambah', 'tinjau'].includes(tugasSub))">

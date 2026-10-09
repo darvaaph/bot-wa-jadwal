@@ -107,7 +107,7 @@ function kmApp() {
     tugasForm: { offeringId: '', judul: '', tanggal: '', jam: '', deskripsi: '', kumpul: '', kumpulUrl: '', jenis: 'Individu' },
     tugasError: '',
     tugasDetail: null, tugasReviews: [], tugasDetailLoading: false, tugasDetailTab: 'detail',
-    tugasPreview: null, tugasPublishMsg: '',
+    tugasPreview: null, tugasPublishMsg: '', tugasPublishing: false,
     editTugasId: '', editTugasVersion: 0, tugasConflict: null,
     patternsList: [],
 
@@ -1446,11 +1446,24 @@ function kmApp() {
       }
     },
 
-    previewCountdown() {
-      if (!this.tugasForm.tanggal || !this.tugasForm.jam) {
-        return { text: 'Belum diatur', bg: 'bg-slate-100', color: 'text-slate-600' };
+    fmtDeadlineLongID(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        const hari = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long' });
+        const tgl = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric' });
+        const bln = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', month: 'long' });
+        const thn = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', year: 'numeric' });
+        const jam = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return `${hari}, ${tgl} ${bln} ${thn} · ${jam} WIB`;
+      } catch (e) {
+        return String(iso);
       }
-      const iso = this.parseDeadlineID(this.tugasForm.tanggal, this.tugasForm.jam);
+    },
+
+    previewCountdown(customIso) {
+      const iso = customIso || (this.tugasForm.tanggal && this.tugasForm.jam ? this.parseDeadlineID(this.tugasForm.tanggal, this.tugasForm.jam) : '');
       if (!iso) return { text: 'Belum diatur', bg: 'bg-slate-100', color: 'text-slate-600' };
       try {
         const d = new Date(iso);
@@ -1544,6 +1557,7 @@ function kmApp() {
     async terbitTugas() {
       if (!this.tugasPreview) { this.tinjauTugas(); return; }
       this.tugasError = '';
+      this.tugasPublishing = true;
       try {
         const res = await API.createTask(this.rakitTugasPayload('published'));
         const newId = res && res.data && res.data.id;
@@ -1560,6 +1574,8 @@ function kmApp() {
       } catch (err) {
         this.tugasError = err.message || 'Gagal menerbitkan tugas di server.';
         this.tugasSub = 'tinjau';
+      } finally {
+        this.tugasPublishing = false;
       }
     },
 
@@ -1584,8 +1600,21 @@ function kmApp() {
       if (err) { this.tugasError = err; window.scrollTo({ top: 0 }); return; }
       this.tugasError = '';
       const f = this.tugasForm;
+      const o = (this.offeringList || []).find(x => String(x.id) === String(f.offeringId));
+      let dosen = 'Tim Dosen';
+      if (o) {
+        if (Array.isArray(o.lecturers) && o.lecturers.length > 0) {
+          dosen = o.lecturers.join(', ');
+        } else if (o.display_name && o.display_name.includes('·')) {
+          dosen = o.display_name.split('·')[1].trim();
+        } else if (o.display_name && o.display_name.includes('-')) {
+          dosen = o.display_name.split('-')[1].trim();
+        }
+      }
       this.tugasPreview = {
+        offeringId: f.offeringId,
         matkul: this.offeringDisplay(f.offeringId),
+        dosen: dosen,
         judul: f.judul.trim(),
         deadline_at: this.parseDeadlineID(f.tanggal, f.jam),
         deskripsi: f.deskripsi.trim(),

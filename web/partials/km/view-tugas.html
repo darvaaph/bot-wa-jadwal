@@ -644,65 +644,138 @@
   </template>
 
   <template x-if="tugasSub === 'tinjau'">
-    <div class="space-y-4">
-      <div class="w-full flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <button type="button" @click="tugasSub = 'tambah'" class="h-[40px] px-3.5 mb-2 rounded-[10px] border border-[#CBD5E1] text-[13px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors flex items-center gap-1.5 w-fit min-h-[40px]">
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi
-          </button>
-          <h1 class="text-[26px] font-bold text-[#1D1B3A] font-display">Tinjau Sebelum Terbit</h1>
-          <p class="text-[13px] text-[#667085] mt-1">Tampilan persis seperti yang dilihat mahasiswa di portal kelas.</p>
-        </div>
+    <div class="box-border w-full flex flex-col gap-[14px] p-[10px_0px_26px_0px] lg:p-[14px_20px_26px_20px] justify-start items-center">
+      <!-- Header Pratinjau Sebelum Terbit -->
+      <div class="w-full max-w-[880px] flex flex-col gap-[5px] justify-start items-start">
+        <h1 class="text-[26px] font-bold text-[#1D1B3A] font-display">Tinjau Sebelum Terbit</h1>
+        <p class="text-[13px] text-[#667085]">
+          Periksa kembali kelengkapan tugas sebelum dipublikasikan ke portal mahasiswa dan grup kelas.
+        </p>
       </div>
 
-      <!-- Stepper (Tahap 2 Aktif) -->
-      <div class="w-full flex flex-row items-center gap-[13px]">
-        <div class="h-[32px] px-3 flex items-center bg-[#F2F5FA] rounded-[8px]">
-          <span class="text-[12px] text-[#1D1B3A] font-medium">1. Isi Data</span>
-        </div>
+      <!-- Tahapan Pratinjau Publikasi (Stepper) -->
+      <div class="w-full max-w-[880px] h-[36px] shrink-0 flex flex-row gap-[13px] items-center">
+        <!-- Tahap Selesai Isi Data -->
+        <button type="button" @click="tugasSub = 'tambah'" class="w-fit h-[32px] flex items-center px-2 hover:bg-slate-100 rounded-[8px] transition-colors cursor-pointer">
+          <span class="text-[12px] text-[#16A34A] font-semibold">✓ 1. Isi Data</span>
+        </button>
         <span class="text-[14px] text-[#CBD5E1] font-normal">—</span>
-        <div class="h-[32px] px-3 flex items-center bg-[#EFF6FF] rounded-[8px]">
+        <!-- Tahap Aktif Tinjau -->
+        <div class="w-fit h-[32px] flex items-center px-3 bg-[#EFF6FF] rounded-[8px]">
           <span class="text-[12px] text-[#3965FB] font-bold">2. Tinjau</span>
         </div>
         <span class="text-[14px] text-[#CBD5E1] font-normal">—</span>
-        <div class="h-[32px] px-3 flex items-center bg-[#F2F5FA] rounded-[8px]">
+        <!-- Tahap Terbitkan -->
+        <div class="w-fit h-[32px] flex items-center px-2">
           <span class="text-[12px] text-[#98A2B3] font-medium">3. Terbitkan</span>
         </div>
       </div>
 
-      <div x-show="tugasError" x-cloak class="p-3.5 rounded-[12px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2">
+      <!-- Alert Error jika ada -->
+      <div x-show="tugasError" x-cloak class="w-full max-w-[880px] p-3.5 rounded-[12px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2">
         <span class="material-symbols-outlined text-[18px] text-red-600 shrink-0">error</span>
         <span x-text="tugasError"></span>
       </div>
 
-      <div class="w-full max-w-3xl shadow-[0px_4px_16px_#0F172A0A] p-6 bg-white border border-[#D7DDE7] rounded-[16px] space-y-4">
-        <div x-show="tugasPreview" class="p-5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] leading-relaxed space-y-2">
-          <p class="text-[11px] font-bold tracking-wider text-[#3965FB] uppercase">TUGAS BARU • <span x-text="selectedClass">-</span></p>
-          <p class="text-[18px] font-bold text-[#1D1B3A]" x-text="tugasPreview.judul">-</p>
-          <p class="text-[13px] text-[#1D1B3A]"><span class="text-[#667085]">Mata kuliah:</span> <span class="font-medium" x-text="tugasPreview.matkul">-</span></p>
-          <p class="text-[13px] text-[#1D1B3A]"><span class="text-[#667085]">Tenggat:</span> <span class="font-mono font-semibold" x-text="fmtDeadlineID(tugasPreview.deadline_at)">-</span></p>
-          <p x-show="tugasPreview.jenis" class="text-[13px] text-[#1D1B3A]"><span class="text-[#667085]">Jenis:</span> <span x-text="tugasPreview.jenis">-</span></p>
-          <div class="pt-2 border-t border-[#E2E8F0]">
-            <p class="text-[12px] text-[#667085] font-semibold mb-1">Instruksi Tugas:</p>
-            <p class="text-[#1D1B3A] whitespace-pre-line" x-text="tugasPreview.deskripsi">-</p>
+      <!-- Fallback jika preview belum ada -->
+      <div x-show="!tugasPreview" class="w-full max-w-[880px] p-6 bg-white border border-[#CBD5E1] rounded-[16px] text-center text-slate-500 text-[13px]">
+        Data pratinjau belum tersedia.
+        <button type="button" @click="tugasSub = 'tambah'" class="text-[#3965FB] underline font-semibold ml-1">Kembali ke formulir isi data</button>
+      </div>
+
+      <!-- Kartu Verifikasi Publikasi -->
+      <div x-show="tugasPreview" class="box-border w-full max-w-[880px] shadow-[0px_4px_16px_#0F172A0A] flex flex-col gap-[14px] p-[20px] sm:p-[25px_30px] bg-[#FFFFFF] border border-[#D7DDE7] rounded-[16px]">
+        <!-- Identitas Mata Kuliah dan Status -->
+        <div class="w-full flex flex-wrap gap-[8px] items-center">
+          <div class="box-border w-fit h-fit flex flex-row p-[5px_9px] items-center bg-[#EFF6FF] border border-[#EFF6FF] rounded-[7px]">
+            <span class="text-[11px] text-[#3965FB] font-semibold uppercase" x-text="(tugasPreview ? (tugasPreview.matkul || 'BASIS DATA') : 'BASIS DATA') + ' (' + (selectedClass || 'D4-TI 1A') + ')'"></span>
           </div>
-          <div class="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-[#3965FB]">
-            <span class="material-symbols-outlined text-[18px]">link</span>
-            <span class="font-medium break-all" x-text="tugasPreview.kumpulUrl || tugasPreview.kumpul">-</span>
+          <div class="box-border w-fit h-fit flex flex-row p-[5px_9px] items-center bg-[#F1F5F9] border border-[#F1F5F9] rounded-[7px]">
+            <span class="text-[11px] text-[#475467] font-semibold" x-text="(tugasPreview && tugasPreview.jenis) ? tugasPreview.jenis : 'Individu'"></span>
+          </div>
+          <div class="flex-1"></div>
+          <div class="box-border w-fit h-fit flex flex-row p-[5px_9px] items-center bg-[#F8FAFC] border border-[#CBD5E1] rounded-[7px]">
+            <span class="text-[11px] text-[#667085] font-semibold">Pratinjau Publikasi</span>
           </div>
         </div>
 
-        <div class="p-3.5 rounded-[12px] bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex items-start gap-2.5">
-          <span class="material-symbols-outlined text-[20px] shrink-0 text-amber-700">campaign</span>
-          <p>Tugas terbit akan langsung tayang di portal mahasiswa. Notifikasi WhatsApp akan otomatis dijadwalkan.</p>
+        <!-- Judul dan Dosen Tugas -->
+        <div class="w-full flex flex-col gap-[5px] justify-start items-start">
+          <h2 class="text-[22px] leading-[29px] text-[#1D1B3A] font-bold font-display" x-text="tugasPreview ? tugasPreview.judul : '-'"></h2>
+          <p class="text-[13px] text-[#667085]">
+            Dosen Pengampu: <span class="text-slate-800 font-medium" x-text="(tugasPreview && tugasPreview.dosen) ? tugasPreview.dosen : 'Tim Dosen'"></span>
+          </p>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-[#F2F4F7]">
-          <button type="button" @click="tugasSub = 'tambah'" class="h-[44px] px-5 flex items-center justify-center bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors flex-1 min-h-[44px]">
-            Ubah Lagi
+        <!-- Tenggat dan Tempat Pengumpulan -->
+        <div class="w-full flex flex-col md:flex-row gap-[18px] p-[16px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] items-start">
+          <!-- Batas Waktu Ditinjau -->
+          <div class="w-full md:w-[435px] shrink-0 flex flex-col gap-[7px] justify-start items-start">
+            <span class="text-[11px] text-[#667085] font-semibold tracking-[0.4px]">BATAS WAKTU PENGUMPULAN</span>
+            <div class="w-fit h-fit flex flex-row gap-[7px] items-center">
+              <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-[#667085]" fill="currentColor">
+                <path d="M7.29053 6.88037l0-2.50537q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.55322q0 0.08887 0.03076 0.17432 0.03418 0.08203 0.10938 0.16064l2.07129 2.07129q0.08203 0.08203 0.19824 0.08887 0.11963 0.00342 0.21533-0.08887 0.09229-0.0957 0.09229-0.20849 0-0.11279-0.09229-0.20508l-2.04394-2.04053z m-0.28711 5.36963q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.93799 0 3.30176-1.36377 1.36377-1.36377 1.36377-3.30176 0-1.93799-1.36377-3.30176-1.36377-1.36377-3.30176-1.36377-1.93799 0-3.30176 1.36377-1.36377 1.36377-1.36377 3.30176 0 1.93799 1.36377 3.30176 1.36377 1.36377 3.30176 1.36377z"></path>
+              </svg>
+              <span class="text-[13px] font-mono font-bold text-[#1D1B3A]" x-text="fmtDeadlineLongID(tugasPreview ? tugasPreview.deadline_at : '')"></span>
+            </div>
+            <div class="w-fit h-fit flex flex-row p-[5px_9px] items-center rounded-[7px]" :class="previewCountdown(tugasPreview ? tugasPreview.deadline_at : '').bg">
+              <span class="text-[11px] font-semibold" :class="previewCountdown(tugasPreview ? tugasPreview.deadline_at : '').color" x-text="previewCountdown(tugasPreview ? tugasPreview.deadline_at : '').text"></span>
+            </div>
+          </div>
+
+          <!-- Tempat Pengumpulan Ditinjau -->
+          <div class="flex-1 flex flex-col gap-[7px] justify-start items-start">
+            <span class="text-[11px] text-[#667085] font-semibold tracking-[0.4px]">TEMPAT PENGUMPULAN</span>
+            <div class="w-fit h-fit flex flex-row gap-[6px] items-center">
+              <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-[#3965FB]" fill="currentColor">
+                <path d="M4.12891 9.37891q-0.98779 0-1.68506-0.69385-0.69385-0.69727-0.69385-1.68506 0-0.98438 0.69385-1.68164 0.69727-0.69727 1.68506-0.69727l1.7705 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.77392 0q-0.73828 0-1.26465 0.52636-0.52637 0.52637-0.52637 1.26807 0 0.7417 0.52637 1.26807 0.52637 0.52637 1.26465 0.52636l1.77392 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.7705 0z m1.12109-2.08838q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l3.5 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-3.5 0z m2.85059 2.08838q-0.12646 0-0.21192-0.08203-0.08203-0.08545-0.08203-0.21192 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21192-0.08545l1.77392 0q0.73828 0 1.26465-0.52636 0.52637-0.52637 0.52637-1.26807 0-0.7417-0.52637-1.26807-0.52637-0.52637-1.26465-0.52636l-1.77392 0q-0.12646 0-0.21192-0.08203-0.08203-0.08545-0.08203-0.21192 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21192-0.08545l1.7705 0q0.98779 0 1.68164 0.69727 0.69727 0.69385 0.69727 1.68164 0 0.98438-0.69727 1.68164-0.69385 0.69727-1.68164 0.69727l-1.7705 0z"></path>
+              </svg>
+              <span class="text-[13px] text-[#3965FB] font-semibold" x-text="(tugasPreview && tugasPreview.kumpul) ? tugasPreview.kumpul : 'Google Classroom Kelas'"></span>
+            </div>
+            <div class="text-[11px] text-[#667085] font-mono break-all" x-text="(tugasPreview && tugasPreview.kumpulUrl) ? tugasPreview.kumpulUrl : ''"></div>
+          </div>
+        </div>
+
+        <!-- Instruksi dan Ketentuan Pengerjaan -->
+        <div class="w-full flex flex-col gap-[8px] justify-start items-start">
+          <span class="text-[14px] text-[#1D1B3A] font-semibold">Instruksi &amp; Ketentuan Pengerjaan</span>
+          <div class="w-full p-[16px] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[12px]">
+            <div class="text-[13px] leading-[20px] text-[#334155] whitespace-pre-line" x-text="tugasPreview ? tugasPreview.deskripsi : '-'"></div>
+          </div>
+        </div>
+
+        <!-- Konfirmasi Dampak Publikasi -->
+        <div class="w-full flex flex-row gap-[11px] p-[16px] bg-[#FFFBEB] border border-[#FDE68A] rounded-[12px] items-start">
+          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0 text-[#B45309] mt-0.5" fill="currentColor">
+            <path d="M12.04834 7.29053l-1.30225 0q-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545l1.30225 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203z m-2.28662 2.40967q0.07861-0.10596 0.19482-0.12305 0.11621-0.01709 0.21875 0.06152l1.03223 0.7793q0.10596 0.07861 0.12305 0.19482 0.01709 0.11279-0.06153 0.21533-0.07861 0.10596-0.19482 0.12305-0.11279 0.01709-0.21875-0.06152l-1.03223-0.7793q-0.10254-0.07861-0.12304-0.1914-0.01709-0.11621 0.06152-0.21875z m1.40137-6.1626l-1.03223 0.77929q-0.10596 0.07861-0.22217 0.06153-0.11279-0.02051-0.1914-0.12305-0.07861-0.10254-0.06153-0.21875 0.01709-0.11621 0.12305-0.19482l1.03223-0.77588q0.10254-0.07861 0.21875-0.06153 0.11621 0.01709 0.19482 0.11963 0.07861 0.10596 0.05811 0.22217-0.01709 0.11279-0.11963 0.19141z m-7.95362 4.72021l-0.6084 0q-0.38965 0-0.6665-0.27685-0.27344-0.27686-0.27344-0.66651l0-0.6289q0-0.38965 0.27344-0.66651 0.27686-0.27686 0.6665-0.27685l2.17725 0 1.60303-0.94336q0.23242-0.14014 0.46826-0.00342 0.23926 0.1333 0.23926 0.40332l0 3.60254q0 0.27002-0.23926 0.40674-0.23584 0.1333-0.46826-0.00684l-1.60303-0.94336-0.98779 0 0 1.92774q0 0.12646-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08203-0.08203-0.20849l0-1.92774z m3.29834 0.32813l0-3.17188-1.56543 0.9126-2.34131 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.2461l0 0.6289q0 0.1333 0.11279 0.2461 0.11279 0.11279 0.24609 0.11279l2.34131 0 1.56543 0.9126z m1.61328 0.09912l0-3.37012q0.29395 0.27002 0.47168 0.71436 0.18115 0.44092 0.18116 0.9707 0 0.52979-0.18116 0.97412-0.17773 0.44092-0.47168 0.71094z"></path>
+          </svg>
+          <div class="flex-1 flex flex-col gap-[5px] justify-start items-start">
+            <span class="text-[13px] text-[#78350F] font-bold">Konfirmasi Publikasi &amp; Notifikasi Otomatis</span>
+            <p class="text-[12px] leading-[18px] text-[#92400E]">
+              Setelah tombol Terbitkan diklik, tugas akan langsung tayang pada Portal Mahasiswa kelas <span class="font-semibold" x-text="selectedClass || 'D4-TI 1A'"></span>, dan bot WhatsApp akan otomatis menyiarkan pesan pengingat ke grup kelas sesuai antrean server.
+            </p>
+          </div>
+        </div>
+
+        <!-- Keputusan Publikasi Tugas -->
+        <div class="w-full pt-[17px] border-t border-[#F2F4F7] flex flex-row justify-between items-center mt-1">
+          <button
+            type="button"
+            @click="tugasSub = 'tambah'"
+            class="h-[44px] px-[20px] flex items-center justify-center bg-[#FFFFFF] border border-[#CBD5E1] rounded-[10px] text-[13px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors min-h-[44px]"
+          >
+            ← Ubah Lagi
           </button>
-          <button type="button" @click="terbitTugas()" class="h-[44px] px-6 flex items-center justify-center bg-[#3965FB] hover:bg-[#2f55d4] border border-[#3965FB] rounded-[10px] text-[13px] font-semibold text-white shadow-sm transition-colors flex-1 min-h-[44px]">
-            Terbitkan Tugas
+          <button
+            type="button"
+            @click="terbitTugas()"
+            :disabled="tugasPublishing"
+            class="h-[44px] px-[24px] flex items-center gap-[8px] justify-center bg-[#3965FB] hover:bg-[#2f55d4] border border-[#3965FB] rounded-[10px] text-[13px] font-semibold text-[#FFFFFF] shadow-sm transition-colors min-h-[44px] disabled:opacity-75 disabled:cursor-wait"
+          >
+            <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-[#FFFFFF]" fill="currentColor">
+              <path d="M5.57129 9.2627l5.13379-5.13379q0.08545-0.08545 0.20166-0.08887 0.11621-0.00684 0.21191 0.08887 0.0957 0.0957 0.0957 0.20849 0 0.11279-0.0957 0.2085l-5.21924 5.21924q-0.14014 0.14355-0.32812 0.14355-0.18799 0-0.33154-0.14355l-2.36182-2.36182q-0.08545-0.08545-0.08887-0.20166-0.00342-0.11621 0.09229-0.21533 0.0957-0.0957 0.20849-0.09571 0.11279 0 0.2085 0.09571l2.27295 2.27637z"></path>
+            </svg>
+            <span x-text="tugasPublishing ? 'Menerbitkan Tugas...' : 'Terbitkan Tugas Sekarang'"></span>
           </button>
         </div>
       </div>
