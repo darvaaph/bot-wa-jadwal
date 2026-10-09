@@ -151,6 +151,7 @@ function kmApp() {
     materiError: '',
     materiFilterOffering: '',
     materiSort: 'terbaru',
+    materiModalOpen: false,
     materiFormOpen: false,
     materiForm: { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' },
     materiFormError: '',
@@ -2818,6 +2819,14 @@ function kmApp() {
       return src.slice(0, 5);
     },
 
+    get materiFilterTitle() {
+      const f = String(this.materiFilterOffering || '');
+      if (!f || f === 'semua') return 'Semua materi';
+      if (f === 'umum') return 'Umum kelas';
+      const found = (this.offeringList || []).find(o => String(o.id) === f);
+      return found ? (found.display_name || found.course_code || 'Materi Kuliah') : 'Semua materi';
+    },
+
     get materiTampil() {
       const f = String(this.materiFilterOffering || '');
       const list = this.materiList || [];
@@ -2861,6 +2870,61 @@ function kmApp() {
         return 'Tautan ' + host;
       }
       return 'Tautan';
+    },
+
+    materiIconMeta(m) {
+      const type = String((m && m.material_type) || '').toUpperCase();
+      const title = String((m && m.title) || '').toLowerCase();
+      const url = String((m && m.url) || '').toLowerCase();
+
+      if (type === 'MEETING' || title.includes('rekaman') || title.includes('video') || title.includes('zoom') || url.includes('youtube') || url.includes('youtu.be')) {
+        return {
+          icon: 'smart_display',
+          label: 'Video',
+          bgClass: 'bg-[#EEF2FF] border-[#E0E7FF] text-[#4F46E5]',
+          badgeClass: 'text-[#4F46E5]'
+        };
+      }
+      if (title.includes('template') || title.includes('format') || title.includes('borang')) {
+        return {
+          icon: 'draft',
+          label: 'Template',
+          bgClass: 'bg-[#F1F5F9] border-[#E2E8F0] text-[#475569]',
+          badgeClass: 'text-[#475569]'
+        };
+      }
+      if (type === 'REPOSITORY' || title.includes('github') || title.includes('repo') || url.includes('github.com') || url.includes('gitlab.com')) {
+        return {
+          icon: 'code',
+          label: 'Repositori',
+          bgClass: 'bg-[#EFF6FF] border-[#DBEAFE] text-[#2563EB]',
+          badgeClass: 'text-[#2563EB]'
+        };
+      }
+      if (type === 'PORTAL' || title.includes('portal') || title.includes('web')) {
+        return {
+          icon: 'open_in_new',
+          label: 'Portal',
+          bgClass: 'bg-[#EFF6FF] border-[#DBEAFE] text-[#2563EB]',
+          badgeClass: 'text-[#2563EB]'
+        };
+      }
+      if (title.includes('panduan') || title.includes('bacaan') || title.includes('referensi') || title.includes('artikel') || title.includes('buku') || title.includes('paper')) {
+        const isLink = url.length > 0 && !url.endsWith('.pdf');
+        return {
+          icon: isLink ? 'link' : 'article',
+          label: 'Referensi',
+          bgClass: 'bg-[#EFF6FF] border-[#DBEAFE] text-[#2563EB]',
+          badgeClass: 'text-[#2563EB]'
+        };
+      }
+      const isSlide = title.includes('slide') || title.includes('ppt') || title.includes('presentasi');
+      return {
+        icon: 'description',
+        label: isSlide ? 'Slide' : (type === 'DOCUMENT' ? 'Dokumen' : 'Lainnya'),
+        bgClass: 'bg-[#EFF6FF] border-[#DBEAFE] text-[#2563EB]',
+        badgeClass: 'text-[#2563EB]'
+      };
     },
 
     fmtTanggalSingkat(iso) {
@@ -3084,6 +3148,21 @@ function kmApp() {
       }
     },
 
+    bukaModalTambahMateri() {
+      this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
+      this.editMateriId = null;
+      this.editMateriVersion = 0;
+      this.materiFormError = '';
+      this.materiModalOpen = true;
+      this.materiFormOpen = true;
+    },
+
+    tutupModalMateri() {
+      this.materiModalOpen = false;
+      this.materiFormOpen = false;
+      this.materiFormError = '';
+    },
+
     async simpanMateri() {
       const f = this.materiForm;
       const slug = this.classSlug || this.selectedClass;
@@ -3115,6 +3194,7 @@ function kmApp() {
         }
         this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
         this.editMateriId = null; this.editMateriVersion = 0;
+        this.materiModalOpen = false;
         this.materiFormOpen = false;
         await this.loadMateri();
       } catch (e) {
@@ -3137,14 +3217,15 @@ function kmApp() {
       };
       this.materiFormError = '';
       this.editMateriId = m.id; this.editMateriVersion = m.version || 0;
+      this.materiModalOpen = true;
       this.materiFormOpen = true;
-      window.scrollTo({ top: 0 });
     },
 
     batalUbahMateri() {
       this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
       this.editMateriId = null; this.editMateriVersion = 0;
       this.materiFormError = '';
+      this.materiModalOpen = false;
       this.materiFormOpen = false;
     },
 

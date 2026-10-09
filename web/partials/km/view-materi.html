@@ -1,127 +1,282 @@
-<!-- partials/km/view-materi.html — KM Repositori Materi -->
-<section x-show="view === 'materi'" x-cloak>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+<!-- partials/km/view-materi.html — SCR-KM-MAT-001 · Repositori Materi Perkuliahan · KM -->
+<section x-show="view === 'materi'" x-cloak class="space-y-6">
+  <!-- Top Breadcrumb & Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
-      <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Repositori Materi</h1>
-      <p class="text-[14px] text-slate-500 mt-1">File dan tautan kuliah tersimpan rapi per mata kuliah</p>
+      <nav class="flex items-center gap-1.5 text-[12px] text-slate-500 mb-1" aria-label="Breadcrumb">
+        <span>Sistem</span>
+        <span class="text-slate-400">/</span>
+        <span x-text="selectedClass || (meCache && meCache.active_assignment && meCache.active_assignment.offering_name) || 'D4-TI 1A'">D4-TI 1A</span>
+        <span class="text-slate-400">/</span>
+        <span class="text-slate-800 font-medium">Materi</span>
+      </nav>
+      <h1 class="text-[24px] md:text-[26px] font-bold text-[#0F172A] tracking-tight">Repositori Materi</h1>
+      <p class="text-[13px] md:text-[14px] text-[#64748B] mt-0.5">File dan tautan kuliah tersimpan rapi per mata kuliah</p>
     </div>
-    <button type="button" @click="materiFormOpen = !materiFormOpen" class="ui-button ui-button--primary text-[14px] font-semibold self-start inline-flex items-center gap-2">
-      <span class="material-symbols-outlined text-[18px]" x-text="materiFormOpen ? 'close' : 'add'">-</span><span x-text="materiFormOpen ? 'Tutup form' : 'Tambah materi'">-</span>
+
+    <!-- Tombol Tambah Materi -->
+    <button type="button" @click="bukaModalTambahMateri()"
+      class="h-[40px] px-4 rounded-[12px] bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[13px] shadow-[0px_2px_6px_#0F172A18] flex items-center gap-2 transition-colors shrink-0 self-start sm:self-auto min-h-[40px]">
+      <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="3" x2="8" y2="13"></line>
+        <line x1="3" y1="8" x2="13" y2="8"></line>
+      </svg>
+      <span>Tambah materi</span>
     </button>
   </div>
 
-  <div x-show="materiFormOpen" class="ui-card mt-5 p-5">
-    <h2 class="text-[18px] font-semibold" x-text="editMateriId ? 'Ubah materi' : 'Tambah materi'">-</h2>
-    <div x-show="materiFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="materiFormError">-</div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-      <div class="sm:col-span-2">
-        <label class="block text-[13px] font-medium mb-1">Judul <span class="text-danger">*</span></label>
-        <input aria-label="Judul" type="text" x-model="materiForm.title" placeholder="Contoh: Slide basis data pekan 1" class="ui-field w-full text-[14px]" />
-      </div>
-      <div>
-        <label class="block text-[13px] font-medium mb-1">Mata kuliah (kosongkan untuk materi umum kelas)</label>
-        <select aria-label="Mata kuliah (kosongkan untuk materi umum kelas)" x-model="materiForm.offeringId" class="ui-field w-full text-[14px]">
-          <option value="">Umum kelas</option>
-          <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
-        </select>
-      </div>
-      <div>
-        <label class="block text-[13px] font-medium mb-1">Jenis</label>
-        <select aria-label="Jenis" x-model="materiForm.material_type" class="ui-field w-full text-[14px]">
-          <option value="DOCUMENT">Dokumen</option>
-          <option value="MEETING">Tautan rapat</option>
-          <option value="REPOSITORY">Repositori</option>
-          <option value="PORTAL">Portal</option>
-          <option value="OTHER">Lainnya</option>
-        </select>
-      </div>
-      <div class="sm:col-span-2">
-        <label class="block text-[13px] font-medium mb-1">Tautan</label>
-        <input aria-label="Tautan" type="text" x-model="materiForm.url" placeholder="https://..." class="ui-field w-full text-[14px]" />
-      </div>
-      <div class="sm:col-span-2">
-        <label class="block text-[13px] font-medium mb-1">Deskripsi</label>
-        <textarea aria-label="Deskripsi" x-model="materiForm.description" rows="2" class="ui-field w-full p-3 text-[14px] resize-none"></textarea>
-      </div>
+  <!-- Sub-header Bar -->
+  <div class="flex items-center justify-between gap-4">
+    <h2 class="text-[18px] font-bold text-[#0F172A]" x-text="materiFilterTitle">Semua materi</h2>
+    <div class="flex items-center gap-2">
+      <button type="button" aria-label="Tampilan daftar" title="Tampilan daftar"
+        class="w-[38px] h-[38px] flex items-center justify-center bg-white border border-[#E2E8F0] rounded-[12px] text-slate-600 hover:bg-slate-50 transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[18px]">view_list</span>
+      </button>
+      <button type="button" @click="materiSort = (materiSort === 'terlama' ? 'terbaru' : 'terlama')"
+        aria-label="Urutkan materi" :title="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')"
+        class="w-[38px] h-[38px] flex items-center justify-center bg-white border border-[#E2E8F0] rounded-[12px] text-[#2563EB] hover:bg-blue-50/50 transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[18px]">filter_list</span>
+      </button>
+      <button type="button" @click="loadMateri()" aria-label="Muat ulang materi" title="Muat ulang materi"
+        class="w-[38px] h-[38px] flex items-center justify-center bg-white border border-[#E2E8F0] rounded-[12px] text-slate-500 hover:bg-slate-50 transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[18px]">refresh</span>
+      </button>
     </div>
-    <button type="button" @click="simpanMateri()" :disabled="materiSaving" class="ui-button ui-button--primary mt-4 text-[14px] font-semibold" x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan perubahan' : 'Simpan materi')">Simpan materi</button>
-    <button type="button" @click="batalUbahMateri()" x-show="editMateriId" class="ui-button ui-button--ghost mt-4 ml-2 h-11 px-5 rounded-xl border border-border text-[14px] font-medium min-h-[44px]">Batal</button>
   </div>
 
-  <h2 class="text-[16px] font-semibold text-ink mt-6">Semua materi</h2>
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-2 items-start">
-    <div class="ui-card p-4">
-      <h3 class="text-[14px] font-semibold">Mata kuliah</h3>
-      <div class="mt-2 flex lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-1">
+  <!-- Dua Panel: Mata Kuliah & Materi Terbaru -->
+  <div class="flex flex-col lg:flex-row gap-6 items-start">
+    <!-- Panel Kiri: Filter Mata Kuliah (w-full lg:w-[300px]) -->
+    <div class="w-full lg:w-[300px] shrink-0 bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_2px_10px_#0F172A08] p-5">
+      <h3 class="text-[16px] font-bold text-[#0F172A] mb-3.5">Mata kuliah</h3>
+      <div class="flex lg:flex-col gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <!-- Filter Semua materi -->
         <button type="button" @click="materiFilterOffering = 'semua'"
-          :class="(!materiFilterOffering || materiFilterOffering === 'semua') ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-slate-600 hover:bg-slate-50'"
-          class="ui-button ui-button--ghost flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] text-left min-h-[44px] whitespace-nowrap lg:whitespace-normal w-auto lg:w-full shrink-0">
-          <span>Semua materi</span><span class="font-mono text-[12px]" x-text="materiList.length">0</span>
+          :class="(!materiFilterOffering || materiFilterOffering === 'semua') ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'bg-white text-[#475569] hover:bg-slate-50 font-medium'"
+          class="w-auto lg:w-full h-[42px] px-3 rounded-[12px] flex items-center justify-between gap-3 text-[12px] shrink-0 text-left transition-colors">
+          <span class="truncate">Semua materi</span>
+          <span class="font-bold shrink-0" x-text="materiList.length">0</span>
         </button>
+
+        <!-- Filter Umum kelas (Pilihan Opsi A) -->
         <button type="button" @click="materiFilterOffering = 'umum'"
-          :class="materiFilterOffering === 'umum' ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-slate-600 hover:bg-slate-50'"
-          class="ui-button ui-button--ghost flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] text-left min-h-[44px] whitespace-nowrap lg:whitespace-normal w-auto lg:w-full shrink-0">
-          <span>Umum kelas</span><span class="font-mono text-[12px]" x-text="materiCountUmum">0</span>
+          :class="materiFilterOffering === 'umum' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'bg-white text-[#475569] hover:bg-slate-50 font-medium'"
+          class="w-auto lg:w-full h-[42px] px-3 rounded-[12px] flex items-center justify-between gap-3 text-[12px] shrink-0 text-left transition-colors">
+          <span class="truncate">Umum kelas</span>
+          <span class="font-medium shrink-0" :class="materiFilterOffering === 'umum' ? 'text-[#1D4ED8]' : 'text-[#64748B]'" x-text="materiCountUmum">0</span>
         </button>
+
+        <!-- Filter Tiap Mata Kuliah -->
         <template x-for="o in offeringList" :key="o.id">
           <button type="button" @click="materiFilterOffering = String(o.id)"
-            :class="String(materiFilterOffering) === String(o.id) ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-slate-600 hover:bg-slate-50'"
-            class="ui-button ui-button--ghost flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] text-left min-h-[44px] w-auto lg:w-full shrink-0">
-            <span class="truncate max-w-[140px]" x-text="o.display_name || o.course_code">-</span><span class="font-mono text-[12px] shrink-0" x-text="materiCountOffering(o.id)">0</span>
+            :class="String(materiFilterOffering) === String(o.id) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'bg-white text-[#475569] hover:bg-slate-50 font-medium'"
+            class="w-auto lg:w-full h-[42px] px-3 rounded-[12px] flex items-center justify-between gap-3 text-[12px] shrink-0 text-left transition-colors">
+            <span class="truncate" x-text="o.display_name || o.course_code">-</span>
+            <span class="font-medium shrink-0" :class="String(materiFilterOffering) === String(o.id) ? 'text-[#1D4ED8]' : 'text-[#64748B]'" x-text="materiCountOffering(o.id)">0</span>
           </button>
         </template>
       </div>
     </div>
 
-    <div class="ui-card lg:col-span-3 p-4 sm:p-5">
-      <div class="flex items-center justify-between gap-2">
-        <h3 class="text-[15px] font-semibold" x-text="'Materi · ' + (materiSort === 'terlama' ? 'Terlama' : 'Terbaru')">-</h3>
-        <div class="flex items-center gap-2">
-          <button type="button" @click="loadMateri()" aria-label="Muat ulang materi" title="Muat ulang" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border flex items-center justify-center hover:bg-slate-50 shrink-0">
-            <span class="material-symbols-outlined text-[20px]">refresh</span>
-          </button>
-          <button type="button" @click="materiSort = materiSort === 'terlama' ? 'terbaru' : 'terlama'" :aria-label="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')" :title="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')"
-            class="ui-button ui-button--primary text-[13px] font-semibold inline-flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-[18px]">filter_list</span><span x-text="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')">-</span>
-          </button>
-        </div>
+    <!-- Panel Kanan: Daftar Materi Terbaru -->
+    <div class="flex-1 min-w-0 w-full bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_2px_10px_#0F172A08] p-5 sm:p-6">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-2">
+        <h3 class="text-[16px] font-bold text-[#0F172A]">Materi terbaru</h3>
+        <button type="button" @click="materiSort = (materiSort === 'terlama' ? 'terbaru' : 'terlama')"
+          class="text-[12px] font-medium text-[#64748B] hover:text-[#2563EB] flex items-center gap-1 transition-colors">
+          <span x-text="'Urutkan: ' + (materiSort === 'terlama' ? 'terlama' : 'terbaru')">Urutkan: terbaru</span>
+          <span class="material-symbols-outlined text-[16px]">swap_vert</span>
+        </button>
       </div>
 
-      <div x-show="materiLoading" class="py-8 text-center text-[13px] text-slate-400">Memuat materi...</div>
-      <div x-show="materiError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="materiError">-</span>
-        <button type="button" @click="loadMateri()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+      <!-- State 1: Skeleton Loading -->
+      <div x-show="materiLoading" class="space-y-4 py-2">
+        <template x-for="i in [1, 2, 3, 4]" :key="i">
+          <div class="h-[76px] flex items-center gap-3.5 animate-pulse">
+            <div class="w-[44px] h-[44px] rounded-[12px] bg-slate-100 shrink-0"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-4 bg-slate-100 rounded w-1/3"></div>
+              <div class="h-3 bg-slate-100 rounded w-1/4"></div>
+            </div>
+            <div class="w-16 h-4 bg-slate-100 rounded shrink-0"></div>
+          </div>
+        </template>
       </div>
-      <div x-show="!materiLoading && !materiError && materiTampil.length === 0" class="ui-empty py-10 text-center">
-        <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
-        <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
-        <p class="text-[13px] text-slate-500">Tambahkan materi umum kelas atau per mata kuliah.</p>
+
+      <!-- State 2: Error Alert -->
+      <div x-show="materiError" class="my-4 p-4 rounded-[12px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[20px] text-red-500">error</span>
+          <span x-text="materiError">-</span>
+        </div>
+        <button type="button" @click="loadMateri()" class="font-semibold text-red-700 hover:text-red-800 underline ml-2">Coba Lagi</button>
       </div>
-      <div x-show="!materiLoading && materiTampil.length > 0" class="divide-y divide-border">
+
+      <!-- State 3: Empty State -->
+      <div x-show="!materiLoading && !materiError && materiTampil.length === 0" class="py-12 flex flex-col items-center justify-center text-center">
+        <div class="w-14 h-14 rounded-2xl bg-blue-50 text-[#2563EB] flex items-center justify-center mb-3">
+          <span class="material-symbols-outlined text-[28px]">folder_open</span>
+        </div>
+        <h4 class="text-[15px] font-bold text-[#0F172A]">Belum ada materi</h4>
+        <p class="text-[13px] text-slate-500 max-w-sm mt-1">
+          Belum ada berkas atau tautan kuliah yang diunggah untuk kategori ini. Tambahkan materi sekarang untuk dibagikan ke kelas.
+        </p>
+        <button type="button" @click="bukaModalTambahMateri()" class="mt-4 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[13px] rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          <span>Tambah Materi Pertama</span>
+        </button>
+      </div>
+
+      <!-- State 4: Material List -->
+      <div x-show="!materiLoading && !materiError && materiTampil.length > 0" class="divide-y divide-[#F1F5F9]">
         <template x-for="m in materiTampil" :key="m.id">
-          <div class="py-4 flex items-center gap-3">
-            <span class="w-11 h-11 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
-              <span class="material-symbols-outlined text-[22px] text-primary">folder</span>
-            </span>
-            <div class="flex-1 min-w-0">
+          <div class="min-h-[76px] py-3.5 flex items-center gap-3.5 group hover:bg-slate-50/70 -mx-3 px-3 rounded-xl transition-colors">
+            <!-- Icon Box -->
+            <div class="w-[44px] h-[44px] shrink-0 rounded-[12px] border flex items-center justify-center transition-transform group-hover:scale-105"
+              :class="materiIconMeta(m).bgClass">
+              <span class="material-symbols-outlined text-[22px]" x-text="materiIconMeta(m).icon">description</span>
+            </div>
+
+            <!-- Middle Info -->
+            <div class="flex-1 min-w-0 flex flex-col gap-0.5">
               <template x-if="m.url">
-                <a :href="m.url" target="_blank" rel="noopener" class="block text-[15px] font-medium text-ink line-clamp-1 hover:text-primary hover:underline" x-text="m.title">-</a>
+                <a :href="m.url" target="_blank" rel="noopener"
+                  class="text-[14px] font-semibold text-[#0F172A] hover:text-[#2563EB] hover:underline truncate block"
+                  x-text="m.title">-</a>
               </template>
               <template x-if="!m.url">
-                <p class="text-[15px] font-medium text-ink line-clamp-1" x-text="m.title">-</p>
+                <p class="text-[14px] font-semibold text-[#0F172A] truncate" x-text="m.title">-</p>
               </template>
-              <p class="text-[12px] text-slate-500 mt-0.5 truncate" x-text="materiOfferingName(m) + ' · ' + sumberMateri(m)">-</p>
+              <p class="text-[12px] text-[#64748B] truncate" x-text="materiOfferingName(m) + ' · ' + sumberMateri(m)">-</p>
             </div>
-            <div class="shrink-0 text-right">
-              <p class="text-[13px] font-medium text-primary" x-text="materiTipeLabel(m.material_type)">-</p>
-              <p class="text-[12px] text-slate-400 mt-0.5" :title="m.created_at ? fmtDeadlineID(m.created_at) : ''" x-text="fmtTanggalSingkat(m.created_at)">-</p>
-              <div class="flex gap-1.5 mt-1.5 justify-end">
-                <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-slate-50 text-slate-600"><span class="material-symbols-outlined text-[18px]">edit</span></button>
-                <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan" class="ui-button ui-button--ghost w-11 h-11 rounded-xl border border-border inline-flex items-center justify-center hover:bg-red-50 text-slate-600 hover:text-red-600"><span class="material-symbols-outlined text-[18px]">archive</span></button>
+
+            <!-- Subtype & Date & Actions -->
+            <div class="shrink-0 flex items-center gap-3 sm:gap-4">
+              <span class="text-[12px] font-medium hidden sm:inline" :class="materiIconMeta(m).badgeClass" x-text="materiIconMeta(m).label">Slide</span>
+              <span class="text-[12px] text-[#64748B] font-normal" :title="m.created_at ? fmtDeadlineID(m.created_at) : ''" x-text="fmtTanggalSingkat(m.created_at)">-</span>
+
+              <!-- Action Buttons (Hover / Mobile Accessible) -->
+              <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah materi"
+                  class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">edit</span>
+                </button>
+                <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan materi"
+                  class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">archive</span>
+                </button>
               </div>
             </div>
           </div>
         </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Dialog Tambah / Ubah Materi (SCR-KM-MAT-001 - Opsi A) -->
+  <div x-show="materiModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-materi-title" role="dialog" aria-modal="true">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="tutupModalMateri()"></div>
+
+    <!-- Center Modal container -->
+    <div class="min-h-full flex items-center justify-center p-4">
+      <div class="relative bg-white rounded-[20px] shadow-2xl border border-slate-200/80 w-full max-w-[560px] overflow-hidden transform transition-all"
+        @click.outside="tutupModalMateri()"
+        @keydown.escape.window="tutupModalMateri()">
+
+        <!-- Modal Header -->
+        <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-100 text-[#2563EB] flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[22px]">menu_book</span>
+            </div>
+            <div>
+              <h3 id="modal-materi-title" class="text-[17px] font-bold text-[#0F172A]" x-text="editMateriId ? 'Ubah Materi Kuliah' : 'Tambah Materi Baru'">-</h3>
+              <p class="text-[12px] text-slate-500 mt-0.5">Simpan dokumen, berkas, atau tautan kuliah per mata kuliah</p>
+            </div>
+          </div>
+          <button type="button" @click="tutupModalMateri()" aria-label="Tutup modal"
+            class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 space-y-4">
+          <!-- Error Alert -->
+          <div x-show="materiFormError" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px] text-red-500 shrink-0">error</span>
+            <span x-text="materiFormError">-</span>
+          </div>
+
+          <div>
+            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
+              Judul Materi <span class="text-red-500">*</span>
+            </label>
+            <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide Normalisasi Database"
+              class="w-full h-11 px-3.5 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
+                Mata Kuliah
+              </label>
+              <select x-model="materiForm.offeringId"
+                class="w-full h-11 px-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white">
+                <option value="">Umum Kelas</option>
+                <template x-for="o in offeringList" :key="o.id">
+                  <option :value="o.id" x-text="o.display_name || o.course_code">-</option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
+                Jenis Konten
+              </label>
+              <select x-model="materiForm.material_type"
+                class="w-full h-11 px-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white">
+                <option value="DOCUMENT">Dokumen / Slide / PDF</option>
+                <option value="MEETING">Tautan Rapat / Video</option>
+                <option value="REPOSITORY">Repositori Kode</option>
+                <option value="PORTAL">Portal / Web Kuliah</option>
+                <option value="OTHER">Lainnya</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
+              Tautan / URL Berkas
+            </label>
+            <input type="url" x-model="materiForm.url" placeholder="https://drive.google.com/..."
+              class="w-full h-11 px-3.5 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400" />
+            <p class="text-[11px] text-slate-500 mt-1">Mendukung tautan Google Drive, Docs, YouTube, GitHub, atau berkas daring.</p>
+          </div>
+
+          <div>
+            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
+              Deskripsi / Catatan Tambahan
+            </label>
+            <textarea x-model="materiForm.description" rows="2" placeholder="Catatan singkat untuk mahasiswa..."
+              class="w-full p-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400 resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-2.5">
+          <button type="button" @click="tutupModalMateri()"
+            class="h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[13px] font-medium transition-colors">
+            Batal
+          </button>
+          <button type="button" @click="simpanMateri()" :disabled="materiSaving"
+            class="h-10 px-5 rounded-xl bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors">
+            <span class="material-symbols-outlined text-[16px] animate-spin" x-show="materiSaving">progress_activity</span>
+            <span x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan Perubahan' : 'Simpan Materi')">Simpan Materi</span>
+          </button>
+        </div>
+
       </div>
     </div>
   </div>
