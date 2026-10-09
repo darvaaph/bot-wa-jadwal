@@ -181,6 +181,15 @@ function kmApp() {
     reviewMode: 'koreksi',
     reviewNote: '',
 
+    // SCR-TASK-006: State Dialog Minta Koreksi (KM)
+    modalKoreksi: {
+      open: false,
+      task: null,
+      note: '',
+      isSubmitting: false,
+      error: ''
+    },
+
     // Pengaturan kelas (ditulis ke server; berlaku pengiriman berikutnya).
     pengaturan: {
       pagi: '06:00',
@@ -1837,7 +1846,79 @@ function kmApp() {
       }
     },
 
+    // SCR-TASK-006: Method Dialog Minta Koreksi (KM)
+    bukaModalKoreksi(task) {
+      if (!task) return;
+      this.modalKoreksi = {
+        open: true,
+        task: task,
+        note: '',
+        isSubmitting: false,
+        error: ''
+      };
+      this.$nextTick(() => {
+        const el = document.getElementById('modal-koreksi-note');
+        if (el) el.focus();
+      });
+    },
+
+    tutupModalKoreksi() {
+      if (this.modalKoreksi.isSubmitting) return;
+      this.modalKoreksi.open = false;
+      this.modalKoreksi.task = null;
+      this.modalKoreksi.note = '';
+      this.modalKoreksi.error = '';
+    },
+
+    async kirimKoreksiModal() {
+      const task = this.modalKoreksi.task;
+      if (!task) return;
+      const note = (this.modalKoreksi.note || '').trim();
+      if (!note) {
+        this.modalKoreksi.error = 'Catatan koreksi wajib diisi agar PJ mengetahui revisi yang dibutuhkan.';
+        const el = document.getElementById('modal-koreksi-note');
+        if (el) el.focus();
+        return;
+      }
+      this.modalKoreksi.error = '';
+      this.modalKoreksi.isSubmitting = true;
+
+      try {
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.reviewTask(task.id, {
+          decision: 'CHANGES_REQUESTED',
+          note: note,
+          task_version: version
+        });
+        this.modalKoreksi.open = false;
+        this.modalKoreksi.task = null;
+        this.modalKoreksi.note = '';
+        await this.loadTasks();
+        this.showToast('Permintaan koreksi berhasil dikirim ke PJ.');
+        if (this.tugasSub === 'detail') {
+          await this.bukaDetailTugas(task.id);
+        }
+      } catch (err) {
+        if (err.code === 'VERSION_CONFLICT') {
+          this.modalKoreksi.error = 'Versi tugas telah diperbarui oleh pengusul. Silakan muat ulang data terbaru.';
+          await this.loadTasks();
+        } else {
+          this.modalKoreksi.error = err.message || 'Gagal mengirim permintaan koreksi. Silakan coba lagi.';
+        }
+      } finally {
+        this.modalKoreksi.isSubmitting = false;
+      }
+    },
+
     async reviewAksi(id, mode) {
+      if (mode === 'koreksi') {
+        const t = (this.tasks || []).find(x => String(x.id) === String(id)) || this.tugasDetail;
+        if (t) {
+          this.bukaModalKoreksi(t);
+          return;
+        }
+      }
       const isBatal = mode === 'batal';
       const promptMsg = isBatal
         ? 'Alasan penolakan / pembatalan tugas (wajib):'
