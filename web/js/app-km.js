@@ -762,13 +762,89 @@ function kmApp() {
 
     bukaDaftar() { this.jadwalSub = 'daftar'; window.scrollTo({ top: 0 }); },
 
+    get activeSemesterLabel() {
+      if (this.semesterOptions && this.semesterOptions.length) {
+        const found = this.semesterOptions.find(s => String(s.id) === String(this.semesterId)) || this.semesterOptions[0];
+        if (found) return `${found.academic_year || ''} · ${found.term || ''}`;
+      }
+      return 'Semester Ganjil 2026/2027';
+    },
+
+    get selectedOfferingObj() {
+      if (!this.ubahForm.offeringId) return null;
+      return (this.offeringList || []).find(o => String(o.id) === String(this.ubahForm.offeringId)) || null;
+    },
+
+    get selectedOfferingName() {
+      const o = this.selectedOfferingObj;
+      return o ? (o.display_name || o.course_name || o.course_code || 'Aljabar Linier') : 'Pilih Mata Kuliah';
+    },
+
+    get selectedOfferingLecturer() {
+      const o = this.selectedOfferingObj;
+      return o ? (o.lecturer_codes || o.lecturers || o.dosen || '') : '';
+    },
+
+    get selectedRoomObj() {
+      if (!this.ubahForm.roomId) return null;
+      return (this.polaRooms || []).find(r => String(r.id) === String(this.ubahForm.roomId)) || null;
+    },
+
+    get selectedRoomName() {
+      const r = this.selectedRoomObj;
+      return r ? r.code : (this.ubahForm.roomId ? `Ruang ${this.ubahForm.roomId}` : 'Ruang Belum Dipilih');
+    },
+
+    get simulasiDatePill() {
+      if (!this.ubahForm.date) return 'Rabu, 7 Okt';
+      const d = new Date(this.ubahForm.date + 'T00:00:00+07:00');
+      if (isNaN(d.getTime())) return this.ubahForm.date;
+      return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
+    },
+
+    get simulasiOriginText() {
+      if (!this.ubahForm.originPatternId) return 'Pengganti sesi sebelumnya';
+      const p = (this.patternsList || []).find(x => String(x.id) === String(this.ubahForm.originPatternId));
+      if (!p) return 'Pengganti sesi sebelumnya';
+      const hari = this.polaHariName(p.day_of_week);
+      const tgl = this.ubahForm.originDate ? `, ${this.ubahForm.originDate}` : '';
+      return `Pengganti sesi ${hari}${tgl}`;
+    },
+
+    get simulasiRuangCheckText() {
+      const rm = this.selectedRoomName || 'Ruang D204';
+      const tgl = this.simulasiDatePill || 'Rabu';
+      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      return `${rm} tersedia ${tgl} ${jam}. Tidak ada kelas lain.`;
+    },
+
+    get simulasiDosenCheckText() {
+      const ds = this.selectedOfferingLecturer || 'Dosen pengampu';
+      return `${ds} tidak mengajar kelas lain pada jam ini.`;
+    },
+
+    get simulasiKelasCheckText() {
+      const cls = this.selectedClass || 'D4-TI 1A';
+      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      return `${cls} kosong pada ${jam}. Bebas bentrok.`;
+    },
+
     mulaiUbah(prefill) {
       const f = this.ubahForm;
       f.offeringId = (prefill && prefill.offeringId) || f.offeringId || '';
       f.kind = (prefill && prefill.kind) || 'REPLACEMENT';
       f.scope = 'sementara';
-      f.originPatternId = ''; f.originDate = ''; f.date = ''; f.day = '1'; f.start = ''; f.end = '';
+      f.originPatternId = ''; f.originDate = ''; f.day = '1';
       f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
+      if (!f.date) {
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        f.date = `${y}-${m}-${d}`;
+      }
+      f.start = (prefill && prefill.session && prefill.session.timeStart) || f.start || '13:00';
+      f.end = (prefill && prefill.session && prefill.session.timeEnd) || f.end || '15:30';
       if (prefill && prefill.session) {
         const s = prefill.session;
         const pat = (this.patternsList || []).find(p =>

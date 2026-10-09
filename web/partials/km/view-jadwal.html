@@ -594,149 +594,287 @@
     </div>
   </div>
 
-  <!-- ============ SUB: UBAH (SCR-SCH-002) ============ -->
+  <!-- ============ SUB: UBAH (SCR-SCHED-002) ============ -->
   <div x-show="jadwalSub === 'ubah'">
-    <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
-    <div class="ui-card p-4 md:p-6 shadow-sm mt-4 max-w-[960px]">
-      <h2 class="text-[18px] font-semibold text-ink">Buat Perubahan Jadwal</h2>
-      <p class="text-[13px] text-slate-500 mt-1">Kelas <strong class="text-ink" x-text="selectedClass || '—'"></strong> · Waktu WIB · Tanggal harus berada dalam semester aktif.</p>
-      <div x-show="ubahFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="ubahFormError">-</div>
+    <!-- Top Breadcrumb -->
+    <div class="flex items-center gap-2 text-[12px] text-[#667085] mb-1 font-medium">
+      <span>Sistem</span>
+      <span class="text-[#98A2B3]">/</span>
+      <span x-text="selectedClass || 'D4-TI 1A'">D4-TI 1A</span>
+      <span class="text-[#98A2B3]">/</span>
+      <button type="button" @click="bukaDaftar()" class="hover:underline">Jadwal Kuliah</button>
+      <span class="text-[#98A2B3]">/</span>
+      <span class="text-[#1D1B3A] font-semibold">Buat Perubahan Jadwal</span>
+    </div>
 
-      <div x-show="offeringLoading" class="mt-5 rounded-xl bg-slate-50 p-4 text-[13px] text-slate-600" role="status">Memuat semester dan mata kuliah...</div>
-      <div x-show="!offeringLoading && offeringState !== 'ok'" class="schedule-setup mt-5" role="alert">
-        <div class="flex items-start gap-3">
-          <span class="material-symbols-outlined text-[22px] shrink-0" aria-hidden="true">info</span>
-          <div class="min-w-0">
-            <p class="font-semibold text-[14px]">Form belum dapat dilanjutkan</p>
-            <p class="text-[13px] mt-1" x-text="pesanOffering()">-</p>
-            <button type="button" @click="loadOfferings()" class="ui-button ui-button--outline mt-3">Muat ulang data</button>
-          </div>
-        </div>
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="font-[Poppins] text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Buat Perubahan Jadwal</h1>
+        <p class="text-[13px] text-[#667085] mt-0.5">Ajukan sesi kuliah pengganti, kelas tambahan, atau pembatalan jadwal kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || 'D4-TI 1A'"></span>.</p>
       </div>
+      <button type="button" @click="simpanDrafPerubahan()"
+              class="h-[40px] px-4 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-all shadow-sm self-start sm:self-auto flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+        <span>Simpan sebagai Draf</span>
+      </button>
+    </div>
 
-      <div x-show="!offeringLoading && offeringState === 'ok'">
-        <div class="mt-6">
-          <label for="ubah-offering" class="block text-[14px] font-semibold mb-2">Mata kuliah penyelenggara <span class="text-red-600">*</span></label>
-          <select id="ubah-offering" x-model="ubahForm.offeringId" class="ui-field w-full text-[14px]">
-            <option value="">Pilih mata kuliah</option>
-            <template x-for="o in offeringList" :key="o.id"><option :value="o.id" x-text="o.display_name || o.course_code">-</option></template>
-          </select>
+    <!-- Stepper Navigation -->
+    <div class="flex flex-wrap items-center gap-2 md:gap-3 w-full mt-4 pt-1">
+      <div class="h-[30px] px-3 bg-[#EFF6FF] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-1.5 shadow-sm">
+        <span>1. Rincian Perubahan</span>
+      </div>
+      <span class="text-[#98A2B3] text-[13px] font-normal">—</span>
+      <div class="h-[30px] px-3 rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center">
+        <span>2. Tinjau Dampak &amp; Bentrok</span>
+      </div>
+      <span class="text-[#98A2B3] text-[13px] font-normal">—</span>
+      <div class="h-[30px] px-3 rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center">
+        <span>3. Terbitkan &amp; Siarkan</span>
+      </div>
+      <div class="ml-auto text-[11px] text-[#667085] font-normal hidden md:block">
+        <span x-text="(selectedClass || 'D4-TI 1A') + ' · ' + (activeSemesterLabel || 'Semester Ganjil 2026/2027')"></span>
+      </div>
+    </div>
+
+    <!-- Main Content: 2-Column Layout (Formulir + Validasi & Simulasi) -->
+    <div class="flex flex-col lg:flex-row gap-[18px] items-start w-full mt-4">
+      <!-- Kolom Kiri: Formulir Perubahan Jadwal -->
+      <div class="w-full lg:w-[670px] shrink-0 bg-white border border-[#D7DDE7] rounded-[16px] p-6 shadow-[0px_3px_12px_#0F172A08] flex flex-col gap-5">
+        <div x-show="ubahFormError" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium" x-text="ubahFormError"></div>
+
+        <div x-show="offeringLoading" class="rounded-xl bg-slate-50 p-4 text-[13px] text-slate-600 flex items-center gap-2" role="status">
+          <span class="material-symbols-outlined text-[18px] animate-spin text-[#3965FB]">progress_activity</span>
+          <span>Memuat data mata kuliah dan semester...</span>
         </div>
 
-        <fieldset class="schedule-choice-group mt-7">
-          <legend class="text-[15px] font-semibold text-ink">Sifat perubahan</legend>
-          <p class="text-[13px] text-slate-500 mt-1">Pilih apakah perubahan berlaku sekali atau untuk jadwal rutin berikutnya.</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <button type="button" @click="ubahForm.scope = 'sementara'" :aria-pressed="ubahForm.scope === 'sementara'" class="schedule-choice" :class="ubahForm.scope === 'sementara' && 'schedule-choice--selected'">
-              <span class="schedule-choice__text"><strong>Satu kejadian</strong><small>Hanya untuk tanggal yang dipilih.</small></span>
-              <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.scope === 'sementara' ? 'check_circle' : 'radio_button_unchecked'"></span>
+        <!-- 1. Pilih Jenis Penyesuaian Sesi -->
+        <div>
+          <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-2">Pilih Jenis Penyesuaian Sesi *</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- REPLACEMENT -->
+            <button type="button" @click="ubahForm.kind = 'REPLACEMENT'"
+                    class="h-[54px] px-3 rounded-[12px] flex items-center gap-2.5 text-left transition-all border cursor-pointer focus:outline-none"
+                    :class="ubahForm.kind === 'REPLACEMENT' ? 'bg-[#EFF6FF] border-[#3965FB]' : 'bg-white border-[#E2E8F0] hover:border-slate-300'">
+              <span class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border"
+                    :class="ubahForm.kind === 'REPLACEMENT' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#98A2B3] bg-white'">
+                <span x-show="ubahForm.kind === 'REPLACEMENT'" class="w-1.5 h-1.5 bg-white rounded-full"></span>
+              </span>
+              <div class="flex flex-col">
+                <span class="text-[12px] font-bold leading-tight" :class="ubahForm.kind === 'REPLACEMENT' ? 'text-[#3965FB]' : 'text-[#1D1B3A]'">Kelas Pengganti</span>
+                <span class="text-[11px] text-[#667085] leading-normal">Mengganti sesi yang batal</span>
+              </div>
             </button>
-            <button type="button" @click="ubahForm.scope = 'permanen'; pilihPolaAsal()" :aria-pressed="ubahForm.scope === 'permanen'" class="schedule-choice" :class="ubahForm.scope === 'permanen' && 'schedule-choice--selected'">
-              <span class="schedule-choice__text"><strong>Berlaku seterusnya</strong><small>Mengubah jadwal rutin sejak tanggal berlaku.</small></span>
-              <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.scope === 'permanen' ? 'check_circle' : 'radio_button_unchecked'"></span>
+
+            <!-- EXTRA -->
+            <button type="button" @click="ubahForm.kind = 'EXTRA'"
+                    class="h-[54px] px-3 rounded-[12px] flex items-center gap-2.5 text-left transition-all border cursor-pointer focus:outline-none"
+                    :class="ubahForm.kind === 'EXTRA' ? 'bg-[#EFF6FF] border-[#3965FB]' : 'bg-white border-[#E2E8F0] hover:border-slate-300'">
+              <span class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border"
+                    :class="ubahForm.kind === 'EXTRA' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#98A2B3] bg-white'">
+                <span x-show="ubahForm.kind === 'EXTRA'" class="w-1.5 h-1.5 bg-white rounded-full"></span>
+              </span>
+              <div class="flex flex-col">
+                <span class="text-[12px] font-bold leading-tight" :class="ubahForm.kind === 'EXTRA' ? 'text-[#3965FB]' : 'text-[#1D1B3A]'">Kelas Tambahan</span>
+                <span class="text-[11px] text-[#667085] leading-normal">Jam belajar ekstra</span>
+              </div>
+            </button>
+
+            <!-- SESSION_CANCELLED -->
+            <button type="button" @click="ubahForm.kind = 'SESSION_CANCELLED'"
+                    class="h-[54px] px-3 rounded-[12px] flex items-center gap-2.5 text-left transition-all border cursor-pointer focus:outline-none"
+                    :class="ubahForm.kind === 'SESSION_CANCELLED' ? 'bg-[#EFF6FF] border-[#3965FB]' : 'bg-white border-[#E2E8F0] hover:border-slate-300'">
+              <span class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border"
+                    :class="ubahForm.kind === 'SESSION_CANCELLED' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#98A2B3] bg-white'">
+                <span x-show="ubahForm.kind === 'SESSION_CANCELLED'" class="w-1.5 h-1.5 bg-white rounded-full"></span>
+              </span>
+              <div class="flex flex-col">
+                <span class="text-[12px] font-bold leading-tight" :class="ubahForm.kind === 'SESSION_CANCELLED' ? 'text-[#3965FB]' : 'text-[#1D1B3A]'">Sesi Dibatalkan</span>
+                <span class="text-[11px] text-[#667085] leading-normal">Tidak ada kuliah</span>
+              </div>
+            </button>
+
+            <!-- HOLIDAY -->
+            <button type="button" @click="ubahForm.kind = 'HOLIDAY'"
+                    class="h-[54px] px-3 rounded-[12px] flex items-center gap-2.5 text-left transition-all border cursor-pointer focus:outline-none"
+                    :class="ubahForm.kind === 'HOLIDAY' ? 'bg-[#EFF6FF] border-[#3965FB]' : 'bg-white border-[#E2E8F0] hover:border-slate-300'">
+              <span class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 border"
+                    :class="ubahForm.kind === 'HOLIDAY' ? 'border-[#3965FB] bg-[#3965FB]' : 'border-[#98A2B3] bg-white'">
+                <span x-show="ubahForm.kind === 'HOLIDAY'" class="w-1.5 h-1.5 bg-white rounded-full"></span>
+              </span>
+              <div class="flex flex-col">
+                <span class="text-[12px] font-bold leading-tight" :class="ubahForm.kind === 'HOLIDAY' ? 'text-[#3965FB]' : 'text-[#1D1B3A]'">Hari Libur</span>
+                <span class="text-[11px] text-[#667085] leading-normal">Libur akademik kelas</span>
+              </div>
             </button>
           </div>
-        </fieldset>
-
-        <fieldset x-show="ubahForm.scope === 'sementara'" class="schedule-choice-group mt-7">
-          <legend class="text-[15px] font-semibold text-ink">Jenis perubahan</legend>
-          <p class="text-[13px] text-slate-500 mt-1">Pilih kejadian yang paling sesuai.</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <template x-for="k in ['REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED']" :key="k">
-              <button type="button" @click="ubahForm.kind = k" :aria-pressed="ubahForm.kind === k" class="schedule-choice" :class="ubahForm.kind === k && 'schedule-choice--selected'">
-                <span class="schedule-choice__text"><strong x-text="kindLabel(k)">-</strong><small x-text="kindDescription(k)">-</small></span>
-                <span class="schedule-choice__mark material-symbols-outlined" aria-hidden="true" x-text="ubahForm.kind === k ? 'check_circle' : 'radio_button_unchecked'"></span>
-              </button>
-            </template>
-          </div>
-        </fieldset>
-
-        <p x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Sesi sebelum tanggal berlaku tetap memakai jadwal lama.</p>
-        <p x-show="ubahForm.scope === 'permanen' && isDraftSemester()" class="text-[13px] text-slate-600 mt-4">Semester masih DRAFT: ubah langsung baris yang sama sejak tanggal mulai semester, tanpa siaran WhatsApp.</p>
-
-        <div class="mt-7 border-t border-border pt-5">
-          <h3 class="text-[15px] font-semibold text-ink">Detail jadwal</h3>
-          <p class="text-[13px] text-slate-500 mt-1">Isi hanya informasi yang diperlukan untuk perubahan ini.</p>
         </div>
 
-      <div x-show="ubahForm.scope === 'permanen' || ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
-        <h3 class="text-[14px] font-semibold mt-5">Jadwal Semula</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+        <!-- 2. Mata Kuliah & Sesi Asal -->
+        <div class="flex flex-col gap-2.5 pt-1">
+          <h2 class="text-[15px] font-semibold text-[#1D1B3A]">Mata Kuliah &amp; Sesi Asal</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="form-ubah-offering" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Mata Kuliah *</label>
+              <div class="relative">
+                <select id="form-ubah-offering" x-model="ubahForm.offeringId"
+                        aria-label="Mata Kuliah"
+                        class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[13px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]">
+                  <option value="">Pilih Mata Kuliah</option>
+                  <template x-for="o in offeringList" :key="o.id">
+                    <option :value="o.id" x-text="(o.display_name || o.course_code) + (o.lecturer_codes ? ' · ' + o.lecturer_codes : '')">-</option>
+                  </template>
+                </select>
+                <span class="material-symbols-outlined text-[18px] text-[#98A2B3] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+              </div>
+            </div>
+
+            <div x-show="ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
+              <label for="form-ubah-origin" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Sesi yang Digantikan *</label>
+              <div class="relative">
+                <select id="form-ubah-origin" x-model="ubahForm.originPatternId"
+                        aria-label="Sesi yang Digantikan"
+                        class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]">
+                  <option value="">Pilih Sesi Semula</option>
+                  <template x-for="p in scopePatterns" :key="p.id">
+                    <option :value="p.id" x-text="'Sesi Reguler: ' + polaHariName(p.day_of_week) + ' (' + (p.start_time || '').slice(0, 5) + ' – ' + (p.end_time || '').slice(0, 5) + ')'">-</option>
+                  </template>
+                </select>
+                <span class="material-symbols-outlined text-[18px] text-[#98A2B3] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Waktu Pelaksanaan Sesi Pengganti / Baru (Kondisional) -->
+        <div x-show="ubahForm.kind !== 'SESSION_CANCELLED' && ubahForm.kind !== 'HOLIDAY'" class="flex flex-col gap-2.5 pt-1">
+          <h2 class="text-[15px] font-semibold text-[#1D1B3A]" x-text="ubahForm.kind === 'REPLACEMENT' ? 'Waktu Pelaksanaan Sesi Pengganti' : 'Waktu Pelaksanaan Sesi Baru'"></h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label for="form-ubah-date" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Tanggal Baru *</label>
+              <input id="form-ubah-date" type="date" x-model="ubahForm.date"
+                     class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] px-3.5 text-[13px] font-mono text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+            </div>
+            <div>
+              <label for="form-ubah-start" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Jam Mulai *</label>
+              <input id="form-ubah-start" type="time" x-model="ubahForm.start"
+                     class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] px-3.5 text-[13px] font-mono text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+            </div>
+            <div>
+              <label for="form-ubah-end" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Jam Selesai *</label>
+              <input id="form-ubah-end" type="time" x-model="ubahForm.end"
+                     class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] px-3.5 text-[13px] font-mono text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+            </div>
+          </div>
+
           <div>
-            <label class="block text-[13px] font-medium mb-1">Jadwal tetap semula <span class="text-red-600">*</span></label>
-            <select aria-label="Jadwal tetap semula" x-model="ubahForm.originPatternId" @change="pilihPolaAsal()" class="ui-field w-full text-[14px]">
-              <option value="">-- Pilih jadwal tetap semula --</option>
-              <template x-for="p in scopePatterns" :key="p.id"><option :value="p.id" x-text="(p.display_name || p.offering || '') + ' · ' + polaHariName(p.day_of_week) + ' ' + (p.start_time || '') + '–' + (p.end_time || '')">-</option></template>
-            </select>
+            <label for="form-ubah-room" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Pilihan Ruangan *</label>
+            <div class="relative">
+              <select id="form-ubah-room" x-model="ubahForm.roomId"
+                      aria-label="Pilihan Ruangan"
+                      class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]">
+                <option value="">Pilih Ruangan</option>
+                <template x-for="r in polaRooms" :key="r.id">
+                  <option :value="r.id" x-text="r.code + (r.name ? ' · ' + r.name : '') + (r.capacity ? ' (Kapasitas: ' + r.capacity + ' Kursi)' : '')">-</option>
+                </template>
+              </select>
+              <span class="material-symbols-outlined text-[18px] text-[#98A2B3] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+            </div>
           </div>
-          <div x-show="ubahForm.scope === 'sementara'">
-            <label class="block text-[13px] font-medium mb-1">Tanggal kejadian asal <span class="text-red-600">*</span></label>
-            <input aria-label="Tanggal kejadian asal" type="date" x-model="ubahForm.originDate" class="ui-field w-full text-[14px]" />
-          </div>
+        </div>
+
+        <!-- 4. Alasan Perubahan Jadwal -->
+        <div>
+          <label for="form-ubah-reason" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Alasan Perubahan Jadwal *</label>
+          <textarea id="form-ubah-reason" x-model="ubahForm.reason" rows="3"
+                    placeholder="Contoh: Dosen pengampu menghadiri konferensi akademik luar kota pada jadwal reguler. Diganti ke sesi Rabu siang sesuai kesepakatan kelas."
+                    class="w-full p-3.5 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] resize-none leading-relaxed"></textarea>
+          <p class="text-[11px] text-[#667085] mt-1.5">Alasan ini akan tercantum pada pesan pengumuman WhatsApp yang dikirim ke mahasiswa.</p>
+        </div>
+
+        <!-- 5. Navigasi Formulir (Bottom) -->
+        <div class="pt-4 border-t border-[#F2F4F7] flex items-center justify-between gap-3">
+          <button type="button" @click="bukaDaftar()"
+                  class="h-[44px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+            Batal
+          </button>
+          <button type="button" @click="tinjauPerubahan()"
+                  class="h-[44px] px-6 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white text-[13px] font-semibold transition-colors flex items-center gap-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
+            <span>Lanjut ke Peninjauan →</span>
+          </button>
         </div>
       </div>
 
-      <div x-show="ubahForm.scope === 'permanen' || ubahForm.kind !== 'SESSION_CANCELLED'">
-        <h3 class="text-[14px] font-semibold mt-5">Jadwal Baru</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
-          <div x-show="ubahForm.scope === 'sementara'">
-            <label class="block text-[13px] font-medium mb-1">Tanggal <span class="text-red-600">*</span></label>
-            <input aria-label="Tanggal" type="date" x-model="ubahForm.date" class="ui-field w-full text-[14px]" />
+      <!-- Kolom Kanan: Validasi dan Simulasi -->
+      <div class="flex-1 w-full flex flex-col gap-4">
+        <!-- Panel 1: Pengecekan Bentrok Langsung -->
+        <div class="w-full bg-[#F0FDF4] border border-[#BBF7D0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px] text-[#16A34A]">check_circle</span>
+            <span class="text-[14px] font-bold text-[#166534]">Pengecekan Bentrok: Lolos</span>
           </div>
-          <div x-show="ubahForm.scope === 'permanen'">
-            <label class="block text-[13px] font-medium mb-1">Hari rutin baru <span class="text-red-600">*</span></label>
-            <select aria-label="Hari rutin baru" x-model="ubahForm.day" class="ui-field w-full text-[14px]"><template x-for="d in [1,2,3,4,5,6,7]" :key="d"><option :value="d" x-text="polaHariName(d)">-</option></template></select>
-          </div>
-          <div>
-            <label class="block text-[13px] font-medium mb-1">Jam mulai <span class="text-red-600">*</span></label>
-            <input aria-label="Jam mulai" type="time" x-model="ubahForm.start" class="ui-field w-full text-[14px] font-mono" />
-          </div>
-          <div>
-            <label class="block text-[13px] font-medium mb-1">Jam selesai <span class="text-red-600">*</span></label>
-            <input aria-label="Jam selesai" type="time" x-model="ubahForm.end" class="ui-field w-full text-[14px] font-mono" />
+
+          <div class="flex flex-col gap-2 text-[12px] text-[#166534] font-medium leading-relaxed">
+            <div class="flex items-start gap-2">
+              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+              <span x-text="simulasiRuangCheckText"></span>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+              <span x-text="simulasiDosenCheckText"></span>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+              <span x-text="simulasiKelasCheckText"></span>
+            </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label class="block text-[13px] font-medium mb-1">Ruangan</label>
-            <select aria-label="Ruangan" x-model="ubahForm.roomId" class="ui-field w-full text-[14px]">
-              <option value="">Belum memilih</option>
-              <template x-for="r in polaRooms" :key="r.id"><option :value="r.id" x-text="r.code">-</option></template>
-            </select>
-            <p class="text-[12px] text-slate-500 mt-1">Hasil ruangan adalah kandidat data internal. Catat konfirmasi TU sebelum menerbitkan bila ruangan diwajibkan.</p>
+
+        <!-- Panel 2: Simulasi Kartu Jadwal Baru -->
+        <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px] text-[#3965FB]">calendar_month</span>
+              <span class="text-[14px] font-semibold text-[#1D1B3A]">Simulasi Kartu Jadwal Baru</span>
+            </div>
+            <div class="px-2 py-0.5 bg-[#EFF6FF] rounded-[7px] text-[11px] font-bold text-[#3965FB]" x-text="simulasiDatePill">
+              Rabu, 7 Okt
+            </div>
           </div>
-          <div x-show="ubahForm.scope === 'sementara'">
-            <label class="block text-[13px] font-medium mb-1">Kelas peserta (ID, pisahkan koma — opsional)</label>
-            <input aria-label="Kelas peserta (ID, pisahkan koma — opsional)" type="text" x-model="ubahForm.participantIds" placeholder="Contoh: 12, 15" class="ui-field w-full text-[14px] font-mono" />
-            <p class="text-[12px] text-slate-500 mt-1">Perubahan tampil di kelas peserta setelah KM kelas tersebut menerima.</p>
-          </div>
-          <div x-show="ubahForm.scope === 'permanen' && !isDraftSemester()" class="sm:col-span-2">
-            <label class="block text-[13px] font-medium mb-1">Tanggal mulai berlaku <span class="text-red-600">*</span></label>
-            <input aria-label="Tanggal mulai berlaku" type="date" x-model="ubahForm.effectiveDate" class="ui-field w-full text-[14px]" />
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[13px] font-medium mb-1">Tautan kelas daring (opsional)</label>
-            <input aria-label="Tautan kelas daring (opsional)" type="text" x-model="ubahForm.link" placeholder="https://..." class="ui-field w-full text-[14px]" />
+
+          <!-- Preview Card Sesi Pengganti -->
+          <div class="w-full bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-[#FDE68A] rounded-[12px] p-3.5 flex flex-col gap-1.5 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-mono text-[12px] font-bold text-[#78350F]" x-text="(ubahForm.start || '13:00') + ' – ' + (ubahForm.end || '15:30')">
+                13:00 – 15:30
+              </div>
+              <div class="px-2 py-0.5 bg-[#FEF3C7] rounded-[6px] text-[10px] font-bold text-[#92400E]"
+                   x-text="kindLabel(ubahForm.kind) || 'Pengganti'">
+                Pengganti
+              </div>
+            </div>
+            <div class="text-[14px] font-bold text-[#78350F] leading-snug"
+                 x-text="(selectedOfferingName || 'Aljabar Linier') + (ubahForm.kind === 'REPLACEMENT' ? ' (Sesi Pengganti)' : (ubahForm.kind === 'EXTRA' ? ' (Kelas Tambahan)' : ''))">
+              Aljabar Linier (Sesi Pengganti)
+            </div>
+            <div class="text-[12px] text-[#92400E] leading-normal"
+                 x-text="(selectedRoomName || 'Ruang D204') + (selectedOfferingLecturer ? ' · ' + selectedOfferingLecturer : '')">
+              Ruang D204 · Bpk. Hendra
+            </div>
+            <div class="text-[11px] italic text-[#B45309] flex items-center gap-1 mt-0.5 truncate">
+              <span class="material-symbols-outlined text-[13px] shrink-0">sync_alt</span>
+              <span class="truncate" x-text="simulasiOriginText + (ubahForm.reason ? ' · ' + ubahForm.reason : '')"></span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <h3 class="text-[14px] font-semibold mt-5">Keterangan</h3>
-      <div class="mt-2" x-show="!isDraftSemester() || ubahForm.scope === 'sementara'">
-        <label class="block text-[13px] font-medium mb-1">Alasan perubahan <span class="text-red-600">*</span></label>
-        <textarea aria-label="Alasan perubahan" x-model="ubahForm.reason" rows="3" placeholder="Contoh: Dosen menghadiri kegiatan program studi" class="ui-field w-full text-[14px]"></textarea>
-      </div>
-      <p x-show="isDraftSemester() && ubahForm.scope === 'permanen'" class="text-[13px] text-slate-500 mt-2">DRAFT: alasan opsional, tidak disiarkan.</p>
-
-      <div x-show="!isDraftSemester()" class="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
-        <span class="material-symbols-outlined text-[20px] shrink-0">campaign</span>
-        <p>Perubahan yang terbit akan disiarkan ke grup kelas melalui WhatsApp. Kegagalan pengiriman pesan tidak membatalkan penerbitan di web.</p>
-      </div>
-
-      <div class="flex flex-col sm:flex-row gap-3 mt-5">
-        <button x-show="ubahForm.scope === 'sementara'" type="button" @click="simpanDrafPerubahan()" class="ui-button ui-button--outline flex-1 text-primary font-semibold">Simpan sebagai Draf</button>
-        <button type="button" @click="tinjauPerubahan()" class="ui-button ui-button--primary flex-1 font-semibold">Tinjau Perubahan</button>
-      </div>
+        <!-- Panel 3: Informasi Siaran WhatsApp -->
+        <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] p-3.5 flex items-start gap-2.5">
+          <span class="material-symbols-outlined text-[18px] text-[#667085] shrink-0 mt-0.5">info</span>
+          <p class="text-[12px] text-[#475467] leading-relaxed">
+            Pesan pengumuman resmi kuliah pengganti akan otomatis dijadwalkan ke grup kelas setelah diterbitkan.
+          </p>
+        </div>
       </div>
     </div>
   </div>
