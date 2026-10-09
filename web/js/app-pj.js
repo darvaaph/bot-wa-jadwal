@@ -509,7 +509,10 @@ function pjApp() {
       return names.map((n, i) => {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
-        return { name: n, dateNum: d.getDate(), full: d };
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        return { name: n, dateNum: d.getDate(), full: d, dateStr: `${y}-${m}-${dt}` };
       });
     },
 
@@ -664,6 +667,25 @@ function pjApp() {
     eventDetailLoading: false, eventDetailError: '',
     roomCands: [], roomCandsLoading: false,
     roomConfirm: { roomId: '', status: 'PENDING', name: '', note: '' },
+    showPenggantiModal: false,
+    penggantiSubmitting: false,
+    penggantiError: '',
+    penggantiRoomLoading: false,
+    penggantiRoomCandidates: [],
+    penggantiForm: {
+      isSessionLocked: false,
+      originSessionDisplay: '',
+      originKey: '',
+      originPatternId: '',
+      originDate: '',
+      newDate: '',
+      startTime: '08:40',
+      endTime: '11:10',
+      roomId: '',
+      tuStatus: 'PENDING',
+      tuContact: '',
+      note: ''
+    },
 
     get polaRooms() {
       const map = new Map();
@@ -679,6 +701,41 @@ function pjApp() {
       if (!this.pjMatkul) return this.patternsList || [];
       return (this.patternsList || []).filter(p =>
         String(p.display_name || p.course_name || p.offering || '') === String(this.pjMatkul));
+    },
+
+    get pjAvailableOriginSessions() {
+      const list = [];
+      const patterns = this.scopePatterns || [];
+      const days = this.weekDays || [];
+      for (const p of patterns) {
+        const dow = Number(p.day_of_week);
+        if (dow >= 1 && dow <= 5 && days[dow - 1]) {
+          const d = days[dow - 1];
+          const start = (p.start_time || '').slice(0, 5);
+          const end = (p.end_time || '').slice(0, 5);
+          const dateFormatted = d.dateNum + ' ' + d.full.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
+          list.push({
+            key: `${p.id}|${d.dateStr}|${start}|${end}`,
+            patternId: p.id,
+            date: d.dateStr,
+            start: start,
+            end: end,
+            label: `${this.polaHariName(dow)}, ${dateFormatted} (${start} – ${end})`
+          });
+        } else {
+          const start = (p.start_time || '').slice(0, 5);
+          const end = (p.end_time || '').slice(0, 5);
+          list.push({
+            key: `${p.id}||${start}|${end}`,
+            patternId: p.id,
+            date: '',
+            start: start,
+            end: end,
+            label: `${this.polaHariName(dow)} (${start} – ${end})`
+          });
+        }
+      }
+      return list;
     },
 
     get filteredPola() {
@@ -781,13 +838,185 @@ function pjApp() {
 
     pilihRuanganCepat(r) {
       this.showRoomQuickCheck = false;
-      this.mulaiUbah({
+      this.bukaModalPengganti({
         roomId: r.id,
         date: this.roomQuickDate,
         start: this.roomQuickStart,
-        end: this.roomQuickEnd,
-        kind: 'REPLACEMENT'
+        end: this.roomQuickEnd
       });
+    },
+
+    bukaModalPengganti(context) {
+      this.penggantiError = '';
+      this.penggantiSubmitting = false;
+      this.penggantiRoomCandidates = [];
+      this.penggantiRoomLoading = false;
+
+      let patId = '';
+      let origDate = '';
+      let start = '';
+      let end = '';
+      let isLocked = false;
+      let display = '';
+      let roomId = '';
+
+      if (context && context.session) {
+        const s = context.session;
+        const d = context.day;
+        start = (s.timeStart || '').slice(0, 5);
+        end = (s.timeEnd || '').slice(0, 5);
+        origDate = (d && d.dateStr) || s.date || '';
+        roomId = s.roomId ? String(s.roomId) : '';
+
+        const pat = (this.patternsList || []).find(p =>
+          String(p.display_name || p.course_name || p.offering || '') === String(s.matkul)
+        );
+        if (pat) patId = String(pat.id);
+
+        isLocked = true;
+        display = `${s.hari || ''}, ${(d && d.dateNum) || ''} (${start} – ${end})`;
+      } else if (context && context.roomId) {
+        roomId = String(context.roomId);
+        if (context.date) origDate = context.date;
+        if (context.start) start = context.start;
+        if (context.end) end = context.end;
+      }
+
+      this.penggantiForm = {
+        isSessionLocked: isLocked,
+        originSessionDisplay: display,
+        originKey: patId ? `${patId}|${origDate}|${start}|${end}` : '',
+        originPatternId: patId,
+        originDate: origDate,
+        newDate: origDate || '',
+        startTime: start || '08:40',
+        endTime: end || '11:10',
+        roomId: roomId,
+        tuStatus: 'PENDING',
+        tuContact: '',
+        note: ''
+      };
+
+      if (!isLocked && !this.penggantiForm.originKey && this.pjAvailableOriginSessions.length > 0) {
+        const first = this.pjAvailableOriginSessions[0];
+        this.penggantiForm.originKey = first.key;
+        this.penggantiForm.originPatternId = String(first.patternId);
+        this.penggantiForm.originDate = first.date;
+        if (!this.penggantiForm.newDate) this.penggantiForm.newDate = first.date;
+        if (first.start) this.penggantiForm.startTime = first.start;
+        if (first.end) this.penggantiForm.endTime = first.end;
+      }
+
+      this.showPenggantiModal = true;
+      this.onPenggantiTimeOrDateChange();
+    },
+
+    tutupModalPengganti() {
+      this.showPenggantiModal = false;
+      this.penggantiError = '';
+    },
+
+    onOriginKeyChange() {
+      if (!this.penggantiForm.originKey) return;
+      const [patId, origDate, start, end] = this.penggantiForm.originKey.split('|');
+      this.penggantiForm.originPatternId = patId || '';
+      this.penggantiForm.originDate = origDate || '';
+      if (!this.penggantiForm.newDate && origDate) this.penggantiForm.newDate = origDate;
+      if (start) this.penggantiForm.startTime = start;
+      if (end) this.penggantiForm.endTime = end;
+      this.onPenggantiTimeOrDateChange();
+    },
+
+    async onPenggantiTimeOrDateChange() {
+      const f = this.penggantiForm;
+      if (!f.newDate || !f.startTime || !f.endTime) return;
+      if (this.durasiMenit(f.startTime, f.endTime) <= 0) return;
+
+      const startsAt = `${f.newDate}T${f.startTime}:00+07:00`;
+      const endsAt = `${f.newDate}T${f.endTime}:00+07:00`;
+
+      this.penggantiRoomLoading = true;
+      try {
+        const data = await API.getRoomAvailability(startsAt, endsAt);
+        this.penggantiRoomCandidates = Array.isArray(data) ? data : (data && data.candidates) ? data.candidates : [];
+      } catch (e) {
+        this.penggantiRoomCandidates = [];
+      } finally {
+        this.penggantiRoomLoading = false;
+      }
+    },
+
+    async kirimPengajuanPengganti() {
+      const f = this.penggantiForm;
+      this.penggantiError = '';
+
+      if (!this.offeringId) {
+        this.penggantiError = 'Mata kuliah penugasan PJ belum teridentifikasi.';
+        return;
+      }
+      if (!f.originPatternId || !f.originDate) {
+        this.penggantiError = 'Pilih sesi perkuliahan asal yang akan digantikan.';
+        return;
+      }
+      if (!f.newDate) {
+        this.penggantiError = 'Pilih tanggal perkuliahan baru.';
+        return;
+      }
+      if (!f.startTime || !f.endTime) {
+        this.penggantiError = 'Isi jam mulai dan jam selesai.';
+        return;
+      }
+      if (this.durasiMenit(f.startTime, f.endTime) <= 0) {
+        this.penggantiError = 'Jam selesai harus lebih besar daripada jam mulai.';
+        return;
+      }
+      if (!f.note || f.note.trim().length < 5) {
+        this.penggantiError = 'Catatan pengajuan minimal 5 karakter (tulis alasan atau kebutuhan sesi pengganti).';
+        return;
+      }
+
+      this.penggantiSubmitting = true;
+      try {
+        const payloadEvent = {
+          owner_offering_id: Number(this.offeringId),
+          event_kind: 'REPLACEMENT',
+          starts_at: `${f.newDate}T${f.startTime}:00+07:00`,
+          ends_at: `${f.newDate}T${f.endTime}:00+07:00`,
+          origin_pattern_id: Number(f.originPatternId),
+          origin_date: f.originDate,
+          reason: f.note.trim()
+        };
+        if (f.roomId) {
+          payloadEvent.room_id = Number(f.roomId);
+        }
+
+        const draf = await API.createTeachingEventDraft(payloadEvent);
+        const eventId = draf && draf.id;
+
+        if (eventId && f.roomId) {
+          try {
+            await API.confirmTeachingEventRoom(eventId, {
+              room_id: Number(f.roomId),
+              confirmation_status: f.tuStatus || 'PENDING',
+              external_contact: f.tuContact ? f.tuContact.trim() : undefined,
+              note: f.note ? f.note.trim() : undefined
+            });
+          } catch (errConfirm) {
+            console.warn('Gagal mencatat konfirmasi ruangan TU:', errConfirm);
+          }
+        }
+
+        this.showToast('Pengajuan kuliah pengganti berhasil diajukan ke Ketua Murid.');
+        this.tutupModalPengganti();
+        await Promise.all([
+          this.loadSchedule(),
+          this.loadEvents()
+        ]);
+      } catch (err) {
+        this.penggantiError = err.message || 'Gagal mengajukan kuliah pengganti. Periksa tanggal dan koneksi Anda.';
+      } finally {
+        this.penggantiSubmitting = false;
+      }
     },
 
     bukaDaftar() { this.jadwalSub = 'daftar'; window.scrollTo({ top: 0 }); },

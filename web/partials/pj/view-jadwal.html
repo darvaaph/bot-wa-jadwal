@@ -23,7 +23,7 @@
         </svg>
         <span>Cek Ruangan &amp; Jam Kosong</span>
       </button>
-      <button type="button" @click="mulaiUbah({ kind: 'REPLACEMENT' })" class="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] text-[12px] font-semibold flex items-center gap-2 shadow-sm transition">
+      <button type="button" @click="bukaModalPengganti()" class="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] text-[12px] font-semibold flex items-center gap-2 shadow-sm transition">
         <svg class="w-[18px] h-[18px] text-white" viewBox="0 0 14 14" fill="currentColor">
           <path d="M6.71 7.29H3.79q-0.123 0-0.208-0.082-0.082-0.085-0.082-0.208 0-0.123 0.082-0.205t0.208-0.085h2.92V3.79q0-0.123 0.082-0.205t0.208-0.085q0.123 0 0.205 0.085t0.085 0.205v2.92h2.92q0.123 0 0.205 0.085t0.085 0.205q0 0.123-0.085 0.208t-0.205 0.082h-2.92v2.92q0 0.123-0.085 0.208t-0.205 0.082q-0.123 0-0.208-0.082t-0.082-0.208V7.29z"/>
         </svg>
@@ -210,7 +210,7 @@
 
                     <!-- Tombol Aksi Cepat jika milik PJ -->
                     <template x-if="isMatkulSaya(s)">
-                      <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0])"
+                      <button type="button" @click="bukaModalPengganti({ session: s, day: d })"
                         class="mt-1 text-[11px] font-semibold text-[#1D4ED8] hover:underline flex items-center gap-1">
                         <span>Ajukan Pengganti</span>
                         <span>→</span>
@@ -264,9 +264,9 @@
                     </div>
                   </div>
                   <template x-if="isMatkulSaya(s)">
-                    <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0])"
+                    <button type="button" @click="bukaModalPengganti({ session: s, day: d })"
                       class="h-8 px-3 rounded-lg border border-[#CBD5E1] text-[12px] font-semibold text-[#1D4ED8] hover:bg-slate-50 transition self-start sm:self-center shrink-0">
-                      Ubah Sesi
+                      Ajukan Pengganti
                     </button>
                   </template>
                 </div>
@@ -678,6 +678,183 @@
       <div class="mt-6 pt-3 border-t border-border flex justify-end">
         <button type="button" @click="showLabGuide = false" class="ui-button ui-button--primary text-[13px] font-semibold">
           Saya Mengerti
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: PENGAJUAN KULIAH PENGGANTI (SCR-PJ-SCHED-001) ============ -->
+  <div x-show="showPenggantiModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A66] backdrop-blur-xs overflow-y-auto" x-cloak>
+    <div class="box-border max-w-[620px] w-full my-8 bg-white border border-[#E2E8F0] rounded-[16px] shadow-2xl overflow-hidden relative flex flex-col"
+      @click.outside="tutupModalPengganti()">
+      <!-- Header Modal -->
+      <div class="w-full flex flex-row gap-3 p-5 sm:p-6 justify-between items-start border-b border-[#F1F5F9]">
+        <div class="flex-1 flex flex-col gap-1">
+          <h2 class="text-[18px] text-[#0F172A] font-bold font-display">
+            Pengajuan Kuliah Pengganti / Tambahan (<span x-text="pjMatkul || 'Mata Kuliah Anda'">Basis Data</span>)
+          </h2>
+          <p class="text-[12px] text-[#64748B]">
+            Isi slot baru dan catat konfirmasi TU sebelum mengajukan ke Ketua Murid.
+          </p>
+        </div>
+        <button type="button" @click="tutupModalPengganti()" aria-label="Tutup Pengajuan"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition shrink-0">
+          <svg class="w-5 h-5" viewBox="0 0 14 14" fill="currentColor">
+            <path d="M7 7.414L3.941 10.473q-0.082 0.082-0.202 0.089-0.12 0.003-0.212-0.089-0.092-0.092-0.092-0.205t0.092-0.208l3.059-3.059-3.059-3.059q-0.082-0.082-0.089-0.202-0.003-0.12 0.089-0.212 0.092-0.092 0.205-0.092t0.208 0.092l3.059 3.059 3.059-3.059q0.082-0.082 0.202-0.085 0.12-0.007 0.212 0.085 0.092 0.093 0.092 0.205t-0.092 0.209L7.414 7l3.059 3.059q0.082 0.082 0.085 0.202 0.007 0.12-0.085 0.212-0.093 0.092-0.205 0.092t-0.209-0.092L7 7.414z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Form Pengajuan Jadwal PJ -->
+      <div class="w-full flex flex-col gap-4 p-5 sm:p-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <!-- Error Alert -->
+        <div x-show="penggantiError" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700 font-medium" x-text="penggantiError"></div>
+
+        <!-- Field Mata Kuliah Terkunci -->
+        <div class="w-full flex flex-col gap-1.5">
+          <label class="text-[11px] text-[#334155] font-semibold tracking-wider uppercase">
+            MATA KULIAH · SESUAI PENUGASAN PJ
+          </label>
+          <div class="w-full h-10 px-3.5 flex items-center justify-between bg-[#F8FAFC] border border-[#CBD5E1] rounded-[10px]">
+            <span class="text-[12px] text-[#334155] font-semibold" x-text="pjMatkul || 'Basis Data'">
+              Basis Data
+            </span>
+            <svg class="w-4 h-4 text-[#64748B]" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M3.859 12.25q-0.393 0-0.67-0.273t-0.273-0.67V6.194q0-0.393 0.273-0.667t0.67-0.277h0.807V4.085q0-0.978 0.68-1.654 0.68-0.68 1.654-0.68t1.654 0.68q0.68 0.677 0.68 1.654v1.166h0.807q0.393 0 0.667 0.277t0.276 0.667v5.113q0 0.393-0.276 0.67t-0.667 0.273H3.859zm0-0.584h6.282q0.157 0 0.256-0.099t0.103-0.26V6.194q0-0.157-0.103-0.256t-0.256-0.103H3.859q-0.157 0-0.26 0.103t-0.099 0.256v5.113q0 0.157 0.099 0.26t0.26 0.099zm3.141-2.041q0.369 0 0.622-0.253t0.253-0.622q0-0.369-0.253-0.622t-0.622-0.253q-0.369 0-0.622 0.253t-0.253 0.622q0 0.369 0.253 0.622t0.622 0.253zm-1.75-4.375h3.5V4.085q0-0.731-0.513-1.241-0.509-0.509-1.237-0.509t-1.241 0.509q-0.509 0.51-0.509 1.241v1.165z"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Field Sesi Perkuliahan Asal yang Digantikan -->
+        <div class="w-full flex flex-col gap-1.5">
+          <label class="text-[12px] text-[#334155] font-semibold">
+            Sesi Perkuliahan yang Digantikan <span class="text-red-500">*</span>
+          </label>
+          <template x-if="penggantiForm.isSessionLocked">
+            <div class="w-full h-10 px-3.5 flex items-center justify-between bg-[#EFF6FF] border border-[#BFDBFE] rounded-[10px]">
+              <span class="text-[12px] text-[#1D4ED8] font-semibold" x-text="penggantiForm.originSessionDisplay"></span>
+              <span class="text-[10px] font-bold text-[#2563EB] bg-[#DBEAFE] px-2 py-0.5 rounded">Sesi Terpilih</span>
+            </div>
+          </template>
+          <template x-if="!penggantiForm.isSessionLocked">
+            <select x-model="penggantiForm.originKey" @change="onOriginKeyChange()"
+              class="w-full h-10 px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition">
+              <option value="">-- Pilih sesi yang akan digantikan --</option>
+              <template x-for="sesi in pjAvailableOriginSessions" :key="sesi.key">
+                <option :value="sesi.key" x-text="sesi.label"></option>
+              </template>
+            </select>
+          </template>
+        </div>
+
+        <!-- Tanggal dan Jam Baru -->
+        <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Tanggal Baru -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[12px] text-[#334155] font-semibold">
+              Tanggal baru <span class="text-red-500">*</span>
+            </label>
+            <input type="date" x-model="penggantiForm.newDate" @change="onPenggantiTimeOrDateChange()"
+              class="w-full h-10 px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition" />
+          </div>
+
+          <!-- Jam Mulai - Selesai -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[12px] text-[#334155] font-semibold">
+              Jam mulai – selesai <span class="text-red-500">*</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <input type="time" x-model="penggantiForm.startTime" @change="onPenggantiTimeOrDateChange()"
+                class="flex-1 h-10 px-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] font-mono text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition" />
+              <span class="text-slate-400 text-[12px] font-bold">–</span>
+              <input type="time" x-model="penggantiForm.endTime" @change="onPenggantiTimeOrDateChange()"
+                class="flex-1 h-10 px-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] font-mono text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Box Ruangan dan Konfirmasi TU -->
+        <div class="w-full flex flex-col gap-3 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
+          <div>
+            <div class="text-[11px] text-[#475569] font-bold tracking-[0.6px] uppercase">
+              RUANGAN &amp; KONFIRMASI TU
+            </div>
+            <div class="text-[12px] text-[#64748B] mt-0.5">
+              Kandidat berasal dari data internal. Status TU harus sesuai hasil komunikasi aktual.
+            </div>
+          </div>
+
+          <!-- Pilih Ruangan Kandidat -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[12px] text-[#334155] font-semibold">
+              Pilih Ruangan Kandidat
+            </label>
+            <select x-model="penggantiForm.roomId"
+              class="w-full h-10 px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition">
+              <option value="">-- Tanpa ruangan khusus / Belum memilih --</option>
+              <template x-if="penggantiRoomLoading">
+                <option disabled>Memeriksa ketersediaan ruangan...</option>
+              </template>
+              <template x-for="r in penggantiRoomCandidates" :key="r.id">
+                <option :value="r.id" x-text="r.code + (r.name ? ' · ' + r.name : '') + (r.capacity ? ' (Kapasitas ' + r.capacity + ' kursi)' : '')"></option>
+              </template>
+              <template x-if="!penggantiRoomLoading && penggantiRoomCandidates.length === 0 && penggantiForm.newDate && penggantiForm.startTime">
+                <option disabled>Tidak ada ruangan yang kosong pada jam ini</option>
+              </template>
+            </select>
+            <p x-show="penggantiRoomCandidates.length > 0" class="text-[11px] text-emerald-600 font-medium">
+              ✓ Ditemukan <span x-text="penggantiRoomCandidates.length"></span> ruangan yang tidak bentrok pada waktu ini.
+            </p>
+          </div>
+
+          <!-- Status TU & Kontak TU -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[12px] text-[#334155] font-semibold">
+                Status TU
+              </label>
+              <select x-model="penggantiForm.tuStatus"
+                class="w-full h-10 px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition">
+                <option value="PENDING">Menunggu Konfirmasi TU</option>
+                <option value="CONFIRMED">Sudah Dikonfirmasi TU</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[12px] text-[#334155] font-semibold">
+                Kontak TU
+              </label>
+              <input type="text" x-model="penggantiForm.tuContact" placeholder="Nama petugas / Unit TU"
+                class="w-full h-10 px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-medium focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition" />
+            </div>
+          </div>
+
+          <!-- Catatan Pengajuan -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[12px] text-[#334155] font-semibold">
+              Catatan Pengajuan <span class="text-red-500">*</span>
+            </label>
+            <textarea x-model="penggantiForm.note" rows="2"
+              placeholder="Kebutuhan sesi pengganti dan hasil komunikasi TU..."
+              class="w-full px-3 py-2 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#334155] font-normal focus:ring-2 focus:ring-[#3965FB] focus:border-[#3965FB] transition"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aksi Pengajuan PJ -->
+      <div class="w-full flex flex-row gap-2.5 p-4 sm:p-5 justify-end items-center bg-[#F8FAFC] border-t border-[#F1F5F9]">
+        <button type="button" @click="tutupModalPengganti()"
+          class="h-10 px-4 rounded-[10px] bg-white border border-[#CBD5E1] text-[12px] text-[#334155] font-semibold hover:bg-slate-50 transition">
+          Batal
+        </button>
+        <button type="button" @click="kirimPengajuanPengganti()" :disabled="penggantiSubmitting"
+          class="h-10 px-5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold flex items-center gap-2 shadow-xs transition disabled:opacity-50">
+          <template x-if="penggantiSubmitting">
+            <svg class="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </template>
+          <span x-text="penggantiSubmitting ? 'Mengajukan...' : 'Ajukan ke Ketua Murid'"></span>
         </button>
       </div>
     </div>
