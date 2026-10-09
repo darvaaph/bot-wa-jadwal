@@ -1,20 +1,48 @@
 <!-- partials/km/view-jadwal.html — Hub Jadwal KM: daftar, form, tinjau, detail, partisipasi. -->
 <section x-show="view === 'jadwal'" x-cloak>
-  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mt-1">
+  <!-- Header: Manajemen Jadwal Kuliah -->
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-1">
     <div>
-      <h1 class="font-display text-[24px] md:text-[28px] font-bold text-ink tracking-tight">Manajemen Jadwal</h1>
-      <p class="text-[13px] text-slate-500 mt-1">Jadwal perkuliahan mingguan dan penyesuaian sesi kelas <span class="font-medium text-slate-700" x-text="selectedClass || '—'">-</span></p>
-      <div x-show="(semesterOptions || []).length > 1" class="mt-2 flex items-center gap-2">
-        <label class="text-[12px] font-semibold text-slate-600" for="km-jadwal-semester">Semester</label>
-        <select id="km-jadwal-semester" x-model="semesterId" @change="pilihSemesterJadwal(semesterId)" class="ui-field w-auto min-w-[220px] text-[13px]">
-          <template x-for="s in (semesterOptions || [])" :key="s.id"><option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option></template>
-        </select>
+      <div class="text-[12px] font-medium text-[#64748B] flex items-center gap-1.5 mb-1">
+        <span>Sistem</span>
+        <span>/</span>
+        <span class="font-semibold text-[#1D1B3A]" x-text="selectedClass || 'D4-TI 1A'">D4-TI 1A</span>
+        <span>/</span>
+        <span class="text-[#3965FB] font-semibold">Jadwal Kuliah</span>
+      </div>
+      <h1 class="font-[Poppins] text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Manajemen Jadwal Kuliah</h1>
+      <p class="text-[13px] text-[#667085] mt-1">Jadwal perkuliahan mingguan, kuliah pengganti, dan pemetaan slot kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || '—'">-</span>.</p>
+      
+      <!-- Semester Pill Selector -->
+      <div class="mt-3 flex items-center gap-2">
+        <div class="relative inline-flex items-center">
+          <select id="km-jadwal-semester" x-model="semesterId" @change="pilihSemesterJadwal(semesterId)"
+                  aria-label="Pilih Semester"
+                  class="h-[36px] bg-white border border-[#CBD5E1] rounded-[8px] pl-3 pr-8 text-[13px] font-semibold text-[#1D1B3A] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] shadow-sm">
+            <template x-for="s in (semesterOptions || [])" :key="s.id">
+              <option :value="s.id" x-text="(s.academic_year || '') + ' · ' + (s.term || '') + ' (' + (s.status || '') + ')'">-</option>
+            </template>
+            <option x-show="!(semesterOptions && semesterOptions.length)" value="" selected>Semester Ganjil 2026/2027 (Aktif)</option>
+          </select>
+          <span class="material-symbols-outlined text-[18px] text-[#64748B] absolute right-2.5 pointer-events-none">expand_more</span>
+        </div>
       </div>
     </div>
-    <div class="flex items-center gap-2.5 self-start md:self-auto">
-      <button type="button" @click="mulaiUbah()" x-show="jadwalSub === 'daftar'" class="ui-button ui-button--primary text-[13px] font-semibold self-start flex items-center gap-2">
-        <span class="material-symbols-outlined text-[18px]">edit_calendar</span>
-        <span>Buat perubahan</span>
+
+    <!-- Header Action Buttons -->
+    <div class="flex items-center gap-2.5 self-start lg:self-auto" x-show="jadwalSub === 'daftar'">
+      <!-- Cek Jam Kosong -->
+      <button type="button" @click="go('ruangan')"
+              class="h-[40px] px-3.5 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center gap-2 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+        <span class="material-symbols-outlined text-[18px] text-[#64748B]">search</span>
+        <span>Cek Jam Kosong</span>
+      </button>
+
+      <!-- Buat Perubahan Jadwal -->
+      <button type="button" @click="mulaiUbah()"
+              class="h-[40px] px-4 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white font-semibold text-[13px] flex items-center gap-2 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        <span>Buat Perubahan Jadwal</span>
       </button>
     </div>
   </div>
@@ -22,126 +50,234 @@
   <!-- ============ SUB: DAFTAR ============ -->
   <div x-show="jadwalSub === 'daftar'">
     <!-- Week Navigation Toolbar -->
-    <div class="ui-card flex flex-wrap items-center justify-between gap-3 mt-5 p-3 shadow-sm">
-      <div class="flex items-center gap-2">
-        <button type="button" @click="weekOffset--" aria-label="Minggu lalu" class="ui-button ui-button--ghost w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-          <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+    <div class="h-auto md:h-[66px] bg-white border border-[#D7DDE7] rounded-[12px] p-3 md:px-4 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-3 shadow-[0px_3px_12px_#0F172A08] mt-4">
+      <!-- Left: Week Controls -->
+      <div class="flex items-center gap-2.5">
+        <button type="button" @click="weekOffset--" aria-label="Minggu sebelumnya"
+                class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#475467] flex items-center justify-center transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+          <span class="material-symbols-outlined text-[18px]">chevron_left</span>
         </button>
-        <span class="text-[14px] md:text-[15px] font-bold text-ink px-1" x-text="weekLabel">-</span>
-        <button type="button" @click="weekOffset++" aria-label="Minggu depan" class="ui-button ui-button--ghost w-10 h-10 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-          <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+
+        <span class="font-mono font-bold text-[14px] md:text-[15px] text-[#1D1B3A] px-1 tracking-tight" x-text="weekRangeLabel || weekLabel">-</span>
+
+        <span class="bg-[#F1F5F9] text-[#475467] text-[11px] font-semibold px-2.5 py-1 rounded-[6px]" x-text="pekanLabel">Pekan 6</span>
+
+        <button type="button" @click="weekOffset++" aria-label="Minggu berikutnya"
+                class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#475467] flex items-center justify-center transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+          <span class="material-symbols-outlined text-[18px]">chevron_right</span>
         </button>
+
         <button type="button" @click="weekOffset = 0; if (['Sabtu','Minggu'].includes(todayName)) { activeScheduleDay = 'Senin'; } else { activeScheduleDay = todayName; }"
-                class="ui-button ui-button--ghost h-10 px-3.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 min-h-[44px] transition-colors ml-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-          Minggu ini
+                class="h-[36px] px-3.5 rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-[#F8FAFC] hover:bg-slate-100 text-[13px] font-semibold text-[#1D1B3A] transition-colors ml-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+          Minggu Ini
         </button>
       </div>
 
-      <!-- Legend -->
-      <div class="hidden sm:flex items-center gap-4 text-[12px] text-slate-600 font-medium">
-        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span>Teori</span>
-        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span>Praktikum</span>
+      <!-- Right: Legend -->
+      <div class="flex items-center gap-4 text-[12px] font-medium text-[#475467]">
+        <div class="flex items-center gap-1.5">
+          <span class="w-[3px] h-[14px] bg-[#3965FB] rounded-[1px]"></span>
+          <span>Teori</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-[3px] h-[14px] bg-[#7C3AED] rounded-[1px]"></span>
+          <span>Praktikum</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-[3px] h-[14px] bg-[#F59E0B] rounded-[1px]"></span>
+          <span>Kuliah Pengganti</span>
+        </div>
       </div>
     </div>
 
     <!-- Calendar Container Card -->
-    <div class="ui-card p-4 md:p-5 shadow-sm mt-4">
-      <div x-show="eventDetailLoading" class="mb-4 text-[13px] text-slate-500" role="status">Memuat detail perubahan...</div>
-      <div x-show="eventDetailError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700" role="alert">
-        <span x-text="eventDetailError"></span>
-        <button type="button" @click="bukaDetail(selectedEvent)" class="ui-button ui-button--ghost ml-2 underline font-semibold">Coba lagi</button>
+    <div class="bg-white border border-[#D7DDE7] rounded-[14px] p-4 md:p-5 shadow-[0px_4px_16px_#0F172A08] mt-4">
+      <div x-show="scheduleLoading" class="mb-4 text-[13px] text-[#64748B] flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px] animate-spin text-[#3965FB]">progress_activity</span>
+        <span>Memuat jadwal perkuliahan...</span>
+      </div>
+      <div x-show="scheduleError" class="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-[13px] text-red-700 flex items-center justify-between">
+        <span x-text="scheduleError"></span>
+        <button type="button" @click="loadSchedule()" class="text-[#3965FB] underline font-semibold ml-2">Coba lagi</button>
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+      <!-- Card Top Bar: Title + Subtitle + Toggle Pill -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
         <div>
-          <h2 class="text-[17px] md:text-[18px] font-bold text-ink">Kalender Mingguan</h2>
-          <p class="text-[12px] text-slate-500 mt-0.5">Jadwal perkuliahan tetap dan penyesuaian kelas dalam minggu ini.</p>
+          <h2 class="text-[16px] font-bold text-[#1D1B3A]">Kalender Mingguan Kelas</h2>
+          <p class="text-[12px] text-[#667085] mt-0.5">Klik pada sesi untuk rincian kelas atau mengajukan kuliah pengganti.</p>
+        </div>
+
+        <!-- View Toggle Pill (Kalender vs Daftar) -->
+        <div class="bg-[#F1F5F9] p-[3px] rounded-[9px] flex items-center gap-1 border border-[#E2E8F0] self-start sm:self-auto">
+          <button type="button" @click="calendarViewMode = 'calendar'"
+                  :class="calendarViewMode === 'calendar' ? 'bg-white text-[#3965FB] shadow-sm font-semibold' : 'text-[#64748B] hover:text-[#1D1B3A] font-medium'"
+                  class="px-3 py-1.5 rounded-[7px] text-[12px] flex items-center gap-1.5 transition-all">
+            <span class="material-symbols-outlined text-[16px]">calendar_view_week</span>
+            <span>Kalender</span>
+          </button>
+          <button type="button" @click="calendarViewMode = 'list'"
+                  :class="calendarViewMode === 'list' ? 'bg-white text-[#3965FB] shadow-sm font-semibold' : 'text-[#64748B] hover:text-[#1D1B3A] font-medium'"
+                  class="px-3 py-1.5 rounded-[7px] text-[12px] flex items-center gap-1.5 transition-all">
+            <span class="material-symbols-outlined text-[16px]">view_list</span>
+            <span>Daftar</span>
+          </button>
         </div>
       </div>
 
-      <!-- DESKTOP VIEW: 5-Column Weekly Board (md:grid) -->
-      <div class="hidden md:grid md:grid-cols-5 gap-3.5 mt-4 items-start">
+      <!-- DESKTOP VIEW: 5-Column Weekly Board (md:grid) - MODE: KALENDER -->
+      <div x-show="calendarViewMode === 'calendar'" class="hidden md:grid md:grid-cols-5 gap-3.5 mt-5 items-stretch">
         <template x-for="d in weekDays" :key="'col-' + d.name">
-          <div class="flex flex-col rounded-xl border transition-all"
-               :class="isToday(d.name) ? 'border-primary bg-canvas-blue shadow-sm ring-1 ring-primary/30' : 'border-slate-200/80 bg-slate-50/50'">
-            
-            <!-- Day Column Header -->
-            <div class="p-3 border-b flex items-center justify-between"
-                 :class="isToday(d.name) ? 'border-primary/20 bg-primary text-white rounded-t-[11px]' : 'border-slate-200/80 bg-white rounded-t-[11px] text-slate-700'">
-              <div>
-                <span class="text-[13px] font-bold block leading-tight" x-text="d.name">-</span>
-                <span class="text-[11px] font-medium leading-none" :class="isToday(d.name) ? 'text-white/80' : 'text-slate-400'" x-text="d.dateShort || (d.dateNum + ' ' + weekLabel.split(' ')[1])">-</span>
+          <div class="box-border flex flex-col h-full rounded-[12px] overflow-hidden transition-all"
+               :class="isToday(d.name) ? 'ring-1 ring-[#3965FB]/30 shadow-sm' : ''">
+
+            <!-- Day Header: Active (Today) vs Inactive -->
+            <div class="w-full h-[63px] shrink-0 p-[0px_11px] flex justify-between items-center transition-colors"
+                 :class="isToday(d.name) ? 'bg-[#3965FB] text-white rounded-t-[12px]' : 'bg-white border border-[#E2E8F0] rounded-t-[12px] text-[#1D1B3A]'">
+              <div class="flex flex-col gap-[2px]">
+                <div class="text-[13px] font-bold leading-tight" :class="isToday(d.name) ? 'text-white' : 'text-[#1D1B3A]'" x-text="d.name">-</div>
+                <div class="text-[11px] leading-normal" :class="isToday(d.name) ? 'text-white/80' : 'text-[#667085]'" x-text="d.dateShort || (d.dateNum + ' ' + weekLabel.split(' ')[1])">-</div>
               </div>
-              <div class="flex items-center gap-1">
-                <span x-show="isToday(d.name)" class="ui-badge text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-primary tracking-wider">HARI INI</span>
-                <span x-show="!isToday(d.name)" class="text-[11px] font-semibold text-slate-400" x-text="daySessions(d.name).length + ' sesi'"></span>
+              <div>
+                <span x-show="isToday(d.name)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-white text-[#3965FB] tracking-wide uppercase">HARI INI</span>
+                <span x-show="!isToday(d.name)" class="text-[11px] font-medium text-[#98A2B3]" x-text="daySessions(d.name).length + ' Sesi'"></span>
               </div>
             </div>
 
-            <!-- Column Sessions -->
-            <div class="p-2.5 space-y-2.5 min-h-[140px] flex flex-col">
-              <!-- Session Cards -->
+            <!-- Column Sessions Area -->
+            <div class="w-full flex-1 flex flex-col gap-[9px] p-[9px] min-h-[380px] rounded-b-[12px] border-x border-b transition-colors"
+                 :class="isToday(d.name) ? 'bg-[#EFF6FF]/30 border-[#BFDBFE]' : 'bg-[#F8FAFC] border-[#E2E8F0]'">
+              
+              <!-- Sessions List -->
               <template x-for="s in daySessions(d.name)" :key="s.id">
                 <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
-                        :aria-label="'Ubah sesi ' + s.matkul + ' hari ' + s.hari"
-                        class="ui-button ui-button--stack ui-button--ghost w-full text-left rounded-xl p-3 bg-white border border-slate-200/90 hover:border-primary hover:shadow-md transition-all group cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-                  <!-- Top line: Time badge + Type badge -->
-                  <div class="flex items-center justify-between gap-1.5 mb-1.5">
-                    <span class="ui-badge font-mono text-[11px] font-bold text-primary bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '')">-</span>
-                    <template x-if="slotKind(s.matkul) === 'Praktikum'">
-                      <span class="ui-badge text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
-                    </template>
-                    <template x-if="slotKind(s.matkul) === 'Teori'">
-                      <span class="ui-badge text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-primary border border-blue-200/60">Teori</span>
-                    </template>
-                  </div>
+                        :aria-label="'Sesi ' + s.matkul + ' hari ' + s.hari"
+                        class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px] rounded-[9px] text-left transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
+                        :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' 
+                                ? 'bg-[#FFFBEB] border border-[#FDE68A] hover:border-[#F59E0B] hover:shadow-md' 
+                                : 'bg-white border border-[#E2E8F0] hover:border-[#3965FB] hover:shadow-md'">
                   
-                  <!-- Subject Name -->
-                  <p class="font-bold text-[13px] text-ink leading-snug line-clamp-2 group-hover:text-primary transition-colors" x-text="s.matkul">-</p>
-                  
-                  <!-- Room & Lecturer -->
-                  <div class="mt-2 pt-2 border-t border-slate-100 flex flex-col gap-1 text-[11px] text-slate-500">
-                    <div class="flex items-center gap-1.5 truncate">
-                      <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">meeting_room</span>
-                      <span class="truncate font-medium text-slate-600" x-text="s.ruang || 'Tanpa ruangan'">-</span>
+                  <!-- Top: Time badge + Type badge -->
+                  <div class="flex items-center justify-between gap-1.5">
+                    <!-- Jam -->
+                    <div class="px-1.5 py-0.5 rounded-[6px] text-[10px] font-mono font-bold"
+                         :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                                 ? 'bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]'
+                                 : 'bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]'"
+                         x-text="s.timeStart + ' – ' + (s.timeEnd || '')">
+                      08:40 – 10:20
                     </div>
-                    <template x-if="s.dosen">
-                      <div class="flex items-center gap-1.5 truncate">
-                        <span class="material-symbols-outlined text-[14px] text-slate-400 shrink-0">person</span>
-                        <span class="truncate" x-text="s.dosen">-</span>
+
+                    <!-- Badge Kategori -->
+                    <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
+                      <div class="px-2 py-0.5 bg-[#FEF3C7] border border-[#FDE68A] rounded-[6px] text-[10px] font-bold text-[#92400E]">
+                        Pengganti
+                      </div>
+                    </template>
+                    <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Praktikum'">
+                      <div class="px-2 py-0.5 bg-[#F5F3FF] border border-[#DDD6FE] rounded-[6px] text-[10px] font-semibold text-[#6D28D9]">
+                        Praktikum
+                      </div>
+                    </template>
+                    <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Teori'">
+                      <div class="px-2 py-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-semibold text-[#1D4ED8]">
+                        Teori
                       </div>
                     </template>
                   </div>
+
+                  <!-- Judul Matkul -->
+                  <div class="text-[13px] font-bold leading-[17px] line-clamp-2 transition-colors"
+                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                               ? 'text-[#78350F] group-hover:text-[#B45309]'
+                               : 'text-[#1D1B3A] group-hover:text-[#3965FB]'"
+                       x-text="s.matkul + (s.isReplacement && !s.matkul.includes('(Pengganti)') ? ' (Pengganti)' : '')">
+                  </div>
+
+                  <!-- Ruangan & Dosen -->
+                  <div class="text-[11px] leading-[15px] truncate"
+                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]'"
+                       x-text="(s.ruang || 'Tanpa ruang') + (s.dosen ? ' · ' + s.dosen : '')">
+                  </div>
+
+                  <!-- Origin Footnote untuk Kuliah Pengganti -->
+                  <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
+                    <div class="text-[11px] italic text-[#B45309] flex items-center gap-1 mt-0.5">
+                      <span class="material-symbols-outlined text-[13px] shrink-0">sync_alt</span>
+                      <span class="truncate" x-text="s.originNote || 'Pengganti sesi sebelumnya'"></span>
+                    </div>
+                  </template>
                 </button>
               </template>
 
-              <!-- Empty state for day -->
+              <!-- Empty state per kolom hari -->
               <template x-if="daySessions(d.name).length === 0">
-                <div class="my-auto py-8 text-center flex flex-col items-center justify-center text-slate-400">
-                  <span class="material-symbols-outlined text-[24px] text-slate-300 mb-1">event_available</span>
-                  <span class="text-[12px] font-medium" x-text="q.trim() ? 'Tidak ada hasil pencarian' : 'Tidak ada jadwal'"></span>
+                <div class="my-auto py-10 w-full text-center flex flex-col items-center justify-center text-[#98A2B3]">
+                  <span class="material-symbols-outlined text-[24px] text-[#CBD5E1] mb-1">event_available</span>
+                  <span class="text-[12px] font-medium" x-text="q.trim() ? 'Tidak ada hasil' : 'Tidak ada jadwal'"></span>
                 </div>
               </template>
             </div>
+          </div>
+        </template>
+      </div>
 
+      <!-- DESKTOP VIEW: MODE DAFTAR (x-show="calendarViewMode === 'list'") -->
+      <div x-show="calendarViewMode === 'list'" class="hidden md:block mt-5 space-y-4">
+        <template x-for="d in weekDays" :key="'list-' + d.name">
+          <div class="rounded-[12px] border border-[#E2E8F0] overflow-hidden bg-white shadow-sm">
+            <div class="p-3.5 flex items-center justify-between"
+                 :class="isToday(d.name) ? 'bg-[#3965FB] text-white' : 'bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#1D1B3A]'">
+              <div class="flex items-center gap-2.5">
+                <span class="font-bold text-[14px]" x-text="d.name">-</span>
+                <span class="text-[12px]" :class="isToday(d.name) ? 'text-white/80' : 'text-[#667085]'" x-text="d.dateShort">-</span>
+                <span x-show="isToday(d.name)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-[#3965FB] tracking-wide uppercase">HARI INI</span>
+              </div>
+              <span class="text-[12px] font-semibold" :class="isToday(d.name) ? 'text-white' : 'text-[#64748B]'" x-text="daySessions(d.name).length + ' Sesi'"></span>
+            </div>
+            <div class="p-3 divide-y divide-[#F1F5F9]">
+              <template x-for="s in daySessions(d.name)" :key="'list-s-' + s.id">
+                <div class="py-2.5 flex items-center justify-between gap-4">
+                  <div class="flex items-center gap-3">
+                    <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
+                          :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#EFF6FF] text-[#1D4ED8]'"
+                          x-text="s.timeStart + ' – ' + (s.timeEnd || '')"></span>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                          :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : (slotKind(s.matkul) === 'Praktikum' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]')"
+                          x-text="s.isReplacement ? 'Pengganti' : slotKind(s.matkul)"></span>
+                    <div>
+                      <p class="font-bold text-[13px] text-[#1D1B3A]" x-text="s.matkul">-</p>
+                      <p class="text-[11px] text-[#667085]" x-text="(s.ruang || 'Tanpa ruang') + (s.dosen ? ' · ' + s.dosen : '') + (s.originNote ? ' (' + s.originNote + ')' : '')"></p>
+                    </div>
+                  </div>
+                  <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
+                          class="h-9 px-3 rounded-[8px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-semibold text-[#1D1B3A] transition-colors">
+                    Ubah Sesi
+                  </button>
+                </div>
+              </template>
+              <div x-show="daySessions(d.name).length === 0" class="py-4 text-center text-[12px] text-[#98A2B3]">
+                Tidak ada perkuliahan pada hari ini.
+              </div>
+            </div>
           </div>
         </template>
       </div>
 
       <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden) -->
-      <div class="md:hidden mt-3">
+      <div class="md:hidden mt-4">
         <!-- Horizontal Day Pill Selector -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
-          <template x-for="d in weekDays" :key="'tab-' + d.name">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
+          <template x-for="d in weekDays" :key="'mob-tab-' + d.name">
             <button type="button" role="tab"
                     :aria-selected="currentScheduleDay === d.name"
                     @click="activeScheduleDay = d.name"
-                    class="ui-button ui-button--ghost flex-1 min-w-[62px] py-2 px-1 rounded-xl text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                    :class="currentScheduleDay === d.name ? 'bg-primary text-white border-primary shadow-sm font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/90 font-medium'">
+                    class="flex-1 min-w-[62px] py-2 px-1 rounded-[10px] text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus:outline-none"
+                    :class="currentScheduleDay === d.name ? 'bg-[#3965FB] text-white border-[#3965FB] shadow-sm font-bold' : 'bg-[#F8FAFC] hover:bg-slate-100 text-[#1D1B3A] border-[#E2E8F0] font-medium'">
               <span class="text-[11px] uppercase tracking-wide leading-tight" x-text="d.name.slice(0, 3)">-</span>
               <div class="flex items-center gap-1 mt-0.5">
                 <span class="text-[14px] leading-tight" x-text="d.dateNum">-</span>
-                <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="currentScheduleDay === d.name ? 'bg-white' : 'bg-primary'"></span>
+                <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="currentScheduleDay === d.name ? 'bg-white' : 'bg-[#3965FB]'"></span>
               </div>
             </button>
           </template>
@@ -150,111 +286,100 @@
         <!-- Active Day Header -->
         <div class="flex items-center justify-between mt-3 mb-2 px-1">
           <div class="flex items-center gap-2">
-            <h3 class="text-[15px] font-bold text-ink">
+            <h3 class="text-[15px] font-bold text-[#1D1B3A]">
               <span x-text="currentScheduleDay"></span>
-              <span class="text-[13px] font-normal text-slate-500" x-text="getActiveDayDate() ? '· ' + getActiveDayDate() : ''"></span>
+              <span class="text-[13px] font-normal text-[#667085]" x-text="getActiveDayDate() ? '· ' + getActiveDayDate() : ''"></span>
             </h3>
-            <span x-show="isToday(currentScheduleDay)" class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-primary border border-blue-200/60">Hari Ini</span>
+            <span x-show="isToday(currentScheduleDay)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">Hari Ini</span>
           </div>
-          <span class="text-[12px] font-semibold text-slate-500" x-text="daySessions(currentScheduleDay).length + ' Sesi'"></span>
+          <span class="text-[12px] font-semibold text-[#667085]" x-text="daySessions(currentScheduleDay).length + ' Sesi'"></span>
         </div>
 
         <!-- Active Day Sessions List -->
         <div class="space-y-3 mt-2">
-          <!-- Session Cards -->
-          <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-' + s.id">
-            <div class="ui-card p-3.5 shadow-sm">
+          <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-s-' + s.id">
+            <div class="p-3.5 rounded-[12px] border transition-all"
+                 :class="s.isReplacement ? 'bg-[#FFFBEB] border-[#FDE68A]' : 'bg-white border-[#E2E8F0] shadow-sm'">
               <div class="flex items-center justify-between gap-2 mb-2">
-                <span class="ui-badge font-mono text-[12px] font-bold text-primary bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200/60" x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
-                <template x-if="slotKind(s.matkul) === 'Praktikum'">
-                  <span class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/60">Praktikum</span>
-                </template>
-                <template x-if="slotKind(s.matkul) === 'Teori'">
-                  <span class="ui-badge text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-primary border border-blue-200/60">Teori</span>
-                </template>
+                <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
+                      :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
+                      x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded"
+                      :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : (slotKind(s.matkul) === 'Praktikum' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]')"
+                      x-text="s.isReplacement ? 'Pengganti' : slotKind(s.matkul)"></span>
               </div>
-
-              <h4 class="font-bold text-[15px] text-ink leading-snug" x-text="s.matkul">-</h4>
-
-              <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5 text-[12px] text-slate-600">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">meeting_room</span>
-                  <span class="font-medium text-slate-700" x-text="s.ruang ? 'Ruang: ' + s.ruang : 'Tanpa ruangan'">-</span>
-                </div>
-                <template x-if="s.dosen">
-                  <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[16px] text-slate-400 shrink-0">person</span>
-                    <span x-text="'Dosen: ' + s.dosen">-</span>
-                  </div>
-                </template>
+              <h4 class="font-bold text-[14px] leading-snug" :class="s.isReplacement ? 'text-[#78350F]' : 'text-[#1D1B3A]'" x-text="s.matkul">-</h4>
+              <div class="mt-2 pt-2 border-t border-[#F1F5F9] flex flex-col gap-1 text-[11px]" :class="s.isReplacement ? 'text-[#92400E]' : 'text-[#667085]'">
+                <p x-text="'Ruang: ' + (s.ruang || 'Tanpa ruangan')"></p>
+                <p x-show="s.dosen" x-text="'Dosen: ' + s.dosen"></p>
+                <p x-show="s.originNote" class="italic text-[#B45309]" x-text="'Catatan: ' + s.originNote"></p>
               </div>
-
               <div class="mt-3 pt-2 flex justify-end">
                 <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
-                        class="ui-button ui-button--ghost h-10 px-3.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-[12px] font-semibold text-slate-700 flex items-center gap-1.5 min-h-[44px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-                  <span class="material-symbols-outlined text-[16px] text-slate-500">tune</span>
+                        class="h-9 px-3.5 rounded-[8px] border border-[#CBD5E1] bg-[#F8FAFC] hover:bg-slate-100 text-[12px] font-semibold text-[#1D1B3A] flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-[16px] text-[#64748B]">tune</span>
                   <span>Ajukan Penyesuaian</span>
                 </button>
               </div>
             </div>
           </template>
-
-          <!-- Empty State for Active Day -->
-          <template x-if="daySessions(currentScheduleDay).length === 0">
-            <div class="py-10 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center flex flex-col items-center justify-center">
-              <span class="material-symbols-outlined text-[32px] text-slate-300 mb-2">event_available</span>
-              <p class="text-[14px] font-bold text-ink" x-text="q.trim() ? 'Tidak ada hasil pencarian jadwal' : 'Tidak ada jadwal perkuliahan'"></p>
-              <p class="text-[12px] text-slate-500 mt-1 max-w-xs" x-text="q.trim() ? 'Coba kata kunci lain untuk hari ' + currentScheduleDay + '.' : 'Tidak ada sesi kelas yang tercatat pada hari ' + currentScheduleDay + '.'"></p>
-              <button type="button" @click="go('tugas')" class="ui-button ui-button--ghost mt-4 h-10 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[12px] font-semibold text-slate-700 min-h-[44px] shadow-sm transition-colors">
-                Lihat Daftar Tugas
-              </button>
-            </div>
-          </template>
+          <div x-show="daySessions(currentScheduleDay).length === 0" class="py-10 px-4 rounded-[12px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] text-center flex flex-col items-center justify-center">
+            <span class="material-symbols-outlined text-[32px] text-[#CBD5E1] mb-2">event_available</span>
+            <p class="text-[14px] font-bold text-[#1D1B3A]">Tidak ada jadwal perkuliahan</p>
+            <p class="text-[12px] text-[#667085] mt-1" x-text="'Tidak ada sesi kelas yang tercatat pada hari ' + currentScheduleDay + '.'"></p>
+          </div>
         </div>
       </div>
-
     </div>
 
     <!-- SCR-SCH-001: Pola jadwal -->
-    <div class="ui-card p-5 shadow-sm mt-4">
+    <div class="bg-white border border-[#D7DDE7] rounded-[14px] p-5 shadow-[0px_4px_16px_#0F172A08] mt-5">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-ink">Jadwal Tetap</h2>
+        <div>
+          <h2 class="text-[16px] font-bold text-[#1D1B3A]">Jadwal Tetap Mingguan</h2>
+          <p class="text-[12px] text-[#667085] mt-0.5" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester. Ubah dan hapus langsung tanpa alasan dan tanpa siaran WhatsApp.' : 'Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.'">-</p>
+        </div>
         <div class="flex items-center gap-2">
-          <span x-show="isDraftSemester()" class="ui-badge ui-badge--primary">Semester DRAFT — ubah langsung tanpa siaran</span>
-          <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary text-[13px] font-semibold flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">add</span>Tambah Jadwal Tetap</button>
+          <span x-show="isDraftSemester()" class="text-[11px] font-bold px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">Semester DRAFT — ubah langsung tanpa siaran</span>
+          <button type="button" @click="mulaiTambahPola()" class="h-[36px] px-3.5 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[10px] text-white text-[13px] font-semibold flex items-center gap-1.5 shadow-sm transition-all">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            <span>Tambah Jadwal Tetap</span>
+          </button>
         </div>
       </div>
-      <p class="text-[12px] text-slate-500 mt-1" x-text="isDraftSemester() ? 'Jadwal mingguan draf. Berlaku sejak tanggal mulai semester. Ubah dan hapus langsung tanpa alasan dan tanpa siaran WhatsApp.' : 'Jadwal perkuliahan mingguan resmi kelas selama semester aktif. Menjadi acuan dasar saat ada perubahan atau kelas pengganti.'">-</p>
+
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-        <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="ui-field text-[14px]" />
-        <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="ui-field text-[14px]" />
-        <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="ui-field text-[14px]" />
+        <input type="text" x-model="filtMatkul" placeholder="Filter mata kuliah..." aria-label="Filter mata kuliah" class="h-10 px-3 bg-white border border-[#CBD5E1] rounded-[8px] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+        <input type="text" x-model="filtDosen" placeholder="Filter dosen..." aria-label="Filter dosen" class="h-10 px-3 bg-white border border-[#CBD5E1] rounded-[8px] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+        <input type="text" x-model="filtRuang" placeholder="Filter ruangan..." aria-label="Filter ruangan" class="h-10 px-3 bg-white border border-[#CBD5E1] rounded-[8px] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
       </div>
-      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat jadwal tetap...</div>
+
+      <div x-show="polaLoading" class="py-6 text-center text-[13px] text-[#64748B]">Memuat jadwal tetap...</div>
       <div x-show="polaError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="polaError">-</span>
-        <button type="button" @click="polaError=''; loadPatterns()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+        <button type="button" @click="polaError=''; loadPatterns()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
-      <div x-show="!polaLoading && !polaError && scopePatterns.length === 0" class="ui-empty mt-3 p-6 rounded-xl border border-dashed border-border text-center">
-        <p class="text-[15px] font-semibold">Jadwal tetap belum dibuat</p>
-        <p class="text-[13px] text-slate-500 mt-1">Tambahkan jadwal tetap agar mahasiswa dapat melihat perkuliahan rutin mingguannya.</p>
-        <button type="button" @click="mulaiTambahPola()" class="ui-button ui-button--primary mt-3 text-[13px] font-semibold">Tambah Jadwal Tetap</button>
+      <div x-show="!polaLoading && !polaError && scopePatterns.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center">
+        <p class="text-[14px] font-semibold text-[#1D1B3A]">Jadwal tetap belum dibuat</p>
+        <p class="text-[12px] text-[#667085] mt-1">Tambahkan jadwal tetap agar mahasiswa dapat melihat perkuliahan rutin mingguannya.</p>
+        <button type="button" @click="mulaiTambahPola()" class="mt-3 h-[36px] px-3.5 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[10px] text-white text-[13px] font-semibold">Tambah Jadwal Tetap</button>
       </div>
-      <div x-show="!polaLoading && !polaError && scopePatterns.length > 0 && filteredPola.length === 0" class="ui-empty mt-3 p-6 rounded-xl border border-dashed border-border text-center">
-        <p class="text-[15px] font-semibold">Tidak ada jadwal yang cocok</p>
-        <p class="text-[13px] text-slate-500 mt-1">Tidak ada jadwal dengan filter yang dipilih.</p>
-        <button type="button" @click="hapusPolaFilter()" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Hapus Semua Filter</button>
+      <div x-show="!polaLoading && !polaError && scopePatterns.length > 0 && filteredPola.length === 0" class="mt-3 p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center">
+        <p class="text-[14px] font-semibold text-[#1D1B3A]">Tidak ada jadwal yang cocok</p>
+        <p class="text-[12px] text-[#667085] mt-1">Tidak ada jadwal dengan filter yang dipilih.</p>
+        <button type="button" @click="hapusPolaFilter()" class="mt-3 h-[36px] px-3.5 border border-[#CBD5E1] hover:bg-slate-50 rounded-[10px] text-[#3965FB] text-[13px] font-semibold">Hapus Semua Filter</button>
       </div>
-      <div class="mt-3 divide-y divide-border">
+
+      <div class="mt-3 divide-y divide-[#F1F5F9]">
         <template x-for="p in filteredPola" :key="p.id">
           <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
             <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold line-clamp-1" x-text="(p.display_name || p.offering || '—')">-</p>
-              <p class="text-[12px] text-slate-500 font-mono" x-text="polaHariName(p.day_of_week) + ' · ' + (p.start_time || '') + '–' + (p.end_time || '') + (p.room ? ' · ' + p.room : '')">-</p>
+              <p class="text-[14px] font-semibold text-[#1D1B3A] line-clamp-1" x-text="(p.display_name || p.offering || '—')">-</p>
+              <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="polaHariName(p.day_of_week) + ' · ' + (p.start_time || '') + '–' + (p.end_time || '') + (p.room ? ' · ' + p.room : '')">-</p>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" @click="editPola(p)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Ubah</button>
-              <button type="button" @click="hapusPola(p)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
+              <button type="button" @click="editPola(p)" class="h-9 px-3 rounded-[8px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-medium text-[#1D1B3A] flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-[16px]">edit</span>Ubah</button>
+              <button type="button" @click="hapusPola(p)" class="h-9 px-3 rounded-[8px] border border-red-200 hover:bg-red-50 text-[12px] font-medium text-red-700 flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-[16px]">delete</span>Hapus</button>
             </div>
           </div>
         </template>
@@ -262,58 +387,63 @@
     </div>
 
     <!-- Daftar perubahan jadwal -->
-    <div class="ui-card p-5 shadow-sm mt-4">
+    <div class="bg-white border border-[#D7DDE7] rounded-[14px] p-5 shadow-[0px_4px_16px_#0F172A08] mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold text-ink">Perubahan jadwal</h2>
-        <select x-model="eventFilter" aria-label="Filter status publikasi" class="ui-field text-[13px]">
+        <div>
+          <h2 class="text-[16px] font-bold text-[#1D1B3A]">Riwayat & Draf Perubahan Jadwal</h2>
+          <p class="text-[12px] text-[#667085] mt-0.5">Seluruh perubahan di kelas yang dikelola, termasuk draf yang belum terbit.</p>
+        </div>
+        <select x-model="eventFilter" aria-label="Filter status publikasi" class="h-[36px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 text-[12px] font-medium text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
           <option value="semua">Semua status</option>
           <option value="DRAFT">Draf</option>
           <option value="PUBLISHED">Terbit</option>
           <option value="REVOKED">Publikasi Dicabut</option>
         </select>
       </div>
-      <p class="text-[13px] text-slate-500 mt-1">Seluruh perubahan di kelas yang dikelola, termasuk draf yang belum terlihat mahasiswa.</p>
-      <div x-show="eventsLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat perubahan jadwal...</div>
+
+      <div x-show="eventsLoading" class="py-6 text-center text-[13px] text-[#64748B]">Memuat perubahan jadwal...</div>
       <div x-show="eventsError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
         <span x-text="eventsError">-</span>
-        <button type="button" @click="loadEvents()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+        <button type="button" @click="loadEvents()" class="ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
-      <div x-show="!eventsLoading && !eventsError && filteredEvents.length === 0" class="ui-empty py-6 text-center text-[13px] text-slate-400">Belum ada perubahan tercatat.</div>
-      <div class="mt-2 divide-y divide-border">
+      <div x-show="!eventsLoading && !eventsError && filteredEvents.length === 0" class="py-6 text-center text-[13px] text-[#64748B]">Belum ada perubahan tercatat.</div>
+      
+      <div class="mt-2 divide-y divide-[#F1F5F9]">
         <template x-for="ev in filteredEvents" :key="ev.id">
           <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
             <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold flex items-center gap-1.5 flex-wrap">
-                <span class="material-symbols-outlined text-[18px] text-primary">event</span>
+              <p class="text-[14px] font-semibold text-[#1D1B3A] flex items-center gap-1.5 flex-wrap">
+                <span class="material-symbols-outlined text-[18px] text-[#3965FB]">event</span>
                 <span x-text="kindLabel(ev.event_kind)">-</span>
                 <span class="text-slate-400 font-normal">·</span>
-                <span class="font-normal text-slate-600 line-clamp-1" x-text="ev.offering || ''">-</span>
+                <span class="font-normal text-[#667085] line-clamp-1" x-text="ev.offering || ''">-</span>
               </p>
-              <p class="text-[12px] text-slate-500 font-mono mt-0.5" x-text="fmtWaktuID(ev.starts_at)">-</p>
+              <p class="text-[12px] text-[#667085] font-mono mt-0.5" x-text="fmtWaktuID(ev.starts_at)">-</p>
             </div>
-            <span class="ui-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(ev.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'bg-success text-green-800' : (String(ev.lifecycle_status).toUpperCase() === 'DRAFT' ? 'bg-warning-soft text-amber-900' : 'bg-slate-100 text-slate-500')">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
+              :class="String(ev.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]' : (String(ev.lifecycle_status).toUpperCase() === 'DRAFT' ? 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' : 'bg-slate-100 text-slate-500 border border-slate-200')">
               <span class="material-symbols-outlined text-[14px]" x-text="String(ev.lifecycle_status).toUpperCase() === 'PUBLISHED' ? 'check_circle' : (String(ev.lifecycle_status).toUpperCase() === 'DRAFT' ? 'pending' : 'cancel')">-</span>
               <span x-text="statusLabel(ev.lifecycle_status)">-</span>
             </span>
             <div class="flex gap-2">
-              <button type="button" @click="bukaDetail(ev)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px]">Buka</button>
-              <button type="button" @click="lanjutkanDraf(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold">Lanjutkan</button>
-              <button type="button" @click="hapusDrafPerubahan(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-medium min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">delete</span>Hapus</button>
+              <button type="button" @click="bukaDetail(ev)" class="h-9 px-3 rounded-[8px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-medium text-[#1D1B3A] transition-colors">Buka</button>
+              <button type="button" @click="lanjutkanDraf(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="h-9 px-3 rounded-[8px] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-blue-100 text-[#1D4ED8] text-[12px] font-semibold transition-colors">Lanjutkan</button>
+              <button type="button" @click="hapusDrafPerubahan(ev)" x-show="String(ev.lifecycle_status).toUpperCase() === 'DRAFT'" class="h-9 px-3 rounded-[8px] border border-red-200 hover:bg-red-50 text-red-700 text-[12px] font-medium flex items-center gap-1 transition-colors"><span class="material-symbols-outlined text-[16px]">delete</span>Hapus</button>
             </div>
           </div>
         </template>
       </div>
     </div>
 
-    <div class="ui-card p-5 shadow-sm mt-4">
-      <h2 class="text-[18px] font-semibold text-center">Ruangan Kandidat</h2>
-      <p class="text-[11px] text-slate-400 text-center mt-1">Hasil pencarian internal — wajib konfirmasi TU sebelum publish.</p>
-      <div class="divide-y divide-border mt-2">
+    <!-- Ruangan Kandidat -->
+    <div class="bg-white border border-[#D7DDE7] rounded-[14px] p-5 shadow-[0px_4px_16px_#0F172A08] mt-4">
+      <h2 class="text-[16px] font-bold text-[#1D1B3A] text-center">Ruangan Kandidat</h2>
+      <p class="text-[11px] text-[#64748B] text-center mt-1">Hasil pencarian internal — wajib konfirmasi TU sebelum publish.</p>
+      <div class="divide-y divide-[#F1F5F9] mt-3">
         <template x-for="r in roomList" :key="r">
-          <div class="py-3"><p class="text-[14px] font-medium" x-text="r">-</p><p class="text-[12px] text-slate-500">Tidak tercatat dipakai</p></div>
+          <div class="py-2.5"><p class="text-[13px] font-medium text-[#1D1B3A]" x-text="r">-</p><p class="text-[11px] text-[#64748B]">Tidak tercatat dipakai</p></div>
         </template>
-        <div x-show="roomList.length === 0" class="ui-empty py-4 text-center text-[12px] text-slate-400">Belum ada data ruangan.</div>
+        <div x-show="roomList.length === 0" class="py-4 text-center text-[12px] text-[#64748B]">Belum ada data ruangan.</div>
       </div>
     </div>
   </div>

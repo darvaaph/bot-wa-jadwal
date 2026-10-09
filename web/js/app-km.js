@@ -89,6 +89,9 @@ function kmApp() {
     classList: [],
     botOnline: false,
     fullSchedule: [],
+    scheduleLoading: false,
+    scheduleError: '',
+    calendarViewMode: 'calendar',
     tasks: [],
     offeringList: [],
     offeringLoading: false,
@@ -524,6 +527,37 @@ function kmApp() {
       return `${fmt(days[0].full)} – ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
     },
 
+    get weekRangeLabel() {
+      const days = this.weekDays;
+      if (!days || days.length === 0) return '-';
+      const monday = days[0].full;
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const mDay = monday.getDate();
+      const sDay = sunday.getDate();
+      const sMonth = sunday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
+      const sYear = sunday.getFullYear();
+      if (monday.getMonth() === sunday.getMonth()) {
+        return `${mDay} – ${sDay} ${sMonth} ${sYear}`;
+      }
+      const mMonth = monday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
+      return `${mDay} ${mMonth} – ${sDay} ${sMonth} ${sYear}`;
+    },
+
+    get pekanLabel() {
+      let weekNum = 6 + this.weekOffset;
+      if (this.semesterAktif && this.semesterAktif.starts_on) {
+        const start = new Date(this.semesterAktif.starts_on);
+        const days = this.weekDays;
+        if (days && days.length > 0 && !isNaN(start.getTime())) {
+          const diffMs = days[0].full.getTime() - start.getTime();
+          const w = Math.floor(diffMs / (7 * 24 * 3600 * 1000)) + 1;
+          if (w > 0) weekNum = w;
+        }
+      }
+      return `Pekan ${weekNum}`;
+    },
+
     get slots() {
       const base = ['08', '10', '13', '15'];
       const fromData = (this.fullSchedule || []).map(s => String(s.timeStart || '').split(':')[0].padStart(2, '0')).filter(h => /^\d{2}$/.test(h));
@@ -542,11 +576,11 @@ function kmApp() {
 
     isToday(dayName) { return dayName === this.todayName; },
 
-    slotKind(matkul) {
+    slotKind(matkul, eventKind) {
+      if (String(eventKind || '').toUpperCase() === 'REPLACEMENT') return 'Pengganti';
       const s = String(matkul || '').toLowerCase();
-      if (s.includes('praktikum') || s.includes('praktik')) return 'Praktikum';
-      if (s.includes('teori')) return 'Teori';
-      return '';
+      if (s.includes('praktikum') || s.includes('praktik') || s.includes('lab')) return 'Praktikum';
+      return 'Teori';
     },
 
     slotRange(entry, slotHH) {
@@ -1326,17 +1360,25 @@ function kmApp() {
     },
 
     async loadSchedule() {
+      this.scheduleLoading = true;
+      this.scheduleError = '';
       try {
         const [patterns, events] = await Promise.all([API.getPatterns(), API.getTeachingEvents()]);
         const seen = new Set();
         const list = [];
         (patterns || []).forEach((s, i) => {
           const entry = {
-            id: `pattern-${s.id || i}`, hari: this.polaHariName(s.day_of_week),
+            id: `pattern-${s.id || i}`,
+            patternId: s.id,
+            hari: this.polaHariName(s.day_of_week),
             jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
             matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
-            dosen: s.lecturer || s.dosen || '', ruang: s.room || s.room_code || '',
-            timeStart: String(s.start_time || '').slice(0, 5), timeEnd: String(s.end_time || '').slice(0, 5)
+            dosen: s.lecturer || s.dosen || '',
+            ruang: s.room || s.room_code || '',
+            timeStart: String(s.start_time || '').slice(0, 5),
+            timeEnd: String(s.end_time || '').slice(0, 5),
+            eventKind: 'REGULAR',
+            isReplacement: false
           };
           const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
           if (seen.has(key)) return;
@@ -1348,10 +1390,29 @@ function kmApp() {
           if (Number.isNaN(start.getTime())) return;
           const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
           const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-          list.push({ id: `event-${e.id || i}`, hari, jam: `${hm(start)} - ${hm(end)}`, matkul: e.offering || 'Mata Kuliah', dosen: '', ruang: e.room || '', timeStart: hm(start), timeEnd: hm(end), eventKind: e.event_kind });
+          const isRep = String(e.event_kind || '').toUpperCase() === 'REPLACEMENT';
+          list.push({
+            id: `event-${e.id || i}`,
+            eventId: e.id,
+            hari,
+            jam: `${hm(start)} - ${hm(end)}`,
+            matkul: e.offering || 'Mata Kuliah',
+            dosen: e.lecturer || e.dosen || '',
+            ruang: e.room || '',
+            timeStart: hm(start),
+            timeEnd: hm(end),
+            eventKind: e.event_kind,
+            isReplacement: isRep,
+            originNote: e.reason || (isRep ? 'Pengganti sesi sebelumnya' : '')
+          });
         });
         this.fullSchedule = list;
-      } catch (e) { this.fullSchedule = []; }
+      } catch (e) {
+        this.fullSchedule = [];
+        this.scheduleError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+      } finally {
+        this.scheduleLoading = false;
+      }
     },
 
     async loadTasks() {
