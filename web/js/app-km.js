@@ -617,14 +617,113 @@ function kmApp() {
       });
     },
 
+    modalSesiOpen: false,
+    modalSesiData: null,
+
+    bukaModalDetailSesi(session) {
+      if (!session) return;
+      this.modalSesiData = session;
+      this.modalSesiOpen = true;
+    },
+
+    tutupModalDetailSesi() {
+      this.modalSesiOpen = false;
+      this.modalSesiData = null;
+    },
+
     bukaAksiSesi(session) {
       if (!session) return;
-      if (session.eventId) {
-        this.bukaDetail({ id: session.eventId });
-      } else {
-        const slotHH = (session.timeStart || '').split(':')[0] || '08';
-        this.goPindah(session.hari, slotHH, session);
+      this.bukaModalDetailSesi(session);
+    },
+
+    getSesiSKS(s) {
+      if (!s) return '2 SKS';
+      if (s.sks) return `${s.sks} SKS`;
+      if (s.timeStart && s.timeEnd) {
+        const [h1, m1] = s.timeStart.split(':').map(Number);
+        const [h2, m2] = s.timeEnd.split(':').map(Number);
+        if (!isNaN(h1) && !isNaN(h2)) {
+          const diffMin = (h2 * 60 + m2) - (h1 * 60 + m1);
+          if (diffMin > 0) {
+            const sks = Math.max(1, Math.round(diffMin / 50));
+            return `${sks} SKS`;
+          }
+        }
       }
+      return '2 SKS';
+    },
+
+    getSesiDate(s) {
+      if (!s) return '';
+      const dayObj = (this.weekDays || []).find(d => d.name === s.hari);
+      if (dayObj && dayObj.full) {
+        return this.formatFullDate(dayObj.full);
+      }
+      return s.hari || '';
+    },
+
+    getSesiLiveStatus(s) {
+      if (!s) return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      if (s.hari !== todayIndo || this.weekOffset !== 0) {
+        return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      }
+      const nowHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+      const start = s.timeStart || '00:00';
+      const end = s.timeEnd || '23:59';
+      if (nowHM >= start && nowHM <= end) {
+        return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
+      } else if (nowHM > end) {
+        return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+      }
+      return { label: 'Akan Datang Hari Ini', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+    },
+
+    getSesiCourseCode(s) {
+      if (!s) return '';
+      if (s.courseCode) return s.courseCode;
+      const pat = (this.patternsList || []).find(p => String(p.display_name || p.course_name || p.offering || '') === String(s.matkul));
+      if (pat && pat.course_code) return pat.course_code;
+      const off = (this.offeringList || []).find(o => String(o.display_name || '') === String(s.matkul));
+      if (off && off.course_code) return off.course_code;
+      return '';
+    },
+
+    getSesiRoomDetails(s) {
+      if (!s || !s.ruang) return { building: '', capacity: '', roomType: '' };
+      const roomObj = (this.polaRooms || []).find(r => (r.code || r.name) === s.ruang);
+      return {
+        building: (roomObj && roomObj.building) ? roomObj.building : '',
+        capacity: (roomObj && roomObj.capacity) ? `${roomObj.capacity} Kursi` : '',
+        roomType: (roomObj && roomObj.room_type) ? roomObj.room_type : ''
+      };
+    },
+
+    pindahRuanganDariModal() {
+      const s = this.modalSesiData;
+      this.tutupModalDetailSesi();
+      if (!s) return;
+      const dayObj = (this.weekDays || []).find(d => d.name === s.hari);
+      if (dayObj && dayObj.full) {
+        const pad = n => String(n).padStart(2, '0');
+        const d = dayObj.full;
+        this.roomSearch.date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      }
+      if (s.timeStart) this.roomSearch.start = s.timeStart.slice(0, 5);
+      if (s.timeEnd) this.roomSearch.end = s.timeEnd.slice(0, 5);
+      this.go('ruangan');
+      if (this.roomSearch.date && this.roomSearch.start && this.roomSearch.end) {
+        this.cariKandidatRuang().catch(() => {});
+      }
+    },
+
+    ajukanPenggantiDariModal() {
+      const s = this.modalSesiData;
+      this.tutupModalDetailSesi();
+      if (!s) return;
+      const slotHH = (s.timeStart || '').split(':')[0] || '08';
+      this.goPindah(s.hari, slotHH, s);
     },
 
     // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
