@@ -131,7 +131,8 @@
       <!-- State 4: Material List -->
       <div x-show="!materiLoading && !materiError && materiTampil.length > 0" class="divide-y divide-[#F1F5F9]">
         <template x-for="m in materiTampil" :key="m.id">
-          <div class="min-h-[76px] py-3.5 flex items-center gap-3.5 group hover:bg-slate-50/70 -mx-3 px-3 rounded-xl transition-colors">
+          <div class="min-h-[76px] py-3.5 flex items-center gap-3.5 group hover:bg-slate-50/70 -mx-3 px-3 rounded-xl transition-colors cursor-pointer"
+            @click="bukaModalDetailMateri(m)">
             <!-- Icon Box -->
             <div class="w-[44px] h-[44px] shrink-0 rounded-[12px] border flex items-center justify-center transition-transform group-hover:scale-105"
               :class="materiIconMeta(m).bgClass">
@@ -140,14 +141,7 @@
 
             <!-- Middle Info -->
             <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-              <template x-if="m.url">
-                <a :href="m.url" target="_blank" rel="noopener"
-                  class="text-[14px] font-semibold text-[#0F172A] hover:text-[#2563EB] hover:underline truncate block"
-                  x-text="m.title">-</a>
-              </template>
-              <template x-if="!m.url">
-                <p class="text-[14px] font-semibold text-[#0F172A] truncate" x-text="m.title">-</p>
-              </template>
+              <p class="text-[14px] font-semibold text-[#0F172A] group-hover:text-[#2563EB] truncate" x-text="m.title">-</p>
               <p class="text-[12px] text-[#64748B] truncate" x-text="materiOfferingName(m) + ' · ' + sumberMateri(m)">-</p>
             </div>
 
@@ -157,12 +151,13 @@
               <span class="text-[12px] text-[#64748B] font-normal" :title="m.created_at ? fmtDeadlineID(m.created_at) : ''" x-text="fmtTanggalSingkat(m.created_at)">-</span>
 
               <!-- Action Buttons (Hover / Mobile Accessible) -->
-              <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                <button type="button" @click="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah materi"
+              <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                @click.stop>
+                <button type="button" @click.stop="mulaiUbahMateri(m)" aria-label="Ubah materi" title="Ubah materi"
                   class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors">
                   <span class="material-symbols-outlined text-[16px]">edit</span>
                 </button>
-                <button type="button" @click="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan materi"
+                <button type="button" @click.stop="arsipkanMateri(m)" aria-label="Arsipkan materi" title="Arsipkan materi"
                   class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors">
                   <span class="material-symbols-outlined text-[16px]">archive</span>
                 </button>
@@ -174,109 +169,220 @@
     </div>
   </div>
 
-  <!-- Modal Dialog Tambah / Ubah Materi (SCR-KM-MAT-001 - Opsi A) -->
+  <!-- Modal 1: Dialog Tambah / Ubah Materi Kuliah (SCR-KM-MAT-002) -->
   <div x-show="materiModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-materi-title" role="dialog" aria-modal="true">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="tutupModalMateri()"></div>
+    <!-- Backdrop Tambah Materi -->
+    <div class="fixed inset-0 bg-[#0F172A66] backdrop-blur-[2px] transition-opacity" @click="tutupModalMateri()"></div>
 
-    <!-- Center Modal container -->
+    <!-- Center Container -->
     <div class="min-h-full flex items-center justify-center p-4">
-      <div class="relative bg-white rounded-[20px] shadow-2xl border border-slate-200/80 w-full max-w-[560px] overflow-hidden transform transition-all"
+      <div class="relative w-full max-w-[448px] bg-white border border-[#E2E8F0] shadow-[0px_20px_48px_#0F172A55] rounded-[16px] p-5 flex flex-col gap-4 overflow-hidden transform transition-all"
         @click.outside="tutupModalMateri()"
         @keydown.escape.window="tutupModalMateri()">
 
-        <!-- Modal Header -->
-        <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-100 text-[#2563EB] flex items-center justify-center shrink-0">
-              <span class="material-symbols-outlined text-[22px]">menu_book</span>
-            </div>
-            <div>
-              <h3 id="modal-materi-title" class="text-[17px] font-bold text-[#0F172A]" x-text="editMateriId ? 'Ubah Materi Kuliah' : 'Tambah Materi Baru'">-</h3>
-              <p class="text-[12px] text-slate-500 mt-0.5">Simpan dokumen, berkas, atau tautan kuliah per mata kuliah</p>
-            </div>
-          </div>
-          <button type="button" @click="tutupModalMateri()" aria-label="Tutup modal"
-            class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
-            <span class="material-symbols-outlined text-[20px]">close</span>
+        <!-- Header Tambah Materi -->
+        <div class="w-full flex items-center justify-between">
+          <h3 id="modal-materi-title" class="text-[18px] font-bold text-[#0F172A]" x-text="editMateriId ? 'Ubah Materi Kuliah' : 'Tambah Materi Kuliah'">
+            Tambah Materi Kuliah
+          </h3>
+          <button type="button" @click="tutupModalMateri()" aria-label="Tutup form materi"
+            class="w-7 h-7 rounded-[8px] text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 flex items-center justify-center transition-colors shrink-0">
+            <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="3" x2="13" y2="13"></line>
+              <line x1="13" y1="3" x2="3" y2="13"></line>
+            </svg>
           </button>
         </div>
 
-        <!-- Modal Body -->
-        <div class="p-6 space-y-4">
-          <!-- Error Alert -->
-          <div x-show="materiFormError" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2">
+        <!-- Form Tambah Materi -->
+        <div class="w-full flex flex-col gap-3.5">
+          <!-- Error Alert Banner -->
+          <div x-show="materiFormError" class="p-3 rounded-[12px] bg-red-50 border border-red-200 text-[12px] text-red-700 flex items-center gap-2">
             <span class="material-symbols-outlined text-[18px] text-red-500 shrink-0">error</span>
             <span x-text="materiFormError">-</span>
           </div>
 
-          <div>
-            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
-              Judul Materi <span class="text-red-500">*</span>
-            </label>
+          <!-- Judul Materi -->
+          <div class="w-full flex flex-col gap-1.5">
+            <label class="text-[12px] font-semibold text-[#334155]">Judul Materi *</label>
             <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide Normalisasi Database"
-              class="w-full h-11 px-3.5 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400" />
+              class="w-full h-[42px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600" />
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
-                Mata Kuliah
-              </label>
+          <!-- Mata Kuliah -->
+          <div class="w-full flex flex-col gap-1.5">
+            <label class="text-[12px] font-semibold text-[#334155]">Mata Kuliah</label>
+            <div class="relative w-full">
               <select x-model="materiForm.offeringId"
-                class="w-full h-11 px-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white">
+                class="w-full h-[42px] px-3 pr-9 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#334155] appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600">
                 <option value="">Umum Kelas</option>
                 <template x-for="o in offeringList" :key="o.id">
-                  <option :value="o.id" x-text="o.display_name || o.course_code">-</option>
+                  <option :value="String(o.id)" x-text="o.display_name || o.course_code">-</option>
                 </template>
               </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[#64748B]">
+                <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 6 8 10 12 6"></polyline>
+                </svg>
+              </div>
             </div>
-            <div>
-              <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
-                Jenis Konten
-              </label>
+          </div>
+
+          <!-- Jenis Materi -->
+          <div class="w-full flex flex-col gap-1.5">
+            <label class="text-[12px] font-semibold text-[#334155]">Jenis Materi</label>
+            <div class="relative w-full">
               <select x-model="materiForm.material_type"
-                class="w-full h-11 px-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white">
-                <option value="DOCUMENT">Dokumen / Slide / PDF</option>
-                <option value="MEETING">Tautan Rapat / Video</option>
+                class="w-full h-[42px] px-3 pr-9 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#334155] appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600">
+                <option value="DOCUMENT">Dokumen (Slide / PDF / Catatan)</option>
+                <option value="MEETING">Video / Rekaman Pertemuan</option>
                 <option value="REPOSITORY">Repositori Kode</option>
                 <option value="PORTAL">Portal / Web Kuliah</option>
-                <option value="OTHER">Lainnya</option>
+                <option value="OTHER">Referensi / Lainnya</option>
               </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[#64748B]">
+                <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 6 8 10 12 6"></polyline>
+                </svg>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
-              Tautan / URL Berkas
-            </label>
+          <!-- Tautan URL * -->
+          <div class="w-full flex flex-col gap-1.5">
+            <label class="text-[12px] font-semibold text-[#334155]">Tautan URL *</label>
             <input type="url" x-model="materiForm.url" placeholder="https://drive.google.com/..."
-              class="w-full h-11 px-3.5 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400" />
-            <p class="text-[11px] text-slate-500 mt-1">Mendukung tautan Google Drive, Docs, YouTube, GitHub, atau berkas daring.</p>
+              class="w-full h-[42px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] font-mono text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600" />
           </div>
 
-          <div>
-            <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">
-              Deskripsi / Catatan Tambahan
-            </label>
-            <textarea x-model="materiForm.description" rows="2" placeholder="Catatan singkat untuk mahasiswa..."
-              class="w-full p-3 text-[14px] rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-white placeholder:text-slate-400 resize-none"></textarea>
+          <!-- Deskripsi Ringkas -->
+          <div class="w-full flex flex-col gap-1.5">
+            <label class="text-[12px] font-semibold text-[#334155]">Deskripsi Ringkas</label>
+            <textarea x-model="materiForm.description" rows="2" placeholder="Tambahkan ringkasan isi materi untuk mahasiswa..."
+              class="w-full h-[68px] p-2.5 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"></textarea>
           </div>
         </div>
 
-        <!-- Modal Footer -->
-        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-2.5">
+        <!-- Aksi Tambah Materi -->
+        <div class="w-full pt-3.5 border-t border-[#F1F5F9] flex flex-row gap-2.5 justify-end items-center">
           <button type="button" @click="tutupModalMateri()"
-            class="h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[13px] font-medium transition-colors">
+            class="h-[40px] px-4 rounded-[12px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] text-[#334155] font-semibold transition-colors">
             Batal
           </button>
           <button type="button" @click="simpanMateri()" :disabled="materiSaving"
-            class="h-10 px-5 rounded-xl bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors">
+            class="h-[40px] px-5 rounded-[12px] bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-[12px] flex items-center gap-1.5 transition-colors">
             <span class="material-symbols-outlined text-[16px] animate-spin" x-show="materiSaving">progress_activity</span>
             <span x-text="materiSaving ? 'Menyimpan...' : (editMateriId ? 'Simpan Perubahan' : 'Simpan Materi')">Simpan Materi</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
 
+  <!-- Modal 2: Dialog Detail Materi Perkuliahan (SCR-KM-MAT-003) -->
+  <div x-show="materiDetailModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-detail-title" role="dialog" aria-modal="true">
+    <!-- Backdrop Detail Materi -->
+    <div class="fixed inset-0 bg-[#0F172A66] backdrop-blur-[2px] transition-opacity" @click="tutupModalDetailMateri()"></div>
+
+    <!-- Center Container -->
+    <div class="min-h-full flex items-center justify-center p-4">
+      <div class="relative w-full max-w-[520px] bg-white border border-[#E2E8F0] shadow-[0px_20px_48px_#0F172A55] rounded-[16px] overflow-hidden transform transition-all"
+        @click.outside="tutupModalDetailMateri()"
+        @keydown.escape.window="tutupModalDetailMateri()">
+
+        <template x-if="selectedMateri">
+          <div>
+            <!-- Header Detail Materi -->
+            <div class="p-6 border-b border-[#F1F5F9] flex justify-between items-start gap-4">
+              <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex px-2 py-0.5 rounded-[6px] bg-[#EFF6FF] border border-[#BFDBFE] text-[11px] font-semibold text-[#1D4ED8] uppercase tracking-wide"
+                    x-text="materiOfferingBadge(selectedMateri)">
+                    SISTEM BASIS DATA
+                  </span>
+                </div>
+                <h3 id="modal-detail-title" class="text-[18px] leading-[23px] font-bold text-[#0F172A] break-words" x-text="selectedMateri.title">-</h3>
+                <div>
+                  <span class="inline-flex px-2 py-0.5 rounded-[6px] bg-[#F1F5F9] text-[11px] font-medium text-[#334155] uppercase tracking-wide"
+                    x-text="materiTypeBadge(selectedMateri)">
+                    SLIDE / PDF
+                  </span>
+                </div>
+              </div>
+              <button type="button" @click="tutupModalDetailMateri()" aria-label="Tutup detail materi"
+                class="w-7 h-7 rounded-lg text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 flex items-center justify-center transition-colors shrink-0">
+                <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="3" y1="3" x2="13" y2="13"></line>
+                  <line x1="13" y1="3" x2="3" y2="13"></line>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Isi Detail Materi -->
+            <div class="p-6 space-y-4">
+              <!-- Deskripsi & Instruksi -->
+              <div class="flex flex-col gap-1.5">
+                <span class="text-[11px] font-bold text-[#64748B] tracking-[0.6px] uppercase">DESKRIPSI &amp; INSTRUKSI</span>
+                <div class="p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] text-[12px] leading-[18px] text-[#334155] break-words whitespace-pre-wrap"
+                  x-text="selectedMateri.description || 'Tidak ada deskripsi atau instruksi tambahan.'">
+                </div>
+              </div>
+
+              <!-- Tautan Berkas -->
+              <div class="flex flex-col gap-1.5">
+                <span class="text-[11px] font-bold text-[#64748B] tracking-[0.6px] uppercase">TAUTAN BERKAS</span>
+                <div class="min-h-[58px] p-3 bg-white border border-[#E2E8F0] rounded-[12px] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <svg viewBox="0 0 24 24" class="w-5 h-5 shrink-0 text-[#2563EB]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="text-[11px] font-mono text-[#475569] truncate flex-1" x-text="selectedMateri.url || 'Tidak ada tautan berkas daring.'">-</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0 self-end sm:self-auto" x-show="selectedMateri.url">
+                    <button type="button" @click="salinTautanMateri(selectedMateri.url)"
+                      class="h-[32px] px-2.5 rounded-[8px] border border-[#E2E8F0] bg-white hover:bg-slate-50 text-[12px] font-medium text-[#334155] flex items-center gap-1 transition-colors">
+                      <span x-text="materiCopied ? 'Tersalin!' : 'Salin'">Salin</span>
+                    </button>
+                    <button type="button" @click="bukaTautanMateri(selectedMateri.url)"
+                      class="h-[32px] px-2.5 rounded-[8px] bg-[#2563EB] hover:bg-blue-700 text-[12px] font-semibold text-white flex items-center gap-1 transition-colors">
+                      <span>Buka Tautan ↗</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Metadata Materi -->
+              <div class="pt-3 border-t border-[#F1F5F9] grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] text-[#64748B]">Diupload oleh:</span>
+                  <span class="text-[12px] font-semibold text-[#1E293B]" x-text="materiUploaderLabel(selectedMateri)">-</span>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-[11px] text-[#64748B]">Terakhir diperbarui:</span>
+                  <span class="text-[12px] font-semibold text-[#1E293B]" x-text="fmtTanggalLengkap(selectedMateri.created_at)">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Detail Materi -->
+            <div class="p-[16px_24px] border-t border-[#F1F5F9] bg-[#F8FAFCCC] flex flex-row justify-between items-center gap-2">
+              <button type="button" @click="arsipkanMateri(selectedMateri)"
+                class="h-[36px] px-3 rounded-[12px] border border-[#E2E8F0] bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-[12px] font-medium text-[#475569] transition-colors">
+                Arsipkan Materi
+              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" @click="mulaiUbahMateri(selectedMateri)"
+                  class="h-[36px] px-4 rounded-[12px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#334155] transition-colors">
+                  Edit Materi
+                </button>
+                <button type="button" @click="tutupModalDetailMateri()"
+                  class="h-[36px] px-4 rounded-[12px] bg-[#0F172A] hover:bg-slate-800 text-[12px] font-semibold text-white transition-colors">
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>

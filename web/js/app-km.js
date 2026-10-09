@@ -145,7 +145,7 @@ function kmApp() {
     offeringSaving: false,
     offeringTargetId: null,
 
-    // Materi (list + tambah; ubah/arsip tunda).
+    // Materi (list + tambah + detail + ubah/arsip).
     materiList: [],
     materiLoading: false,
     materiError: '',
@@ -157,6 +157,9 @@ function kmApp() {
     materiFormError: '',
     materiSaving: false,
     editMateriId: null, editMateriVersion: 0,
+    materiDetailModalOpen: false,
+    selectedMateri: null,
+    materiCopied: false,
 
     // Notifikasi (list + retry + attempts; tiru pola System Admin).
     notifList: [],
@@ -2936,6 +2939,50 @@ function kmApp() {
       } catch (e) { return '—'; }
     },
 
+    fmtTanggalLengkap(iso) {
+      try {
+        const d = new Date(iso);
+        if (!iso || isNaN(d)) return '—';
+        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' });
+        return tgl.replace('.', '');
+      } catch (e) { return '—'; }
+    },
+
+    materiUploaderLabel(m) {
+      if (!m) return '—';
+      const uName = (m.uploader_name || '').trim();
+      const offeringName = this.materiOfferingName(m);
+      const roleText = (m.offering_id !== null && m.offering_id !== undefined && String(m.offering_id) !== '')
+        ? `PJ ${offeringName}`
+        : 'Ketua Murid';
+      if (uName) {
+        return `${uName} (${roleText})`;
+      }
+      return roleText;
+    },
+
+    materiOfferingBadge(m) {
+      if (!m || m.offering_id === null || m.offering_id === undefined || String(m.offering_id) === '') return 'UMUM KELAS';
+      const found = (this.offeringList || []).find(o => String(o.id) === String(m.offering_id));
+      if (found) {
+        return (found.display_name || found.course_code || 'MATA KULIAH').toUpperCase();
+      }
+      return 'MATA KULIAH';
+    },
+
+    materiTypeBadge(m) {
+      const meta = this.materiIconMeta(m);
+      const type = String((m && m.material_type) || '').toUpperCase();
+      if (meta.label === 'Slide') return 'SLIDE / PDF';
+      if (meta.label === 'Video') return 'VIDEO / REKAMAN';
+      if (meta.label === 'Template') return 'TEMPLATE DOKUMEN';
+      if (meta.label === 'Repositori') return 'REPOSITORI KODE';
+      if (meta.label === 'Portal') return 'PORTAL KULIAH';
+      if (meta.label === 'Referensi') return 'REFERENSI';
+      if (type === 'DOCUMENT') return 'DOKUMEN / PDF';
+      return (meta.label || 'BERKAS').toUpperCase();
+    },
+
     semesterLabel(s) {
       if (!s) return '-';
       return `${s.academic_year || ''} · ${s.term || ''}`.trim();
@@ -3149,7 +3196,10 @@ function kmApp() {
     },
 
     bukaModalTambahMateri() {
-      this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
+      const defaultOffering = (this.materiFilterOffering && this.materiFilterOffering !== 'semua' && this.materiFilterOffering !== 'umum')
+        ? String(this.materiFilterOffering)
+        : '';
+      this.materiForm = { offeringId: defaultOffering, title: '', material_type: 'DOCUMENT', url: '', description: '' };
       this.editMateriId = null;
       this.editMateriVersion = 0;
       this.materiFormError = '';
@@ -3163,11 +3213,66 @@ function kmApp() {
       this.materiFormError = '';
     },
 
+    bukaModalDetailMateri(m) {
+      if (!m) return;
+      this.selectedMateri = m;
+      this.materiDetailModalOpen = true;
+      this.materiCopied = false;
+    },
+
+    tutupModalDetailMateri() {
+      this.materiDetailModalOpen = false;
+      this.selectedMateri = null;
+      this.materiCopied = false;
+    },
+
+    async salinTautanMateri(url) {
+      const cleanUrl = String(url || '').trim();
+      if (!cleanUrl) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(cleanUrl);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = cleanUrl;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        this.materiCopied = true;
+        this.showToast('Tautan materi berhasil disalin!');
+        setTimeout(() => {
+          this.materiCopied = false;
+        }, 2000);
+      } catch (e) {
+        this.showToast('Gagal menyalin tautan.');
+      }
+    },
+
+    bukaTautanMateri(url) {
+      const cleanUrl = String(url || '').trim();
+      if (!cleanUrl) return;
+      window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+    },
+
     async simpanMateri() {
       const f = this.materiForm;
       const slug = this.classSlug || this.selectedClass;
       if (!slug) { this.materiFormError = 'Kelas belum termuat.'; return; }
-      if (!((f.title || '').trim()) || String(f.title).trim().length < 3) { this.materiFormError = 'Judul materi minimal 3 karakter.'; return; }
+      if (!((f.title || '').trim()) || String(f.title).trim().length < 3) {
+        this.materiFormError = 'Judul materi minimal 3 karakter.';
+        return;
+      }
+      if (!((f.url || '').trim())) {
+        this.materiFormError = 'Tautan URL wajib diisi.';
+        return;
+      }
+      let cleanUrl = String(f.url || '').trim();
+      if (!/^https?:\/\//i.test(cleanUrl)) {
+        cleanUrl = 'https://' + cleanUrl;
+      }
+
       this.materiFormError = '';
       this.materiSaving = true;
       try {
@@ -3176,7 +3281,7 @@ function kmApp() {
             version: Number(this.editMateriVersion) || 0,
             title: f.title.trim(),
             material_type: (f.material_type || 'OTHER').toUpperCase(),
-            url: (f.url || '').trim(),
+            url: cleanUrl,
             description: (f.description || '').trim()
           });
           this.showToast('Materi diperbarui.');
@@ -3184,16 +3289,17 @@ function kmApp() {
           const payload = {
             class_slug: slug,
             title: f.title.trim(),
-            material_type: (f.material_type || 'OTHER').toUpperCase()
+            material_type: (f.material_type || 'OTHER').toUpperCase(),
+            url: cleanUrl
           };
           if (f.offeringId) payload.offering_id = Number(f.offeringId);
-          if ((f.url || '').trim()) payload.url = f.url.trim();
           if ((f.description || '').trim()) payload.description = f.description.trim();
           await API.createMaterial(payload);
           this.showToast('Materi tersimpan.');
         }
         this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
-        this.editMateriId = null; this.editMateriVersion = 0;
+        this.editMateriId = null;
+        this.editMateriVersion = 0;
         this.materiModalOpen = false;
         this.materiFormOpen = false;
         await this.loadMateri();
@@ -3210,20 +3316,26 @@ function kmApp() {
     },
 
     mulaiUbahMateri(m) {
+      if (!m) return;
+      this.tutupModalDetailMateri();
       this.materiForm = {
         offeringId: m.offering_id ? String(m.offering_id) : '',
-        title: m.title || '', material_type: m.material_type || 'DOCUMENT',
-        url: m.url || '', description: m.description || ''
+        title: m.title || '',
+        material_type: m.material_type || 'DOCUMENT',
+        url: m.url || '',
+        description: m.description || ''
       };
       this.materiFormError = '';
-      this.editMateriId = m.id; this.editMateriVersion = m.version || 0;
+      this.editMateriId = m.id;
+      this.editMateriVersion = m.version || 0;
       this.materiModalOpen = true;
       this.materiFormOpen = true;
     },
 
     batalUbahMateri() {
       this.materiForm = { offeringId: '', title: '', material_type: 'DOCUMENT', url: '', description: '' };
-      this.editMateriId = null; this.editMateriVersion = 0;
+      this.editMateriId = null;
+      this.editMateriVersion = 0;
       this.materiFormError = '';
       this.materiModalOpen = false;
       this.materiFormOpen = false;
@@ -3235,6 +3347,7 @@ function kmApp() {
       try {
         await API.archiveMaterial(m.id, m.version || 0);
         this.showToast('Materi diarsipkan.');
+        this.tutupModalDetailMateri();
         await this.loadMateri();
       } catch (e) {
         this.showToast(e.message || 'Gagal mengarsipkan materi.');
