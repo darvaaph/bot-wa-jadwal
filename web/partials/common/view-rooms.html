@@ -1,26 +1,530 @@
-<section x-show="view === 'ruangan'" x-cloak>
-  <h1 class="text-[26px] font-bold">Ruangan</h1>
-  <p class="mt-1 text-[13px] text-slate-500">Lihat kandidat ruang untuk waktu kuliah dan riwayat konfirmasi TU.</p>
-  <div class="ui-card mt-5">
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <label class="text-[13px] font-semibold">Tanggal<input type="date" x-model="roomSearch.date" class="ui-field mt-1" /></label>
-      <label class="text-[13px] font-semibold">Mulai<input type="time" x-model="roomSearch.start" class="ui-field mt-1" /></label>
-      <label class="text-[13px] font-semibold">Selesai<input type="time" x-model="roomSearch.end" class="ui-field mt-1" /></label>
+<!-- partials/common/view-rooms.html - SCR-KM-ROOM-001 · Direktori Ruangan & Usulan Koreksi · KM -->
+<section x-show="view === 'ruangan'" x-cloak class="space-y-5">
+  <!-- Top Breadcrumb & Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <nav class="flex items-center gap-1.5 text-[12px] text-slate-500 mb-1" aria-label="Breadcrumb">
+        <span>Sistem</span>
+        <span class="text-slate-400">/</span>
+        <span x-text="selectedClass || (meCache && meCache.active_assignment && meCache.active_assignment.offering_name) || 'Kelas Aktif'">-</span>
+        <span class="text-slate-400">/</span>
+        <span class="text-slate-800 font-medium">Ruangan</span>
+      </nav>
+      <h1 class="text-[26px] font-bold text-[#0F172A] tracking-tight">Direktori Ruangan Kuliah</h1>
+      <p class="text-[13px] text-[#64748B] mt-0.5">
+        Daftar ruangan kampus, kapasitas, dan status konfirmasi untuk perkuliahan <span class="font-medium text-slate-700" x-text="selectedClass || 'kelas aktif'">-</span>.
+      </p>
     </div>
-    <button type="button" @click="loadRoomCandidates()" :disabled="roomCandidatesLoading" class="ui-button ui-button--primary mt-4">Cari kandidat</button>
-    <p x-show="roomCandidatesLoading" class="mt-3 text-[13px] text-slate-500" role="status">Memeriksa ketersediaan...</p>
-    <p x-show="roomCandidatesError" class="ui-form-error mt-3" role="alert" x-text="roomCandidatesError"></p>
-    <div x-show="roomCandidates !== null && !roomCandidatesLoading && !roomCandidatesError" class="mt-4">
-      <p x-show="roomCandidates && roomCandidates.length === 0" class="ui-empty">Tidak ada ruang tersedia pada waktu ini.</p>
-      <template x-for="room in (roomCandidates || [])" :key="room.id"><div class="py-3 border-t border-border text-[13px]"><span class="font-semibold" x-text="room.code + ' · ' + room.name"></span><span class="text-slate-500 ml-2" x-text="room.capacity ? 'Kapasitas ' + room.capacity : ''"></span></div></template>
-      <p class="mt-3 text-[12px] text-slate-500">Kandidat belum menjadi konfirmasi. Hubungi TU, lalu catat konfirmasi pada detail perubahan jadwal.</p>
+
+    <!-- Tombol Usulkan Ruangan (Khusus KM) -->
+    <div x-show="roleLabel === 'KM'" class="shrink-0">
+      <button type="button" @click="bukaModalUsulanRuang()"
+        class="h-[42px] px-4 rounded-[12px] bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[13px] shadow-[0px_2px_6px_#2563EB22] flex items-center gap-2 transition-colors min-h-[44px]">
+        <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="3" x2="8" y2="13"></line>
+          <line x1="3" y1="8" x2="13" y2="8"></line>
+        </svg>
+        <span>Usulkan Ruangan</span>
+      </button>
     </div>
   </div>
-  <div class="ui-card mt-5">
-    <div class="flex items-center justify-between gap-2"><h2 class="text-[18px] font-semibold">Riwayat konfirmasi TU</h2><button type="button" @click="loadRoomHistory()" class="ui-button ui-button--outline">Muat ulang</button></div>
-    <p x-show="roomHistoryLoading" class="mt-3 text-[13px] text-slate-500">Memuat riwayat...</p>
-    <p x-show="roomHistoryError" class="ui-form-error mt-3" role="alert" x-text="roomHistoryError"></p>
-    <p x-show="!roomHistoryLoading && !roomHistoryError && roomHistory.length === 0" class="ui-empty">Belum ada konfirmasi ruangan.</p>
-    <template x-for="item in roomHistory" :key="item.id"><div class="py-3 border-b border-border text-[13px]"><p class="font-semibold" x-text="item.offering + ' · ' + item.room"></p><p class="text-slate-600" x-text="item.confirmation_status + (item.superseded_at ? ' · Riwayat sebelum pemulihan' : '') + (item.external_contact ? ' · ' + item.external_contact : '')"></p><p x-show="item.note" class="text-slate-500" x-text="item.note"></p></div></template>
+
+  <!-- Callout Banner Edukasi Pengelolaan Master -->
+  <div class="p-4 rounded-[16px] bg-[#EFF6FF] border border-[#BFDBFE] flex items-start sm:items-center gap-3">
+    <div class="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 text-[#2563EB]">
+      <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 19V5c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v14H3v2h18v-2h-2zm-4-6h-2v-2h2v2zm0-4h-2V7h2v2z"/>
+      </svg>
+    </div>
+    <p class="text-[13px] text-[#1E40AF] leading-relaxed">
+      Master ruangan dikelola oleh Tata Usaha &amp; System Admin. Jika terdapat lab baru atau kapasitas tidak sesuai, ajukan usulan untuk ditinjau.
+    </p>
+  </div>
+
+  <!-- Pencarian dan Filter -->
+  <div class="bg-white border border-[#E2E8F0] rounded-[16px] p-3 shadow-[0px_2px_10px_#0F172A08] flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+    <!-- Kotak Pencarian -->
+    <div class="relative w-full md:w-[320px]">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="w-4 h-4 text-[#94A3B8] shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <input type="text" x-model="roomSearchQuery" @input="roomPage = 1"
+        placeholder="Cari kode gedung atau ruangan..."
+        class="w-full h-[40px] pl-9 pr-8 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 transition-all" />
+      <button x-show="roomSearchQuery" @click="roomSearchQuery = ''; roomPage = 1" type="button" aria-label="Hapus pencarian"
+        class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 min-h-[44px]">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Filter Pills Kategori -->
+    <div class="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Filter kategori ruangan">
+      <button type="button" @click="setRoomFilter('semua')"
+        :class="roomTypeFilter === 'semua' ? 'bg-[#0F172A] text-white font-semibold' : 'bg-[#F1F5F9] border border-[#E2E8F0] text-[#475569] hover:bg-slate-200'"
+        class="h-[32px] px-3 rounded-[8px] text-[12px] flex items-center gap-1 transition-colors min-h-[44px]">
+        <span>Semua</span>
+        <span x-text="'(' + (directoryRooms.length || 0) + ')'">(0)</span>
+      </button>
+
+      <button type="button" @click="setRoomFilter('laboratorium')"
+        :class="roomTypeFilter === 'laboratorium' ? 'bg-[#0F172A] text-white font-semibold' : 'bg-[#F1F5F9] border border-[#E2E8F0] text-[#475569] hover:bg-slate-200'"
+        class="h-[32px] px-3 rounded-[8px] text-[12px] flex items-center gap-1 transition-colors min-h-[44px]">
+        <span>Laboratorium</span>
+        <span x-text="'(' + labRoomsCount + ')'">(0)</span>
+      </button>
+
+      <button type="button" @click="setRoomFilter('teori')"
+        :class="roomTypeFilter === 'teori' ? 'bg-[#0F172A] text-white font-semibold' : 'bg-[#F1F5F9] border border-[#E2E8F0] text-[#475569] hover:bg-slate-200'"
+        class="h-[32px] px-3 rounded-[8px] text-[12px] flex items-center gap-1 transition-colors min-h-[44px]">
+        <span>Ruang Teori</span>
+        <span x-text="'(' + teoriRoomsCount + ')'">(0)</span>
+      </button>
+
+      <button x-show="roleLabel === 'KM'" type="button" @click="setRoomFilter('usulan')"
+        :class="roomTypeFilter === 'usulan' ? 'bg-[#D97706] text-white font-semibold border-amber-600' : 'bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] hover:bg-amber-100'"
+        class="h-[32px] px-3 rounded-[8px] text-[12px] flex items-center gap-1 transition-colors min-h-[44px]">
+        <span>Usulan Saya</span>
+        <span x-text="'(' + usulanRoomsCount + ' Menunggu)'">(0 Menunggu)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabel Direktori Ruangan -->
+  <div class="bg-white border border-[#E2E8F0] rounded-[16px] shadow-[0px_2px_10px_#0F172A08] overflow-hidden">
+    <!-- State Error Banner -->
+    <div x-show="roomDirectoryError" class="p-4 bg-red-50 border-b border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+      <span x-text="roomDirectoryError">-</span>
+      <button type="button" @click="loadDirectoryRooms()" class="font-semibold underline hover:text-red-800 ml-3 min-h-[44px]">Coba Lagi</button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse min-w-[860px]">
+        <thead>
+          <tr class="bg-[#F8FAFCCC] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] tracking-[0.7px]">
+            <th class="py-3.5 px-4 w-[160px]">KODE RUANG</th>
+            <th class="py-3.5 px-4 w-[300px]">NAMA &amp; GEDUNG</th>
+            <th class="py-3.5 px-4 w-[140px]">TIPE</th>
+            <th class="py-3.5 px-4 w-[140px]">KAPASITAS</th>
+            <th class="py-3.5 px-4 w-[180px]">STATUS TU</th>
+            <th class="py-3.5 px-4 w-[160px] text-right">AKSI</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#F1F5F9]">
+          <!-- Loading Skeleton -->
+          <template x-if="roomDirectoryLoading">
+            <template x-for="i in 3" :key="i">
+              <tr class="animate-pulse">
+                <td class="py-4 px-4"><div class="h-4 bg-slate-200 rounded w-24"></div></td>
+                <td class="py-4 px-4"><div class="h-4 bg-slate-200 rounded w-48 mb-2"></div><div class="h-3 bg-slate-100 rounded w-32"></div></td>
+                <td class="py-4 px-4"><div class="h-6 bg-slate-200 rounded-md w-24"></div></td>
+                <td class="py-4 px-4"><div class="h-4 bg-slate-200 rounded w-28"></div></td>
+                <td class="py-4 px-4"><div class="h-6 bg-slate-200 rounded-md w-32"></div></td>
+                <td class="py-4 px-4 text-right"><div class="h-8 bg-slate-200 rounded-lg w-28 ml-auto"></div></td>
+              </tr>
+            </template>
+          </template>
+
+          <!-- Empty State -->
+          <template x-if="!roomDirectoryLoading && !roomDirectoryError && filteredRooms.length === 0">
+            <tr>
+              <td colspan="6" class="py-12 px-4 text-center">
+                <div class="max-w-md mx-auto space-y-2">
+                  <p class="text-[14px] font-semibold text-slate-700"
+                    x-text="roomSearchQuery ? 'Tidak ada ruangan yang cocok dengan kata kunci &quot;' + roomSearchQuery + '&quot;.' : (roomTypeFilter === 'usulan' ? 'Belum ada usulan ruangan yang diajukan oleh kelas ini.' : 'Belum ada data ruangan di direktori kampus.')">-</p>
+                  <p class="text-[12px] text-slate-400">
+                    <span x-show="roomSearchQuery">Periksa kembali ejaan kode atau nama ruangan yang Anda cari.</span>
+                    <span x-show="!roomSearchQuery && roomTypeFilter === 'usulan'">Jika terdapat lab atau ruangan baru yang belum terdaftar, gunakan tombol Usulkan Ruangan.</span>
+                  </p>
+                  <div class="pt-2 flex justify-center gap-2">
+                    <button x-show="roomSearchQuery" type="button" @click="roomSearchQuery = ''; roomPage = 1"
+                      class="px-3.5 py-1.5 rounded-lg border border-slate-300 text-[12px] font-medium text-slate-700 hover:bg-slate-50 min-h-[44px]">Reset Pencarian</button>
+                    <button x-show="!roomSearchQuery && roleLabel === 'KM'" type="button" @click="bukaModalUsulanRuang()"
+                      class="px-3.5 py-1.5 rounded-lg bg-[#2563EB] text-[12px] font-semibold text-white hover:bg-blue-700 min-h-[44px]">Usulkan Ruangan Baru</button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <!-- Data Baris Ruangan -->
+          <template x-if="!roomDirectoryLoading && !roomDirectoryError && filteredRooms.length > 0">
+            <template x-for="room in pagedRooms" :key="room.id">
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <!-- Kode Ruang -->
+                <td class="py-4 px-4">
+                  <span class="font-mono font-bold text-[13px] text-[#0F172A]" x-text="room.code">-</span>
+                </td>
+                <!-- Nama & Gedung -->
+                <td class="py-4 px-4">
+                  <div class="font-semibold text-[14px] text-[#0F172A]" x-text="room.name">-</div>
+                  <div class="text-[12px] text-[#64748B] mt-0.5" x-text="room.building || '-'">-</div>
+                </td>
+                <!-- Tipe -->
+                <td class="py-4 px-4">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] bg-[#F1F5F9] border border-[#E2E8F0] text-[12px] font-medium text-[#334155]"
+                    x-text="room.room_type || 'Teori'">-</span>
+                </td>
+                <!-- Kapasitas -->
+                <td class="py-4 px-4 text-[13px] font-medium text-[#334155]"
+                  x-text="room.capacity ? room.capacity + ' Mahasiswa' : '-'">-</td>
+                <!-- Status TU -->
+                <td class="py-4 px-4">
+                  <span x-show="room.status_tu === 'CONFIRMED'"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] text-[12px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0"></span>
+                    <span>Terkonfirmasi</span>
+                  </span>
+                  <span x-show="room.status_tu === 'PENDING'"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] text-[12px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#F59E0B] shrink-0"></span>
+                    <span>Menunggu Konfirmasi</span>
+                  </span>
+                </td>
+                <!-- Aksi -->
+                <td class="py-4 px-4 text-right">
+                  <button type="button" @click="bukaModalDetailRuang(room)"
+                    class="h-[32px] px-3 rounded-[8px] bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] font-medium text-[12px] shadow-2xs transition-colors min-h-[44px]">
+                    Detail &amp; Jadwal
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginasi Footer -->
+    <div class="p-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="text-[12px] text-[#64748B]" x-text="roomPaginationInfo">
+        Menampilkan 1-3 dari 18 ruangan
+      </div>
+      <div class="flex items-center gap-1.5" x-show="totalRoomPages > 1">
+        <button type="button" @click="if (roomPage > 1) roomPage--" :disabled="roomPage === 1" aria-label="Halaman sebelumnya"
+          class="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white text-[#475569] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-[13px] hover:bg-slate-50 min-h-[44px]">‹</button>
+        <template x-for="p in totalRoomPages" :key="p">
+          <button type="button" @click="roomPage = p"
+            :class="roomPage === p ? 'bg-[#2563EB] text-white font-bold border-[#2563EB]' : 'bg-white border-[#E2E8F0] text-[#475569] hover:bg-slate-50'"
+            class="w-8 h-8 rounded-[8px] border flex items-center justify-center text-[13px] font-medium min-h-[44px]"
+            x-text="p"></button>
+        </template>
+        <button type="button" @click="if (roomPage < totalRoomPages) roomPage++" :disabled="roomPage === totalRoomPages" aria-label="Halaman berikutnya"
+          class="w-8 h-8 rounded-[8px] border border-[#E2E8F0] bg-white text-[#475569] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-[13px] hover:bg-slate-50 min-h-[44px]">›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collapsible Section: Cek Ketersediaan Real-Time & Riwayat Konfirmasi TU -->
+  <div class="border border-[#E2E8F0] rounded-[16px] bg-white shadow-2xs overflow-hidden">
+    <button type="button" @click="showRoomChecker = !showRoomChecker"
+      class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors min-h-[44px]">
+      <div class="flex items-center gap-2.5">
+        <svg class="w-5 h-5 text-slate-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <span class="text-[14px] font-semibold text-slate-800 block">Pemeriksaan Ketersediaan &amp; Riwayat Konfirmasi TU</span>
+          <span class="text-[12px] text-slate-500 block">Cari ruangan kosong pada jam tertentu atau lihat catatan konfirmasi pihak TU.</span>
+        </div>
+      </div>
+      <svg class="w-5 h-5 text-slate-400 shrink-0 transition-transform" :class="showRoomChecker ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+      </svg>
+    </button>
+
+    <div x-show="showRoomChecker" x-collapse class="p-5 border-t border-[#E2E8F0] bg-slate-50/50 space-y-5">
+      <!-- Form Cek Kandidat Ruang Kosong -->
+      <div class="p-4 rounded-xl bg-white border border-[#E2E8F0]">
+        <h3 class="text-[14px] font-bold text-slate-800">Cari Ruangan Kosong</h3>
+        <p class="text-[12px] text-slate-500 mt-0.5">Periksa ruangan yang tidak bentrok dengan perkuliahan lain pada interval waktu tertentu.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+          <label class="text-[12px] font-semibold text-slate-700">Tanggal
+            <input type="date" x-model="roomSearch.date" class="ui-field mt-1 text-[13px] w-full" />
+          </label>
+          <label class="text-[12px] font-semibold text-slate-700">Jam Mulai
+            <input type="time" x-model="roomSearch.start" class="ui-field mt-1 text-[13px] w-full" />
+          </label>
+          <label class="text-[12px] font-semibold text-slate-700">Jam Selesai
+            <input type="time" x-model="roomSearch.end" class="ui-field mt-1 text-[13px] w-full" />
+          </label>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <button type="button" @click="loadRoomCandidates()" :disabled="roomCandidatesLoading" class="ui-button ui-button--primary text-[13px] min-h-[44px]">
+            <span x-text="roomCandidatesLoading ? 'Memeriksa...' : 'Cari Kandidat Ruangan'">Cari Kandidat Ruangan</span>
+          </button>
+        </div>
+        <p x-show="roomCandidatesLoading" class="mt-2 text-[12px] text-slate-500" role="status">Memeriksa ketersediaan jadwal di server...</p>
+        <p x-show="roomCandidatesError" class="ui-form-error mt-2 text-[12px]" role="alert" x-text="roomCandidatesError"></p>
+        <div x-show="roomCandidates !== null && !roomCandidatesLoading && !roomCandidatesError" class="mt-3 pt-3 border-t border-border">
+          <p x-show="roomCandidates && roomCandidates.length === 0" class="ui-empty text-[13px]">Tidak ada ruang yang tersedia pada rentang waktu ini.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <template x-for="rc in (roomCandidates || [])" :key="rc.id">
+              <div class="p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-[12px] flex items-center justify-between">
+                <div>
+                  <span class="font-mono font-bold text-slate-900" x-text="rc.code"></span>
+                  <span class="text-slate-600 ml-1.5" x-text="'· ' + rc.name"></span>
+                </div>
+                <span class="text-slate-500 font-medium" x-text="rc.capacity ? rc.capacity + ' mhs' : ''"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Riwayat Konfirmasi TU -->
+      <div class="p-4 rounded-xl bg-white border border-[#E2E8F0]">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="text-[14px] font-bold text-slate-800">Riwayat Catatan Konfirmasi TU</h3>
+          <button type="button" @click="loadRoomHistory()" class="ui-button ui-button--outline text-[12px] h-8 px-3 min-h-[44px]">Muat Ulang</button>
+        </div>
+        <p x-show="roomHistoryLoading" class="text-[12px] text-slate-500">Memuat riwayat...</p>
+        <p x-show="roomHistoryError" class="ui-form-error text-[12px]" role="alert" x-text="roomHistoryError"></p>
+        <p x-show="!roomHistoryLoading && !roomHistoryError && roomHistory.length === 0" class="ui-empty text-[12px] py-3">Belum ada riwayat konfirmasi ruangan untuk kelas ini.</p>
+        <div x-show="!roomHistoryLoading && roomHistory.length > 0" class="divide-y divide-border mt-2">
+          <template x-for="item in roomHistory" :key="item.id">
+            <div class="py-2.5 text-[12px]">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-slate-800" x-text="item.offering + ' · ' + item.room"></span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                  :class="item.confirmation_status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'"
+                  x-text="item.confirmation_status"></span>
+              </div>
+              <p class="text-slate-500 mt-0.5" x-text="(item.superseded_at ? 'Riwayat sebelum pemulihan · ' : '') + (item.external_contact ? 'Kontak: ' + item.external_contact : '')"></p>
+              <p x-show="item.note" class="text-slate-600 italic mt-0.5" x-text="item.note"></p>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 1: Detail & Jadwal Ruangan (Opsi A) -->
+  <div x-show="roomDetailModal.open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" @keydown.escape.window="roomDetailModal.open = false">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity" @click="roomDetailModal.open = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-2xl bg-white rounded-[20px] shadow-xl border border-[#E2E8F0] overflow-hidden flex flex-col max-h-[90vh]">
+        <!-- Header Modal -->
+        <div class="p-6 border-b border-[#E2E8F0] flex items-center justify-between bg-slate-50/60">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-[18px] font-bold text-[#0F172A]">Detail &amp; Jadwal Ruangan</h2>
+              <span class="font-mono text-[12px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800" x-text="roomDetailModal.room?.code"></span>
+            </div>
+            <p class="text-[12px] text-[#64748B] mt-0.5" x-text="roomDetailModal.room?.name"></p>
+          </div>
+          <button type="button" @click="roomDetailModal.open = false" aria-label="Tutup modal" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 min-h-[44px]">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Konten Modal -->
+        <div class="p-6 overflow-y-auto space-y-5">
+          <!-- Ringkasan Info Ruangan -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200 text-[13px]">
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 block uppercase">Gedung / Lokasi</span>
+              <span class="font-medium text-slate-800 mt-0.5 block" x-text="roomDetailModal.room?.building || '-'"></span>
+            </div>
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 block uppercase">Tipe Ruangan</span>
+              <span class="font-medium text-slate-800 mt-0.5 block" x-text="roomDetailModal.room?.room_type || 'Teori'"></span>
+            </div>
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 block uppercase">Kapasitas</span>
+              <span class="font-medium text-slate-800 mt-0.5 block" x-text="roomDetailModal.room?.capacity ? roomDetailModal.room?.capacity + ' Mahasiswa' : '-'"></span>
+            </div>
+            <div>
+              <span class="text-[11px] font-semibold text-slate-400 block uppercase">Status Konfirmasi</span>
+              <span class="mt-0.5 block">
+                <span x-show="roomDetailModal.room?.status_tu === 'CONFIRMED'" class="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">Terkonfirmasi</span>
+                <span x-show="roomDetailModal.room?.status_tu === 'PENDING'" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Menunggu Konfirmasi</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Peringatan jika berstatus usulan -->
+          <div x-show="roomDetailModal.room?.is_proposal || roomDetailModal.room?.status_tu === 'PENDING'"
+            class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+              <span class="font-semibold">Catatan Usulan:</span>
+              <span x-text="roomDetailModal.room?.proposal_note || 'Ruangan ini sedang dalam peninjauan usulan koreksi oleh System Admin & Tata Usaha.'"></span>
+            </div>
+          </div>
+
+          <!-- Daftar Jadwal Kuliah di Ruangan Ini -->
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <h3 class="text-[14px] font-bold text-[#0F172A]">Jadwal Kuliah Kelas di Ruangan Ini</h3>
+              <span class="text-[12px] text-slate-500" x-text="(roomDetailModal.schedules?.length || 0) + ' sesi terjadwal'"></span>
+            </div>
+
+            <!-- Empty Jadwal -->
+            <div x-show="!roomDetailModal.schedules || roomDetailModal.schedules.length === 0"
+              class="p-6 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[13px] text-slate-500">
+              Belum ada mata kuliah kelas <span class="font-semibold" x-text="selectedClass || 'ini'"></span> yang dijadwalkan di ruangan ini pada semester aktif.
+            </div>
+
+            <!-- List Jadwal -->
+            <div x-show="roomDetailModal.schedules && roomDetailModal.schedules.length > 0" class="space-y-2">
+              <template x-for="(s, idx) in roomDetailModal.schedules" :key="idx">
+                <div class="p-3.5 rounded-xl border border-border bg-white hover:bg-slate-50/70 transition-colors flex items-center justify-between gap-3 text-[13px]">
+                  <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] w-16 text-center shrink-0 uppercase" x-text="s.hari">-</span>
+                    <div>
+                      <h4 class="font-bold text-[#0F172A]" x-text="s.matkul">-</h4>
+                      <p class="text-[12px] text-slate-500 mt-0.5" x-text="s.dosen ? 'Pengajar: ' + s.dosen : ''"></p>
+                    </div>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <span class="font-mono text-[12px] font-semibold text-slate-700 block" x-text="s.jam">-</span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Modal -->
+        <div class="p-4 border-t border-[#E2E8F0] bg-slate-50 flex items-center justify-between">
+          <div>
+            <button x-show="roleLabel === 'KM' && !roomDetailModal.room?.is_proposal" type="button"
+              @click="roomDetailModal.open = false; bukaModalUsulanRuang(roomDetailModal.room)"
+              class="h-9 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium text-[12px] transition-colors min-h-[44px]">
+              Usulkan Koreksi Ruangan Ini
+            </button>
+          </div>
+          <div>
+            <button type="button" @click="roomDetailModal.open = false"
+              class="h-9 px-4 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-medium text-[12px] transition-colors min-h-[44px]">
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Usulkan Ruangan Baru / Koreksi Master (Opsi 'ya') -->
+  <div x-show="usulanRuangModal.open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" @keydown.escape.window="usulanRuangModal.open = false">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] transition-opacity" @click="usulanRuangModal.open = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4">
+      <div class="relative w-full max-w-xl bg-white rounded-[20px] shadow-xl border border-[#E2E8F0] overflow-hidden flex flex-col">
+        <!-- Header Modal -->
+        <div class="p-6 border-b border-[#E2E8F0] bg-slate-50/60 flex items-start justify-between">
+          <div>
+            <h2 class="text-[18px] font-bold text-[#0F172A]" x-text="usulanRuangForm.isEdit ? 'Usulkan Koreksi Ruangan' : 'Usulkan Ruangan Baru'">-</h2>
+            <p class="text-[12px] text-[#64748B] mt-0.5">
+              Usulan akan ditinjau dan diterapkan ke sistem oleh System Admin &amp; Tata Usaha.
+            </p>
+          </div>
+          <button type="button" @click="usulanRuangModal.open = false" aria-label="Tutup modal usulan" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 min-h-[44px]">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Form Body -->
+        <div class="p-6 space-y-4">
+          <!-- Error Alert -->
+          <div x-show="usulanRuangFormError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="usulanRuangFormError"></div>
+
+          <!-- Mode Toggle -->
+          <div>
+            <label class="block text-[12px] font-semibold text-slate-700 mb-1.5">Jenis Usulan</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="usulanRuangForm.isEdit = false; usulanRuangForm.targetId = '';"
+                :class="!usulanRuangForm.isEdit ? 'border-[#2563EB] bg-blue-50/50 text-[#2563EB] font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
+                class="p-2.5 rounded-xl border text-[13px] text-center transition-colors min-h-[44px]">
+                Ruangan Baru
+              </button>
+              <button type="button" @click="usulanRuangForm.isEdit = true;"
+                :class="usulanRuangForm.isEdit ? 'border-[#2563EB] bg-blue-50/50 text-[#2563EB] font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
+                class="p-2.5 rounded-xl border text-[13px] text-center transition-colors min-h-[44px]">
+                Koreksi Ruangan Terdaftar
+              </button>
+            </div>
+          </div>
+
+          <!-- Target Ruangan Dropdown (Jika Mode Koreksi) -->
+          <div x-show="usulanRuangForm.isEdit">
+            <label class="block text-[12px] font-semibold text-slate-700 mb-1">Pilih Target Ruangan *</label>
+            <select x-model="usulanRuangForm.targetId" @change="onSelectTargetRuang(usulanRuangForm.targetId)" class="ui-field text-[13px] w-full">
+              <option value="">— Pilih Ruangan yang Ingin Dikoreksi —</option>
+              <template x-for="r in masterRoomsList" :key="r.id">
+                <option :value="r.id" x-text="r.code + ' · ' + r.name"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Input Fields -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[12px] font-semibold text-slate-700 mb-1">
+                Kode Ruang <span x-show="!usulanRuangForm.isEdit" class="text-red-500">*</span>
+                <span x-show="usulanRuangForm.isEdit" class="text-slate-400 font-normal">(tetap)</span>
+              </label>
+              <input type="text" x-model="usulanRuangForm.kode" :disabled="usulanRuangForm.isEdit"
+                placeholder="Contoh: LAB-IOT"
+                class="ui-field text-[13px] font-mono w-full disabled:bg-slate-100 disabled:text-slate-500" />
+            </div>
+
+            <div>
+              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Nama Ruangan *</label>
+              <input type="text" x-model="usulanRuangForm.nama" placeholder="Contoh: Lab Internet of Things" class="ui-field text-[13px] w-full" />
+            </div>
+
+            <div>
+              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Gedung &amp; Lantai</label>
+              <input type="text" x-model="usulanRuangForm.gedung" placeholder="Contoh: Gedung Baru Lt. 1" class="ui-field text-[13px] w-full" />
+            </div>
+
+            <div>
+              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Tipe Ruangan</label>
+              <select x-model="usulanRuangForm.tipe" class="ui-field text-[13px] w-full">
+                <option value="Laboratorium">Laboratorium</option>
+                <option value="Teori">Ruang Teori</option>
+                <option value="Bengkel">Bengkel</option>
+                <option value="Studio">Studio</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-[12px] font-semibold text-slate-700 mb-1">Kapasitas Mahasiswa (orang)</label>
+              <input type="number" min="0" step="1" x-model="usulanRuangForm.kapasitas" placeholder="Contoh: 30" class="ui-field text-[13px] w-full" />
+            </div>
+          </div>
+
+          <!-- Catatan Usulan -->
+          <div>
+            <label class="block text-[12px] font-semibold text-slate-700 mb-1">Catatan untuk Peninjau</label>
+            <textarea rows="2" x-model="usulanRuangForm.catatan" placeholder="Contoh: Ruang laboratorium baru selesai renovasi, telah diverifikasi kepala lab." class="ui-field text-[13px] w-full"></textarea>
+          </div>
+        </div>
+
+        <!-- Footer Modal -->
+        <div class="p-4 border-t border-[#E2E8F0] bg-slate-50 flex items-center justify-end gap-2">
+          <button type="button" @click="usulanRuangModal.open = false"
+            class="h-10 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium text-[13px] transition-colors min-h-[44px]">
+            Batal
+          </button>
+          <button type="button" @click="kirimUsulanRuang()" :disabled="usulanRuangSaving"
+            class="h-10 px-5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[13px] shadow-sm disabled:opacity-50 transition-colors flex items-center gap-2 min-h-[44px]">
+            <span x-show="usulanRuangSaving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span x-text="usulanRuangSaving ? 'Mengirim...' : 'Kirim Usulan'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
