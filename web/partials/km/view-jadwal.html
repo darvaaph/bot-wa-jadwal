@@ -32,10 +32,13 @@
     <!-- Header Action Buttons -->
     <div class="flex items-center gap-2.5 self-start lg:self-auto" x-show="jadwalSub === 'daftar'">
       <!-- Cek Jam Kosong -->
-      <button type="button" @click="go('ruangan')"
-              class="h-[40px] px-3.5 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center gap-2 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
-        <span class="material-symbols-outlined text-[18px] text-[#64748B]">search</span>
-        <span>Cek Jam Kosong</span>
+      <button type="button" @click="bukaModalJamKosong()"
+              data-pencil-name="Cek Jam Kosong"
+              class="h-[40px] px-3.5 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center gap-2 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+        <svg data-pencil-name="Ikon Cek Jam Kosong" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] shrink-0 fill-[#1D1B3A]">
+          <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"></path>
+        </svg>
+        <span data-pencil-name="Label Cek Jam Kosong">Cek Jam Kosong</span>
       </button>
 
       <!-- Buat Perubahan Jadwal -->
@@ -1258,6 +1261,221 @@
 
           </div>
         </template>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: CEK JAM KOSONG PERKULIAHAN (SCR-SCHED-005)       -->
+  <!-- ======================================================== -->
+  <div x-show="modalJamKosongOpen"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @keydown.escape.window="tutupModalJamKosong()"
+       class="fixed inset-0 z-50 overflow-y-auto"
+       style="display: none;"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="modal-jam-kosong-title">
+
+    <!-- Backdrop Pencari Jam Kosong -->
+    <div data-pencil-name="Backdrop Pencari Jam Kosong"
+         class="fixed inset-0 bg-[#00000080] backdrop-blur-[2px] transition-opacity"
+         @click="tutupModalJamKosong()"></div>
+
+    <!-- Dialog Jam Kosong Perkuliahan -->
+    <div class="min-h-full flex items-center justify-center p-4">
+      <div data-pencil-name="Dialog Jam Kosong Perkuliahan"
+           class="w-full max-w-[560px] bg-[#FFFFFF] rounded-[16px] border border-[#D7DDE7] shadow-[0px_20px_48px_#0F172A55] p-[24px] relative z-10 flex flex-col gap-[16px] text-left"
+           @click.stop>
+        
+        <!-- Header Pencari Jam Kosong -->
+        <div data-pencil-name="Header Pencari Jam Kosong"
+             class="w-full flex flex-row gap-[10px] justify-start items-center">
+          <div data-pencil-name="Ikon Jam Kosong"
+               class="w-[36px] shrink-0 h-[36px] flex justify-center items-center bg-[#EFF6FF] rounded-[12px]">
+            <svg data-pencil-name="Ikon Cari Waktu"
+                 viewBox="0 0 14 14"
+                 preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg"
+                 class="w-[20px] shrink-0 h-[20px] fill-[#3965FB]">
+              <path d="M7.29053 6.88037l0-2.50537q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.55322q0 0.08887 0.03076 0.17432 0.03418 0.08203 0.10938 0.16064l2.07129 2.07129q0.08203 0.08203 0.19824 0.08887 0.11963 0.00342 0.21533-0.08887 0.09229-0.0957 0.09229-0.20849 0-0.11279-0.09229-0.20508l-2.04394-2.04053z m-0.28711 5.36963q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.93799 0 3.30176-1.36377 1.36377-1.36377 1.36377-3.30176 0-1.93799-1.36377-3.30176-1.36377-1.36377-3.30176-1.36377-1.93799 0-3.30176 1.36377-1.36377 1.36377-1.36377 3.30176 0 1.93799 1.36377 3.30176 1.36377 1.36377 3.30176 1.36377z"></path>
+            </svg>
+          </div>
+          <div data-pencil-name="Judul dan Pekan"
+               class="flex-1 min-w-0 flex flex-col gap-[3px] justify-start items-start">
+            <h3 id="modal-jam-kosong-title"
+                data-pencil-name="Judul Modal"
+                class="text-[18px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] font-bold leading-normal">
+              Jam Kosong Perkuliahan
+            </h3>
+            <p data-pencil-name="Konteks Pekan"
+               class="text-[12px] w-full text-[#667085] font-[Inter,system-ui,sans-serif] font-normal truncate"
+               x-text="'Daftar slot waktu bebas kuliah kelas ' + (selectedClass || 'D4-TI 1A') + ' · ' + (pekanLabel || 'Pekan 6') + ' (' + (weekRangeLabel || '5 – 11 Okt 2026') + ')'">
+              Daftar slot waktu bebas kuliah kelas D4-TI 1A · Pekan 6 (5 – 11 Okt 2026)
+            </p>
+          </div>
+          <button type="button"
+                  @click="tutupModalJamKosong()"
+                  data-pencil-name="Tutup Pencari"
+                  class="w-[32px] shrink-0 h-[32px] flex justify-center items-center rounded-[8px] hover:bg-slate-100 text-[#667085] transition-colors cursor-pointer"
+                  aria-label="Tutup dialog">
+            <svg data-pencil-name="Ikon Tutup Pencari"
+                 viewBox="0 0 14 14"
+                 preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg"
+                 class="w-[18px] shrink-0 h-[18px] fill-current">
+              <path d="M3.34619 2.93945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.25293 0.04443 0.08203 1.62353 1.66455l1.58252 1.58252-1.58252 1.58252q-1.5791 1.58252-1.62353 1.66797-0.04102 0.08203-0.04102 0.23584 0 0.15381 0.03418 0.23926 0.0376 0.08203 0.1333 0.18115 0.09912 0.0957 0.18115 0.1333 0.08545 0.03418 0.23926 0.03418 0.15381 0 0.23584-0.04102 0.08545-0.04443 1.66797-1.62353l1.58252-1.58252 1.58252 1.58252q1.58252 1.5791 1.66455 1.62353 0.08545 0.04102 0.23926 0.04102 0.15381 0 0.23584-0.03418 0.08545-0.0376 0.18115-0.1333 0.09912-0.09912 0.1333-0.18115 0.0376-0.08545 0.0376-0.23926 0-0.15381-0.04443-0.23584-0.04101-0.08545-1.62012-1.66797l-1.58252-1.58252 1.58252-1.58252q1.5791-1.58252 1.62012-1.66455 0.04443-0.08545 0.04443-0.25293 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Filter Hari (Pill Badges) -->
+        <div data-pencil-name="Filter Hari"
+             class="w-full flex flex-row gap-[6px] justify-start items-center overflow-x-auto pb-1 no-scrollbar">
+          <!-- Semua Hari -->
+          <button type="button"
+                  @click="filterHariJamKosong = 'all'"
+                  data-pencil-name="Filter Semua Hari"
+                  :class="filterHariJamKosong === 'all' 
+                          ? 'bg-[#3965FB] text-[#FFFFFF] font-semibold' 
+                          : 'bg-[#F1F5F9] text-[#475467] font-medium hover:bg-slate-200'"
+                  class="w-fit shrink-0 p-[6px_12px] flex items-center rounded-[16px] text-[11px] font-[Inter,system-ui,sans-serif] whitespace-nowrap transition-colors cursor-pointer">
+            <span x-text="'Semua Hari (' + totalJamKosongCount + ' Slot)'">Semua Hari (6 Slot)</span>
+          </button>
+
+          <!-- Hari-Hari (Senin..Jumat) -->
+          <template x-for="d in weekDays" :key="'filter-hari-' + d.name">
+            <button type="button"
+                    @click="filterHariJamKosong = d.name"
+                    :class="filterHariJamKosong === d.name 
+                            ? 'bg-[#3965FB] text-[#FFFFFF] font-semibold' 
+                            : 'bg-[#F1F5F9] text-[#475467] font-medium hover:bg-slate-200'"
+                    class="w-fit shrink-0 p-[6px_10px] flex items-center rounded-[16px] text-[11px] font-[Inter,system-ui,sans-serif] whitespace-nowrap transition-colors cursor-pointer">
+              <span x-text="d.name + ' (' + (jamKosongByDay[d.name] || []).length + ')'">Senin (1)</span>
+            </button>
+          </template>
+        </div>
+
+        <!-- Daftar Jam Kosong Container -->
+        <div data-pencil-name="Daftar Jam Kosong"
+             class="w-full bg-[#FFFFFF] border border-[#E2E8F0] rounded-[12px] overflow-hidden max-h-[380px] overflow-y-auto flex flex-col">
+          
+          <!-- Loading State -->
+          <div x-show="scheduleLoading" class="p-6 text-center text-[13px] text-[#64748B] flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-[24px] animate-spin text-[#3965FB]">progress_activity</span>
+            <span>Menganalisis slot jam kosong pekan ini...</span>
+          </div>
+
+          <!-- Empty State -->
+          <div x-show="!scheduleLoading && filteredJamKosongGroups.length === 0" class="p-8 text-center text-[#64748B]">
+            <div class="w-10 h-10 rounded-full bg-[#F1F5F9] flex items-center justify-center mx-auto mb-2 text-[#94A3B8]">
+              <span class="material-symbols-outlined text-[22px]">event_available</span>
+            </div>
+            <p class="text-[13px] font-semibold text-[#1D1B3A]">Tidak ada jam kosong</p>
+            <p class="text-[12px] text-[#667085] mt-0.5">Seluruh jam perkuliahan terisi pada pilihan ini.</p>
+          </div>
+
+          <!-- Groups by Day -->
+          <template x-for="(group, gIdx) in filteredJamKosongGroups" :key="group.dayName">
+            <div :class="gIdx > 0 ? 'border-t border-[#F2F4F7]' : ''" class="w-full flex flex-col">
+              
+              <!-- Header Hari -->
+              <div class="w-full h-[27px] shrink-0 flex flex-row px-[14px] items-center bg-[#F8FAFC]">
+                <div class="text-[11px] text-[#667085] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.8px] whitespace-nowrap uppercase"
+                     x-text="group.headerText">
+                  SENIN, 5 OKT 2026
+                </div>
+              </div>
+
+              <!-- Slots per Day -->
+              <template x-for="(slot, sIdx) in group.slots" :key="slot.id">
+                <div :class="sIdx > 0 ? 'border-t border-[#F8FAFC]' : ''"
+                     class="w-full px-[14px] py-[9px] flex flex-row gap-[10px] justify-between items-center hover:bg-slate-50/70 transition-colors">
+                  
+                  <!-- Slot Details -->
+                  <div class="flex-1 min-w-0 flex flex-col gap-[4px] justify-start items-start">
+                    <div class="w-fit flex flex-row gap-[8px] items-center flex-wrap">
+                      <div class="text-[13px] text-[#1D1B3A] font-['JetBrains_Mono',system-ui,sans-serif] font-bold whitespace-nowrap"
+                           x-text="slot.timeRange">
+                        14:40 – 17:00 WIB
+                      </div>
+                      
+                      <!-- Durasi Pill -->
+                      <div class="w-fit shrink-0 p-[3px_8px] flex items-center rounded-[5px]"
+                           :class="slot.isLong ? 'bg-[#DCFCE7]' : 'bg-[#EFF6FF]'">
+                        <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap"
+                             :class="slot.isLong ? 'text-[#15803D]' : 'text-[#3965FB]'"
+                             x-text="slot.durationText">
+                          2 Jam 20 Menit
+                        </div>
+                      </div>
+
+                      <!-- Rekomendasi Badge -->
+                      <div x-show="slot.isRecommended"
+                           class="text-[10px] text-[#16A34A] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+                        Rekomendasi
+                      </div>
+                    </div>
+
+                    <!-- Keterangan Context -->
+                    <div class="text-[11px] leading-[15px] w-full text-[#667085] font-[Inter,system-ui,sans-serif] font-normal"
+                         x-text="slot.description">
+                      Bebas perkuliahan setelah sesi Matematika Diskrit
+                    </div>
+                  </div>
+
+                  <!-- Gunakan Slot Action -->
+                  <button type="button"
+                          @click="gunakanSlotJamKosong(slot)"
+                          class="w-fit shrink-0 h-[32px] flex flex-row gap-[4px] px-[11px] items-center bg-[#EFF6FF] hover:bg-[#DBEAFE] rounded-[8px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]/30">
+                    <div class="text-[14px] text-[#3965FB] font-[Inter,system-ui,sans-serif] font-semibold leading-none">+</div>
+                    <div class="text-[11px] text-[#3965FB] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+                      Gunakan Slot
+                    </div>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Bantuan dan Tutup Jam Kosong (Footer) -->
+        <div data-pencil-name="Bantuan dan Tutup Jam Kosong"
+             class="w-full pt-[12px] border-t border-[#F2F4F7] flex flex-row gap-[16px] justify-between items-center">
+          
+          <!-- Petunjuk Gunakan Slot -->
+          <div data-pencil-name="Petunjuk Gunakan Slot"
+               class="flex-1 min-w-0 flex flex-row gap-[6px] justify-start items-center">
+            <svg data-pencil-name="Ikon Petunjuk"
+                 viewBox="0 0 14 14"
+                 preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg"
+                 class="w-[16px] shrink-0 h-[16px] fill-[#667085]">
+              <path d="M7 12.33887q-0.40332 0-0.70068-0.27002-0.29736-0.27002-0.35547-0.66992l2.1123 0q-0.05811 0.3999-0.35547 0.66992-0.29736 0.27002-0.70068 0.27002z m-1.75-1.97217q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.21192 0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545l3.5 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20507 0 0.12646-0.08545 0.21192-0.08203 0.08203-0.20508 0.08203l-3.5 0z m-0.25635-1.6167q-0.82715-0.54346-1.30566-1.37402-0.47852-0.83398-0.47852-1.83545 0-1.58594 1.10059-2.68653 1.104-1.104 2.68994-1.104 1.58594 0 2.68652 1.104 1.104 1.10059 1.10401 2.68653 0 1.00146-0.47852 1.83545-0.47852 0.83057-1.30566 1.37402l-4.0127 0z m0.16748-0.58447l3.67774 0q0.65625-0.46484 1.01172-1.14844 0.35889-0.68701 0.35888-1.47656 0-1.33984-0.9331-2.27295-0.93311-0.93311-2.27637-0.93311-1.34326 0-2.27637 0.93311-0.93311 0.93311-0.9331 2.27295 0 0.78955 0.35547 1.47656 0.35889 0.68359 1.01513 1.14844z"></path>
+            </svg>
+            <div data-pencil-name="Teks Petunjuk Slot"
+                 class="text-[11px] leading-[15px] flex-1 text-[#667085] font-[Inter,system-ui,sans-serif] font-normal">
+              Mengklik '+ Gunakan Slot' akan otomatis membuka form kuliah pengganti dengan jam yang terisi.
+            </div>
+          </div>
+
+          <!-- Tombol Tutup Jam Kosong -->
+          <button type="button"
+                  @click="tutupModalJamKosong()"
+                  data-pencil-name="Tombol Tutup Jam Kosong"
+                  class="w-fit shrink-0 h-[36px] px-[16px] flex justify-center items-center bg-[#FFFFFF] border border-[#CBD5E1] hover:bg-slate-50 hover:border-[#94A3B8] rounded-[12px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+            <div data-pencil-name="Label Tutup Jam Kosong"
+                 class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+              Tutup
+            </div>
+          </button>
+        </div>
 
       </div>
     </div>

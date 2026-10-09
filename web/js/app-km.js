@@ -631,6 +631,219 @@ function kmApp() {
       this.modalSesiData = null;
     },
 
+    // Modal Cek Jam Kosong (SCR-SCHED-005)
+    modalJamKosongOpen: false,
+    filterHariJamKosong: 'all',
+
+    bukaModalJamKosong() {
+      this.filterHariJamKosong = 'all';
+      this.modalJamKosongOpen = true;
+    },
+
+    tutupModalJamKosong() {
+      this.modalJamKosongOpen = false;
+    },
+
+    gunakanSlotJamKosong(slot) {
+      if (!slot) return;
+      this.tutupModalJamKosong();
+      this.mulaiUbah({
+        date: slot.dateISO,
+        start: slot.startTime,
+        end: slot.endTime,
+        kind: 'REPLACEMENT'
+      });
+      this.showToast(`Slot jam kosong ${slot.dayName} (${slot.timeRange}) dipilih. Silakan lengkapi mata kuliah.`);
+    },
+
+    get jamKosongByDay() {
+      const result = {};
+      const days = this.weekDays || [];
+      const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+
+      dayNames.forEach(dayName => {
+        const dayObj = days.find(d => d.name === dayName);
+        if (!dayObj) {
+          result[dayName] = [];
+          return;
+        }
+
+        const dateObj = dayObj.full || new Date();
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const date = String(dateObj.getDate()).padStart(2, '0');
+        const dateISO = `${year}-${month}-${date}`;
+        const headerText = dateObj.toLocaleDateString('id-ID', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Asia/Jakarta'
+        }).toUpperCase();
+
+        // Ambil sesi terurut untuk hari ini
+        const sessions = (this.fullSchedule || [])
+          .filter(s => s.hari === dayName)
+          .slice()
+          .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+
+        const slots = [];
+        const toMins = (t) => {
+          if (!t) return 0;
+          const [h, m] = t.split(':').map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+        const toTimeStr = (mins) => {
+          const h = String(Math.floor(mins / 60)).padStart(2, '0');
+          const m = String(mins % 60).padStart(2, '0');
+          return `${h}:${m}`;
+        };
+
+        const dayEndMins = 17 * 60; // Batas akhir jam kuliah reguler 17:00
+
+        if (sessions.length === 0) {
+          slots.push({
+            id: `${dayName}-full`,
+            dayName,
+            dateISO,
+            headerText,
+            startTime: '07:00',
+            endTime: '17:00',
+            timeRange: '07:00 – 17:00 WIB',
+            durationMins: 600,
+            durationText: '10 Jam Penuh',
+            isLong: true,
+            isRecommended: true,
+            description: 'Bebas perkuliahan sepanjang hari (hari libur/tanpa jadwal)'
+          });
+        } else {
+          // 1. Cek jeda di antara sesi kuliah
+          for (let i = 0; i < sessions.length - 1; i++) {
+            const curr = sessions[i];
+            const next = sessions[i + 1];
+            const currEnd = toMins(curr.timeEnd || curr.timeStart);
+            const nextStart = toMins(next.timeStart);
+            const gap = nextStart - currEnd;
+
+            // Pertimbangkan jeda >= 80 menit (efektif untuk kuliah pengganti)
+            if (gap >= 80) {
+              const startStr = toTimeStr(currEnd);
+              const endStr = toTimeStr(nextStart);
+              const hrs = Math.floor(gap / 60);
+              const mns = gap % 60;
+              let durText = '';
+              if (mns === 0) {
+                durText = `${hrs} Jam Penuh`;
+              } else if (hrs === 0) {
+                durText = `${mns} Menit`;
+              } else {
+                durText = `${hrs} Jam ${mns} Menit`;
+              }
+
+              const isReplacementNext = next.isReplacement || String(next.eventKind || '').toUpperCase() === 'REPLACEMENT';
+              const cleanMatkul = String(next.matkul || '').replace(' (Pengganti)', '');
+              const desc = isReplacementNext
+                ? `Jeda sebelum kuliah pengganti ${cleanMatkul}`
+                : `Jeda sebelum sesi ${cleanMatkul}`;
+
+              slots.push({
+                id: `${dayName}-gap-${i}`,
+                dayName,
+                dateISO,
+                headerText,
+                startTime: startStr,
+                endTime: endStr,
+                timeRange: `${startStr} – ${endStr} WIB`,
+                durationMins: gap,
+                durationText: durText,
+                isLong: gap >= 360,
+                isRecommended: gap >= 360,
+                description: desc
+              });
+            }
+          }
+
+          // 2. Cek waktu kosong setelah sesi terakhir hingga 17:00
+          const lastSession = sessions[sessions.length - 1];
+          const lastEndMins = toMins(lastSession.timeEnd || lastSession.timeStart);
+          if (lastEndMins < dayEndMins) {
+            const gap = dayEndMins - lastEndMins;
+            if (gap >= 80) {
+              const startStr = toTimeStr(lastEndMins);
+              const endStr = '17:00';
+              const hrs = Math.floor(gap / 60);
+              const mns = gap % 60;
+              let durText = '';
+              if (mns === 0) {
+                durText = `${hrs} Jam Penuh`;
+              } else if (hrs === 0) {
+                durText = `${mns} Menit`;
+              } else {
+                durText = `${hrs} Jam ${mns} Menit`;
+              }
+
+              let desc = '';
+              if (lastEndMins <= 11 * 60 + 40 && gap >= 300) {
+                if (dayName === 'Jumat') {
+                  desc = 'Bebas perkuliahan setelah praktikum pagi (ideal untuk kuliah pengganti)';
+                } else {
+                  desc = 'Bebas perkuliahan siang hingga sore';
+                }
+              } else {
+                desc = `Bebas perkuliahan setelah sesi ${lastSession.matkul || ''}`;
+              }
+
+              slots.push({
+                id: `${dayName}-after-last`,
+                dayName,
+                dateISO,
+                headerText,
+                startTime: startStr,
+                endTime: endStr,
+                timeRange: `${startStr} – ${endStr} WIB`,
+                durationMins: gap,
+                durationText: durText,
+                isLong: gap >= 360,
+                isRecommended: gap >= 360,
+                description: desc
+              });
+            }
+          }
+        }
+
+        result[dayName] = slots;
+      });
+
+      return result;
+    },
+
+    get totalJamKosongCount() {
+      const byDay = this.jamKosongByDay;
+      return Object.values(byDay).reduce((acc, curr) => acc + (curr ? curr.length : 0), 0);
+    },
+
+    get filteredJamKosongGroups() {
+      const byDay = this.jamKosongByDay;
+      const days = this.weekDays || [];
+      const groups = [];
+
+      days.forEach(d => {
+        if (this.filterHariJamKosong !== 'all' && this.filterHariJamKosong !== d.name) {
+          return;
+        }
+        const slots = byDay[d.name] || [];
+        if (slots.length > 0) {
+          groups.push({
+            dayName: d.name,
+            headerText: slots[0].headerText,
+            slots: slots
+          });
+        }
+      });
+
+      return groups;
+    },
+
     bukaAksiSesi(session) {
       if (!session) return;
       this.bukaModalDetailSesi(session);
@@ -935,15 +1148,18 @@ function kmApp() {
       f.scope = 'sementara';
       f.originPatternId = ''; f.originDate = ''; f.day = '1';
       f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
-      if (!f.date) {
+      if (prefill && prefill.date) {
+        f.date = prefill.date;
+      } else if (!f.date) {
         const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const d = String(now.getDate()).padStart(2, '0');
         f.date = `${y}-${m}-${d}`;
       }
-      f.start = (prefill && prefill.session && prefill.session.timeStart) || f.start || '13:00';
-      f.end = (prefill && prefill.session && prefill.session.timeEnd) || f.end || '15:30';
+      f.start = (prefill && prefill.start) || (prefill && prefill.session && prefill.session.timeStart) || f.start || '13:00';
+      f.end = (prefill && prefill.end) || (prefill && prefill.session && prefill.session.timeEnd) || f.end || '15:30';
+      if (prefill && prefill.kind) f.kind = prefill.kind;
       if (prefill && prefill.session) {
         const s = prefill.session;
         const pat = (this.patternsList || []).find(p =>
