@@ -25,6 +25,7 @@ function pjApp() {
     materiLoading: false,
     materiError: '',
     materiSort: 'terbaru',
+    materiFilterKategori: 'semua',
     materiFormOpen: false,
     materiForm: { title: '', material_type: 'DOCUMENT', url: '', description: '' },
     materiFormError: '',
@@ -2835,9 +2836,127 @@ function pjApp() {
       try {
         const d = new Date(iso);
         if (!iso || isNaN(d)) return '—';
-        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' });
+        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short' });
         return tgl.replace('.', '');
       } catch (e) { return '—'; }
+    },
+
+    get pjOfferingItem() {
+      if (this.offeringId && Array.isArray(this.offeringList)) {
+        const found = this.offeringList.find(o => String(o.id) === String(this.offeringId));
+        if (found) return found;
+      }
+      if (this.dashboardData && this.dashboardData.offering) return this.dashboardData.offering;
+      return null;
+    },
+
+    get pjMatkulCode() {
+      const off = this.pjOfferingItem;
+      return (off && (off.course_code || off.code)) || '';
+    },
+
+    get materiCounts() {
+      const list = Array.isArray(this.materiList) ? this.materiList : [];
+      let doc = 0, meet = 0, repo = 0, tautan = 0;
+      for (const m of list) {
+        const t = String(m.material_type || '').toUpperCase();
+        if (t === 'DOCUMENT') doc++;
+        else if (t === 'MEETING') meet++;
+        else if (t === 'REPOSITORY') repo++;
+        else tautan++;
+      }
+      return {
+        semua: list.length,
+        document: doc,
+        meeting: meet,
+        repository: repo,
+        tautan: tautan
+      };
+    },
+
+    get materiTampil() {
+      const list = Array.isArray(this.materiList) ? [...this.materiList] : [];
+      const k = this.materiFilterKategori || 'semua';
+      const filtered = list.filter(m => {
+        const t = String(m.material_type || '').toUpperCase();
+        if (k === 'semua') return true;
+        if (k === 'DOCUMENT') return t === 'DOCUMENT';
+        if (k === 'MEETING') return t === 'MEETING';
+        if (k === 'REPOSITORY') return t === 'REPOSITORY';
+        if (k === 'TAUTAN') return t === 'PORTAL' || t === 'OTHER';
+        return true;
+      });
+      filtered.sort((a, b) => {
+        const da = new Date(a.created_at || 0).getTime();
+        const db = new Date(b.created_at || 0).getTime();
+        return this.materiSort === 'terlama' ? da - db : db - da;
+      });
+      return filtered;
+    },
+
+    materiFormatInfo(m) {
+      const t = String(m && m.material_type || '').toUpperCase();
+      if (t === 'DOCUMENT') {
+        return {
+          type: 'DOCUMENT',
+          label: 'Slide',
+          textClass: 'text-[#2563EB]',
+          bgClass: 'bg-[#EFF6FF] border border-[#DBEAFE] text-[#2563EB]',
+          icon: 'description'
+        };
+      }
+      if (t === 'MEETING') {
+        return {
+          type: 'MEETING',
+          label: 'Video',
+          textClass: 'text-[#4F46E5]',
+          bgClass: 'bg-[#EEF2FF] border border-[#E0E7FF] text-[#4F46E5]',
+          icon: 'videocam'
+        };
+      }
+      if (t === 'REPOSITORY') {
+        return {
+          type: 'REPOSITORY',
+          label: 'Repositori',
+          textClass: 'text-[#7C3AED]',
+          bgClass: 'bg-[#F5F3FF] border border-[#EDE9FE] text-[#7C3AED]',
+          icon: 'code'
+        };
+      }
+      return {
+        type: 'OTHER',
+        label: 'Dokumen',
+        textClass: 'text-[#475569]',
+        bgClass: 'bg-[#F1F5F9] border border-[#E2E8F0] text-[#475569]',
+        icon: 'article'
+      };
+    },
+
+    materiKeteranganText(m) {
+      const parts = [];
+      parts.push(this.pjMatkul || 'Basis Data');
+      if (m.description) {
+        parts.push(m.description);
+      } else if (m.url && m.url.includes('drive.google.com')) {
+        parts.push('Tautan Google Drive');
+      } else if (m.url && m.url.includes('github.com')) {
+        parts.push('Tautan GitHub Repository');
+      } else if (m.material_type === 'DOCUMENT') {
+        parts.push('Format: PDF');
+      } else if (m.material_type === 'MEETING') {
+        parts.push('Tautan Google Drive');
+      }
+      const authorName = (this.meCache && this.meCache.name) ? this.meCache.name : 'Farhan Pratama';
+      parts.push('Oleh ' + authorName + ' (PJ)');
+      return parts.join(' · ');
+    },
+
+    mulaiTambahMateri() {
+      this.materiForm = { title: '', material_type: 'DOCUMENT', url: '', description: '' };
+      this.editMateriId = null;
+      this.editMateriVersion = 0;
+      this.materiFormError = '';
+      this.materiFormOpen = true;
     },
 
     async loadMateri() {
