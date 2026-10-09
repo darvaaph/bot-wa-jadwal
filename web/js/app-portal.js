@@ -45,10 +45,11 @@ function portalApp() {
     selectedSemester: '3',
     selectedAbjad: 'A',
     classList: [],
+    classModalOpen: false,
     comboboxOpen: false,
     classQuery: '',
     classFilterProdi: 'ALL',
-    gateStep: 'select',
+    gateStep: 'pin',
     checkingAccess: false,
     fullSchedule: [],
     jadwalEfektif: [],
@@ -219,7 +220,7 @@ function portalApp() {
         if (!res.ok) {
           localStorage.removeItem('portal_pin_ok');
           this.unlocked = false;
-          this.gateStep = res.status === 401 ? 'pin' : 'select';
+          this.gateStep = 'pin';
           return;
         }
       } catch (err) {
@@ -308,7 +309,7 @@ function portalApp() {
           localStorage.setItem('portal_pin_ok', '1');
           localStorage.setItem('portal_class', slug);
           this.unlocked = true;
-          this.gateStep = 'select';
+          this.gateStep = 'pin';
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
@@ -340,9 +341,18 @@ function portalApp() {
     },
 
     kembaliKePilihKelas() {
-      this.gateStep = 'select';
+      this.classModalOpen = true;
+    },
+
+    pilihKelasModal(cls) {
+      this.selectedClass = cls;
       this.pin = '';
       this.pinError = '';
+      this.classModalOpen = false;
+      const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
+      try {
+        window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
+      } catch (e) {}
     },
 
     async bukaPortal() {
@@ -365,7 +375,7 @@ function portalApp() {
         localStorage.setItem('portal_class', slug);
         localStorage.setItem('portal_pin_at', String(Date.now()));
         this.unlocked = true;
-        this.gateStep = 'select';
+        this.gateStep = 'pin';
         this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
 
         await this.ensureDashboardPartials();
@@ -373,7 +383,11 @@ function portalApp() {
         await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
-        this.pinError = err.message || 'Kode akses tidak valid. Periksa kembali kode dari grup kelas.';
+        if (err && err.code === 'RATE_LIMITED') {
+          this.pinError = 'Terlalu banyak percobaan salah. Silakan tunggu 15 menit.';
+        } else {
+          this.pinError = 'Kode akses salah atau telah diperbarui oleh Ketua Murid. Silakan minta kode terbaru di grup kelas.';
+        }
         this.showToast(this.pinError);
       } finally {
         this.loadingPin = false;
@@ -385,7 +399,7 @@ function portalApp() {
       localStorage.removeItem('portal_token');
       localStorage.removeItem('portal_class');
       this.unlocked = false;
-      this.gateStep = 'select';
+      this.gateStep = 'pin';
       this.pin = '';
       this.pinError = '';
       this.view = 'dashboard';
@@ -409,7 +423,7 @@ function portalApp() {
       if (!kelas || kelas === this.selectedClass) return;
       this.selectedClass = kelas;
       this.syncSegmentsFromClass();
-      this.gateStep = 'select';
+      this.gateStep = 'pin';
       this.pin = '';
       this.pinError = '';
 
@@ -613,11 +627,14 @@ function portalApp() {
           this.classList = data.classes;
         }
         if (slugFromUrl) {
-          this.selectedClass = decodeURIComponent(slugFromUrl);
+          const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === slugFromUrl.toLowerCase());
+          this.selectedClass = match || decodeURIComponent(slugFromUrl);
         } else if (data && data.default_class) {
           this.selectedClass = data.default_class;
         }
       } catch (e) { /* fallback */ }
+
+      this.gateStep = 'pin';
 
       if (!this.selectedClass) {
         try {
