@@ -23,27 +23,19 @@ function kmApp() {
     contextSwitching: false,
 
     navSections: [
-      { title: 'KM', items: [
-        { id: 'dashboard', label: 'Dashboard', img: '/assets/icons/home.svg' },
+      { title: 'UTAMA', items: [
+        { id: 'dashboard', label: 'Dashboard' },
       ] },
       { title: 'AKADEMIK', items: [
-        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg' },
-        { id: 'antrean', label: 'Perlu Review', img: '/assets/icons/ext-check.svg' },
-        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-        { id: 'ruangan', label: 'Ruangan', img: '/assets/icons/event.svg' },
-        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
+        { id: 'tugas', label: 'Tugas' },
+        { id: 'jadwal', label: 'Jadwal Kuliah' },
+        { id: 'ruangan', label: 'Ruangan' },
+        { id: 'materi', label: 'Materi' },
       ] },
       { title: 'KELOLA KELAS', items: [
-        { id: 'semester', label: 'Semester', img: '/assets/icons/event.svg' },
-        { id: 'anggota', label: 'Penugasan Peran', img: '/assets/icons/people.svg' },
-        { id: 'pengaturan', label: 'Pengaturan Kelas', img: '/assets/icons/settings.svg' },
-        { id: 'usulan', label: 'Usulan Master', img: '/assets/icons/book.svg' },
-      ] },
-      { title: 'LAINNYA', items: [
-        { id: 'monitoring', label: 'Monitoring', img: '/assets/icons/activity.svg' },
-        { id: 'log', label: 'Riwayat Perubahan', img: '/assets/icons/message-queue.svg' },
-        { id: 'notifikasi', label: 'Notifikasi', img: '/assets/icons/bell.svg' },
-        { id: 'akun', label: 'Akun', img: '/assets/icons/event.svg' },
+        { id: 'anggota', label: 'Anggota & PJ' },
+        { id: 'pengaturan', label: 'Pengaturan Kelas' },
+        { id: 'log', label: 'Riwayat Audit' },
       ] },
     ],
 
@@ -1258,6 +1250,11 @@ function kmApp() {
       }
     },
 
+    bukaAntreanReview() {
+      this.go('tugas');
+      this.tugasTab = 'review';
+    },
+
     go(v) {
       this.pageState = null;
       if (v === 'tugas-tambah') {
@@ -1421,6 +1418,62 @@ function kmApp() {
     },
 
     parseDeadlineID(tanggal, jam) { return API.parseDeadlineID(tanggal, jam); },
+
+    previewMatkulTag() {
+      const o = (this.offeringList || []).find(x => String(x.id) === String(this.tugasForm.offeringId));
+      if (o) {
+        if (o.course_name) return String(o.course_name).toUpperCase();
+        if (o.course_code) return String(o.course_code).toUpperCase();
+        if (o.display_name) return String(o.display_name.split('(')[0] || o.display_name).trim().toUpperCase();
+      }
+      return 'MATA KULIAH';
+    },
+
+    previewDeadlineFormatted() {
+      if (!this.tugasForm.tanggal || !this.tugasForm.jam) return 'Pilih tanggal & jam';
+      const iso = this.parseDeadlineID(this.tugasForm.tanggal, this.tugasForm.jam);
+      if (!iso) return `${this.tugasForm.tanggal} · ${this.tugasForm.jam} WIB`;
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return `${this.tugasForm.tanggal} · ${this.tugasForm.jam} WIB`;
+        const hari = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long' });
+        const tgl = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric' });
+        const bln = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', month: 'short' });
+        const jam = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        return `${hari}, ${tgl} ${bln} · ${jam} WIB`;
+      } catch (e) {
+        return `${this.tugasForm.tanggal} · ${this.tugasForm.jam} WIB`;
+      }
+    },
+
+    previewCountdown() {
+      if (!this.tugasForm.tanggal || !this.tugasForm.jam) {
+        return { text: 'Belum diatur', bg: 'bg-slate-100', color: 'text-slate-600' };
+      }
+      const iso = this.parseDeadlineID(this.tugasForm.tanggal, this.tugasForm.jam);
+      if (!iso) return { text: 'Belum diatur', bg: 'bg-slate-100', color: 'text-slate-600' };
+      try {
+        const d = new Date(iso);
+        const now = new Date();
+        const diffMs = d.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) {
+          return { text: 'Sudah lewat', bg: 'bg-[#FEE2E2]', color: 'text-[#DC2626]' };
+        }
+        if (diffDays === 0) {
+          return { text: 'Hari ini', bg: 'bg-[#FEF3C7]', color: 'text-[#D97706]' };
+        }
+        if (diffDays === 1) {
+          return { text: 'Besok', bg: 'bg-[#FEF3C7]', color: 'text-[#D97706]' };
+        }
+        if (diffDays <= 3) {
+          return { text: `Sisa ${diffDays} hari`, bg: 'bg-[#FEF3C7]', color: 'text-[#D97706]' };
+        }
+        return { text: `Sisa ${diffDays} hari`, bg: 'bg-[#DCFCE7]', color: 'text-[#15803D]' };
+      } catch (e) {
+        return { text: 'Aktif', bg: 'bg-[#DCFCE7]', color: 'text-[#15803D]' };
+      }
+    },
 
     urgencyOf(label) {
       try {
