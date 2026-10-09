@@ -129,6 +129,7 @@ function pjApp() {
     tugasPreview: null, tugasPublishMsg: '',
     taskDelivery: [], eventDelivery: [], deliveryLoading: false, deliveryError: '',
     editTugasId: '', editTugasVersion: 0, tugasConflict: null,
+    initialInstructions: '',
 
     patternsList: [],
 
@@ -223,9 +224,10 @@ function pjApp() {
       return null;
     },
 
-    perbaikiKoreksi(taskId) {
+    async perbaikiKoreksi(taskId) {
       if (!taskId) return;
-      this.bukaDetailTugas(taskId);
+      await this.bukaDetailTugas(taskId);
+      this.mulaiUbahTugas();
     },
 
     tugasDosen(t) {
@@ -1574,9 +1576,9 @@ function pjApp() {
         };
         const revs = (d && d.reviews) || [];
         this.tugasReviews = revs.map(r => ({
-          reviewer: r.reviewer || 'KM', decision: r.decision || '',
+          reviewer: r.reviewer || 'Ketua Murid', decision: r.decision || '',
           note: r.note || '', version: r.task_version || r.version || '',
-          waktu: r.created_at || ''
+          waktu: this.formatSubmittedTime(r.created_at) || r.created_at || ''
         }));
       } catch (e) {
         this.showToast('Gagal memuat detail tugas dari server.');
@@ -1598,11 +1600,36 @@ function pjApp() {
       }
       this.tugasForm = { judul: d.title || '', tanggal: tgl, jam: jam, deskripsi: d.instructions || d.deskripsi || '',
         kumpul: d.submission_text || '', kumpulUrl: d.submission_url || '', jenis: d.task_type || 'Individu' };
+      this.initialInstructions = (d.instructions || d.deskripsi || '').trim();
       this.tugasError = '';
       this.editTugasId = d.id; this.editTugasVersion = d.version || 0;
       this.tugasConflict = null;
       this.view = 'ubah-tugas';
       window.scrollTo({ top: 0 });
+    },
+
+    isInstruksiDiubah() {
+      return (this.tugasForm.deskripsi || '').trim() !== this.initialInstructions && (this.tugasForm.deskripsi || '').trim() !== '';
+    },
+
+    tugasTargetVersi() {
+      return (Number(this.editTugasVersion) || (this.tugasDetail && this.tugasDetail.version) || 1) + 1;
+    },
+
+    latestReviewKM() {
+      if (this.tugasReviews && this.tugasReviews.length > 0) {
+        const rev = this.tugasReviews.find(r => String(r.decision || '').toUpperCase() === 'CHANGES_REQUESTED') || this.tugasReviews[0];
+        return rev;
+      }
+      if (this.tugasKoreksi) {
+        return {
+          reviewer: this.tugasKoreksi.reviewer_name || 'Ketua Murid',
+          note: this.tugasKoreksi.note || 'Instruksi tugas perlu disesuaikan sebelum disetujui KM.',
+          version: (this.tugasDetail && this.tugasDetail.version) || 1,
+          waktu: 'Kemarin, 19:40 WIB'
+        };
+      }
+      return null;
     },
 
     async simpanUbahTugas(targetMode) {
