@@ -1,5 +1,7 @@
+S
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -11,7 +13,7 @@
   <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
   <script src="/js/vendor/tailwindcss.play.js?v=20261003"></script>
   <script>
-    (function() {
+    (function () {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
       if (!token) {
         window.location.replace('/login.html?role=km');
@@ -27,7 +29,10 @@
   AREA KM (REVISI Figma, tanpa role switcher). Entry di /km.html.
   Portal User di /. Isi per layar: web/partials/km/*.html via initKM() di js/app-km.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="kmApp()" x-init="initKM()" @keydown.escape.window="shellCloseDrawer(); kanalLepas = null">
+
+<body class="bg-white text-ink min-h-screen" x-data="kmApp()" x-init="initKM()"
+  @keydown.escape.window="shellCloseDrawer(); kanalLepas = null">
   <div id="app-shell"></div>
 </body>
+
 </html>

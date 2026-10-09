@@ -222,50 +222,128 @@
         </template>
       </div>
 
-      <!-- DESKTOP VIEW: MODE DAFTAR (x-show="calendarViewMode === 'list'") -->
-      <div x-show="calendarViewMode === 'list'" class="hidden md:block mt-5 space-y-4">
-        <template x-for="d in weekDays" :key="'list-' + d.name">
-          <div class="rounded-[12px] border border-[#E2E8F0] overflow-hidden bg-white shadow-sm">
-            <div class="p-3.5 flex items-center justify-between"
-                 :class="isToday(d.name) ? 'bg-[#3965FB] text-white' : 'bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#1D1B3A]'">
-              <div class="flex items-center gap-2.5">
-                <span class="font-bold text-[14px]" x-text="d.name">-</span>
-                <span class="text-[12px]" :class="isToday(d.name) ? 'text-white/80' : 'text-[#667085]'" x-text="d.dateShort">-</span>
-                <span x-show="isToday(d.name)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-[#3965FB] tracking-wide uppercase">HARI INI</span>
-              </div>
-              <span class="text-[12px] font-semibold" :class="isToday(d.name) ? 'text-white' : 'text-[#64748B]'" x-text="daySessions(d.name).length + ' Sesi'"></span>
-            </div>
-            <div class="p-3 divide-y divide-[#F1F5F9]">
-              <template x-for="s in daySessions(d.name)" :key="'list-s-' + s.id">
-                <div class="py-2.5 flex items-center justify-between gap-4">
-                  <div class="flex items-center gap-3">
-                    <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
-                          :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#EFF6FF] text-[#1D4ED8]'"
-                          x-text="s.timeStart + ' – ' + (s.timeEnd || '')"></span>
-                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                          :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : (slotKind(s.matkul) === 'Praktikum' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]')"
-                          x-text="s.isReplacement ? 'Pengganti' : slotKind(s.matkul)"></span>
-                    <div>
-                      <p class="font-bold text-[13px] text-[#1D1B3A]" x-text="s.matkul">-</p>
-                      <p class="text-[11px] text-[#667085]" x-text="(s.ruang || 'Tanpa ruang') + (s.dosen ? ' · ' + s.dosen : '') + (s.originNote ? ' (' + s.originNote + ')' : '')"></p>
-                    </div>
-                  </div>
-                  <button type="button" @click="goPindah(s.hari, (s.timeStart || '').split(':')[0], s)"
-                          class="h-9 px-3 rounded-[8px] border border-[#CBD5E1] hover:bg-slate-50 text-[12px] font-semibold text-[#1D1B3A] transition-colors">
-                    Ubah Sesi
-                  </button>
+      <!-- MODE DAFTAR: TAMPILAN KRONOLOGIS SESI PEKANAN (x-show="calendarViewMode === 'list'") -->
+      <div x-show="calendarViewMode === 'list'" class="mt-5 space-y-4">
+        <!-- Empty State Seluruh Pekan jika 0 Sesi -->
+        <div x-show="!scheduleLoading && weekDays.every(d => daySessions(d.name).length === 0)"
+             class="p-8 rounded-[12px] border border-dashed border-[#CBD5E1] bg-white text-center flex flex-col items-center justify-center">
+          <span class="material-symbols-outlined text-[36px] text-[#94A3B8] mb-2">calendar_month</span>
+          <p class="text-[14px] font-bold text-[#1D1B3A]">Tidak ada jadwal perkuliahan pekan ini</p>
+          <p class="text-[12px] text-[#64748B] mt-0.5">Tidak ada sesi perkuliahan aktif yang tercatat pada rentang tanggal pekan ini.</p>
+        </div>
+
+        <!-- Agenda Sesi Pekanan (Senin - Jumat) -->
+        <div x-show="scheduleLoading || weekDays.some(d => daySessions(d.name).length > 0)"
+             class="box-border w-full flex flex-col gap-[14px]">
+          <template x-for="d in weekDays" :key="'agenda-' + d.name">
+            <div class="box-border w-full flex flex-col gap-[6px]">
+              <!-- Header Hari & Tanggal -->
+              <div class="box-border w-full h-[24px] flex items-center justify-between gap-2 px-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="text-[14px] text-[#0F172A] font-bold whitespace-nowrap" x-text="formatFullDate(d.full)">Senin, 5 Oktober 2026</span>
+                  <template x-if="isToday(d.name) && weekOffset === 0">
+                    <span class="px-2 py-0.5 bg-[#2563EB] text-white text-[10px] font-bold rounded-[12px] whitespace-nowrap uppercase tracking-wider leading-none">
+                      HARI INI
+                    </span>
+                  </template>
                 </div>
-              </template>
-              <div x-show="daySessions(d.name).length === 0" class="py-4 text-center text-[12px] text-[#98A2B3]">
-                Tidak ada perkuliahan pada hari ini.
+                <span class="text-[12px] text-[#64748B] font-normal whitespace-nowrap" x-text="daySessions(d.name).length + ' Sesi Perkuliahan'"></span>
               </div>
+
+              <!-- Container Kartu Daftar Sesi -->
+              <div class="box-border w-full bg-white border border-[#E2E8F0] rounded-[10px] overflow-hidden divide-y divide-[#F1F5F9] shadow-[0px_1px_3px_#0F172A05]">
+                <!-- Baris Sesi Perkuliahan -->
+                <template x-for="s in daySessions(d.name)" :key="'s-' + s.id">
+                  <div class="box-border w-full py-2.5 px-3 md:py-2 md:px-3 flex flex-col md:flex-row md:items-center gap-2 md:gap-3 justify-between transition-colors group"
+                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'bg-[#FFFBEB]/40 hover:bg-[#FFFBEB]/70' : 'bg-white hover:bg-slate-50/70'">
+                    
+                    <!-- Kolom Jam: md:w-[150px] -->
+                    <div class="box-border md:w-[150px] shrink-0 flex items-center">
+                      <span class="text-[12px] text-[#334155] font-['JetBrains_Mono',monospace] font-semibold text-left whitespace-nowrap"
+                            x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">
+                      </span>
+                    </div>
+
+                    <!-- Kolom Jenis Sesi: md:w-[100px] -->
+                    <div class="box-border md:w-[100px] shrink-0 flex items-center">
+                      <!-- PENGGANTI -->
+                      <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
+                        <span class="box-border w-fit shrink-0 px-[7px] py-[3px] bg-[#FEF3C7] border border-[#FCD34D] rounded-[6px] text-[10px] text-[#92400E] font-bold tracking-wide whitespace-nowrap leading-none">
+                          PENGGANTI
+                        </span>
+                      </template>
+                      <!-- PRAKTIKUM -->
+                      <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Praktikum'">
+                        <span class="box-border w-fit shrink-0 px-[7px] py-[3px] bg-[#F5F3FF] border border-[#DDD6FE] rounded-[6px] text-[10px] text-[#6D28D9] font-semibold tracking-wide whitespace-nowrap leading-none">
+                          PRAKTIKUM
+                        </span>
+                      </template>
+                      <!-- TEORI -->
+                      <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Teori'">
+                        <span class="box-border w-fit shrink-0 px-[7px] py-[3px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] text-[#1D4ED8] font-semibold tracking-wide whitespace-nowrap leading-none">
+                          TEORI
+                        </span>
+                      </template>
+                    </div>
+
+                    <!-- Kolom Detail Mata Kuliah & Dosen / Asal: flex-1 -->
+                    <div class="box-border flex-1 min-w-0 flex flex-col gap-[1px] justify-center items-start">
+                      <div class="text-[13px] box-border w-full font-bold text-left truncate"
+                           :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#78350F]' : 'text-[#0F172A]'"
+                           x-text="s.matkul + (s.isReplacement && !s.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
+                      </div>
+                      <div class="box-border w-full flex flex-row flex-wrap items-center gap-2">
+                        <span class="text-[11px] text-left whitespace-nowrap"
+                              :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#64748B]'"
+                              x-text="s.dosen || (s.ruang ? '' : 'Dosen belum ditentukan')">
+                        </span>
+                        <template x-if="(s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti') && s.originNote">
+                          <span class="text-[11px] text-[#B45309] italic text-left whitespace-nowrap"
+                                x-text="s.originNote">
+                          </span>
+                        </template>
+                      </div>
+                    </div>
+
+                    <!-- Kolom Ruangan: md:w-[130px] -->
+                    <div class="box-border md:w-[130px] shrink-0 flex items-center">
+                      <span class="text-[12px] text-[#334155] font-medium text-left whitespace-nowrap"
+                            x-text="s.ruang || 'Tanpa ruang'">
+                      </span>
+                    </div>
+
+                    <!-- Kolom Aksi: md:w-[90px] -->
+                    <div class="box-border md:w-[90px] shrink-0 flex justify-end items-center">
+                      <button type="button"
+                              @click="bukaAksiSesi(s)"
+                              :aria-label="'Buka detail sesi ' + s.matkul"
+                              class="box-border h-[30px] px-[10px] flex items-center gap-1 bg-white hover:bg-slate-50 border border-[#E2E8F0] hover:border-[#CBD5E1] rounded-[8px] text-[11px] font-semibold text-[#334155] hover:text-[#0F172A] transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+                        <span>Detail</span>
+                        <span class="text-[12px] leading-none">→</span>
+                      </button>
+                    </div>
+
+                  </div>
+                </template>
+
+                <!-- Empty State per Hari -->
+                <template x-if="daySessions(d.name).length === 0">
+                  <div class="py-4 px-3 w-full flex items-center justify-center gap-2 text-[#94A3B8]">
+                    <span class="material-symbols-outlined text-[16px]">event_available</span>
+                    <span class="text-[12px] font-medium">Tidak ada sesi perkuliahan pada hari ini</span>
+                  </div>
+                </template>
+
+              </div>
+
             </div>
-          </div>
-        </template>
+          </template>
+        </div>
+
       </div>
 
-      <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden) -->
-      <div class="md:hidden mt-4">
+      <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden saat mode kalender) -->
+      <div x-show="calendarViewMode === 'calendar'" class="md:hidden mt-4">
         <!-- Horizontal Day Pill Selector -->
         <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
           <template x-for="d in weekDays" :key="'mob-tab-' + d.name">

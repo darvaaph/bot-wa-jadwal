@@ -604,6 +604,29 @@ function kmApp() {
       this.mulaiUbah({ dayName: dayName, slotHH: slotHH, session: session });
     },
 
+    formatFullDate(d) {
+      if (!d) return '';
+      const dateObj = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dateObj.getTime())) return '';
+      return dateObj.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Jakarta'
+      });
+    },
+
+    bukaAksiSesi(session) {
+      if (!session) return;
+      if (session.eventId) {
+        this.bukaDetail({ id: session.eventId });
+      } else {
+        const slotHH = (session.timeStart || '').split(':')[0] || '08';
+        this.goPindah(session.hari, slotHH, session);
+      }
+    },
+
     // Samakan kode kelas legacy (mis. D4-TI-SMT3-A) ke slug kanonis v1
     // (mis. d4-ti-smt3-a) memakai active_assignment + daftar classes dari /me.
     resolveClassSlug(me) {
