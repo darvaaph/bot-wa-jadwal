@@ -31,6 +31,7 @@ function pjApp() {
     materiFormError: '',
     materiSaving: false,
     editMateriId: null, editMateriVersion: 0,
+    editMateriItem: null,
     offeringLoading: false,
     offeringState: 'idle',
     semesterStatus: '',
@@ -2841,6 +2842,15 @@ function pjApp() {
       } catch (e) { return '—'; }
     },
 
+    fmtTanggalLengkap(iso) {
+      try {
+        const d = new Date(iso);
+        if (!iso || isNaN(d)) return 'Baru saja';
+        const tgl = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' });
+        return tgl.replace('.', '');
+      } catch (e) { return 'Baru saja'; }
+    },
+
     get pjOfferingItem() {
       if (this.offeringId && Array.isArray(this.offeringList)) {
         const found = this.offeringList.find(o => String(o.id) === String(this.offeringId));
@@ -3038,14 +3048,18 @@ function pjApp() {
         url: m.url || '', description: m.description || ''
       };
       this.materiFormError = '';
-      this.editMateriId = m.id; this.editMateriVersion = m.version || 0;
+      this.editMateriId = m.id;
+      this.editMateriVersion = m.version || 0;
+      this.editMateriItem = m;
       this.materiFormOpen = true;
       window.scrollTo({ top: 0 });
     },
 
     batalUbahMateri() {
       this.materiForm = { title: '', material_type: 'DOCUMENT', url: '', description: '' };
-      this.editMateriId = null; this.editMateriVersion = 0;
+      this.editMateriId = null;
+      this.editMateriVersion = 0;
+      this.editMateriItem = null;
       this.materiFormError = '';
       this.materiFormOpen = false;
     },
@@ -3056,6 +3070,7 @@ function pjApp() {
       try {
         await API.archiveMaterial(m.id, m.version || 0);
         this.showToast('Materi diarsipkan.');
+        this.batalUbahMateri();
         await this.loadMateri();
       } catch (e) {
         this.showToast(e.message || 'Gagal mengarsipkan materi.');
