@@ -667,75 +667,277 @@
     </div>
   </div>
 
-  <!-- Modal: Cek Ruangan & Jam Kosong -->
+  <!-- Modal: Cek Ruangan & Jam Kosong (SCR-PJ-SCHED-003) -->
   <div x-show="showRoomQuickCheck" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" x-cloak>
-    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-border flex flex-col max-h-[90vh]">
-      <div class="flex items-center justify-between pb-3 border-b border-border">
-        <div>
-          <h2 class="text-[18px] font-bold text-[#0F172A]">Cek Ruangan &amp; Jam Kosong</h2>
-          <p class="text-[12px] text-slate-500 mt-0.5">Cari ketersediaan ruangan untuk kuliah pengganti atau kelas mandiri.</p>
-        </div>
-        <button type="button" @click="showRoomQuickCheck = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <span class="material-symbols-outlined text-[20px]">close</span>
-        </button>
-      </div>
-
-      <!-- Filter Pencarian -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-        <div>
-          <label class="block text-[11px] font-bold text-slate-600 mb-1">Tanggal</label>
-          <input type="date" x-model="roomQuickDate" @change="cariRuanganCepat()" class="ui-field w-full text-[13px]" />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold text-slate-600 mb-1">Mulai</label>
-          <input type="time" x-model="roomQuickStart" @change="cariRuanganCepat()" class="ui-field w-full text-[13px] font-mono" />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold text-slate-600 mb-1">Selesai</label>
-          <input type="time" x-model="roomQuickEnd" @change="cariRuanganCepat()" class="ui-field w-full text-[13px] font-mono" />
-        </div>
-      </div>
-
-      <div class="mt-3 flex items-center gap-2">
-        <input type="text" x-model="roomQuickBuilding" @input="cariRuanganCepat()" placeholder="Filter gedung (mis. Gedung D, Lab)..." class="ui-field flex-1 text-[13px]" />
-        <button type="button" @click="cariRuanganCepat()" :disabled="roomQuickLoading" class="ui-button ui-button--primary text-[13px] font-semibold h-10 px-4">
-          <span x-text="roomQuickLoading ? 'Mencari...' : 'Perbarui'"></span>
-        </button>
-      </div>
-
-      <!-- Hasil Ruangan -->
-      <div class="mt-4 flex-1 overflow-y-auto min-h-[220px] max-h-[360px] pr-1 space-y-2">
-        <div x-show="roomQuickLoading" class="py-10 text-center text-[13px] text-slate-400">
-          Memeriksa ketersediaan ruangan...
-        </div>
-        <div x-show="!roomQuickLoading && roomQuickResults.length === 0" class="py-10 text-center text-[13px] text-slate-400">
-          Tidak ada ruangan ditemukan pada parameter tersebut.
-        </div>
-        <template x-for="r in roomQuickResults" :key="r.id">
-          <div class="p-3 rounded-xl border flex items-center justify-between gap-3"
-            :class="r.available ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-slate-50/70'">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-[14px] text-slate-900" x-text="r.code">-</span>
-                <span class="text-[11px] px-2 py-0.5 rounded-full font-bold"
-                  :class="r.available ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
-                  x-text="r.available ? 'TERSEDIA' : 'TERPAKAI'">-</span>
-              </div>
-              <p class="text-[12px] text-slate-600 mt-0.5" x-text="r.name + ' · Kapasitas ' + r.capacity + ' kursi'"></p>
-              <p class="text-[11px] text-slate-400" x-text="r.building"></p>
+    <div
+      data-pencil-name="Modal · Cek Ruangan &amp; Jam Kosong"
+      class="box-border w-full max-w-[540px] shrink-0 h-fit flex flex-col gap-0 justify-start items-start bg-[#FFFFFF] rounded-[16px] overflow-hidden relative shadow-2xl border border-[#E2E8F0]"
+      @click.away="showRoomQuickCheck = false"
+    >
+      <!-- Header modal -->
+      <div
+        data-pencil-name="Header modal"
+        class="box-border w-full shrink-0 flex flex-row gap-[16px] p-[24px_24px_16px_24px] justify-between items-start bg-[#FFFFFF] border-b border-[#F1F5F9]"
+      >
+        <div
+          data-pencil-name="Judul dan konteks kelas"
+          class="box-border flex-1 h-fit flex flex-col gap-[6px] justify-start items-start"
+        >
+          <div
+            data-pencil-name="Badge alat bantu kelas"
+            class="box-border w-fit shrink-0 h-[22px] flex flex-row gap-0 px-[8px] justify-center items-center bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px]"
+          >
+            <div
+              data-pencil-name="Label kelas"
+              class="text-[10px] text-[#1D4ED8] font-bold tracking-[0.5px] uppercase text-left whitespace-nowrap"
+            >
+              ALAT BANTU PJ · KELAS <span x-text="selectedClass || profile?.class_name || 'D4-TI 1A'"></span>
             </div>
-            <button type="button" @click="pilihRuanganCepat(r)" :disabled="!r.available"
-              class="ui-button text-[12px] font-semibold whitespace-nowrap"
-              :class="r.available ? 'ui-button--primary' : 'ui-button--ghost opacity-50 cursor-not-allowed'">
-              Pilih Ruangan
-            </button>
+          </div>
+          <div
+            data-pencil-name="Judul cek ruangan"
+            class="text-[18px] text-[#0F172A] font-bold text-left whitespace-nowrap"
+          >
+            Cek Ruangan &amp; Jam Kosong
+          </div>
+          <div
+            data-pencil-name="Penjelasan rekomendasi"
+            class="text-[12px] text-[#64748B] font-normal text-left"
+          >
+            Temukan jam kosong kelas dan ruangan lab yang tersedia untuk kuliah pengganti.
+          </div>
+        </div>
+        <button
+          type="button"
+          @click="showRoomQuickCheck = false"
+          data-pencil-name="Tutup modal · ikon"
+          class="box-border w-[32px] shrink-0 h-[32px] flex flex-row justify-center items-center rounded-[8px] hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+          aria-label="Tutup modal"
+        >
+          <svg
+            data-pencil-name="Ikon tutup"
+            viewBox="0 0 14 14"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            class="box-border w-[18px] shrink-0 h-[18px]"
+          >
+            <path
+              d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"
+              fill="currentColor"
+            ></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Filter hari durasi dan jenis ruang -->
+      <div
+        data-pencil-name="Filter hari durasi dan jenis ruang"
+        class="box-border w-full shrink-0 flex flex-col gap-[10px] p-[16px_20px] justify-start items-start bg-[#F8FAFC] border-b border-[#E2E8F0]"
+      >
+        <div
+          data-pencil-name="Filter hari dan durasi"
+          class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-start items-start"
+        >
+          <!-- Filter Hari -->
+          <div
+            data-pencil-name="Hari"
+            class="box-border w-[170px] shrink-0 h-[36px] relative bg-[#FFFFFF] border border-[#CBD5E1] rounded-[10px]"
+          >
+            <select
+              x-model="roomFilterDay"
+              @change="hitungSlotRekomendasi()"
+              class="w-full h-full appearance-none bg-transparent pl-3 pr-8 text-[12px] font-semibold text-[#334155] focus:outline-none cursor-pointer"
+            >
+              <option value="all">Hari: Semua Hari</option>
+              <option value="Senin">Hari: Senin</option>
+              <option value="Selasa">Hari: Selasa</option>
+              <option value="Rabu">Hari: Rabu</option>
+              <option value="Kamis">Hari: Kamis</option>
+              <option value="Jumat">Hari: Jumat</option>
+              <option value="Sabtu">Hari: Sabtu</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-[#64748B]">
+              <svg viewBox="0 0 14 14" class="w-4 h-4 fill-current"><path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"></path></svg>
+            </div>
+          </div>
+
+          <!-- Filter Durasi -->
+          <div
+            data-pencil-name="Durasi"
+            class="box-border flex-1 h-[36px] relative bg-[#FFFFFF] border border-[#CBD5E1] rounded-[10px]"
+          >
+            <select
+              x-model.number="roomFilterDuration"
+              @change="hitungSlotRekomendasi()"
+              class="w-full h-full appearance-none bg-transparent pl-3 pr-8 text-[12px] font-semibold text-[#334155] focus:outline-none cursor-pointer"
+            >
+              <option :value="150">Minimal 150 Menit (3 SKS Praktikum)</option>
+              <option :value="100">Minimal 100 Menit (2 SKS)</option>
+              <option :value="50">Minimal 50 Menit (1 SKS)</option>
+              <option :value="0">Semua Durasi Bebas</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-[#64748B]">
+              <svg viewBox="0 0 14 14" class="w-4 h-4 fill-current"><path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Jenis Ruang -->
+        <div
+          data-pencil-name="Ruang"
+          class="box-border w-full h-[36px] relative bg-[#FFFFFF] border border-[#CBD5E1] rounded-[10px]"
+        >
+          <select
+            x-model="roomFilterType"
+            @change="hitungSlotRekomendasi()"
+            class="w-full h-full appearance-none bg-transparent pl-3 pr-8 text-[12px] font-semibold text-[#334155] focus:outline-none cursor-pointer"
+          >
+            <option value="lab">Khusus Laboratorium Komputer</option>
+            <option value="teori">Khusus Ruang Teori / Kelas</option>
+            <option value="all">Semua Ruangan</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-[#64748B]">
+            <svg viewBox="0 0 14 14" class="w-4 h-4 fill-current"><path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"></path></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daftar rekomendasi slot bebas -->
+      <div
+        data-pencil-name="Daftar rekomendasi slot bebas"
+        class="box-border w-full flex-1 overflow-y-auto max-h-[380px] p-[20px] flex flex-col gap-[12px]"
+      >
+        <div
+          data-pencil-name="Label slot ditemukan"
+          class="text-[11px] text-[#64748B] font-bold tracking-[0.7px] text-left uppercase whitespace-nowrap"
+        >
+          SLOT BEBAS KULIAH YANG DITEMUKAN (PEKAN <span x-text="pekanNum"></span>)
+        </div>
+
+        <!-- Loading State Skeleton -->
+        <template x-if="roomQuickLoading">
+          <div class="flex flex-col gap-3 w-full">
+            <template x-for="i in [1, 2, 3]" :key="i">
+              <div class="animate-pulse p-4 rounded-[12px] border border-slate-200 bg-white flex justify-between items-center gap-3">
+                <div class="space-y-2 flex-1">
+                  <div class="h-3.5 bg-slate-200 rounded w-1/3"></div>
+                  <div class="h-4 bg-slate-200 rounded w-1/2"></div>
+                  <div class="h-3 bg-slate-100 rounded w-1/4"></div>
+                  <div class="h-3 bg-slate-200 rounded w-2/3"></div>
+                </div>
+                <div class="h-9 w-28 bg-slate-200 rounded-[10px]"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Error State -->
+        <template x-if="!roomQuickLoading && roomQuickError">
+          <div class="p-4 rounded-[12px] bg-rose-50 border border-rose-200 text-rose-700 text-[12px] flex items-center justify-between">
+            <span x-text="roomQuickError"></span>
+            <button type="button" @click="hitungSlotRekomendasi()" class="underline font-bold hover:text-rose-900 cursor-pointer">Coba Lagi</button>
+          </div>
+        </template>
+
+        <!-- Empty State -->
+        <template x-if="!roomQuickLoading && !roomQuickError && roomAvailableSlots.length === 0">
+          <div class="py-10 px-4 text-center flex flex-col items-center justify-center text-slate-500">
+            <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">event_busy</span>
+            <p class="text-[13px] font-semibold text-slate-700">Tidak ada slot kosong yang memenuhi filter</p>
+            <p class="text-[11px] text-slate-400 mt-1 max-w-xs">Coba ganti filter hari atau kurangi batas durasi minimal untuk melihat opsi lainnya.</p>
+          </div>
+        </template>
+
+        <!-- Slot Cards -->
+        <template x-if="!roomQuickLoading && !roomQuickError && roomAvailableSlots.length > 0">
+          <div class="flex flex-col gap-[12px] w-full">
+            <template x-for="slot in roomAvailableSlots" :key="slot.id">
+              <div
+                data-pencil-name="Slot Kartu"
+                class="box-border w-full h-fit shrink-0 flex flex-row gap-[12px] p-[16px] justify-between items-center bg-[#FFFFFF] border border-[#E2E8F0] hover:border-[#CBD5E1] rounded-[12px] transition-all shadow-xs"
+              >
+                <div
+                  data-pencil-name="Waktu dan ruang"
+                  class="box-border flex-1 h-fit flex flex-col gap-[3px] justify-start items-start"
+                >
+                  <div
+                    class="text-[12px] text-[#0F172A] font-bold text-left whitespace-nowrap"
+                    x-text="slot.dateFormatted"
+                  ></div>
+                  <div
+                    class="text-[14px] text-[#1E293B] font-mono font-semibold text-left whitespace-nowrap"
+                    x-text="slot.timeRange"
+                  ></div>
+                  <div
+                    class="text-[12px] text-[#64748B] font-normal text-left whitespace-nowrap"
+                    x-text="slot.durationText"
+                  ></div>
+                  <div
+                    class="box-border w-full h-fit shrink-0 flex flex-row gap-[4px] justify-start items-start mt-0.5"
+                  >
+                    <svg
+                      data-pencil-name="Penanda lokasi"
+                      viewBox="0 0 14 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="box-border w-[14px] shrink-0 h-[14px] mt-0.5 text-[#64748B] fill-current"
+                    >
+                      <path
+                        d="M7 11.47754q1.64404-1.43213 2.59766-2.91211 0.95703-1.47998 0.95703-2.56006 0-1.59961-1.01514-2.64209-1.01172-1.04248-2.53955-1.04248-1.52783 0-2.54297 1.04248-1.01172 1.04248-1.01172 2.64209 0 1.08008 0.95362 2.56006 0.95703 1.47998 2.60107 2.91211z m0 0.51269q-0.13672 0-0.27344-0.04443-0.13672-0.04443-0.25293-0.14697-0.62207-0.5708-1.26123-1.27149-0.63916-0.7041-1.16211-1.45605-0.52295-0.75195-0.85791-1.53467-0.33154-0.78613-0.33154-1.53125 0-1.84912 1.20312-3.05224 1.20654-1.20313 2.93604-1.20313 1.72949 0 2.93262 1.20313 1.20654 1.20313 1.20654 3.05224 0 0.74512-0.33496 1.52442-0.33154 0.7793-0.84766 1.53808-0.51611 0.75537-1.15869 1.45264-0.63916 0.69726-1.26123 1.26806-0.10938 0.10254-0.25293 0.15381-0.14014 0.04785-0.28369 0.04785z m0.00342-5.14746q0.38965 0 0.66308-0.27685 0.27686-0.27686 0.27686-0.66651 0-0.38965-0.28027-0.66308-0.27686-0.27686-0.66651-0.27686-0.38965 0-0.6665 0.27686-0.27344 0.27686-0.27344 0.6665 0 0.38965 0.27686 0.66651 0.28027 0.27344 0.66992 0.27343z"
+                      ></path>
+                    </svg>
+                    <div
+                      class="text-[11.5px] leading-[16px] flex-1 text-[#475569] font-normal text-left"
+                      x-text="slot.roomFullLabel"
+                    ></div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="pilihSlotKosong(slot)"
+                  data-pencil-name="Gunakan slot"
+                  class="box-border w-fit shrink-0 h-[36px] flex flex-row gap-[5px] px-[12px] justify-center items-center bg-[#FFFFFF] border border-[#CBD5E1] hover:border-blue-400 hover:text-blue-600 rounded-[10px] transition-all cursor-pointer group"
+                >
+                  <div
+                    class="text-[16px] text-[#334155] group-hover:text-blue-600 font-semibold text-left whitespace-nowrap leading-none"
+                  >
+                    +
+                  </div>
+                  <div
+                    class="text-[11px] text-[#334155] group-hover:text-blue-600 font-semibold text-left whitespace-nowrap"
+                  >
+                    Gunakan Slot Ini
+                  </div>
+                </button>
+              </div>
+            </template>
           </div>
         </template>
       </div>
 
-      <div class="mt-4 pt-3 border-t border-border flex justify-end">
-        <button type="button" @click="showRoomQuickCheck = false" class="ui-button ui-button--outline text-[13px]">
-          Tutup
+      <!-- Catatan dan aksi tutup -->
+      <div
+        data-pencil-name="Catatan dan aksi tutup"
+        class="box-border w-full h-[67.5px] shrink-0 flex flex-row gap-[16px] p-[16px_20px] justify-between items-center bg-[#F8FAFC] border-t border-[#F1F5F9]"
+      >
+        <div
+          data-pencil-name="Catatan pengisian pengajuan"
+          class="text-[11px] leading-[15px] flex-1 text-[#64748B] font-normal text-left"
+        >
+          Memilih slot akan langsung mengisi formulir pengajuan kuliah pengganti.
+        </div>
+        <button
+          type="button"
+          @click="showRoomQuickCheck = false"
+          data-pencil-name="Tutup modal · tombol"
+          class="box-border w-fit shrink-0 h-[36px] flex flex-row gap-0 px-[16px] justify-center items-center bg-[#FFFFFF] border border-[#E2E8F0] hover:bg-slate-50 rounded-[10px] cursor-pointer transition-colors"
+        >
+          <div
+            data-pencil-name="Label tutup"
+            class="text-[12px] text-[#475569] font-semibold text-left whitespace-nowrap"
+          >
+            Tutup
+          </div>
         </button>
       </div>
     </div>

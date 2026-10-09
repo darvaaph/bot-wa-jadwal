@@ -542,6 +542,22 @@ function pjApp() {
       });
     },
 
+    get allWeekDaysWithSaturday() {
+      const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const dow = (now.getDay() + 6) % 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dow + this.weekOffset * 7);
+      return names.map((n, i) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        return { name: n, dateNum: d.getDate(), full: d, dateStr: `${y}-${m}-${dt}` };
+      });
+    },
+
     get weekLabel() {
       const days = this.weekDays;
       const startDay = days[0].dateNum;
@@ -689,6 +705,10 @@ function pjApp() {
     scheduleError: '',
     showRoomQuickCheck: false,
     showLabGuide: false,
+    roomFilterDay: 'all',
+    roomFilterDuration: 150,
+    roomFilterType: 'lab',
+    roomAvailableSlots: [],
     roomQuickDate: '',
     roomQuickStart: '08:40',
     roomQuickEnd: '10:20',
@@ -893,58 +913,181 @@ function pjApp() {
     hapusPolaFilter() { this.filtMatkul = ''; this.filtDosen = ''; this.filtRuang = ''; },
 
     bukaCekRuangan() {
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      this.roomQuickDate = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
       this.showRoomQuickCheck = true;
-      this.cariRuanganCepat();
+      this.hitungSlotRekomendasi();
     },
 
-    async cariRuanganCepat() {
+    async hitungSlotRekomendasi() {
       this.roomQuickLoading = true;
       this.roomQuickError = '';
       try {
-        const d = this.roomQuickDate || new Date().toISOString().slice(0, 10);
-        const startsAt = `${d}T${this.roomQuickStart || '08:40'}:00Z`;
-        const endsAt = `${d}T${this.roomQuickEnd || '10:20'}:00Z`;
-        const [rooms, candidates] = await Promise.all([
-          API.getMasterRooms('ACTIVE').catch(() => []),
-          API.getRoomAvailability(startsAt, endsAt).catch(() => [])
-        ]);
-        const candidateSet = new Set((candidates || []).map(c => String(c.id || c.room_id)));
-        
-        let list = (rooms || []).map(r => {
-          const isCandidate = candidateSet.size === 0 || candidateSet.has(String(r.id));
-          return {
-            id: r.id,
-            code: r.code,
-            name: r.name,
-            building: r.building || 'Gedung Kuliah',
-            capacity: r.capacity || 40,
-            available: isCandidate
-          };
-        });
+        const rooms = await API.getMasterRooms('ACTIVE').catch(() => []);
+        const roomMap = new Map();
+        rooms.forEach(r => roomMap.set(String(r.id), r));
 
-        if (this.roomQuickBuilding) {
-          list = list.filter(r => String(r.building).toLowerCase().includes(this.roomQuickBuilding.toLowerCase()));
+        const allDays = this.allWeekDaysWithSaturday;
+        const filterDay = this.roomFilterDay;
+        const targetDays = (filterDay === 'all')
+          ? allDays
+          : allDays.filter(d => d.name === filterDay);
+
+        const minDuration = Number(this.roomFilterDuration) || 0;
+        const filterType = this.roomFilterType || 'all';
+
+        // Definisi window jam perkuliahan potensial (start, end, durasi dlm menit)
+        const candidateWindows = [
+          // Sabtu pagi (umum untuk sesi pengganti)
+          { start: '09:00', end: '11:30', duration: 150, forSaturday: true },
+          // Siang (hari biasa & sabtu)
+          { start: '13:00', end: '15:30', duration: 150, forSaturday: true },
+          // Pagi hari biasa
+          { start: '08:40', end: '11:10', duration: 150, forSaturday: false },
+          // Slot 100 menit
+          { start: '08:40', end: '10:20', duration: 100, forSaturday: false },
+          { start: '13:00', end: '14:40', duration: 100, forSaturday: true },
+          // Slot sore hari biasa
+          { start: '15:30', end: '18:00', duration: 150, forSaturday: false }
+        ];
+
+        // Temukan window bebas kuliah untuk kelas pada targetDays
+        const freeWindowQueries = [];
+
+        for (const day of targetDays) {
+          const isSat = day.name === 'Sabtu';
+          const daySessions = this.daySessions(day.name);
+
+          const validWindows = candidateWindows.filter(w => {
+            if (isSat && !w.forSaturday) return false;
+            if (!isSat && w.start === '09:00') return false; // 09:00 diutamakan sabtu
+            if (minDuration > 0 && w.duration < minDuration) return false;
+            return true;
+          });
+
+          for (const win of validWindows) {
+            // Cek apakah jadwal kelas bentrok pada window ini
+            const isOccupied = daySessions.some(s => {
+              const sStart = (s.timeStart || '').slice(0, 5);
+              const sEnd = (s.timeEnd || '').slice(0, 5);
+              if (!sStart || !sEnd) return false;
+              return (sStart < win.end && sEnd > win.start);
+            });
+
+            if (isOccupied) continue;
+
+            const startsAt = `${day.dateStr}T${win.start}:00+07:00`;
+            const endsAt = `${day.dateStr}T${win.end}:00+07:00`;
+            freeWindowQueries.push({
+              day,
+              win,
+              startsAt,
+              endsAt,
+              candidates: []
+            });
+          }
         }
-        this.roomQuickResults = list;
-      } catch (e) {
-        this.roomQuickError = 'Gagal memuat ketersediaan ruangan.';
-        this.roomQuickResults = [];
+
+        // Jalankan pengecekan ketersediaan ruangan secara paralel
+        await Promise.all(freeWindowQueries.map(async (q) => {
+          try {
+            const cand = await API.getRoomAvailability(q.startsAt, q.endsAt);
+            if (Array.isArray(cand) && cand.length > 0) {
+              q.candidates = cand;
+            } else {
+              q.candidates = rooms;
+            }
+          } catch {
+            q.candidates = rooms;
+          }
+        }));
+
+        const slots = [];
+
+        for (const q of freeWindowQueries) {
+          const day = q.day;
+          const win = q.win;
+
+          // Filter ruangan sesuai preferensi ruang (lab / teori / all)
+          const matchedRooms = q.candidates.filter(r => {
+            const full = roomMap.get(String(r.id)) || r;
+            const isLab = String(r.room_type || '').toUpperCase() === 'LAB' ||
+                          String(full.name || '').toLowerCase().includes('lab') ||
+                          String(full.code || '').toLowerCase().includes('lab');
+            if (filterType === 'lab') return isLab;
+            if (filterType === 'teori') return !isLab;
+            return true;
+          });
+
+          if (matchedRooms.length === 0) continue;
+
+          // Ambil maksimal 2 ruangan representatif per window bebas
+          const chosenRooms = matchedRooms.slice(0, 2);
+          for (const r of chosenRooms) {
+            const full = roomMap.get(String(r.id)) || r;
+            const building = full.building || 'Gedung Kuliah';
+            const capacity = full.capacity || r.capacity || 32;
+            const dateFormatted = day.full.toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              timeZone: 'Asia/Jakarta'
+            });
+
+            slots.push({
+              id: `${day.dateStr}-${win.start}-${r.id}`,
+              dateStr: day.dateStr,
+              dateFormatted: dateFormatted,
+              dayName: day.name,
+              timeRange: `${win.start} - ${win.end} WIB`,
+              startTime: win.start,
+              endTime: win.end,
+              durationText: `${win.duration} Menit Bebas Kuliah`,
+              durationMinutes: win.duration,
+              roomId: r.id,
+              roomCode: r.code,
+              roomName: full.name || r.name || r.code,
+              roomBuilding: building,
+              roomCapacity: capacity,
+              roomFullLabel: `${full.name || r.name || r.code} (${building ? building + ' · ' : ''}Kapasitas ${capacity} Kursi)`
+            });
+          }
+        }
+
+        // Urutkan slot secara kronologis
+        slots.sort((a, b) => a.dateStr.localeCompare(b.dateStr) || a.startTime.localeCompare(b.startTime));
+
+        this.roomAvailableSlots = slots;
+      } catch (err) {
+        console.error('Error menghitung slot rekomendasi:', err);
+        this.roomQuickError = 'Gagal memuat rekomendasi slot kosong.';
+        this.roomAvailableSlots = [];
       } finally {
         this.roomQuickLoading = false;
       }
     },
 
+    pilihSlotKosong(slot) {
+      this.showRoomQuickCheck = false;
+      this.bukaModalPengganti({
+        roomId: slot.roomId,
+        date: slot.dateStr,
+        start: slot.startTime,
+        end: slot.endTime
+      });
+    },
+
     pilihRuanganCepat(r) {
       this.showRoomQuickCheck = false;
       this.bukaModalPengganti({
-        roomId: r.id,
-        date: this.roomQuickDate,
-        start: this.roomQuickStart,
-        end: this.roomQuickEnd
+        roomId: r.id || r.roomId,
+        date: r.dateStr || this.roomQuickDate,
+        start: r.startTime || this.roomQuickStart,
+        end: r.endTime || this.roomQuickEnd
       });
+    },
+
+    async cariRuanganCepat() {
+      return this.hitungSlotRekomendasi();
     },
 
     bukaModalPengganti(context) {
@@ -979,8 +1122,8 @@ function pjApp() {
 
         isLocked = true;
         display = `${s.hari || ''}, ${(d && d.dateNum) || ''} (${start} – ${end})`;
-      } else if (context && context.roomId) {
-        roomId = String(context.roomId);
+      } else if (context && (context.roomId || context.date)) {
+        if (context.roomId) roomId = String(context.roomId);
         if (context.date) origDate = context.date;
         if (context.start) start = context.start;
         if (context.end) end = context.end;
@@ -992,7 +1135,7 @@ function pjApp() {
         originKey: patId ? `${patId}|${origDate}|${start}|${end}` : '',
         originPatternId: patId,
         originDate: origDate,
-        newDate: origDate || '',
+        newDate: (context && context.date) ? context.date : (origDate || ''),
         startTime: start || '08:40',
         endTime: end || '11:10',
         roomId: roomId,
@@ -1006,9 +1149,21 @@ function pjApp() {
         this.penggantiForm.originKey = first.key;
         this.penggantiForm.originPatternId = String(first.patternId);
         this.penggantiForm.originDate = first.date;
-        if (!this.penggantiForm.newDate) this.penggantiForm.newDate = first.date;
-        if (first.start) this.penggantiForm.startTime = first.start;
-        if (first.end) this.penggantiForm.endTime = first.end;
+        if (context && context.date) {
+          this.penggantiForm.newDate = context.date;
+        } else if (!this.penggantiForm.newDate) {
+          this.penggantiForm.newDate = first.date;
+        }
+        if (start) {
+          this.penggantiForm.startTime = start;
+        } else if (first.start) {
+          this.penggantiForm.startTime = first.start;
+        }
+        if (end) {
+          this.penggantiForm.endTime = end;
+        } else if (first.end) {
+          this.penggantiForm.endTime = first.end;
+        }
       }
 
       this.showPenggantiModal = true;
