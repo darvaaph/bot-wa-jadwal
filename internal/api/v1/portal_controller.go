@@ -1307,6 +1307,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 
 		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink); err == nil {
 			lecturers := c.getOfferingLecturers(offID)
+			pj := c.getOfferingPJ(offID)
 			items = append(items, map[string]any{
 				"id":            fmt.Sprintf("pat_%d", patternID),
 				"kind":          "REGULER",
@@ -1318,6 +1319,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 				"room":          roomCode,
 				"meeting_link":  meetingLink,
 				"lecturers":     lecturers,
+				"pj":            pj,
 				"source": map[string]any{
 					"pattern_id": patternID,
 				},
@@ -1329,7 +1331,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
 		       strftime('%H:%M', te.starts_at) as start_time,
 		       strftime('%H:%M', te.ends_at) as end_time,
-		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, '')
+		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, ''),
+		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -1348,8 +1351,9 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 			var eventID, offID int64
 			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 			var originPatID sql.NullInt64
+			var originOccDate, reason string
 
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink); err == nil {
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason); err == nil {
 				kindMap := map[string]string{
 					"REPLACEMENT":       "PENGGANTI",
 					"EXTRA":             "TAMBAHAN",
@@ -1362,18 +1366,22 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 				}
 
 				lecturers := c.getOfferingLecturers(offID)
+				pj := c.getOfferingPJ(offID)
 
 				items = append(items, map[string]any{
-					"id":            fmt.Sprintf("ev_%d", eventID),
-					"kind":          kindLabel,
-					"offering":      offDisplay,
-					"title":         courseName,
-					"activity_type": actType,
-					"starts_at":     startTime,
-					"ends_at":       endTime,
-					"room":          roomCode,
-					"meeting_link":  meetingLink,
-					"lecturers":     lecturers,
+					"id":                     fmt.Sprintf("ev_%d", eventID),
+					"kind":                   kindLabel,
+					"offering":               offDisplay,
+					"title":                  courseName,
+					"activity_type":          actType,
+					"starts_at":              startTime,
+					"ends_at":                endTime,
+					"room":                   roomCode,
+					"meeting_link":           meetingLink,
+					"lecturers":              lecturers,
+					"pj":                     pj,
+					"origin_occurrence_date": originOccDate,
+					"reason":                 reason,
 					"source": map[string]any{
 						"event_id":   eventID,
 						"pattern_id": originPatID.Int64,
@@ -1384,6 +1392,24 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 	}
 
 	return items, nil
+}
+
+func (c *PortalController) getOfferingPJ(offeringID int64) string {
+	if c.db == nil {
+		return ""
+	}
+	var name string
+	_ = c.db.QueryRow(`
+		SELECT u.display_name
+		FROM role_assignments ra
+		JOIN users u ON ra.user_id = u.id
+		WHERE ra.role = 'PJ'
+		  AND ra.course_offering_id = ?
+		  AND ra.status = 'ACTIVE'
+		  AND (ra.valid_until IS NULL OR ra.valid_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+		LIMIT 1;
+	`, offeringID).Scan(&name)
+	return name
 }
 
 func (c *PortalController) getOfferingLecturers(offeringID int64) []string {

@@ -24,18 +24,25 @@ function portalApp() {
     ...AsteriskShell.behavior('portal'),
 
     navSections: [
-      { title: 'PORTAL KELAS', items: [
-        { id: 'dashboard', label: 'Ringkasan', img: '/assets/icons/home.svg' }
-      ] },
-      { title: 'AKADEMIK', items: [
-        { id: 'jadwal', label: 'Jadwal', img: '/assets/icons/calendar.svg' },
-        { id: 'tugas', label: 'Tugas', img: '/assets/icons/tasks.svg', active: ['tugas', 'detail-tugas'] },
-        { id: 'courses', label: 'Mata Kuliah', img: '/assets/icons/folder.svg', active: ['courses', 'course-detail'] },
-        { id: 'materi', label: 'Materi', img: '/assets/icons/folder.svg' },
-        { id: 'perubahan', label: 'Perubahan', img: '/assets/icons/activity.svg' },
-        { id: 'arsip', label: 'Arsip', img: '/assets/icons/backup.svg' }
+      { title: '', items: [
+        { id: 'dashboard', label: 'Beranda', icon: 'home' },
+        { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
+        { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
+        { id: 'materi', label: 'Materi', icon: 'folder' }
       ] }
     ],
+
+    portalNavIcon(item) {
+      const key = item && item.icon;
+      const open = '<svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">';
+      const paths = {
+        'home': '<path d="M3.5 11.08447l2.15332 0 0-2.96338q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l1.75 0q0.20166 0 0.33496 0.13672 0.13672 0.13672 0.13672 0.33496l0 2.96338 2.15332 0 0-5.07226q0-0.08887-0.04102-0.16065-0.0376-0.0752-0.10595-0.12988l-3.14112-2.36865q-0.08887-0.07861-0.21191-0.07862-0.12305 0-0.21191 0.07862l-3.14112 2.36865q-0.06836 0.05469-0.10937 0.12988-0.0376 0.07178-0.0376 0.16065l0 5.07226z m-0.58447 0l0-5.07226q0-0.22217 0.09912-0.42041 0.10254-0.20166 0.28027-0.33155l3.14112-2.3789q0.24609-0.18799 0.56054-0.18799 0.31787 0 0.56738 0.18799l3.14112 2.3789q0.17773 0.12988 0.27685 0.33155 0.10254 0.19824 0.10254 0.42041l0 5.07226q0 0.23242-0.17431 0.40674-0.17432 0.17432-0.41016 0.17432l-2.26611 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-2.95996-1.52442 0 0 2.95996q0 0.20166-0.13672 0.33838-0.1333 0.1333-0.33496 0.1333l-2.26611 0q-0.23584 0-0.41016-0.17432-0.17432-0.17432-0.17431-0.40674z"/>',
+        'calendar_month': '<path d="M3.27441 12.25q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-7.44775q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.66992-0.27002l1.03223 0 0-0.98438q0-0.13672 0.08887-0.22558 0.08887-0.08887 0.22558-0.08887 0.13672 0 0.22559 0.08887 0.08887 0.08887 0.08887 0.22558l0 0.98438 4.17334 0 0-1.0083q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 1.0083 1.03223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 7.44775q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.66992 0.27002l-7.45118 0z m0-0.58447l7.45118 0q0.1333 0 0.24609-0.10938 0.11279-0.11279 0.11279-0.24951l0-5.11328-8.16894 0 0 5.11328q0 0.13672 0.11279 0.24951 0.11279 0.10938 0.24609 0.10938z m-0.35888-6.05664l8.16894 0 0-1.75q0-0.1333-0.11279-0.2461-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.2461l0 1.75z m0 0l0-1.75q0-0.1333 0-0.2461 0-0.11279 0-0.11279 0 0 0 0.11279 0 0.11279 0 0.2461l0 1.75z m4.08447 2.64892q-0.18115 0-0.31445-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.1333-0.1333 0.31445-0.1333 0.18115 0 0.31445 0.1333 0.1333 0.1333 0.1333 0.31445 0 0.18115-0.1333 0.31787-0.1333 0.1333-0.31445 0.1333z m-2.33447 0q-0.18115 0-0.31446-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.1333-0.1333 0.31446-0.1333 0.18115 0 0.31445 0.1333 0.13672 0.1333 0.1333 0.31445 0 0.18115-0.13672 0.31787-0.1333 0.1333-0.31445 0.1333z m4.66894 0q-0.18115 0-0.31787-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.13672-0.1333 0.31787-0.1333 0.18115 0 0.31446 0.1333 0.1333 0.1333 0.1333 0.31445 0 0.18115-0.1333 0.31787-0.1333 0.1333-0.31446 0.1333z m-2.33447 2.24219q-0.18115 0-0.31445-0.1333-0.1333-0.1333-0.31445-0.1333-0.18115 0-0.31446 0.1333-0.1333 0.13672-0.31445 0.13672 0.18115 0 0.31445 0.13672 0.1333 0.1333 0.31446 0 0.18115-0.1333 0.31445-0.1333 0.31445-0.1333z m-2.33447 0q-0.18115 0-0.31446-0.1333-0.1333-0.1333-0.31445 0-0.18115 0.1333-0.31446 0.1333-0.13672 0.31446-0.13672 0.18115 0 0.31445 0.13672 0.13672 0.1333 0.13672 0.31446 0 0.18115-0.13672 0.31445-0.1333 0.1333-0.31445 0.1333z m4.66894 0q-0.18115 0-0.31787-0.1333-0.1333-0.1333-0.31445 0-0.18115 0.1333-0.31446 0.13672-0.13672 0.31787-0.13672 0.18115 0 0.31446 0.1333 0.1333 0.1333 0.31446 0 0.18115-0.1333 0.31445-0.1333 0.1333-0.31446 0.1333z"/>',
+        'assignment': '<path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.66308 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0z m0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279z m1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203z m0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203z m2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z m-4.08447 8.49365q0 0 0-0.11279 0-0.11279 0-0.24609l0-7.45118q0-0.1333 0-0.24609 0-0.11279 0-0.11279 0 0 0 0.11279 0 0.11279 0 0.24609l0 7.45118q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>',
+        'folder': '<path d="M2.69336 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l2.51221 0q0.18799 0 0.36572 0.07861 0.17773 0.0752 0.3042 0.20166l0.88867 0.88867 4.54248 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.66992l0 5.1167q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-8.61328 0z m0-0.58447l8.61328 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.1167q0-0.15723-0.10254-0.25634-0.09912-0.10254-0.25635-0.10254l-4.77832 0-1.06299-1.06299q-0.05811-0.05811-0.11963-0.07861-0.06152-0.02393-0.12988-0.02393l-2.52246 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 6.28222q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m-0.35889 0q0 0 0-0.09912 0-0.10254 0-0.25977l0-6.28222q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.02393 0 0.02051 0 0.07861l0 1.06299q0 0 0 0.10254 0 0.09912 0 0.25634l0 5.1167q0 0.15723 0 0.25977 0 0.09912 0 0.09912z"/>'
+      };
+      return open + (paths[key] || '') + '</svg>';
+    },
 
     todayName: 'Senin',
     todayFull: '',
@@ -45,14 +52,23 @@ function portalApp() {
     selectedSemester: '3',
     selectedAbjad: 'A',
     classList: [],
+    classModalOpen: false,
     comboboxOpen: false,
     classQuery: '',
     classFilterProdi: 'ALL',
-    gateStep: 'select',
+    gateStep: 'pin',
     checkingAccess: false,
     fullSchedule: [],
     jadwalEfektif: [],
     jadwalCacheHariIni: [],
+    jadwalPekan: { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] },
+    weekOffset: 0,
+    modeTampilan: 'kalender',
+    mobileJadwalMode: 'per_hari',
+    detailModalOpen: false,
+    detailSesi: null,
+    pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
+    pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
     jadwalError: '',
     tasks: [],
@@ -81,15 +97,15 @@ function portalApp() {
       return this.jadwalEfektifHariIni;
     },
 
-    // Tanggal ISO tiap hari Senin–Jumat pada pekan berjalan (zona WIB).
+    // Tanggal ISO tiap hari Senin–Minggu pada pekan terpilih (berdasarkan weekOffset, zona WIB).
     get tanggalPekan() {
       const out = {};
       try {
-        const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
         const nowWib = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
         const dow = (nowWib.getDay() + 6) % 7;
         const monday = new Date(nowWib);
-        monday.setDate(nowWib.getDate() - dow);
+        monday.setDate(nowWib.getDate() - dow + (this.weekOffset * 7));
         names.forEach((n, i) => {
           const d = new Date(monday);
           d.setDate(monday.getDate() + i);
@@ -98,6 +114,116 @@ function portalApp() {
         });
       } catch (e) {}
       return out;
+    },
+
+    get tanggalPekanFormatted() {
+      const out = {};
+      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+      const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+      names.forEach(n => {
+        const iso = this.tanggalPekan[n];
+        if (!iso) { out[n] = ''; return; }
+        const parts = iso.split('-');
+        const day = parseInt(parts[2], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        out[n] = `${day} ${months[m] || ''}`;
+      });
+      return out;
+    },
+
+    get pekanNum() {
+      try {
+        if (this.semesterList && this.semesterList.length) {
+          const active = this.semesterList.find(s => String(s.status || '').toUpperCase() === 'ACTIVE');
+          if (active && active.starts_on) {
+            const start = new Date(active.starts_on);
+            const now = new Date();
+            const diffDays = Math.floor((now - start) / (24 * 3600 * 1000));
+            const w = Math.floor(diffDays / 7) + 1;
+            if (w >= 1 && w <= 20) return w;
+          }
+        }
+      } catch (e) {}
+      return 6; // fallback sesuai Figma: Pekan Ke-6
+    },
+
+    get pekanAktifNum() {
+      return Math.max(1, this.pekanNum + (this.weekOffset || 0));
+    },
+
+    get rentangPekanLabel() {
+      try {
+        const sen = this.tanggalPekan['Senin'];
+        const min = this.tanggalPekan['Minggu'];
+        if (!sen || !min) return 'Pekan Ini';
+        const d1 = new Date(sen + 'T00:00:00+07:00');
+        const d2 = new Date(min + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        if (d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) {
+          return `${d1.getDate()} – ${d2.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()}`;
+        } else if (d1.getFullYear() === d2.getFullYear()) {
+          return `${d1.getDate()} ${mNames[d1.getMonth()]} – ${d2.getDate()} ${mNames[d2.getMonth()]} ${d2.getFullYear()}`;
+        }
+        return `${d1.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()} – ${d2.getDate()} ${mNames[d2.getMonth()]} ${d2.getFullYear()}`;
+      } catch (e) {
+        return 'Pekan Ini';
+      }
+    },
+
+    get rentangPekanSingkatLabel() {
+      try {
+        const sen = this.tanggalPekan['Senin'];
+        const min = this.tanggalPekan['Minggu'];
+        if (!sen || !min) return `Pekan ${this.pekanAktifNum}`;
+        const d1 = new Date(sen + 'T00:00:00+07:00');
+        const d2 = new Date(min + 'T00:00:00+07:00');
+        const mShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        if (d1.getMonth() === d2.getMonth()) {
+          return `${d1.getDate()} - ${d2.getDate()} ${mShort[d1.getMonth()]} (Pekan ${this.pekanAktifNum})`;
+        }
+        return `${d1.getDate()} ${mShort[d1.getMonth()]} - ${d2.getDate()} ${mShort[d2.getMonth()]} (Pekan ${this.pekanAktifNum})`;
+      } catch (e) {
+        return `Pekan ${this.pekanAktifNum}`;
+      }
+    },
+
+    get tanggalHariTerpilihFormat() {
+      try {
+        const iso = this.tanggalPekan[this.hari];
+        if (!iso) return this.hari;
+        const d = new Date(iso + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        return `${this.hari}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
+      } catch (e) {
+        return this.hari;
+      }
+    },
+
+    get activeTasksCount() {
+      return (this.tasks || []).length || 2;
+    },
+
+    get hasSaturdayClass() {
+      return Array.isArray(this.jadwalPekan['Sabtu']) && this.jadwalPekan['Sabtu'].length > 0;
+    },
+
+    get pekanHariListAgenda() {
+      if (this.hasSaturdayClass) {
+        return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      }
+      return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+    },
+
+    formatTanggalLengkap(h) {
+      try {
+        const iso = this.tanggalPekan[h];
+        if (!iso) return h;
+        const d = new Date(iso + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        return `${h}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
+      } catch (e) {
+        return h;
+      }
     },
 
     get jadwalEfektifHariIni() {
@@ -205,43 +331,7 @@ function portalApp() {
       await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
       await AsteriskShell.mount('portal', ['dashboard','tugas','jadwal','materi','courses','perubahan','arsip']);
 
-      if (!this.unlocked) {
-        return;
-      }
-
-      const slug = this.selectedClassSlug;
-      const token = localStorage.getItem('portal_class') === slug ? localStorage.getItem('portal_token') : '';
-      try {
-        const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/summary', {
-          credentials: 'same-origin',
-          headers: token ? { 'X-Portal-Token': token } : {}
-        });
-        if (!res.ok) {
-          localStorage.removeItem('portal_pin_ok');
-          this.unlocked = false;
-          this.gateStep = res.status === 401 ? 'pin' : 'select';
-          return;
-        }
-      } catch (err) {
-        this.unlocked = false;
-        this.showPageError('offline');
-        return;
-      }
-
-      await this.ensureDashboardPartials();
-      this.updateClock();
-      const wd = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      const today = wd[new Date().getDay()];
-      this.hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'].includes(today) ? today : 'Senin';
-      await Promise.all([
-        this.loadSchedule(),
-        this.loadJadwalEfektif(),
-        this.loadTugasPortal(),
-        this.loadMateri(),
-        this.loadPerubahan(),
-        this.loadSemester()
-      ]);
-      this.dashboardLoading = false;
+      await this.masukKelas();
     },
 
     async loadPartials(slots) {
@@ -308,7 +398,7 @@ function portalApp() {
           localStorage.setItem('portal_pin_ok', '1');
           localStorage.setItem('portal_class', slug);
           this.unlocked = true;
-          this.gateStep = 'select';
+          this.gateStep = 'pin';
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
@@ -340,9 +430,19 @@ function portalApp() {
     },
 
     kembaliKePilihKelas() {
-      this.gateStep = 'select';
+      this.classModalOpen = true;
+    },
+
+    async pilihKelasModal(cls) {
+      this.selectedClass = cls;
       this.pin = '';
       this.pinError = '';
+      this.classModalOpen = false;
+      const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
+      try {
+        window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
+      } catch (e) {}
+      await this.masukKelas();
     },
 
     async bukaPortal() {
@@ -365,7 +465,7 @@ function portalApp() {
         localStorage.setItem('portal_class', slug);
         localStorage.setItem('portal_pin_at', String(Date.now()));
         this.unlocked = true;
-        this.gateStep = 'select';
+        this.gateStep = 'pin';
         this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
 
         await this.ensureDashboardPartials();
@@ -373,7 +473,11 @@ function portalApp() {
         await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
-        this.pinError = err.message || 'Kode akses tidak valid. Periksa kembali kode dari grup kelas.';
+        if (err && err.code === 'RATE_LIMITED') {
+          this.pinError = 'Terlalu banyak percobaan salah. Silakan tunggu 15 menit.';
+        } else {
+          this.pinError = 'Kode akses salah atau telah diperbarui oleh Ketua Murid. Silakan minta kode terbaru di grup kelas.';
+        }
         this.showToast(this.pinError);
       } finally {
         this.loadingPin = false;
@@ -385,7 +489,7 @@ function portalApp() {
       localStorage.removeItem('portal_token');
       localStorage.removeItem('portal_class');
       this.unlocked = false;
-      this.gateStep = 'select';
+      this.gateStep = 'pin';
       this.pin = '';
       this.pinError = '';
       this.view = 'dashboard';
@@ -409,7 +513,7 @@ function portalApp() {
       if (!kelas || kelas === this.selectedClass) return;
       this.selectedClass = kelas;
       this.syncSegmentsFromClass();
-      this.gateStep = 'select';
+      this.gateStep = 'pin';
       this.pin = '';
       this.pinError = '';
 
@@ -613,11 +717,14 @@ function portalApp() {
           this.classList = data.classes;
         }
         if (slugFromUrl) {
-          this.selectedClass = decodeURIComponent(slugFromUrl);
+          const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === slugFromUrl.toLowerCase());
+          this.selectedClass = match || decodeURIComponent(slugFromUrl);
         } else if (data && data.default_class) {
           this.selectedClass = data.default_class;
         }
       } catch (e) { /* fallback */ }
+
+      this.gateStep = 'pin';
 
       if (!this.selectedClass) {
         try {
@@ -645,13 +752,70 @@ function portalApp() {
         id: it.id || `ef-${i}`,
         hari: hariLabel || '',
         kind: it.kind || 'REGULER',
+        activityType: String(it.activity_type || 'THEORY').toUpperCase(),
         matkul: it.offering || it.title || 'Mata Kuliah',
         dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
         ruang: it.room || '',
         link: it.meeting_link || '',
         timeStart: (it.starts_at || '').slice(0, 5),
-        timeEnd: (it.ends_at || '').slice(0, 5)
+        timeEnd: (it.ends_at || '').slice(0, 5),
+        pj: it.pj || '',
+        originDate: it.origin_occurrence_date || '',
+        reason: it.reason || ''
       }));
+    },
+
+    fmtAsalPengganti(isoDate, reason) {
+      if (isoDate) {
+        try {
+          const d = new Date(isoDate + 'T00:00:00+07:00');
+          const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+          const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+        } catch (e) {}
+      }
+      if (reason) return reason;
+      return 'Kuliah pengganti resmi';
+    },
+
+    async prevWeek() {
+      this.weekOffset--;
+      await this.loadJadwalPekan();
+    },
+
+    async nextWeek() {
+      this.weekOffset++;
+      await this.loadJadwalPekan();
+    },
+
+    async mingguIni() {
+      this.weekOffset = 0;
+      this.hari = this.todayName;
+      await this.loadJadwalPekan();
+    },
+
+    lihatJadwalBesok() {
+      const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const curIdx = days.indexOf(this.hari);
+      const nextIdx = (curIdx + 1) % days.length;
+      if (nextIdx === 0) {
+        this.weekOffset++;
+        this.hari = 'Senin';
+        this.loadJadwalPekan();
+      } else {
+        this.pilihHari(days[nextIdx]);
+      }
+    },
+
+    bukaDetailSesi(s) {
+      if (!s) return;
+      this.detailSesi = s;
+      this.detailModalOpen = true;
+    },
+
+    tutupDetailSesi() {
+      this.detailModalOpen = false;
+      this.detailSesi = null;
     },
 
     async loadSchedule() {
@@ -668,49 +832,57 @@ function portalApp() {
       } catch (e) { this.fullSchedule = []; }
     },
 
-    // Jadwal efektif (pola + perubahan terbit) untuk satu hari.
-    async loadJadwalEfektif() {
-      this.jadwalLoading = true; this.jadwalError = '';
+    // Jadwal efektif (pola + perubahan terbit) untuk seluruh pekan.
+    async loadJadwalPekan() {
+      this.jadwalLoading = true;
+      this.jadwalError = '';
       const slug = this.selectedClassSlug;
-      const tanggal = (this.tanggalPekan && this.tanggalPekan[this.hari]) || '';
+      const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       try {
-        const data = await API.getPortalSchedule(slug, tanggal);
-        if (data && Array.isArray(data.items)) {
-          this.jadwalEfektif = this.normalisasiEfektif(data.items, this.hari);
-        } else {
-          this.jadwalEfektif = this.fullSchedule.filter(s => s.hari === this.hari).map(s => ({
-            id: s.id, hari: s.hari, kind: 'REGULER', matkul: s.matkul,
-            dosen: s.dosen || '', ruang: s.ruang || '',
-            timeStart: s.timeStart || '', timeEnd: s.timeEnd || ''
-          }));
+        const results = await Promise.all(days.map(d => {
+          const tgl = this.tanggalPekan[d];
+          return API.getPortalSchedule(slug, tgl);
+        }));
+
+        let totalV1Items = results.reduce((sum, r) => sum + ((r && Array.isArray(r.items)) ? r.items.length : 0), 0);
+        if (totalV1Items === 0 && (!this.fullSchedule || this.fullSchedule.length === 0)) {
+          await this.loadSchedule();
+        }
+        const useLegacyFallback = totalV1Items === 0 && (this.fullSchedule || []).length > 0;
+
+        const newPekan = {};
+        days.forEach((d, idx) => {
+          const res = results[idx];
+          if (!useLegacyFallback && res && Array.isArray(res.items)) {
+            newPekan[d] = this.normalisasiEfektif(res.items, d);
+          } else {
+            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => ({
+              id: s.id, hari: s.hari, kind: 'REGULER', activityType: 'THEORY',
+              matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
+              timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
+              link: '', pj: '', originDate: '', reason: ''
+            }));
+          }
+        });
+        this.jadwalPekan = newPekan;
+        this.jadwalEfektif = this.jadwalPekan[this.hari] || [];
+        if (this.weekOffset === 0) {
+          this.jadwalCacheHariIni = this.jadwalPekan[this.todayName] || [];
         }
       } catch (e) {
-        this.jadwalEfektif = [];
         this.jadwalError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.jadwalLoading = false;
       }
-      // Cache khusus hari ini untuk dashboard.
-      try {
-        const tglHariIni = (this.tanggalPekan && this.tanggalPekan[this.todayName]) || '';
-        if (this.hari === this.todayName) {
-          this.jadwalCacheHariIni = this.jadwalEfektif.slice();
-        } else {
-          const data = await API.getPortalSchedule(slug, tglHariIni);
-          if (data && Array.isArray(data.items)) {
-            this.jadwalCacheHariIni = this.normalisasiEfektif(data.items, this.todayName);
-          } else {
-            this.jadwalCacheHariIni = this.fullSchedule.filter(s => s.hari === this.todayName);
-          }
-        }
-      } catch (e) {
-        this.jadwalCacheHariIni = this.fullSchedule.filter(s => s.hari === this.todayName);
-      }
+    },
+
+    async loadJadwalEfektif() {
+      await this.loadJadwalPekan();
     },
 
     pilihHari(d) {
       this.hari = d;
-      this.loadJadwalEfektif();
+      this.jadwalEfektif = this.jadwalPekan[d] || [];
     },
 
     async loadTugasPortal() {
