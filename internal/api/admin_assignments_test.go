@@ -294,6 +294,30 @@ func TestV1Admin_SuspendAssignment(t *testing.T) {
 	}
 }
 
+func TestV1Admin_ActivateAssignment(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// 1. Suspend PJ id=2
+	w := helperDo(t, s, "POST", "/api/v1/admin/assignments/2/suspend", adminToken, map[string]string{"reason": "Penangguhan sementara"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("suspend expected 200, got %d", w.Code)
+	}
+
+	// 2. Activate kembali PJ id=2 -> 200 ACTIVE
+	w = helperDo(t, s, "POST", "/api/v1/admin/assignments/2/activate", adminToken, map[string]string{"reason": "Pemulihan akses PJ"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("activate expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	var status string
+	_ = db.QueryRow(`SELECT status FROM role_assignments WHERE id = 2;`).Scan(&status)
+	if status != "ACTIVE" {
+		t.Fatalf("status DB expected ACTIVE, got %s", status)
+	}
+}
+
 func TestV1Admin_AssignmentSelfAndLastKMGuard(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()

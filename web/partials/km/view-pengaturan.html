@@ -1,163 +1,265 @@
-<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas -->
-<section x-show="view === 'pengaturan'" x-cloak>
-  <h1 class="font-display text-[26px] md:text-[30px] font-bold text-ink">Pengaturan Kelas</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Kelas <span class="font-mono" x-text="selectedClass">-</span> · dibaca dari server</p>
-  <nav class="ui-card mt-5 p-4" aria-label="Pengelolaan kelas lainnya">
-    <p class="text-[13px] font-semibold text-deep-ink">Pengelolaan lainnya</p>
-    <div class="mt-3 flex flex-wrap gap-2">
-      <button type="button" @click="go('semester')" class="ui-button ui-button--outline">Semester</button>
-      <button type="button" @click="go('usulan')" class="ui-button ui-button--outline">Usulan Master</button>
-      <button type="button" @click="go('monitoring')" class="ui-button ui-button--outline">Monitoring</button>
-      <button type="button" @click="go('notifikasi')" class="ui-button ui-button--outline">Notifikasi</button>
-    </div>
-  </nav>
-  <div x-show="settingsLoading" class="mt-5 py-4 text-center text-[13px] text-slate-400">Memuat pengaturan...</div>
-  <div x-show="settingsError" class="mt-5 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-    <span x-text="settingsError">-</span>
-    <button type="button" @click="loadPengaturanKelas()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+<!-- partials/km/view-pengaturan.html — KM Pengaturan Kelas & Kanal WhatsApp -->
+<section x-show="view === 'pengaturan'" x-cloak class="w-full flex flex-col gap-4">
+  <!-- Header Pengaturan Kelas -->
+  <div class="w-full flex flex-col gap-1">
+    <h1 class="text-[26px] font-[Poppins,system-ui,sans-serif] font-bold text-[#0F172A] leading-tight">Pengaturan Kelas</h1>
+    <p class="text-[13px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+      Kelas <span class="font-semibold text-[#1E293B]" x-text="selectedClass">-</span> · Konfigurasi pengingat, akses portal, dan kanal WhatsApp.
+    </p>
   </div>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 items-start">
-    <div class="ui-card p-5">
-      <h2 class="text-[18px] font-semibold">Waktu pengingat & zona</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5">Berlaku untuk pengiriman berikutnya.</p>
-      <div x-show="pengaturanFormError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="pengaturanFormError">-</div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Ringkasan pagi</label>
-          <input aria-label="Ringkasan pagi" type="time" x-model="pengaturan.pagi" class="ui-field w-full text-[14px] font-mono" />
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Pengingat sore</label>
-          <input aria-label="Pengingat sore" type="time" x-model="pengaturan.sore" class="ui-field w-full text-[14px] font-mono" />
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Pengganti (menit)</label>
-          <input aria-label="Pengganti (menit)" type="number" min="0" max="1440" x-model.number="pengaturan.gantiMenit" class="ui-field w-full text-[14px] font-mono" />
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium mb-1">Zona waktu</label>
-          <select aria-label="Zona waktu" x-model="pengaturan.zona" class="ui-field w-full text-[14px] font-mono">
-            <option>Asia/Jakarta</option><option>Asia/Makassar</option><option>Asia/Jayapura</option>
-          </select>
-        </div>
-      </div>
-      <button type="button" @click="simpanPengaturan()" :disabled="pengaturanSaving" class="ui-button ui-button--primary mt-4 text-[14px] font-semibold" x-text="pengaturanSaving ? 'Menyimpan...' : 'Simpan pengaturan'">Simpan pengaturan</button>
+
+  <!-- Loading State -->
+  <div x-show="settingsLoading" class="py-6 text-center text-[13px] text-slate-500 bg-white rounded-[16px] border border-[#E2E8F0]">
+    <div class="inline-flex items-center gap-2">
+      <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+      <span>Memuat pengaturan...</span>
     </div>
-    <div class="ui-card p-5">
-      <h2 class="text-[18px] font-semibold">Akses portal kelas</h2>
-      <p class="text-[12px] text-slate-500">Mode <span class="font-mono font-semibold" x-text="(classSettings && classSettings.portal_access_mode) || '-'">-</span> · rotasi kode membatalkan sesi portal lama.</p>
-      <div class="flex flex-wrap gap-2 mt-3">
-        <button type="button" @click="setModePortal('LINK')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Pakai tautan</button>
-        <button type="button" @click="setModePortal('CODE')" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] font-medium min-h-[44px]">Pakai kode</button>
-        <button type="button" @click="rotasiKodeKelas()" :disabled="rotatingCode" class="ui-button ui-button--primary text-[13px] font-semibold" x-text="rotatingCode ? 'Merotasi...' : 'Rotasi kode kelas'">Rotasi kode kelas</button>
-      </div>
+  </div>
+
+  <!-- Error State -->
+  <div x-show="settingsError" class="p-4 rounded-[16px] bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span x-text="settingsError">-</span>
     </div>
-    <div class="ui-card p-5">
-      <div class="flex items-center justify-between gap-2">
-        <h2 class="text-[18px] font-semibold">Cadangan kelas</h2>
-        <button type="button" @click="backupFormOpen = !backupFormOpen" class="ui-button ui-button--outline text-primary text-[13px] font-semibold" x-text="backupFormOpen ? 'Tutup' : 'Minta cadangan'">Minta cadangan</button>
+    <button type="button" @click="loadPengaturanKelas()" class="ui-button ui-button--ghost font-semibold underline text-red-700 min-h-[44px]">Coba Lagi</button>
+  </div>
+
+  <!-- Pengaturan Pengingat dan Portal (2 Kolom) -->
+  <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    <!-- Card Kiri: Waktu Pengingat & Zona -->
+    <div class="w-full bg-white border border-[#E2E8F0] shadow-[0px_2px_10px_rgba(15,23,42,0.03)] rounded-[16px] p-5 flex flex-col gap-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-[16px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A]">Waktu Pengingat &amp; Zona</h2>
+        <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">Jadwal pengiriman pesan broadcast otomatis ke grup WhatsApp.</p>
       </div>
-      <p class="text-[12px] text-slate-500 mt-0.5">Permintaan diteruskan ke System Admin untuk dieksekusi.</p>
-      <div x-show="backupFormOpen" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
-        <div x-show="backupFormError" class="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="backupFormError">-</div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[13px] font-medium mb-1">Cakupan</label>
-            <select aria-label="Cakupan" x-model="backupForm.scope" class="ui-field w-full text-[14px]">
-              <option value="kelas">Kelas ini (semua semester)</option>
-              <option value="semester">Satu semester</option>
+
+      <div x-show="pengaturanFormError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="pengaturanFormError"></div>
+
+      <div class="w-full flex flex-col gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Ringkasan Pagi -->
+          <div class="flex flex-col gap-1.5">
+            <label for="km-pagi" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Ringkasan Pagi</label>
+            <input id="km-pagi" aria-label="Ringkasan Pagi" type="time" x-model="pengaturan.pagi" class="w-full h-[42px] px-3 font-['JetBrains_Mono',monospace] text-[13px] font-medium text-[#1E293B] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+
+          <!-- Pengingat Sore -->
+          <div class="flex flex-col gap-1.5">
+            <label for="km-sore" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Pengingat Sore</label>
+            <input id="km-sore" aria-label="Pengingat Sore" type="time" x-model="pengaturan.sore" class="w-full h-[42px] px-3 font-['JetBrains_Mono',monospace] text-[13px] font-medium text-[#1E293B] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Pengingat Pengganti -->
+          <div class="flex flex-col gap-1.5">
+            <label for="km-ganti" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Pengingat Pengganti</label>
+            <div class="w-full h-[42px] px-3 flex items-center justify-between bg-white border border-[#CBD5E1] rounded-[12px] focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+              <input id="km-ganti" aria-label="Pengingat Pengganti" type="number" min="0" max="1440" x-model.number="pengaturan.gantiMenit" class="w-16 font-['JetBrains_Mono',monospace] text-[13px] font-medium text-[#1E293B] focus:outline-none" />
+              <span class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] whitespace-nowrap select-none">Menit sebelum kuliah</span>
+            </div>
+          </div>
+
+          <!-- Zona Waktu -->
+          <div class="flex flex-col gap-1.5">
+            <label for="km-zona" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Zona Waktu</label>
+            <select id="km-zona" aria-label="Zona Waktu" x-model="pengaturan.zona" class="w-full h-[42px] px-3 text-[13px] font-[Inter,system-ui,sans-serif] font-medium text-[#1E293B] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+              <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
+              <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
+              <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
             </select>
           </div>
-          <div x-show="backupForm.scope === 'semester'">
-            <label class="block text-[13px] font-medium mb-1">Semester</label>
-            <select aria-label="Semester" x-model="backupForm.semester_id" class="ui-field w-full text-[14px]">
-              <option value="">-- Pilih semester --</option>
-              <template x-for="s in semesterList" :key="'bk-' + s.id"><option :value="s.id" x-text="semesterLabel(s)">-</option></template>
-            </select>
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[13px] font-medium mb-1">Alasan <span class="text-danger">*</span></label>
-            <input aria-label="Alasan" type="text" x-model="backupForm.reason" placeholder="Contoh: Arsip akhir semester" class="ui-field w-full text-[14px]" />
-          </div>
         </div>
-        <button type="button" @click="mintaBackup()" :disabled="backupSaving" class="ui-button ui-button--primary mt-3 text-[13px] font-semibold" x-text="backupSaving ? 'Mengirim...' : 'Kirim permintaan'">Kirim permintaan</button>
       </div>
-      <div x-show="backupLoading" class="mt-3 py-3 text-center text-[13px] text-slate-400">Memuat cadangan...</div>
-      <div x-show="backupError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="backupError">-</span>
-        <button type="button" @click="loadBackupSaya()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
-      </div>
-      <div x-show="!backupLoading && !backupError && backupList.length === 0" class="ui-empty mt-3 text-[13px] text-slate-400">Belum ada permintaan cadangan.</div>
-      <div x-show="!backupLoading && backupList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
-        <template x-for="b in backupList" :key="b.id">
-          <div class="py-3 flex flex-col sm:flex-row sm:items-center gap-2">
-            <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold">Permintaan <span class="font-mono" x-text="'#' + b.id">-</span><span x-show="b.semester_id" class="font-normal text-slate-500" x-text="' · semester #' + b.semester_id">-</span><span x-show="b.backup_id" class="font-normal text-slate-500" x-text="' · cadangan #' + b.backup_id">-</span></p>
-              <p class="text-[12px] text-slate-500" x-text="(b.reason || '—') + ' · ' + fmtWaktuID(b.created_at)">-</p>
-              <p x-show="b.checksum" class="text-[11px] text-slate-400 font-mono truncate" x-text="'checksum ' + b.checksum">-</p>
-            </div>
-            <span class="ui-badge inline-flex px-2.5 py-1 rounded-lg text-[11px] font-bold w-fit"
-              :class="String(b.status).toUpperCase() === 'FAILED' ? 'bg-red-700 text-white' : (['READY','VERIFIED'].includes(String(b.status).toUpperCase()) ? 'bg-success text-green-800' : 'bg-amber-50 text-amber-900')"
-              x-text="labelStatusBackup(b.status)">-</span>
-          </div>
-        </template>
+
+      <div class="pt-1">
+        <button type="button" @click="simpanPengaturan()" :disabled="pengaturanSaving" class="h-[40px] px-4 bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[12px] shadow-[0px_2px_6px_rgba(37,99,235,0.15)] flex items-center justify-center transition disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]">
+          <span x-text="pengaturanSaving ? 'Menyimpan...' : 'Simpan Pengaturan'">Simpan Pengaturan</span>
+        </button>
       </div>
     </div>
-    <div class="ui-card p-5 lg:col-span-2">
-      <h2 class="text-[18px] font-semibold">Kanal WhatsApp kelas</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5">Tautkan grup agar notifikasi terkirim. Minta JID via perintah <span class="font-mono">!kanal</span> di grup.</p>
-      <div x-show="kanalFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kanalFormError"></div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-        <div class="sm:col-span-2">
-          <label for="km-kanal-jid" class="block text-[12px] font-semibold mb-1">JID grup *</label>
-          <input id="km-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="12036...@g.us" class="ui-field text-[13px] font-mono w-full" />
+
+    <!-- Card Kanan: Keamanan Akses Portal Mahasiswa -->
+    <div class="w-full bg-white border border-[#E2E8F0] shadow-[0px_2px_10px_rgba(15,23,42,0.03)] rounded-[16px] p-5 flex flex-col gap-4">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-[16px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A]">Akses Portal Mahasiswa</h2>
+          <span class="px-2 py-1 bg-[#F1F5F9] rounded-[6px] text-[11px] font-['JetBrains_Mono',monospace] font-medium text-[#334155]"
+            x-text="(classSettings && classSettings.portal_access_mode === 'CODE') ? 'Mode: PAKAI KODE (PIN)' : 'Mode: TAUTAN LANGSUNG'">
+            Mode: PAKAI KODE (PIN)
+          </span>
         </div>
-        <div>
-          <label for="km-kanal-nama" class="block text-[12px] font-semibold mb-1">Nama tampilan</label>
-          <input id="km-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="Grup Kelas" class="ui-field text-[14px] w-full" />
-        </div>
+        <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">Mengatur bagaimana mahasiswa membuka dashboard publik kelas.</p>
       </div>
-      <button type="button" @click="tautkanKanalSaya()" :disabled="kanalSaving" class="ui-button ui-button--primary mt-3 text-[14px] font-semibold">Tautkan kanal</button>
-      <div x-show="kanalLoading" class="mt-3 py-4 text-center text-[13px] text-slate-400">Memuat kanal...</div>
-      <div x-show="kanalError" class="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="kanalError">-</span>
-        <button type="button" @click="loadKanalSaya()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+
+      <!-- Segmented Pilihan Mode -->
+      <div class="w-full flex flex-col sm:flex-row gap-2.5">
+        <!-- Mode Pakai Tautan Langsung -->
+        <button type="button" @click="setModePortal('LINK')"
+          class="flex-1 h-[42px] px-3 flex items-center justify-center gap-1.5 rounded-[10px] text-[12px] font-[Inter,system-ui,sans-serif] transition min-h-[44px]"
+          :class="(classSettings && classSettings.portal_access_mode !== 'CODE') ? 'bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8] font-semibold' : 'bg-white border border-[#E2E8F0] text-[#475569] font-medium hover:bg-slate-50'">
+          <span x-show="classSettings && classSettings.portal_access_mode !== 'CODE'" class="w-1.5 h-1.5 bg-[#2563EB] rounded-full"></span>
+          <span>Pakai Tautan Langsung</span>
+        </button>
+
+        <!-- Mode Pakai Kode Akses / PIN -->
+        <button type="button" @click="setModePortal('CODE')"
+          class="flex-1 h-[42px] px-3 flex items-center justify-center gap-1.5 rounded-[10px] text-[12px] font-[Inter,system-ui,sans-serif] transition min-h-[44px]"
+          :class="(classSettings && classSettings.portal_access_mode === 'CODE') ? 'bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8] font-semibold' : 'bg-white border border-[#E2E8F0] text-[#475569] font-medium hover:bg-slate-50'">
+          <span x-show="classSettings && classSettings.portal_access_mode === 'CODE'" class="w-1.5 h-1.5 bg-[#2563EB] rounded-full"></span>
+          <span>Pakai Kode Akses / PIN</span>
+        </button>
       </div>
-      <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="ui-empty mt-3 p-4 rounded-2xl border border-dashed border-border text-center text-[13px] text-slate-400">Belum ada kanal tertaut.</div>
-      <div x-show="!kanalLoading && kanalList.length > 0" class="mt-3 divide-y divide-border border-t border-b border-border">
-        <template x-for="k in kanalList" :key="k.id">
-          <div class="py-3">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-              <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold truncate" x-text="k.display_name || k.jid">-</p>
-                <p class="text-[12px] text-slate-500 font-mono truncate" x-text="k.jid">-</p>
-              </div>
-              <span class="ui-badge inline-flex px-2 py-0.5 rounded text-[11px] font-bold w-fit"
-                :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-success text-green-800' : 'bg-slate-100 text-slate-500'"
-                x-text="labelStatusKanal(k.status)">-</span>
-              <button type="button" @click="mulaiLepasKanalSaya(k)" x-show="String(k.status).toUpperCase() === 'ACTIVE'" class="ui-button ui-button--ghost h-10 px-4 rounded-lg border border-red-200 text-red-700 text-[12px] font-semibold min-h-[44px]">Lepas</button>
-            </div>
-            <div x-show="kanalLepas && kanalLepas.id === k.id" class="mt-2 p-3 rounded-xl bg-slate-50 border border-border">
-              <p class="text-[13px] font-semibold" x-text="'Lepas ' + kanalLepas.nama">-</p>
-              <label :for="'km-kanal-alasan-' + k.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan <span class="text-red-600">*</span></label>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input aria-label="Alasan" :id="'km-kanal-alasan-' + k.id" type="text" x-model="kanalAlasan" placeholder="Contoh: Grup bubar" class="ui-field flex-1 text-[14px]" />
-                <button type="button" @click="jalankanLepasKanalSaya()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-                <button type="button" @click="kanalLepas = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-              </div>
-            </div>
+
+      <!-- Rotasi Kode dan Konsekuensi -->
+      <div class="flex flex-col gap-2 pt-1">
+        <button type="button" @click="rotasiKodeKelas()" :disabled="rotatingCode"
+          class="w-fit h-[40px] px-3.5 flex items-center gap-2 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#1E293B] hover:bg-slate-50 transition disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]">
+          <svg class="w-4 h-4 text-[#334155]" :class="rotatingCode ? 'animate-spin' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+            <path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+          </svg>
+          <span x-text="rotatingCode ? 'Merotasi...' : 'Rotasi Kode Kelas'">Rotasi Kode Kelas</span>
+        </button>
+        <p class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#94A3B8]">
+          Merotasi kode akan otomatis membatalkan sesi login mahasiswa yang aktif saat ini.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Card Kanal WhatsApp Kelas -->
+  <div class="w-full bg-white border border-[#E2E8F0] shadow-[0px_2px_10px_rgba(15,23,42,0.03)] rounded-[16px] p-5 flex flex-col gap-4">
+    <div class="flex flex-col gap-1">
+      <h2 class="text-[16px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A]">Kanal WhatsApp Kelas</h2>
+      <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+        Tautkan ID grup WhatsApp (JID) agar bot dapat mengirim pengingat jadwal dan tugas.
+      </p>
+    </div>
+
+    <div x-show="kanalFormError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700" x-text="kanalFormError"></div>
+
+    <!-- Form Tautkan Kanal -->
+    <div class="w-full flex flex-col sm:flex-row gap-3 items-end">
+      <!-- JID Grup WhatsApp -->
+      <div class="flex-1 w-full flex flex-col gap-1.5">
+        <label for="km-kanal-jid" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">JID Grup WhatsApp *</label>
+        <input id="km-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="120363028491829@g.us"
+          class="w-full h-[42px] px-3 font-['JetBrains_Mono',monospace] text-[12px] text-[#1E293B] placeholder-[#94A3B8] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <!-- Nama Tampilan -->
+      <div class="w-full sm:w-[300px] flex flex-col gap-1.5">
+        <label for="km-kanal-nama" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Nama Tampilan</label>
+        <input id="km-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="TI-1A Official"
+          class="w-full h-[42px] px-3 font-[Inter,system-ui,sans-serif] text-[13px] text-[#1E293B] placeholder-[#94A3B8] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+      </div>
+
+      <!-- Tombol Tautkan -->
+      <button type="button" @click="tautkanKanalSaya()" :disabled="kanalSaving"
+        class="h-[42px] px-4 bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[12px] flex items-center justify-center whitespace-nowrap transition disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]">
+        <span x-text="kanalSaving ? 'Menautkan...' : 'Tautkan Kanal'">Tautkan Kanal</span>
+      </button>
+    </div>
+
+    <!-- Status Loading / Error Kanal -->
+    <div x-show="kanalLoading" class="py-4 text-center text-[13px] text-slate-400">Memuat kanal...</div>
+    <div x-show="kanalError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+      <span x-text="kanalError">-</span>
+      <button type="button" @click="loadKanalSaya()" class="font-semibold underline text-red-700 min-h-[44px]">Coba Lagi</button>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="py-6 rounded-[12px] border border-dashed border-[#E2E8F0] text-center text-[13px] text-[#64748B]">
+      Belum ada grup WhatsApp yang ditautkan ke kelas ini.
+    </div>
+
+    <!-- Daftar Kanal Terhubung -->
+    <div x-show="!kanalLoading && kanalList.length > 0" class="w-full divide-y divide-[#F1F5F9] border-t border-[#F1F5F9] mt-1">
+      <template x-for="k in kanalList" :key="k.id">
+        <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex flex-col gap-1 min-w-0">
+            <p class="text-[13px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A] truncate" x-text="k.display_name || k.jid">-</p>
+            <p class="text-[12px] font-['JetBrains_Mono',monospace] text-[#64748B] truncate" x-text="k.jid">-</p>
           </div>
-        </template>
-      </div>
+          <div class="flex items-center gap-5 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full" :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-[#10B981]' : 'bg-slate-400'"></span>
+              <span class="text-[11px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]" x-text="labelStatusKanal(k.status)">-</span>
+            </div>
+            <button type="button" @click="bukaModalLepasKanal(k)"
+              class="h-[32px] px-3 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#475569] hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition min-h-[44px] flex items-center">
+              Lepas Kanal
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </section>
-<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center" @click.self="tutupKodePortal()">
-  <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="portal-code-title">
-    <h2 id="portal-code-title" class="text-[18px] font-semibold">Kode portal baru</h2>
-    <p class="mt-1 text-[13px] text-slate-500">Kode ini hanya ditampilkan sekali. Salin dan bagikan melalui kanal kelas yang tepat.</p>
-    <p class="mt-4 rounded-xl border border-illustration-blue bg-primary-soft/50 p-4 text-center font-mono text-[24px] font-bold tracking-wider break-all" x-text="portalCodeReveal"></p>
-    <div class="mt-5 flex gap-3"><button type="button" @click="salinKodePortal()" class="ui-button ui-button--primary flex-1 text-[13px] font-semibold">Salin kode</button><button type="button" @click="tutupKodePortal()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border text-[13px] font-semibold">Sudah disimpan</button></div>
+
+<!-- Modal 1: Kode Portal Baru · Setelah Rotasi (SCR-KM-SET-001) -->
+<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-[#0F172A]/40 backdrop-blur-sm p-4 flex items-center justify-center" @keydown.escape.window="tutupKodePortal()" @click.self="tutupKodePortal()">
+  <div class="w-full max-w-[380px] bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_20px_40px_rgba(15,23,42,0.25)] p-5 flex flex-col gap-4" role="dialog" aria-modal="true" aria-labelledby="portal-code-title">
+    <h2 id="portal-code-title" class="text-[18px] font-[Inter,system-ui,sans-serif] font-bold text-[#0F172A]">Kode Portal Baru Dibuat</h2>
+    
+    <div class="w-full h-[82px] flex items-center justify-center bg-[#EFF6FF] border border-[#BFDBFE] rounded-[12px]">
+      <span class="font-['JetBrains_Mono',monospace] text-[26px] font-bold tracking-[2px] text-[#1D4ED8]" x-text="portalCodeReveal">-</span>
+    </div>
+
+    <p class="text-[12px] leading-[18px] font-[Inter,system-ui,sans-serif] text-[#475569]">
+      Kode hanya ditampilkan sekali. Salin dan kirimkan ke grup kelas Anda.
+    </p>
+
+    <div class="flex gap-2.5 pt-1">
+      <button type="button" @click="salinKodePortal()" class="flex-1 h-[40px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] flex items-center justify-center transition min-h-[44px]">
+        <span x-text="portalCodeCopied ? 'Tersalin!' : 'Salin Kode'">Salin Kode</span>
+      </button>
+      <button type="button" @click="tutupKodePortal()" class="flex-1 h-[40px] bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] flex items-center justify-center transition min-h-[44px]">
+        Tutup / Sudah Disimpan
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Konfirmasi Lepas Kanal WhatsApp (SCR-KM-SET-001) -->
+<div x-show="modalLepasKanalOpen && kanalLepas" x-cloak class="fixed inset-0 z-50 bg-[#0F172A]/40 backdrop-blur-sm p-4 flex items-center justify-center" @keydown.escape.window="tutupModalLepasKanal()" @click.self="tutupModalLepasKanal()">
+  <div class="w-full max-w-[420px] bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_20px_40px_rgba(15,23,42,0.25)] p-6 flex flex-col gap-4" role="dialog" aria-modal="true" aria-labelledby="lepas-kanal-title">
+    <div class="flex flex-col gap-2">
+      <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center border border-red-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <h2 id="lepas-kanal-title" class="text-[18px] font-[Inter,system-ui,sans-serif] font-bold text-[#0F172A]">Lepas Kanal WhatsApp?</h2>
+    </div>
+
+    <!-- Identitas Kanal Terhubung -->
+    <div class="p-3 bg-slate-50 border border-slate-200 rounded-[10px] flex flex-col gap-0.5">
+      <p class="text-[13px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A]" x-text="kanalLepas ? (kanalLepas.display_name || kanalLepas.jid) : ''">-</p>
+      <p class="text-[12px] font-['JetBrains_Mono',monospace] text-[#64748B]" x-text="kanalLepas ? kanalLepas.jid : ''">-</p>
+    </div>
+
+    <p class="text-[12px] leading-[18px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+      Bot akan berhenti mengirimkan broadcast jadwal dan pengingat tugas ke grup ini.
+    </p>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="km-lepas-alasan" class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155]">Alasan pelepasan kanal *</label>
+      <input id="km-lepas-alasan" type="text" x-model="kanalAlasan" placeholder="Contoh: Pindah grup kelas baru / Akhir semester"
+        class="w-full h-[42px] px-3 font-[Inter,system-ui,sans-serif] text-[13px] text-[#1E293B] bg-white border border-[#CBD5E1] rounded-[10px] focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500" />
+      <span x-show="kanalLepasError" class="text-[12px] text-red-600 font-medium" x-text="kanalLepasError"></span>
+    </div>
+
+    <div class="flex gap-2.5 justify-end pt-2">
+      <button type="button" @click="tutupModalLepasKanal()" class="h-[40px] px-4 bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] transition min-h-[44px]">
+        Batal
+      </button>
+      <button type="button" @click="konfirmasiLepasKanal()" :disabled="kanalLepasSaving" class="h-[40px] px-4 bg-red-600 hover:bg-red-700 text-white text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] flex items-center justify-center transition disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]">
+        <span x-text="kanalLepasSaving ? 'Melepas...' : 'Lepas Kanal'">Lepas Kanal</span>
+      </button>
+    </div>
   </div>
 </div>
 
