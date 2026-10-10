@@ -431,7 +431,7 @@
             Akses PJ untuk mata kuliah ini akan dibekukan seketika. Riwayat tugas tetap tersimpan.
           </p>
           <p x-show="modalAksiPJ.aksi === 'cabut'">
-            Akses PJ untuk mata kuliah ini berhenti segera dan sesi aktifnya berakhir. Penugasan yang dicabut tidak dapat diaktifkan lagi.
+            Akses PJ berhenti seketika dan penugasan ini tidak dapat diaktifkan kembali. Riwayat tugas tetap tersimpan.
           </p>
           <p x-show="modalAksiPJ.aksi === 'aktifkan'">
             Akses PJ untuk mata kuliah ini akan dipulihkan kembali sehingga PJ dapat melanjutkan tugasnya di sistem.
@@ -456,9 +456,9 @@
           </button>
           <button type="button" @click="eksekusiAksiPJ()" :disabled="modalAksiPJ.saving"
             class="h-[32px] px-3.5 rounded-[8px] font-semibold text-[12px] text-white flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
-            :class="modalAksiPJ.aksi === 'cabut' ? 'bg-[#DC2626] hover:bg-red-700 shadow-[0px_2px_5px_#DC262622]' : (modalAksiPJ.aksi === 'tangguhkan' ? 'bg-[#B45309] hover:bg-amber-800 shadow-[0px_2px_5px_#92400E22]' : 'bg-[#2563EB] hover:bg-blue-700 shadow-[0px_2px_5px_#2563EB22]')">
+            :class="modalAksiPJ.aksi === 'cabut' ? 'bg-[#BE123C] hover:bg-rose-800 shadow-[0px_2px_5px_#BE123C22]' : (modalAksiPJ.aksi === 'tangguhkan' ? 'bg-[#B45309] hover:bg-amber-800 shadow-[0px_2px_5px_#92400E22]' : 'bg-[#2563EB] hover:bg-blue-700 shadow-[0px_2px_5px_#2563EB22]')">
             <span class="material-symbols-outlined text-[14px] animate-spin" x-show="modalAksiPJ.saving">progress_activity</span>
-            <span x-text="modalAksiPJ.saving ? 'Memproses...' : (modalAksiPJ.aksi === 'cabut' ? 'Cabut Penugasan' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan' : 'Aktifkan'))"></span>
+            <span x-text="modalAksiPJ.saving ? 'Memproses...' : (modalAksiPJ.aksi === 'cabut' ? 'Cabut' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan' : 'Aktifkan'))"></span>
           </button>
         </div>
       </div>
