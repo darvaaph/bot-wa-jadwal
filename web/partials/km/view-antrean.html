@@ -22,7 +22,7 @@
         </button>
         <div x-show="reviewId !== t.id" class="flex flex-wrap gap-2 mt-3">
           <button type="button" @click="setujuiTugas(t.id)" class="ui-button ui-button--primary text-[13px] font-semibold">Setujui</button>
-          <button type="button" @click="reviewId = t.id; reviewMode = 'koreksi'" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-amber-400 text-amber-800 text-[13px] font-semibold min-h-[44px]">Minta koreksi</button>
+          <button type="button" @click="bukaModalKoreksi(t)" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-amber-400 text-amber-800 text-[13px] font-semibold min-h-[44px]">Minta koreksi</button>
           <button type="button" @click="reviewId = t.id; reviewMode = 'batal'" class="ui-button ui-button--ghost h-10 px-4 rounded-xl border border-red-300 text-red-700 text-[13px] font-semibold min-h-[44px]">Batalkan</button>
         </div>
         <div x-show="reviewId === t.id" class="mt-3 space-y-2">

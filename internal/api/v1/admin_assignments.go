@@ -221,6 +221,11 @@ func (c *AdminController) SuspendAssignment(w http.ResponseWriter, r *http.Reque
 	c.changeAssignmentStatus(w, r, "SUSPENDED")
 }
 
+// ActivateAssignment menangani POST /api/v1/admin/assignments/{id}/activate.
+func (c *AdminController) ActivateAssignment(w http.ResponseWriter, r *http.Request) {
+	c.changeAssignmentStatus(w, r, "ACTIVE")
+}
+
 // RevokeAssignment menangani POST /api/v1/admin/assignments/{id}/revoke.
 func (c *AdminController) RevokeAssignment(w http.ResponseWriter, r *http.Request) {
 	c.changeAssignmentStatus(w, r, "REVOKED")

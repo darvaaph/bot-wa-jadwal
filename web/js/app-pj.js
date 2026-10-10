@@ -725,6 +725,11 @@ function pjApp() {
     polaPreview: null, polaPreviewPayload: '', polaPreviewLoading: false,
     roomSearch: { date: '', start: '', end: '' }, roomCandidates: null, roomCandidatesLoading: false, roomCandidatesError: '',
     roomHistory: [], roomHistoryLoading: false, roomHistoryError: '',
+    roomDirectoryLoading: false, roomDirectoryError: '',
+    masterRoomsList: [], roomProposalsList: [],
+    roomTypeFilter: 'semua', roomSearchQuery: '', roomPage: 1, roomPageSize: 8,
+    roomDetailModal: { open: false, room: null, schedules: [] },
+    showRoomChecker: false,
     ubahForm: { kind: 'REPLACEMENT', scope: 'sementara', originPatternId: '', originDate: '', date: '', day: '1', start: '', end: '', roomId: '', link: '', reason: '', effectiveDate: '', participantIds: '', conflictReason: '' },
     ubahFormError: '',
     draftEvent: null,
@@ -808,6 +813,70 @@ function pjApp() {
           rawEvent: e
         };
       });
+    },
+
+    get directoryRooms() {
+      return (this.masterRoomsList || []).map(r => ({
+        id: String(r.id),
+        code: r.code,
+        name: r.name,
+        building: r.building || '-',
+        room_type: r.room_type || 'Teori',
+        capacity: r.capacity || 0,
+        status_tu: r.status === 'ACTIVE' ? 'CONFIRMED' : 'PENDING',
+        is_proposal: false,
+        proposal_id: null,
+        proposal_note: ''
+      }));
+    },
+
+    get filteredRooms() {
+      let list = this.directoryRooms || [];
+      const tab = this.roomTypeFilter;
+      if (tab === 'laboratorium') {
+        list = list.filter(r => (r.room_type || '').toLowerCase().includes('lab'));
+      } else if (tab === 'teori') {
+        list = list.filter(r => (r.room_type || '').toLowerCase().includes('teori'));
+      }
+      const q = (this.roomSearchQuery || '').trim().toLowerCase();
+      if (q) {
+        list = list.filter(r =>
+          (r.code || '').toLowerCase().includes(q) ||
+          (r.name || '').toLowerCase().includes(q) ||
+          (r.building || '').toLowerCase().includes(q) ||
+          (r.room_type || '').toLowerCase().includes(q)
+        );
+      }
+      return list;
+    },
+
+    get pagedRooms() {
+      const start = (this.roomPage - 1) * this.roomPageSize;
+      return this.filteredRooms.slice(start, start + this.roomPageSize);
+    },
+
+    get totalRoomPages() {
+      return Math.max(1, Math.ceil(this.filteredRooms.length / this.roomPageSize));
+    },
+
+    get roomPaginationInfo() {
+      const total = this.filteredRooms.length;
+      if (total === 0) return '0 ruangan';
+      const start = (this.roomPage - 1) * this.roomPageSize + 1;
+      const end = Math.min(start + this.roomPageSize - 1, total);
+      return `Menampilkan ${start}-${end} dari ${total} ruangan`;
+    },
+
+    get labRoomsCount() {
+      return (this.directoryRooms || []).filter(r => (r.room_type || '').toLowerCase().includes('lab')).length;
+    },
+
+    get teoriRoomsCount() {
+      return (this.directoryRooms || []).filter(r => (r.room_type || '').toLowerCase().includes('teori')).length;
+    },
+
+    get usulanRoomsCount() {
+      return 0;
     },
 
     get polaRooms() {
@@ -2121,11 +2190,60 @@ function pjApp() {
       this.view = v;
       this.drawer = false;
       if (v === 'materi') this.loadMateri();
-      if (v === 'ruangan') this.loadRoomHistory();
+      if (v === 'ruangan') { this.loadDirectoryRooms(); this.loadRoomHistory(); }
       if (v === 'semester') this.loadSemesterPJ();
       if (v === 'audit') this.loadAuditPJ();
       window.scrollTo({ top: 0 });
     },
+
+    setRoomFilter(f) {
+      this.roomTypeFilter = f;
+      this.roomPage = 1;
+    },
+
+    async loadDirectoryRooms() {
+      this.roomDirectoryLoading = true;
+      this.roomDirectoryError = '';
+      try {
+        const rooms = await API.getMasterRooms('ACTIVE').catch(() => []);
+        this.masterRoomsList = Array.isArray(rooms) ? rooms : [];
+      } catch (e) {
+        this.roomDirectoryError = e.message || 'Direktori ruangan belum dapat dimuat.';
+      } finally {
+        this.roomDirectoryLoading = false;
+      }
+    },
+
+    bukaModalDetailRuang(room) {
+      if (!room) return;
+      this.roomDetailModal.room = room;
+      const targetCode = String(room.code || '').trim().toLowerCase();
+      const targetName = String(room.name || '').trim().toLowerCase();
+      let matching = [];
+      if (Array.isArray(this.fullSchedule) && this.fullSchedule.length > 0) {
+        matching = this.fullSchedule.filter(s => {
+          const r = String(s.ruang || '').trim().toLowerCase();
+          return r === targetCode || r === targetName || (targetCode && r.includes(targetCode));
+        });
+      }
+      if (matching.length === 0 && Array.isArray(this.patternsList) && this.patternsList.length > 0) {
+        matching = this.patternsList.filter(p => {
+          const rCode = String(p.room || p.room_code || '').trim().toLowerCase();
+          const rId = String(p.room_id || '');
+          return rCode === targetCode || rCode === targetName || (room.id && rId === String(room.id));
+        }).map(p => ({
+          hari: this.polaHariName(p.day_of_week),
+          jam: `${String(p.start_time || '').slice(0, 5)} - ${String(p.end_time || '').slice(0, 5)}`,
+          matkul: p.display_name || p.course_name || 'Mata Kuliah',
+          dosen: p.lecturer_name || '-',
+          ruang: p.room || p.room_code || room.code
+        }));
+      }
+      this.roomDetailModal.schedules = matching;
+      this.roomDetailModal.open = true;
+    },
+
+    bukaModalUsulanRuang() {},
 
     async loadRoomCandidates() {
       const f = this.roomSearch;

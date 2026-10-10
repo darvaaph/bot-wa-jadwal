@@ -1331,9 +1331,10 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 	query := `
 		SELECT m.id, m.class_id, c.slug, m.course_offering_id, m.task_id, m.title,
 		       m.material_type, COALESCE(m.url, ''), COALESCE(m.description, ''),
-		       COALESCE(m.created_at, ''), m.version
+		       COALESCE(m.created_at, ''), m.version, COALESCE(u.display_name, '')
 		FROM materials m
 		JOIN classes c ON m.class_id = c.id
+		LEFT JOIN users u ON m.created_by_user_id = u.id
 		WHERE m.status = 'ACTIVE' AND m.deleted_at IS NULL
 	`
 	var args []any
@@ -1362,11 +1363,11 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 	var materials []map[string]any
 	for rows.Next() {
 		var id, classID int64
-		var slug, title, matType, urlStr, desc, created string
+		var slug, title, matType, urlStr, desc, created, uploaderName string
 		var version int
 		var offID, taskID sql.NullInt64
 
-		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc, &created, &version); err == nil {
+		if err := rows.Scan(&id, &classID, &slug, &offID, &taskID, &title, &matType, &urlStr, &desc, &created, &version, &uploaderName); err == nil {
 			materials = append(materials, map[string]any{
 				"id":         id,
 				"class_slug": slug,
@@ -1388,6 +1389,7 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 				"description":   desc,
 				"created_at":    created,
 				"version":       version,
+				"uploader_name": uploaderName,
 			})
 		}
 	}
