@@ -64,6 +64,9 @@ function portalApp() {
     jadwalPekan: { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] },
     weekOffset: 0,
     modeTampilan: 'kalender',
+    mobileJadwalMode: 'per_hari',
+    detailModalOpen: false,
+    detailSesi: null,
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
@@ -202,6 +205,25 @@ function portalApp() {
 
     get hasSaturdayClass() {
       return Array.isArray(this.jadwalPekan['Sabtu']) && this.jadwalPekan['Sabtu'].length > 0;
+    },
+
+    get pekanHariListAgenda() {
+      if (this.hasSaturdayClass) {
+        return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      }
+      return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+    },
+
+    formatTanggalLengkap(h) {
+      try {
+        const iso = this.tanggalPekan[h];
+        if (!iso) return h;
+        const d = new Date(iso + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        return `${h}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
+      } catch (e) {
+        return h;
+      }
     },
 
     get jadwalEfektifHariIni() {
@@ -785,6 +807,17 @@ function portalApp() {
       }
     },
 
+    bukaDetailSesi(s) {
+      if (!s) return;
+      this.detailSesi = s;
+      this.detailModalOpen = true;
+    },
+
+    tutupDetailSesi() {
+      this.detailModalOpen = false;
+      this.detailSesi = null;
+    },
+
     async loadSchedule() {
       try {
         const raw = await API.getSchedule(this.selectedClass, 'all');
@@ -810,13 +843,20 @@ function portalApp() {
           const tgl = this.tanggalPekan[d];
           return API.getPortalSchedule(slug, tgl);
         }));
+
+        let totalV1Items = results.reduce((sum, r) => sum + ((r && Array.isArray(r.items)) ? r.items.length : 0), 0);
+        if (totalV1Items === 0 && (!this.fullSchedule || this.fullSchedule.length === 0)) {
+          await this.loadSchedule();
+        }
+        const useLegacyFallback = totalV1Items === 0 && (this.fullSchedule || []).length > 0;
+
         const newPekan = {};
         days.forEach((d, idx) => {
           const res = results[idx];
-          if (res && Array.isArray(res.items)) {
+          if (!useLegacyFallback && res && Array.isArray(res.items)) {
             newPekan[d] = this.normalisasiEfektif(res.items, d);
           } else {
-            newPekan[d] = this.fullSchedule.filter(s => s.hari === d).map(s => ({
+            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => ({
               id: s.id, hari: s.hari, kind: 'REGULER', activityType: 'THEORY',
               matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
               timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
