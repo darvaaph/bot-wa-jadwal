@@ -10,6 +10,9 @@ function kmApp() {
     sidebarCollapsed: false,
     pageState: null,
     dashboardLoading: true,
+    dashboardData: null,
+    dashboardError: '',
+    dashboardRefreshing: false,
     q: '',
     unreadCount: 0,
     weekOffset: 0,
@@ -39,7 +42,16 @@ function kmApp() {
       ] },
     ],
 
-    get nav() { return this.navSections.flatMap(s => s.items); },
+    hiddenNav: [
+      { id: 'antrean', label: 'Perlu Review' },
+      { id: 'semester', label: 'Semester' },
+      { id: 'usulan', label: 'Usulan Master' },
+      { id: 'monitoring', label: 'Monitoring' },
+      { id: 'notifikasi', label: 'Notifikasi' },
+      { id: 'akun', label: 'Akun' },
+    ],
+
+    get nav() { return [...this.navSections.flatMap(s => s.items), ...this.hiddenNav]; },
     get kmNav() { return this.nav; },
     get roleSub() { return 'Pengelola seluruh kelas'; },
 
@@ -88,6 +100,7 @@ function kmApp() {
     classSlug: '',
     classList: [],
     botOnline: false,
+    botStatus: 'unknown',
     fullSchedule: [],
     scheduleLoading: false,
     scheduleError: '',
@@ -1729,7 +1742,11 @@ function kmApp() {
           window.location.replace('/pj.html');
           return;
         }
-        if (role && role !== 'KM' && role !== 'SYSTEM_ADMIN') {
+        if (role === 'SYSTEM_ADMIN') {
+          window.location.replace('/system-admin.html');
+          return;
+        }
+        if (role !== 'KM') {
           window.location.replace('/login.html?role=km');
           return;
         }
@@ -1763,7 +1780,8 @@ function kmApp() {
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
-      await this.checkBot();
+      await Promise.all([this.checkBot(), this.loadKMDashboard()]);
+      this.dashboardLoading = false;
       await this.loadClasses();
       await this.loadOfferings();
       await this.loadSchedule();
@@ -1779,7 +1797,7 @@ function kmApp() {
       await this.loadPengaturanKelas().catch(() => {});
       await this.loadDirectoryRooms().catch(() => {});
       setInterval(() => this.checkBot(), 30000);
-      this.dashboardLoading = false;
+      setInterval(() => { if (this.view === 'dashboard') this.loadKMDashboard(true); }, 60000);
     },
 
     async loadPartials(slots) {
@@ -1837,6 +1855,7 @@ function kmApp() {
       if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
+      if (v === 'dashboard') this.loadKMDashboard(true);
       if (v === 'tugas') this.tugasSub = 'list';
       if (v === 'anggota') {
         this.loadPenugasan();
@@ -2020,8 +2039,67 @@ function kmApp() {
     async checkBot() {
       try {
         const st = await API.getStatus();
-        if (st) this.botOnline = String(st.bot_connection || '').toLowerCase() === 'connected';
-      } catch (e) { this.botOnline = false; }
+        this.botStatus = st ? String(st.bot_connection || 'unknown').toLowerCase() : 'unknown';
+        this.botOnline = this.botStatus === 'connected';
+      } catch (e) { this.botStatus = 'unknown'; this.botOnline = false; }
+    },
+
+    kmBotLabel() {
+      return {
+        connected: 'Terhubung',
+        reconnecting: 'Menghubungkan ulang',
+        waiting_qr: 'Menunggu pemindaian QR',
+        uninitialized: 'Belum aktif',
+        unknown: 'Status belum diketahui'
+      }[this.botStatus] || 'Terputus';
+    },
+
+    kmInitials() {
+      return String(this.currentUser?.display_name || 'KM').trim().split(/\s+/)
+        .slice(0, 2).map(part => part[0]).join('').toUpperCase();
+    },
+
+    async loadKMDashboard(silent = false) {
+      if (silent) this.dashboardRefreshing = true;
+      else this.dashboardError = '';
+      try {
+        this.dashboardData = await API.getKMDashboard();
+        this.dashboardError = '';
+      } catch (err) {
+        this.dashboardError = err.status === 401 ? 'Sesi berakhir. Masuk kembali untuk melihat ringkasan.'
+          : 'Ringkasan kelas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        if (!silent) this.dashboardData = null;
+      } finally {
+        this.dashboardRefreshing = false;
+      }
+    },
+
+    kmDayLabel() {
+      const date = this.dashboardData?.date;
+      if (!date) return 'Hari ini';
+      return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+        .format(new Date(date + 'T12:00:00Z'));
+    },
+
+    kmTime(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return '—';
+      return new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: this.dashboardData?.class?.timezone || 'Asia/Jakarta' }).format(date);
+    },
+
+    kmSessionState(session) {
+      const now = Date.now(), start = Date.parse(session.starts_at), end = Date.parse(session.ends_at);
+      if (now >= start && now < end) return 'Sedang berlangsung';
+      if (now < start) return 'Berikutnya';
+      return 'Selesai';
+    },
+
+    kmDeadlineState(task) {
+      const remaining = Date.parse(task.deadline_at) - Date.now();
+      if (!Number.isFinite(remaining)) return 'Tanpa tenggat';
+      if (remaining < 0) return 'Terlewat';
+      if (remaining < 48 * 3600000) return `Sisa ${Math.max(1, Math.ceil(remaining / 3600000))} jam`;
+      return `Sisa ${Math.ceil(remaining / 86400000)} hari`;
     },
 
     async loadClasses() {

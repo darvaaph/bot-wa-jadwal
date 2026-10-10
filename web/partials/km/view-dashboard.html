@@ -26,6 +26,11 @@
           <span>Tambah Tugas</span>
         </button>
       </div>
+    </header>
+
+    <div x-show="dashboardError" role="alert" class="ui-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-danger">
+      <div><p class="font-semibold text-deep-ink">Data ringkasan belum tersedia</p><p class="text-[13px] text-muted mt-1" x-text="dashboardError"></p></div>
+      <button type="button" @click="loadKMDashboard()" :disabled="dashboardRefreshing" class="ui-button ui-button--outline shrink-0">Coba lagi</button>
     </div>
 
     <!-- 2. Strip Usulan Draf PJ (Review Alert Banner) -->
@@ -244,6 +249,5 @@
         </div>
       </div>
     </div>
-
   </div>
 </section>

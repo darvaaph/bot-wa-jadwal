@@ -89,9 +89,11 @@ func (c *ScheduleController) RegisterRoutes(mux *http.ServeMux, auth *middleware
 	mux.HandleFunc("GET /api/v1/schedule/patterns", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetPatterns)))
 	mux.HandleFunc("POST /api/v1/schedule/patterns", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreatePattern)))
 	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchPattern)))
+	mux.HandleFunc("DELETE /api/v1/schedule/patterns/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.DeletePattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreateTeachingEvent)))
 	mux.HandleFunc("GET /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEvents)))
 	mux.HandleFunc("GET /api/v1/teaching-events/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEventDetail)))
+	mux.HandleFunc("DELETE /api/v1/teaching-events/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.DeleteTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PreviewTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PublishTeachingEvent)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.RevokeTeachingEvent)))
@@ -285,19 +287,24 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 
 	query := `
 		SELECT sp.id, sp.course_offering_id, co.display_name, sp.room_id, COALESCE(r.code, ''),
-		       sp.day_of_week, sp.start_time, sp.end_time, sp.status, sp.version, COALESCE(sp.meeting_link, '')
+		       COALESCE(r.name, ''), COALESCE(r.building, ''), COALESCE(r.capacity, 0),
+		       sp.day_of_week, sp.start_time, sp.end_time, sp.status, sp.version, COALESCE(sp.meeting_link, ''),
+		       COALESCE(c.code, ''), COALESCE(co.activity_type, ''),
+		       COALESCE((SELECT GROUP_CONCAT(l.full_name, ', ') FROM offering_lecturers ol JOIN lecturers l ON ol.lecturer_id = l.id WHERE ol.course_offering_id = co.id AND ol.superseded_at IS NULL), ''),
+		       COALESCE((SELECT u_pj.display_name FROM role_assignments ra JOIN users u_pj ON ra.user_id = u_pj.id WHERE ra.course_offering_id = co.id AND ra.role = 'PJ' AND ra.status = 'ACTIVE' LIMIT 1), '')
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN courses c ON co.course_id = c.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
 		WHERE sp.status = 'ACTIVE'
 	`
 	var args []any
-
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid {
+	scopeParam := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
+	if u.ActiveRole == "PJ" && scopeParam != "class" && u.ActiveCourseOfferingID.Valid {
 		query += " AND sp.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" && u.ActiveClassID.Valid {
+	} else if (u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class")) && u.ActiveClassID.Valid {
 		query += " AND sem.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	}
@@ -329,28 +336,44 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 	var patterns []map[string]any
 	for rows.Next() {
 		var id, offID int64
-		var offName, roomCode, startTime, endTime, status, meetingLink string
-		var roomID sql.NullInt64
+		var offName, roomCode, roomName, roomBuilding string
+		var roomCapacity int
 		var dayOfWeek, version int
+		var startTime, endTime, status, meetingLink string
+		var courseCode, activityType, lecturerNames, pjName string
+		var roomID sql.NullInt64
 
-		if err := rows.Scan(&id, &offID, &offName, &roomID, &roomCode, &dayOfWeek, &startTime, &endTime, &status, &version, &meetingLink); err == nil {
+		if err := rows.Scan(
+			&id, &offID, &offName, &roomID, &roomCode,
+			&roomName, &roomBuilding, &roomCapacity,
+			&dayOfWeek, &startTime, &endTime, &status, &version, &meetingLink,
+			&courseCode, &activityType, &lecturerNames, &pjName,
+		); err == nil {
 			patterns = append(patterns, map[string]any{
 				"id":                 id,
 				"course_offering_id": offID,
 				"offering":           offName,
+				"display_name":       offName,
+				"course_code":        courseCode,
+				"activity_type":      activityType,
 				"room_id": func() any {
 					if roomID.Valid {
 						return roomID.Int64
 					}
 					return nil
 				}(),
-				"room":         roomCode,
-				"day_of_week":  dayOfWeek,
-				"start_time":   startTime,
-				"end_time":     endTime,
-				"status":       status,
-				"version":      version,
-				"meeting_link": meetingLink,
+				"room":          roomCode,
+				"room_name":     roomName,
+				"room_building": roomBuilding,
+				"room_capacity": roomCapacity,
+				"day_of_week":   dayOfWeek,
+				"start_time":    startTime,
+				"end_time":      endTime,
+				"status":        status,
+				"version":       version,
+				"meeting_link":  meetingLink,
+				"lecturer":      lecturerNames,
+				"pj_name":       pjName,
 			})
 		}
 	}
@@ -699,16 +722,17 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 	`
 	var args []any
 
-	if u.ActiveRole == "PJ" {
+	scopeParam := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
+	if u.ActiveRole == "PJ" && scopeParam != "class" {
 		if !u.ActiveCourseOfferingID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
 			return
 		}
 		query += " AND co.id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") {
 		if !u.ActiveClassID.Valid {
-			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak aktif")
 			return
 		}
 		query += ` AND EXISTS (
@@ -2030,13 +2054,19 @@ func (c *ScheduleController) DeleteTeachingEvent(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Hard delete DRAFT — hapus offerings dulu (FK tanpa CASCADE)
+	// Hard delete DRAFT — hapus relasi anak dulu (FK tanpa CASCADE)
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
 		return
 	}
 	defer tx.Rollback()
+
+	_, err = tx.Exec(`DELETE FROM room_confirmations WHERE teaching_event_id = ?;`, eventID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menghapus konfirmasi ruangan event")
+		return
+	}
 
 	_, err = tx.Exec(`DELETE FROM teaching_event_offerings WHERE teaching_event_id = ?;`, eventID)
 	if err != nil {

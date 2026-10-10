@@ -192,6 +192,12 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 					}
 					return nil
 				}(),
+				"created_at": func() any {
+					if createdAt.Valid {
+						return createdAt.RFC3339()
+					}
+					return nil
+				}(),
 			})
 		}
 	}
@@ -665,6 +671,18 @@ func (c *TaskController) PatchTask(w http.ResponseWriter, r *http.Request) {
 			newPubStatus = "PUBLISHED"
 		} else if saveAs == "DRAFT" {
 			newPubStatus = "DRAFT"
+		}
+	}
+
+	if newPubStatus == "PUBLISHED" {
+		if strings.TrimSpace(newTitle) == "" || strings.TrimSpace(newInstr) == "" || newDeadline.IsZero() {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Publikasi tugas wajib menyertakan judul, petunjuk pengerjaan, dan batas waktu")
+			return
+		}
+		hasSubmission := (newSubText.Valid && strings.TrimSpace(newSubText.String) != "") || (newSubURL.Valid && strings.TrimSpace(newSubURL.String) != "")
+		if !hasSubmission {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Publikasi tugas wajib menyertakan salah satu tempat pengumpulan (submission_url atau submission_text)")
+			return
 		}
 	}
 

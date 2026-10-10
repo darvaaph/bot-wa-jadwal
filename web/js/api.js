@@ -176,6 +176,7 @@ const BotApi = {
       version: item.version || 0,
       completed_at: item.completed_at || null,
       archived_at: item.archived_at || null,
+      created_at: item.created_at || null,
       is_done: !!item.completed_at,
       is_completed: !!item.completed_at,
       is_archived: !!item.archived_at,
@@ -220,8 +221,10 @@ const BotApi = {
       throw err;
     }
     if (!res.ok) {
-      const err = new Error('Gagal menyimpan tugas di server.');
-      err.code = 'SAVE_FAILED';
+      const json = await res.json().catch(() => null);
+      const msg = (json && json.error && json.error.message) || 'Gagal menyimpan tugas di server.';
+      const err = new Error(msg);
+      err.code = (json && json.error && json.error.code) || 'SAVE_FAILED';
       throw err;
     }
     return await res.json();
@@ -329,12 +332,14 @@ const BotApi = {
       throw err;
     }
     if (!res.ok) {
-      const err = new Error('Gagal mengubah tugas.');
-      err.code = 'SAVE_FAILED';
+      const json = await res.json().catch(() => null);
+      const msg = (json && json.error && json.error.message) || (json && json.error) || 'Gagal mengubah tugas.';
+      const err = new Error(msg);
+      err.code = (json && json.error && json.error.code) || 'SAVE_FAILED';
       throw err;
     }
-    const json = await res.json();
-    return json.data;
+    const json = await res.json().catch(() => null);
+    return (json && json.data) || true;
   },
 
   versionConflictErr(fallbackMsg) {
@@ -619,6 +624,15 @@ const BotApi = {
     return (await res.json()).data;
   },
 
+  async fetchLegacySchedule(classCode) {
+    const res = await fetch('/api/schedule?class=' + encodeURIComponent(classCode || ''), {
+      credentials: 'same-origin'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) return [];
+    return (json && json.data && Array.isArray(json.data.items)) ? json.data.items : [];
+  },
+
   async getPatterns(params) {
     const qs = new URLSearchParams(params || {}).toString();
     const res = await fetch('/api/v1/schedule/patterns' + (qs ? '?' + qs : ''), {
@@ -711,11 +725,13 @@ const BotApi = {
   },
 
   async getTeachingEvents(filters) {
-    // Backend: GET /api/v1/teaching-events?status= (DRAFT/PUBLISHED/REVOKED).
-    let url = '/api/v1/teaching-events';
-    if (filters && (filters.status || filters.lifecycle)) {
-      url += '?status=' + encodeURIComponent(filters.status || filters.lifecycle);
+    const params = new URLSearchParams();
+    if (filters) {
+      if (filters.status || filters.lifecycle) params.set('status', filters.status || filters.lifecycle);
+      if (filters.scope) params.set('scope', filters.scope);
     }
+    const qs = params.toString();
+    const url = '/api/v1/teaching-events' + (qs ? '?' + qs : '');
     const res = await fetch(url, { credentials: 'same-origin', headers: authHeaders() });
     const json = await res.json().catch(() => null);
     if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Perubahan jadwal gagal dimuat.');
@@ -1251,6 +1267,35 @@ const BotApi = {
     const res = await fetch('/api/status', { credentials: 'same-origin' });
     if (!res.ok) return null;
     return await res.json();
+  },
+
+  async getKMDashboard() {
+    const res = await fetch('/api/v1/km/dashboard', {
+      credentials: 'same-origin', headers: authHeaders(), cache: 'no-store'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(json?.error?.message || 'Ringkasan kelas gagal dimuat.');
+      error.status = res.status;
+      throw error;
+    }
+    if (!json?.data) throw new Error('Ringkasan kelas tidak lengkap.');
+    return json.data;
+  },
+
+  async getPJDashboard(offeringId) {
+    const qs = offeringId ? `?offering_id=${encodeURIComponent(offeringId)}` : '';
+    const res = await fetch('/api/v1/pj/dashboard' + qs, {
+      credentials: 'same-origin', headers: authHeaders(), cache: 'no-store'
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(json?.error?.message || 'Ringkasan ruang kerja PJ gagal dimuat.');
+      error.status = res.status;
+      throw error;
+    }
+    if (!json?.data) throw new Error('Ringkasan ruang kerja PJ tidak lengkap.');
+    return json.data;
   },
 
   portalHeaders(slug) {

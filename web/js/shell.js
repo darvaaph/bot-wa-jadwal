@@ -40,10 +40,10 @@ const AsteriskShell = (() => {
       },
       shellBottomNav() {
         if (role === 'portal') return [
-          { id: 'dashboard', label: 'Ringkasan', icon: 'dashboard' },
+          { id: 'dashboard', label: 'Beranda', icon: 'home' },
           { id: 'jadwal', label: 'Jadwal', icon: 'calendar_month' },
           { id: 'tugas', label: 'Tugas', icon: 'assignment' },
-          { id: 'courses', label: 'Mata Kuliah', icon: 'menu_book' }
+          { id: 'materi', label: 'Materi', icon: 'folder' }
         ];
         if (role === 'sa') return [
           { id: 'dashboard', label: 'Ringkasan', tab: 'sa-spacedash' },
@@ -73,7 +73,8 @@ const AsteriskShell = (() => {
           .find(navItem => this.shellIsActive(navItem));
         const activeId = activeNav?.id || this.view;
         if (item.id === '__more') {
-          return role !== 'portal' && !!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId);
+          return role !== 'portal' && ((!!activeNav && !this.shellBottomNav().some(bottomItem => bottomItem.id === activeId))
+            || (role === 'km' && !activeNav && (this.hiddenNav || []).some(hiddenItem => hiddenItem.id === this.view)));
         }
         if ((item.active || []).includes(activeId)) return true;
         return item.id === activeId;

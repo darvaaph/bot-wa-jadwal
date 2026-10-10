@@ -893,7 +893,7 @@
         <span x-text="previewError">-</span>
         <button type="button" @click="muatPratinjau()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
       </div>
-      <div x-show="!previewLoading && !previewError && previewData">
+      <template x-if="!previewLoading && !previewError && previewData"><div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-slate-200">
             <p class="text-[11px] font-bold tracking-widest text-slate-400 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">lock</span>SEBELUM</p>
@@ -953,12 +953,12 @@
           <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Ubah Lagi</button>
           <button type="button" @click="terbitkanPerubahan()" :disabled="blockingConflicts.length > 0" :class="blockingConflicts.length > 0 ? 'bg-slate-200 text-slate-400' : 'bg-primary hover:bg-primary-hover text-white'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl font-semibold min-h-[44px]">Terbitkan Perubahan</button>
         </div>
-      </div>
+      </div></template>
     </div>
   </div>
 
   <!-- ============ SUB: DETAIL (SCR-SCH-004 + SCR-SCH-005) ============ -->
-  <div x-show="jadwalSub === 'detail' && selectedEvent">
+  <template x-if="jadwalSub === 'detail' && selectedEvent"><div>
     <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="ui-card p-5 shadow-sm mt-4">
       <div class="flex flex-wrap items-center gap-2">
@@ -1022,7 +1022,7 @@
         <button type="button" @click="cabutPublikasi()" class="ui-button ui-button--ghost mt-3 h-11 px-4 rounded-xl border border-red-700 text-red-700 text-[13px] font-semibold min-h-[44px]">Cabut Publikasi</button>
       </div>
     </div>
-  </div>
+  </div></template>
 <!-- Modal Konfirmasi TU -->
 <div x-show="tuConfirm.open" x-cloak x-transition.opacity class="fixed inset-0 bg-black/50 z-50" @click.self="tuConfirm.open = false" aria-hidden="true"></div>
 <div x-show="tuConfirm.open" x-cloak
