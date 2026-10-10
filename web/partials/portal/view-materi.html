@@ -148,7 +148,8 @@
       <div class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start">
         <template x-for="(m, idx) in materiFilteredList" :key="'desk-mat-' + m.id">
           <div class="w-full">
-            <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[14px] p-[16px_0px] justify-start items-center group">
+            <div @click="bukaDetailMateri(m)"
+                 class="box-border w-full h-fit shrink-0 flex flex-row gap-[14px] p-[14px_12px] -mx-3 rounded-xl justify-start items-center group cursor-pointer hover:bg-slate-50/90 transition-colors">
               <!-- Ikon berkas sesuai tipe -->
               <div class="box-border w-[44px] shrink-0 h-[44px] flex flex-row justify-center items-center bg-[#F1F5F9] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] group-hover:bg-blue-50 transition-colors">
                 <!-- Simbol Slide / Dokumen -->
@@ -201,9 +202,9 @@
                      x-text="formatTanggalMateri(m.created_at) || '—'">
                   06 Okt
                 </div>
-                <!-- Tombol Buka Tautan -->
-                <a :href="m.url" target="_blank" rel="noopener noreferrer"
-                   class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[5px] px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors">
+                <!-- Tombol Buka Tautan Langsung -->
+                <a :href="m.url" target="_blank" rel="noopener noreferrer" @click.stop
+                   class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[5px] px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-100 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors">
                   <span class="text-[11px] text-[#334155] font-sans font-bold whitespace-nowrap">Buka Tautan</span>
                   <svg viewBox="0 0 14 14" class="box-border w-[14px] shrink-0 h-[14px] text-[#475569]" fill="currentColor">
                     <path d="M3.274 11.666a.94.94 0 0 1-.943-.943V3.272c0-.52.423-.943.943-.943h2.984a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.274a.36.36 0 0 0-.36.363v7.451c0 .2.16.36.36.36h7.451a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.973c0 .52-.423.943-.94.943H3.274zm7.81-8.336L5.885 8.525a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.195-5.199H8.46a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h2.734c.48 0 .81.33.81.81v2.734a.29.29 0 0 1-.29.29.29.29 0 0 1-.29-.29V3.33z"/>
@@ -254,7 +255,8 @@
     <div data-pencil-name="Daftar kartu berkas materi"
          class="box-border w-full h-fit shrink-0 flex flex-col gap-[12px] justify-start items-start">
       <template x-for="m in materiFilteredList" :key="'mob-mat-' + m.id">
-        <div class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_6px_#0F172A08] flex flex-col gap-[12px] p-[14px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+        <div @click="bukaDetailMateri(m)"
+             class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_6px_#0F172A08] flex flex-col gap-[12px] p-[14px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px] cursor-pointer active:scale-[0.99] transition-transform">
           
           <!-- Baris Atas: Ikon dan Rincian -->
           <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[11px] justify-start items-start">
@@ -312,7 +314,8 @@
               </div>
             </div>
 
-            <a :href="m.url" target="_blank" rel="noopener noreferrer"
+            <!-- Tombol Buka Langsung -->
+            <a :href="m.url" target="_blank" rel="noopener noreferrer" @click.stop
                class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[5px] px-[12px] justify-start items-center bg-[#FFFFFF] active:bg-slate-100 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors">
               <span class="text-[11px] text-[#334155] font-sans font-bold whitespace-nowrap">Buka</span>
               <svg viewBox="0 0 14 14" class="box-border w-[14px] shrink-0 h-[14px] text-[#475569]" fill="currentColor">
@@ -336,6 +339,133 @@
       </template>
     </div>
 
+  </div>
+
+  <!-- Modal Dialog & Mobile Bottom Sheet Detail Materi Perkuliahan (SCR-USER-MAT-002) -->
+  <div x-show="detailMateriModalOpen" x-cloak
+       class="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center p-0 md:p-4 bg-[#0F172A66] [backdrop-filter:blur(2px)]"
+       @keydown.escape.window="tutupDetailMateri()">
+    
+    <!-- Modal Card (Desktop: 460px rounded-2xl | Mobile: full width rounded-t-3xl) -->
+    <div class="box-border w-full md:w-[460px] md:max-w-full max-h-[90vh] md:max-h-none flex flex-col gap-[18px] p-[20px_20px_22px_20px] md:p-[24px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[24px_24px_0px_0px] md:rounded-[16px] [box-shadow:0px_18px_36px_#0F172A33] overflow-y-auto md:overflow-visible text-left relative"
+         @click.outside="tutupDetailMateri()">
+      
+      <!-- Drag handle (Mobile only) -->
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto md:hidden -mt-1 mb-1 self-center shrink-0"></div>
+
+      <!-- Kepala Detail Materi -->
+      <div data-pencil-name="Kepala detail materi"
+           class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-between items-start">
+        <div data-pencil-name="Kategori judul dan pengunggah"
+             class="box-border flex-1 h-fit flex flex-col gap-[7px] justify-start items-start min-w-0 pr-1">
+          <!-- Kategori Mata Kuliah -->
+          <div data-pencil-name="Kategori Sistem Basis Data"
+               class="box-border w-fit h-fit shrink-0 flex flex-row gap-0 px-[8px] py-[4px] justify-start items-center bg-[#EFF6FF] rounded-[6px]">
+            <span data-pencil-name="Label Sistem Basis Data"
+                  class="text-[10px] text-[#1D4ED8] font-sans font-bold text-left whitespace-nowrap uppercase tracking-[0.4px]"
+                  x-text="selectedMateri ? (selectedMateri.course_name || selectedMateri.offering_name || 'UMUM KELAS') : 'SISTEM BASIS DATA'">
+              SISTEM BASIS DATA
+            </span>
+          </div>
+          <!-- Judul Materi -->
+          <h2 data-pencil-name="Judul slide normalisasi"
+              class="text-[17px] md:text-[18px] leading-[23px] box-border w-full text-[#0F172A] font-display font-bold text-left"
+              x-text="selectedMateri ? selectedMateri.title : '-'">
+            Slide Normalisasi Database: 1NF hingga BCNF
+          </h2>
+          <!-- Format dan Pengunggah -->
+          <div data-pencil-name="Format dan pengunggah"
+               class="text-[11px] leading-[15px] box-border w-full text-[#64748B] font-sans font-medium text-left"
+               x-text="selectedMateri ? getDetailMateriFormatText(selectedMateri) : '-'">
+            Format: Dokumen PDF · Diunggah oleh Farhan Pratama (PJ)
+          </div>
+        </div>
+        <!-- Tombol Tutup Silang (X) -->
+        <button type="button" @click="tutupDetailMateri()" title="Tutup"
+                class="box-border w-[40px] md:w-[44px] shrink-0 h-[40px] md:h-[44px] flex justify-center items-center text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 rounded-full transition-colors cursor-pointer">
+          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
+            <path d="M7 7.414L3.941 10.473a.29.29 0 0 1-.41-.41L6.59 7 3.53 3.941a.29.29 0 0 1 .41-.41L7 6.59l3.059-3.059a.29.29 0 0 1 .41.41L7.414 7l3.059 3.059a.29.29 0 0 1-.41.41L7 7.414z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Catatan dan Akses Berkas -->
+      <div data-pencil-name="Catatan dan akses berkas"
+           class="box-border w-full h-fit shrink-0 flex flex-col gap-[16px] justify-start items-start">
+        
+        <!-- Catatan Perkuliahan -->
+        <div data-pencil-name="Catatan perkuliahan"
+             class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <div data-pencil-name="Label catatan dan instruksi"
+               class="text-[10px] text-[#64748B] font-sans font-bold tracking-[0.5px] text-left whitespace-nowrap uppercase">
+            CATATAN &amp; INSTRUKSI
+          </div>
+          <div data-pencil-name="Isi catatan dosen"
+               class="box-border w-full h-fit shrink-0 flex flex-row gap-0 p-[14px] justify-start items-start bg-[#F8FAFC] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
+            <div data-pencil-name="Penjelasan normalisasi dan praktikum"
+                 class="text-[12px] leading-[19px] box-border flex-1 font-sans font-medium text-left"
+                 :class="(selectedMateri && selectedMateri.description && selectedMateri.description.trim()) ? 'text-[#334155]' : 'text-slate-400 italic'"
+                 x-text="(selectedMateri && selectedMateri.description && selectedMateri.description.trim()) ? selectedMateri.description : 'Tidak ada catatan atau instruksi khusus untuk materi ini.'">
+              Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.
+            </div>
+          </div>
+        </div>
+
+        <!-- Akses Berkas -->
+        <div data-pencil-name="Akses Google Drive"
+             class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start">
+          <div data-pencil-name="Label akses berkas"
+               class="text-[10px] text-[#64748B] font-sans font-bold tracking-[0.5px] text-left whitespace-nowrap uppercase">
+            AKSES BERKAS
+          </div>
+          <div data-pencil-name="Alamat dan aksi salin"
+               class="box-border w-full h-fit shrink-0 flex flex-row gap-[9px] p-[10px_12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
+            <!-- Ikon Cloud / Penyimpanan -->
+            <svg viewBox="0 0 14 14" class="box-border w-[20px] shrink-0 h-[20px] text-[#64748B]" fill="currentColor">
+              <path d="M3.791 11.084a2.62 2.62 0 0 1-1.86-.762 2.61 2.61 0 0 1-.765-1.853c0-1.005.683-1.78 1.705-1.834.198-1.275 1.173-2.105 2.273-2.105 1.46 0 2.478 1.022 2.478 2.478v.584h.359c.837.028 1.405.616 1.405 1.426 0 .858-.595 1.452-1.45 1.452h-7zm0-.584h7c.615 0 1.035-.42 1.035-1.04 0-.611-.42-1.032-1.035-1.032h-.875v-1.169c0-1.21-.854-2.061-2.061-2.061-1.21 0-2.064.854-2.064 2.061l-.294.001c-.844 0-1.442.597-1.442 1.445 0 .844.598 1.442 1.442 1.442z"/>
+            </svg>
+            <!-- Monospace URL -->
+            <div data-pencil-name="Alamat Drive tertampil"
+                 class="text-[11px] box-border flex-1 text-[#475569] font-mono font-medium text-left truncate min-w-0"
+                 x-text="selectedMateri ? getDetailMateriCleanUrl(selectedMateri.url) : '-'">
+              drive.google.com/file/d/18k9aZ-Normalisasi...
+            </div>
+            <!-- Tombol Salin -->
+            <button type="button" @click="salinUrlMateri(selectedMateri ? selectedMateri.url : '')"
+                    class="box-border w-fit shrink-0 min-h-[38px] flex flex-row gap-1 px-[12px] justify-center items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors cursor-pointer"
+                    :class="salinSuccess ? 'bg-emerald-50 text-emerald-700 [outline:1px_solid_#10B981]' : 'text-[#334155]'">
+              <span class="text-[11px] font-sans font-bold whitespace-nowrap"
+                    x-text="salinSuccess ? 'Tersalin! ✓' : 'Salin'">
+                Salin
+              </span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Aksi Detail Materi (Footer) -->
+      <div data-pencil-name="Aksi detail materi"
+           class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] justify-start items-start pt-1">
+        <!-- Tombol Utama Buka Berkas -->
+        <a :href="selectedMateri ? selectedMateri.url : '#'" target="_blank" rel="noopener noreferrer"
+           class="box-border w-full h-[48px] shrink-0 flex flex-row gap-[8px] justify-center items-center bg-[#2563EB] hover:bg-blue-700 active:scale-[0.99] rounded-[12px] transition-all text-white shadow-xs cursor-pointer">
+          <span class="text-[12px] font-sans font-bold whitespace-nowrap"
+                x-text="getDetailMateriActionLabel(selectedMateri)">
+            Buka Berkas di Google Drive
+          </span>
+          <svg viewBox="0 0 14 14" class="box-border w-[16px] shrink-0 h-[16px] text-white" fill="currentColor">
+            <path d="M3.274 11.666a.94.94 0 0 1-.943-.943V3.272c0-.52.423-.943.943-.943h2.984a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.274a.36.36 0 0 0-.36.363v7.451c0 .2.16.36.36.36h7.451a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.973c0 .52-.423.943-.94.943H3.274zm7.81-8.336L5.885 8.525a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.195-5.199H8.46a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h2.734c.48 0 .81.33.81.81v2.734a.29.29 0 0 1-.29.29.29.29 0 0 1-.29-.29V3.33z"/>
+          </svg>
+        </a>
+        <!-- Tombol Tutup -->
+        <button type="button" @click="tutupDetailMateri()"
+                class="box-border w-full h-[40px] shrink-0 flex justify-center items-center text-[12px] text-[#64748B] hover:text-[#0F172A] font-sans font-bold transition-colors cursor-pointer">
+          Tutup
+        </button>
+      </div>
+
+    </div>
   </div>
 
 </section>

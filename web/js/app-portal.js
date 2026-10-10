@@ -82,6 +82,9 @@ function portalApp() {
     materiError: '',
     materiFilterMatkul: 'Semua',
     materiSort: 'terbaru',
+    detailMateriModalOpen: false,
+    selectedMateri: null,
+    salinSuccess: false,
     courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
@@ -1159,6 +1162,86 @@ function portalApp() {
         text += ` · Diunggah oleh ${m.uploader_name}`;
       }
       return text;
+    },
+
+    bukaDetailMateri(m) {
+      if (!m) return;
+      this.selectedMateri = m;
+      this.salinSuccess = false;
+      this.detailMateriModalOpen = true;
+    },
+
+    tutupDetailMateri() {
+      this.detailMateriModalOpen = false;
+      this.selectedMateri = null;
+      this.salinSuccess = false;
+    },
+
+    async salinUrlMateri(url) {
+      if (!url) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = url;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        this.salinSuccess = true;
+        setTimeout(() => {
+          this.salinSuccess = false;
+        }, 2000);
+      } catch (e) {
+        console.error('Gagal menyalin tautan materi:', e);
+      }
+    },
+
+    getDetailMateriActionLabel(m) {
+      if (!m || !m.url) return 'Buka Tautan Materi';
+      const u = (m.url || '').toLowerCase();
+      if (u.includes('drive.google.com')) return 'Buka Berkas di Google Drive';
+      if (u.includes('github.com')) return 'Buka Repositori di GitHub';
+      if (u.includes('gitlab.com')) return 'Buka Repositori di GitLab';
+      if (u.includes('youtube.com') || u.includes('youtu.be')) return 'Buka Video di YouTube';
+      if (m.material_type === 'MEETING') return 'Buka Rekaman Kuliah';
+      return 'Buka Tautan Materi';
+    },
+
+    getDetailMateriFormatText(m) {
+      if (!m) return '';
+      const tag = this.getMaterialTag(m);
+      let format = 'Dokumen';
+      const u = (m.url || '').toLowerCase();
+      if (u.endsWith('.pdf')) format = 'Dokumen PDF';
+      else if (u.endsWith('.ppt') || u.endsWith('.pptx')) format = 'Slide Presentasi';
+      else if (u.endsWith('.doc') || u.endsWith('.docx')) format = 'Dokumen Word';
+      else if (tag === 'Video' || m.material_type === 'MEETING') format = 'Rekaman Kuliah';
+      else if (tag === 'Repositori' || m.material_type === 'REPOSITORY') format = 'Repositori Kode';
+      else if (u.includes('drive.google.com')) format = 'Dokumen Google Drive';
+
+      let text = `Format: ${format}`;
+      if (m.uploader_name) {
+        text += ` · Diunggah oleh ${m.uploader_name}`;
+      }
+      return text;
+    },
+
+    getDetailMateriCleanUrl(url) {
+      if (!url) return '';
+      try {
+        let clean = url.replace(/^https?:\/\//i, '');
+        if (clean.length > 42) {
+          clean = clean.substring(0, 39) + '...';
+        }
+        return clean;
+      } catch (e) {
+        return url;
+      }
     },
 
     get materiGrup() {
