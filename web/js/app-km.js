@@ -1744,7 +1744,7 @@ function kmApp() {
         return;
       }
 
-      await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan']);
+      await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan', 'log']);
       await this.loadPartials([
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
@@ -1758,6 +1758,7 @@ function kmApp() {
         ['km-notif', '/partials/km/view-notif.html'],
         ['km-pengaturan', '/partials/km/view-pengaturan.html'],
         ['km-usulan', '/partials/km/view-usulan.html'],
+        ['km-log', '/partials/km/view-log.html'],
       ]);
       this.updateClock();
       setInterval(() => this.updateClock(), 1000);
@@ -2704,9 +2705,14 @@ function kmApp() {
     },
 
     auditList: [], auditLoading: false, auditError: '',
-    auditFilter: { action: '', entity_type: '', actor: '', since: '', until: '' },
+    auditFilter: { object: '', actor: '', timeRange: '7d', entity_type: '', action: '', since: '', until: '' },
     auditDetailId: null, auditHasMore: false, auditLoadingMore: false,
     auditPreviewList: [],
+    auditPage: 1,
+    auditPageSize: 10,
+    modalAuditDetailOpen: false,
+    auditDetailItem: null,
+    auditDiffData: { beforeRows: [], afterRows: [] },
 
     fmtWaktuID(iso) { return API.fmtWaktuID(iso); },
 
@@ -2741,6 +2747,306 @@ function kmApp() {
       return String(action).replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase());
     },
 
+    get auditTotalCount() {
+      return (this.auditList || []).length;
+    },
+
+    get auditTotalPages() {
+      return Math.max(1, Math.ceil(this.auditTotalCount / this.auditPageSize));
+    },
+
+    get auditPageStart() {
+      return this.auditTotalCount === 0 ? 0 : (this.auditPage - 1) * this.auditPageSize + 1;
+    },
+
+    get auditPageEnd() {
+      return Math.min(this.auditPage * this.auditPageSize, this.auditTotalCount);
+    },
+
+    get paginatedAuditList() {
+      const start = (this.auditPage - 1) * this.auditPageSize;
+      return (this.auditList || []).slice(start, start + this.auditPageSize);
+    },
+
+    get auditPageNumbers() {
+      const total = this.auditTotalPages;
+      const cur = this.auditPage;
+      const pages = [];
+      const start = Math.max(1, cur - 2);
+      const end = Math.min(total, start + 4);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      return pages;
+    },
+
+    nextAuditPage() {
+      if (this.auditPage < this.auditTotalPages) this.auditPage++;
+    },
+
+    prevAuditPage() {
+      if (this.auditPage > 1) this.auditPage--;
+    },
+
+    setAuditPage(p) {
+      if (p >= 1 && p <= this.auditTotalPages) this.auditPage = p;
+    },
+
+    badgeAuditInfo(row) {
+      if (!row) return { label: 'AKTIVITAS', badgeClass: 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]' };
+      const ent = String(row.entity_type || '').toUpperCase();
+      const act = String(row.action || '').toUpperCase();
+
+      if (ent === 'TASK' || ent === 'TASK_REVIEW' || act.includes('TASK')) {
+        return { label: 'TUGAS KULIAH', badgeClass: 'bg-[#ECFDF5] text-[#047857] border-[#A7F3D0]' };
+      }
+      if (ent === 'TEACHING_EVENT' || act.includes('EVENT')) {
+        return { label: 'JADWAL PENGGANTI', badgeClass: 'bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]' };
+      }
+      if (ent === 'SCHEDULE_PATTERN' || ent === 'SCHEDULE' || act.includes('PATTERN')) {
+        return { label: 'JADWAL KULIAH', badgeClass: 'bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]' };
+      }
+      if (ent === 'ROLE_ASSIGNMENT' || ent === 'ROLE_INVITATION' || ent === 'USER' || act.includes('ROLE') || act.includes('INVITATION') || act.includes('USER')) {
+        return { label: 'PERAN & PJ', badgeClass: 'bg-[#FFFBEB] text-[#B45309] border-[#FDE68A]' };
+      }
+      if (ent === 'MATERIAL' || ent === 'MATERI' || act.includes('MATERIAL')) {
+        return { label: 'MATERI KULIAH', badgeClass: 'bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]' };
+      }
+      if (ent === 'ROOM_CONFIRMATION' || act.includes('ROOM')) {
+        return { label: 'RUANGAN', badgeClass: 'bg-[#F0FDF4] text-[#15803D] border-[#BBF7D0]' };
+      }
+      if (ent === 'BACKUP' || ent === 'BACKUP_RECORD' || act.includes('BACKUP')) {
+        return { label: 'CADANGAN DATA', badgeClass: 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]' };
+      }
+      return { label: ent || 'AKTIVITAS', badgeClass: 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]' };
+    },
+
+    ringkasanAksiAudit(row) {
+      if (!row) return { judul: '-', subjek: '-' };
+      const judul = this.labelAksiAudit(row.action);
+
+      let subjek = '';
+      let payloadObj = null;
+      if (row.after_json) {
+        try { payloadObj = JSON.parse(row.after_json); } catch (e) {}
+      }
+      if (!payloadObj && row.before_json) {
+        try { payloadObj = JSON.parse(row.before_json); } catch (e) {}
+      }
+
+      if (payloadObj && typeof payloadObj === 'object') {
+        if (payloadObj.title || payloadObj.judul) {
+          subjek = payloadObj.title || payloadObj.judul;
+          if (payloadObj.course_name) subjek += ` · ${payloadObj.course_name}`;
+        } else if (payloadObj.course_name) {
+          subjek = payloadObj.course_name;
+          if (payloadObj.day_name && payloadObj.start_time) {
+            subjek += ` (${payloadObj.day_name}, ${payloadObj.start_time})`;
+          }
+        } else if (payloadObj.topic) {
+          subjek = payloadObj.topic;
+        } else if (payloadObj.name) {
+          subjek = payloadObj.name;
+        }
+      }
+
+      if (!subjek && row.reason) {
+        subjek = row.reason;
+      }
+      if (!subjek) {
+        const ent = row.entity_type || 'Entitas';
+        const id = row.entity_id || row.id;
+        subjek = `${ent} #${id}`;
+      }
+
+      return { judul, subjek };
+    },
+
+    fmtAuditWaktuRelatif(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = d.toDateString() === yesterday.toDateString();
+
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const timeStr = `${hh}:${mm}`;
+
+      if (isToday) {
+        return `${timeStr} · Hari ini`;
+      }
+      if (isYesterday) {
+        return `Kemarin · ${timeStr}`;
+      }
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const dateStr = `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]}`;
+      if (d.getFullYear() === now.getFullYear()) {
+        return `${dateStr} · ${timeStr}`;
+      }
+      return `${dateStr} ${d.getFullYear()} · ${timeStr}`;
+    },
+
+    fmtAuditWaktuLengkap(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const dayName = days[d.getDay()];
+      const dateNum = d.getDate();
+      const monthName = months[d.getMonth()];
+      const year = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${dayName}, ${dateNum} ${monthName} ${year} pukul ${hh}:${mm} WIB`;
+    },
+
+    detailAktorRoleDanKontak(item) {
+      if (!item) return '';
+      let role = item.actor_role || '';
+      if (role === 'KM') role = 'Ketua Murid';
+      else if (role === 'PJ') role = 'PJ Mata Kuliah';
+      else if (role === 'SYSTEM_ADMIN') role = 'System Admin';
+      else if (!role) role = 'Otomatisasi Sistem';
+
+      const formatPhone = (num) => {
+        if (!num) return '';
+        let s = String(num).replace(/[^0-9]/g, '');
+        if (s.startsWith('62')) s = '+' + s;
+        else if (s.startsWith('0')) s = '+62' + s.slice(1);
+        else if (!s.startsWith('+')) s = '+' + s;
+        if (s.startsWith('+62') && s.length >= 11) {
+          const prefix = s.slice(0, 3);
+          const part1 = s.slice(3, 6);
+          const part2 = s.slice(6, 10);
+          const part3 = s.slice(10);
+          return `${prefix} ${part1}-${part2}-${part3}`;
+        }
+        return s;
+      };
+
+      const phone = formatPhone(item.actor_identity_key);
+      if (phone && role !== 'Otomatisasi Sistem') {
+        return `(${role} · ${phone})`;
+      }
+      return `(${role})`;
+    },
+
+    bukaDetailAudit(row) {
+      this.auditDetailItem = row;
+      this.auditDiffData = this.parseAuditDiff(row);
+      this.modalAuditDetailOpen = true;
+    },
+
+    tutupDetailAudit() {
+      this.modalAuditDetailOpen = false;
+      this.auditDetailItem = null;
+      this.auditDiffData = { beforeRows: [], afterRows: [] };
+    },
+
+    parseAuditDiff(row) {
+      if (!row) return { beforeRows: [], afterRows: [] };
+
+      let beforeObj = null;
+      let afterObj = null;
+      if (row.before_json) {
+        try { beforeObj = JSON.parse(row.before_json); } catch (e) {}
+      }
+      if (row.after_json) {
+        try { afterObj = JSON.parse(row.after_json); } catch (e) {}
+      }
+
+      const labelMap = {
+        title: 'Judul Tugas',
+        judul: 'Judul',
+        description: 'Deskripsi',
+        deskripsi: 'Deskripsi',
+        deadline: 'Tenggat Waktu',
+        tenggat: 'Tenggat Waktu',
+        course_name: 'Mata Kuliah',
+        mata_kuliah: 'Mata Kuliah',
+        matkul: 'Mata Kuliah',
+        day_name: 'Hari Perkuliahan',
+        hari: 'Hari',
+        start_time: 'Jam Mulai',
+        end_time: 'Jam Selesai',
+        room_code: 'Ruangan',
+        room: 'Ruangan',
+        ruangan: 'Ruangan',
+        lecturer_name: 'Dosen Pengampu',
+        dosen: 'Dosen Pengampu',
+        status: 'Status',
+        role: 'Peran',
+        notes: 'Catatan',
+        catatan: 'Catatan',
+        topic: 'Topik Perkuliahan',
+        meeting_number: 'Pertemuan Ke',
+        session_code: 'Kode Portal',
+        portal_code: 'Kode Portal',
+        is_online: 'Metode Pembelajaran',
+        channel_type: 'Kanal WhatsApp'
+      };
+
+      const formatVal = (v) => {
+        if (v === null || v === undefined || v === '') return '—';
+        if (typeof v === 'boolean') return v ? 'Ya' : 'Tidak';
+        if (typeof v === 'object') return JSON.stringify(v);
+        return String(v);
+      };
+
+      const formatLabel = (k) => {
+        if (labelMap[k]) return labelMap[k];
+        return k.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+      };
+
+      const toRows = (obj) => {
+        if (!obj || typeof obj !== 'object') return [];
+        const rows = [];
+        for (const [k, v] of Object.entries(obj)) {
+          if (['id', 'class_id', 'created_at', 'updated_at'].includes(k)) continue;
+          rows.push({
+            key: k,
+            label: formatLabel(k),
+            value: formatVal(v)
+          });
+        }
+        return rows;
+      };
+
+      let beforeRows = toRows(beforeObj);
+      let afterRows = toRows(afterObj);
+
+      if (beforeRows.length === 0 && afterRows.length === 0) {
+        afterRows = [
+          { label: 'Tindakan', value: this.labelAksiAudit(row.action) },
+          { label: 'Entitas Objek', value: `${row.entity_type || 'ENTITAS'} #${row.entity_id || row.id}` },
+        ];
+        if (row.reason) {
+          afterRows.push({ label: 'Alasan', value: row.reason });
+        }
+      }
+
+      return { beforeRows, afterRows };
+    },
+
+    terapkanAuditFilter() {
+      this.auditPage = 1;
+      return this.loadAuditLog();
+    },
+
+    resetFilterDanMuat() {
+      this.auditFilter = { object: '', actor: '', timeRange: '', entity_type: '', since: '', until: '', action: '' };
+      this.auditPage = 1;
+      return this.loadAuditLog();
+    },
+
     async loadAuditLog(more) {
       const isMore = !!more;
       if (isMore) {
@@ -2753,7 +3059,7 @@ function kmApp() {
         const rows = await API.getAudit(params).catch(() => null);
         const list = Array.isArray(rows) ? rows : [];
         this.auditList = isMore ? [...this.auditList, ...list] : list;
-        this.auditHasMore = list.length >= 50;
+        this.auditHasMore = list.length >= 100;
       } catch (e) {
         if (!isMore) {
           this.auditList = [];
@@ -2768,23 +3074,41 @@ function kmApp() {
 
     rakitAuditParams(offset) {
       const f = this.auditFilter || {};
-      const params = { limit: 50 };
+      const params = { limit: 100 };
+      if ((f.object || f.entity_type || '').trim()) {
+        params.entity_type = (f.object || f.entity_type).trim().toUpperCase();
+      }
       if ((f.action || '').trim()) params.action = f.action.trim().toUpperCase();
-      if ((f.entity_type || '').trim()) params.entity_type = f.entity_type.trim().toUpperCase();
       if ((f.actor || '').trim()) params.actor = f.actor.trim();
-      if (f.since) params.since = String(f.since).length === 16 ? f.since + ':00+07:00' : f.since;
-      if (f.until) params.until = String(f.until).length === 16 ? f.until + ':00+07:00' : f.until;
+
+      if (f.timeRange === 'today') {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        params.since = d.toISOString();
+      } else if (f.timeRange === '7d') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        params.since = d.toISOString();
+      } else if (f.timeRange === '30d') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        params.since = d.toISOString();
+      } else {
+        if (f.since) params.since = String(f.since).length === 16 ? f.since + ':00+07:00' : f.since;
+        if (f.until) params.until = String(f.until).length === 16 ? f.until + ':00+07:00' : f.until;
+      }
+
       if (offset > 0) params.offset = offset;
       return params;
     },
 
     auditFilterCount() {
       const f = this.auditFilter || {};
-      return ['action', 'entity_type', 'actor', 'since', 'until'].filter(k => (f[k] || '').trim()).length;
+      return ['object', 'action', 'entity_type', 'actor', 'timeRange', 'since', 'until'].filter(k => (f[k] || '').trim()).length;
     },
 
     resetAuditFilter() {
-      this.auditFilter = { action: '', entity_type: '', actor: '', since: '', until: '' };
+      this.resetFilterDanMuat();
     },
 
     prettyJSON(v) {

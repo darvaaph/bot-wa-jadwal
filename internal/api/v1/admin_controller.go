@@ -150,20 +150,21 @@ func (c *AdminController) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 // AuditLogResponseItem merepresentasikan catatan riwayat audit sistem
 type AuditLogResponseItem struct {
-	ID            int64   `json:"id"`
-	ClassID       *int64  `json:"class_id,omitempty"`
-	ClassSlug     *string `json:"class_slug,omitempty"`
-	ActorUserID   *int64  `json:"actor_user_id,omitempty"`
-	ActorName     *string `json:"actor_name,omitempty"`
-	ActorRole     *string `json:"actor_role,omitempty"`
-	Action        string  `json:"action"`
-	EntityType    *string `json:"entity_type,omitempty"`
-	EntityID      *int64  `json:"entity_id,omitempty"`
-	BeforeJSON    *string `json:"before_json,omitempty"`
-	AfterJSON     *string `json:"after_json,omitempty"`
-	Reason        *string `json:"reason,omitempty"`
-	CorrelationID *string `json:"correlation_id,omitempty"`
-	CreatedAt     string  `json:"created_at"`
+	ID               int64   `json:"id"`
+	ClassID          *int64  `json:"class_id,omitempty"`
+	ClassSlug        *string `json:"class_slug,omitempty"`
+	ActorUserID      *int64  `json:"actor_user_id,omitempty"`
+	ActorName        *string `json:"actor_name,omitempty"`
+	ActorIdentityKey *string `json:"actor_identity_key,omitempty"`
+	ActorRole        *string `json:"actor_role,omitempty"`
+	Action           string  `json:"action"`
+	EntityType       *string `json:"entity_type,omitempty"`
+	EntityID         *int64  `json:"entity_id,omitempty"`
+	BeforeJSON       *string `json:"before_json,omitempty"`
+	AfterJSON        *string `json:"after_json,omitempty"`
+	Reason           *string `json:"reason,omitempty"`
+	CorrelationID    *string `json:"correlation_id,omitempty"`
+	CreatedAt        string  `json:"created_at"`
 }
 
 // BackupRequest merepresentasikan pembuatan paket akademik oleh Admin.
@@ -591,7 +592,7 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT al.id, al.class_id, cl.slug, al.actor_user_id, u.display_name,
-		       ra.role, al.action, al.entity_type, al.entity_id,
+		       u.identity_key, ra.role, al.action, al.entity_type, al.entity_id,
 		       al.before_json, al.after_json, al.reason, al.correlation_id, al.created_at
 		FROM audit_logs al
 		LEFT JOIN classes cl ON al.class_id = cl.id
@@ -666,8 +667,23 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if entityTypeFilter != "" {
-		query += " AND al.entity_type = ?"
-		args = append(args, entityTypeFilter)
+		switch strings.ToUpper(entityTypeFilter) {
+		case "JADWAL":
+			query += " AND al.entity_type IN ('SCHEDULE_PATTERN', 'TEACHING_EVENT')"
+		case "PERAN":
+			query += " AND al.entity_type IN ('ROLE_ASSIGNMENT', 'ROLE_INVITATION', 'USER')"
+		case "TUGAS":
+			query += " AND al.entity_type IN ('TASK', 'TASK_REVIEW')"
+		case "MATERI":
+			query += " AND al.entity_type IN ('MATERIAL', 'MATERI')"
+		case "RUANGAN":
+			query += " AND al.entity_type IN ('ROOM_CONFIRMATION')"
+		case "CADANGAN":
+			query += " AND al.entity_type IN ('BACKUP', 'BACKUP_RECORD')"
+		default:
+			query += " AND al.entity_type = ?"
+			args = append(args, entityTypeFilter)
+		}
 	}
 
 	if entityIDFilter != "" {
@@ -691,7 +707,9 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 			query += " AND al.actor_user_id = ?"
 			args = append(args, n)
 		} else {
-			query += " AND 1 = 0"
+			// Pencarian fleksibel: cocokkan display_name atau nomor WA
+			query += " AND (u.display_name LIKE ? OR u.identity_key LIKE ?)"
+			args = append(args, "%"+actorFilter+"%", "%"+actorFilter+"%")
 		}
 	}
 
@@ -736,12 +754,12 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var item AuditLogResponseItem
 		var classID, actorUID, entityID sql.NullInt64
-		var classSlug, actorName, actorRole, entityType, beforeJSON, afterJSON, reason, correlationID sql.NullString
+		var classSlug, actorName, actorIdent, actorRole, entityType, beforeJSON, afterJSON, reason, correlationID sql.NullString
 		var createdAt common.DBTimestamp
 
 		if err := rows.Scan(
 			&item.ID, &classID, &classSlug, &actorUID, &actorName,
-			&actorRole, &item.Action, &entityType, &entityID,
+			&actorIdent, &actorRole, &item.Action, &entityType, &entityID,
 			&beforeJSON, &afterJSON, &reason, &correlationID, &createdAt,
 		); err == nil {
 			if classID.Valid {
@@ -755,6 +773,9 @@ func (c *AdminController) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 			}
 			if actorName.Valid {
 				item.ActorName = &actorName.String
+			}
+			if actorIdent.Valid {
+				item.ActorIdentityKey = &actorIdent.String
 			}
 			if actorRole.Valid {
 				item.ActorRole = &actorRole.String
