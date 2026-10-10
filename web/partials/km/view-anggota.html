@@ -407,75 +407,58 @@
     <div class="fixed inset-0 bg-[#0F172A66] backdrop-blur-[2px] transition-opacity" @click="tutupKonfirmasiPJ()"></div>
 
     <div class="min-h-full flex items-center justify-center p-4">
-      <div class="relative w-full max-w-[440px] bg-white border border-[#E2E8F0] shadow-[0px_20px_40px_#0F172A44] rounded-[16px] p-6 flex flex-col gap-4 overflow-hidden transform transition-all"
+      <div class="relative w-full max-w-[380px] bg-white border border-[#E2E8F0] shadow-[0px_18px_40px_#0F172A44] rounded-[16px] p-5 flex flex-col gap-3.5 overflow-hidden transform transition-all"
         @click.outside="tutupKonfirmasiPJ()"
         @keydown.escape.window="tutupKonfirmasiPJ()">
 
         <!-- Header Dialog -->
-        <div class="w-full flex justify-between items-start gap-3">
-          <div class="flex items-center gap-2.5">
-            <!-- Icon Aksi Sesuai Varian -->
-            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              :class="modalAksiPJ.aksi === 'cabut' ? 'bg-red-100 text-red-600' : (modalAksiPJ.aksi === 'tangguhkan' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600')">
-              <span class="material-symbols-outlined text-[18px]"
-                x-text="modalAksiPJ.aksi === 'cabut' ? 'person_remove' : (modalAksiPJ.aksi === 'tangguhkan' ? 'pause_circle' : 'play_circle')"></span>
-            </div>
-            <h3 id="modal-aksi-title" class="text-[17px] font-bold text-[#0F172A]"
-              x-text="modalAksiPJ.aksi === 'cabut' ? 'Cabut Penugasan PJ?' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan Penugasan PJ?' : 'Aktifkan Penugasan PJ?')">
-              Konfirmasi Tindakan
-            </h3>
-          </div>
-          <button type="button" @click="tutupKonfirmasiPJ()" aria-label="Tutup konfirmasi"
-            class="w-7 h-7 rounded-lg text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 flex items-center justify-center transition-colors shrink-0">
-            <svg viewBox="0 0 16 16" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="3" y1="3" x2="13" y2="13"></line>
-              <line x1="13" y1="3" x2="3" y2="13"></line>
-            </svg>
-          </button>
-        </div>
+        <h3 id="modal-aksi-title" class="text-[16px] font-bold text-[#0F172A] leading-snug"
+          x-text="modalAksiPJ.aksi === 'cabut' ? 'Cabut Penugasan PJ?' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan Penugasan PJ?' : 'Aktifkan Penugasan PJ?')">
+          Tangguhkan Penugasan PJ?
+        </h3>
 
         <!-- Target Info Box -->
         <template x-if="modalAksiPJ.pj">
-          <div class="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[10px] flex flex-col gap-1">
-            <span class="text-[13px] font-bold text-[#1E293B]" x-text="modalAksiPJ.pj.display_name || modalAksiPJ.pj.username || ('PJ #' + modalAksiPJ.pj.id)"></span>
-            <span class="text-[12px] text-[#475569]" x-text="pjOfferingBadge(modalAksiPJ.pj)"></span>
+          <div class="w-full p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-1.5">
+            <span class="text-[12px] font-bold text-[#0F172A]" x-text="modalAksiPJ.pj.display_name || modalAksiPJ.pj.username || ('PJ #' + modalAksiPJ.pj.id)"></span>
+            <span class="text-[11px] text-[#64748B]" x-text="pjOfferingBadge(modalAksiPJ.pj)"></span>
           </div>
         </template>
 
         <!-- Penjelasan Dampak -->
-        <div class="text-[12px] leading-relaxed text-[#475569]">
+        <div class="text-[12px] leading-[18px] text-[#475569]">
           <p x-show="modalAksiPJ.aksi === 'tangguhkan'">
-            Akses PJ untuk mata kuliah ini berhenti segera dan sesi aktifnya berakhir. Riwayat penugasan tetap tersimpan dan dapat diaktifkan kembali sewaktu-waktu.
+            Akses PJ untuk mata kuliah ini akan dibekukan seketika. Riwayat tugas tetap tersimpan.
           </p>
           <p x-show="modalAksiPJ.aksi === 'cabut'">
-            Akses PJ untuk mata kuliah ini berhenti segera dan sesi aktifnya berakhir. Penugasan yang dicabut tidak dapat diaktifkan lagi. Riwayat tetap tersimpan.
+            Akses PJ untuk mata kuliah ini berhenti segera dan sesi aktifnya berakhir. Penugasan yang dicabut tidak dapat diaktifkan lagi.
           </p>
           <p x-show="modalAksiPJ.aksi === 'aktifkan'">
-            Akses PJ untuk mata kuliah ini akan dipulihkan kembali sehingga calon PJ dapat melanjutkan tugasnya di sistem.
+            Akses PJ untuk mata kuliah ini akan dipulihkan kembali sehingga PJ dapat melanjutkan tugasnya di sistem.
           </p>
         </div>
 
         <!-- Textarea Alasan Tindakan * -->
-        <div class="flex flex-col gap-1.5">
+        <div class="w-full flex flex-col gap-1.5">
           <label for="pj-konfirmasi-alasan" class="text-[12px] font-semibold text-[#334155]">
             Alasan tindakan <span class="text-red-500">*</span>
           </label>
-          <textarea id="pj-konfirmasi-alasan" x-model="modalAksiPJ.alasan" rows="2" placeholder="Tulis alasan singkat..."
-            class="w-full p-2.5 bg-white border border-[#CBD5E1] rounded-[10px] text-[12px] text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"></textarea>
+          <textarea id="pj-konfirmasi-alasan" x-model="modalAksiPJ.alasan" rows="2" placeholder="Tuliskan alasan singkat..."
+            class="w-full h-[64px] p-2.5 bg-white border border-[#CBD5E1] rounded-[8px] text-[12px] text-[#0F172A] placeholder:text-[#94A3B8] resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
           <p x-show="modalAksiPJ.error" class="text-[11px] text-red-600 font-medium" x-text="modalAksiPJ.error"></p>
         </div>
 
         <!-- Footer Aksi Konfirmasi -->
-        <div class="w-full pt-3 border-t border-[#F1F5F9] flex flex-row gap-2.5 justify-end items-center">
+        <div class="w-full pt-3.5 border-t border-[#F1F5F9] flex flex-row gap-2 justify-end items-center">
           <button type="button" @click="tutupKonfirmasiPJ()" :disabled="modalAksiPJ.saving"
-            class="h-[38px] px-4 rounded-[12px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] text-[#334155] font-semibold transition-colors">
+            class="h-[32px] px-3 rounded-[8px] bg-white hover:bg-slate-100 text-[12px] text-[#475569] font-medium transition-colors">
             Batal
           </button>
           <button type="button" @click="eksekusiAksiPJ()" :disabled="modalAksiPJ.saving"
-            class="h-[38px] px-4 rounded-[12px] font-semibold text-[12px] text-white flex items-center gap-1.5 transition-colors shadow-sm"
-            :class="modalAksiPJ.aksi === 'cabut' ? 'bg-[#DC2626] hover:bg-red-700' : (modalAksiPJ.aksi === 'tangguhkan' ? 'bg-[#D97706] hover:bg-amber-700' : 'bg-[#2563EB] hover:bg-blue-700')">
-            <span class="material-symbols-outlined text-[16px] animate-spin" x-show="modalAksiPJ.saving">progress_activity</span>
-            <span x-text="modalAksiPJ.saving ? 'Memproses...' : (modalAksiPJ.aksi === 'cabut' ? 'Cabut Penugasan' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan Penugasan' : 'Aktifkan Penugasan'))"></span>
+            class="h-[32px] px-3.5 rounded-[8px] font-semibold text-[12px] text-white flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50"
+            :class="modalAksiPJ.aksi === 'cabut' ? 'bg-[#DC2626] hover:bg-red-700 shadow-[0px_2px_5px_#DC262622]' : (modalAksiPJ.aksi === 'tangguhkan' ? 'bg-[#B45309] hover:bg-amber-800 shadow-[0px_2px_5px_#92400E22]' : 'bg-[#2563EB] hover:bg-blue-700 shadow-[0px_2px_5px_#2563EB22]')">
+            <span class="material-symbols-outlined text-[14px] animate-spin" x-show="modalAksiPJ.saving">progress_activity</span>
+            <span x-text="modalAksiPJ.saving ? 'Memproses...' : (modalAksiPJ.aksi === 'cabut' ? 'Cabut Penugasan' : (modalAksiPJ.aksi === 'tangguhkan' ? 'Tangguhkan' : 'Aktifkan'))"></span>
           </button>
         </div>
       </div>
