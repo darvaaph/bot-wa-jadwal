@@ -40,10 +40,10 @@ const AsteriskShell = (() => {
       },
       shellBottomNav() {
         if (role === 'portal') return [
-          { id: 'dashboard', label: 'Ringkasan', icon: 'dashboard' },
+          { id: 'dashboard', label: 'Beranda', icon: 'home' },
           { id: 'jadwal', label: 'Jadwal', icon: 'calendar_month' },
           { id: 'tugas', label: 'Tugas', icon: 'assignment' },
-          { id: 'courses', label: 'Mata Kuliah', icon: 'menu_book' }
+          { id: 'materi', label: 'Materi', icon: 'folder' }
         ];
         if (role === 'sa') return [
           { id: 'dashboard', label: 'Ringkasan', tab: 'sa-spacedash' },

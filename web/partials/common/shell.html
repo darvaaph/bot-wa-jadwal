@@ -78,7 +78,56 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa'">
+  <template x-if="shellRoleKey === 'portal'">
+    <div class="contents">
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0 transition-colors" :class="sidebarCollapsed ? 'justify-center' : 'justify-start gap-[10px] px-1'">
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
+          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
+            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+          </svg>
+        </div>
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[3px] text-left">
+          <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">Bot Jadwal</span>
+          <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+        </div>
+      </button>
+
+      <div x-show="!sidebarCollapsed" class="sidebar-section mt-4 box-border w-full h-fit shrink-0 flex flex-col gap-[5px] p-[12px_14px] justify-start items-start bg-[#F8FAFC] border border-[#D7DDE7] rounded-[12px]">
+        <span class="text-[10px] font-bold text-[#64748B] font-[Montserrat,system-ui,sans-serif] tracking-[0.5px] uppercase">KELAS AKTIF</span>
+        <span class="text-[12px]/[16px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] truncate w-full" x-text="selectedClassMeta?.label || selectedClass || 'Kelas belum dipilih'"></span>
+      </div>
+
+      <nav aria-label="Navigasi portal mahasiswa" class="mt-4 flex flex-col gap-1 text-[12px] shrink-0 w-full">
+        <template x-for="item in navSections[0]?.items || []" :key="item.id">
+          <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="(shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold ' : 'text-[#475569] hover:bg-slate-50 font-semibold ') + (sidebarCollapsed ? 'justify-center' : 'gap-[12px] px-[12px]')" class="flex items-center w-full h-[44px] rounded-[10px] text-left transition-colors font-[Montserrat,system-ui,sans-serif]">
+            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-[19px] h-[19px]" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
+            <span x-show="!sidebarCollapsed" class="sidebar-label text-[12px] leading-tight" x-text="item.label"></span>
+          </button>
+        </template>
+      </nav>
+
+      <div class="mt-auto pt-3 border-t border-[#E2E8F0] shrink-0 w-full">
+        <div class="flex items-center justify-between" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
+          <button type="button"
+                  @click="classModalOpen = true"
+                  title="Ganti kelas portal"
+                  aria-label="Ganti kelas portal"
+                  class="flex items-center text-left rounded-xl hover:bg-slate-50 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
+                  :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
+            <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
+            <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
+              <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight truncate group-hover:text-[#1D4ED8] transition-colors">Mahasiswa Kelas</span>
+              <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClass || 'Kelas'"></span>
+            </div>
+            <svg x-show="!sidebarCollapsed" width="19" height="19" viewBox="0 0 14 14" fill="#64748B" class="w-[19px] h-[19px] shrink-0 text-[#64748B] group-hover:text-[#1D4ED8] transition-colors" aria-hidden="true" focusable="false">
+              <path d="M9.96338 7.29053l-6.75391 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l6.75391 0-3.17188-3.17187q-0.08545-0.08545-0.09228-0.20166-0.00342-0.11621 0.0957-0.21192 0.0957-0.0957 0.20508-0.0957 0.10938-0.00342 0.20508 0.0957l3.54785 3.54785q0.0752 0.0752 0.10596 0.15381 0.03418 0.07861 0.03418 0.17432 0 0.0957-0.03418 0.17432-0.03076 0.07861-0.10596 0.1538l-3.54785 3.54786q-0.08203 0.08203-0.19824 0.08886-0.11621 0.00684-0.21192-0.08886-0.09912-0.0957-0.09912-0.20508 0-0.11279 0.09912-0.2085l3.16846-3.17187z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
     <div class="contents">
       <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-1'">
         <template x-if="shellRoleKey === 'km' || shellRoleKey === 'pj'"><span class="flex items-center gap-3 min-w-0"><span class="w-[42px] h-[42px] shrink-0 rounded-[12px] bg-[#3965FB] flex items-center justify-center"><img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" /></span><span x-show="!sidebarCollapsed" class="sidebar-label text-left min-w-0 flex flex-col gap-[2px]"><span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span><span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit" :class="shellRoleKey === 'km' ? 'bg-primary-soft text-primary-hover' : 'bg-[#EFF6FF] text-[#1D4ED8]'" x-text="shellRoleKey === 'km' ? 'Ketua Murid' : 'PJ Matkul'"></span></span></span></template>
@@ -196,7 +245,37 @@
           </button>
         </div>
       </template>
-      <template x-if="shellRoleKey !== 'sa'">
+      <template x-if="shellRoleKey === 'portal'">
+        <div class="contents">
+          <!-- Mobile top bar -->
+          <div class="md:hidden flex items-center justify-between w-full">
+            <div class="flex items-center gap-[8px] min-w-0">
+              <span class="text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight whitespace-nowrap">Bot Jadwal</span>
+              <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClass || 'Kelas'"></button>
+            </div>
+            <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
+              <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
+              <span class="text-[9px] text-[#065F46] font-bold font-[Montserrat,system-ui,sans-serif] whitespace-nowrap">Terhubung</span>
+            </div>
+          </div>
+
+          <!-- Desktop top bar -->
+          <div class="hidden md:flex items-center justify-between w-full">
+            <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px] font-[Montserrat,system-ui,sans-serif]">
+              <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Portal</button>
+              <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
+              <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClass || 'Kelas'"></button>
+              <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
+              <span class="text-[#0F172A] font-bold truncate" x-text="(navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda'"></span>
+            </nav>
+            <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
+              <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
+              <span class="text-[11px] text-[#065F46] font-bold font-[Montserrat,system-ui,sans-serif] whitespace-nowrap">Bot Terhubung</span>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
         <div class="contents">
           <!-- Toggle drawer mobile -->
           <button type="button" @click="shellOpenDrawer($event)" aria-label="Buka menu" :aria-expanded="String(drawer)" class="md:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#1D1B3A]">
@@ -343,7 +422,47 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa'">
+  <template x-if="shellRoleKey === 'portal'">
+    <div class="contents">
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-[10px]">
+          <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
+            <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
+              <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+            </svg>
+          </div>
+          <div class="flex flex-col gap-[3px]">
+            <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight">Bot Jadwal</span>
+            <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+          </div>
+        </div>
+        <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="mt-4 box-border w-full h-fit shrink-0 flex flex-col gap-[5px] p-[12px_14px] justify-start items-start bg-[#F8FAFC] border border-[#D7DDE7] rounded-[12px]">
+        <span class="text-[10px] font-bold text-[#64748B] font-[Montserrat,system-ui,sans-serif] tracking-[0.5px] uppercase">KELAS AKTIF</span>
+        <span class="text-[12px]/[16px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] truncate w-full" x-text="selectedClassMeta?.label || selectedClass || 'Kelas belum dipilih'"></span>
+      </div>
+      <nav aria-label="Navigasi mobile portal" class="mt-4 flex flex-col gap-1 text-[12px]">
+        <template x-for="item in navSections[0]?.items || []" :key="item.id">
+          <button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold' : 'text-[#475569] hover:bg-slate-50 font-semibold'" class="flex items-center gap-[12px] px-[12px] h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors font-[Montserrat,system-ui,sans-serif]">
+            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-[19px] h-[19px]" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
+            <span class="flex-1 text-left text-[12px]" x-text="item.label"></span>
+          </button>
+        </template>
+      </nav>
+      <div class="mt-auto pt-3 px-1 border-t border-[#E2E8F0]">
+        <button type="button" @click="classModalOpen = true; shellCloseDrawer()" class="flex items-center gap-[10px] w-full p-2 rounded-xl hover:bg-slate-50 transition-colors text-left">
+          <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0">MH</div>
+          <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
+            <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight">Mahasiswa Kelas</span>
+            <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClass || 'Kelas'"></span>
+          </div>
+          <span class="text-[11px] font-bold text-[#1D4ED8]">Ganti</span>
+        </button>
+      </div>
+    </div>
+  </template>
+  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
         <template x-if="shellRoleKey === 'km' || shellRoleKey === 'pj'">
@@ -381,9 +500,22 @@
   </template>
 </aside>
 
-<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
-  <div class="grid grid-cols-4 h-[68px]">
-    <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
+<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E2E8F0] pb-[env(safe-area-inset-bottom)]">
+  <div class="grid grid-cols-4 h-[67.5px]">
+    <template x-for="item in shellBottomNav()" :key="item.id">
+      <button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? (shellRoleKey === 'portal' ? 'text-[#2563EB] font-bold' : 'text-primary-hover') : (shellRoleKey === 'portal' ? 'text-[#475569] font-semibold' : 'text-muted')" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-[3px] text-center font-[Montserrat,system-ui,sans-serif]">
+        <template x-if="shellRoleKey === 'portal'">
+          <span x-html="portalNavIcon(item)" class="w-[20px] h-[20px] shrink-0 flex items-center justify-center" aria-hidden="true" :class="shellBottomIsActive(item) ? 'text-[#2563EB]' : 'text-[#64748B]'"></span>
+        </template>
+        <template x-if="shellRoleKey === 'sa'">
+          <span class="px-3 py-1 rounded-full"><span x-html="saTabIcon(item)" aria-hidden="true"></span></span>
+        </template>
+        <template x-if="shellRoleKey !== 'portal' && shellRoleKey !== 'sa'">
+          <span class="px-3 py-1 rounded-full" :class="shellBottomIsActive(item) ? 'bg-primary-soft' : ''"><span class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span>
+        </template>
+        <span class="text-[10px] truncate max-w-full px-1" x-text="item.label"></span>
+      </button>
+    </template>
   </div>
 </nav>
 
