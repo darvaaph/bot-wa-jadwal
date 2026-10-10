@@ -192,12 +192,6 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 					}
 					return nil
 				}(),
-				"created_at": func() any {
-					if createdAt.Valid {
-						return createdAt.RFC3339()
-					}
-					return nil
-				}(),
 			})
 		}
 	}
