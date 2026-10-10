@@ -152,7 +152,7 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'km'">
+  <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
       <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0 transition-colors" :class="sidebarCollapsed ? 'justify-center' : 'justify-start gap-[10px] px-1'">
         <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
@@ -201,7 +201,7 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
+  <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
       <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-1'">
         <template x-if="shellRoleKey === 'km' || shellRoleKey === 'pj'"><span class="flex items-center gap-3 min-w-0"><span class="w-[42px] h-[42px] shrink-0 rounded-[12px] bg-[#3965FB] flex items-center justify-center"><img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" /></span><span x-show="!sidebarCollapsed" class="sidebar-label text-left min-w-0 flex flex-col gap-[2px]"><span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span><span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit" :class="shellRoleKey === 'km' ? 'bg-primary-soft text-primary-hover' : 'bg-[#EFF6FF] text-[#1D4ED8]'" x-text="shellRoleKey === 'km' ? 'Ketua Murid' : 'PJ Matkul'"></span></span></span></template>
@@ -394,7 +394,7 @@
           </button>
         </div>
       </template>
-      <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'km'">
+      <template x-if="shellRoleKey === 'portal'">
         <div class="contents">
           <!-- Mobile top bar -->
           <div class="md:hidden flex items-center justify-between w-full">
@@ -424,7 +424,7 @@
           </div>
         </div>
       </template>
-      <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
+      <template x-if="shellRoleKey === 'pj'">
         <div class="contents">
           <!-- Toggle drawer mobile -->
           <button type="button" @click="shellOpenDrawer($event)" aria-label="Buka menu" :aria-expanded="String(drawer)" class="md:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#1D1B3A]">
@@ -637,7 +637,7 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'km'">
+  <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center gap-[10px]">
@@ -677,7 +677,7 @@
       </div>
     </div>
   </template>
-  <template x-if="shellRoleKey !== 'sa' && shellRoleKey !== 'portal'">
+  <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
         <template x-if="shellRoleKey === 'km' || shellRoleKey === 'pj'">
