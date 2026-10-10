@@ -61,6 +61,11 @@ function portalApp() {
     fullSchedule: [],
     jadwalEfektif: [],
     jadwalCacheHariIni: [],
+    jadwalPekan: { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] },
+    weekOffset: 0,
+    modeTampilan: 'kalender',
+    pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
+    pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
     jadwalError: '',
     tasks: [],
@@ -89,15 +94,15 @@ function portalApp() {
       return this.jadwalEfektifHariIni;
     },
 
-    // Tanggal ISO tiap hari Senin–Jumat pada pekan berjalan (zona WIB).
+    // Tanggal ISO tiap hari Senin–Minggu pada pekan terpilih (berdasarkan weekOffset, zona WIB).
     get tanggalPekan() {
       const out = {};
       try {
-        const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
         const nowWib = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
         const dow = (nowWib.getDay() + 6) % 7;
         const monday = new Date(nowWib);
-        monday.setDate(nowWib.getDate() - dow);
+        monday.setDate(nowWib.getDate() - dow + (this.weekOffset * 7));
         names.forEach((n, i) => {
           const d = new Date(monday);
           d.setDate(monday.getDate() + i);
@@ -105,6 +110,21 @@ function portalApp() {
           out[n] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         });
       } catch (e) {}
+      return out;
+    },
+
+    get tanggalPekanFormatted() {
+      const out = {};
+      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+      const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+      names.forEach(n => {
+        const iso = this.tanggalPekan[n];
+        if (!iso) { out[n] = ''; return; }
+        const parts = iso.split('-');
+        const day = parseInt(parts[2], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        out[n] = `${day} ${months[m] || ''}`;
+      });
       return out;
     },
 
@@ -122,6 +142,66 @@ function portalApp() {
         }
       } catch (e) {}
       return 6; // fallback sesuai Figma: Pekan Ke-6
+    },
+
+    get pekanAktifNum() {
+      return Math.max(1, this.pekanNum + (this.weekOffset || 0));
+    },
+
+    get rentangPekanLabel() {
+      try {
+        const sen = this.tanggalPekan['Senin'];
+        const min = this.tanggalPekan['Minggu'];
+        if (!sen || !min) return 'Pekan Ini';
+        const d1 = new Date(sen + 'T00:00:00+07:00');
+        const d2 = new Date(min + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        if (d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) {
+          return `${d1.getDate()} – ${d2.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()}`;
+        } else if (d1.getFullYear() === d2.getFullYear()) {
+          return `${d1.getDate()} ${mNames[d1.getMonth()]} – ${d2.getDate()} ${mNames[d2.getMonth()]} ${d2.getFullYear()}`;
+        }
+        return `${d1.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()} – ${d2.getDate()} ${mNames[d2.getMonth()]} ${d2.getFullYear()}`;
+      } catch (e) {
+        return 'Pekan Ini';
+      }
+    },
+
+    get rentangPekanSingkatLabel() {
+      try {
+        const sen = this.tanggalPekan['Senin'];
+        const min = this.tanggalPekan['Minggu'];
+        if (!sen || !min) return `Pekan ${this.pekanAktifNum}`;
+        const d1 = new Date(sen + 'T00:00:00+07:00');
+        const d2 = new Date(min + 'T00:00:00+07:00');
+        const mShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        if (d1.getMonth() === d2.getMonth()) {
+          return `${d1.getDate()} - ${d2.getDate()} ${mShort[d1.getMonth()]} (Pekan ${this.pekanAktifNum})`;
+        }
+        return `${d1.getDate()} ${mShort[d1.getMonth()]} - ${d2.getDate()} ${mShort[d2.getMonth()]} (Pekan ${this.pekanAktifNum})`;
+      } catch (e) {
+        return `Pekan ${this.pekanAktifNum}`;
+      }
+    },
+
+    get tanggalHariTerpilihFormat() {
+      try {
+        const iso = this.tanggalPekan[this.hari];
+        if (!iso) return this.hari;
+        const d = new Date(iso + 'T00:00:00+07:00');
+        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        return `${this.hari}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
+      } catch (e) {
+        return this.hari;
+      }
+    },
+
+    get activeTasksCount() {
+      return (this.tasks || []).length || 2;
+    },
+
+    get hasSaturdayClass() {
+      return Array.isArray(this.jadwalPekan['Sabtu']) && this.jadwalPekan['Sabtu'].length > 0;
     },
 
     get jadwalEfektifHariIni() {
@@ -650,13 +730,59 @@ function portalApp() {
         id: it.id || `ef-${i}`,
         hari: hariLabel || '',
         kind: it.kind || 'REGULER',
+        activityType: String(it.activity_type || 'THEORY').toUpperCase(),
         matkul: it.offering || it.title || 'Mata Kuliah',
         dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
         ruang: it.room || '',
         link: it.meeting_link || '',
         timeStart: (it.starts_at || '').slice(0, 5),
-        timeEnd: (it.ends_at || '').slice(0, 5)
+        timeEnd: (it.ends_at || '').slice(0, 5),
+        pj: it.pj || '',
+        originDate: it.origin_occurrence_date || '',
+        reason: it.reason || ''
       }));
+    },
+
+    fmtAsalPengganti(isoDate, reason) {
+      if (isoDate) {
+        try {
+          const d = new Date(isoDate + 'T00:00:00+07:00');
+          const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+          const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+        } catch (e) {}
+      }
+      if (reason) return reason;
+      return 'Kuliah pengganti resmi';
+    },
+
+    async prevWeek() {
+      this.weekOffset--;
+      await this.loadJadwalPekan();
+    },
+
+    async nextWeek() {
+      this.weekOffset++;
+      await this.loadJadwalPekan();
+    },
+
+    async mingguIni() {
+      this.weekOffset = 0;
+      this.hari = this.todayName;
+      await this.loadJadwalPekan();
+    },
+
+    lihatJadwalBesok() {
+      const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const curIdx = days.indexOf(this.hari);
+      const nextIdx = (curIdx + 1) % days.length;
+      if (nextIdx === 0) {
+        this.weekOffset++;
+        this.hari = 'Senin';
+        this.loadJadwalPekan();
+      } else {
+        this.pilihHari(days[nextIdx]);
+      }
     },
 
     async loadSchedule() {
@@ -673,49 +799,50 @@ function portalApp() {
       } catch (e) { this.fullSchedule = []; }
     },
 
-    // Jadwal efektif (pola + perubahan terbit) untuk satu hari.
-    async loadJadwalEfektif() {
-      this.jadwalLoading = true; this.jadwalError = '';
+    // Jadwal efektif (pola + perubahan terbit) untuk seluruh pekan.
+    async loadJadwalPekan() {
+      this.jadwalLoading = true;
+      this.jadwalError = '';
       const slug = this.selectedClassSlug;
-      const tanggal = (this.tanggalPekan && this.tanggalPekan[this.hari]) || '';
+      const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       try {
-        const data = await API.getPortalSchedule(slug, tanggal);
-        if (data && Array.isArray(data.items)) {
-          this.jadwalEfektif = this.normalisasiEfektif(data.items, this.hari);
-        } else {
-          this.jadwalEfektif = this.fullSchedule.filter(s => s.hari === this.hari).map(s => ({
-            id: s.id, hari: s.hari, kind: 'REGULER', matkul: s.matkul,
-            dosen: s.dosen || '', ruang: s.ruang || '',
-            timeStart: s.timeStart || '', timeEnd: s.timeEnd || ''
-          }));
+        const results = await Promise.all(days.map(d => {
+          const tgl = this.tanggalPekan[d];
+          return API.getPortalSchedule(slug, tgl);
+        }));
+        const newPekan = {};
+        days.forEach((d, idx) => {
+          const res = results[idx];
+          if (res && Array.isArray(res.items)) {
+            newPekan[d] = this.normalisasiEfektif(res.items, d);
+          } else {
+            newPekan[d] = this.fullSchedule.filter(s => s.hari === d).map(s => ({
+              id: s.id, hari: s.hari, kind: 'REGULER', activityType: 'THEORY',
+              matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
+              timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
+              link: '', pj: '', originDate: '', reason: ''
+            }));
+          }
+        });
+        this.jadwalPekan = newPekan;
+        this.jadwalEfektif = this.jadwalPekan[this.hari] || [];
+        if (this.weekOffset === 0) {
+          this.jadwalCacheHariIni = this.jadwalPekan[this.todayName] || [];
         }
       } catch (e) {
-        this.jadwalEfektif = [];
         this.jadwalError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.jadwalLoading = false;
       }
-      // Cache khusus hari ini untuk dashboard.
-      try {
-        const tglHariIni = (this.tanggalPekan && this.tanggalPekan[this.todayName]) || '';
-        if (this.hari === this.todayName) {
-          this.jadwalCacheHariIni = this.jadwalEfektif.slice();
-        } else {
-          const data = await API.getPortalSchedule(slug, tglHariIni);
-          if (data && Array.isArray(data.items)) {
-            this.jadwalCacheHariIni = this.normalisasiEfektif(data.items, this.todayName);
-          } else {
-            this.jadwalCacheHariIni = this.fullSchedule.filter(s => s.hari === this.todayName);
-          }
-        }
-      } catch (e) {
-        this.jadwalCacheHariIni = this.fullSchedule.filter(s => s.hari === this.todayName);
-      }
+    },
+
+    async loadJadwalEfektif() {
+      await this.loadJadwalPekan();
     },
 
     pilihHari(d) {
       this.hari = d;
-      this.loadJadwalEfektif();
+      this.jadwalEfektif = this.jadwalPekan[d] || [];
     },
 
     async loadTugasPortal() {
