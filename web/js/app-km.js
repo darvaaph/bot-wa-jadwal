@@ -3949,26 +3949,48 @@ function kmApp() {
       }
     },
 
-    mulaiLepasKanalSaya(k) {
-      this.kanalLepas = { id: k.id, nama: k.display_name || k.jid };
+    bukaModalLepasKanal(k) {
+      this.kanalLepas = k;
       this.kanalAlasan = '';
+      this.kanalLepasError = '';
+      this.modalLepasKanalOpen = true;
+    },
+
+    tutupModalLepasKanal() {
+      this.modalLepasKanalOpen = false;
+      this.kanalLepas = null;
+      this.kanalAlasan = '';
+      this.kanalLepasError = '';
+    },
+
+    async konfirmasiLepasKanal() {
+      const k = this.kanalLepas;
+      if (!k) return;
+      const alasan = (this.kanalAlasan || '').trim();
+      if (!alasan) {
+        this.kanalLepasError = 'Alasan pelepasan kanal wajib diisi.';
+        return;
+      }
+      this.kanalLepasSaving = true;
+      this.kanalLepasError = '';
+      try {
+        await API.revokeChannel(k.id, alasan);
+        this.showToast(`Kanal ${k.display_name || k.jid} berhasil dilepas.`);
+        this.tutupModalLepasKanal();
+        await this.loadKanalSaya();
+      } catch (err) {
+        this.kanalLepasError = err.message || 'Gagal melepas kanal.';
+      } finally {
+        this.kanalLepasSaving = false;
+      }
+    },
+
+    mulaiLepasKanalSaya(k) {
+      this.bukaModalLepasKanal(k);
     },
 
     async jalankanLepasKanalSaya() {
-      const k = this.kanalLepas;
-      if (!k) return;
-      if (!((this.kanalAlasan || '').trim())) {
-        this.showToast('Isi alasan pelepasan terlebih dahulu.');
-        return;
-      }
-      try {
-        await API.revokeChannel(k.id, this.kanalAlasan.trim());
-        this.showToast(`Kanal ${k.nama} dilepas.`);
-        this.kanalLepas = null;
-        await this.loadKanalSaya();
-      } catch (err) {
-        this.showToast(err.message || 'Gagal melepas kanal.');
-      }
+      await this.konfirmasiLepasKanal();
     },
 
     // ---- Kanal WhatsApp kelas (KM menautkan grupnya sendiri) ----
@@ -3980,6 +4002,9 @@ function kmApp() {
     kanalSaving: false,
     kanalLepas: null,
     kanalAlasan: '',
+    modalLepasKanalOpen: false,
+    kanalLepasSaving: false,
+    kanalLepasError: '',
 
     // ---- Usulan koreksi master (KM mengusulkan, System Admin memutuskan) ----
     usulanList: [],
