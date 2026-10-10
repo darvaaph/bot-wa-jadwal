@@ -79,6 +79,9 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
+    materiError: '',
+    materiFilterMatkul: 'Semua',
+    materiSort: 'terbaru',
     courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
@@ -692,6 +695,8 @@ function portalApp() {
       if (v === 'jadwal') this.loadJadwalEfektif();
       if (v === 'courses') this.loadCourses();
       if (v === 'arsip') this.loadSemester();
+      if (v === 'perubahan') this.loadPerubahan();
+      if (v === 'materi') this.loadMateri();
       window.scrollTo({ top: 0 });
     },
 
@@ -754,12 +759,14 @@ function portalApp() {
         kind: it.kind || 'REGULER',
         activityType: String(it.activity_type || 'THEORY').toUpperCase(),
         matkul: it.offering || it.title || 'Mata Kuliah',
+        code: it.code || '',
         dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
         ruang: it.room || '',
         link: it.meeting_link || '',
         timeStart: (it.starts_at || '').slice(0, 5),
         timeEnd: (it.ends_at || '').slice(0, 5),
         pj: it.pj || '',
+        pjPhone: it.pj_phone || '',
         originDate: it.origin_occurrence_date || '',
         reason: it.reason || ''
       }));
@@ -776,6 +783,58 @@ function portalApp() {
       }
       if (reason) return reason;
       return 'Kuliah pengganti resmi';
+    },
+
+    getInisial(name) {
+      if (!name) return '—';
+      const clean = String(name).replace(/^(bpk\.?|ibu\.?|dr\.?|dra\.?|drs\.?)\s+/i, '').trim();
+      const parts = clean.split(/[\s,]+/).filter(Boolean);
+      if (parts.length === 0) return '—';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    },
+
+    get tugasTerkaitDetailSesi() {
+      if (!this.detailSesi || !this.detailSesi.matkul) return [];
+      const target = this.detailSesi.matkul.toLowerCase().trim();
+      return (this.tasks || []).filter(t => {
+        if (!t || !t.matkul) return false;
+        const tm = t.matkul.toLowerCase().trim();
+        return tm === target || target.includes(tm) || tm.includes(target);
+      });
+    },
+
+    chatWhatsAppPJ(s) {
+      if (!s) return;
+      const raw = s.pjPhone || '';
+      const clean = raw.replace(/[^0-9]/g, '');
+      if (clean && clean.length >= 9) {
+        const text = encodeURIComponent(`Halo PJ ${s.matkul}, saya mahasiswa ingin menanyakan perihal perkuliahan.`);
+        window.open(`https://wa.me/${clean}?text=${text}`, '_blank', 'noopener,noreferrer');
+      } else {
+        this.showToast(`Kontak PJ ${s.pj ? '(' + s.pj + ')' : ''} dapat dihubungi melalui grup WhatsApp kelas.`);
+      }
+    },
+
+    salinInfoSesi(s) {
+      if (!s) return;
+      const text = `📅 *Jadwal Perkuliahan: ${s.matkul}*\n` +
+        `🗓️ Hari: ${this.formatTanggalLengkap(s.hari)}\n` +
+        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
+        `🏢 Ruangan: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring Zoom' : '—')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        `👤 PJ Matkul: ${s.pj || 'Belum ditugaskan'}` +
+        (s.link ? `\n🔗 Link Zoom: ${s.link}` : '') +
+        (s.kind === 'PENGGANTI' ? `\n⚠️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}` : '');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          this.showToast('Informasi sesi berhasil disalin ke clipboard!');
+        }).catch(() => {
+          this.showToast('Gagal menyalin informasi sesi.');
+        });
+      } else {
+        this.showToast('Informasi sesi berhasil disalin.');
+      }
     },
 
     async prevWeek() {
@@ -966,13 +1025,140 @@ function portalApp() {
 
     async loadMateri() {
       this.materiLoading = true;
+      this.materiError = '';
       try {
-        this.materiList = await API.getPortalMaterials(this.selectedClassSlug).catch(() => []);
+        const res = await API.getPortalMaterials(this.selectedClassSlug).catch((err) => {
+          throw err;
+        });
+        this.materiList = Array.isArray(res) ? res : [];
       } catch (e) {
         this.materiList = [];
+        this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.materiLoading = false;
       }
+    },
+
+    get materiMatkulList() {
+      const allCount = (this.materiList || []).length;
+      const res = [
+        { id: 'Semua', name: 'Semua Materi', shortName: 'Semua', count: allCount }
+      ];
+
+      const umumCount = (this.materiList || []).filter(m => !m.course_offering_id).length;
+      if (umumCount > 0) {
+        res.push({
+          id: 'Umum',
+          name: 'Umum Kelas (Silabus & RPS)',
+          shortName: 'Umum',
+          count: umumCount
+        });
+      }
+
+      const matkulMap = new Map();
+      (this.materiList || []).forEach(m => {
+        if (m.course_offering_id) {
+          const name = m.course_name || m.offering_name || 'Mata Kuliah';
+          if (!matkulMap.has(name)) {
+            matkulMap.set(name, {
+              id: name,
+              name: name,
+              shortName: this.singkatNamaMatkul(name),
+              count: 0
+            });
+          }
+          matkulMap.get(name).count++;
+        }
+      });
+
+      const sortedOfferings = Array.from(matkulMap.values()).sort((a, b) => b.count - a.count);
+      sortedOfferings.forEach(item => res.push(item));
+
+      return res;
+    },
+
+    singkatNamaMatkul(name) {
+      if (!name) return 'Matkul';
+      const n = name.trim();
+      if (n.toLowerCase().includes('basis data')) return 'Basis Data';
+      if (n.toLowerCase().includes('pemrograman berorientasi objek')) return 'PBO';
+      if (n.toLowerCase().includes('matematika diskrit')) return 'Matdis';
+      if (n.toLowerCase().includes('arsitektur komputer')) return 'Arsitektur';
+      if (n.toLowerCase().includes('aljabar linier') || n.toLowerCase().includes('aljabar linear')) return 'Aljabar';
+      if (n.length > 15) {
+        return n.split(' ').map(w => w[0]).join('').toUpperCase();
+      }
+      return n;
+    },
+
+    get materiFilteredList() {
+      let list = [...(this.materiList || [])];
+
+      if (this.materiFilterMatkul === 'Umum') {
+        list = list.filter(m => !m.course_offering_id);
+      } else if (this.materiFilterMatkul !== 'Semua') {
+        list = list.filter(m => {
+          const name = m.course_name || m.offering_name;
+          return name === this.materiFilterMatkul;
+        });
+      }
+
+      if (this.materiSort === 'terbaru') {
+        list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '') || (b.id - a.id));
+      } else if (this.materiSort === 'terlama') {
+        list.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '') || (a.id - b.id));
+      } else if (this.materiSort === 'judul') {
+        list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      }
+
+      return list;
+    },
+
+    formatTanggalMateri(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getDate())} ${bulan[d.getMonth()]}`;
+      } catch (e) {
+        return '';
+      }
+    },
+
+    getMaterialTag(m) {
+      if (!m) return 'Berkas';
+      const type = (m.material_type || '').toUpperCase();
+      const url = (m.url || '').toLowerCase();
+      if (type === 'REPOSITORY' || url.includes('github.com') || url.includes('gitlab.com')) return 'Repositori';
+      if (type === 'MEETING' || url.includes('youtube.com') || url.includes('youtu.be') || (url.includes('drive.google.com') && (m.title || '').toLowerCase().includes('rekaman'))) return 'Video';
+      if (type === 'DOCUMENT' || url.endsWith('.pdf') || url.endsWith('.ppt') || url.endsWith('.pptx')) return 'Slide';
+      if (type === 'PORTAL') return 'Portal';
+      return 'Tautan';
+    },
+
+    getMaterialSourceText(m) {
+      if (!m) return '';
+      const course = m.course_name || m.offering_name || 'Umum Kelas';
+      const url = (m.url || '').toLowerCase();
+      let format = '';
+      if (url.endsWith('.pdf')) format = 'PDF';
+      else if (url.endsWith('.docx') || url.endsWith('.doc')) format = 'Word';
+      else if (url.endsWith('.pptx') || url.endsWith('.ppt')) format = 'PowerPoint';
+      else if (url.includes('drive.google.com')) format = 'Tautan Google Drive';
+      else if (url.includes('github.com')) format = 'GitHub';
+      else if (url.includes('gitlab.com')) format = 'GitLab';
+      else if (m.material_type === 'DOCUMENT') format = 'Dokumen';
+      else if (m.material_type === 'MEETING') format = 'Rekaman Kuliah';
+      else if (m.material_type === 'REPOSITORY') format = 'Repositori Kode';
+      else format = 'Tautan Web';
+
+      let text = `${course} · ${format}`;
+      if (m.uploader_name) {
+        text += ` · Diunggah oleh ${m.uploader_name}`;
+      }
+      return text;
     },
 
     get materiGrup() {

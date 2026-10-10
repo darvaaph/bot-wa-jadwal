@@ -1,27 +1,341 @@
-<!-- partials/portal/view-materi.html — Portal Materi per jenis -->
-<section x-show="view === 'materi'" x-cloak>
-  <h1 class="font-display text-[26px] md:text-[30px] font-bold">Materi</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Materi dan tautan kelas.</p>
-  <div x-show="materiLoading" class="mt-5 py-6 text-center text-[13px] text-slate-400">Memuat materi...</div>
-  <div x-show="!materiLoading && materiList.length === 0" class="ui-card mt-5 p-10 text-center">
-    <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
-    <p class="text-[15px] font-semibold mt-3">Belum ada materi</p>
-    <p class="text-[13px] text-slate-500">Materi dari pengurus kelas akan muncul di sini.</p>
+<!-- partials/portal/view-materi.html — Portal Repositori Materi Mahasiswa (Figma SCR-USER-MAT-001 Desktop & Mobile 375) -->
+<section x-show="view === 'materi'" x-cloak class="w-full flex flex-col gap-[20px] p-[20px_16px_36px_16px] md:p-[30px_32px_36px_32px]">
+
+  <!-- Judul dan pengantar repositori materi (DESKTOP) -->
+  <div class="box-border w-full h-fit shrink-0 hidden md:flex flex-col gap-[5px] justify-start items-start">
+    <h1 class="text-[24px] md:text-[25px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
+      Materi &amp; Modul Kuliah
+    </h1>
+    <p class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-sans font-medium text-left">
+      Kumpulan modul, slide presentasi dosen, dan rekaman kuliah <span class="font-semibold text-[#334155]" x-text="selectedClass || 'D4-TI 1A'">D4-TI 1A</span>.
+    </p>
   </div>
-  <div x-show="!materiLoading && materiList.length > 0" class="mt-4 space-y-4">
-    <template x-for="g in materiGrup" :key="g.jenis">
-      <div class="ui-card p-5">
-        <h2 class="text-[16px] font-semibold" x-text="g.jenis">-</h2>
-        <div class="mt-2 divide-y divide-border">
-          <template x-for="m in g.items" :key="m.id">
-            <div class="py-3">
-              <p class="text-[14px] font-medium" x-text="m.title">-</p>
-              <p x-show="m.description" class="text-[12px] text-slate-500 mt-0.5" x-text="m.description">-</p>
-              <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-medium hover:underline break-all" x-text="m.url">-</a>
-            </div>
-          </template>
+
+  <!-- Judul repositori materi (MOBILE) -->
+  <div class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[3px] justify-start items-start">
+    <h1 class="text-[20px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
+      Materi Kuliah
+    </h1>
+    <div class="text-[11px] text-[#64748B] font-sans font-medium text-left"
+         x-text="(materiList.length || 0) + ' berkas untuk ' + (selectedClass || 'D4-TI 1A')">
+      0 berkas untuk D4-TI 1A
+    </div>
+  </div>
+
+  <!-- Loading State Skeleton -->
+  <div x-show="materiLoading" class="w-full flex flex-col gap-4 animate-pulse">
+    <!-- Desktop Skeleton -->
+    <div class="hidden md:flex flex-row gap-[24px] w-full">
+      <div class="w-[256px] h-[360px] bg-slate-100 rounded-[16px] p-4 flex flex-col gap-3">
+        <div class="h-4 bg-slate-200 rounded w-24 mb-2"></div>
+        <div class="h-10 bg-white rounded-xl w-full"></div>
+        <div class="h-10 bg-white rounded-xl w-full"></div>
+        <div class="h-10 bg-white rounded-xl w-full"></div>
+        <div class="h-10 bg-white rounded-xl w-full"></div>
+      </div>
+      <div class="flex-1 min-h-[360px] bg-slate-100 rounded-[16px] p-6 flex flex-col gap-4">
+        <div class="h-5 bg-slate-200 rounded w-48 mb-2"></div>
+        <div class="h-16 bg-white rounded-xl w-full"></div>
+        <div class="h-16 bg-white rounded-xl w-full"></div>
+        <div class="h-16 bg-white rounded-xl w-full"></div>
+      </div>
+    </div>
+    <!-- Mobile Skeleton -->
+    <div class="flex md:hidden flex-col gap-3 w-full">
+      <div class="flex gap-2 overflow-hidden">
+        <div class="h-11 w-24 bg-slate-200 rounded-[10px] shrink-0"></div>
+        <div class="h-11 w-28 bg-slate-200 rounded-[10px] shrink-0"></div>
+        <div class="h-11 w-24 bg-slate-200 rounded-[10px] shrink-0"></div>
+      </div>
+      <div class="h-28 bg-slate-100 rounded-[16px] w-full"></div>
+      <div class="h-28 bg-slate-100 rounded-[16px] w-full"></div>
+    </div>
+  </div>
+
+  <!-- Error State Alert -->
+  <div x-show="materiError && !materiLoading" class="box-border w-full p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+    <span x-text="materiError">Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.</span>
+    <button type="button" @click="loadMateri()" class="font-semibold underline hover:text-red-900 ml-3 cursor-pointer">Coba Lagi</button>
+  </div>
+
+  <!-- Global Empty State (Belum ada materi di kelas) -->
+  <div x-show="!materiLoading && !materiError && materiList.length === 0"
+       class="box-border w-full [box-shadow:0px_2px_8px_#0F172A08] flex flex-col items-center justify-center gap-3 p-[36px_20px] bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px] text-center">
+    <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+      <svg viewBox="0 0 14 14" class="w-7 h-7" fill="currentColor">
+        <path d="M2.693 11.084a.94.94 0 0 1-.943-.943V3.86a.94.94 0 0 1 .943-.944h2.512c.19 0 .37.08.5.2l.89.89h4.542c.52 0 .943.424.943.944v5.117a.94.94 0 0 1-.943.943H2.693zm0-.585h8.613a.36.36 0 0 0 .36-.358V5.024a.36.36 0 0 0-.36-.359H6.53a.47.47 0 0 1-.33-.137L5.137 3.465a.36.36 0 0 0-.256-.105H2.693a.36.36 0 0 0-.36.36v6.282c0 .2.16.36.36.36z"/>
+      </svg>
+    </div>
+    <div class="text-[16px] font-sans font-bold text-[#0F172A]">Belum Ada Berkas Materi</div>
+    <div class="text-[12px] text-[#64748B] max-w-sm">
+      Pengurus kelas atau PJ belum mengunggah modul, slide, atau tautan materi perkuliahan untuk kelas ini.
+    </div>
+  </div>
+
+  <!-- KONTEN MATERI (DESKTOP) -->
+  <div x-show="!materiLoading && !materiError && materiList.length > 0"
+       class="box-border w-full h-fit shrink-0 hidden md:flex flex-row gap-[24px] justify-start items-start">
+    
+    <!-- Panel Filter Mata Kuliah (Kiri) -->
+    <div data-pencil-name="Panel filter mata kuliah"
+         class="box-border w-[256px] shrink-0 h-fit [box-shadow:0px_2px_8px_#0F172A08] flex flex-col gap-[14px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+      <div data-pencil-name="Label Mata Kuliah"
+           class="text-[11px] text-[#64748B] font-sans font-bold tracking-[0.6px] text-left whitespace-nowrap uppercase">
+        MATA KULIAH
+      </div>
+      <div data-pencil-name="Daftar filter mata kuliah"
+           class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] justify-start items-start">
+        <template x-for="item in materiMatkulList" :key="'desk-filter-' + item.id">
+          <button type="button" @click="materiFilterMatkul = item.id"
+            :class="materiFilterMatkul === item.id ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold' : 'bg-[#FFFFFF] hover:bg-slate-50 text-[#475569] font-medium'"
+            class="box-border w-full min-h-[44px] shrink-0 flex flex-row gap-[8px] px-[12px] py-[10px] justify-between items-center rounded-[12px] transition-all text-left cursor-pointer">
+            <span class="text-[11px] leading-[15px] flex-1 line-clamp-2" x-text="item.name">Semua Materi</span>
+            <span :class="materiFilterMatkul === item.id ? 'text-[#1D4ED8]' : 'text-[#64748B]'"
+                  class="text-[11px] font-mono font-semibold shrink-0 ml-2"
+                  x-text="item.count">28</span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- Panel Daftar Berkas Materi (Kanan) -->
+    <div data-pencil-name="Panel daftar berkas materi"
+         class="box-border flex-1 h-fit [box-shadow:0px_2px_8px_#0F172A08] flex flex-col gap-[12px] p-[24px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+      
+      <!-- Kepala Daftar Materi & Sort Dropdown -->
+      <div data-pencil-name="Kepala daftar materi"
+           class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center pb-2 border-b border-[#F1F5F9]">
+        <div data-pencil-name="Jumlah semua berkas materi"
+             class="text-[16px] text-[#0F172A] font-display font-bold text-left whitespace-nowrap">
+          <span x-text="materiFilterMatkul === 'Semua' ? 'Semua Berkas Materi (' + materiFilteredList.length + ' Berkas)' : materiFilterMatkul + ' (' + materiFilteredList.length + ' Berkas)'">
+            Semua Berkas Materi (28 Berkas)
+          </span>
+        </div>
+        
+        <!-- Dropdown Urutan Berkas -->
+        <div class="relative" x-data="{ sortOpen: false }">
+          <button type="button" @click="sortOpen = !sortOpen"
+                  class="text-[11px] text-[#64748B] hover:text-[#0F172A] font-sans font-medium flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors">
+            <span x-text="'Urutkan: ' + (materiSort === 'terbaru' ? 'Terbaru' : (materiSort === 'terlama' ? 'Terlama' : 'Nama Berkas A–Z'))">
+              Urutkan: Terbaru
+            </span>
+            <svg viewBox="0 0 14 14" class="w-[12px] h-[12px] shrink-0 text-[#94A3B8]" fill="currentColor">
+              <path d="M7 8.586L4.293 5.879a.29.29 0 0 1 .414-.414L7 7.757l2.293-2.292a.29.29 0 1 1 .414.414L7 8.586z"/>
+            </svg>
+          </button>
+          <div x-show="sortOpen" @click.outside="sortOpen = false" x-cloak
+               class="absolute right-0 mt-1 w-44 bg-white border border-[#E2E8F0] rounded-xl shadow-lg py-1.5 z-20">
+            <button type="button" @click="materiSort = 'terbaru'; sortOpen = false"
+                    :class="materiSort === 'terbaru' ? 'bg-blue-50 text-[#1D4ED8] font-bold' : 'text-[#334155]'"
+                    class="w-full text-left px-3 py-2 text-[11px] font-sans hover:bg-slate-50 transition-colors">
+              Terbaru (Default)
+            </button>
+            <button type="button" @click="materiSort = 'terlama'; sortOpen = false"
+                    :class="materiSort === 'terlama' ? 'bg-blue-50 text-[#1D4ED8] font-bold' : 'text-[#334155]'"
+                    class="w-full text-left px-3 py-2 text-[11px] font-sans hover:bg-slate-50 transition-colors">
+              Terlama
+            </button>
+            <button type="button" @click="materiSort = 'judul'; sortOpen = false"
+                    :class="materiSort === 'judul' ? 'bg-blue-50 text-[#1D4ED8] font-bold' : 'text-[#334155]'"
+                    class="w-full text-left px-3 py-2 text-[11px] font-sans hover:bg-slate-50 transition-colors">
+              Nama Berkas (A–Z)
+            </button>
+          </div>
         </div>
       </div>
-    </template>
+
+      <!-- Berkas materi list -->
+      <div class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start">
+        <template x-for="(m, idx) in materiFilteredList" :key="'desk-mat-' + m.id">
+          <div class="w-full">
+            <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[14px] p-[16px_0px] justify-start items-center group">
+              <!-- Ikon berkas sesuai tipe -->
+              <div class="box-border w-[44px] shrink-0 h-[44px] flex flex-row justify-center items-center bg-[#F1F5F9] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] group-hover:bg-blue-50 transition-colors">
+                <!-- Simbol Slide / Dokumen -->
+                <template x-if="getMaterialTag(m) === 'Slide'">
+                  <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569] group-hover:text-[#2563EB]" fill="currentColor">
+                    <path d="M5.25 10.21h3.5a.29.29 0 0 0 .21-.08.29.29 0 0 0 0-.42.29.29 0 0 0-.21-.08h-3.5a.29.29 0 0 0-.21.08.29.29 0 0 0 0 .42c.05.05.12.08.21.08zm0-2.33h3.5a.29.29 0 0 0 .21-.09.29.29 0 0 0 0-.41.29.29 0 0 0-.21-.09h-3.5a.29.29 0 0 0-.21.09.29.29 0 0 0 0 .41c.05.06.12.09.21.09zm-1.39 4.38a.94.94 0 0 1-.94-.94V2.71c0-.52.42-.94.94-.94h4.21c.19 0 .36.08.49.2l2.07 2.07c.13.12.2.3.2.49v6.54c0 .52-.42.94-.94.94H3.86zm4.31-8.06V2.39H3.86a.36.36 0 0 0-.36.36v8.61c0 .2.16.36.36.36h6.28a.36.36 0 0 0 .36-.36V4.72H8.64a.47.47 0 0 1-.47-.47z"/>
+                  </svg>
+                </template>
+                <!-- Simbol Video / Rekaman -->
+                <template x-if="getMaterialTag(m) === 'Video'">
+                  <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569] group-hover:text-[#2563EB]" fill="currentColor">
+                    <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974zm0-.584h6.282a.36.36 0 0 0 .36-.36V3.86a.36.36 0 0 0-.36-.36H2.974a.36.36 0 0 0-.36.36v6.28c0 .2.16.36.36.36z"/>
+                  </svg>
+                </template>
+                <!-- Simbol Repositori Kode -->
+                <template x-if="getMaterialTag(m) === 'Repositori'">
+                  <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569] group-hover:text-[#2563EB]" fill="currentColor">
+                    <path d="M2.4 7l2.474 2.475a.29.29 0 0 1 0 .41.29.29 0 0 1-.413 0L1.9 7.325a.47.47 0 0 1 0-.66l2.56-2.56a.29.29 0 0 1 .414.41L2.4 7zm9.2 0L9.127 4.525a.29.29 0 0 1 0-.41.29.29 0 0 1 .413 0L12.1 6.675a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.414-.41L11.6 7z"/>
+                  </svg>
+                </template>
+                <!-- Simbol Tautan / Lainnya -->
+                <template x-if="getMaterialTag(m) !== 'Slide' && getMaterialTag(m) !== 'Video' && getMaterialTag(m) !== 'Repositori'">
+                  <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569] group-hover:text-[#2563EB]" fill="currentColor">
+                    <path d="M2.693 11.084a.94.94 0 0 1-.943-.943V3.86a.94.94 0 0 1 .943-.944h2.512c.19 0 .37.08.5.2l.89.89h4.542c.52 0 .943.424.943.944v5.117a.94.94 0 0 1-.943.943H2.693zm0-.585h8.613a.36.36 0 0 0 .36-.358V5.024a.36.36 0 0 0-.36-.359H6.53a.47.47 0 0 1-.33-.137L5.137 3.465a.36.36 0 0 0-.256-.105H2.693a.36.36 0 0 0-.36.36v6.282c0 .2.16.36.36.36z"/>
+                  </svg>
+                </template>
+              </div>
+
+              <!-- Informasi berkas (Judul + Sumber/Pengunggah) -->
+              <div class="box-border flex-1 h-fit flex flex-col gap-[4px] justify-start items-start min-w-0 pr-2">
+                <div class="text-[13px] leading-[18px] box-border w-full text-[#0F172A] font-sans font-bold text-left truncate group-hover:text-[#2563EB] transition-colors"
+                     x-text="m.title">
+                  Judul Berkas Materi
+                </div>
+                <div class="text-[11px] leading-[15px] box-border w-full text-[#64748B] font-sans font-medium text-left truncate"
+                     x-text="getMaterialSourceText(m)">
+                  Sistem Basis Data · PDF · Diunggah oleh PJ (Farhan)
+                </div>
+              </div>
+
+              <!-- Metadata dan aksi berkas -->
+              <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[12px] justify-start items-center">
+                <!-- Tag Jenis -->
+                <div class="text-[11px] text-[#475569] font-sans font-semibold text-left whitespace-nowrap"
+                     x-text="getMaterialTag(m)">
+                  Slide
+                </div>
+                <!-- Tanggal Terbit -->
+                <div class="text-[11px] text-[#64748B] font-sans font-medium text-left whitespace-nowrap min-w-[42px]"
+                     x-text="formatTanggalMateri(m.created_at) || '—'">
+                  06 Okt
+                </div>
+                <!-- Tombol Buka Tautan -->
+                <a :href="m.url" target="_blank" rel="noopener noreferrer"
+                   class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[5px] px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors">
+                  <span class="text-[11px] text-[#334155] font-sans font-bold whitespace-nowrap">Buka Tautan</span>
+                  <svg viewBox="0 0 14 14" class="box-border w-[14px] shrink-0 h-[14px] text-[#475569]" fill="currentColor">
+                    <path d="M3.274 11.666a.94.94 0 0 1-.943-.943V3.272c0-.52.423-.943.943-.943h2.984a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.274a.36.36 0 0 0-.36.363v7.451c0 .2.16.36.36.36h7.451a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.973c0 .52-.423.943-.94.943H3.274zm7.81-8.336L5.885 8.525a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.195-5.199H8.46a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h2.734c.48 0 .81.33.81.81v2.734a.29.29 0 0 1-.29.29.29.29 0 0 1-.29-.29V3.33z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+            <!-- Pemisah baris -->
+            <div x-show="idx < materiFilteredList.length - 1" class="box-border w-full h-[1px] shrink-0 bg-[#F1F5F9]"></div>
+          </div>
+        </template>
+
+        <!-- Empty state saat filter matkul tidak memiliki materi -->
+        <template x-if="materiFilteredList.length === 0">
+          <div class="w-full py-12 flex flex-col items-center justify-center text-center gap-2">
+            <div class="text-[13px] text-[#64748B] font-medium">Tidak ada berkas materi untuk filter ini.</div>
+            <button type="button" @click="materiFilterMatkul = 'Semua'"
+                    class="text-[12px] text-[#2563EB] font-bold hover:underline cursor-pointer">
+              Tampilkan Semua Materi
+            </button>
+          </div>
+        </template>
+      </div>
+
+    </div>
   </div>
+
+  <!-- KONTEN MATERI (MOBILE 375) -->
+  <div x-show="!materiLoading && !materiError && materiList.length > 0"
+       class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[16px] justify-start items-start">
+    
+    <!-- Area Gulir Filter Mata Kuliah (Chip Satu Baris) -->
+    <div data-pencil-name="Area gulir filter mata kuliah"
+         class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-start items-start overflow-hidden">
+      <div data-pencil-name="Filter mata kuliah satu baris"
+           class="box-border w-full shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center overflow-x-auto no-scrollbar py-0.5">
+        <template x-for="item in materiMatkulList" :key="'mob-chip-' + item.id">
+          <button type="button" @click="materiFilterMatkul = item.id"
+            :class="materiFilterMatkul === item.id ? 'bg-[#2563EB] [outline:1px_solid_#2563EB] text-[#FFFFFF] font-bold shadow-xs' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] text-[#334155] font-semibold active:bg-slate-50'"
+            class="box-border w-fit shrink-0 h-[44px] flex flex-row p-[0px_12px] justify-center items-center [outline-offset:-0.5px] rounded-[10px] transition-all whitespace-nowrap text-[11px] cursor-pointer">
+            <span x-text="item.shortName + ' (' + item.count + ')'">Semua (28)</span>
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daftar Kartu Berkas Materi Mobile -->
+    <div data-pencil-name="Daftar kartu berkas materi"
+         class="box-border w-full h-fit shrink-0 flex flex-col gap-[12px] justify-start items-start">
+      <template x-for="m in materiFilteredList" :key="'mob-mat-' + m.id">
+        <div class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_6px_#0F172A08] flex flex-col gap-[12px] p-[14px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+          
+          <!-- Baris Atas: Ikon dan Rincian -->
+          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[11px] justify-start items-start">
+            <div class="box-border w-[44px] shrink-0 h-[44px] flex flex-row justify-center items-center bg-[#F1F5F9] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
+              <!-- Simbol Slide / Dokumen -->
+              <template x-if="getMaterialTag(m) === 'Slide'">
+                <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569]" fill="currentColor">
+                  <path d="M5.25 10.21h3.5a.29.29 0 0 0 .21-.08.29.29 0 0 0 0-.42.29.29 0 0 0-.21-.08h-3.5a.29.29 0 0 0-.21.08.29.29 0 0 0 0 .42c.05.05.12.08.21.08zm0-2.33h3.5a.29.29 0 0 0 .21-.09.29.29 0 0 0 0-.41.29.29 0 0 0-.21-.09h-3.5a.29.29 0 0 0-.21.09.29.29 0 0 0 0 .41c.05.06.12.09.21.09zm-1.39 4.38a.94.94 0 0 1-.94-.94V2.71c0-.52.42-.94.94-.94h4.21c.19 0 .36.08.49.2l2.07 2.07c.13.12.2.3.2.49v6.54c0 .52-.42.94-.94.94H3.86zm4.31-8.06V2.39H3.86a.36.36 0 0 0-.36.36v8.61c0 .2.16.36.36.36h6.28a.36.36 0 0 0 .36-.36V4.72H8.64a.47.47 0 0 1-.47-.47z"/>
+                </svg>
+              </template>
+              <!-- Simbol Video / Rekaman -->
+              <template x-if="getMaterialTag(m) === 'Video'">
+                <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569]" fill="currentColor">
+                  <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974zm0-.584h6.282a.36.36 0 0 0 .36-.36V3.86a.36.36 0 0 0-.36-.36H2.974a.36.36 0 0 0-.36.36v6.28c0 .2.16.36.36.36z"/>
+                </svg>
+              </template>
+              <!-- Simbol Repositori Kode -->
+              <template x-if="getMaterialTag(m) === 'Repositori'">
+                <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569]" fill="currentColor">
+                  <path d="M2.4 7l2.474 2.475a.29.29 0 0 1 0 .41.29.29 0 0 1-.413 0L1.9 7.325a.47.47 0 0 1 0-.66l2.56-2.56a.29.29 0 0 1 .414.41L2.4 7zm9.2 0L9.127 4.525a.29.29 0 0 1 0-.41.29.29 0 0 1 .413 0L12.1 6.675a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.414-.41L11.6 7z"/>
+                </svg>
+              </template>
+              <!-- Simbol Tautan / Lainnya -->
+              <template x-if="getMaterialTag(m) !== 'Slide' && getMaterialTag(m) !== 'Video' && getMaterialTag(m) !== 'Repositori'">
+                <svg viewBox="0 0 14 14" class="box-border w-[22px] shrink-0 h-[22px] text-[#475569]" fill="currentColor">
+                  <path d="M2.693 11.084a.94.94 0 0 1-.943-.943V3.86a.94.94 0 0 1 .943-.944h2.512c.19 0 .37.08.5.2l.89.89h4.542c.52 0 .943.424.943.944v5.117a.94.94 0 0 1-.943.943H2.693zm0-.585h8.613a.36.36 0 0 0 .36-.358V5.024a.36.36 0 0 0-.36-.359H6.53a.47.47 0 0 1-.33-.137L5.137 3.465a.36.36 0 0 0-.256-.105H2.693a.36.36 0 0 0-.36.36v6.282c0 .2.16.36.36.36z"/>
+                </svg>
+              </template>
+            </div>
+            
+            <div class="box-border flex-1 h-fit flex flex-col gap-[4px] justify-start items-start min-w-0 pr-1">
+              <div class="text-[13px] leading-[18px] box-border w-full text-[#0F172A] font-sans font-bold text-left"
+                   x-text="m.title">
+                Judul Materi Kuliah
+              </div>
+              <div class="text-[11px] leading-[15px] box-border w-full text-[#64748B] font-sans font-medium text-left"
+                   x-text="getMaterialSourceText(m)">
+                Sistem Basis Data · PDF
+              </div>
+            </div>
+          </div>
+
+          <!-- Baris Bawah: Tag, Tanggal, dan Tombol Buka -->
+          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-0 justify-between items-center pt-1 border-t border-[#F8FAFC]">
+            <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] justify-start items-center">
+              <div class="box-border w-fit shrink-0 h-fit flex flex-row p-[4px_7px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
+                <span class="text-[10px] text-[#475569] font-sans font-bold whitespace-nowrap"
+                      x-text="getMaterialTag(m)">
+                  Slide
+                </span>
+              </div>
+              <div class="text-[10px] text-[#64748B] font-sans font-medium whitespace-nowrap"
+                   x-text="formatTanggalMateri(m.created_at) || '—'">
+                06 Okt
+              </div>
+            </div>
+
+            <a :href="m.url" target="_blank" rel="noopener noreferrer"
+               class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[5px] px-[12px] justify-start items-center bg-[#FFFFFF] active:bg-slate-100 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] transition-colors">
+              <span class="text-[11px] text-[#334155] font-sans font-bold whitespace-nowrap">Buka</span>
+              <svg viewBox="0 0 14 14" class="box-border w-[14px] shrink-0 h-[14px] text-[#475569]" fill="currentColor">
+                <path d="M3.274 11.666a.94.94 0 0 1-.943-.943V3.272c0-.52.423-.943.943-.943h2.984a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.274a.36.36 0 0 0-.36.363v7.451c0 .2.16.36.36.36h7.451a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.973c0 .52-.423.943-.94.943H3.274zm7.81-8.336L5.885 8.525a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.195-5.199H8.46a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h2.734c.48 0 .81.33.81.81v2.734a.29.29 0 0 1-.29.29.29.29 0 0 1-.29-.29V3.33z"/>
+              </svg>
+            </a>
+          </div>
+
+        </div>
+      </template>
+
+      <!-- Empty state saat filter matkul di mobile kosong -->
+      <template x-if="materiFilteredList.length === 0">
+        <div class="w-full py-8 flex flex-col items-center justify-center text-center gap-2">
+          <div class="text-[12px] text-[#64748B]">Tidak ada berkas materi untuk filter ini.</div>
+          <button type="button" @click="materiFilterMatkul = 'Semua'"
+                  class="text-[12px] text-[#2563EB] font-bold underline">
+            Tampilkan Semua Materi
+          </button>
+        </div>
+      </template>
+    </div>
+
+  </div>
+
 </section>
