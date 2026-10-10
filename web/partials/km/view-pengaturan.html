@@ -200,7 +200,7 @@
 </section>
 
 <!-- Modal 1: Kode Portal Baru · Setelah Rotasi (SCR-KM-SET-001) -->
-<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-[#0F172A]/40 backdrop-blur-sm p-4 flex items-center justify-center" @click.self="tutupKodePortal()">
+<div x-show="portalCodeReveal" x-cloak class="fixed inset-0 z-50 bg-[#0F172A]/40 backdrop-blur-sm p-4 flex items-center justify-center" @keydown.escape.window="tutupKodePortal()" @click.self="tutupKodePortal()">
   <div class="w-full max-w-[380px] bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_20px_40px_rgba(15,23,42,0.25)] p-5 flex flex-col gap-4" role="dialog" aria-modal="true" aria-labelledby="portal-code-title">
     <h2 id="portal-code-title" class="text-[18px] font-[Inter,system-ui,sans-serif] font-bold text-[#0F172A]">Kode Portal Baru Dibuat</h2>
     
@@ -214,7 +214,7 @@
 
     <div class="flex gap-2.5 pt-1">
       <button type="button" @click="salinKodePortal()" class="flex-1 h-[40px] bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] flex items-center justify-center transition min-h-[44px]">
-        Salin Kode
+        <span x-text="portalCodeCopied ? 'Tersalin!' : 'Salin Kode'">Salin Kode</span>
       </button>
       <button type="button" @click="tutupKodePortal()" class="flex-1 h-[40px] bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] text-[12px] font-[Inter,system-ui,sans-serif] font-semibold rounded-[10px] flex items-center justify-center transition min-h-[44px]">
         Tutup / Sudah Disimpan

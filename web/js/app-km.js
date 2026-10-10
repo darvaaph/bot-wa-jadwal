@@ -99,6 +99,7 @@ function kmApp() {
     semesterId: '',
     semesterStatus: '',
     portalCodeReveal: '',
+    portalCodeCopied: false,
 
     tugasSub: 'list',
     tugasTab: 'aktif',
@@ -4122,13 +4123,22 @@ function kmApp() {
 
     tutupKodePortal() {
       this.portalCodeReveal = '';
+      this.portalCodeCopied = false;
     },
 
     salinKodePortal() {
       if (!this.portalCodeReveal) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(this.portalCodeReveal).then(() => this.showToast('Kode portal disalin.')).catch(() => this.showToast('Kode tidak dapat disalin otomatis.'));
-      } else this.showToast('Clipboard tidak didukung browser ini.');
+        navigator.clipboard.writeText(this.portalCodeReveal).then(() => {
+          this.portalCodeCopied = true;
+          this.showToast('Kode portal disalin.');
+          setTimeout(() => {
+            this.portalCodeCopied = false;
+          }, 2000);
+        }).catch(() => this.showToast('Kode tidak dapat disalin otomatis.'));
+      } else {
+        this.showToast('Clipboard tidak didukung browser ini.');
+      }
     },
 
     async setModePortal(mode) {
