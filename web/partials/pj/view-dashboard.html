@@ -171,16 +171,38 @@
         <!-- List sesi hari ini -->
         <div x-show="dashboardData?.schedule?.today?.length" class="flex flex-col gap-2.5 mt-1">
           <template x-for="s in dashboardData?.schedule?.today || []" :key="s.id">
-            <div class="p-3 rounded-xl border flex flex-col gap-1.5 transition-colors" :class="s.is_my_course ? 'bg-primary-soft/40 border-primary/30' : 'bg-surface-subtle border-border'">
-              <div class="font-mono text-[12px] font-bold" :class="s.is_my_course ? 'text-primary' : 'text-slate-700'" x-text="s.starts_at && s.ends_at ? pjTime(s.starts_at) + ' - ' + pjTime(s.ends_at) + ' WIB' : 'Waktu kuliah'"></div>
+            <div class="p-3.5 rounded-xl border flex flex-col gap-1.5 transition-all"
+              :class="isSessionOngoing(s)
+                ? 'bg-emerald-50/70 border-emerald-300 border-l-4 border-l-emerald-500 shadow-xs ring-1 ring-emerald-500/20'
+                : (isSessionPassed(s)
+                  ? 'bg-slate-50/60 border-slate-200 opacity-75'
+                  : (s.is_my_course ? 'bg-primary-soft/40 border-primary/30' : 'bg-surface-subtle border-border'))">
+              <div class="flex items-center justify-between gap-2">
+                <div class="font-mono text-[12px] font-bold"
+                  :class="isSessionOngoing(s) ? 'text-emerald-800' : (isSessionPassed(s) ? 'text-slate-500' : (s.is_my_course ? 'text-primary' : 'text-slate-700'))"
+                  x-text="s.starts_at && s.ends_at ? pjTime(s.starts_at) + ' - ' + pjTime(s.ends_at) + ' WIB' : 'Waktu kuliah'">
+                </div>
+                <template x-if="isSessionOngoing(s)">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>Sedang Berlangsung</span>
+                  </span>
+                </template>
+                <template x-if="!isSessionOngoing(s) && isSessionPassed(s)">
+                  <span class="text-[11px] font-medium text-slate-400">Selesai</span>
+                </template>
+              </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-[14px] font-bold text-deep-ink" x-text="s.title"></span>
+                <span class="text-[14px] font-bold" :class="isSessionOngoing(s) ? 'text-slate-900' : 'text-deep-ink'" x-text="s.title"></span>
                 <span x-show="s.is_my_course" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-white">Mata Kuliah Anda</span>
                 <span x-show="s.kind === 'REPLACEMENT'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Pengganti</span>
                 <span x-show="s.kind === 'EXTRA'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">Tambahan</span>
               </div>
-              <p class="text-[12px] text-slate-600">
-                <span x-text="s.room || 'Ruang belum ditentukan'"></span>
+              <p class="text-[12px]" :class="isSessionOngoing(s) ? 'text-slate-700' : 'text-slate-600'">
+                <span class="font-medium" x-text="s.room || 'Ruang belum ditentukan'"></span>
                 <span x-show="s.lecturers" x-text="' · ' + s.lecturers"></span>
               </p>
             </div>

@@ -2073,6 +2073,23 @@ function pjApp() {
     },
     kmTime(iso) { return this.pjTime(iso); },
 
+    isSessionOngoing(s) {
+      if (!s || !s.starts_at || !s.ends_at) return false;
+      const now = Date.now();
+      const start = Date.parse(s.starts_at);
+      const end = Date.parse(s.ends_at);
+      if (Number.isNaN(start) || Number.isNaN(end)) return false;
+      return now >= start && now < end;
+    },
+
+    isSessionPassed(s) {
+      if (!s || !s.ends_at) return false;
+      const now = Date.now();
+      const end = Date.parse(s.ends_at);
+      if (Number.isNaN(end)) return false;
+      return now >= end;
+    },
+
     pjDeadlineBadge(deadlineAt) {
       if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
       const d = new Date(deadlineAt);
