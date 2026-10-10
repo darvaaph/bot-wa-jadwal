@@ -2898,15 +2898,28 @@ function kmApp() {
       if (!iso) return '-';
       const d = new Date(iso);
       if (isNaN(d.getTime())) return iso;
-      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-      const dayName = days[d.getDay()];
-      const dateNum = d.getDate();
-      const monthName = months[d.getMonth()];
-      const year = d.getFullYear();
+      const idMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const dd = String(d.getDate()).padStart(2, '0');
+      const monthName = idMonths[d.getMonth()];
+      const yyyy = d.getFullYear();
       const hh = String(d.getHours()).padStart(2, '0');
       const mm = String(d.getMinutes()).padStart(2, '0');
-      return `${dayName}, ${dateNum} ${monthName} ${year} pukul ${hh}:${mm} WIB`;
+      return `${dd} ${monthName} ${yyyy}, ${hh}:${mm} WIB`;
+    },
+
+    judulDiffSection(item) {
+      if (!item) return 'PERUBAHAN DATA ENTITAS';
+      const ent = String(item.entity_type || '').toUpperCase();
+      if (ent === 'TEACHING_EVENT' || ent === 'SCHEDULE_PATTERN' || ent === 'SCHEDULE') {
+        return 'PERUBAHAN DATA PERKULIAHAN';
+      }
+      if (ent === 'TASK' || ent === 'TASK_REVIEW') {
+        return 'PERUBAHAN DATA TUGAS';
+      }
+      if (ent === 'ROLE_ASSIGNMENT' || ent === 'ROLE_INVITATION' || ent === 'USER') {
+        return 'PERUBAHAN DATA PERAN';
+      }
+      return 'PERUBAHAN DATA ENTITAS';
     },
 
     detailAktorRoleDanKontak(item) {
@@ -2970,12 +2983,18 @@ function kmApp() {
         description: 'Deskripsi',
         deskripsi: 'Deskripsi',
         deadline: 'Tenggat Waktu',
+        deadline_at: 'Tenggat Waktu',
         tenggat: 'Tenggat Waktu',
         course_name: 'Mata Kuliah',
         mata_kuliah: 'Mata Kuliah',
         matkul: 'Mata Kuliah',
         day_name: 'Hari Perkuliahan',
         hari: 'Hari',
+        date: 'Tanggal',
+        event_date: 'Tanggal',
+        tanggal: 'Tanggal',
+        time: 'Jam',
+        jam: 'Jam',
         start_time: 'Jam Mulai',
         end_time: 'Jam Selesai',
         room_code: 'Ruangan',
@@ -2995,9 +3014,17 @@ function kmApp() {
         channel_type: 'Kanal WhatsApp'
       };
 
-      const formatVal = (v) => {
+      const formatVal = (k, v) => {
         if (v === null || v === undefined || v === '') return '—';
         if (typeof v === 'boolean') return v ? 'Ya' : 'Tidak';
+        if (k === 'status') {
+          const s = String(v).toUpperCase();
+          if (s === 'REPLACEMENT' || s === 'PENGGANTI') return 'Kuliah Pengganti';
+          if (s === 'REGULAR' || s === 'REGULER') return 'Jadwal Reguler';
+          if (s === 'ACTIVE' || s === 'AKTIF') return 'Aktif';
+          if (s === 'SUSPENDED' || s === 'DITANGGUHKAN') return 'Ditangguhkan';
+          if (s === 'REVOKED' || s === 'DICABUT') return 'Dicabut';
+        }
         if (typeof v === 'object') return JSON.stringify(v);
         return String(v);
       };
@@ -3015,7 +3042,7 @@ function kmApp() {
           rows.push({
             key: k,
             label: formatLabel(k),
-            value: formatVal(v)
+            value: formatVal(k, v)
           });
         }
         return rows;

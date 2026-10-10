@@ -184,17 +184,20 @@
 <!-- SCR-KM-AUD-002 · Modal Detail Perubahan Audit & Diff -->
 <div x-show="modalAuditDetailOpen && auditDetailItem" x-cloak
   class="fixed inset-0 z-50 bg-[#0F172A]/40 backdrop-blur-sm p-4 flex items-center justify-center overflow-y-auto"
+  @keydown.escape.window="tutupDetailAudit()"
   @click.self="tutupDetailAudit()">
-  <div class="w-full max-w-[540px] bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_20px_48px_rgba(15,23,42,0.25)] flex flex-col overflow-hidden my-8"
+  <div class="w-full max-w-[520px] bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0px_20px_48px_rgba(15,23,42,0.25)] flex flex-col overflow-hidden my-8"
     role="dialog" aria-modal="true" aria-labelledby="modal-audit-title">
     <!-- Header Detail Audit -->
     <div class="p-5 border-b border-[#F1F5F9] flex justify-between items-start gap-4">
-      <div class="flex flex-col gap-1.5 min-w-0">
-        <span class="w-fit px-2 py-0.5 rounded-[6px] text-[11px] font-[Inter,system-ui,sans-serif] font-semibold border"
-          :class="badgeAuditInfo(auditDetailItem).badgeClass"
-          x-text="badgeAuditInfo(auditDetailItem).label">
-          JADWAL PENGGANTI
-        </span>
+      <div class="flex flex-col gap-[6px] min-w-0">
+        <div class="w-fit px-[8px] py-[4px] rounded-[6px] bg-[#EFF6FF] border border-[#BFDBFE] flex items-center">
+          <span class="text-[11px] font-[Inter,system-ui,sans-serif] font-semibold text-[#1D4ED8]"
+            :class="badgeAuditInfo(auditDetailItem).badgeClass"
+            x-text="badgeAuditInfo(auditDetailItem).label">
+            JADWAL PENGGANTI
+          </span>
+        </div>
         <h2 id="modal-audit-title" class="text-[18px] font-[Inter,system-ui,sans-serif] font-bold text-[#0F172A] leading-snug"
           x-text="'Detail ' + ringkasanAksiAudit(auditDetailItem).judul">
           Detail Perubahan Jadwal Kuliah
@@ -215,17 +218,17 @@
     </div>
 
     <!-- Isi Detail Audit -->
-    <div class="p-5 flex flex-col gap-4 max-h-[calc(85vh-140px)] overflow-y-auto">
+    <div class="p-5 flex flex-col gap-[17px] max-h-[calc(85vh-140px)] overflow-y-auto">
       <!-- Box Aktor dan Alasan Tindakan -->
-      <div class="w-full p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-2">
-        <div class="flex flex-wrap items-center gap-1.5 text-[12px] font-[Inter,system-ui,sans-serif]">
+      <div class="w-full p-[14px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-[9px]">
+        <div class="flex flex-wrap items-center gap-[5px] text-[12px] font-[Inter,system-ui,sans-serif]">
           <span class="text-[#475569]">Dilakukan oleh:</span>
           <span class="font-semibold text-[#0F172A]" x-text="auditDetailItem?.actor_name || 'Sistem'">-</span>
           <span class="text-[#475569]" x-text="detailAktorRoleDanKontak(auditDetailItem)">-</span>
         </div>
-        <div class="flex flex-col gap-0.5">
+        <div class="flex flex-col gap-[4px]">
           <span class="text-[12px] font-semibold text-[#475569]">Alasan tindakan:</span>
-          <p class="text-[12px] leading-[18px] text-[#334155] italic"
+          <p class="text-[12px] leading-[17px] text-[#334155] italic"
             x-text="auditDetailItem?.reason ? '“' + auditDetailItem.reason + '”' : '“Tidak ada catatan alasan khusus.”'">
             -
           </p>
@@ -233,24 +236,25 @@
       </div>
 
       <!-- Perbandingan Data (Diff Sebelum & Sesudah) -->
-      <div class="flex flex-col gap-2.5">
-        <div class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold tracking-[0.8px] text-[#334155] uppercase">
-          PERUBAHAN DATA ENTITAS
+      <div class="flex flex-col gap-[9px]">
+        <div class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold tracking-[0.8px] text-[#334155] uppercase"
+          x-text="judulDiffSection(auditDetailItem)">
+          PERUBAHAN DATA PERKULIAHAN
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-[12px] items-start">
           <!-- Kolom Sebelum -->
-          <div class="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-2.5">
+          <div class="p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-[9px]">
             <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.7px] text-[#94A3B8] uppercase">
               SEBELUM
             </div>
 
             <template x-if="auditDiffData && auditDiffData.beforeRows && auditDiffData.beforeRows.length > 0">
-              <div class="flex flex-col gap-2">
+              <div class="flex flex-col gap-[6px]">
                 <template x-for="(item, idx) in auditDiffData.beforeRows" :key="'bef-' + idx">
-                  <div class="flex justify-between items-start gap-2 text-[12px] font-[Inter,system-ui,sans-serif]">
-                    <span class="text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
-                    <span class="text-[#475569] font-medium text-right break-words" x-text="item.value">-</span>
+                  <div class="flex justify-between items-center gap-[6px]">
+                    <span class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
+                    <span class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#475569] font-medium text-right break-words" x-text="item.value">-</span>
                   </div>
                 </template>
               </div>
@@ -262,17 +266,17 @@
           </div>
 
           <!-- Kolom Sesudah (Aktif) -->
-          <div class="p-3 bg-[#ECFDF5]/50 border border-[#A7F3D0] rounded-[12px] flex flex-col gap-2.5">
+          <div class="p-[12px] bg-[#ECFDF5]/50 border border-[#A7F3D0] rounded-[12px] flex flex-col gap-[9px]">
             <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.7px] text-[#047857] uppercase">
               SESUDAH (AKTIF)
             </div>
 
             <template x-if="auditDiffData && auditDiffData.afterRows && auditDiffData.afterRows.length > 0">
-              <div class="flex flex-col gap-2">
+              <div class="flex flex-col gap-[6px]">
                 <template x-for="(item, idx) in auditDiffData.afterRows" :key="'aft-' + idx">
-                  <div class="flex justify-between items-start gap-2 text-[12px] font-[Inter,system-ui,sans-serif]">
-                    <span class="text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
-                    <span class="text-[#065F46] font-bold text-right break-words" x-text="item.value">-</span>
+                  <div class="flex justify-between items-center gap-[6px]">
+                    <span class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
+                    <span class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#065F46] font-bold text-right break-words" x-text="item.value">-</span>
                   </div>
                 </template>
               </div>
@@ -287,9 +291,9 @@
     </div>
 
     <!-- Footer Modal Detail Audit -->
-    <div class="p-4 bg-[#F8FAFC] border-t border-[#F1F5F9] flex justify-end">
+    <div class="p-4 bg-[#F8FAFC] border-t border-[#F1F5F9] flex justify-end items-center">
       <button type="button" @click="tutupDetailAudit()"
-        class="h-[36px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold text-[12px] rounded-[10px] transition min-h-[40px] flex items-center justify-center">
+        class="h-[36px] px-[20px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold text-[12px] rounded-[12px] transition min-h-[40px] flex items-center justify-center">
         Tutup
       </button>
     </div>
