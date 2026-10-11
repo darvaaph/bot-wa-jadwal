@@ -191,7 +191,7 @@
             <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
               <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight truncate group-hover:text-[#1D4ED8] transition-colors">Mahasiswa Kelas</span>
-              <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClass || 'Kelas'"></span>
+              <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClassFormatted || 'Kelas'"></span>
             </div>
             <svg x-show="!sidebarCollapsed" width="19" height="19" viewBox="0 0 14 14" fill="#64748B" class="w-[19px] h-[19px] shrink-0 text-[#64748B] group-hover:text-[#1D4ED8] transition-colors" aria-hidden="true" focusable="false">
               <path d="M9.96338 7.29053l-6.75391 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l6.75391 0-3.17188-3.17187q-0.08545-0.08545-0.09228-0.20166-0.00342-0.11621 0.0957-0.21192 0.0957-0.0957 0.20508-0.0957 0.10938-0.00342 0.20508 0.0957l3.54785 3.54785q0.0752 0.0752 0.10596 0.15381 0.03418 0.07861 0.03418 0.17432 0 0.0957-0.03418 0.17432-0.03076 0.07861-0.10596 0.1538l-3.54785 3.54786q-0.08203 0.08203-0.19824 0.08886-0.11621 0.00684-0.21192-0.08886-0.09912-0.0957-0.09912-0.20508 0-0.11279 0.09912-0.2085l3.16846-3.17187z"/>
@@ -384,7 +384,7 @@
           <div class="md:hidden flex items-center justify-between w-full">
             <div class="flex items-center gap-[8px] min-w-0">
               <span class="text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight whitespace-nowrap">Bot Jadwal</span>
-              <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClass || 'Kelas'"></button>
+              <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClassFormatted || 'Kelas'"></button>
             </div>
             <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
               <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
@@ -397,7 +397,7 @@
             <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px] font-[Montserrat,system-ui,sans-serif]">
               <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Portal</button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
-              <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClass || 'Kelas'"></button>
+              <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClassFormatted || 'Kelas'"></button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <span class="text-[#0F172A] font-bold truncate" x-text="(navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda'"></span>
             </nav>

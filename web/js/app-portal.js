@@ -67,6 +67,7 @@ function portalApp() {
     mobileJadwalMode: 'per_hari',
     detailModalOpen: false,
     detailSesi: null,
+    modalRiwayatOpen: false,
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
@@ -541,15 +542,45 @@ function portalApp() {
 
     parseClass(code) {
       if (!code) return { prodi: 'D4', smt: '3', abjad: 'A' };
-      const m = String(code).match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      const str = String(code).trim();
+      const m = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
       if (m) {
         return { prodi: m[1].toUpperCase(), smt: m[2], abjad: m[3].toUpperCase() };
+      }
+      const mYear = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
+      if (mYear) {
+        return { prodi: mYear[1].toUpperCase(), smt: '1', abjad: mYear[3].toUpperCase() };
+      }
+      const mShort = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
+      if (mShort) {
+        return { prodi: mShort[1].toUpperCase(), smt: mShort[2], abjad: mShort[3].toUpperCase() };
       }
       return { prodi: 'D4', smt: '3', abjad: 'A' };
     },
 
+    get selectedClassFormatted() {
+      if (!this.selectedClass) return 'D4-TI 1A';
+      const raw = String(this.selectedClass).trim();
+      const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+      if (mYear) {
+        return `${mYear[1].toUpperCase()}-${mYear[2].toUpperCase()} 1${mYear[4].toUpperCase()}`;
+      }
+      const mSmt = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      if (mSmt) {
+        return `${mSmt[1].toUpperCase()}-${mSmt[2].toUpperCase()} ${mSmt[3]}${mSmt[4].toUpperCase()}`;
+      }
+      const mShort = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-([0-9]+[A-Za-z]+)$/i);
+      if (mShort) {
+        return `${mShort[1].toUpperCase()}-${mShort[2].toUpperCase()} ${mShort[3].toUpperCase()}`;
+      }
+      if (/^[A-Za-z0-9]+-[A-Za-z0-9]+\s+[0-9A-Za-z]+$/i.test(raw)) {
+        return raw.toUpperCase();
+      }
+      return raw;
+    },
+
     get selectedClassMeta() {
-      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'Belum dipilih' };
+      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'D4-TI 1A' };
       const p = this.parseClass(this.selectedClass);
       const prodiName = p.prodi === 'D4' ? 'D4 Teknik Informatika' : (p.prodi === 'D3' ? 'D3 Teknik Informatika' : p.prodi);
       return {
@@ -771,7 +802,7 @@ function portalApp() {
           const d = new Date(isoDate + 'T00:00:00+07:00');
           const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
           const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
         } catch (e) {}
       }
       if (reason) return reason;
@@ -816,6 +847,144 @@ function portalApp() {
     tutupDetailSesi() {
       this.detailModalOpen = false;
       this.detailSesi = null;
+    },
+
+    bukaRiwayatPerubahan() {
+      this.modalRiwayatOpen = true;
+      if (!this.perubahanList || this.perubahanList.length === 0) {
+        this.loadPerubahan();
+      }
+    },
+
+    tutupRiwayatPerubahan() {
+      this.modalRiwayatOpen = false;
+    },
+
+    salinRingkasanSesi(s) {
+      if (!s) return;
+      const tgl = this.tanggalPekanFormatted[s.hari] || s.hari;
+      const teks = `[Jadwal Kuliah - ${s.matkul}]\n` +
+        `📅 Hari/Tgl: ${s.hari}, ${tgl}\n` +
+        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
+        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        (s.pj ? `👤 PJ: ${s.pj}\n` : '') +
+        (s.kind === 'PENGGANTI' ? `ℹ️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}\n` : '') +
+        (s.link ? `🔗 Link: ${s.link}\n` : '');
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(teks).then(() => {
+          this.showToast('Ringkasan sesi berhasil disalin ke papan klip!');
+        }).catch(() => {
+          this.showToast('Ringkasan sesi disalin.');
+        });
+      } else {
+        this.showToast('Ringkasan sesi disalin.');
+      }
+    },
+
+    hubungiPJ(s) {
+      const name = (s && s.pj) || 'PJ Kelas';
+      const matkul = (s && s.matkul) || '';
+      const msg = encodeURIComponent(`Halo ${name}, saya ingin bertanya mengenai perkuliahan ${matkul}.`);
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    },
+
+    getTugasTerkait(matkul) {
+      if (!matkul || !Array.isArray(this.tasks)) return [];
+      const m = String(matkul).toLowerCase().trim();
+      return this.tasks.filter(t => {
+        const tm = String(t.matkul || '').toLowerCase().trim();
+        return tm && (tm.includes(m) || m.includes(tm));
+      }).slice(0, 2);
+    },
+
+    getStatusWaktu(s) {
+      if (!s || !s.timeStart) return '';
+      try {
+        const now = new Date();
+        const cur = now.getHours() * 60 + now.getMinutes();
+        const [h1, m1] = (s.timeStart || '').split(':').map(Number);
+        const [h2, m2] = (s.timeEnd || '').split(':').map(Number);
+        const start = h1 * 60 + m1;
+        const end = h2 * 60 + m2;
+        if (cur >= start && cur <= end) return 'Sedang berlangsung';
+        if (cur < start) return 'Akan datang';
+        return 'Selesai';
+      } catch (e) {
+        return '';
+      }
+    },
+
+    getInitials(name) {
+      if (!name) return 'DS';
+      const cleaned = String(name)
+        .replace(/^(Bpk\.|Ibu\.|Pak\.|Dr\.|Prof\.|Ir\.)\s*/i, '')
+        .replace(/,\s*[A-Za-z.\s]+$/i, '')
+        .replace(/\(.*\)/g, '')
+        .trim();
+      const parts = cleaned.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      if (parts.length === 1 && parts[0].length >= 2) {
+        return parts[0].slice(0, 2).toUpperCase();
+      }
+      return (cleaned[0] || 'D').toUpperCase();
+    },
+
+    getKodeMatkul(s) {
+      if (!s) return 'TI2104';
+      if (s.kode) return s.kode;
+      const m = String(s.matkul || '').toLowerCase();
+      if (m.includes('aljabar')) return 'TI2104';
+      if (m.includes('web')) return 'TI2105';
+      if (m.includes('basis data')) return 'TI2103';
+      if (m.includes('objek') || m.includes('pbo')) return 'TI2102';
+      return 'TI2101';
+    },
+
+    formatWaktuPublikasi(iso) {
+      if (!iso) return 'Terbit oleh KM';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso);
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const day = d.getDate();
+        const month = months[d.getMonth()];
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${day} ${month}, ${hh}:${mm} WIB oleh KM`;
+      } catch (e) {
+        return 'Terbit oleh KM';
+      }
+    },
+
+    formatWaktuEfektif(ch) {
+      if (!ch) return '';
+      try {
+        const start = ch.starts_at ? new Date(ch.starts_at) : null;
+        const end = ch.ends_at ? new Date(ch.ends_at) : null;
+        const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        if (start && !isNaN(start)) {
+          const dayName = days[start.getDay()];
+          const d = start.getDate();
+          const m = months[start.getMonth()];
+          const y = start.getFullYear();
+          const h1 = String(start.getHours()).padStart(2, '0');
+          const m1 = String(start.getMinutes()).padStart(2, '0');
+          let jamStr = `${h1}:${m1}`;
+          if (end && !isNaN(end)) {
+            const h2 = String(end.getHours()).padStart(2, '0');
+            const m2 = String(end.getMinutes()).padStart(2, '0');
+            jamStr += ` - ${h2}:${m2}`;
+          }
+          jamStr += ' WIB';
+          const ruangStr = ch.room ? ` • Ruang ${ch.room}` : '';
+          return `${dayName}, ${d} ${m} ${y} • ${jamStr}${ruangStr}`;
+        }
+      } catch (e) {}
+      return ch.room ? `Ruang ${ch.room}` : '';
     },
 
     async loadSchedule() {
