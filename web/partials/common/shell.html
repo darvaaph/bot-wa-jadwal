@@ -399,7 +399,7 @@
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClassFormatted || 'Kelas'"></button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
-              <span class="text-[#0F172A] font-bold truncate" x-text="(navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda'"></span>
+              <span class="text-[#0F172A] font-bold truncate" x-text="view === 'materi' ? 'Materi Perkuliahan' : ((navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda')"></span>
             </nav>
             <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
               <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
