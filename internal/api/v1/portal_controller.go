@@ -1294,7 +1294,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 	patternRows, err := c.db.Query(`
 		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
 		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until,
-		       COALESCE(sp.meeting_link, '')
+		       COALESCE(sp.meeting_link, ''), c.code
 		FROM schedule_patterns sp
 		JOIN course_offerings co ON sp.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
@@ -1317,17 +1317,18 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 
 	for patternRows.Next() {
 		var patternID, offID int64
-		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
+		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink, courseCode string
 		var effFrom, effUntil sql.NullString
 
-		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink); err == nil {
+		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink, &courseCode); err == nil {
 			lecturers := c.getOfferingLecturers(offID)
-			pj := c.getOfferingPJ(offID)
+			pj, pjQueryPhone := c.getOfferingPJ(offID)
 			items = append(items, map[string]any{
 				"id":            fmt.Sprintf("pat_%d", patternID),
 				"kind":          "REGULER",
 				"offering":      offDisplay,
 				"title":         courseName,
+				"code":          courseCode,
 				"activity_type": actType,
 				"starts_at":     startTime,
 				"ends_at":       endTime,
@@ -1335,6 +1336,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 				"meeting_link":  meetingLink,
 				"lecturers":     lecturers,
 				"pj":            pj,
+				"pj_phone":      pjQueryPhone,
 				"source": map[string]any{
 					"pattern_id": patternID,
 				},
@@ -1347,7 +1349,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		       strftime('%H:%M', te.starts_at) as start_time,
 		       strftime('%H:%M', te.ends_at) as end_time,
 		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, ''),
-		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, '')
+		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, ''), c.code
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -1366,9 +1368,9 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 			var eventID, offID int64
 			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
 			var originPatID sql.NullInt64
-			var originOccDate, reason string
+			var originOccDate, reason, courseCode string
 
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason); err == nil {
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason, &courseCode); err == nil {
 				kindMap := map[string]string{
 					"REPLACEMENT":       "PENGGANTI",
 					"EXTRA":             "TAMBAHAN",
@@ -1381,13 +1383,14 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 				}
 
 				lecturers := c.getOfferingLecturers(offID)
-				pj := c.getOfferingPJ(offID)
+				pj, pjQueryPhone := c.getOfferingPJ(offID)
 
 				items = append(items, map[string]any{
 					"id":                     fmt.Sprintf("ev_%d", eventID),
 					"kind":                   kindLabel,
 					"offering":               offDisplay,
 					"title":                  courseName,
+					"code":                   courseCode,
 					"activity_type":          actType,
 					"starts_at":              startTime,
 					"ends_at":                endTime,
@@ -1395,6 +1398,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 					"meeting_link":           meetingLink,
 					"lecturers":              lecturers,
 					"pj":                     pj,
+					"pj_phone":               pjQueryPhone,
 					"origin_occurrence_date": originOccDate,
 					"reason":                 reason,
 					"source": map[string]any{
@@ -1409,13 +1413,13 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 	return items, nil
 }
 
-func (c *PortalController) getOfferingPJ(offeringID int64) string {
+func (c *PortalController) getOfferingPJ(offeringID int64) (string, string) {
 	if c.db == nil {
-		return ""
+		return "", ""
 	}
-	var name string
+	var name, phone string
 	_ = c.db.QueryRow(`
-		SELECT u.display_name
+		SELECT u.display_name, COALESCE(u.identity_key, '')
 		FROM role_assignments ra
 		JOIN users u ON ra.user_id = u.id
 		WHERE ra.role = 'PJ'
@@ -1423,8 +1427,8 @@ func (c *PortalController) getOfferingPJ(offeringID int64) string {
 		  AND ra.status = 'ACTIVE'
 		  AND (ra.valid_until IS NULL OR ra.valid_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		LIMIT 1;
-	`, offeringID).Scan(&name)
-	return name
+	`, offeringID).Scan(&name, &phone)
+	return name, phone
 }
 
 func (c *PortalController) getOfferingLecturers(offeringID int64) []string {

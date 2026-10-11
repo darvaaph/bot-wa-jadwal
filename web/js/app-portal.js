@@ -24,12 +24,14 @@ function portalApp() {
     ...AsteriskShell.behavior('portal'),
 
     navSections: [
-      { title: '', items: [
-        { id: 'dashboard', label: 'Beranda', icon: 'home' },
-        { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
-        { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
-        { id: 'materi', label: 'Materi', icon: 'folder' }
-      ] }
+      {
+        title: '', items: [
+          { id: 'dashboard', label: 'Beranda', icon: 'home' },
+          { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
+          { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
+          { id: 'materi', label: 'Materi', icon: 'folder' }
+        ]
+      }
     ],
 
     portalNavIcon(item) {
@@ -117,13 +119,13 @@ function portalApp() {
           const pad = (x) => String(x).padStart(2, '0');
           out[n] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         });
-      } catch (e) {}
+      } catch (e) { }
       return out;
     },
 
     get tanggalPekanFormatted() {
       const out = {};
-      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
       const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
       names.forEach(n => {
         const iso = this.tanggalPekan[n];
@@ -148,7 +150,7 @@ function portalApp() {
             if (w >= 1 && w <= 20) return w;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
       return 6; // fallback sesuai Figma: Pekan Ke-6
     },
 
@@ -163,7 +165,7 @@ function portalApp() {
         if (!sen || !min) return 'Pekan Ini';
         const d1 = new Date(sen + 'T00:00:00+07:00');
         const d2 = new Date(min + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         if (d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) {
           return `${d1.getDate()} – ${d2.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()}`;
         } else if (d1.getFullYear() === d2.getFullYear()) {
@@ -182,7 +184,7 @@ function portalApp() {
         if (!sen || !min) return `Pekan ${this.pekanAktifNum}`;
         const d1 = new Date(sen + 'T00:00:00+07:00');
         const d2 = new Date(min + 'T00:00:00+07:00');
-        const mShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const mShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         if (d1.getMonth() === d2.getMonth()) {
           return `${d1.getDate()} - ${d2.getDate()} ${mShort[d1.getMonth()]} (Pekan ${this.pekanAktifNum})`;
         }
@@ -197,7 +199,7 @@ function portalApp() {
         const iso = this.tanggalPekan[this.hari];
         if (!iso) return this.hari;
         const d = new Date(iso + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         return `${this.hari}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
       } catch (e) {
         return this.hari;
@@ -224,7 +226,7 @@ function portalApp() {
         const iso = this.tanggalPekan[h];
         if (!iso) return h;
         const d = new Date(iso + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         return `${h}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
       } catch (e) {
         return h;
@@ -329,12 +331,12 @@ function portalApp() {
     },
 
     async initPortal() {
-      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) { }
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       await this.loadClasses();
       await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
-      await AsteriskShell.mount('portal', ['dashboard','tugas','jadwal','materi','courses','perubahan','arsip']);
+      await AsteriskShell.mount('portal', ['dashboard', 'tugas', 'jadwal', 'materi', 'courses', 'perubahan', 'arsip']);
 
       await this.masukKelas();
     },
@@ -446,7 +448,7 @@ function portalApp() {
       const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
       try {
         window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
-      } catch (e) {}
+      } catch (e) { }
       await this.masukKelas();
     },
 
@@ -502,7 +504,7 @@ function portalApp() {
 
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
-      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) { }
     },
 
     knownViews: ['dashboard', 'tugas', 'detail-tugas', 'jadwal', 'courses', 'course-detail', 'materi', 'detail-materi', 'perubahan', 'arsip'],
@@ -541,7 +543,7 @@ function portalApp() {
         if (window.location.pathname !== newUrl) {
           window.history.replaceState({}, '', newUrl);
         }
-      } catch (e) {}
+      } catch (e) { }
     },
 
     parseClass(code) {
@@ -727,6 +729,8 @@ function portalApp() {
       if (v === 'jadwal') this.loadJadwalEfektif();
       if (v === 'courses') this.loadCourses();
       if (v === 'arsip') this.loadSemester();
+      if (v === 'perubahan') this.loadPerubahan();
+      if (v === 'materi') this.loadMateri();
       window.scrollTo({ top: 0 });
     },
 
@@ -789,12 +793,14 @@ function portalApp() {
         kind: it.kind || 'REGULER',
         activityType: String(it.activity_type || 'THEORY').toUpperCase(),
         matkul: it.offering || it.title || 'Mata Kuliah',
+        code: it.code || '',
         dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
         ruang: it.room || '',
         link: it.meeting_link || '',
         timeStart: (it.starts_at || '').slice(0, 5),
         timeEnd: (it.ends_at || '').slice(0, 5),
         pj: it.pj || '',
+        pjPhone: it.pj_phone || '',
         originDate: it.origin_occurrence_date || '',
         reason: it.reason || ''
       }));
@@ -804,13 +810,65 @@ function portalApp() {
       if (isoDate) {
         try {
           const d = new Date(isoDate + 'T00:00:00+07:00');
-          const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-          const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+          const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
           return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-        } catch (e) {}
+        } catch (e) { }
       }
       if (reason) return reason;
       return 'Kuliah pengganti resmi';
+    },
+
+    getInisial(name) {
+      if (!name) return '—';
+      const clean = String(name).replace(/^(bpk\.?|ibu\.?|dr\.?|dra\.?|drs\.?)\s+/i, '').trim();
+      const parts = clean.split(/[\s,]+/).filter(Boolean);
+      if (parts.length === 0) return '—';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    },
+
+    get tugasTerkaitDetailSesi() {
+      if (!this.detailSesi || !this.detailSesi.matkul) return [];
+      const target = this.detailSesi.matkul.toLowerCase().trim();
+      return (this.tasks || []).filter(t => {
+        if (!t || !t.matkul) return false;
+        const tm = t.matkul.toLowerCase().trim();
+        return tm === target || target.includes(tm) || tm.includes(target);
+      });
+    },
+
+    chatWhatsAppPJ(s) {
+      if (!s) return;
+      const raw = s.pjPhone || '';
+      const clean = raw.replace(/[^0-9]/g, '');
+      if (clean && clean.length >= 9) {
+        const text = encodeURIComponent(`Halo PJ ${s.matkul}, saya mahasiswa ingin menanyakan perihal perkuliahan.`);
+        window.open(`https://wa.me/${clean}?text=${text}`, '_blank', 'noopener,noreferrer');
+      } else {
+        this.showToast(`Kontak PJ ${s.pj ? '(' + s.pj + ')' : ''} dapat dihubungi melalui grup WhatsApp kelas.`);
+      }
+    },
+
+    salinInfoSesi(s) {
+      if (!s) return;
+      const text = `📅 *Jadwal Perkuliahan: ${s.matkul}*\n` +
+        `🗓️ Hari: ${this.formatTanggalLengkap(s.hari)}\n` +
+        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
+        `🏢 Ruangan: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring Zoom' : '—')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        `👤 PJ Matkul: ${s.pj || 'Belum ditugaskan'}` +
+        (s.link ? `\n🔗 Link Zoom: ${s.link}` : '') +
+        (s.kind === 'PENGGANTI' ? `\n⚠️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}` : '');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          this.showToast('Informasi sesi berhasil disalin ke clipboard!');
+        }).catch(() => {
+          this.showToast('Gagal menyalin informasi sesi.');
+        });
+      } else {
+        this.showToast('Informasi sesi berhasil disalin.');
+      }
     },
 
     async prevWeek() {
@@ -952,7 +1010,7 @@ function portalApp() {
       try {
         const d = new Date(iso);
         if (isNaN(d)) return String(iso);
-        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         const day = d.getDate();
         const month = months[d.getMonth()];
         const hh = String(d.getHours()).padStart(2, '0');
@@ -968,8 +1026,8 @@ function portalApp() {
       try {
         const start = ch.starts_at ? new Date(ch.starts_at) : null;
         const end = ch.ends_at ? new Date(ch.ends_at) : null;
-        const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         if (start && !isNaN(start)) {
           const dayName = days[start.getDay()];
           const d = start.getDate();
@@ -987,7 +1045,7 @@ function portalApp() {
           const ruangStr = ch.room ? ` • Ruang ${ch.room}` : '';
           return `${dayName}, ${d} ${m} ${y} • ${jamStr}${ruangStr}`;
         }
-      } catch (e) {}
+      } catch (e) { }
       return ch.room ? `Ruang ${ch.room}` : '';
     },
 
@@ -1082,11 +1140,13 @@ function portalApp() {
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline);
-          return { id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
-                   title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
-                   instructions: t.instructions || '',
-                   deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
-                   urgency: u.level, countdown: u.badge };
+          return {
+            id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
+            title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
+            instructions: t.instructions || '',
+            deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
+            urgency: u.level, countdown: u.badge
+          };
         });
         this.tugasGrup = {
           hari_ini: petakan(hasil[0].ok ? hasil[0].data : []),
@@ -1435,6 +1495,7 @@ function portalApp() {
 
     async loadMateri() {
       this.materiLoading = true;
+      this.materiError = '';
       try {
         const dbItems = await API.getPortalMaterials(this.selectedClassSlug).catch(() => []);
         if (dbItems && dbItems.length > 0) {
@@ -1565,11 +1626,11 @@ function portalApp() {
         try {
           const d = new Date(m.created_at);
           if (!isNaN(d.getTime())) {
-            const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             const pad = (n) => String(n).padStart(2, '0');
             return `${pad(d.getDate())} ${months[d.getMonth()]}`;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       return '06 Okt';
     },
