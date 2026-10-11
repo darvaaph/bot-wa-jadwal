@@ -1546,13 +1546,14 @@ function portalApp() {
 
     getMateriSubtitle(m) {
       if (!m) return '';
+      if (m.subtitle_display) return m.subtitle_display;
       const course = m.course_name || 'Umum Kelas';
       const type = this.getMateriType(m);
-      let format = 'PDF';
-      if (type === 'Video') format = 'Tautan Google Drive';
-      else if (type === 'Repositori') format = 'GitHub';
-      else if (m.url && m.url.includes('drive.google.com')) format = 'Google Drive';
+      if (type === 'Video') return `${course} · Tautan Google Drive`;
+      if (type === 'Repositori') return `${course} · GitHub`;
 
+      let format = 'PDF';
+      if (m.url && !m.url.includes('.pdf') && !m.url.includes('drive')) format = 'Dokumen';
       const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ (Farhan)';
       return `${course} · ${format} · ${uploader}`;
     },
