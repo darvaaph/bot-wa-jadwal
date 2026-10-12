@@ -133,17 +133,23 @@
       </nav>
       <div class="mt-auto pt-3 border-t border-[#EEEEEE] shrink-0 w-full">
         <div class="flex items-center" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
-          <div class="flex items-center text-left min-w-0 flex-1" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
-            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0"
+          <button type="button"
+                  @click="bukaModalProfilKM()"
+                  title="Lihat profil ketua murid"
+                  aria-label="Lihat profil ketua murid"
+                  aria-haspopup="dialog"
+                  class="flex items-center text-left rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
+                  :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
+            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all"
                  :title="sidebarCollapsed ? ((currentUser?.display_name || 'Ketua Murid') + ' (Ketua Murid)') : ''"
                  aria-hidden="true"
                  x-text="kmInitials()"></div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
+              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
               <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Murid</span>
             </div>
-          </div>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
+          </button>
+          <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
             </svg>
@@ -237,14 +243,14 @@
       </nav>
       <div class="mt-auto pt-3 px-1 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center gap-2" :class="sidebarCollapsed ? 'flex-col' : ''">
-          <button type="button" @click="go('akun')" class="min-w-0 flex-1 flex items-center gap-2.5 text-left rounded-lg p-1 -m-1 hover:bg-slate-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary group" :aria-label="'Buka akun ' + (currentUser?.display_name || 'Farhan Pratama')">
+          <button type="button" @click="bukaModalProfilPJ()" aria-haspopup="dialog" class="min-w-0 flex-1 flex items-center gap-2.5 text-left rounded-lg p-1 -m-1 hover:bg-slate-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary group cursor-pointer" :aria-label="'Buka profil ' + (currentUser?.display_name || 'PJ Mata Kuliah')">
             <span class="w-[38px] h-[38px] shrink-0 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" x-text="pjInitials()"></span>
             <span x-show="!sidebarCollapsed" class="min-w-0 flex-1 flex flex-col gap-[2px]">
               <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Farhan Pratama'"></span>
               <span class="block text-[11px] text-[#667085] truncate leading-tight" x-text="'PJ ' + (dashboardData?.offering?.course_name || pjMatkul || 'Matkul')"></span>
             </span>
           </button>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] shrink-0 rounded-lg text-[#667085] hover:text-danger hover:bg-slate-50 transition-colors flex items-center justify-center">
+          <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] shrink-0 rounded-lg text-[#667085] hover:text-danger hover:bg-slate-50 transition-colors flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38965-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.46826 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"/>
             </svg>
@@ -255,7 +261,7 @@
   </template>
 </aside>
 
-<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))">
+<div class="flex flex-col min-h-screen min-w-0 bg-canvas transition-[padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[248px]'" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin)) || (shellRoleKey === 'pj' && (modalLogout || modalProfilPJ)) || (shellRoleKey === 'km' && (modalLogout || modalProfilKM))">
   <header class="app-header sticky top-0 z-30 bg-white border-b border-[#EEEEEE]">
     <div class="flex items-center gap-2 md:gap-3 px-4 md:px-8 h-16 md:h-[72px] max-w-[1280px] mx-auto w-full min-w-0">
       <template x-if="shellRoleKey === 'sa'">
@@ -588,14 +594,18 @@
       </nav>
       <div class="mt-auto pt-3 mt-6 border-t border-[#EEEEEE] shrink-0">
         <div class="flex items-center gap-[10px] p-[8px]">
-          <div class="flex items-center text-left min-w-0 flex-1 gap-[10px]">
-            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0" aria-hidden="true" x-text="kmInitials()"></div>
+          <button type="button"
+                  @click="bukaModalProfilKM(); shellCloseDrawer()"
+                  aria-label="Lihat profil ketua murid"
+                  aria-haspopup="dialog"
+                  class="flex items-center text-left min-w-0 flex-1 gap-[10px] rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer group">
+            <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" aria-hidden="true" x-text="kmInitials()"></div>
             <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
+              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
               <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Murid</span>
             </div>
-          </div>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
+          </button>
+          <button type="button" @click="konfirmasiLogout(); shellCloseDrawer()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"></path>
             </svg>
@@ -667,14 +677,14 @@
       </nav>
       <div class="mt-auto pt-3 px-1 border-t border-[#EEEEEE] text-[13px]">
         <div class="flex items-center gap-2">
-          <button type="button" @click="go('akun'); shellCloseDrawer()" class="min-w-0 flex-1 flex items-center gap-2.5 text-left group" :aria-label="'Buka akun ' + (currentUser?.display_name || 'Farhan Pratama')">
+          <button type="button" @click="bukaModalProfilPJ(); shellCloseDrawer()" aria-haspopup="dialog" class="min-w-0 flex-1 flex items-center gap-2.5 text-left group cursor-pointer" :aria-label="'Buka profil ' + (currentUser?.display_name || 'PJ Mata Kuliah')">
             <span class="w-[38px] h-[38px] shrink-0 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" x-text="pjInitials()"></span>
             <span class="min-w-0 flex-1 flex flex-col gap-[2px]">
               <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Farhan Pratama'"></span>
               <span class="block text-[11px] text-[#667085] truncate leading-tight" x-text="'PJ ' + (dashboardData?.offering?.course_name || pjMatkul || 'Matkul')"></span>
             </span>
           </button>
-          <button type="button" @click="logout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] shrink-0 rounded-lg text-[#667085] hover:text-danger hover:bg-slate-50 flex items-center justify-center">
+          <button type="button" @click="konfirmasiLogout(); shellCloseDrawer()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] shrink-0 rounded-lg text-[#667085] hover:text-danger hover:bg-slate-50 flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l3.4043 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.1914 0.46826 0 0.28027-0.1914 0.47509-0.19141 0.19141-0.47168 0.19141l-3.4043 0 0 8.08008 3.4043 0q0.28027 0 0.47168 0.19482 0.19141 0.19141 0.1914 0.47168 0 0.27685-0.1914 0.47168-0.19141 0.19141-0.47168 0.19141l-3.4043 0z m6.87695-4.70654l-3.95117 0q-0.28027 0-0.47168-0.19141-0.19141-0.19141-0.1914-0.47168 0-0.28027 0.1914-0.47168 0.19141-0.19141 0.47168-0.19141l3.95117 0-1.01171-1.01513q-0.18457-0.18457-0.18458-0.45117 0-0.27002 0.18458-0.46485 0.18457-0.19824 0.46142-0.20508 0.27686-0.00684 0.4751 0.19483l2.14306 2.13965q0.19482 0.20166 0.19483 0.46484 0 0.26318-0.19483 0.46484l-2.14306 2.13965q-0.19482 0.20166-0.46826 0.19483-0.27344-0.00684-0.46826-0.20508-0.18457-0.19482-0.18116-0.46826 0.00684-0.27686 0.19141-0.46143l1.00146-1.00146z"/></svg>
           </button>
         </div>
@@ -683,7 +693,7 @@
   </template>
 </aside>
 
-<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
+<nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin)) || (shellRoleKey === 'pj' && (modalLogout || modalProfilPJ)) || (shellRoleKey === 'km' && (modalLogout || modalProfilKM))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
     <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey === 'km'" x-html="kmIcon(item.id, shellBottomIsActive(item))" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa' && shellRoleKey !== 'km'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
   </div>
@@ -779,8 +789,176 @@
   </div>
 </div>
 
+<!-- Dialog Profil PJ Mata Kuliah (SCR-PJ-PROFILE-MODAL) -->
+<div x-show="shellRoleKey === 'pj' && modalProfilPJ"
+     x-cloak
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-profile-pj-title"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px] transition-opacity">
+  <!-- Scrim Backdrop -->
+  <div class="fixed inset-0" @click="tutupModalProfilPJ()" aria-hidden="true"></div>
+
+  <!-- Dialog Box (460px) -->
+  <div class="relative w-full max-w-[460px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+       @click.stop>
+    <!-- Header Profil -->
+    <div class="w-full flex items-start justify-between pb-3 border-b border-[#F2F4F7]">
+      <div class="flex-1 flex flex-col gap-1 min-w-0 pr-3">
+        <h2 id="modal-profile-pj-title" class="text-[18px] leading-[23px] text-[#1D1B3A] font-bold">Profil Penanggung Jawab</h2>
+        <p class="text-[12px] leading-[18px] text-[#667085]">Identitas akun dan mata kuliah yang dikelola.</p>
+      </div>
+      <!-- Tombol Tutup (X) -->
+      <button type="button"
+              @click="tutupModalProfilPJ()"
+              aria-label="Tutup profil"
+              title="Tutup dialog"
+              class="w-[44px] h-[44px] shrink-0 flex items-center justify-center rounded-full text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Identitas Akun Aktif -->
+    <div class="w-full flex items-center gap-[14px] p-[16px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px]">
+      <div class="w-[48px] h-[48px] shrink-0 rounded-full bg-[#E9EAFF] ring-2 ring-white shadow-sm flex items-center justify-center text-[16px] font-bold text-[#2854D6]" aria-hidden="true" x-text="typeof pjInitials === 'function' ? pjInitials() : (shellIdentity().short || 'PJ')">PJ</div>
+      <div class="min-w-0 flex-1 flex flex-col gap-1">
+        <div class="text-[14px] leading-tight text-[#1D1B3A] font-bold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'PJ Mata Kuliah'">PJ Mata Kuliah</div>
+        <div class="text-[12px] leading-tight text-[#475467] font-mono tracking-tight truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '-'">-</div>
+        <div class="mt-0.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E0EAFF] border border-[#C7D7FE] text-[10px] leading-tight text-[#2854D6] font-medium" x-text="pjMatkul || 'Semua Mata Kuliah'">Cakupan Matkul</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rincian Akun dan Sesi -->
+    <div class="w-full bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] overflow-hidden divide-y divide-[#F2F4F7]">
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Peran Akun</span>
+        <span class="text-[#1D1B3A] font-medium">PJ Mata Kuliah</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Kelas</span>
+        <span class="text-[#1D1B3A] font-medium" x-text="selectedClass || (dashboardData && dashboardData.class && (dashboardData.class.label || dashboardData.class.code)) || '-'">-</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Mata Kuliah Dikelola</span>
+        <span class="text-[#1D1B3A] font-medium truncate max-w-[200px]" x-text="pjMatkul || 'Belum dipilih'">Belum dipilih</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Status Bot WA</span>
+        <span :class="botOnline ? 'text-[#15803D]' : 'text-[#667085]'" class="font-medium" x-text="botOnline ? 'Aktif' : 'Standby'">Standby</span>
+      </div>
+    </div>
+
+    <!-- Info Footer -->
+    <div class="w-full">
+      <p class="text-[11px] leading-[15px] text-[#667085] text-center w-full">Nomor WhatsApp akun PJ terdaftar pada penugasan akademik kelas.</p>
+    </div>
+
+    <!-- Aksi Profil (Footer) -->
+    <div class="w-full flex items-center justify-between pt-4 border-t border-[#F2F4F7]">
+      <button type="button"
+              @click="aksiLogoutDariProfilPJ()"
+              class="min-h-[44px] px-2 text-[12px] text-[#B42318] hover:text-[#912018] hover:underline font-medium transition-colors cursor-pointer">
+        Keluar dari Akun
+      </button>
+      <button type="button"
+              @click="tutupModalProfilPJ()"
+              class="h-[44px] px-5 flex items-center justify-center bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[12px] text-[#1D1B3A] font-semibold rounded-[12px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300">
+        Tutup
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Dialog Profil Ketua Murid (SCR-KM-PROFILE-MODAL) -->
+<div x-show="shellRoleKey === 'km' && modalProfilKM"
+     x-cloak
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-profile-km-title"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#00000080] backdrop-blur-[2px] transition-opacity">
+  <!-- Scrim Backdrop -->
+  <div class="fixed inset-0" @click="tutupModalProfilKM()" aria-hidden="true"></div>
+
+  <!-- Dialog Box (460px) -->
+  <div class="relative w-full max-w-[460px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+       @click.stop>
+    <!-- Header Profil -->
+    <div class="w-full flex items-start justify-between pb-3 border-b border-[#F2F4F7]">
+      <div class="flex-1 flex flex-col gap-1 min-w-0 pr-3">
+        <h2 id="modal-profile-km-title" class="text-[18px] leading-[23px] text-[#1D1B3A] font-bold">Profil Ketua Murid</h2>
+        <p class="text-[12px] leading-[18px] text-[#667085]">Identitas akun dan pengelolaan kelas aktif.</p>
+      </div>
+      <!-- Tombol Tutup (X) -->
+      <button type="button"
+              @click="tutupModalProfilKM()"
+              aria-label="Tutup profil"
+              title="Tutup dialog"
+              class="w-[44px] h-[44px] shrink-0 flex items-center justify-center rounded-full text-[#667085] hover:bg-slate-100 hover:text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]">
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="#667085" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+          <path d="M7 7.41357l-3.05908 3.05909q-0.08203 0.08203-0.20166 0.08886-0.11963 0.00342-0.21192-0.08886-0.09229-0.09229-0.09228-0.20508 0-0.11279 0.09228-0.2085l3.05909-3.05908-3.05909-3.05908q-0.08203-0.08203-0.08886-0.20166-0.00342-0.11963 0.08886-0.21192 0.09229-0.09229 0.20508-0.09228 0.11279 0 0.2085 0.09228l3.05908 3.05909 3.05908-3.05909q0.08203-0.08203 0.20166-0.08545 0.11963-0.00684 0.21192 0.08545 0.09228 0.09229 0.09228 0.20508 0 0.11279-0.09228 0.2085l-3.05909 3.05908 3.05909 3.05908q0.08203 0.08203 0.08544 0.20166 0.00684 0.11963-0.08544 0.21192-0.09229 0.09228-0.20508 0.09228-0.11279 0-0.2085-0.09228l-3.05908-3.05909z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Identitas Akun Aktif -->
+    <div class="w-full flex items-center gap-[14px] p-[16px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px]">
+      <div class="w-[48px] h-[48px] shrink-0 rounded-full bg-[#E9EAFF] ring-2 ring-white shadow-sm flex items-center justify-center text-[16px] font-bold text-[#2854D6]" aria-hidden="true" x-text="typeof kmInitials === 'function' ? kmInitials() : (shellIdentity().short || 'KM')">KM</div>
+      <div class="min-w-0 flex-1 flex flex-col gap-1">
+        <div class="text-[14px] leading-tight text-[#1D1B3A] font-bold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'Ketua Murid'">Ketua Murid</div>
+        <div class="text-[12px] leading-tight text-[#475467] font-mono tracking-tight truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '-'">-</div>
+        <div class="mt-0.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E0EAFF] border border-[#C7D7FE] text-[10px] leading-tight text-[#2854D6] font-medium" x-text="kmClassName() || selectedClass || 'Pengelola Kelas'">Pengelola Kelas</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rincian Akun dan Sesi -->
+    <div class="w-full bg-[#FFFFFF] border border-[#E4E7EC] rounded-[12px] overflow-hidden divide-y divide-[#F2F4F7]">
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Peran Akun</span>
+        <span class="text-[#1D1B3A] font-medium">Ketua Murid (Pengelola Kelas)</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Kelas Aktif</span>
+        <span class="text-[#1D1B3A] font-medium truncate max-w-[200px]" x-text="kmClassName() || selectedClass || '-'">-</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Status Bot WA</span>
+        <span :class="botOnline ? 'text-[#15803D]' : 'text-[#667085]'" class="font-medium" x-text="botOnline ? 'Terhubung & Siap Kirim' : (typeof botStatusLabel === 'function' ? botStatusLabel() : 'Terputus / Standby')">Terhubung & Siap Kirim</span>
+      </div>
+      <div class="flex items-center justify-between px-3.5 py-3 text-[12px]">
+        <span class="text-[#667085]">Sesi Kedaluwarsa</span>
+        <span class="text-[#475467] font-medium">7 Hari (Auto-refresh)</span>
+      </div>
+    </div>
+
+    <!-- Info Footer -->
+    <div class="w-full">
+      <p class="text-[11px] leading-[15px] text-[#667085] text-center w-full">Nomor WhatsApp akun Ketua Murid terdaftar sebagai pengelola kelas.</p>
+    </div>
+
+    <!-- Aksi Profil (Footer) -->
+    <div class="w-full flex items-center justify-between pt-4 border-t border-[#F2F4F7]">
+      <button type="button"
+              @click="aksiLogoutDariProfilKM()"
+              class="min-h-[44px] px-2 text-[12px] text-[#B42318] hover:text-[#912018] hover:underline font-medium transition-colors cursor-pointer">
+        Keluar dari Akun
+      </button>
+      <button type="button"
+              @click="tutupModalProfilKM()"
+              class="h-[44px] px-5 flex items-center justify-center bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[12px] text-[#1D1B3A] font-semibold rounded-[12px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300">
+        Tutup
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Dialog Konfirmasi Keluar (SCR-ADM-LOGOUT-MODAL) -->
-<div x-show="shellRoleKey === 'sa' && modalLogout"
+<div x-show="(shellRoleKey === 'sa' || shellRoleKey === 'pj' || shellRoleKey === 'km') && modalLogout"
      x-cloak
      role="dialog"
      aria-modal="true"
@@ -819,10 +997,10 @@
 
     <!-- Identitas Sesi Saat Ini -->
     <div class="w-full flex items-center gap-[12px] p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
-      <div class="w-[36px] h-[36px] shrink-0 rounded-[18px] bg-[#E9EAFF] text-[#2854D6] text-[12px] font-bold flex items-center justify-center" aria-hidden="true" x-text="typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')">SA</div>
+      <div class="w-[36px] h-[36px] shrink-0 rounded-[18px] bg-[#E9EAFF] text-[#2854D6] text-[12px] font-bold flex items-center justify-center" aria-hidden="true" x-text="shellRoleKey === 'sa' ? (typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')) : (shellRoleKey === 'km' ? (typeof kmInitials === 'function' ? kmInitials() : (shellIdentity().short || 'KM')) : (typeof pjInitials === 'function' ? pjInitials() : (shellIdentity().short || 'PJ')))">SA</div>
       <div class="min-w-0 flex-1 flex flex-col gap-[3px]">
-        <div class="text-[12px] leading-tight text-[#1D1B3A] font-semibold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'System Admin'">System Admin</div>
-        <div class="text-[11px] leading-tight text-[#667085] font-mono truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '+62 811-1111-1111'">+62 811-1111-1111</div>
+        <div class="text-[12px] leading-tight text-[#1D1B3A] font-semibold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || (shellRoleKey === 'sa' ? 'System Admin' : (shellRoleKey === 'km' ? 'Ketua Murid' : 'PJ Mata Kuliah'))">System Admin</div>
+        <div class="text-[11px] leading-tight text-[#667085] font-mono truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || (shellRoleKey === 'sa' ? '+62 811-1111-1111' : '-')">+62 811-1111-1111</div>
       </div>
     </div>
 
