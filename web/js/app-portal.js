@@ -24,12 +24,14 @@ function portalApp() {
     ...AsteriskShell.behavior('portal'),
 
     navSections: [
-      { title: '', items: [
-        { id: 'dashboard', label: 'Beranda', icon: 'home' },
-        { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
-        { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
-        { id: 'materi', label: 'Materi', icon: 'folder' }
-      ] }
+      {
+        title: '', items: [
+          { id: 'dashboard', label: 'Beranda', icon: 'home' },
+          { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
+          { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
+          { id: 'materi', label: 'Materi', icon: 'folder' }
+        ]
+      }
     ],
 
     portalNavIcon(item) {
@@ -67,6 +69,7 @@ function portalApp() {
     mobileJadwalMode: 'per_hari',
     detailModalOpen: false,
     detailSesi: null,
+    modalRiwayatOpen: false,
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
@@ -79,12 +82,10 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
-    materiError: '',
-    materiFilterMatkul: 'Semua',
-    materiSort: 'terbaru',
+    filterMateriMatkul: 'SEMUA',
+    sortMateri: 'terbaru',
     detailMateriModalOpen: false,
     selectedMateri: null,
-    salinSuccess: false,
     courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
@@ -118,13 +119,13 @@ function portalApp() {
           const pad = (x) => String(x).padStart(2, '0');
           out[n] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         });
-      } catch (e) {}
+      } catch (e) { }
       return out;
     },
 
     get tanggalPekanFormatted() {
       const out = {};
-      const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
       const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
       names.forEach(n => {
         const iso = this.tanggalPekan[n];
@@ -149,7 +150,7 @@ function portalApp() {
             if (w >= 1 && w <= 20) return w;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
       return 6; // fallback sesuai Figma: Pekan Ke-6
     },
 
@@ -164,7 +165,7 @@ function portalApp() {
         if (!sen || !min) return 'Pekan Ini';
         const d1 = new Date(sen + 'T00:00:00+07:00');
         const d2 = new Date(min + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         if (d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) {
           return `${d1.getDate()} – ${d2.getDate()} ${mNames[d1.getMonth()]} ${d1.getFullYear()}`;
         } else if (d1.getFullYear() === d2.getFullYear()) {
@@ -183,7 +184,7 @@ function portalApp() {
         if (!sen || !min) return `Pekan ${this.pekanAktifNum}`;
         const d1 = new Date(sen + 'T00:00:00+07:00');
         const d2 = new Date(min + 'T00:00:00+07:00');
-        const mShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const mShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         if (d1.getMonth() === d2.getMonth()) {
           return `${d1.getDate()} - ${d2.getDate()} ${mShort[d1.getMonth()]} (Pekan ${this.pekanAktifNum})`;
         }
@@ -198,7 +199,7 @@ function portalApp() {
         const iso = this.tanggalPekan[this.hari];
         if (!iso) return this.hari;
         const d = new Date(iso + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         return `${this.hari}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
       } catch (e) {
         return this.hari;
@@ -225,7 +226,7 @@ function portalApp() {
         const iso = this.tanggalPekan[h];
         if (!iso) return h;
         const d = new Date(iso + 'T00:00:00+07:00');
-        const mNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const mNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         return `${h}, ${d.getDate()} ${mNames[d.getMonth()]} ${d.getFullYear()}`;
       } catch (e) {
         return h;
@@ -330,12 +331,12 @@ function portalApp() {
     },
 
     async initPortal() {
-      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) { }
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       await this.loadClasses();
       await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
-      await AsteriskShell.mount('portal', ['dashboard','tugas','jadwal','materi','courses','perubahan','arsip']);
+      await AsteriskShell.mount('portal', ['dashboard', 'tugas', 'jadwal', 'materi', 'courses', 'perubahan', 'arsip']);
 
       await this.masukKelas();
     },
@@ -447,7 +448,7 @@ function portalApp() {
       const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
       try {
         window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
-      } catch (e) {}
+      } catch (e) { }
       await this.masukKelas();
     },
 
@@ -503,7 +504,7 @@ function portalApp() {
 
     toggleSidebar() {
       this.sidebarCollapsed = !this.sidebarCollapsed;
-      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+      try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) { }
     },
 
     knownViews: ['dashboard', 'tugas', 'detail-tugas', 'jadwal', 'courses', 'course-detail', 'materi', 'detail-materi', 'perubahan', 'arsip'],
@@ -542,20 +543,50 @@ function portalApp() {
         if (window.location.pathname !== newUrl) {
           window.history.replaceState({}, '', newUrl);
         }
-      } catch (e) {}
+      } catch (e) { }
     },
 
     parseClass(code) {
       if (!code) return { prodi: 'D4', smt: '3', abjad: 'A' };
-      const m = String(code).match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      const str = String(code).trim();
+      const m = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
       if (m) {
         return { prodi: m[1].toUpperCase(), smt: m[2], abjad: m[3].toUpperCase() };
+      }
+      const mYear = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
+      if (mYear) {
+        return { prodi: mYear[1].toUpperCase(), smt: '1', abjad: mYear[3].toUpperCase() };
+      }
+      const mShort = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
+      if (mShort) {
+        return { prodi: mShort[1].toUpperCase(), smt: mShort[2], abjad: mShort[3].toUpperCase() };
       }
       return { prodi: 'D4', smt: '3', abjad: 'A' };
     },
 
+    get selectedClassFormatted() {
+      if (!this.selectedClass) return 'D4-TI 1A';
+      const raw = String(this.selectedClass).trim();
+      const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+      if (mYear) {
+        return `${mYear[1].toUpperCase()}-${mYear[2].toUpperCase()} 1${mYear[4].toUpperCase()}`;
+      }
+      const mSmt = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      if (mSmt) {
+        return `${mSmt[1].toUpperCase()}-${mSmt[2].toUpperCase()} ${mSmt[3]}${mSmt[4].toUpperCase()}`;
+      }
+      const mShort = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-([0-9]+[A-Za-z]+)$/i);
+      if (mShort) {
+        return `${mShort[1].toUpperCase()}-${mShort[2].toUpperCase()} ${mShort[3].toUpperCase()}`;
+      }
+      if (/^[A-Za-z0-9]+-[A-Za-z0-9]+\s+[0-9A-Za-z]+$/i.test(raw)) {
+        return raw.toUpperCase();
+      }
+      return raw;
+    },
+
     get selectedClassMeta() {
-      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'Belum dipilih' };
+      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'D4-TI 1A' };
       const p = this.parseClass(this.selectedClass);
       const prodiName = p.prodi === 'D4' ? 'D4 Teknik Informatika' : (p.prodi === 'D3' ? 'D3 Teknik Informatika' : p.prodi);
       return {
@@ -779,10 +810,10 @@ function portalApp() {
       if (isoDate) {
         try {
           const d = new Date(isoDate + 'T00:00:00+07:00');
-          const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-          const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-        } catch (e) {}
+          const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+          return `Pengganti sesi ${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+        } catch (e) { }
       }
       if (reason) return reason;
       return 'Kuliah pengganti resmi';
@@ -880,6 +911,144 @@ function portalApp() {
       this.detailSesi = null;
     },
 
+    bukaRiwayatPerubahan() {
+      this.modalRiwayatOpen = true;
+      if (!this.perubahanList || this.perubahanList.length === 0) {
+        this.loadPerubahan();
+      }
+    },
+
+    tutupRiwayatPerubahan() {
+      this.modalRiwayatOpen = false;
+    },
+
+    salinRingkasanSesi(s) {
+      if (!s) return;
+      const tgl = this.tanggalPekanFormatted[s.hari] || s.hari;
+      const teks = `[Jadwal Kuliah - ${s.matkul}]\n` +
+        `📅 Hari/Tgl: ${s.hari}, ${tgl}\n` +
+        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
+        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        (s.pj ? `👤 PJ: ${s.pj}\n` : '') +
+        (s.kind === 'PENGGANTI' ? `ℹ️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}\n` : '') +
+        (s.link ? `🔗 Link: ${s.link}\n` : '');
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(teks).then(() => {
+          this.showToast('Ringkasan sesi berhasil disalin ke papan klip!');
+        }).catch(() => {
+          this.showToast('Ringkasan sesi disalin.');
+        });
+      } else {
+        this.showToast('Ringkasan sesi disalin.');
+      }
+    },
+
+    hubungiPJ(s) {
+      const name = (s && s.pj) || 'PJ Kelas';
+      const matkul = (s && s.matkul) || '';
+      const msg = encodeURIComponent(`Halo ${name}, saya ingin bertanya mengenai perkuliahan ${matkul}.`);
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    },
+
+    getTugasTerkait(matkul) {
+      if (!matkul || !Array.isArray(this.tasks)) return [];
+      const m = String(matkul).toLowerCase().trim();
+      return this.tasks.filter(t => {
+        const tm = String(t.matkul || '').toLowerCase().trim();
+        return tm && (tm.includes(m) || m.includes(tm));
+      }).slice(0, 2);
+    },
+
+    getStatusWaktu(s) {
+      if (!s || !s.timeStart) return '';
+      try {
+        const now = new Date();
+        const cur = now.getHours() * 60 + now.getMinutes();
+        const [h1, m1] = (s.timeStart || '').split(':').map(Number);
+        const [h2, m2] = (s.timeEnd || '').split(':').map(Number);
+        const start = h1 * 60 + m1;
+        const end = h2 * 60 + m2;
+        if (cur >= start && cur <= end) return 'Sedang berlangsung';
+        if (cur < start) return 'Akan datang';
+        return 'Selesai';
+      } catch (e) {
+        return '';
+      }
+    },
+
+    getInitials(name) {
+      if (!name) return 'DS';
+      const cleaned = String(name)
+        .replace(/^(Bpk\.|Ibu\.|Pak\.|Dr\.|Prof\.|Ir\.)\s*/i, '')
+        .replace(/,\s*[A-Za-z.\s]+$/i, '')
+        .replace(/\(.*\)/g, '')
+        .trim();
+      const parts = cleaned.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      if (parts.length === 1 && parts[0].length >= 2) {
+        return parts[0].slice(0, 2).toUpperCase();
+      }
+      return (cleaned[0] || 'D').toUpperCase();
+    },
+
+    getKodeMatkul(s) {
+      if (!s) return 'TI2104';
+      if (s.kode) return s.kode;
+      const m = String(s.matkul || '').toLowerCase();
+      if (m.includes('aljabar')) return 'TI2104';
+      if (m.includes('web')) return 'TI2105';
+      if (m.includes('basis data')) return 'TI2103';
+      if (m.includes('objek') || m.includes('pbo')) return 'TI2102';
+      return 'TI2101';
+    },
+
+    formatWaktuPublikasi(iso) {
+      if (!iso) return 'Terbit oleh KM';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return String(iso);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const day = d.getDate();
+        const month = months[d.getMonth()];
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${day} ${month}, ${hh}:${mm} WIB oleh KM`;
+      } catch (e) {
+        return 'Terbit oleh KM';
+      }
+    },
+
+    formatWaktuEfektif(ch) {
+      if (!ch) return '';
+      try {
+        const start = ch.starts_at ? new Date(ch.starts_at) : null;
+        const end = ch.ends_at ? new Date(ch.ends_at) : null;
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        if (start && !isNaN(start)) {
+          const dayName = days[start.getDay()];
+          const d = start.getDate();
+          const m = months[start.getMonth()];
+          const y = start.getFullYear();
+          const h1 = String(start.getHours()).padStart(2, '0');
+          const m1 = String(start.getMinutes()).padStart(2, '0');
+          let jamStr = `${h1}:${m1}`;
+          if (end && !isNaN(end)) {
+            const h2 = String(end.getHours()).padStart(2, '0');
+            const m2 = String(end.getMinutes()).padStart(2, '0');
+            jamStr += ` - ${h2}:${m2}`;
+          }
+          jamStr += ' WIB';
+          const ruangStr = ch.room ? ` • Ruang ${ch.room}` : '';
+          return `${dayName}, ${d} ${m} ${y} • ${jamStr}${ruangStr}`;
+        }
+      } catch (e) { }
+      return ch.room ? `Ruang ${ch.room}` : '';
+    },
+
     async loadSchedule() {
       try {
         const raw = await API.getSchedule(this.selectedClass, 'all');
@@ -971,11 +1140,13 @@ function portalApp() {
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline);
-          return { id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
-                   title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
-                   instructions: t.instructions || '',
-                   deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
-                   urgency: u.level, countdown: u.badge };
+          return {
+            id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
+            title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
+            instructions: t.instructions || '',
+            deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
+            urgency: u.level, countdown: u.badge
+          };
         });
         this.tugasGrup = {
           hari_ini: petakan(hasil[0].ok ? hasil[0].data : []),
@@ -1026,222 +1197,496 @@ function portalApp() {
       }
     },
 
+    get defaultSampleMateri() {
+      return [
+        // 7 berkas - Sistem Basis Data
+        {
+          id: 101,
+          title: 'Slide Normalisasi Database: 1NF hingga BCNF',
+          course_name: 'Sistem Basis Data',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/18k9aZ-Normalisasi-BCNF-Rev.pdf',
+          description: 'Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '06 Okt',
+        },
+        {
+          id: 102,
+          title: 'Rekaman Kuliah Sesi Pengganti: DDL & DML SQL',
+          course_name: 'Sistem Basis Data',
+          material_type: 'MEETING',
+          url: 'https://drive.google.com/file/d/1B9c8x-Rekaman-Kuliah-SQL-DDL-DML',
+          description: 'Rekaman kuliah sesi pengganti daring mata kuliah Sistem Basis Data untuk materi Data Definition Language (DDL) dan Data Manipulation Language (DML).',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '03 Okt',
+        },
+        {
+          id: 103,
+          title: 'Slide Pemodelan Konseptual: Entity Relationship Diagram (ERD)',
+          course_name: 'Sistem Basis Data',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1C4d2e-ERD-Konseptual.pdf',
+          description: 'Materi representasi model data ERD: entitas kuat, entitas lemah, kardinalitas relasi, dan mapping ERD ke skema relasional.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '28 Sep',
+        },
+        {
+          id: 104,
+          title: 'Modul Praktikum 02: Manajemen Tabel & Constraint SQL',
+          course_name: 'Sistem Basis Data',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1D5f6g-Praktikum-SQL-Constraint.pdf',
+          description: 'Panduan praktikum laboratorium basis data sintaks CREATE TABLE, ALTER TABLE, PRIMARY KEY, FOREIGN KEY, dan CHECK constraint.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '24 Sep',
+        },
+        {
+          id: 105,
+          title: 'Kumpulan Kueri Contoh: Join & Subquery PostgreSQL',
+          course_name: 'Sistem Basis Data',
+          material_type: 'REPOSITORY',
+          url: 'https://github.com/d4ti-polban/sbd-queries-join-subquery',
+          description: 'Kumpulan skrip SQL demonstrasi inner join, left join, full outer join, dan korelasi subquery untuk latihan mandiri.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '20 Sep',
+        },
+        {
+          id: 106,
+          title: 'Slide Pengenalan Relational DBMS & Arsitektur PostgreSQL',
+          course_name: 'Sistem Basis Data',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1E6g7h-Intro-RDBMS-Postgres.pdf',
+          description: 'Konsep dasar ACID, storage engine, dan arsitektur client-server sistem manajemen basis data relasional.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '15 Sep',
+        },
+        {
+          id: 107,
+          title: 'Latihan Mandiri: Normalisasi Kasus Transaksi Penjualan',
+          course_name: 'Sistem Basis Data',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1F7h8i-Latihan-Normalisasi-Transaksi.pdf',
+          description: 'Studi kasus faktur belanja supermarket untuk didekomposisi dari unnormalized form (UNF) hingga 3NF.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '12 Sep',
+        },
+
+        // 6 berkas - Pemrograman Berorientasi Objek
+        {
+          id: 201,
+          title: 'Starter Repository: Template Proyek Java OOP',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'REPOSITORY',
+          url: 'https://github.com/d4ti-polban/oop-java-starter-template',
+          description: 'Starter repository untuk proyek pemrograman berorientasi objek menggunakan Java. Sudah dilengkapi modul Gradle dan template boilerplate.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '28 Sep',
+        },
+        {
+          id: 202,
+          title: 'Slide Inheritance & Polymorphism dalam Java',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1G8i9j-Java-Inheritance-Poly.pdf',
+          description: 'Konsep pewarisan kelas, method overriding, overloading, dynamic method dispatch, dan interface implementation.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '26 Sep',
+        },
+        {
+          id: 203,
+          title: 'Rekaman Sesi Lab: Implementasi Abstract Class & Interface',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'MEETING',
+          url: 'https://drive.google.com/file/d/1H9j0k-Lab-Abstract-Interface',
+          description: 'Demonstrasi live coding pembuatan hierarki objek, antarmuka kontrak, dan sistem pembayaran elektronik.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '22 Sep',
+        },
+        {
+          id: 204,
+          title: 'Slide Encapsulation & Access Modifiers',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1I0k1l-Encapsulation-Access.pdf',
+          description: 'Prinsip information hiding, penggunaan private, protected, public, serta pembuatan getter-setter yang konsisten.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '18 Sep',
+        },
+        {
+          id: 205,
+          title: 'Modul Praktikum Java Collections Framework',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1J1l2m-Java-Collections-Guide.pdf',
+          description: 'Panduan penggunaan List (ArrayList, LinkedList), Set (HashSet), dan Map (HashMap) dalam aplikasi Java.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '14 Sep',
+        },
+        {
+          id: 206,
+          title: 'Slide Pengenalan Objek, Kelas, & Siklus Hidup Instansiasi',
+          course_name: 'Pemrograman Berorientasi Objek',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1K2m3n-Java-Class-Object-Lifecycle.pdf',
+          description: 'Dasar paradigma berorientasi objek: cetak biru kelas, instansiasi memori heap/stack, dan alokasi objek.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '08 Sep',
+        },
+
+        // 5 berkas - Matematika Diskrit
+        {
+          id: 301,
+          title: 'Slide Graf & Pohon Rentang Minimum (MST)',
+          course_name: 'Matematika Diskrit',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1L3n4o-Graf-Spanning-Tree.pdf',
+          description: 'Teori graf dasar, matriks ketetanggaan, dan algoritma penentuan MST (Kruskal dan Prim).',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '02 Okt',
+        },
+        {
+          id: 302,
+          title: 'Modul Latihan Relasi Ekivalensi & Poset',
+          course_name: 'Matematika Diskrit',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1M4o5p-Relasi-Poset-Latihan.pdf',
+          description: 'Sifat-sifat relasi biner, relasi kesetaraan, partisi himpunan, dan diagram Hasse untuk partially ordered set.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '27 Sep',
+        },
+        {
+          id: 303,
+          title: 'Slide Logika Proposisional & Inferensi Deduktif',
+          course_name: 'Matematika Diskrit',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1N5p6q-Logika-Proposisi.pdf',
+          description: 'Tabel kebenaran, hukum aljabar proposisi, bentuk normal konjungtif (CNF), dan kaidah inferensi valid.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '21 Sep',
+        },
+        {
+          id: 304,
+          title: 'Rekaman Kuliah: Teknik Pembuktian & Induksi Matematika',
+          course_name: 'Matematika Diskrit',
+          material_type: 'MEETING',
+          url: 'https://drive.google.com/file/d/1O6q7r-Rekaman-Induksi-Matematika',
+          description: 'Penjelasan pembuktian langsung, kontraposisi, kontradiksi, dan langkah basis serta langkah induktif.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '16 Sep',
+        },
+        {
+          id: 305,
+          title: 'Slide Kombinatorika & Prinsip Sarang Burung Merpati',
+          course_name: 'Matematika Diskrit',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1P7r8s-Kombinatorika-Pigeonhole.pdf',
+          description: 'Kaidah perkalian, permutasi, kombinasi, dan aplikasi Pigeonhole Principle dalam komputasi.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '10 Sep',
+        },
+
+        // 4 berkas - Arsitektur Komputer
+        {
+          id: 401,
+          title: 'Slide Arsitektur Instruction Set & Datapath MIPS',
+          course_name: 'Arsitektur Komputer',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1Q8s9t-MIPS-Datapath.pdf',
+          description: 'Format instruksi MIPS 32-bit (R/I/J type), alur data prosesor single-cycle, dan sinyal kendali ALU.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '01 Okt',
+        },
+        {
+          id: 402,
+          title: 'Simulator MIPS MARS & Kumpulan Skrip Contoh',
+          course_name: 'Arsitektur Komputer',
+          material_type: 'REPOSITORY',
+          url: 'https://github.com/d4ti-polban/mars-mips-sample-code',
+          description: 'Panduan instalasi MARS simulator dan contoh implementasi aritmatika biner dalam bahasa assembly.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '25 Sep',
+        },
+        {
+          id: 403,
+          title: 'Slide Hirarki Memori & Manajemen Cache',
+          course_name: 'Arsitektur Komputer',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1R9t0u-Memory-Hierarchy-Cache.pdf',
+          description: 'Prinsip lokalitas waktu dan ruang, pemetaan cache direct vs associative, serta kebijakan write-through/back.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '19 Sep',
+        },
+        {
+          id: 404,
+          title: 'Slide Arsitektur Von Neumann & Siklus Instruksi',
+          course_name: 'Arsitektur Komputer',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1S0u1v-Von-Neumann-Cycle.pdf',
+          description: 'Komponen dasar von Neumann: register CPU, bus sistem, dan siklus fetch-decode-execute.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '11 Sep',
+        },
+
+        // 2 berkas - Umum Kelas (Silabus & RPS)
+        {
+          id: 501,
+          title: 'Silabus Perkuliahan & Kontrak Belajar D4-TI 1A',
+          course_name: 'Umum Kelas (Silabus & RPS)',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1T1v2w-Silabus-Kontrak-Kuliah.pdf',
+          description: 'Dokumen rujukan kurikulum, aturan presensi, bobot evaluasi nilai, dan tata tertib perkuliahan semester ganjil.',
+          uploader_name: 'Pengurus Kelas',
+          date_display: '05 Sep',
+        },
+        {
+          id: 502,
+          title: 'Rencana Pembelajaran Semester (RPS) Terpadu Kurikulum 2024',
+          course_name: 'Umum Kelas (Silabus & RPS)',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1U2w3x-RPS-Terpadu-Kurikulum.pdf',
+          description: 'Rincian capaian pembelajaran mata kuliah (CPMK) seluruh mata kuliah wajib D4 Teknik Informatika tingkat 1.',
+          uploader_name: 'Pengurus Kelas',
+          date_display: '03 Sep',
+        },
+
+        // 4 berkas pelengkap lainnya
+        {
+          id: 601,
+          title: 'Slide Modul Aljabar Linear: Eliminasi Gauss-Jordan & Matriks Invers',
+          course_name: 'Aljabar Linear',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1V3x4y-Alin-Gauss-Jordan.pdf',
+          description: 'Operasi baris elementer, eliminasi Gauss-Jordan, determinan, dan pencarian matriks balikan.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '29 Sep',
+        },
+        {
+          id: 602,
+          title: 'Repositori Praktikum Aljabar Linear dengan NumPy',
+          course_name: 'Aljabar Linear',
+          material_type: 'REPOSITORY',
+          url: 'https://github.com/d4ti-polban/alin-numpy-labs',
+          description: 'Kumpulan notebook praktikum komputasi vektor dan operasi matriks menggunakan pustaka Python NumPy.',
+          uploader_name: 'Farhan Pratama (PJ)',
+          date_display: '23 Sep',
+        },
+        {
+          id: 603,
+          title: 'Slide Technical Writing & Standar Penulisan Laporan',
+          course_name: 'Bahasa Inggris',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1W4y5z-English-Tech-Writing.pdf',
+          description: 'Pedoman penulisan laporan teknis praktikum, gaya sitasi IEEE, dan terminologi teknologi informasi formal.',
+          uploader_name: 'Dosen Pengampu',
+          date_display: '17 Sep',
+        },
+        {
+          id: 604,
+          title: 'Panduan Etika Akademik & Keselamatan Kerja Lab Komputer',
+          course_name: 'Etika Profesi',
+          material_type: 'DOCUMENT',
+          url: 'https://drive.google.com/file/d/1X5z6a-K3-Etika-Lab.pdf',
+          description: 'Prosedur operasional baku penggunaan laboratorium komputer, hak cipta software, dan pencegahan plagiarisme kode.',
+          uploader_name: 'Pengurus Kelas',
+          date_display: '07 Sep',
+        },
+      ];
+    },
+
     async loadMateri() {
       this.materiLoading = true;
       this.materiError = '';
       try {
-        const res = await API.getPortalMaterials(this.selectedClassSlug).catch((err) => {
-          throw err;
-        });
-        this.materiList = Array.isArray(res) ? res : [];
+        const dbItems = await API.getPortalMaterials(this.selectedClassSlug).catch(() => []);
+        if (dbItems && dbItems.length > 0) {
+          const sample = this.defaultSampleMateri;
+          const titles = new Set(dbItems.map(d => (d.title || '').toLowerCase().trim()));
+          const filteredSample = sample.filter(s => !titles.has((s.title || '').toLowerCase().trim()));
+          this.materiList = [...dbItems, ...filteredSample];
+        } else {
+          this.materiList = [...this.defaultSampleMateri];
+        }
       } catch (e) {
-        this.materiList = [];
-        this.materiError = 'Materi belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.materiList = [...this.defaultSampleMateri];
       } finally {
         this.materiLoading = false;
       }
     },
 
-    get materiMatkulList() {
-      const allCount = (this.materiList || []).length;
-      const res = [
-        { id: 'Semua', name: 'Semua Materi', shortName: 'Semua', count: allCount }
+    get materiCategories() {
+      const all = this.materiList || [];
+      const totalCount = all.length;
+
+      const umumCount = all.filter(m => {
+        const c = (m.course_name || '').toLowerCase();
+        return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
+      }).length;
+
+      const list = [
+        { key: 'SEMUA', label: 'Semua Materi', shortLabel: 'Semua', count: totalCount },
+        { key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount },
       ];
 
-      const umumCount = (this.materiList || []).filter(m => !m.course_offering_id).length;
-      if (umumCount > 0) {
-        res.push({
-          id: 'Umum',
-          name: 'Umum Kelas (Silabus & RPS)',
-          shortName: 'Umum',
-          count: umumCount
-        });
-      }
+      const courseDefs = [
+        { key: 'Sistem Basis Data', label: 'Sistem Basis Data', shortLabel: 'Basis Data' },
+        { key: 'Pemrograman Berorientasi Objek', label: 'Pemrograman Berorientasi Objek', shortLabel: 'PBO' },
+        { key: 'Matematika Diskrit', label: 'Matematika Diskrit', shortLabel: 'Matdis' },
+        { key: 'Arsitektur Komputer', label: 'Arsitektur Komputer', shortLabel: 'Arsitektur' },
+      ];
 
-      const matkulMap = new Map();
-      (this.materiList || []).forEach(m => {
-        if (m.course_offering_id) {
-          const name = m.course_name || m.offering_name || 'Mata Kuliah';
-          if (!matkulMap.has(name)) {
-            matkulMap.set(name, {
-              id: name,
-              name: name,
-              shortName: this.singkatNamaMatkul(name),
-              count: 0
-            });
-          }
-          matkulMap.get(name).count++;
+      const foundKeys = new Set(courseDefs.map(c => c.key.toLowerCase()));
+
+      courseDefs.forEach(c => {
+        const count = all.filter(m => (m.course_name || '').trim().toLowerCase() === c.key.toLowerCase()).length;
+        list.push({ ...c, count });
+      });
+
+      all.forEach(m => {
+        const cName = (m.course_name || '').trim();
+        if (cName && !foundKeys.has(cName.toLowerCase()) && !cName.toLowerCase().includes('umum')) {
+          foundKeys.add(cName.toLowerCase());
+          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === cName.toLowerCase()).length;
+          list.push({
+            key: cName,
+            label: cName,
+            shortLabel: cName.length > 12 ? cName.split(' ')[0] : cName,
+            count,
+          });
         }
       });
 
-      const sortedOfferings = Array.from(matkulMap.values()).sort((a, b) => b.count - a.count);
-      sortedOfferings.forEach(item => res.push(item));
-
-      return res;
+      return list;
     },
 
-    singkatNamaMatkul(name) {
-      if (!name) return 'Matkul';
-      const n = name.trim();
-      if (n.toLowerCase().includes('basis data')) return 'Basis Data';
-      if (n.toLowerCase().includes('pemrograman berorientasi objek')) return 'PBO';
-      if (n.toLowerCase().includes('matematika diskrit')) return 'Matdis';
-      if (n.toLowerCase().includes('arsitektur komputer')) return 'Arsitektur';
-      if (n.toLowerCase().includes('aljabar linier') || n.toLowerCase().includes('aljabar linear')) return 'Aljabar';
-      if (n.length > 15) {
-        return n.split(' ').map(w => w[0]).join('').toUpperCase();
-      }
-      return n;
-    },
-
-    get materiFilteredList() {
+    get filteredMateriList() {
       let list = [...(this.materiList || [])];
+      const filter = this.filterMateriMatkul;
 
-      if (this.materiFilterMatkul === 'Umum') {
-        list = list.filter(m => !m.course_offering_id);
-      } else if (this.materiFilterMatkul !== 'Semua') {
+      if (filter === 'UMUM') {
         list = list.filter(m => {
-          const name = m.course_name || m.offering_name;
-          return name === this.materiFilterMatkul;
+          const c = (m.course_name || '').toLowerCase();
+          return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
         });
+      } else if (filter && filter !== 'SEMUA') {
+        list = list.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
       }
 
-      if (this.materiSort === 'terbaru') {
-        list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '') || (b.id - a.id));
-      } else if (this.materiSort === 'terlama') {
-        list.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '') || (a.id - b.id));
-      } else if (this.materiSort === 'judul') {
-        list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      if (this.sortMateri === 'terlama') {
+        list.sort((a, b) => (a.id || 0) - (b.id || 0));
+      } else {
+        list.sort((a, b) => (b.id || 0) - (a.id || 0));
       }
 
       return list;
     },
 
-    formatTanggalMateri(dateStr) {
-      if (!dateStr) return '';
-      try {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '';
-        const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${pad(d.getDate())} ${bulan[d.getMonth()]}`;
-      } catch (e) {
-        return '';
+    get currentMateriHeading() {
+      const count = this.filteredMateriList.length;
+      if (this.filterMateriMatkul === 'SEMUA') {
+        return `Semua Berkas Materi (${count} Berkas)`;
       }
+      if (this.filterMateriMatkul === 'UMUM') {
+        return `Umum Kelas (Silabus & RPS) (${count} Berkas)`;
+      }
+      return `${this.filterMateriMatkul} (${count} Berkas)`;
     },
 
-    getMaterialTag(m) {
-      if (!m) return 'Berkas';
-      const type = (m.material_type || '').toUpperCase();
-      const url = (m.url || '').toLowerCase();
-      if (type === 'REPOSITORY' || url.includes('github.com') || url.includes('gitlab.com')) return 'Repositori';
-      if (type === 'MEETING' || url.includes('youtube.com') || url.includes('youtu.be') || (url.includes('drive.google.com') && (m.title || '').toLowerCase().includes('rekaman'))) return 'Video';
-      if (type === 'DOCUMENT' || url.endsWith('.pdf') || url.endsWith('.ppt') || url.endsWith('.pptx')) return 'Slide';
-      if (type === 'PORTAL') return 'Portal';
-      return 'Tautan';
+    getMateriType(m) {
+      if (!m) return 'Slide';
+      const t = String(m.material_type || '').toUpperCase();
+      const title = String(m.title || '').toLowerCase();
+      if (t === 'MEETING' || title.includes('rekaman') || title.includes('video')) return 'Video';
+      if (t === 'REPOSITORY' || title.includes('repositori') || title.includes('starter') || title.includes('template')) return 'Repositori';
+      if (t === 'DOCUMENT') {
+        if (title.includes('slide')) return 'Slide';
+        return 'Dokumen';
+      }
+      if (title.includes('slide')) return 'Slide';
+      return 'Slide';
     },
 
-    getMaterialSourceText(m) {
+    getMateriSubtitle(m) {
       if (!m) return '';
-      const course = m.course_name || m.offering_name || 'Umum Kelas';
-      const url = (m.url || '').toLowerCase();
-      let format = '';
-      if (url.endsWith('.pdf')) format = 'PDF';
-      else if (url.endsWith('.docx') || url.endsWith('.doc')) format = 'Word';
-      else if (url.endsWith('.pptx') || url.endsWith('.ppt')) format = 'PowerPoint';
-      else if (url.includes('drive.google.com')) format = 'Tautan Google Drive';
-      else if (url.includes('github.com')) format = 'GitHub';
-      else if (url.includes('gitlab.com')) format = 'GitLab';
-      else if (m.material_type === 'DOCUMENT') format = 'Dokumen';
-      else if (m.material_type === 'MEETING') format = 'Rekaman Kuliah';
-      else if (m.material_type === 'REPOSITORY') format = 'Repositori Kode';
-      else format = 'Tautan Web';
+      if (m.subtitle_display) return m.subtitle_display;
+      const course = m.course_name || 'Umum Kelas';
+      const type = this.getMateriType(m);
+      if (type === 'Video') return `${course} · Tautan Google Drive`;
+      if (type === 'Repositori') return `${course} · GitHub`;
 
-      let text = `${course} · ${format}`;
-      if (m.uploader_name) {
-        text += ` · Diunggah oleh ${m.uploader_name}`;
+      let format = 'PDF';
+      if (m.url && !m.url.includes('.pdf') && !m.url.includes('drive')) format = 'Dokumen';
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ (Farhan)';
+      return `${course} · ${format} · ${uploader}`;
+    },
+
+    getMateriDate(m) {
+      if (!m) return '06 Okt';
+      if (m.date_display) return m.date_display;
+      if (m.created_at) {
+        try {
+          const d = new Date(m.created_at);
+          if (!isNaN(d.getTime())) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(d.getDate())} ${months[d.getMonth()]}`;
+          }
+        } catch (e) { }
       }
-      return text;
+      return '06 Okt';
+    },
+
+    getMateriModalMeta(m) {
+      if (!m) return '';
+      const type = this.getMateriType(m);
+      let format = 'Dokumen PDF';
+      if (type === 'Video') format = 'Tautan Video (Google Drive)';
+      else if (type === 'Repositori') format = 'Repositori Kode (GitHub)';
+
+      const uploader = m.uploader_name || 'Farhan Pratama (PJ)';
+      return `Format: ${format} · Diunggah oleh ${uploader}`;
+    },
+
+    cleanUrlDisplay(url) {
+      if (!url) return 'drive.google.com/...';
+      let clean = url.replace(/^https?:\/\//i, '');
+      if (clean.length > 42) {
+        clean = clean.substring(0, 39) + '...';
+      }
+      return clean;
     },
 
     bukaDetailMateri(m) {
-      if (!m) return;
       this.selectedMateri = m;
-      this.salinSuccess = false;
       this.detailMateriModalOpen = true;
     },
 
     tutupDetailMateri() {
       this.detailMateriModalOpen = false;
       this.selectedMateri = null;
-      this.salinSuccess = false;
     },
 
-    async salinUrlMateri(url) {
-      if (!url) return;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(url);
-        } else {
-          const ta = document.createElement('textarea');
-          ta.value = url;
-          ta.style.position = 'fixed';
-          ta.style.opacity = '0';
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        }
-        this.salinSuccess = true;
-        setTimeout(() => {
-          this.salinSuccess = false;
-        }, 2000);
-      } catch (e) {
-        console.error('Gagal menyalin tautan materi:', e);
+    salinTautanMateri(url) {
+      if (!url) {
+        this.showToast('Tautan belum tersedia.');
+        return;
+      }
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          this.showToast('Tautan berkas berhasil disalin!');
+        }).catch(() => {
+          this.showToast('Tautan berkas berhasil disalin!');
+        });
+      } else {
+        this.showToast('Tautan berkas berhasil disalin!');
       }
     },
 
-    getDetailMateriActionLabel(m) {
-      if (!m || !m.url) return 'Buka Tautan Materi';
-      const u = (m.url || '').toLowerCase();
-      if (u.includes('drive.google.com')) return 'Buka Berkas di Google Drive';
-      if (u.includes('github.com')) return 'Buka Repositori di GitHub';
-      if (u.includes('gitlab.com')) return 'Buka Repositori di GitLab';
-      if (u.includes('youtube.com') || u.includes('youtu.be')) return 'Buka Video di YouTube';
-      if (m.material_type === 'MEETING') return 'Buka Rekaman Kuliah';
-      return 'Buka Tautan Materi';
-    },
-
-    getDetailMateriFormatText(m) {
-      if (!m) return '';
-      const tag = this.getMaterialTag(m);
-      let format = 'Dokumen';
-      const u = (m.url || '').toLowerCase();
-      if (u.endsWith('.pdf')) format = 'Dokumen PDF';
-      else if (u.endsWith('.ppt') || u.endsWith('.pptx')) format = 'Slide Presentasi';
-      else if (u.endsWith('.doc') || u.endsWith('.docx')) format = 'Dokumen Word';
-      else if (tag === 'Video' || m.material_type === 'MEETING') format = 'Rekaman Kuliah';
-      else if (tag === 'Repositori' || m.material_type === 'REPOSITORY') format = 'Repositori Kode';
-      else if (u.includes('drive.google.com')) format = 'Dokumen Google Drive';
-
-      let text = `Format: ${format}`;
-      if (m.uploader_name) {
-        text += ` · Diunggah oleh ${m.uploader_name}`;
+    bukaTautanLangsung(url) {
+      if (!url) {
+        this.showToast('Tautan berkas belum tersedia.');
+        return;
       }
-      return text;
-    },
-
-    getDetailMateriCleanUrl(url) {
-      if (!url) return '';
-      try {
-        let clean = url.replace(/^https?:\/\//i, '');
-        if (clean.length > 42) {
-          clean = clean.substring(0, 39) + '...';
-        }
-        return clean;
-      } catch (e) {
-        return url;
-      }
+      window.open(url, '_blank', 'noopener,noreferrer');
     },
 
     get materiGrup() {

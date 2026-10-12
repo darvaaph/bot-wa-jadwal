@@ -1176,13 +1176,12 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT m.id, m.title, m.material_type, COALESCE(m.url, ''), COALESCE(m.description, ''),
-		       COALESCE(co.id, 0), COALESCE(co.display_name, ''), COALESCE(cr.name, ''),
-		       COALESCE(m.created_at, ''), COALESCE(u.display_name, '')
+		       COALESCE(co.id, 0), COALESCE(co.display_name, ''), COALESCE(m.created_at, ''),
+		       COALESCE(u.display_name, '')
 		FROM materials m
 		LEFT JOIN tasks mt ON mt.id = m.task_id
 		LEFT JOIN course_offerings co ON co.id = COALESCE(m.course_offering_id, mt.course_offering_id)
-		LEFT JOIN courses cr ON cr.id = co.course_id
-		LEFT JOIN users u ON u.id = m.created_by_user_id
+		LEFT JOIN users u ON m.created_by_user_id = u.id
 		WHERE m.class_id = ?
 		  AND m.status = 'ACTIVE'
 		  AND m.visibility = 'CLASS_ACCESS'
@@ -1214,25 +1213,28 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 
 	var materials []map[string]any
 	for rows.Next() {
-		var id, offID int64
-		var title, matType, urlStr, desc, offName, courseName, createdAt, uploader string
-		if err := rows.Scan(&id, &title, &matType, &urlStr, &desc, &offID, &offName, &courseName, &createdAt, &uploader); err == nil {
-			var offeringIDVal any
-			if offID > 0 {
-				offeringIDVal = offID
+		var id int64
+		var title, matType, urlStr, desc, courseName, createdAt, uploaderName string
+		var courseOfferingID int64
+		if err := rows.Scan(&id, &title, &matType, &urlStr, &desc, &courseOfferingID, &courseName, &createdAt, &uploaderName); err == nil {
+			item := map[string]any{
+				"id":            id,
+				"title":         title,
+				"material_type": matType,
+				"url":           urlStr,
+				"description":   desc,
+				"created_at":    createdAt,
 			}
-			materials = append(materials, map[string]any{
-				"id":                 id,
-				"title":              title,
-				"material_type":      matType,
-				"url":                urlStr,
-				"description":        desc,
-				"course_offering_id": offeringIDVal,
-				"offering_name":      offName,
-				"course_name":        courseName,
-				"created_at":         createdAt,
-				"uploader_name":      uploader,
-			})
+			if courseOfferingID > 0 {
+				item["course_offering_id"] = courseOfferingID
+			}
+			if courseName != "" {
+				item["course_name"] = courseName
+			}
+			if uploaderName != "" {
+				item["uploader_name"] = uploaderName
+			}
+			materials = append(materials, item)
 		}
 	}
 
