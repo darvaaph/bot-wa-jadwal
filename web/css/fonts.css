@@ -5,4 +5,4 @@
 @font-face { font-family: 'Poppins'; font-style: normal; font-weight: 700; font-display: swap; src: url('/assets/fonts/poppins-700-latin.woff2') format('woff2'); }
 @font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 400 600; font-display: swap; src: url('/assets/fonts/montserrat-400-600-latin.woff2') format('woff2'); }
 @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 600; font-display: swap; src: url('/assets/fonts/jetbrains-mono-400-600-latin.woff2') format('woff2'); }
-@font-face { font-family: 'Material Symbols Outlined'; font-style: normal; font-weight: 100 700; font-display: block; src: url('/assets/fonts/material-symbols-outlined.woff2') format('woff2'); }
+@font-face { font-family: 'Material Symbols Outlined'; font-style: normal; font-weight: 100 700; font-display: block; src: url('/assets/fonts/material-symbols-outlined.woff2?v=20261013') format('woff2'); }
