@@ -2160,6 +2160,16 @@ function pjApp() {
       return now >= end;
     },
 
+    get currentSession() {
+      const todayList = this.dashboardData?.schedule?.today || [];
+      return todayList.find(s => this.isSessionOngoing(s)) || null;
+    },
+
+    get nextSession() {
+      const todayList = this.dashboardData?.schedule?.today || [];
+      return todayList.find(s => !this.isSessionOngoing(s) && !this.isSessionPassed(s)) || null;
+    },
+
     pjDeadlineBadge(deadlineAt) {
       if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
       const d = new Date(deadlineAt);

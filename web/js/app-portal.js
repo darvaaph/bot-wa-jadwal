@@ -238,6 +238,26 @@ function portalApp() {
         String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
     },
 
+    get currentSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.jadwalEfektifHariIni || []).find(s => {
+        if (!s.timeStart || !s.timeEnd) return false;
+        return nowHM >= s.timeStart && nowHM <= s.timeEnd;
+      }) || null;
+    },
+
+    get nextSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.jadwalEfektifHariIni || [])
+        .filter(s => s.timeStart && s.timeStart > nowHM)
+        .slice()
+        .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')))[0] || null;
+    },
+
     get withUrgency() {
       const rank = { mendesak: 0, mendekati: 1, aman: 2 };
       return [...this.tasks].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));

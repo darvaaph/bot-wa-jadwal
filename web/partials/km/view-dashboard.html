@@ -33,43 +33,93 @@
       <button type="button" @click="loadKMDashboard()" :disabled="dashboardRefreshing" class="ui-button ui-button--outline shrink-0">Coba lagi</button>
     </div>
 
-    <!-- 2. Strip Usulan Draf PJ (Review Alert Banner) -->
-    <template x-if="antrean.length > 0">
-      <div class="w-full min-h-[64px] flex flex-col sm:flex-row gap-3 sm:gap-4 p-3.5 sm:p-4 justify-between items-start sm:items-center bg-[#EFF6FF] border border-[#BFDBFE] rounded-[12px] shadow-sm">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-[36px] h-[36px] shrink-0 flex items-center justify-center bg-[#DBEAFE] rounded-[9px] text-[#3965FB]">
-            <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
-              <path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z m3.37354-3.49658l-0.54004-0.54004 0.54004 0.54004z m-3.09326 2.55322l0-0.55371 1.34668-1.34326 0.29052 0.26318 0.26319 0.28711-1.34668 1.34668-0.55371 0z m1.6372-1.63379l0.26319 0.28711-0.55371-0.55029 0.29052 0.26318z m0.54004 2.57715l3.34961 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41357 0-0.24951-0.16748-0.417-0.16748-0.16748-0.41699-0.16748l-2.18408 0-1.16553 1.16553z m-3.21289 2.42676l-1.19971 1.19971q-0.31787 0.31787-0.72461 0.14355-0.40674-0.17432-0.40673-0.61865l0-8.96875q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.93994-0.38964l9.24902 0q0.55029 0 0.93652 0.38964 0.38965 0.38965 0.38965 0.93653l0 6.91455q0 0.55371-0.38965 0.94336-0.38623 0.38623-0.93652 0.38623l-8.24414 0z m-0.4956-1.32959l8.73974 0 0-6.91455-9.24902 0 0 7.41699 0.50928-0.50244z m-0.50928 0l0-6.91455 0 6.91455z"/>
-            </svg>
+    <!-- 2. Hero Spotlight KM: Status Operasional & Perkuliahan Kelas Real-Time -->
+    <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-6 flex flex-col lg:flex-row gap-6 lg:gap-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left" role="region" aria-label="Pusat kendali dan status kelas">
+      <!-- Sisi Kiri: Sesi Kuliah Terkini / Berikutnya di Kelas -->
+      <div class="flex-1 min-w-0 flex flex-col justify-between gap-3">
+        <div class="flex flex-col gap-2.5">
+          <!-- Live Status Badge -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <template x-if="currentSession">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
+                <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
+                <span>SEDANG BERLANGSUNG</span>
+              </span>
+            </template>
+            <template x-if="!currentSession && nextSession">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
+                <span>KULIAH BERIKUTNYA</span>
+              </span>
+            </template>
+            <template x-if="!currentSession && !nextSession && todayList.length > 0">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+                <span>SEMUA KULIAH HARI INI SELESAI</span>
+              </span>
+            </template>
+            <template x-if="todayList.length === 0">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+                <span>TIDAK ADA KULIAH HARI INI</span>
+              </span>
+            </template>
+            <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
           </div>
-          <span class="px-2 py-0.5 rounded-[6px] bg-[#DBEAFE] text-[#1D4ED8] text-[10px] font-bold tracking-wide shrink-0">PERLU REVIEW</span>
-          <p class="text-[13px] text-[#1D1B3A] font-normal truncate">
-            Ada <strong class="font-bold text-[#1D4ED8]" x-text="antrean.length">0</strong> usulan tugas dari PJ menunggu persetujuan Anda.
-          </p>
-        </div>
-        <button type="button" @click="bukaAntreanReview()" class="min-h-[44px] h-[40px] px-4 rounded-[8px] bg-[#3965FB] hover:bg-[#2851E3] text-[12px] font-semibold text-white whitespace-nowrap shrink-0 flex items-center justify-center transition-colors">
-          Buka Antrean Review &rarr;
-        </button>
-      </div>
-    </template>
 
-    <!-- Fallback Alert jika ada pesan WhatsApp yang gagal terkirim dan tidak ada antrean review -->
-    <template x-if="antrean.length === 0 && notifGagal > 0">
-      <div class="w-full min-h-[64px] flex flex-col sm:flex-row gap-3 sm:gap-4 p-3.5 sm:p-4 justify-between items-start sm:items-center bg-[#FFF1F2] border border-[#FECDD3] rounded-[12px] shadow-sm">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-[36px] h-[36px] shrink-0 flex items-center justify-center bg-[#FFE4E6] rounded-[9px] text-[#E11D48]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <span class="px-2 py-0.5 rounded-[6px] bg-[#FFE4E6] text-[#BE123C] text-[10px] font-bold tracking-wide shrink-0">PESAN GAGAL</span>
-          <p class="text-[13px] text-[#1D1B3A] font-normal truncate">
-            Ada <strong class="font-bold text-[#BE123C]" x-text="notifGagal">0</strong> pesan siaran WhatsApp yang gagal terkirim.
+          <!-- Matkul Title -->
+          <h2 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display"
+              x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul) : ('Kelas ' + (selectedClass || 'Anda') + ' Siap Beroperasi')">
+          </h2>
+
+          <!-- Subtitle / Lokasi & Dosen -->
+          <p class="text-[13px] text-[#C7C6D8] leading-relaxed">
+            <template x-if="currentSession || nextSession">
+              <span>
+                <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
+                <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
+              </span>
+            </template>
+            <template x-if="!currentSession && !nextSession">
+              <span>Tidak ada sesi perkuliahan aktif saat ini. Anda dapat memeriksa antrean tugas, koordinasi PJ, atau menyunting jadwal kelas.</span>
+            </template>
           </p>
         </div>
-        <button type="button" @click="notifFilter = 'FAILED'; go('notifikasi')" class="min-h-[44px] h-[40px] px-4 rounded-[8px] bg-[#E11D48] hover:bg-[#BE123C] text-[12px] font-semibold text-white whitespace-nowrap shrink-0 flex items-center justify-center transition-colors">
-          Jadwalkan Ulang &rarr;
-        </button>
+
+        <!-- Indikator Antrean Review PJ di dalam Spotlight jika ada -->
+        <div x-show="antrean.length > 0" class="pt-1">
+          <button type="button" @click="bukaAntreanReview()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs">
+            <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
+            <span x-text="'Periksa ' + antrean.length + ' Usulan Tugas dari PJ →'">Periksa Usulan Tugas →</span>
+          </button>
+        </div>
       </div>
-    </template>
+
+      <!-- Sisi Kanan: Mini Widgets KM (Status Bot & Antrean) -->
+      <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-2.5 justify-center">
+        <!-- Widget Status WhatsApp Bot -->
+        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="checkBot()" title="Klik untuk cek status bot">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="botOnline ? 'bg-[#16A34A]' : 'bg-[#E11D48]'"></span>
+            <span class="text-[12px] font-medium text-[#C7C6D8]">WhatsApp Bot</span>
+          </div>
+          <span class="text-[12px] font-bold px-2 py-0.5 rounded"
+                :class="botOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'"
+                x-text="botOnline ? 'Terhubung' : 'Terputus'">Terhubung</span>
+        </div>
+
+        <!-- Widget Usulan PJ / Pesan Gagal -->
+        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="antrean.length > 0 ? bukaAntreanReview() : go('notifikasi')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[16px]">📬</span>
+            <div class="min-w-0">
+              <span class="block text-[11px] font-medium text-[#C7C6D8]">Antrean Review PJ</span>
+              <span class="block text-[12px] font-bold text-white truncate" x-text="antrean.length > 0 ? (antrean.length + ' tugas menunggu persetujuan') : 'Semua draf selesai'">Semua draf selesai</span>
+            </div>
+          </div>
+          <span class="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
+                :class="antrean.length > 0 ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-emerald-500/20 text-emerald-300'"
+                x-text="antrean.length > 0 ? (antrean.length + ' Draf') : 'Beres'">Beres</span>
+        </div>
+      </div>
+    </div>
 
     <!-- 3. Ringkasan Kelas (3 Metric Cards) -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
