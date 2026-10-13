@@ -3,15 +3,19 @@
 <aside class="app-sidebar hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] shrink-0" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex flex-row justify-center items-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
-        <div class="sidebar-label min-w-0 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-extrabold tracking-[1.1px] text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
-          <span class="block text-[11px] font-semibold text-[#667085] leading-tight">System Admin</span>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight uppercase tracking-wider">System Admin</span>
         </div>
       </button>
       <div class="sidebar-section shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
@@ -80,16 +84,20 @@
   </template>
   <template x-if="shellRoleKey === 'km'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0 transition-colors text-left cursor-pointer" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"/>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
         <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="block text-[11px] font-semibold text-[#3965FB] leading-tight shrink-0">Ketua Murid</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
             <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
           </div>
         </div>
@@ -158,15 +166,19 @@
   </template>
   <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0 transition-colors" :class="sidebarCollapsed ? 'justify-center' : 'justify-start gap-[10px] px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
-        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[3px] text-left">
-          <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">Bot Jadwal</span>
-          <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+          <span class="inline-flex items-center px-1.5 py-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[5px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
         </div>
       </button>
 
@@ -202,19 +214,23 @@
   </template>
   <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-1'">
-        <span class="flex items-center gap-3 min-w-0">
-          <span class="w-[42px] h-[42px] shrink-0 rounded-[12px] bg-[#3965FB] flex items-center justify-center">
-            <img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" />
-          </span>
-          <span x-show="!sidebarCollapsed" class="sidebar-label text-left min-w-0 flex flex-col gap-[2px]">
-            <span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span>
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit bg-[#EFF6FF] text-[#1D4ED8] shrink-0">PJ Matkul</span>
-              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="dashboardData?.class?.label || selectedClass || ''" x-text="(dashboardData?.class?.label || selectedClass) ? ('· ' + (dashboardData?.class?.label || selectedClass)) : ''"></span>
-            </div>
-          </span>
-        </span>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+          </svg>
+        </div>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
+            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="dashboardData?.class?.label || selectedClass || ''" x-text="(dashboardData?.class?.label || selectedClass) ? ('· ' + (dashboardData?.class?.label || selectedClass)) : ''"></span>
+          </div>
+        </div>
       </button>
       <div x-show="!sidebarCollapsed && contextAssignments && contextAssignments.length > 1" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
@@ -270,11 +286,15 @@
       <template x-if="shellRoleKey === 'sa'">
         <div class="contents">
           <div class="md:hidden flex items-center gap-2.5 min-w-0">
-            <span class="flex items-center justify-center w-[38px] h-[38px] rounded-[10px] bg-[#3965FB] text-white shrink-0" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false"><path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z"/></svg>
-            </span>
+            <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+              <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+              </svg>
+            </div>
             <span class="min-w-0">
-              <span class="block text-[14px] font-extrabold tracking-wider text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
+              <span class="block text-[14px] font-bold text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
               <span class="block text-[10px] font-semibold text-[#667085] leading-tight truncate">System Admin</span>
             </span>
           </div>
@@ -316,13 +336,15 @@
         <div class="contents">
           <!-- Mobile brand -->
           <div class="md:hidden flex items-center gap-2.5 min-w-0">
-            <span class="flex items-center justify-center w-[38px] h-[38px] rounded-[10px] bg-[#3965FB] text-white shrink-0" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 14 14" fill="#FFFFFF" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
-                <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z"/>
+            <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+              <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
               </svg>
-            </span>
+            </div>
             <span class="min-w-0">
-              <span class="block text-[14px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
+              <span class="block text-[14px] font-bold text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
               <span class="block text-[10px] font-semibold text-[#3965FB] leading-tight truncate">Ketua Murid</span>
             </span>
           </div>
@@ -392,7 +414,14 @@
           <!-- Mobile top bar -->
           <div class="md:hidden flex items-center justify-between w-full">
             <div class="flex items-center gap-[8px] min-w-0">
-              <span class="text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight whitespace-nowrap">Bot Jadwal</span>
+              <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+                <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                  <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                  <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                  <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+                </svg>
+              </div>
+              <span class="text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight whitespace-nowrap">ASTERISK</span>
               <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClassFormatted || 'Kelas'"></button>
             </div>
             <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
@@ -471,15 +500,19 @@
 <aside x-show="drawer" x-cloak x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" @keydown="shellTrapDrawer($event)" class="app-mobile-drawer ui-drawer scroll-slim fixed left-0 top-0 z-50 md:hidden flex flex-col px-4 py-5" role="dialog" aria-modal="true" :aria-label="'Menu ' + shellIdentity().label">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
-      <div class="flex items-center gap-3 px-1">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex flex-row justify-center items-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
-          </svg>
-        </div>
-        <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-extrabold tracking-[1.1px] text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
-          <span class="block text-[11px] font-semibold text-[#667085] leading-tight">System Admin</span>
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight uppercase tracking-wider">System Admin</span>
+          </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
@@ -548,17 +581,21 @@
   </template>
   <template x-if="shellRoleKey === 'km'">
     <div class="contents">
-      <div class="flex items-center gap-3 px-1">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"/>
-          </svg>
-        </div>
-        <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="block text-[11px] font-semibold text-[#3965FB] leading-tight shrink-0">Ketua Murid</span>
-            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
+              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
+            </div>
           </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
@@ -617,15 +654,17 @@
   <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
-        <div class="flex items-center gap-[10px]">
-          <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-            <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-              <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
             </svg>
           </div>
-          <div class="flex flex-col gap-[3px]">
-            <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight">Bot Jadwal</span>
-            <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[5px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
           </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
@@ -653,20 +692,24 @@
   <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
-        <span class="flex items-center gap-3">
-          <span class="w-[42px] h-[42px] rounded-[12px] bg-[#3965FB] flex items-center justify-center">
-            <img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" />
-          </span>
-          <span class="flex flex-col gap-[2px]">
-            <span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span>
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
             <div class="flex items-center gap-1.5 min-w-0">
-              <span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit bg-[#EFF6FF] text-[#1D4ED8] shrink-0">PJ Matkul</span>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
               <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="dashboardData?.class?.label || selectedClass || ''" x-text="(dashboardData?.class?.label || selectedClass) ? ('· ' + (dashboardData?.class?.label || selectedClass)) : ''"></span>
             </div>
-          </span>
-        </span>
+          </div>
+        </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
-       </div>
+      </div>
       <div x-show="contextAssignments && contextAssignments.length > 1" class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
         <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
