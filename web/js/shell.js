@@ -163,8 +163,25 @@ const AsteriskShell = (() => {
         if (asg.class_name) return asg.class_name;
         const c = (this.classList || []).find(x => (x.slug || x) === this.selectedClass);
         if (c && c.name) return c.name;
-        if (this.selectedClass) return this.selectedClass;
+        if (this.selectedClass) {
+          const raw = String(this.selectedClass).trim();
+          const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+          if (m) return `${m[1].toUpperCase()}-${m[2].toUpperCase()} 1${m[4].toUpperCase()}`;
+          return raw;
+        }
         return 'D4 - Teknik Informatika 1A';
+      },
+      pjClassName() {
+        if (this.dashboardData?.class?.label) return this.dashboardData.class.label;
+        const asg = (this.meCache && this.meCache.active_assignment) || {};
+        if (asg.class_name) return asg.class_name;
+        const raw = this.selectedClass || (this.dashboardData?.class?.slug) || '';
+        if (raw) {
+          const m = String(raw).trim().match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+          if (m) return `${m[1].toUpperCase()}-${m[2].toUpperCase()} 1${m[4].toUpperCase()}`;
+          return String(raw).toUpperCase();
+        }
+        return '';
       },
       kmClassShort() {
         const full = this.kmClassName();

@@ -119,7 +119,7 @@ textarea.ui-field { min-height: 7rem; resize: vertical; }
 .font-jbmono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
 
 .ui-empty { max-width: 30rem; margin-inline: auto; padding: var(--space-8) var(--space-4); text-align: center; color: var(--muted); }
-.ui-skeleton { border-radius: var(--radius-md); background: var(--disabled); animation: ui-skeleton-pulse 1.6s ease-in-out infinite; }
+.ui-skeleton { border-radius: var(--radius-md); background: #E2E8F0; animation: ui-skeleton-pulse 1.6s ease-in-out infinite; }
 @keyframes ui-skeleton-pulse { 50% { opacity: .55; } }
 .ui-form-error { display: block; margin-top: var(--space-1); padding-left: var(--space-2); border-left: 3px solid var(--danger); color: var(--text); font-size: var(--type-xs); font-weight: 600; }
 

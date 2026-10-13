@@ -1,5 +1,31 @@
 <div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer"></div>
 
+<!-- Layar Pembuka / Loading Curtain (Option A: Clean Reveal) -->
+<div x-show="dashboardLoading && view !== '__error'"
+     x-cloak
+     x-transition:leave="transition ease-out duration-300"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0 pointer-events-none"
+     class="fixed inset-0 z-[100] bg-[#F2F5FA] flex flex-col items-center justify-center select-none"
+     role="status"
+     aria-label="Menyiapkan ruang kerja">
+  <!-- Brand Icon Box dengan Animasi Pulse Halus -->
+  <div class="box-border w-[52px] h-[52px] flex items-center justify-center bg-[#3965FB] rounded-[15px] shadow-sm animate-pulse">
+    <svg width="28" height="30" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+      <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+      <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+      <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+    </svg>
+  </div>
+  <div class="mt-4 flex flex-col items-center gap-1.5">
+    <span class="text-[17px] font-extrabold tracking-[0.8px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif]">ASTERISK</span>
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-[#3965FB] animate-ping" aria-hidden="true"></span>
+      <span class="text-[12px] font-medium text-[#667085]">Menyiapkan ruang kerja...</span>
+    </div>
+  </div>
+</div>
+
 <aside class="app-sidebar hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
@@ -228,7 +254,7 @@
           <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
-            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="dashboardData?.class?.label || selectedClass || ''" x-text="(dashboardData?.class?.label || selectedClass) ? ('· ' + (dashboardData?.class?.label || selectedClass)) : ''"></span>
+            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="pjClassName()" x-text="pjClassName() ? ('· ' + pjClassName()) : ''"></span>
           </div>
         </div>
       </button>
@@ -491,7 +517,6 @@
       <p class="mt-2 text-muted" x-text="pageState?.status === 'offline' ? 'Periksa jaringan internet Anda, lalu coba memuat ulang.' : pageState?.status === '404' ? 'Tautan mungkin sudah berubah.' : 'Data belum berhasil dimuat. Coba lagi beberapa saat.'"></p>
       <button type="button" @click="pageState?.status === '404' ? go('dashboard') : location.reload()" class="ui-button ui-button--primary mt-8" x-text="pageState?.status === '404' ? 'Kembali ke Ringkasan' : 'Coba lagi'"></button>
     </div>
-    <div x-show="dashboardLoading && view !== '__error'" x-cloak role="status" aria-label="Memuat ringkasan"><span class="sr-only">Memuat ringkasan</span><div class="ui-skeleton h-8 w-2/3"></div><div class="ui-skeleton h-4 w-1/3 mt-3"></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6" aria-hidden="true"><div class="ui-skeleton h-[120px]"></div><div class="ui-skeleton h-[120px]"></div><div class="ui-skeleton h-[120px]"></div></div></div>
     {{viewSlots}}
   </main>
 </div>
@@ -682,7 +707,7 @@
           <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0">MH</div>
           <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
             <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight">Mahasiswa Kelas</span>
-            <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClass || 'Kelas'"></span>
+            <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClassFormatted || 'Kelas'"></span>
           </div>
           <span class="text-[11px] font-bold text-[#1D4ED8]">Ganti</span>
         </button>
@@ -704,7 +729,7 @@
             <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">ASTERISK</span>
             <div class="flex items-center gap-1.5 min-w-0">
               <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
-              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="dashboardData?.class?.label || selectedClass || ''" x-text="(dashboardData?.class?.label || selectedClass) ? ('· ' + (dashboardData?.class?.label || selectedClass)) : ''"></span>
+              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="pjClassName()" x-text="pjClassName() ? ('· ' + pjClassName()) : ''"></span>
             </div>
           </div>
         </div>
