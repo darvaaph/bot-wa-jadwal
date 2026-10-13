@@ -64,10 +64,18 @@
             <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
           </div>
 
-          <!-- Matkul Title -->
-          <h2 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display"
-              x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul) : ('Kelas ' + (selectedClass || 'Anda') + ' Siap Beroperasi')">
-          </h2>
+          <!-- Matkul Title & Context -->
+          <div>
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="text-[11px] font-bold tracking-wider text-[#A5B4FC] uppercase">
+                KETUA MURID · <span x-text="selectedClass || 'Kelas Anda'"></span>
+                <span x-show="classSlug || dashboardData?.class?.slug" class="ml-1 opacity-80 font-mono lowercase">· slug: <span class="text-white font-semibold" x-text="classSlug || dashboardData?.class?.slug"></span></span>
+              </span>
+            </div>
+            <h2 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display"
+                x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul) : ('Kelas ' + (selectedClass || 'Anda') + ' Siap Beroperasi')">
+            </h2>
+          </div>
 
           <!-- Subtitle / Lokasi & Dosen -->
           <p class="text-[13px] text-[#C7C6D8] leading-relaxed">
@@ -83,17 +91,47 @@
           </p>
         </div>
 
-        <!-- Indikator Antrean Review PJ di dalam Spotlight jika ada -->
-        <div x-show="antrean.length > 0" class="pt-1">
-          <button type="button" @click="bukaAntreanReview()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs">
-            <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
-            <span x-text="'Periksa ' + antrean.length + ' Usulan Tugas dari PJ →'">Periksa Usulan Tugas →</span>
+        <!-- Tombol Aksi di Kiri Bawah Spotlight -->
+        <div class="flex items-center gap-3 flex-wrap pt-1">
+          <!-- Indikator Antrean Review PJ di dalam Spotlight jika ada -->
+          <div x-show="antrean.length > 0">
+            <button type="button" @click="bukaAntreanReview()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs">
+              <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
+              <span x-text="'Periksa ' + antrean.length + ' Usulan Tugas dari PJ →'">Periksa Usulan Tugas →</span>
+            </button>
+          </div>
+
+          <!-- Tautan Cepat Salin Link Portal -->
+          <button type="button" @click="salinPortalUrl()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition border border-white/10" title="Salin link portal mahasiswa">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Salin Link Portal</span>
           </button>
+
+          <!-- Buka Portal Mahasiswa -->
+          <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#A5B4FC] hover:text-white text-[12px] font-semibold transition border border-white/10" title="Buka portal mahasiswa di tab baru">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            <span>Buka Portal</span>
+          </a>
         </div>
       </div>
 
-      <!-- Sisi Kanan: Mini Widgets KM (Status Bot & Antrean) -->
+      <!-- Sisi Kanan: Mini Widgets KM (Portal Mahasiswa, Status Bot & Antrean) -->
       <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-2.5 justify-center">
+        <!-- Widget Link Portal Mahasiswa & Slug -->
+        <div class="p-3 bg-white/10 rounded-xl flex items-center justify-between gap-2.5 group hover:bg-white/15 transition">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-[16px]">🌐</span>
+            <div class="min-w-0">
+              <span class="block text-[11px] font-medium text-[#C7C6D8]">Portal Mahasiswa</span>
+              <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="block text-[12px] font-bold text-white hover:text-[#93C5FD] truncate font-mono" x-text="portalPath || ('/c/' + (classSlug || '...'))" title="Buka portal di tab baru">/c/...</a>
+            </div>
+          </div>
+          <button type="button" @click.stop="salinPortalUrl()" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-semibold flex items-center gap-1 shrink-0 transition" title="Salin tautan portal ke clipboard">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Salin</span>
+          </button>
+        </div>
+
         <!-- Widget Status WhatsApp Bot -->
         <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="checkBot()" title="Klik untuk cek status bot">
           <div class="flex items-center gap-2">

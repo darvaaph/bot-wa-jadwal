@@ -266,6 +266,24 @@ function kmApp() {
         .sort((a, b) => a.timeStart.localeCompare(b.timeStart))[0] || null;
     },
 
+    get portalUrl() {
+      const slug = this.classSlug || (this.dashboardData && this.dashboardData.class && this.dashboardData.class.slug) || (this.classSettings && this.classSettings.slug) || this.selectedClass || '';
+      if (!slug) return '';
+      return `${window.location.origin}/c/${encodeURIComponent(slug)}`;
+    },
+
+    get portalPath() {
+      const slug = this.classSlug || (this.dashboardData && this.dashboardData.class && this.dashboardData.class.slug) || (this.classSettings && this.classSettings.slug) || this.selectedClass || '';
+      if (!slug) return '';
+      return `/c/${encodeURIComponent(slug)}`;
+    },
+
+    salinPortalUrl() {
+      const url = this.portalUrl;
+      if (!url) return;
+      this.copyText(url, 'Tautan portal mahasiswa disalin ke clipboard.');
+    },
+
     isSessionCurrent(s) {
       if (!s || !s.timeStart || !s.timeEnd) return false;
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
@@ -2114,6 +2132,14 @@ function kmApp() {
       else this.dashboardError = '';
       try {
         this.dashboardData = await API.getKMDashboard();
+        if (this.dashboardData && this.dashboardData.class) {
+          if (this.dashboardData.class.slug) {
+            this.classSlug = this.dashboardData.class.slug;
+          }
+          if (this.dashboardData.class.label || this.dashboardData.class.code) {
+            this.selectedClass = this.dashboardData.class.label || this.dashboardData.class.code;
+          }
+        }
         this.dashboardError = '';
       } catch (err) {
         this.dashboardError = err.status === 401 ? 'Sesi berakhir. Masuk kembali untuk melihat ringkasan.'
@@ -4210,6 +4236,7 @@ function kmApp() {
         const s = await API.getClassSettings(slug).catch(() => null);
         this.classSettings = s;
         if (!s) { this.settingsError = 'Pengaturan kelas belum dapat dimuat.'; return; }
+        if (s.slug) this.classSlug = s.slug;
         if (s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
         if (s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
         if (s.replacement_reminder_minutes !== undefined && s.replacement_reminder_minutes !== null) {

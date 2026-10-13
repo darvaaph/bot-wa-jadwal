@@ -2,10 +2,28 @@
 <section x-show="view === 'pengaturan'" x-cloak class="w-full flex flex-col gap-4">
   <!-- Header Pengaturan Kelas -->
   <div class="w-full flex flex-col gap-1">
-    <h1 class="text-[26px] font-[Poppins,system-ui,sans-serif] font-bold text-[#0F172A] leading-tight">Pengaturan Kelas</h1>
-    <p class="text-[13px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
-      Kelas <span class="font-semibold text-[#1E293B]" x-text="selectedClass">-</span> · Konfigurasi pengingat, akses portal, dan kanal WhatsApp.
-    </p>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-[26px] font-[Poppins,system-ui,sans-serif] font-bold text-[#0F172A] leading-tight">Pengaturan Kelas</h1>
+        <p class="text-[13px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+          Kelas <span class="font-semibold text-[#1E293B]" x-text="selectedClass">-</span>
+          <span class="text-slate-300">·</span>
+          Slug: <span class="font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[12px]" x-text="classSlug || (classSettings && classSettings.slug) || selectedClass || '-'">-</span>
+          <span class="text-slate-300">·</span>
+          Konfigurasi pengingat, akses portal, dan kanal WhatsApp.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" @click="salinPortalUrl()" class="h-9 px-3 rounded-xl bg-white border border-[#CBD5E1] hover:border-primary hover:text-primary text-slate-700 text-[12px] font-semibold flex items-center gap-1.5 transition shadow-2xs">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>Salin Link Portal</span>
+        </button>
+        <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="h-9 px-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white text-[12px] font-semibold flex items-center gap-1.5 transition shadow-2xs">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          <span>Kunjungi Portal</span>
+        </a>
+      </div>
+    </div>
   </div>
 
   <!-- Loading State -->
@@ -90,7 +108,31 @@
             Mode: PAKAI KODE (PIN)
           </span>
         </div>
-        <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">Mengatur bagaimana mahasiswa membuka dashboard publik kelas.</p>
+        <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">Tautan publik dan metode autentikasi mahasiswa saat mengakses portal.</p>
+      </div>
+
+      <!-- Box Tautan Publik Portal Kelas & Slug -->
+      <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-[12px] flex flex-col gap-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Tautan Publik Portal Kelas</span>
+          <span class="text-[11px] font-mono text-slate-500">Slug: <strong class="text-slate-800 font-semibold" x-text="classSlug || (classSettings && classSettings.slug) || selectedClass || '-'"></strong></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex-1 min-w-0 h-[40px] px-3 bg-white border border-slate-300 rounded-[10px] flex items-center">
+            <span class="text-[12px] font-mono text-slate-800 truncate select-all" x-text="portalUrl || (window.location.origin + '/c/' + (classSlug || selectedClass))"></span>
+          </div>
+          <button type="button" @click="salinPortalUrl()" class="h-[40px] px-3 bg-white border border-slate-300 hover:border-blue-500 hover:text-blue-600 rounded-[10px] text-[12px] font-semibold text-slate-700 flex items-center gap-1.5 shrink-0 transition shadow-2xs" title="Salin tautan ke clipboard">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Salin</span>
+          </button>
+          <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="h-[40px] px-3 bg-[#2563EB] hover:bg-blue-700 text-white rounded-[10px] text-[12px] font-semibold flex items-center gap-1.5 shrink-0 transition shadow-2xs" title="Buka portal di tab baru">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            <span>Buka</span>
+          </a>
+        </div>
+        <p class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+          Bagikan tautan ini ke grup kelas agar mahasiswa dapat melihat jadwal kuliah, ruang, dan pengumuman tugas.
+        </p>
       </div>
 
       <!-- Segmented Pilihan Mode -->
