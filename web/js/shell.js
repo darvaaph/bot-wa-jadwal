@@ -55,10 +55,10 @@ const AsteriskShell = (() => {
       },
       shellBottomNav() {
         if (role === 'portal') return [
-          { id: 'dashboard', label: 'Beranda', icon: 'home' },
+          { id: 'dashboard', label: 'Beranda', icon: 'space_dashboard' },
           { id: 'jadwal', label: 'Jadwal', icon: 'calendar_month' },
           { id: 'tugas', label: 'Tugas', icon: 'assignment' },
-          { id: 'materi', label: 'Materi', icon: 'folder' }
+          { id: 'materi', label: 'Materi', icon: 'menu_book' }
         ];
         if (role === 'sa') return [
           { id: 'dashboard', label: 'Ringkasan', tab: 'sa-spacedash' },
