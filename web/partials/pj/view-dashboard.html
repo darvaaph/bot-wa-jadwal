@@ -37,7 +37,7 @@
           <span x-text="dashboardData?.class?.label || selectedClass || 'Kelas'"></span> · PJ Mata Kuliah: <span x-text="dashboardData?.offering?.display_name || pjMatkul || 'Mata Kuliah'"></span> <span x-show="dashboardData?.offering?.course_code" x-text="'(' + dashboardData?.offering?.course_code + ')'"></span>
         </p>
       </div>
-      <div class="relative shrink-0 flex items-center">
+      <div x-show="dashboardData?.offerings && dashboardData.offerings.length > 1" class="relative shrink-0 flex items-center">
         <label class="sr-only" for="pj-offering-select">Ganti Mata Kuliah</label>
         <div class="h-[38px] px-3 bg-white border border-slate-300 rounded-xl flex items-center gap-2 shadow-2xs hover:border-primary transition-colors">
           <span class="text-[12px] font-medium text-muted shrink-0">Ganti Matkul:</span>

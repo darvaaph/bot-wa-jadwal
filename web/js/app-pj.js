@@ -606,6 +606,70 @@ function pjApp() {
       return 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]';
     },
 
+    getSesiLiveStatus(s) {
+      if (!s) return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      if (s.hari !== todayIndo || this.weekOffset !== 0) {
+        return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start >= 0 && end >= 0) {
+        if (nowMin >= start && nowMin <= end) {
+          return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
+        } else if (nowMin > end) {
+          return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+        }
+      }
+      return { label: 'Akan Datang Hari Ini', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+    },
+
+    isSesiOngoing(s) {
+      if (!s) return false;
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      if (s.hari !== todayIndo || this.weekOffset !== 0) {
+        return false;
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start < 0 || end < 0) return false;
+      return nowMin >= start && nowMin <= end;
+    },
+
     dayHasDraft(dayName) {
       return this.daySessions(dayName).some(s => s.isDraft);
     },
@@ -1675,6 +1739,8 @@ function pjApp() {
         courseCode: code,
         subtitleText,
         isMine,
+        isOngoing: this.isSesiOngoing(session),
+        liveStatus: this.getSesiLiveStatus(session),
         sesiType: sType,
         timeText,
         roomText,
@@ -1973,7 +2039,11 @@ function pjApp() {
           window.location.replace('/km.html');
           return;
         }
-        if (role && role !== 'PJ' && role !== 'SYSTEM_ADMIN') {
+        if (role === 'SYSTEM_ADMIN') {
+          window.location.replace('/system-admin.html');
+          return;
+        }
+        if (role && role !== 'PJ') {
           window.location.replace('/login.html?role=pj');
           return;
         }

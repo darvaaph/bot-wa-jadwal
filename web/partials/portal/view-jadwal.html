@@ -283,13 +283,29 @@
             class="box-border w-full min-h-[400px] flex flex-col gap-[9px] p-[9px] justify-start items-start [outline-offset:-0.5px] rounded-[0px_0px_12px_12px]">
             <template x-for="s in (jadwalPekan[d] || [])" :key="s.id">
               <div @click="bukaDetailSesi(s)"
-                :class="s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]'"
+                :class="isSesiOngoing(s, d)
+                        ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
+                        : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
                 class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px] justify-start items-start [outline-offset:-0.5px] rounded-[9px] transition-all hover:shadow-md cursor-pointer group">
-                <!-- Jam Sesi -->
-                <div
-                  class="box-border w-fit h-fit shrink-0 flex flex-row px-[6px] py-[3px] justify-start items-center bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[6px]">
-                  <span class="text-[10px] text-[#1D4ED8] font-mono font-bold whitespace-nowrap"
-                    x-text="s.timeStart + ' – ' + s.timeEnd">08:40 – 10:20</span>
+                <!-- Baris Atas: Jam & Live Badge -->
+                <div class="flex items-center justify-between gap-1 w-full flex-wrap">
+                  <!-- Jam Sesi -->
+                  <div
+                    class="box-border w-fit h-fit shrink-0 flex flex-row px-[6px] py-[3px] justify-start items-center rounded-[6px]"
+                    :class="isSesiOngoing(s, d)
+                            ? 'bg-[#DCFCE7] [outline:1px_solid_#BBF7D0] [outline-offset:-0.5px]'
+                            : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px]'">
+                    <span class="text-[10px] font-mono font-bold whitespace-nowrap"
+                      :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : 'text-[#1D4ED8]'"
+                      x-text="s.timeStart + ' – ' + s.timeEnd">08:40 – 10:20</span>
+                  </div>
+
+                  <!-- Live Badge if Ongoing -->
+                  <template x-if="isSesiOngoing(s, d)">
+                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                    </span>
+                  </template>
                 </div>
                 <!-- Badge Jenis -->
                 <div
@@ -301,12 +317,12 @@
                 <!-- Mata Kuliah -->
                 <div
                   class="text-[13px] leading-[17px] box-border w-full font-sans font-bold text-left group-hover:text-[#2563EB] transition-colors"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#78350F]' : 'text-[#1D1B3A]'" x-text="s.matkul">
+                  :class="isSesiOngoing(s, d) ? 'text-[#14532D]' : (s.kind === 'PENGGANTI' ? 'text-[#78350F]' : 'text-[#1D1B3A]')" x-text="s.matkul">
                   Mata Kuliah
                 </div>
                 <!-- Lokasi dan Dosen -->
                 <div class="text-[11px] leading-[15px] box-border w-full font-sans font-normal text-left"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#667085]'"
+                  :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#667085]')"
                   x-text="(s.ruang ? s.ruang + ' · ' : '') + s.dosen">
                   Ruang · Dosen
                 </div>
@@ -399,38 +415,45 @@
             class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] overflow-hidden divide-y divide-[#F1F5F9]">
             <template x-for="s in (jadwalPekan[d] || [])" :key="'desk-list-' + s.id">
               <div @click="bukaDetailSesi(s)"
-                :class="s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] hover:bg-[#FEF3C7]/60 border-l-4 border-l-[#F59E0B]' : 'bg-[#FFFFFF] hover:bg-slate-50/80'"
+                :class="isSesiOngoing(s, d)
+                        ? 'bg-[#F0FDF4] hover:bg-[#DCFCE7]/60 border-l-4 border-l-[#22C55E]'
+                        : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] hover:bg-[#FEF3C7]/60 border-l-4 border-l-[#F59E0B]' : 'bg-[#FFFFFF] hover:bg-slate-50/80')"
                 class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[10px_14px] justify-start items-center cursor-pointer transition-colors group">
                 <!-- Jam Sesi -->
                 <div class="text-[11px] w-[154px] shrink-0 font-mono font-bold text-left whitespace-nowrap"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#475569]'"
+                  :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#475569]')"
                   x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
                   08:40 – 10:20 WIB
                 </div>
                 <!-- Badge Jenis -->
                 <div
-                  class="box-border w-[130px] shrink-0 h-[24px] flex flex-row justify-center items-center rounded-[6px]"
-                  :class="s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] [outline:1px_solid_#FDE68A] text-[#92400E]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] [outline:1px_solid_#DDD6FE] text-[#6D28D9]' : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] text-[#1D4ED8]')">
+                  class="box-border w-[130px] shrink-0 h-[24px] flex flex-row justify-center items-center gap-1 rounded-[6px]"
+                  :class="isSesiOngoing(s, d)
+                          ? 'bg-[#DCFCE7] [outline:1px_solid_#BBF7D0] text-[#15803D]'
+                          : (s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] [outline:1px_solid_#FDE68A] text-[#92400E]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] [outline:1px_solid_#DDD6FE] text-[#6D28D9]' : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] text-[#1D4ED8]'))">
+                  <template x-if="isSesiOngoing(s, d)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
+                  </template>
                   <span class="text-[9px] font-sans font-bold whitespace-nowrap"
-                    x-text="s.kind === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI')">TEORI</span>
+                    x-text="isSesiOngoing(s, d) ? 'BERLANGSUNG' : (s.kind === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">TEORI</span>
                 </div>
                 <!-- Detail Matkul & Dosen -->
                 <div class="box-border flex-1 h-fit flex flex-col gap-[3px] justify-start items-start min-w-0 pr-2">
                   <div
                     class="text-[12px] leading-[16px] box-border w-full font-sans font-bold text-left truncate transition-colors"
-                    :class="s.kind === 'PENGGANTI' ? 'text-[#92400E] group-hover:text-[#B45309]' : 'text-[#0F172A] group-hover:text-[#2563EB]'"
+                    :class="isSesiOngoing(s, d) ? 'text-[#14532D]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E] group-hover:text-[#B45309]' : 'text-[#0F172A] group-hover:text-[#2563EB]')"
                     x-text="s.matkul">
                     Pemrograman Berorientasi Objek
                   </div>
                   <div class="text-[11px] box-border font-sans font-medium text-left truncate"
-                    :class="s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#64748B]'"
+                    :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#64748B]')"
                     x-text="'Dosen: ' + (s.dosen || '—') + (s.kind === 'PENGGANTI' ? ' · ' + fmtAsalPengganti(s.originDate, s.reason) : '')">
                     Dosen: Bpk. M. Ridwan, M.Kom
                   </div>
                 </div>
                 <!-- Ruang Kuliah -->
                 <div class="text-[11px] w-[130px] shrink-0 font-sans font-medium text-right truncate"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#475569]'"
+                  :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#475569]')"
                   x-text="s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')">
                   Ruang D102
                 </div>
@@ -467,13 +490,24 @@
         <div class="w-full flex flex-col gap-[12px]">
           <template x-for="s in jadwalHari" :key="'mob-' + s.id">
             <div @click="bukaDetailSesi(s)"
-              class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_5px_#0F172A08] flex flex-col gap-[8px] p-[16px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px] active:bg-slate-50 cursor-pointer transition-colors">
+              :class="isSesiOngoing(s)
+                      ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
+                      : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
+              class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_5px_#0F172A08] flex flex-col gap-[8px] p-[16px] justify-start items-start [outline-offset:-0.5px] rounded-[16px] active:bg-slate-50 cursor-pointer transition-colors">
               <!-- Waktu dan jenis sesi -->
               <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-between items-center">
-                <div class="text-[12px] font-mono font-bold text-left whitespace-nowrap"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]'"
-                  x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">
-                  08:40 - 10:20 WIB
+                <div class="flex items-center gap-2">
+                  <div class="text-[12px] font-mono font-bold text-left whitespace-nowrap"
+                    :class="isSesiOngoing(s) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
+                    x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">
+                    08:40 - 10:20 WIB
+                  </div>
+                  <!-- Live Badge if Ongoing -->
+                  <template x-if="isSesiOngoing(s)">
+                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                    </span>
+                  </template>
                 </div>
                 <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
                   <div
@@ -608,13 +642,23 @@
           <!-- Kartu-kartu sesi di hari ini -->
           <template x-for="s in (jadwalPekan[d] || [])" :key="'mob-all-' + s.id">
             <div @click="bukaDetailSesi(s)"
-              class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px_12px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] active:bg-slate-50 transition-colors cursor-pointer">
+              :class="isSesiOngoing(s, d)
+                      ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
+                      : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
+              class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px_12px] justify-start items-start [outline-offset:-0.5px] rounded-[12px] active:bg-slate-50 transition-colors cursor-pointer">
               <!-- Waktu dan jenis -->
               <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
-                <div class="text-[11px] box-border font-mono font-bold text-left whitespace-nowrap"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]'"
-                  x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
-                  08:40 – 10:20 WIB
+                <div class="flex items-center gap-1.5">
+                  <div class="text-[11px] box-border font-mono font-bold text-left whitespace-nowrap"
+                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
+                    x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
+                    08:40 – 10:20 WIB
+                  </div>
+                  <template x-if="isSesiOngoing(s, d)">
+                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                    </span>
+                  </template>
                 </div>
                 <div class="box-border flex-1 h-[1px]"></div>
                 <!-- Badge Jenis -->
@@ -694,9 +738,16 @@
           <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5">
             <!-- Header Kategori & Tutup -->
             <div class="flex items-center justify-between">
-              <div
-                class="box-border w-fit shrink-0 h-fit flex flex-row px-[9px] py-[5px] justify-start items-center bg-[#FEF3C7] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[7px]">
-                <span class="text-[11px] font-sans font-bold text-[#92400E] whitespace-nowrap">Kuliah Pengganti</span>
+              <div class="flex items-center gap-2">
+                <div
+                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[9px] py-[5px] justify-start items-center bg-[#FEF3C7] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[7px]">
+                  <span class="text-[11px] font-sans font-bold text-[#92400E] whitespace-nowrap">Kuliah Pengganti</span>
+                </div>
+                <template x-if="isSesiOngoing(detailSesi)">
+                  <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-2 py-0.5 rounded-[6px] flex items-center gap-1 border border-[#BBF7D0]">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>SEDANG BERLANGSUNG
+                  </span>
+                </template>
               </div>
               <button type="button" @click="tutupDetailSesi()"
                 class="w-[36px] h-[36px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors">
@@ -881,11 +932,18 @@
           <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5">
             <!-- Header Badge & Tutup -->
             <div class="flex items-center justify-between">
-              <div
-                class="box-border w-fit shrink-0 h-fit flex flex-row px-[10px] py-[6px] justify-start items-center rounded-[7px]"
-                :class="detailSesi.activityType === 'PRACTICE' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
-                <span class="text-[12px] font-sans font-bold whitespace-nowrap"
-                  x-text="detailSesi.activityType === 'PRACTICE' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
+              <div class="flex items-center gap-2">
+                <div
+                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[10px] py-[6px] justify-start items-center rounded-[7px]"
+                  :class="detailSesi.activityType === 'PRACTICE' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
+                  <span class="text-[12px] font-sans font-bold whitespace-nowrap"
+                    x-text="detailSesi.activityType === 'PRACTICE' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
+                </div>
+                <template x-if="isSesiOngoing(detailSesi)">
+                  <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-2 py-0.5 rounded-[6px] flex items-center gap-1 border border-[#BBF7D0]">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>SEDANG BERLANGSUNG
+                  </span>
+                </template>
               </div>
               <button type="button" @click="tutupDetailSesi()"
                 class="w-[36px] h-[36px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors">

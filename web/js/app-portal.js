@@ -263,6 +263,72 @@ function portalApp() {
         String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
     },
 
+    getSesiLiveStatus(s, dayName) {
+      if (!s) return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      const hari = s.hari || dayName || this.hari;
+      if (hari !== todayIndo || (this.weekOffset !== undefined && this.weekOffset !== 0)) {
+        return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start >= 0 && end >= 0) {
+        if (nowMin >= start && nowMin <= end) {
+          return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
+        } else if (nowMin > end) {
+          return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+        }
+      }
+      return { label: 'Akan Datang Hari Ini', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+    },
+
+    isSesiOngoing(s, dayName) {
+      if (!s) return false;
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      const hari = s.hari || dayName || this.hari;
+      if (hari !== todayIndo || (this.weekOffset !== undefined && this.weekOffset !== 0)) {
+        return false;
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start < 0 || end < 0) return false;
+      return nowMin >= start && nowMin <= end;
+    },
+
     get perubahanTerbaru() { return (this.perubahanList || []).slice(0, 3); },
 
     async bukaArsipSemester(semester) {
@@ -963,10 +1029,17 @@ function portalApp() {
     getStatusWaktu(s) {
       if (!s || !s.timeStart) return '';
       try {
-        const now = new Date();
-        const cur = now.getHours() * 60 + now.getMinutes();
-        const [h1, m1] = (s.timeStart || '').split(':').map(Number);
-        const [h2, m2] = (s.timeEnd || '').split(':').map(Number);
+        const timeParts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false
+        }).formatToParts(new Date());
+        const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+        const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+        const cur = h * 60 + m;
+        const [h1, m1] = String(s.timeStart || '').replace('.', ':').split(':').map(Number);
+        const [h2, m2] = String(s.timeEnd || '').replace('.', ':').split(':').map(Number);
         const start = h1 * 60 + m1;
         const end = h2 * 60 + m2;
         if (cur >= start && cur <= end) return 'Sedang berlangsung';

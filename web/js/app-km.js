@@ -906,15 +906,61 @@ function kmApp() {
       if (s.hari !== todayIndo || this.weekOffset !== 0) {
         return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
       }
-      const nowHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-      const start = s.timeStart || '00:00';
-      const end = s.timeEnd || '23:59';
-      if (nowHM >= start && nowHM <= end) {
-        return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
-      } else if (nowHM > end) {
-        return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start >= 0 && end >= 0) {
+        if (nowMin >= start && nowMin <= end) {
+          return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
+        } else if (nowMin > end) {
+          return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+        }
       }
       return { label: 'Akan Datang Hari Ini', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+    },
+
+    isSesiOngoing(s) {
+      if (!s) return false;
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      if (s.hari !== todayIndo || this.weekOffset !== 0) {
+        return false;
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start < 0 || end < 0) return false;
+      return nowMin >= start && nowMin <= end;
     },
 
     getSesiCourseCode(s) {
