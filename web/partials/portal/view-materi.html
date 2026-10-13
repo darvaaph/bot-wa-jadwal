@@ -255,13 +255,12 @@
 
             <!-- Baris 1: Tag Mata Kuliah, Tag Sesi, & Tanggal -->
             <div class="w-full flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase truncate"
-                  :class="getMateriType(m) === 'Slide' ? 'bg-blue-50 text-blue-700' : (getMateriType(m) === 'Video' ? 'bg-purple-50 text-purple-700' : (getMateriType(m) === 'Repositori' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'))"
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200 max-w-[130px] sm:max-w-none truncate"
                   x-text="m.course_name || 'UMUM KELAS'">
                   SISTEM BASIS DATA
                 </span>
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[9.5px] font-bold tracking-wide uppercase shrink-0"
+                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase shrink-0"
                   :class="getMateriActivityTheme(m)"
                   x-text="getMateriActivity(m)">
                   PRAKTIKUM
@@ -348,12 +347,11 @@
             <div class="flex-1 flex flex-col gap-[7px] items-start">
               <!-- Kategori & Sesi Pill -->
               <div class="flex items-center gap-1.5 flex-wrap">
-                <div class="w-fit px-[8px] py-[5px] bg-[#EFF6FF] rounded-[6px]">
-                  <span
-                    class="text-[10px] text-[#1D4ED8] font-bold whitespace-nowrap uppercase tracking-wider"
-                    x-text="(selectedMateri.course_name || 'UMUM KELAS').toUpperCase()">SISTEM BASIS DATA</span>
-                </div>
-                <span class="inline-flex items-center px-2 py-[5px] rounded-[6px] text-[10px] font-bold tracking-wider uppercase"
+                <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200"
+                  x-text="(selectedMateri.course_name || 'UMUM KELAS').toUpperCase()">
+                  SISTEM BASIS DATA
+                </span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase"
                   :class="getMateriActivityTheme(selectedMateri)"
                   x-text="getMateriActivity(selectedMateri)">
                   PRAKTIKUM
