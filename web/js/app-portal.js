@@ -519,6 +519,7 @@ function portalApp() {
         return;
       } finally {
         this.checkingAccess = false;
+        this.dashboardLoading = false;
       }
     },
 
@@ -574,6 +575,7 @@ function portalApp() {
         this.showToast(this.pinError);
       } finally {
         this.loadingPin = false;
+        this.dashboardLoading = false;
       }
     },
 

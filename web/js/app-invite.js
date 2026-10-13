@@ -10,6 +10,7 @@ function inviteApp() {
     sandi: '',
     konfirmasi: '',
     lihat: false,
+    lihatKonfirmasi: false,
     loading: false,
     formError: '',
     done: false,
