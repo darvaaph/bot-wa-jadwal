@@ -59,7 +59,9 @@
       <input type="search" x-model="penggunaQ" @input="penggunaPage = 1" placeholder="Cari nama atau nomor WhatsApp..." class="h-11 w-full rounded-[10px] border border-[#D7DDE7] bg-white pl-10 pr-3 text-[13px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors" />
     </label>
 
-    <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+    <div x-data="{ filtersOpen: false }" class="w-full space-y-2 md:contents">
+      <button type="button" @click="filtersOpen = !filtersOpen" :aria-expanded="String(filtersOpen)" class="md:hidden w-full rounded-lg border border-[#D7DDE7] bg-white px-3 text-left text-[13px] font-semibold text-[#1D1B3A]" x-text="'Filter' + ([penugasanRole, penugasanStatus, penugasanKelas].filter(Boolean).length ? ' (' + [penugasanRole, penugasanStatus, penugasanKelas].filter(Boolean).length + ' aktif)' : '')"></button>
+    <label :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative items-center min-h-[44px] w-full md:w-[164px]">
       <span class="sr-only">Filter peran</span>
       <select x-model="penugasanRole" @change="undanganRole = penugasanRole; penggunaPage = 1; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#D7DDE7] bg-white pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
         <option value="">Semua peran</option>
@@ -72,7 +74,7 @@
       </span>
     </label>
 
-    <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+    <label :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative items-center min-h-[44px] w-full md:w-[164px]">
       <span class="sr-only">Filter status</span>
       <select x-model="penugasanStatus" @change="undanganStatus = penugasanStatus; penggunaPage = 1; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#D7DDE7] bg-white pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
         <option value="">Semua status</option>
@@ -85,7 +87,7 @@
       </span>
     </label>
 
-    <label class="relative flex items-center min-h-[44px] w-full md:w-[164px]">
+    <label :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative items-center min-h-[44px] w-full md:w-[164px]">
       <span class="sr-only">Filter kelas</span>
       <select x-model="penugasanKelas" @change="undanganKelas = penugasanKelas; penggunaPage = 1; muatPenggunaSemua()" class="h-11 w-full appearance-none rounded-[10px] border border-[#D7DDE7] bg-white pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
         <option value="">Semua kelas</option>
@@ -95,6 +97,7 @@
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </span>
     </label>
+    </div>
   </div>
 
   <!-- Alert Galat -->
@@ -130,7 +133,52 @@
       </div>
 
       <!-- Tabel Terkonsolidasi -->
-      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && barisPenggunaCount() > 0" class="overflow-x-auto min-h-[300px] pb-24">
+      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && barisPenggunaCount() > 0" class="md:hidden space-y-3">
+        <template x-for="row in barisPenggunaPaginated()" :key="'mobile-user-' + row.id">
+          <article class="min-w-0 rounded-xl border border-[#D7DDE7] bg-white p-4">
+            <div class="flex min-w-0 items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="break-all text-[14px] font-semibold text-[#1D1B3A]" x-text="row.kind === 'assignment' ? (row.data.display_name || row.data.identity_key) : row.data.invited_identity_key"></h3>
+                <p x-show="row.kind === 'assignment'" class="mt-1 break-all font-mono text-[11px] text-[#667085]" x-text="row.data.identity_key"></p>
+              </div>
+              <span class="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold" :class="row.kind === 'invitation' ? 'bg-amber-100 text-amber-800' : (String(row.data.status || '').toUpperCase() === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-700')" x-text="row.kind === 'invitation' ? labelStatusUndangan(row.data.status, row.data.is_expired) : (String(row.data.status || '').toUpperCase() === 'ACTIVE' ? 'Aktif' : (String(row.data.status || '').toUpperCase() === 'SUSPENDED' ? 'Ditangguhkan' : 'Dicabut'))"></span>
+            </div>
+            <dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px]">
+              <dt class="text-[#667085]">Peran</dt><dd class="min-w-0 font-medium text-[#1D1B3A]" x-text="labelPeran(row.data.role)"></dd>
+              <dt class="text-[#667085]">Kelas</dt><dd class="min-w-0 break-words text-[#1D1B3A]" x-text="row.kind === 'assignment' ? kelasPenugasan(row.data) : (row.data.class_slug || 'Semua kelas')"></dd>
+              <template x-if="row.kind === 'invitation'"><dt class="text-[#667085]">Berlaku s.d.</dt></template>
+              <template x-if="row.kind === 'invitation'"><dd class="min-w-0 break-words text-[#1D1B3A]" x-text="fmtWaktuID(row.data.expires_at)"></dd></template>
+            </dl>
+            <div class="mt-3 flex flex-wrap gap-2 border-t border-[#EEEEEE] pt-3">
+              <button x-show="row.kind === 'assignment' && String(row.data.status || '').toUpperCase() === 'SUSPENDED'" type="button" @click="aktifkanCepatPengguna(row.data)" class="rounded-lg border border-green-200 px-3 text-[12px] font-semibold text-green-800">Aktifkan</button>
+              <button x-show="row.kind === 'invitation' && undanganMenunggu(row.data)" type="button" @click="salinLinkAtauBuatBaru(row.data)" class="rounded-lg border border-blue-200 px-3 text-[12px] font-semibold text-[#2854D6]">Salin tautan</button>
+              <details class="min-w-0">
+                <summary class="flex min-h-[44px] cursor-pointer items-center rounded-lg border border-[#D7DDE7] px-3 text-[12px] font-semibold text-[#475467]">Aksi lain</summary>
+                <div class="mt-2 flex flex-col gap-1 rounded-lg border border-[#D7DDE7] bg-white p-1">
+                  <template x-if="row.kind === 'assignment'">
+                    <div class="flex flex-col">
+                      <button x-show="!isPenugasanAktifSendiri(row.data)" type="button" @click="bukaModalUbahPeran(row.data)" class="rounded-md px-3 text-left text-[12px]">Ubah peran / kelas</button>
+                      <button type="button" @click="bukaModalResetPassword(row.data, isPenugasanAktifSendiri(row.data))" class="rounded-md px-3 text-left text-[12px]" x-text="isPenugasanAktifSendiri(row.data) ? 'Ganti kata sandi saya' : 'Reset kata sandi'"></button>
+                      <button x-show="isPenugasanAktifSendiri(row.data)" type="button" @click="bukaModalProfil(row.data)" class="rounded-md px-3 text-left text-[12px]">Ubah profil</button>
+                      <button x-show="!isPenugasanAktifSendiri(row.data) && String(row.data.status || '').toUpperCase() === 'ACTIVE'" type="button" @click="mulaiAksiPenugasan(row.data, 'tangguhkan')" class="rounded-md px-3 text-left text-[12px] text-red-700">Tangguhkan akun</button>
+                      <button x-show="!isPenugasanAktifSendiri(row.data)" type="button" @click="mulaiAksiPenugasan(row.data, 'cabut')" class="rounded-md px-3 text-left text-[12px] text-red-700">Cabut penugasan</button>
+                      <button type="button" @click="bukaAuditPengguna(row.data.identity_key)" class="rounded-md px-3 text-left text-[12px]">Lihat audit</button>
+                    </div>
+                  </template>
+                  <template x-if="row.kind === 'invitation'">
+                    <div class="flex flex-col">
+                      <button x-show="String(row.data.status || '').toUpperCase() !== 'ACCEPTED'" type="button" @click="salinLinkAtauBuatBaru(row.data)" class="rounded-md px-3 text-left text-[12px]">Buat tautan baru</button>
+                      <button x-show="undanganMenunggu(row.data)" type="button" @click="mulaiAksiUndangan(row.data)" class="rounded-md px-3 text-left text-[12px] text-red-700">Cabut undangan</button>
+                    </div>
+                  </template>
+                </div>
+              </details>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && barisPenggunaCount() > 0" class="hidden md:block overflow-x-auto min-h-[300px] pb-24">
         <div class="min-w-[760px]">
           <!-- Table Header -->
           <div class="grid grid-cols-[minmax(190px,1.2fr)_125px_115px_140px_minmax(120px,auto)] gap-3 px-3 h-10 items-center bg-[#F8FAFC] rounded-lg text-[10px] font-bold text-[#667085] tracking-wider uppercase" aria-hidden="true">
@@ -346,8 +394,14 @@
         </div>
       </div>
 
+      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && totalBarisPengguna() > 0" class="md:hidden flex items-center justify-between gap-2 pt-4 text-[12px] text-[#475467]">
+        <button type="button" @click="keHalamanPengguna(penggunaPage - 1)" :disabled="penggunaPage <= 1" class="rounded-lg border border-[#D7DDE7] px-3 disabled:opacity-40">Sebelumnya</button>
+        <span x-text="penggunaPage + ' dari ' + totalHalamanPengguna()"></span>
+        <button type="button" @click="keHalamanPengguna(penggunaPage + 1)" :disabled="penggunaPage >= totalHalamanPengguna()" class="rounded-lg border border-[#D7DDE7] px-3 disabled:opacity-40">Berikutnya</button>
+      </div>
+
       <!-- Kontrol Pagination -->
-      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && totalBarisPengguna() > 0" class="pt-4 border-t border-[#F1F5F9] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-[#667085]">
+      <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && totalBarisPengguna() > 0" class="hidden md:flex pt-4 border-t border-[#F1F5F9] flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-[#667085]">
         <div class="flex items-center gap-3">
           <span>
             Menampilkan <strong class="text-[#1D1B3A]" x-text="mulaiItemPengguna()"></strong>–<strong class="text-[#1D1B3A]" x-text="akhirItemPengguna()"></strong> dari <strong class="text-[#1D1B3A]" x-text="totalBarisPengguna()"></strong> pengguna

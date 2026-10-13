@@ -297,8 +297,9 @@
             <span class="sr-only">Sebelumnya</span>
           </button>
 
+          <span class="sm:hidden px-2 text-[12px] text-[#475467]" x-text="dosenPage + ' dari ' + totalHalamanDosen()"></span>
           <template x-for="(p, pIdx) in halamanArrayDosen()" :key="pIdx">
-            <div>
+            <div class="hidden sm:block">
               <template x-if="p === '...'">
                 <span class="w-7 h-7 flex items-center justify-center text-[12px] text-[#667085]">…</span>
               </template>

@@ -92,7 +92,7 @@
       </div>
 
       <!-- Filter Program Dropdown -->
-      <div class="relative w-full md:w-[178px]">
+      <div :class="kelasFilterLanjutan ? 'block' : 'hidden md:block'" class="relative w-full md:w-[178px]">
         <span class="absolute left-3 text-[#667085] pointer-events-none top-1/2 -translate-y-1/2" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor">
             <path d="M3.56836 10.4419q-0.33154-0.18115-0.51611-0.48878-0.18457-0.31104-0.18457-0.69042l0-2.7002-1.32276-0.72803q-0.18115-0.09912-0.2666-0.24609-0.08203-0.15039-0.08203-0.33496 0-0.18115 0.08203-0.33155 0.08545-0.15381 0.2666-0.25292l4.82276-2.625q0.15039-0.08545 0.30761-0.12305 0.15723-0.04102 0.32471-0.04102 0.16748 0 0.32471 0.04102 0.15723 0.0376 0.30761 0.12305l5.53711 3.02148q0.16748 0.08203 0.25635 0.24268 0.09228 0.16064 0.09229 0.34179l0 3.68457q0 0.27002-0.18457 0.45459-0.18115 0.18115-0.45118 0.18115-0.27002 0-0.45459-0.18115-0.18457-0.18457-0.18457-0.45459l0-3.38379-1.11084 0.61182 0 2.7002q0 0.37939-0.18457 0.69042-0.18457 0.30762-0.51611 0.48877l-2.80273 1.50733q-0.15039 0.08545-0.30762 0.12646-0.15723 0.0376-0.32129 0.0376-0.16406 0-0.32129-0.0376-0.15723-0.04102-0.30762-0.12646l-2.80273-1.50733z m3.43164-3.10352l3.86572-2.08838-3.86572-2.08838-3.86572 2.08838 3.86572 2.08838z m0 3.51025l2.85742-1.5415 0-2.07129-2.21484 1.22021q-0.15039 0.08545-0.31445 0.12647-0.16064 0.0376-0.32813 0.0376-0.16748 0-0.33154-0.0376-0.16064-0.04102-0.31104-0.12647l-2.21484-1.22021 0 2.07129 2.85742 1.5415z"/>
@@ -108,7 +108,7 @@
       </div>
 
       <!-- Filter Status Dropdown -->
-      <div class="relative w-full md:w-[150px]">
+      <div :class="kelasFilterLanjutan ? 'block' : 'hidden md:block'" class="relative w-full md:w-[150px]">
         <select x-model="kelasFilter.status" aria-label="Filter status kelas" class="h-11 w-full appearance-none rounded-[10px] border border-[#CBD5E1] bg-white pl-3.5 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB] transition-colors">
           <option value="">Semua status</option>
           <option value="ACTIVE">Status: Aktif</option>
@@ -122,7 +122,8 @@
 
       <!-- Filter Lanjutan Button -->
       <button type="button" @click="kelasFilterLanjutan = !kelasFilterLanjutan" :aria-expanded="String(kelasFilterLanjutan)" class="h-11 px-3.5 rounded-[10px] border border-[#CBD5E1] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#667085] flex items-center justify-center shrink-0 transition-colors">
-        <span x-text="kelasFilterLanjutan ? 'Tutup filter' : 'Filter lanjutan'"></span>
+        <span class="md:hidden" x-text="kelasFilterLanjutan ? 'Tutup filter' : 'Filter'">Filter</span>
+        <span class="hidden md:inline" x-text="kelasFilterLanjutan ? 'Tutup filter' : 'Filter lanjutan'"></span>
       </button>
     </div>
 
@@ -320,12 +321,12 @@
           </div>
 
           <div class="flex gap-2 h-11 pt-1">
-            <template x-if="k.statusKM === 'active'">
-              <button type="button" @click="bukaDetail(k)" class="flex-1 h-11 rounded-[9px] bg-[#EEF2FF] hover:bg-[#DFE4FF] text-[#3965FB] text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="'Lihat detail ' + k.nama">
+            <div class="flex-1 min-w-0">
+              <button type="button" @click="bukaDetail(k)" class="w-full h-11 rounded-[9px] bg-[#EEF2FF] hover:bg-[#DFE4FF] text-[#3965FB] text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="'Lihat detail ' + k.nama">
                 <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 9.33447q1.09375 0 1.85938-0.76562 0.76563-0.76562 0.76562-1.85938 0-1.09375-0.76563-1.85937-0.76563-0.76563-1.85937-0.76563-1.09375 0-1.85938 0.76563-0.76563 0.76563-0.76562 1.85937 0 1.09375 0.76563 1.85938 0.76563 0.76563 1.85937 0.76562z m0-1.12451q-0.62549 0-1.06299-0.4375-0.4375-0.4375-0.4375-1.06299 0-0.62549 0.4375-1.06299 0.4375-0.44092 1.06299-0.44091 0.62549 0 1.06299 0.4375 0.4375 0.4375 0.4375 1.06298 0 0.62549-0.4375 1.06641-0.4375 0.4375-1.06299 0.4375z m0 2.98047q-1.97559 0-3.60938-1.05615-1.63037-1.05615-2.57031-2.79932-0.08545-0.14697-0.12646-0.3042-0.0376-0.16064-0.0376-0.32129 0-0.16406 0.0376-0.32129 0.04102-0.15723 0.12646-0.30761 0.93994-1.73975 2.57031-2.7959 1.63379-1.05957 3.60938-1.05957 1.97559 0 3.60596 1.05957 1.63379 1.05615 2.57373 2.7959 0.08545 0.15039 0.12304 0.30761 0.04102 0.15723 0.04102 0.32129 0 0.16064-0.04102 0.32129-0.0376 0.15723-0.12304 0.3042-0.93994 1.74316-2.57373 2.79932-1.63037 1.05615-3.60596 1.05615z m0-1.2749q1.64404 0 3.01807-0.86817 1.37402-0.86816 2.10547-2.33789-0.73145-1.46973-2.10547-2.33789-1.37402-0.87158-3.01807-0.87158-1.64404 0-3.01807 0.87158-1.37402 0.86816-2.10547 2.33789 0.73145 1.46973 2.10547 2.33789 1.37402 0.86816 3.01807 0.86817z"/></svg>
                 <span>Lihat detail</span>
               </button>
-            </template>
+            </div>
             <template x-if="k.statusKM !== 'active'">
               <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-[9px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="(k.statusKM === 'pending' ? 'Kirim ulang undangan KM ' : 'Undang KM ') + k.nama">
                 <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/></svg>
@@ -336,7 +337,7 @@
               <button type="button" @click.stop="toggleKelasMenu('m-' + k.slug)" :aria-expanded="String(kelasMenu === 'm-' + k.slug)" :aria-label="'Menu lain ' + k.nama" class="w-11 h-11 flex items-center justify-center rounded-[9px] bg-white border border-[#D7DDE7] text-[#667085] min-w-[44px] min-h-[44px]">
                 <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.00342 11.82617q-0.50586 0-0.86475-0.35547-0.35889-0.35889-0.35888-0.86132 0-0.50586 0.35888-0.86475 0.35889-0.35889 0.86133-0.35889 0.50586 0 0.86133 0.35889 0.35889 0.35889 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35547-0.85791 0.35547z m0-3.60596q-0.50586 0-0.86475-0.35888-0.35889-0.35889-0.35888-0.86133 0-0.50586 0.35888-0.86133 0.35889-0.35889 0.86133-0.35888 0.50586 0 0.86133 0.35888 0.35889 0.35547 0.35888 0.85791 0 0.50586-0.35888 0.86475-0.35547 0.35889-0.85791 0.35888z m0-3.60595q-0.50586 0-0.86475-0.35889-0.35889-0.35889-0.35888-0.86474 0-0.50586 0.35888-0.86133 0.35889-0.35547 0.86133-0.35547 0.50586 0 0.86133 0.35547 0.35889 0.35547 0.35888 0.86133 0 0.50586-0.35888 0.86474-0.35547 0.35889-0.85791 0.35889z"/></svg>
               </button>
-              <div x-show="kelasMenu === 'm-' + k.slug" x-cloak class="absolute right-0 top-full mt-1.5 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
+              <div x-show="kelasMenu === 'm-' + k.slug" x-cloak class="absolute right-0 bottom-full mb-1.5 z-40 w-[190px] rounded-[10px] bg-white border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(0,0,0,0.08)] py-1" role="menu" :aria-label="'Menu ' + k.nama">
                 <button type="button" @click="kelasMenu = null; bukaDialogDukungan(k)" :disabled="!!dukunganAktif || !!dukunganError" role="menuitem" class="w-full text-left px-3.5 py-2.5 flex items-center gap-2.5 text-[12px] font-semibold text-[#1D1B3A] hover:bg-[#EEF2FF] hover:text-[#3965FB] transition-colors rounded-t-[9px] disabled:cursor-not-allowed disabled:opacity-50">
                   <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="shrink-0" aria-hidden="true" focusable="false">
                     <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19141-0.19482 0.47168-0.19482l4.03662 0 0-4.14258q0-1.66797-1.1792-2.82324-1.17578-1.15869-2.854-1.15869-1.67822 0-2.86084 1.15869-1.1792 1.15527-1.1792 2.82666l0 3.01123q0 0.28027-0.19483 0.47168-0.19141 0.19141-0.47168 0.1914l-0.01708 0q-0.50928 0-0.87159-0.35546-0.35889-0.35889-0.35888-0.86817l0-1.22705q0-0.31104 0.1538-0.58105 0.15723-0.27002 0.42725-0.44092l0.03418-0.62207q0.08887-1.03223 0.54688-1.91406 0.46143-0.88525 1.17236-1.54151 0.71436-0.65625 1.64746-1.02539 0.93311-0.36914 1.96875-0.36914 1.03564 0 1.96191 0.36914 0.92627 0.36914 1.64405 1.02197 0.72119 0.64941 1.17578 1.53467 0.45459 0.88525 0.55371 1.91748l0.03418 0.60498q0.27685 0.14697 0.42724 0.41358 0.15381 0.2666 0.15381 0.5708l0 1.3501q0 0.31445-0.15039 0.59814-0.14697 0.28369-0.43066 0.43408l0 0.59815q0 0.54688-0.38281 0.93652-0.38281 0.38965-0.92627 0.38965l-4.06055 0z m-1.70898-4.1084q-0.25293 0-0.42725-0.1709-0.17432-0.17432-0.17432-0.43066 0-0.25293 0.17432-0.42725 0.17432-0.17432 0.42725-0.17431 0.25635 0 0.42724 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m3.41796 0q-0.25635 0-0.43066-0.1709-0.1709-0.17432-0.1709-0.43066 0-0.25293 0.1709-0.42725 0.17432-0.17432 0.43066-0.17431 0.25293 0 0.42725 0.17431 0.17432 0.17432 0.17432 0.42725 0 0.25635-0.17432 0.43066-0.1709 0.1709-0.42724 0.1709z m-5.15087-1.09375q-0.08887-1.50049 0.9331-2.56348 1.02539-1.06299 2.53613-1.06298 1.27148 0 2.23877 0.80664 0.9707 0.80664 1.17579 2.06445-1.28174-0.01367-2.37549-0.65625-1.09375-0.646-1.69532-1.78418-0.24609 1.11426-0.99804 1.9585-0.75195 0.84424-1.81494 1.2373z"/>
@@ -1212,7 +1213,32 @@
         Belum ada semester terdaftar untuk kelas ini. Buat semester draf untuk memulai.
       </div>
 
-      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="w-full overflow-x-auto">
+      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="md:hidden space-y-3">
+        <template x-for="s in detailSemesterList" :key="'mobile-semester-' + s.id">
+          <article class="min-w-0 rounded-xl border border-[#D7DDE7] bg-white p-4">
+            <div class="flex min-w-0 items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="break-words text-[15px] font-bold text-[#1D1B3A]" x-text="labelSemester(s)"></h3>
+                <p class="mt-1 break-words text-[12px] text-[#667085]" x-text="fmtRentangID(s.starts_on || s.start_date || '', s.ends_on || s.end_date || '')"></p>
+              </div>
+              <span class="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold" :class="String(s.status || '').toUpperCase() === 'ACTIVE' ? 'bg-green-100 text-green-800' : (String(s.status || '').toUpperCase() === 'DRAFT' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600')" x-text="String(s.status || '').toUpperCase() === 'ACTIVE' ? 'Berjalan' : (String(s.status || '').toUpperCase() === 'DRAFT' ? 'Draf' : 'Arsip')"></span>
+            </div>
+            <p class="mt-3 text-[12px] text-[#475467]" x-text="(smJumlah(s.id, 'offerings') ?? '–') + ' mata kuliah · ' + (smJumlah(s.id, 'patterns') ?? '–') + ' sesi/minggu'"></p>
+            <div class="mt-4 flex flex-wrap gap-2 border-t border-[#EEEEEE] pt-3">
+              <button x-show="['ACTIVE', 'DRAFT'].includes(String(s.status || '').toUpperCase())" type="button" @click="String(s.status || '').toUpperCase() === 'DRAFT' ? bukaTambahSesiSM(s) : bukaJadwal(kelasAktifObj.slug, s.id)" class="min-h-[44px] rounded-lg border border-[#CBD5E1] px-3 text-[12px] font-semibold text-[#1D1B3A]">Kelola jadwal</button>
+              <button x-show="String(s.status || '').toUpperCase() === 'DRAFT'" type="button" @click="mulaiAktifkanSM(s)" class="min-h-[44px] rounded-lg bg-[#3965FB] px-3 text-[12px] font-semibold text-white">Terbitkan</button>
+              <button x-show="!['ACTIVE', 'DRAFT'].includes(String(s.status || '').toUpperCase())" type="button" @click="smArsipTerbuka = smArsipTerbuka === s.id ? null : s.id" :aria-expanded="String(smArsipTerbuka === s.id)" class="min-h-[44px] rounded-lg border border-[#CBD5E1] px-3 text-[12px] font-semibold text-[#3965FB]">Lihat arsip</button>
+              <button type="button" @click="bukaPratinjauSM(s)" class="min-h-[44px] rounded-lg border border-[#CBD5E1] px-3 text-[12px] font-semibold text-[#475467]">Pratinjau</button>
+              <button x-show="String(s.status || '').toUpperCase() !== 'DRAFT'" type="button" @click="kelasAktifObj && bukaAuditKelas(kelasAktifObj.slug)" class="min-h-[44px] rounded-lg border border-[#CBD5E1] px-3 text-[12px] font-semibold text-[#475467]">Lihat audit kelas</button>
+              <button x-show="String(s.status || '').toUpperCase() === 'DRAFT'" type="button" @click="bukaImporSemester(s)" class="min-h-[44px] rounded-lg border border-[#CBD5E1] px-3 text-[12px] font-semibold text-[#475467]">Impor JSON</button>
+              <button x-show="String(s.status || '').toUpperCase() === 'DRAFT'" type="button" @click="konfirmasiHapusDraf(s)" class="min-h-[44px] rounded-lg px-3 text-[12px] font-semibold text-red-700">Hapus draf</button>
+            </div>
+            <div x-show="smArsipTerbuka === s.id" x-cloak class="mt-3 border-t border-[#EEEEEE] pt-3 text-[12px] text-[#475467]" x-text="(smJumlah(s.id, 'offerings') ?? '–') + ' mata kuliah · ' + (smJumlah(s.id, 'patterns') ?? '–') + ' pola jadwal'"></div>
+          </article>
+        </template>
+      </div>
+
+      <div x-show="!detailSemesterLoading && detailSemesterList.length > 0" class="hidden md:block w-full overflow-x-auto">
         <div class="min-w-[980px] flex flex-col gap-0 pb-20">
           <div
             data-pencil-name="Header Tabel Riwayat Semester"

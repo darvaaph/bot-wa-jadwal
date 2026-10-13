@@ -396,8 +396,9 @@
           <span class="hidden sm:inline">Sebelumnya</span>
         </button>
 
+        <span class="sm:hidden px-2 text-[12px] text-[#475467]" x-text="matkulPage + ' dari ' + totalHalamanMatkul()"></span>
         <template x-for="(p, pIdx) in halamanArrayMatkul()" :key="pIdx">
-          <div>
+          <div class="hidden sm:block">
             <template x-if="p === '...'">
               <span class="px-2 py-1 text-[12px] text-[#667085]">...</span>
             </template>
