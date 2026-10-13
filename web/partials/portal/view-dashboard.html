@@ -1,89 +1,63 @@
 <!-- partials/portal/view-dashboard.html — Portal Beranda Mahasiswa (Figma SCR-USER-DASH-001) -->
 <section x-show="view === 'dashboard'" x-cloak class="w-full flex flex-col gap-[20px]">
 
-  <!-- Hero Spotlight Mahasiswa: Status Akademik Real-Time -->
-  <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-6 flex flex-col lg:flex-row gap-6 lg:gap-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left" role="region" aria-label="Sorotan status perkuliahan mahasiswa">
-    <!-- Sisi Kiri: Sesi Kuliah Terkini / Berikutnya -->
-    <div class="flex-1 min-w-0 flex flex-col justify-between gap-3">
-      <div class="flex flex-col gap-2.5">
-        <!-- Live Status Badge -->
-        <div class="flex items-center gap-2 flex-wrap">
-          <template x-if="currentSession">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
-              <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
-              <span>SEDANG BERLANGSUNG</span>
-            </span>
-          </template>
-          <template x-if="!currentSession && nextSession">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
-              <span>KULIAH BERIKUTNYA</span>
-            </span>
-          </template>
-          <template x-if="!currentSession && !nextSession && jadwalEfektifHariIni.length > 0">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-              <span>SEMUA KULIAH HARI INI SELESAI</span>
-            </span>
-          </template>
-          <template x-if="jadwalEfektifHariIni.length === 0">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-              <span>TIDAK ADA KULIAH HARI INI</span>
-            </span>
-          </template>
-          <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
-        </div>
+  <!-- Hero Spotlight Mahasiswa: Status Akademik Real-Time (Clean & Full-Width) -->
+  <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left flex flex-col justify-between gap-5" role="region" aria-label="Sorotan status perkuliahan mahasiswa">
+    <div class="flex flex-col gap-3">
+      <!-- Live Status Badge & Pekan Kuliah -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <template x-if="currentSession">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
+            <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
+            <span>SEDANG BERLANGSUNG</span>
+          </span>
+        </template>
+        <template x-if="!currentSession && nextSession">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
+            <span>KULIAH BERIKUTNYA</span>
+          </span>
+        </template>
+        <template x-if="!currentSession && !nextSession && jadwalEfektifHariIni.length > 0">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+            <span>SEMUA KULIAH HARI INI SELESAI</span>
+          </span>
+        </template>
+        <template x-if="jadwalEfektifHariIni.length === 0">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+            <span>TIDAK ADA KULIAH HARI INI</span>
+          </span>
+        </template>
+        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 text-[#C7C6D8]" x-text="'Pekan Ke-' + (pekanNum || 1)"></span>
+        <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
+      </div>
 
-        <!-- Matkul Title -->
-        <h1 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display"
-            x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul || (currentSession || nextSession).title) : ('Halo, Mahasiswa ' + (selectedClassFormatted || 'Kelas'))">
+      <!-- Matkul Title -->
+      <div>
+        <h1 class="text-[22px] lg:text-[26px] font-bold text-white leading-tight font-display"
+            x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul || (currentSession || nextSession).title) : (jadwalEfektifHariIni.length > 0 ? 'Semua Kuliah Hari Ini Selesai' : 'Tidak Ada Jadwal Kuliah Hari Ini')">
         </h1>
-
-        <!-- Subtitle / Lokasi & Dosen -->
-        <p class="text-[13px] text-[#C7C6D8] leading-relaxed">
-          <template x-if="currentSession || nextSession">
-            <span>
-              <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
-              <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
-            </span>
-          </template>
-          <template x-if="!currentSession && !nextSession">
-            <span>Semua perkuliahan hari ini telah selesai atau belum ada jadwal. Gunakan waktu untuk koordinasi tugas kuliah.</span>
-          </template>
-        </p>
       </div>
 
-      <!-- Tombol Daring jika ada link Zoom/Meet -->
-      <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)" class="pt-1">
-        <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-bold transition shadow-xs">
-          <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
-          <span>Gabung Kelas Daring</span>
-        </a>
-      </div>
+      <!-- Subtitle / Lokasi & Dosen / Status Agenda -->
+      <p class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
+        <template x-if="currentSession || nextSession">
+          <span>
+            <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
+            <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
+          </span>
+        </template>
+        <template x-if="!currentSession && !nextSession">
+          <span>Agenda perkuliahan hari ini telah usai. Gunakan waktu untuk istirahat atau menyelesaikan tugas kuliah.</span>
+        </template>
+      </p>
     </div>
 
-    <!-- Sisi Kanan: Mini Widgets (Pekan & Tugas Mendesak) -->
-    <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-2.5 justify-center">
-      <!-- Widget Pekan Kuliah -->
-      <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl">
-        <div class="flex items-center gap-2">
-          <span class="text-[16px]">📅</span>
-          <span class="text-[12px] font-medium text-[#C7C6D8]">Pekan Perkuliahan</span>
-        </div>
-        <span class="text-[13px] font-bold text-white" x-text="'Pekan Ke-' + (pekanNum || 1)">Pekan Ke-6</span>
-      </div>
-
-      <!-- Widget Tugas Mendesak -->
-      <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="go('tugas')">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="text-[16px]">⚠️</span>
-          <div class="min-w-0">
-            <span class="block text-[11px] font-medium text-[#C7C6D8]">Tugas Mendesak</span>
-            <span class="block text-[12px] font-bold text-white truncate" x-text="urgent3.length > 0 ? (urgent3[0].title || urgent3[0].deskripsi) : 'Semua tugas aman'">Semua tugas aman</span>
-          </div>
-        </div>
-        <span class="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
-              :class="urgent3.length > 0 ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-emerald-500/20 text-emerald-300'"
-              x-text="urgent3.length > 0 ? (urgent3[0].countdown || 'Segera') : 'Aman'"></span>
-      </div>
+    <!-- Tombol Sesi Daring jika ada tautan Zoom/Meet -->
+    <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)" class="pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
+      <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-bold transition shadow-xs">
+        <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
+        <span>Gabung Kelas Daring</span>
+      </a>
     </div>
   </div>
 

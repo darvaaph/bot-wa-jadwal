@@ -30,124 +30,100 @@
   <!-- Main Content Dashboard PJ -->
   <div x-show="!dashboardLoading && !dashboardError" class="space-y-5">
     <!-- 1. Hero Spotlight PJ: Ruang Kerja & Status Mata Kuliah Real-Time (#1D1B3A) -->
-    <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-6 flex flex-col lg:flex-row gap-6 lg:gap-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left" role="region" aria-label="Ruang kerja dan fokus perkuliahan PJ">
-      <!-- Sisi Kiri: Status & Mata Kuliah yang Diampu -->
-      <div class="flex-1 min-w-0 flex flex-col justify-between gap-4">
-        <div class="flex flex-col gap-2.5">
-          <!-- Live Status Badge Row -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <template x-if="currentSession">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
-                <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
-                <span>SEDANG BERLANGSUNG</span>
-              </span>
-            </template>
-            <template x-if="!currentSession && nextSession">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
-                <span>KULIAH BERIKUTNYA</span>
-              </span>
-            </template>
-            <template x-if="!currentSession && !nextSession && (dashboardData?.schedule?.today?.length || 0) > 0">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-                <span>SEMUA KULIAH HARI INI SELESAI</span>
-              </span>
-            </template>
-            <template x-if="!dashboardData?.schedule?.today?.length">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-                <span>TIDAK ADA KULIAH HARI INI</span>
-              </span>
-            </template>
-            <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (pjTime((currentSession || nextSession).starts_at) + ' - ' + pjTime((currentSession || nextSession).ends_at) + ' WIB') : (todayFull || 'Hari Ini')"></span>
-          </div>
-
-          <!-- Matkul Title & Context -->
-          <div>
-            <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="text-[11px] font-bold tracking-wider text-[#A5B4FC] uppercase">PJ MATA KULIAH · <span x-text="dashboardData?.class?.label || selectedClass || 'Kelas'"></span></span>
-            </div>
-            <h1 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display">
-              <span x-text="dashboardData?.offering?.display_name || pjMatkul || 'Mata Kuliah Anda'"></span>
-              <span class="text-[#A5B4FC] text-[16px] font-normal" x-show="dashboardData?.offering?.course_code" x-text="'(' + dashboardData.offering.course_code + ')'"></span>
-            </h1>
-          </div>
-
-          <!-- Subtitle / Lokasi Perkuliahan atau Deskripsi -->
-          <p class="text-[13px] text-[#C7C6D8] leading-relaxed">
-            <template x-if="currentSession || nextSession">
-              <span>
-                Sesi: <span class="text-white font-medium" x-text="(currentSession || nextSession).title"></span>
-                <span x-show="(currentSession || nextSession).room" x-text="' · Ruang ' + (currentSession || nextSession).room"></span>
-                <span x-show="(currentSession || nextSession).lecturers" x-text="' · Dosen: ' + (currentSession || nextSession).lecturers"></span>
-                <span x-show="(currentSession || nextSession).is_my_course" class="ml-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#3965FB] text-white">Mata Kuliah Anda</span>
-              </span>
-            </template>
-            <template x-if="!currentSession && !nextSession">
-              <span>Kelola draf tugas, materi kuliah, dan pantau penyusunan jadwal untuk kelas <strong class="text-white font-medium" x-text="dashboardData?.class?.label || selectedClass || ''"></strong>.</span>
-            </template>
-          </p>
+    <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left flex flex-col justify-between gap-5" role="region" aria-label="Ruang kerja dan fokus perkuliahan PJ">
+      <div class="flex flex-col gap-3">
+        <!-- Live Status Badge Row -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <template x-if="currentSession">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
+              <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
+              <span>SEDANG BERLANGSUNG</span>
+            </span>
+          </template>
+          <template x-if="!currentSession && nextSession">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
+              <span>KULIAH BERIKUTNYA</span>
+            </span>
+          </template>
+          <template x-if="!currentSession && !nextSession && (dashboardData?.schedule?.today?.length || 0) > 0">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+              <span>SEMUA KULIAH HARI INI SELESAI</span>
+            </span>
+          </template>
+          <template x-if="!dashboardData?.schedule?.today?.length">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+              <span>TIDAK ADA KULIAH HARI INI</span>
+            </span>
+          </template>
+          <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (pjTime((currentSession || nextSession).starts_at) + ' - ' + pjTime((currentSession || nextSession).ends_at) + ' WIB') : (todayFull || 'Hari Ini')"></span>
         </div>
 
-        <!-- Tombol Aksi di Kiri Bawah Spotlight -->
-        <div class="flex items-center gap-3 flex-wrap pt-1">
-          <button type="button" @click="mulaiTambah()" class="h-10 px-4 bg-[#3965FB] hover:bg-[#2F54D8] text-white rounded-xl text-[12px] font-semibold flex items-center gap-2 shadow-xs shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+        <!-- Matkul Title -->
+        <div>
+          <h1 class="text-[22px] lg:text-[26px] font-bold text-white leading-tight font-display">
+            <span x-text="dashboardData?.offering?.display_name || pjMatkul || 'Mata Kuliah Anda'"></span>
+            <span class="text-[#A5B4FC] text-[16px] font-normal" x-show="dashboardData?.offering?.course_code" x-text="'(' + dashboardData.offering.course_code + ')'"></span>
+          </h1>
+        </div>
+
+        <!-- Subtitle / Lokasi Perkuliahan atau Deskripsi -->
+        <p class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
+          <template x-if="currentSession || nextSession">
+            <span>
+              Sesi: <span class="text-white font-medium" x-text="(currentSession || nextSession).title"></span>
+              <span x-show="(currentSession || nextSession).room" x-text="' · Ruang ' + (currentSession || nextSession).room"></span>
+              <span x-show="(currentSession || nextSession).lecturers" x-text="' · Dosen: ' + (currentSession || nextSession).lecturers"></span>
+            </span>
+          </template>
+          <template x-if="!currentSession && !nextSession">
+            <span>Ruang kerja pengampu untuk mengelola draf tugas, materi perkuliahan, dan agenda akademik kelas.</span>
+          </template>
+        </p>
+      </div>
+
+      <!-- Baris Aksi & Switcher Matkul -->
+      <div class="flex items-center justify-between gap-3 flex-wrap pt-4 border-t border-white/10">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- Tombol Utama: Buat Draf Tugas -->
+          <button type="button" @click="mulaiTambah()" class="h-10 px-4 bg-[#3965FB] hover:bg-[#2F54D8] text-white rounded-xl text-[12px] font-semibold flex items-center gap-2 shadow-xs shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
             <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"></path>
             </svg>
             <span>Buat Draf Tugas</span>
           </button>
 
-          <!-- Koreksi KM Trigger di dalam spotlight jika ada -->
-          <div x-show="dashboardData?.correction?.needed" x-cloak>
-            <button type="button" @click="perbaikiTugas(dashboardData?.correction?.task_id)" class="inline-flex items-center gap-2 h-10 px-3.5 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400">
-              <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
-              <span x-text="'Perbaiki ' + (dashboardData?.correction?.count || 1) + ' Usulan Tugas (Koreksi KM) →'">Perbaiki Usulan Tugas →</span>
-            </button>
+          <!-- Tombol Sekunder 1: Kelola Materi Kuliah -->
+          <button type="button" @click="go('materi')" class="h-10 px-3.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center gap-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
+              <path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z"/></svg>
+            <span>Kelola Materi</span>
+          </button>
+
+          <!-- Tombol Sekunder 2: Jadwal Kuliah -->
+          <button type="button" @click="go('jadwal')" class="h-10 px-3.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center gap-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
+            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
+              <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38965-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/></svg>
+            <span>Jadwal Kuliah</span>
+          </button>
+
+          <!-- Tombol Sesi Daring jika ada -->
+          <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)">
+            <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 h-10 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition border border-white/10">
+              <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
+              <span>Gabung Kelas Daring</span>
+            </a>
           </div>
         </div>
-      </div>
 
-      <!-- Sisi Kanan: Mini Widgets PJ (Switcher Matkul, Sesi Matkul Ini, & Review KM) -->
-      <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-2.5 justify-center">
         <!-- Switcher Matkul jika PJ mengampu > 1 mata kuliah -->
-        <div x-show="dashboardData?.offerings && dashboardData.offerings.length > 1" class="p-3 bg-white/10 rounded-xl flex items-center justify-between gap-2">
-          <div class="min-w-0">
-            <span class="block text-[11px] font-medium text-[#C7C6D8]">Mata Kuliah Aktif</span>
-            <label class="sr-only" for="pj-hero-offering-select">Ganti Mata Kuliah</label>
-            <select id="pj-hero-offering-select" :value="offeringId" @change="gantiOffering($event.target.value)" class="text-[12px] font-bold text-white bg-transparent cursor-pointer focus:outline-none w-full truncate">
-              <template x-for="o in (dashboardData?.offerings || offeringList || [])" :key="o.id">
-                <option :value="String(o.id)" class="text-slate-900 bg-white" x-text="(o.display_name || o.name || o.course_name) + (o.course_code ? ' (' + o.course_code + ')' : '')"></option>
-              </template>
-            </select>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white/15 text-[#C7C6D8] shrink-0">Ganti</span>
-        </div>
-
-        <!-- Widget Jadwal Matkul Hari Ini -->
-        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="go('jadwal')" title="Buka jadwal perkuliahan">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-[16px]">🗓️</span>
-            <div class="min-w-0">
-              <span class="block text-[11px] font-medium text-[#C7C6D8]">Kuliah Matkul Hari Ini</span>
-              <span class="block text-[12px] font-bold text-white truncate" x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0 ? ((dashboardData?.metrics?.today_pj_sessions) + ' Sesi Terjadwal') : 'Tidak Ada Hari Ini'">Tidak Ada Hari Ini</span>
-            </div>
-          </div>
-          <span class="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
-                :class="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/15 text-[#C7C6D8]'"
-                x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0 ? ((dashboardData?.metrics?.today_pj_sessions) + ' Sesi') : 'Kosong'">Kosong</span>
-        </div>
-
-        <!-- Widget Antrean Review KM -->
-        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="go('tugas')" title="Buka daftar tugas">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-[16px]">📝</span>
-            <div class="min-w-0">
-              <span class="block text-[11px] font-medium text-[#C7C6D8]">Review Ketua Murid</span>
-              <span class="block text-[12px] font-bold text-white truncate" x-text="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? ((dashboardData?.metrics?.pending_review_count) + ' tugas menunggu KM') : 'Semua draf selesai'">Semua draf selesai</span>
-            </div>
-          </div>
-          <span class="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
-                :class="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-emerald-500/20 text-emerald-300'"
-                x-text="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? ((dashboardData?.metrics?.pending_review_count) + ' Draf') : 'Beres'">Beres</span>
+        <div x-show="dashboardData?.offerings && dashboardData.offerings.length > 1" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-[12px] text-white">
+          <span class="text-[#A5B4FC]">📚 Matkul:</span>
+          <label class="sr-only" for="pj-hero-offering-select">Ganti Mata Kuliah</label>
+          <select id="pj-hero-offering-select" :value="offeringId" @change="gantiOffering($event.target.value)" class="text-[12px] font-bold text-white bg-transparent cursor-pointer focus:outline-none">
+            <template x-for="o in (dashboardData?.offerings || offeringList || [])" :key="o.id">
+              <option :value="String(o.id)" class="text-slate-900 bg-white" x-text="(o.display_name || o.name || o.course_name) + (o.course_code ? ' (' + o.course_code + ')' : '')"></option>
+            </template>
+          </select>
         </div>
       </div>
     </div>
@@ -172,9 +148,9 @@
     <!-- 3. Ringkasan Aktivitas PJ (3 Kartu Metrik dengan Icon Badge) -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <!-- Card 1: Tugas Terbit -->
-      <div @click="go('tugas')" class="bg-white border border-[#D7DDE7] rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-[#3965FB]/40 hover:shadow-sm transition-all group min-h-[147px]">
+      <div @click="go('tugas')" class="bg-white border border-slate-200/80 rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-[#3965FB]/50 hover:shadow-[0_8px_20px_-4px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 transition-all duration-200 group min-h-[147px] shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)]">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold tracking-[0.4px] text-[#667085] uppercase">TUGAS TERBIT</span>
+          <span class="text-[11px] font-semibold tracking-[0.4px] text-slate-500 uppercase">TUGAS TERBIT</span>
           <div class="w-[38px] h-[38px] rounded-[11px] bg-[#EFF6FF] flex items-center justify-center text-[#3965FB] group-hover:scale-105 transition-transform">
             <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.36963q-0.55029 0-0.93994-0.38965-0.38965-0.38965-0.38965-0.93994l0-8.08008q0-0.55029 0.38965-0.93994 0.38965-0.38965 0.93994-0.38965l2.33447 0q0.21191-0.52979 0.67334-0.84766 0.46484-0.31787 1.03223-0.31787 0.56738 0 1.02881 0.31787 0.46484 0.31787 0.67676 0.84766l2.33447 0q0.55029 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55029-0.38965 0.93994-0.38965 0.38965-0.93994 0.38965l-8.08008 0z m0-1.32959l8.08008 0 0-8.08008-8.08008 0 0 8.08008z m1.75-1.16553l2.86426 0q0.24609 0 0.41357-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24609-0.16748-0.41358-0.16748-0.16748-0.41357-0.16748l-2.86426 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41358 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29004l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29345l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41358 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41358 0 0.24609 0.16748 0.41358 0.16748 0.16748 0.41699 0.16748z m2.29004-2.78565q0.20166 0 0.33154-0.12988 0.1333-0.1333 0.1333-0.33496 0-0.20166-0.1333-0.33155-0.12988-0.1333-0.33154-0.1333-0.20166 0-0.33496 0.1333-0.12988 0.12988-0.12988 0.33155 0 0.20166 0.12988 0.33496 0.1333 0.12988 0.33496 0.12988z"/>
@@ -182,15 +158,15 @@
           </div>
         </div>
         <div class="mt-2">
-          <p class="text-[26px] font-bold text-[#1D1B3A] tracking-tight" x-text="dashboardData?.metrics?.published_count ?? 0">0</p>
-          <p class="text-[12px] font-medium text-[#3965FB] mt-1" x-text="(dashboardData?.metrics?.near_count ?? 0) + ' mendekati tenggat'">0 mendekati tenggat</p>
+          <p class="text-[28px] font-bold text-[#0F172A] tracking-tight" x-text="dashboardData?.metrics?.published_count ?? 0">0</p>
+          <p class="text-[12px] font-medium mt-1" :class="(dashboardData?.metrics?.near_count ?? 0) > 0 ? 'text-[#3965FB]' : 'text-slate-500'" x-text="(dashboardData?.metrics?.published_count ?? 0) > 0 ? ((dashboardData?.metrics?.near_count ?? 0) > 0 ? ((dashboardData?.metrics?.near_count) + ' mendekati tenggat') : 'Semua tugas aman') : 'Tidak ada tugas aktif'"></p>
         </div>
       </div>
 
       <!-- Card 2: Menunggu Review KM -->
-      <div @click="go('tugas')" class="bg-white border border-[#D7DDE7] rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:shadow-sm transition-all group min-h-[147px]">
+      <div @click="go('tugas')" class="bg-white border border-slate-200/80 rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:shadow-[0_8px_20px_-4px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 transition-all duration-200 group min-h-[147px] shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)]">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold tracking-[0.4px] text-[#667085] uppercase">MENUNGGU REVIEW KM</span>
+          <span class="text-[11px] font-semibold tracking-[0.4px] text-slate-500 uppercase">MENUNGGU REVIEW KM</span>
           <div class="w-[38px] h-[38px] rounded-[11px] bg-[#FEF3C7] flex items-center justify-center text-[#D97706] group-hover:scale-105 transition-transform">
             <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/>
@@ -198,15 +174,15 @@
           </div>
         </div>
         <div class="mt-2">
-          <p class="text-[26px] font-bold text-amber-600 tracking-tight" x-text="dashboardData?.metrics?.pending_review_count ?? 0">0</p>
-          <p class="text-[12px] font-medium text-[#667085] mt-1" x-text="dashboardData?.metrics?.pending_submitted_at ? 'Diajukan ' + waktuRelatif(dashboardData.metrics.pending_submitted_at) : 'Belum ada antrean'">Belum ada antrean</p>
+          <p class="text-[28px] font-bold tracking-tight" :class="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? 'text-amber-600' : 'text-[#0F172A]'" x-text="dashboardData?.metrics?.pending_review_count ?? 0">0</p>
+          <p class="text-[12px] font-medium mt-1" :class="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? 'text-amber-700' : 'text-slate-500'" x-text="(dashboardData?.metrics?.pending_review_count ?? 0) > 0 ? ('Diajukan ' + waktuRelatif(dashboardData.metrics.pending_submitted_at)) : 'Belum ada antrean'"></p>
         </div>
       </div>
 
       <!-- Card 3: Jadwal Perkuliahan Hari Ini -->
-      <div @click="go('jadwal')" class="bg-white border border-[#D7DDE7] rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-emerald-400 hover:shadow-sm transition-all group min-h-[147px]">
+      <div @click="go('jadwal')" class="bg-white border border-slate-200/80 rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-emerald-400 hover:shadow-[0_8px_20px_-4px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 transition-all duration-200 group min-h-[147px] shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)]">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold tracking-[0.4px] text-[#667085] uppercase">JADWAL HARI INI</span>
+          <span class="text-[11px] font-semibold tracking-[0.4px] text-slate-500 uppercase">JADWAL HARI INI</span>
           <div class="w-[38px] h-[38px] rounded-[11px] bg-[#F0FDF4] flex items-center justify-center text-[#16A34A] group-hover:scale-105 transition-transform">
             <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/>
@@ -214,8 +190,8 @@
           </div>
         </div>
         <div class="mt-2">
-          <p class="text-[26px] font-bold text-[#1D1B3A] tracking-tight" x-text="(dashboardData?.metrics?.today_total_sessions ?? 0) + ' Sesi'">0 Sesi</p>
-          <p class="text-[12px] font-medium text-emerald-700 mt-1" x-text="'Termasuk ' + (dashboardData?.metrics?.today_pj_sessions ?? 0) + ' sesi ' + (dashboardData?.offering?.course_name || 'matkul Anda')">Termasuk 0 sesi</p>
+          <p class="text-[28px] font-bold text-[#0F172A] tracking-tight" x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) + ' Sesi'"></p>
+          <p class="text-[12px] font-medium mt-1 text-slate-500" x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0 ? 'Sesi aktif mata kuliah Anda' : ('Tidak ada sesi ' + (dashboardData?.offering?.course_name || 'matkul') + ' hari ini')"></p>
         </div>
       </div>
     </div>
@@ -223,21 +199,26 @@
     <!-- Tugas dan Jadwal PJ (Dua Kolom) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       <!-- Panel Tugas Mata Kuliah Saya -->
-      <section class="lg:col-span-7 bg-white border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-3" aria-labelledby="pj-tasks-heading">
+      <section class="lg:col-span-7 bg-white border border-slate-200/80 rounded-[16px] p-5 lg:p-6 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)] flex flex-col gap-4" aria-labelledby="pj-tasks-heading">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <h2 id="pj-tasks-heading" class="text-[16px] font-bold text-deep-ink">Draf &amp; Tugas <span x-text="dashboardData?.offering?.course_name || 'Mata Kuliah'"></span></h2>
-            <p class="text-[12px] text-muted mt-0.5">Daftar tugas mata kuliah <span x-text="dashboardData?.offering?.display_name || ''"></span> yang Anda kelola untuk kelas <span x-text="dashboardData?.class?.code || selectedClass || ''"></span>.</p>
+            <h2 id="pj-tasks-heading" class="text-[16px] font-bold text-[#0F172A]">Draf &amp; Tugas <span x-text="dashboardData?.offering?.course_name || 'Mata Kuliah'"></span></h2>
+            <p class="text-[12px] text-slate-500 mt-0.5">Kelola draf penugasan, instruksi, dan tenggat waktu untuk mata kuliah ini.</p>
           </div>
-          <button type="button" @click="go('tugas')" class="text-[12px] font-semibold text-primary hover:underline shrink-0 whitespace-nowrap">
-            Lihat Semua Tugas <span aria-hidden="true">➔</span>
+          <button type="button" @click="go('tugas')" class="text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline shrink-0 whitespace-nowrap cursor-pointer">
+            Lihat Semua Tugas <span aria-hidden="true">→</span>
           </button>
         </div>
 
         <!-- Empty state jika belum ada tugas -->
-        <div x-show="!dashboardData?.tasks?.list?.length" class="py-8 text-center" role="status">
-          <p class="text-[13px] text-slate-400 font-medium">Belum ada draf atau tugas aktif untuk mata kuliah ini.</p>
-          <button type="button" @click="mulaiTambah()" class="ui-button ui-button--outline mt-3 text-primary text-[12px] font-semibold">Buat Draf Tugas</button>
+        <div x-show="!dashboardData?.tasks?.list?.length" class="py-8 px-4 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center" role="status">
+          <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <p class="text-[13px] font-bold text-slate-700">Belum ada draf atau tugas aktif</p>
+          <p class="text-[12px] text-slate-500 max-w-xs mt-0.5">Tugas yang Anda buat akan ditinjau Ketua Murid sebelum terbit ke mahasiswa.</p>
         </div>
 
         <!-- List tugas -->
@@ -271,35 +252,37 @@
       </section>
 
       <!-- Panel Jadwal Hari Ini -->
-      <section class="lg:col-span-5 bg-white border border-border rounded-2xl p-5 shadow-xs flex flex-col gap-3" aria-labelledby="pj-schedule-heading">
+      <section class="lg:col-span-5 bg-white border border-slate-200/80 rounded-[16px] p-5 lg:p-6 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)] flex flex-col gap-4" aria-labelledby="pj-schedule-heading">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-deep-ink">Jadwal Hari Ini</h2>
-            <p class="text-[12px] text-muted mt-0.5" x-text="todayFull || 'Hari Ini'"></p>
+            <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-[#0F172A]">Jadwal Hari Ini</h2>
+            <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull || 'Hari Ini'"></p>
           </div>
-          <button type="button" @click="go('jadwal')" class="text-[12px] font-medium text-primary hover:underline">
+          <button type="button" @click="go('jadwal')" class="text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline cursor-pointer">
             Pekan ini →
           </button>
         </div>
 
         <!-- Empty state jika tidak ada jadwal hari ini -->
-        <div x-show="!dashboardData?.schedule?.today?.length" class="py-8 text-center" role="status">
-          <p class="text-[13px] text-slate-400 font-medium">Tidak ada perkuliahan hari ini.</p>
-          <button type="button" @click="go('jadwal')" class="ui-button ui-button--outline mt-3 text-primary text-[12px] font-semibold">Lihat Jadwal Sepekan</button>
+        <div x-show="!dashboardData?.schedule?.today?.length" class="py-8 px-4 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 text-center" role="status">
+          <p class="text-[13px] text-slate-600 font-medium">Tidak ada perkuliahan untuk kelas hari ini.</p>
+          <button type="button" @click="go('jadwal')" class="mt-2 text-[12px] font-semibold text-[#3965FB] hover:underline cursor-pointer">Lihat Jadwal Sepekan →</button>
         </div>
 
         <!-- List sesi hari ini -->
-        <div x-show="dashboardData?.schedule?.today?.length" class="flex flex-col gap-2.5 mt-1">
+        <div x-show="dashboardData?.schedule?.today?.length" class="flex flex-col gap-2.5">
           <template x-for="s in dashboardData?.schedule?.today || []" :key="s.id">
             <div class="p-3.5 rounded-xl border flex flex-col gap-1.5 transition-all"
               :class="isSessionOngoing(s)
                 ? 'bg-emerald-50/70 border-emerald-300 border-l-4 border-l-emerald-500 shadow-xs ring-1 ring-emerald-500/20'
-                : (isSessionPassed(s)
-                  ? 'bg-slate-50/60 border-slate-200 opacity-75'
-                  : (s.is_my_course ? 'bg-primary-soft/40 border-primary/30' : 'bg-surface-subtle border-border'))">
+                : (s.is_my_course
+                  ? 'bg-blue-50/50 border-blue-200/80 border-l-4 border-l-[#3965FB] ring-1 ring-blue-500/10'
+                  : (isSessionPassed(s)
+                    ? 'bg-slate-50/50 border-slate-200/60 text-slate-500'
+                    : 'bg-white border-slate-200 text-slate-700'))">
               <div class="flex items-center justify-between gap-2">
                 <div class="font-mono text-[12px] font-bold"
-                  :class="isSessionOngoing(s) ? 'text-emerald-800' : (isSessionPassed(s) ? 'text-slate-500' : (s.is_my_course ? 'text-primary' : 'text-slate-700'))"
+                  :class="isSessionOngoing(s) ? 'text-emerald-800' : (s.is_my_course ? 'text-[#1D4ED8]' : (isSessionPassed(s) ? 'text-slate-500' : 'text-slate-700'))"
                   x-text="s.starts_at && s.ends_at ? pjTime(s.starts_at) + ' - ' + pjTime(s.ends_at) + ' WIB' : 'Waktu kuliah'">
                 </div>
                 <template x-if="isSessionOngoing(s)">
@@ -312,16 +295,16 @@
                   </span>
                 </template>
                 <template x-if="!isSessionOngoing(s) && isSessionPassed(s)">
-                  <span class="text-[11px] font-medium text-slate-400">Selesai</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">Selesai</span>
                 </template>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-[14px] font-bold" :class="isSessionOngoing(s) ? 'text-slate-900' : 'text-deep-ink'" x-text="s.title"></span>
-                <span x-show="s.is_my_course" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-white">Mata Kuliah Anda</span>
+                <span class="text-[14px] font-bold" :class="isSessionOngoing(s) ? 'text-slate-900' : (s.is_my_course ? 'text-[#1E40AF]' : (isSessionPassed(s) ? 'text-slate-700' : 'text-[#0F172A]'))" x-text="s.title"></span>
+                <span x-show="s.is_my_course" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#3965FB] text-white">Mata Kuliah Anda</span>
                 <span x-show="s.kind === 'REPLACEMENT'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Pengganti</span>
                 <span x-show="s.kind === 'EXTRA'" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">Tambahan</span>
               </div>
-              <p class="text-[12px]" :class="isSessionOngoing(s) ? 'text-slate-700' : 'text-slate-600'">
+              <p class="text-[12px]" :class="isSessionOngoing(s) ? 'text-slate-700' : 'text-slate-500'">
                 <span class="font-medium" x-text="s.room || 'Ruang belum ditentukan'"></span>
                 <span x-show="s.lecturers" x-text="' · ' + s.lecturers"></span>
               </p>
