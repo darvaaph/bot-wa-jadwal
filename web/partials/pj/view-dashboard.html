@@ -82,33 +82,36 @@
       </div>
 
       <!-- Baris Aksi & Switcher Matkul -->
-      <div class="flex items-center justify-between gap-3 flex-wrap pt-4 border-t border-white/10">
-        <div class="flex items-center gap-2.5 flex-wrap">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-white/10">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
           <!-- Tombol Utama: Buat Draf Tugas -->
-          <button type="button" @click="mulaiTambah()" class="h-10 px-4 bg-[#3965FB] hover:bg-[#2F54D8] text-white rounded-xl text-[12px] font-semibold flex items-center gap-2 shadow-xs shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
+          <button type="button" @click="mulaiTambah()" class="w-full sm:w-auto h-11 sm:h-10 px-4 bg-[#3965FB] hover:bg-[#2F54D8] active:bg-[#2445B8] text-white rounded-xl text-[13px] sm:text-[12px] font-semibold flex items-center justify-center gap-2 shadow-xs shrink-0 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer min-h-[44px]">
             <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"></path>
             </svg>
             <span>Buat Draf Tugas</span>
           </button>
 
-          <!-- Tombol Sekunder 1: Kelola Materi Kuliah -->
-          <button type="button" @click="go('materi')" class="h-10 px-3.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center gap-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
-            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
-              <path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z"/></svg>
-            <span>Kelola Materi</span>
-          </button>
+          <!-- Aksi Sekunder: Grid 2 kolom di HP, sejajar di desktop -->
+          <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            <!-- Tombol Sekunder 1: Kelola Materi Kuliah -->
+            <button type="button" @click="go('materi')" class="w-full sm:w-auto h-11 sm:h-10 px-3.5 bg-white/10 hover:bg-white/15 active:bg-white/20 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-2 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer min-h-[44px]">
+              <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
+                <path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z"/></svg>
+              <span>Kelola Materi</span>
+            </button>
 
-          <!-- Tombol Sekunder 2: Jadwal Kuliah -->
-          <button type="button" @click="go('jadwal')" class="h-10 px-3.5 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center gap-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer">
-            <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
-              <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38965-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/></svg>
-            <span>Jadwal Kuliah</span>
-          </button>
+            <!-- Tombol Sekunder 2: Jadwal Kuliah -->
+            <button type="button" @click="go('jadwal')" class="w-full sm:w-auto h-11 sm:h-10 px-3.5 bg-white/10 hover:bg-white/15 active:bg-white/20 text-white border border-white/10 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-2 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-white cursor-pointer min-h-[44px]">
+              <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#C7C6D8]" aria-hidden="true" focusable="false">
+                <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38965-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/></svg>
+              <span>Jadwal Kuliah</span>
+            </button>
+          </div>
 
           <!-- Tombol Sesi Daring jika ada -->
-          <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)">
-            <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 h-10 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition border border-white/10">
+          <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)" class="w-full sm:w-auto">
+            <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 w-full sm:w-auto h-11 sm:h-10 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white text-[12px] font-semibold transition-all border border-white/10 min-h-[44px]">
               <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
               <span>Gabung Kelas Daring</span>
             </a>
@@ -116,10 +119,10 @@
         </div>
 
         <!-- Switcher Matkul jika PJ mengampu > 1 mata kuliah -->
-        <div x-show="dashboardData?.offerings && dashboardData.offerings.length > 1" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-[12px] text-white">
-          <span class="text-[#A5B4FC]">📚 Matkul:</span>
+        <div x-show="dashboardData?.offerings && dashboardData.offerings.length > 1" class="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-[12px] text-white min-h-[40px]">
+          <span class="text-[#A5B4FC] shrink-0">📚 Matkul:</span>
           <label class="sr-only" for="pj-hero-offering-select">Ganti Mata Kuliah</label>
-          <select id="pj-hero-offering-select" :value="offeringId" @change="gantiOffering($event.target.value)" class="text-[12px] font-bold text-white bg-transparent cursor-pointer focus:outline-none">
+          <select id="pj-hero-offering-select" :value="offeringId" @change="gantiOffering($event.target.value)" class="text-[12px] font-bold text-white bg-transparent cursor-pointer focus:outline-none truncate max-w-[200px]">
             <template x-for="o in (dashboardData?.offerings || offeringList || [])" :key="o.id">
               <option :value="String(o.id)" class="text-slate-900 bg-white" x-text="(o.display_name || o.name || o.course_name) + (o.course_code ? ' (' + o.course_code + ')' : '')"></option>
             </template>
@@ -129,19 +132,22 @@
     </div>
 
     <!-- 2. Banner Koreksi KM (Jika ada catatan koreksi detail dari KM) -->
-    <div x-show="dashboardData?.correction?.needed" x-cloak class="p-4 rounded-2xl bg-[#FFFBEB] border border-[#FCD34D] flex flex-col sm:flex-row sm:items-center gap-3 shadow-2xs" role="alert">
-      <div class="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center shrink-0 text-[#92400E]">
-        <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
-          <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z m4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254z m0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"></path>
-        </svg>
+    <div x-show="dashboardData?.correction?.needed" x-cloak class="p-4 rounded-2xl bg-[#FFFBEB] border border-[#FCD34D] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs" role="alert">
+      <div class="flex items-start sm:items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-[#FEF3C7] flex items-center justify-center shrink-0 text-[#92400E] mt-0.5 sm:mt-0">
+          <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
+            <path d="M2.40625 11.66553q-0.13672 0-0.24268-0.06494-0.10254-0.06494-0.16064-0.1709-0.06494-0.10254-0.07178-0.22217-0.00342-0.12305 0.06836-0.24951l4.59375-7.91602q0.0752-0.12646 0.17774-0.18115 0.10596-0.05469 0.229-0.05469 0.12305 0 0.22559 0.05469 0.10596 0.05469 0.18115 0.18115l4.59375 7.91602q0.07178 0.12646 0.06494 0.24951-0.00342 0.11963-0.06836 0.22217-0.05811 0.10596-0.16406 0.1709-0.10254 0.06494-0.23926 0.06494l-9.1875 0z m0.18799-0.58106l8.81152 0-4.40576-7.58447-4.40576 7.58447z m4.40576-0.81006q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25634 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10596-0.15381 0-0.25635 0.10596-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25634 0.10254 0.10254 0.25635 0.10254z m0-1.29882q0.12305 0 0.20508-0.08204 0.08545-0.08545 0.08545-0.21191l0-2.33105q0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085l0 2.33105q0 0.12646 0.08203 0.21191 0.08545 0.08203 0.2085 0.08204z"></path>
+          </svg>
+        </div>
+        <p class="flex-1 text-[12px] sm:text-[13px] text-[#78350F] font-medium leading-relaxed">
+          <strong class="font-semibold block sm:inline" x-text="dashboardData?.correction?.count + ' Usulan Tugas Memerlukan Perbaikan: '"></strong>
+          <span x-text="'Ketua Murid (' + (dashboardData?.correction?.reviewer_name || 'KM') + ') meminta koreksi pada \u201C' + (dashboardData?.correction?.task_title || '') + '\u201D.'"></span>
+          <span x-show="dashboardData?.correction?.note" class="block text-[11px] text-[#92400E] mt-0.5" x-text="'Catatan koreksi: ' + dashboardData?.correction?.note"></span>
+        </p>
       </div>
-      <p class="flex-1 text-[12px] sm:text-[13px] text-[#78350F] font-medium leading-relaxed">
-        <strong class="font-semibold" x-text="dashboardData?.correction?.count + ' Usulan Tugas Memerlukan Perbaikan: '"></strong>
-        <span x-text="'Ketua Murid (' + (dashboardData?.correction?.reviewer_name || 'KM') + ') meminta koreksi pada \u201C' + (dashboardData?.correction?.task_title || '') + '\u201D.'"></span>
-        <span x-show="dashboardData?.correction?.note" class="block text-[11px] text-[#92400E] mt-0.5" x-text="'Catatan koreksi: ' + dashboardData?.correction?.note"></span>
-      </p>
-      <button type="button" @click="perbaikiTugas(dashboardData?.correction?.task_id)" class="h-[34px] px-3 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#78350F] border border-[#FCD34D] rounded-lg text-[12px] font-semibold shrink-0 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
-        Perbaiki Sekarang →
+      <button type="button" @click="perbaikiTugas(dashboardData?.correction?.task_id)" class="w-full sm:w-auto h-11 sm:h-[36px] px-4 bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#78350F] border border-[#FCD34D] rounded-xl text-[12px] font-bold shrink-0 transition-all flex items-center justify-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600 min-h-[44px]">
+        <span>Perbaiki Sekarang</span>
+        <span aria-hidden="true">&rarr;</span>
       </button>
     </div>
 
@@ -205,8 +211,8 @@
             <h2 id="pj-tasks-heading" class="text-[16px] font-bold text-[#0F172A]">Draf &amp; Tugas <span x-text="dashboardData?.offering?.course_name || 'Mata Kuliah'"></span></h2>
             <p class="text-[12px] text-slate-500 mt-0.5">Kelola draf penugasan, instruksi, dan tenggat waktu untuk mata kuliah ini.</p>
           </div>
-          <button type="button" @click="go('tugas')" class="text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline shrink-0 whitespace-nowrap cursor-pointer">
-            Lihat Semua Tugas <span aria-hidden="true">→</span>
+          <button type="button" @click="go('tugas')" class="min-h-[44px] inline-flex items-center text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline shrink-0 whitespace-nowrap cursor-pointer">
+            Lihat Semua Tugas <span aria-hidden="true">&rarr;</span>
           </button>
         </div>
 
@@ -224,10 +230,10 @@
         <!-- List tugas -->
         <div x-show="dashboardData?.tasks?.list?.length" class="divide-y divide-border">
           <template x-for="t in dashboardData?.tasks?.list || []" :key="t.id">
-            <div class="py-3.5 flex items-center justify-between gap-3 group">
+            <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 group">
               <div class="min-w-0 flex-1">
-                <button type="button" @click="bukaDetailTugas(t.id)" class="text-left font-semibold text-[14px] text-deep-ink hover:text-primary transition-colors line-clamp-1" x-text="t.title"></button>
-                <p class="text-[12px] text-muted mt-1 line-clamp-1">
+                <button type="button" @click="bukaDetailTugas(t.id)" class="text-left font-semibold text-[14px] text-deep-ink hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1 py-1 -my-1 inline-block cursor-pointer" x-text="t.title"></button>
+                <p class="text-[12px] text-muted mt-1 line-clamp-2 sm:line-clamp-1">
                   <span x-text="t.offering"></span>
                   <span x-show="t.lecturers" x-text="' · Dosen: ' + t.lecturers"></span>
                   <span x-show="t.deadline_at" x-text="' · Batas: ' + fmtDeadlineID(t.deadline_at)"></span>
@@ -235,15 +241,15 @@
                 <p x-show="t.review_state === 'NOT_REVIEWED'" class="text-[11px] text-amber-700 font-medium mt-0.5" x-text="'Status: Menunggu Persetujuan KM · Diajukan ' + (t.created_by_name || 'PJ')"></p>
                 <p x-show="t.review_state === 'CHANGES_REQUESTED'" class="text-[11px] text-[#B45309] font-medium mt-0.5">Status: Memerlukan Perbaikan dari Anda</p>
               </div>
-              <div class="shrink-0 flex items-center">
+              <div class="shrink-0 flex items-center self-start sm:self-center">
                 <template x-if="t.review_state === 'CHANGES_REQUESTED'">
-                  <span class="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">Perlu Perbaikan</span>
+                  <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">Perlu Perbaikan</span>
                 </template>
                 <template x-if="t.review_state === 'NOT_REVIEWED'">
-                  <span class="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#78350F]">Menunggu Review</span>
+                  <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#FEF3C7] text-[#78350F]">Menunggu Review</span>
                 </template>
                 <template x-if="t.review_state === 'APPROVED' && t.deadline_at">
-                  <span class="px-2 py-1 rounded-md text-[11px] font-bold" :class="pjDeadlineBadge(t.deadline_at).class" x-text="pjDeadlineBadge(t.deadline_at).text"></span>
+                  <span class="px-2.5 py-1 rounded-md text-[11px] font-bold" :class="pjDeadlineBadge(t.deadline_at).class" x-text="pjDeadlineBadge(t.deadline_at).text"></span>
                 </template>
               </div>
             </div>
@@ -258,15 +264,15 @@
             <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-[#0F172A]">Jadwal Hari Ini</h2>
             <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull || 'Hari Ini'"></p>
           </div>
-          <button type="button" @click="go('jadwal')" class="text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline cursor-pointer">
-            Pekan ini →
+          <button type="button" @click="go('jadwal')" class="min-h-[44px] inline-flex items-center text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline cursor-pointer">
+            Pekan ini &rarr;
           </button>
         </div>
 
         <!-- Empty state jika tidak ada jadwal hari ini -->
         <div x-show="!dashboardData?.schedule?.today?.length" class="py-8 px-4 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 text-center" role="status">
           <p class="text-[13px] text-slate-600 font-medium">Tidak ada perkuliahan untuk kelas hari ini.</p>
-          <button type="button" @click="go('jadwal')" class="mt-2 text-[12px] font-semibold text-[#3965FB] hover:underline cursor-pointer">Lihat Jadwal Sepekan →</button>
+          <button type="button" @click="go('jadwal')" class="mt-2 min-h-[44px] inline-flex items-center text-[12px] font-semibold text-[#3965FB] hover:underline cursor-pointer">Lihat Jadwal Sepekan &rarr;</button>
         </div>
 
         <!-- List sesi hari ini -->

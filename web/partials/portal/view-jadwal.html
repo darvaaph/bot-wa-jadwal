@@ -719,15 +719,39 @@
 
   <!-- MODAL / BOTTOM SHEET DETAIL SESI PERKULIAHAN (SCR-USER-SCHED-DETAIL, SCR-USER-SCHED-002, SCR-USER-SCHED-004, SCR-USER-SCHED-004M) -->
   <div x-show="detailModalOpen" x-cloak
-    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
     @keydown.escape.window="tutupDetailSesi()">
 
-    <div
-      class="bg-white rounded-t-[28px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left"
+    <!-- Backdrop Hitam Transparan Blur dengan Animasi Fade Halus -->
+    <div x-show="detailModalOpen"
+      x-transition:enter="transition-opacity ease-out duration-300"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition-opacity ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+      @click="tutupDetailSesi()"
+      aria-hidden="true"></div>
+
+    <!-- Sheet Modal Konten dengan Animasi Slide-Up & Drag to Dismiss -->
+    <div x-show="detailModalOpen"
+      x-transition:enter="transition ease-out duration-300 transform"
+      x-transition:enter-start="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      x-transition:enter-end="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave="transition ease-in duration-200 transform"
+      x-transition:leave-start="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave-end="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      :style="sheetSesiTransform"
+      class="relative bg-white rounded-t-[28px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left z-10 will-change-transform"
       @click.outside="tutupDetailSesi()">
 
       <!-- Drag handle (Mobile) -->
-      <div class="md:hidden w-full h-[22px] shrink-0 flex justify-center items-center pt-2">
+      <div class="md:hidden w-full h-[32px] shrink-0 flex justify-center items-center pt-2 cursor-grab active:cursor-grabbing select-none touch-none"
+        @pointerdown="onSesiPointerDown($event)"
+        @pointermove="onSesiPointerMove($event)"
+        @pointerup="onSesiPointerUp($event)"
+        @pointercancel="onSesiPointerUp($event)">
         <div class="w-[48px] h-[5px] bg-[#CBD5E1] rounded-full"></div>
       </div>
 
@@ -737,7 +761,11 @@
           <!-- Scrollable area -->
           <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5">
             <!-- Header Badge & Tutup -->
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between select-none md:select-text touch-none cursor-grab active:cursor-grabbing"
+              @pointerdown="onSesiPointerDown($event)"
+              @pointermove="onSesiPointerMove($event)"
+              @pointerup="onSesiPointerUp($event)"
+              @pointercancel="onSesiPointerUp($event)">
               <div class="flex items-center gap-2">
                 <template x-if="detailSesi.kind === 'PENGGANTI'">
                   <div
@@ -957,20 +985,48 @@
 
   <!-- MODAL / BOTTOM SHEET RIWAYAT PERUBAHAN (SCR-USER-SCHED-003 & SCR-USER-SCHED-003M) -->
   <div x-show="modalRiwayatOpen" x-cloak
-    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
     @keydown.escape.window="tutupRiwayatPerubahan()">
 
-    <div
-      class="bg-white rounded-t-[24px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left"
+    <!-- Backdrop Hitam Transparan Blur dengan Animasi Fade Halus -->
+    <div x-show="modalRiwayatOpen"
+      x-transition:enter="transition-opacity ease-out duration-300"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition-opacity ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+      @click="tutupRiwayatPerubahan()"
+      aria-hidden="true"></div>
+
+    <!-- Sheet Modal Konten dengan Animasi Slide-Up & Drag to Dismiss -->
+    <div x-show="modalRiwayatOpen"
+      x-transition:enter="transition ease-out duration-300 transform"
+      x-transition:enter-start="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      x-transition:enter-end="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave="transition ease-in duration-200 transform"
+      x-transition:leave-start="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave-end="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      :style="sheetRiwayatTransform"
+      class="relative bg-white rounded-t-[24px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left z-10 will-change-transform"
       @click.outside="tutupRiwayatPerubahan()">
 
       <!-- Drag handle (Mobile) -->
-      <div class="md:hidden w-full h-[24px] shrink-0 flex justify-center items-center pt-2">
+      <div class="md:hidden w-full h-[32px] shrink-0 flex justify-center items-center pt-2 cursor-grab active:cursor-grabbing select-none touch-none"
+        @pointerdown="onRiwayatPointerDown($event)"
+        @pointermove="onRiwayatPointerMove($event)"
+        @pointerup="onRiwayatPointerUp($event)"
+        @pointercancel="onRiwayatPointerUp($event)">
         <div class="w-[48px] h-[5px] bg-[#CBD5E1] rounded-full"></div>
       </div>
 
       <!-- Header Riwayat Perubahan -->
-      <div class="p-4 md:p-5 border-b border-[#F1F5F9] flex flex-col gap-1 shrink-0">
+      <div class="p-4 md:p-5 border-b border-[#F1F5F9] flex flex-col gap-1 shrink-0 select-none md:select-text touch-none cursor-grab active:cursor-grabbing"
+        @pointerdown="onRiwayatPointerDown($event)"
+        @pointermove="onRiwayatPointerMove($event)"
+        @pointerup="onRiwayatPointerUp($event)"
+        @pointercancel="onRiwayatPointerUp($event)">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <svg class="w-5 h-5 text-slate-700 shrink-0" viewBox="0 0 14 14" fill="currentColor">

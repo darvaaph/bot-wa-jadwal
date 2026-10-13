@@ -112,6 +112,27 @@ function pjApp() {
       return c;
     },
 
+    pjMobileTitle() {
+      const titles = {
+        dashboard: 'Ruang Kerja PJ',
+        tugas: 'Tugas Dikelola',
+        tambah: 'Tambah Draf Baru',
+        'detail-tugas': 'Detail Tugas',
+        'ubah-tugas': 'Ubah / Perbaiki Draf',
+        preview: 'Pratinjau Pesan',
+        konfirmasi: 'Konfirmasi Pengajuan',
+        jadwal: 'Jadwal Kuliah',
+        pindah: 'Pindah Jadwal',
+        perubahan: 'Perubahan Jadwal',
+        materi: 'Materi Kuliah',
+        status: 'Status Pemeriksaan',
+        semester: 'Semester',
+        audit: 'Riwayat Perubahan',
+        akun: 'Pengaturan Akun'
+      };
+      return titles[this.view] || 'Area PJ';
+    },
+
     get nav() { return this.navSections.flatMap(s => s.items); },
     get pjNav() { return this.nav; },
     get roleSub() { return this.pjMatkul || 'Mata kuliah belum dipilih'; },
@@ -161,6 +182,7 @@ function pjApp() {
 
     todayName: 'Senin',
     todayFull: '',
+    selectedMobileDay: '',
     currentTime: '',
     selectedClass: '',
     classSlug: '',
@@ -488,6 +510,11 @@ function pjApp() {
     deadlineBadge(iso, completed) { return API.deadlineBadge(iso, completed); },
 
     get tugasSaya() {
+      if (this.tasks && this.tasks.length > 0) {
+        if (!this.pjMatkul) return this.tasks;
+        const filtered = this.tasks.filter(t => !t.matkul || t.matkul === this.pjMatkul);
+        return filtered.length > 0 ? filtered : this.tasks;
+      }
       if (!this.pjMatkul) return [];
       return this.withUrgency.filter(t => t.matkul === this.pjMatkul);
     },
@@ -542,6 +569,13 @@ function pjApp() {
         const dt = String(d.getDate()).padStart(2, '0');
         return { name: n, dateNum: d.getDate(), full: d, dateStr: `${y}-${m}-${dt}` };
       });
+    },
+
+    get activeMobileDay() {
+      if (this.selectedMobileDay) return this.selectedMobileDay;
+      const days = this.weekDays || [];
+      const todayMatch = days.find(d => d.name === this.todayName);
+      return todayMatch ? todayMatch.name : (days[0]?.name || 'Senin');
     },
 
     get allWeekDaysWithSaturday() {
@@ -2270,6 +2304,7 @@ function pjApp() {
       if (!this.knownViews.includes(v)) { this.showPageError('404'); return; }
       this.view = v;
       this.drawer = false;
+      if (v === 'tugas' || v === 'status') this.loadTasks();
       if (v === 'materi') this.loadMateri();
       if (v === 'ruangan') { this.loadDirectoryRooms(); this.loadRoomHistory(); }
       if (v === 'semester') this.loadSemesterPJ();

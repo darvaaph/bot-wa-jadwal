@@ -70,7 +70,17 @@ function portalApp() {
     mobileJadwalMode: 'per_hari',
     detailModalOpen: false,
     detailSesi: null,
+    sheetSesiOffsetY: 0,
+    sheetSesiDragging: false,
+    sheetSesiClosing: false,
+    sheetSesiResetting: false,
+    sheetSesiStartY: 0,
     modalRiwayatOpen: false,
+    sheetRiwayatOffsetY: 0,
+    sheetRiwayatDragging: false,
+    sheetRiwayatClosing: false,
+    sheetRiwayatResetting: false,
+    sheetRiwayatStartY: 0,
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
@@ -89,6 +99,11 @@ function portalApp() {
     sortMateri: 'terbaru',
     detailMateriModalOpen: false,
     selectedMateri: null,
+    sheetMateriOffsetY: 0,
+    sheetMateriDragging: false,
+    sheetMateriClosing: false,
+    sheetMateriResetting: false,
+    sheetMateriStartY: 0,
     courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
@@ -991,18 +1006,103 @@ function portalApp() {
       }
     },
 
+    get sheetSesiTransform() {
+      if (this.sheetSesiDragging && this.sheetSesiOffsetY > 0) {
+        return `transform: translateY(${this.sheetSesiOffsetY}px); transition: none;`;
+      }
+      if (this.sheetSesiClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetSesiResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
+    },
+
     bukaDetailSesi(s) {
       if (!s) return;
       this.detailSesi = s;
+      this.sheetSesiOffsetY = 0;
+      this.sheetSesiDragging = false;
+      this.sheetSesiClosing = false;
+      this.sheetSesiResetting = false;
       this.detailModalOpen = true;
     },
 
     tutupDetailSesi() {
       this.detailModalOpen = false;
-      this.detailSesi = null;
+      this.sheetSesiDragging = false;
+      setTimeout(() => {
+        if (!this.detailModalOpen) {
+          this.detailSesi = null;
+          this.sheetSesiClosing = false;
+          this.sheetSesiOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onSesiPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetSesiStartY = e.clientY;
+      this.sheetSesiDragging = true;
+      this.sheetSesiClosing = false;
+      this.sheetSesiResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onSesiPointerMove(e) {
+      if (!this.sheetSesiDragging) return;
+      const delta = e.clientY - this.sheetSesiStartY;
+      if (delta > 0) {
+        this.sheetSesiOffsetY = delta;
+      } else {
+        this.sheetSesiOffsetY = 0;
+      }
+    },
+
+    onSesiPointerUp(e) {
+      if (!this.sheetSesiDragging) return;
+      this.sheetSesiDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetSesiOffsetY > 75) {
+        this.sheetSesiClosing = true;
+        this.tutupDetailSesi();
+      } else {
+        this.sheetSesiResetting = true;
+        this.sheetSesiOffsetY = 0;
+        setTimeout(() => {
+          this.sheetSesiResetting = false;
+        }, 220);
+      }
+    },
+
+    get sheetRiwayatTransform() {
+      if (this.sheetRiwayatDragging && this.sheetRiwayatOffsetY > 0) {
+        return `transform: translateY(${this.sheetRiwayatOffsetY}px); transition: none;`;
+      }
+      if (this.sheetRiwayatClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetRiwayatResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
     },
 
     bukaRiwayatPerubahan() {
+      this.sheetRiwayatOffsetY = 0;
+      this.sheetRiwayatDragging = false;
+      this.sheetRiwayatClosing = false;
+      this.sheetRiwayatResetting = false;
       this.modalRiwayatOpen = true;
       if (!this.perubahanList || this.perubahanList.length === 0) {
         this.loadPerubahan();
@@ -1011,6 +1111,57 @@ function portalApp() {
 
     tutupRiwayatPerubahan() {
       this.modalRiwayatOpen = false;
+      this.sheetRiwayatDragging = false;
+      setTimeout(() => {
+        if (!this.modalRiwayatOpen) {
+          this.sheetRiwayatClosing = false;
+          this.sheetRiwayatOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onRiwayatPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetRiwayatStartY = e.clientY;
+      this.sheetRiwayatDragging = true;
+      this.sheetRiwayatClosing = false;
+      this.sheetRiwayatResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onRiwayatPointerMove(e) {
+      if (!this.sheetRiwayatDragging) return;
+      const delta = e.clientY - this.sheetRiwayatStartY;
+      if (delta > 0) {
+        this.sheetRiwayatOffsetY = delta;
+      } else {
+        this.sheetRiwayatOffsetY = 0;
+      }
+    },
+
+    onRiwayatPointerUp(e) {
+      if (!this.sheetRiwayatDragging) return;
+      this.sheetRiwayatDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetRiwayatOffsetY > 75) {
+        this.sheetRiwayatClosing = true;
+        this.tutupRiwayatPerubahan();
+      } else {
+        this.sheetRiwayatResetting = true;
+        this.sheetRiwayatOffsetY = 0;
+        setTimeout(() => {
+          this.sheetRiwayatResetting = false;
+        }, 220);
+      }
     },
 
     salinRingkasanSesi(s) {
@@ -1867,14 +2018,82 @@ function portalApp() {
       return clean;
     },
 
+    get sheetMateriTransform() {
+      if (this.sheetMateriDragging && this.sheetMateriOffsetY > 0) {
+        return `transform: translateY(${this.sheetMateriOffsetY}px); transition: none;`;
+      }
+      if (this.sheetMateriClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetMateriResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
+    },
+
     bukaDetailMateri(m) {
       this.selectedMateri = m;
+      this.sheetMateriOffsetY = 0;
+      this.sheetMateriDragging = false;
+      this.sheetMateriClosing = false;
+      this.sheetMateriResetting = false;
       this.detailMateriModalOpen = true;
     },
 
     tutupDetailMateri() {
       this.detailMateriModalOpen = false;
-      this.selectedMateri = null;
+      this.sheetMateriDragging = false;
+      setTimeout(() => {
+        if (!this.detailMateriModalOpen) {
+          this.selectedMateri = null;
+          this.sheetMateriClosing = false;
+          this.sheetMateriOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onMateriPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetMateriStartY = e.clientY;
+      this.sheetMateriDragging = true;
+      this.sheetMateriClosing = false;
+      this.sheetMateriResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onMateriPointerMove(e) {
+      if (!this.sheetMateriDragging) return;
+      const delta = e.clientY - this.sheetMateriStartY;
+      if (delta > 0) {
+        this.sheetMateriOffsetY = delta;
+      } else {
+        this.sheetMateriOffsetY = 0;
+      }
+    },
+
+    onMateriPointerUp(e) {
+      if (!this.sheetMateriDragging) return;
+      this.sheetMateriDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetMateriOffsetY > 75) {
+        this.sheetMateriClosing = true;
+        this.tutupDetailMateri();
+      } else {
+        this.sheetMateriResetting = true;
+        this.sheetMateriOffsetY = 0;
+        setTimeout(() => {
+          this.sheetMateriResetting = false;
+        }, 220);
+      }
     },
 
     salinTautanMateri(url) {

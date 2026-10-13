@@ -72,6 +72,12 @@ const AsteriskShell = (() => {
           { id: 'jadwal', label: 'Jadwal', icon: 'jadwal' },
           { id: '__more', label: 'Menu', icon: 'menu' }
         ];
+        if (role === 'pj') return [
+          { id: 'dashboard', label: 'Ringkasan', icon: 'space_dashboard' },
+          { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'tambah', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'] },
+          { id: 'jadwal', label: 'Jadwal', icon: 'calendar_month', active: ['jadwal', 'pindah', 'perubahan'] },
+          { id: 'materi', label: 'Materi', icon: 'menu_book', active: ['materi'] }
+        ];
         return [
           { id: 'dashboard', label: 'Ringkasan', icon: 'dashboard' },
           { id: 'jadwal', label: 'Jadwal', icon: 'calendar_month' },
