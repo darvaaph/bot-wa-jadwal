@@ -8,14 +8,14 @@
         <h1 class="text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">
           <span x-text="sapaanWaktu + ', ' + (currentUser?.display_name ? currentUser.display_name.split(' ')[0] : 'Ketua Murid')">Selamat pagi, Ketua Murid</span>
         </h1>
-        <p class="text-[13px] text-[#667085] mt-1" x-text="'Tinjau hal penting untuk kelas ' + (selectedClass || 'kelas Anda') + ' hari ini.'">
-          Tinjau hal penting untuk kelas Anda hari ini.
+        <p class="text-[13px] text-[#667085] mt-1">
+          Tinjau status perkuliahan dan agenda kelas hari ini.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2.5 shrink-0">
         <button type="button" @click="go('jadwal')" class="min-h-[44px] h-[44px] px-4 rounded-[12px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[14px] font-semibold text-[#1D1B3A] flex items-center gap-2 shadow-sm transition-colors">
           <svg width="18" height="18" viewBox="0 0 14 14" fill="currentColor" class="w-[18px] h-[18px] shrink-0 text-[#1D1B3A]" aria-hidden="true" focusable="false">
-            <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/>
+            <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38965-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/>
           </svg>
           <span>Kelola Jadwal</span>
         </button>
@@ -33,128 +33,86 @@
       <button type="button" @click="loadKMDashboard()" :disabled="dashboardRefreshing" class="ui-button ui-button--outline shrink-0">Coba lagi</button>
     </div>
 
-    <!-- 2. Hero Spotlight KM: Status Operasional & Perkuliahan Kelas Real-Time -->
-    <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-6 flex flex-col lg:flex-row gap-6 lg:gap-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left" role="region" aria-label="Pusat kendali dan status kelas">
-      <!-- Sisi Kiri: Sesi Kuliah Terkini / Berikutnya di Kelas -->
-      <div class="flex-1 min-w-0 flex flex-col justify-between gap-3">
-        <div class="flex flex-col gap-2.5">
-          <!-- Live Status Badge -->
-          <div class="flex items-center gap-2 flex-wrap">
-            <template x-if="currentSession">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
-                <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
-                <span>SEDANG BERLANGSUNG</span>
-              </span>
-            </template>
-            <template x-if="!currentSession && nextSession">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
-                <span>KULIAH BERIKUTNYA</span>
-              </span>
-            </template>
-            <template x-if="!currentSession && !nextSession && todayList.length > 0">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-                <span>SEMUA KULIAH HARI INI SELESAI</span>
-              </span>
-            </template>
-            <template x-if="todayList.length === 0">
-              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-                <span>TIDAK ADA KULIAH HARI INI</span>
-              </span>
-            </template>
-            <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
-          </div>
-
-          <!-- Matkul Title & Context -->
-          <div>
-            <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="text-[11px] font-bold tracking-wider text-[#A5B4FC] uppercase">
-                KETUA MURID · <span x-text="selectedClass || 'Kelas Anda'"></span>
-                <span x-show="classSlug || dashboardData?.class?.slug" class="ml-1 opacity-80 font-mono lowercase">· slug: <span class="text-white font-semibold" x-text="classSlug || dashboardData?.class?.slug"></span></span>
-              </span>
-            </div>
-            <h2 class="text-[20px] lg:text-[24px] font-bold text-white leading-tight font-display"
-                x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul) : ('Kelas ' + (selectedClass || 'Anda') + ' Siap Beroperasi')">
-            </h2>
-          </div>
-
-          <!-- Subtitle / Lokasi & Dosen -->
-          <p class="text-[13px] text-[#C7C6D8] leading-relaxed">
-            <template x-if="currentSession || nextSession">
-              <span>
-                <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
-                <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
-              </span>
-            </template>
-            <template x-if="!currentSession && !nextSession">
-              <span>Tidak ada sesi perkuliahan aktif saat ini. Anda dapat memeriksa antrean tugas, koordinasi PJ, atau menyunting jadwal kelas.</span>
-            </template>
-          </p>
+    <!-- 2. Hero Spotlight KM: Status Perkuliahan Real-Time (Clean & Full-Width) -->
+    <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left flex flex-col justify-between gap-5" role="region" aria-label="Status perkuliahan kelas hari ini">
+      <div class="flex flex-col gap-3">
+        <!-- Live Status Badge & Waktu -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <template x-if="currentSession">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
+              <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
+              <span>SEDANG BERLANGSUNG</span>
+            </span>
+          </template>
+          <template x-if="!currentSession && nextSession">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
+              <span>KULIAH BERIKUTNYA</span>
+            </span>
+          </template>
+          <template x-if="!currentSession && !nextSession && todayList.length > 0">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+              <span>SEMUA KULIAH HARI INI SELESAI</span>
+            </span>
+          </template>
+          <template x-if="todayList.length === 0">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+              <span>TIDAK ADA KULIAH HARI INI</span>
+            </span>
+          </template>
+          <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
         </div>
 
-        <!-- Tombol Aksi di Kiri Bawah Spotlight -->
-        <div class="flex items-center gap-3 flex-wrap pt-1">
-          <!-- Indikator Antrean Review PJ di dalam Spotlight jika ada -->
+        <!-- Matkul Title -->
+        <div>
+          <h2 class="text-[22px] lg:text-[26px] font-bold text-white leading-tight font-display"
+              x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul) : (todayList.length > 0 ? 'Semua Kuliah Hari Ini Selesai' : 'Tidak Ada Jadwal Kuliah Hari Ini')">
+          </h2>
+        </div>
+
+        <!-- Subtitle / Lokasi & Dosen / Status Agenda -->
+        <p class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
+          <template x-if="currentSession || nextSession">
+            <span>
+              <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
+              <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
+            </span>
+          </template>
+          <template x-if="!currentSession && !nextSession">
+            <span>Agenda perkuliahan hari ini telah usai. Gunakan waktu untuk koordinasi tugas atau persiapan perkuliahan berikutnya.</span>
+          </template>
+        </p>
+      </div>
+
+      <!-- Baris Aksi Bersih & Link Portal Terpadu -->
+      <div class="flex items-center justify-between gap-3 flex-wrap pt-4 border-t border-white/10">
+        <!-- Tautan Portal Mahasiswa (Pill Terpadu) -->
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-[12px] text-white">
+          <span class="text-[#A5B4FC]">🌐 Portal Kelas:</span>
+          <span class="font-mono font-semibold" x-text="portalPath || ('/c/' + (classSlug || '...'))"></span>
+          <button type="button" @click.stop="salinPortalUrl()" class="ml-1 p-1 rounded-md hover:bg-white/15 text-[#A5B4FC] hover:text-white transition cursor-pointer" title="Salin tautan portal mahasiswa">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+          <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="p-1 rounded-md hover:bg-white/15 text-[#A5B4FC] hover:text-white transition" title="Buka portal di tab baru">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </a>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- Tombol Daring jika ada link Zoom/Meet -->
+          <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)">
+            <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#3965FB] hover:bg-[#2851E3] text-white text-[12px] font-bold transition shadow-xs">
+              <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
+              <span>Gabung Kelas Daring</span>
+            </a>
+          </div>
+
+          <!-- Indikator Antrean Review PJ jika ada -->
           <div x-show="antrean.length > 0">
-            <button type="button" @click="bukaAntreanReview()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs">
-              <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
+            <button type="button" @click="bukaAntreanReview()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] text-white text-[12px] font-bold transition shadow-xs cursor-pointer">
+              <svg class="w-3.5 h-3.5 fill-white" viewBox="0 0 14 14"><path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/></svg>
               <span x-text="'Periksa ' + antrean.length + ' Usulan Tugas dari PJ →'">Periksa Usulan Tugas →</span>
             </button>
           </div>
-
-          <!-- Tautan Cepat Salin Link Portal -->
-          <button type="button" @click="salinPortalUrl()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition border border-white/10" title="Salin link portal mahasiswa">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Salin Link Portal</span>
-          </button>
-
-          <!-- Buka Portal Mahasiswa -->
-          <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[#A5B4FC] hover:text-white text-[12px] font-semibold transition border border-white/10" title="Buka portal mahasiswa di tab baru">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            <span>Buka Portal</span>
-          </a>
-        </div>
-      </div>
-
-      <!-- Sisi Kanan: Mini Widgets KM (Portal Mahasiswa, Status Bot & Antrean) -->
-      <div class="w-full lg:w-[320px] shrink-0 flex flex-col gap-2.5 justify-center">
-        <!-- Widget Link Portal Mahasiswa & Slug -->
-        <div class="p-3 bg-white/10 rounded-xl flex items-center justify-between gap-2.5 group hover:bg-white/15 transition">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-[16px]">🌐</span>
-            <div class="min-w-0">
-              <span class="block text-[11px] font-medium text-[#C7C6D8]">Portal Mahasiswa</span>
-              <a :href="portalPath" target="_blank" rel="noopener noreferrer" class="block text-[12px] font-bold text-white hover:text-[#93C5FD] truncate font-mono" x-text="portalPath || ('/c/' + (classSlug || '...'))" title="Buka portal di tab baru">/c/...</a>
-            </div>
-          </div>
-          <button type="button" @click.stop="salinPortalUrl()" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-semibold flex items-center gap-1 shrink-0 transition" title="Salin tautan portal ke clipboard">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Salin</span>
-          </button>
-        </div>
-
-        <!-- Widget Status WhatsApp Bot -->
-        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="checkBot()" title="Klik untuk cek status bot">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="botOnline ? 'bg-[#16A34A]' : 'bg-[#E11D48]'"></span>
-            <span class="text-[12px] font-medium text-[#C7C6D8]">WhatsApp Bot</span>
-          </div>
-          <span class="text-[12px] font-bold px-2 py-0.5 rounded"
-                :class="botOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'"
-                x-text="botOnline ? 'Terhubung' : 'Terputus'">Terhubung</span>
-        </div>
-
-        <!-- Widget Usulan PJ / Pesan Gagal -->
-        <div class="flex items-center justify-between p-3 bg-white/10 rounded-xl cursor-pointer hover:bg-white/15 transition" @click="antrean.length > 0 ? bukaAntreanReview() : go('notifikasi')">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-[16px]">📬</span>
-            <div class="min-w-0">
-              <span class="block text-[11px] font-medium text-[#C7C6D8]">Antrean Review PJ</span>
-              <span class="block text-[12px] font-bold text-white truncate" x-text="antrean.length > 0 ? (antrean.length + ' tugas menunggu persetujuan') : 'Semua draf selesai'">Semua draf selesai</span>
-            </div>
-          </div>
-          <span class="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
-                :class="antrean.length > 0 ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-emerald-500/20 text-emerald-300'"
-                x-text="antrean.length > 0 ? (antrean.length + ' Draf') : 'Beres'">Beres</span>
         </div>
       </div>
     </div>
