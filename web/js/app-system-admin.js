@@ -749,8 +749,9 @@ function systemAdminApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
-      const isAuthed = await this.checkAuth();
-      if (!isAuthed) {
+      const authResult = await this.checkAuth();
+      if (authResult === 'REDIRECTED') return;
+      if (!authResult) {
         this.redirectToLogin();
         return;
       }
@@ -806,6 +807,14 @@ function systemAdminApp() {
         const me = await API.getMe();
         if (me && me.user) {
           const role = me.active_assignment && me.active_assignment.role;
+          if (role === 'KM') {
+            window.location.replace('/km.html');
+            return 'REDIRECTED';
+          }
+          if (role === 'PJ') {
+            window.location.replace('/pj.html');
+            return 'REDIRECTED';
+          }
           if (role && role !== 'SYSTEM_ADMIN') return false;
           this.currentUser = me.user;
           this.activeRole = role || null;

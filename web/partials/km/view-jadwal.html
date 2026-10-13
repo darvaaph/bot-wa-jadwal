@@ -197,20 +197,35 @@
                 <button type="button" @click="bukaAksiSesi(s)"
                         :aria-label="'Sesi ' + s.matkul + ' hari ' + s.hari"
                         class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px] rounded-[9px] text-left transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]"
-                        :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' 
-                                ? 'bg-[#FFFBEB] border border-[#FDE68A] hover:border-[#F59E0B] hover:shadow-md' 
-                                : 'bg-[#FFFFFF] border border-[#E2E8F0] hover:border-[#3965FB] hover:shadow-md'">
+                        :class="isSesiOngoing(s)
+                                ? 'bg-[#F0FDF4] border-2 border-[#22C55E] ring-2 ring-[#22C55E]/30 hover:border-[#16A34A] hover:shadow-md'
+                                : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' 
+                                   ? 'bg-[#FFFBEB] border border-[#FDE68A] hover:border-[#F59E0B] hover:shadow-md' 
+                                   : 'bg-[#FFFFFF] border border-[#E2E8F0] hover:border-[#3965FB] hover:shadow-md')">
                   
-                  <!-- Jam Sesi -->
-                  <div class="box-border w-fit h-fit shrink-0 p-[4px_6px] rounded-[6px]"
-                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
-                               ? 'bg-[#FEF3C7] border border-[#FDE68A]'
-                               : 'bg-[#EFF6FF] border border-[#BFDBFE]'">
-                    <span class="text-[10px] font-['JetBrains_Mono',system-ui,sans-serif] font-bold leading-none block"
-                          :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#1D4ED8]'"
-                          x-text="s.timeStart + ' – ' + (s.timeEnd || '')">
-                      08:40 – 10:20
-                    </span>
+                  <div class="flex items-center justify-between gap-1 w-full flex-wrap">
+                    <!-- Jam Sesi -->
+                    <div class="box-border w-fit h-fit shrink-0 p-[4px_6px] rounded-[6px]"
+                         :class="isSesiOngoing(s)
+                                 ? 'bg-[#DCFCE7] border border-[#BBF7D0]'
+                                 : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                                    ? 'bg-[#FEF3C7] border border-[#FDE68A]'
+                                    : 'bg-[#EFF6FF] border border-[#BFDBFE]')">
+                      <span class="text-[10px] font-['JetBrains_Mono',system-ui,sans-serif] font-bold leading-none block"
+                            :class="isSesiOngoing(s)
+                                    ? 'text-[#15803D]'
+                                    : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#1D4ED8]')"
+                            x-text="s.timeStart + ' – ' + (s.timeEnd || '')">
+                        08:40 – 10:20
+                      </span>
+                    </div>
+
+                    <!-- Live Badge if Ongoing -->
+                    <template x-if="isSesiOngoing(s)">
+                      <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                      </span>
+                    </template>
                   </div>
 
                   <!-- Jenis Sesi Badge -->
@@ -238,15 +253,17 @@
 
                   <!-- Judul Matkul -->
                   <div class="text-[13px]/[17px] box-border w-full font-[Inter,system-ui,sans-serif] font-bold text-left line-clamp-2 transition-colors"
-                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
-                               ? 'text-[#78350F] group-hover:text-[#B45309]'
-                               : 'text-[#1D1B3A] group-hover:text-[#3965FB]'"
+                       :class="isSesiOngoing(s)
+                               ? 'text-[#14532D] group-hover:text-[#16A34A]'
+                               : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                                  ? 'text-[#78350F] group-hover:text-[#B45309]'
+                                  : 'text-[#1D1B3A] group-hover:text-[#3965FB]')"
                        x-text="s.matkul + (s.isReplacement && !s.matkul.includes('(Pengganti)') ? ' (Pengganti)' : '')">
                   </div>
 
                   <!-- Ruangan & Dosen -->
                   <div class="text-[11px]/[15px] box-border w-full font-[Inter,system-ui,sans-serif] font-normal text-left truncate"
-                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]'"
+                       :class="isSesiOngoing(s) ? 'text-[#166534]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]')"
                        x-text="(s.ruang || 'Tanpa ruang') + (s.dosen ? ' · ' + s.dosen : '')">
                   </div>
 
@@ -314,21 +331,33 @@
               <div class="box-border w-full flex flex-col justify-start items-start bg-[#FFFFFF] border border-[#E2E8F0] rounded-[10px] overflow-hidden divide-y divide-[#F1F5F9]">
                 <template x-for="s in daySessions(d.name)" :key="'s-' + s.id">
                   <div class="box-border w-full min-h-[42px] shrink-0 flex flex-col md:flex-row gap-[12px] p-[10px_12px] md:p-[0px_12px] justify-start md:items-center transition-colors group cursor-pointer"
-                       :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
-                               ? 'bg-[#FFFBEB]/40 hover:bg-[#FFFBEB]/80 md:h-[55.5px]'
-                               : 'bg-[#FFFFFF] hover:bg-slate-50 md:h-[42px]'"
+                       :class="isSesiOngoing(s)
+                               ? 'bg-[#F0FDF4] border-l-4 border-l-[#22C55E] hover:bg-[#DCFCE7]/40 md:h-[55.5px]'
+                               : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                                  ? 'bg-[#FFFBEB]/40 hover:bg-[#FFFBEB]/80 md:h-[55.5px]'
+                                  : 'bg-[#FFFFFF] hover:bg-slate-50 md:h-[42px]')"
                        @click="bukaAksiSesi(s)">
                     
                     <!-- Jam Sesi: md:w-[150px] shrink-0 -->
                     <div class="box-border md:w-[150px] shrink-0 flex flex-row justify-start items-center">
-                      <span class="text-[12px]/[normal] box-border text-[#334155] font-['JetBrains_Mono',system-ui,sans-serif] font-semibold text-left whitespace-nowrap"
+                      <span class="text-[12px]/[normal] box-border font-['JetBrains_Mono',system-ui,sans-serif] font-semibold text-left whitespace-nowrap"
+                            :class="isSesiOngoing(s) ? 'text-[#15803D]' : 'text-[#334155]'"
                             x-text="s.timeStart + ' - ' + (s.timeEnd || '') + ' WIB'">
                         08:40 - 10:20 WIB
                       </span>
                     </div>
 
-                    <!-- Jenis Sesi: md:w-[100px] shrink-0 -->
-                    <div class="box-border md:w-[100px] shrink-0 flex flex-row justify-start items-center">
+                    <!-- Jenis Sesi: md:w-[120px] shrink-0 -->
+                    <div class="box-border md:w-[120px] shrink-0 flex flex-row justify-start items-center gap-1.5 flex-wrap">
+                      <!-- Live badge if Ongoing -->
+                      <template x-if="isSesiOngoing(s)">
+                        <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#DCFCE7] border border-[#BBF7D0] rounded-[6px] flex items-center gap-1">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
+                          <span class="text-[10px]/[normal] box-border text-[#15803D] font-[Inter,system-ui,sans-serif] font-bold text-left whitespace-nowrap block leading-none uppercase">
+                            BERLANGSUNG
+                          </span>
+                        </div>
+                      </template>
                       <!-- PENGGANTI -->
                       <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
                         <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#FEF3C7] border border-[#FCD34D] rounded-[6px]">
@@ -358,13 +387,13 @@
                     <!-- Detail Mata Kuliah & Dosen / Asal: flex-1 -->
                     <div class="box-border flex-1 min-w-0 flex flex-col gap-[1px] justify-start items-start">
                       <div class="text-[13px]/[normal] box-border w-full font-[Inter,system-ui,sans-serif] font-bold text-left truncate"
-                           :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#78350F]' : 'text-[#0F172A]'"
+                           :class="isSesiOngoing(s) ? 'text-[#14532D]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#78350F]' : 'text-[#0F172A]')"
                            x-text="s.matkul + (s.isReplacement && !s.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
                         Pemrograman Berorientasi Objek
                       </div>
                       <div class="box-border w-fit shrink-0 flex flex-row flex-wrap items-center gap-[8px]">
                         <span class="text-[11px]/[normal] box-border font-[Inter,system-ui,sans-serif] font-normal text-left whitespace-nowrap"
-                              :class="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#64748B]'"
+                              :class="isSesiOngoing(s) ? 'text-[#166534]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]')"
                               x-text="s.dosen || (s.ruang ? '' : 'Dosen belum ditentukan')">
                           Bpk. M. Ridwan
                         </span>
@@ -445,16 +474,25 @@
         <div class="space-y-3 mt-2">
           <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-s-' + s.id">
             <div class="p-3.5 rounded-[12px] border transition-all"
-                 :class="s.isReplacement ? 'bg-[#FFFBEB] border-[#FDE68A]' : 'bg-white border-[#E2E8F0] shadow-sm'">
+                 :class="isSesiOngoing(s)
+                         ? 'bg-[#F0FDF4] border-2 border-[#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
+                         : (s.isReplacement ? 'bg-[#FFFBEB] border-[#FDE68A]' : 'bg-white border-[#E2E8F0] shadow-sm')">
               <div class="flex items-center justify-between gap-2 mb-2">
-                <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
-                      :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
-                      x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
+                        :class="isSesiOngoing(s) ? 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]' : (s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]')"
+                        x-text="s.timeStart + ' – ' + (s.timeEnd || '') + ' WIB'">-</span>
+                  <template x-if="isSesiOngoing(s)">
+                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                    </span>
+                  </template>
+                </div>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded"
                       :class="s.isReplacement ? 'bg-[#FEF3C7] text-[#92400E]' : (slotKind(s.matkul) === 'Praktikum' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]')"
                       x-text="s.isReplacement ? 'Pengganti' : slotKind(s.matkul)"></span>
               </div>
-              <h4 class="font-bold text-[14px] leading-snug" :class="s.isReplacement ? 'text-[#78350F]' : 'text-[#1D1B3A]'" x-text="s.matkul">-</h4>
+              <h4 class="font-bold text-[14px] leading-snug" :class="isSesiOngoing(s) ? 'text-[#14532D]' : (s.isReplacement ? 'text-[#78350F]' : 'text-[#1D1B3A]')" x-text="s.matkul">-</h4>
               <div class="mt-2 pt-2 border-t border-[#F1F5F9] flex flex-col gap-1 text-[11px]" :class="s.isReplacement ? 'text-[#92400E]' : 'text-[#667085]'">
                 <p x-text="'Ruang: ' + (s.ruang || 'Tanpa ruangan')"></p>
                 <p x-show="s.dosen" x-text="'Dosen: ' + s.dosen"></p>

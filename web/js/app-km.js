@@ -906,15 +906,61 @@ function kmApp() {
       if (s.hari !== todayIndo || this.weekOffset !== 0) {
         return { label: 'Akan Datang', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
       }
-      const nowHM = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-      const start = s.timeStart || '00:00';
-      const end = s.timeEnd || '23:59';
-      if (nowHM >= start && nowHM <= end) {
-        return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
-      } else if (nowHM > end) {
-        return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start >= 0 && end >= 0) {
+        if (nowMin >= start && nowMin <= end) {
+          return { label: '● Sedang Berlangsung Saat Ini', class: 'bg-[#DCFCE7] text-[#15803D]' };
+        } else if (nowMin > end) {
+          return { label: 'Selesai Hari Ini', class: 'bg-[#F1F5F9] text-[#64748B]' };
+        }
       }
       return { label: 'Akan Datang Hari Ini', class: 'bg-[#EFF6FF] text-[#1D4ED8]' };
+    },
+
+    isSesiOngoing(s) {
+      if (!s) return false;
+      const now = new Date();
+      const todayIndo = now.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
+      if (s.hari !== todayIndo || this.weekOffset !== 0) {
+        return false;
+      }
+      const timeParts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false
+      }).formatToParts(now);
+      const h = parseInt(timeParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const m = parseInt(timeParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const nowMin = h * 60 + m;
+
+      const toMins = (t) => {
+        if (!t) return -1;
+        const [hh, mm] = String(t).replace('.', ':').split(':').map(Number);
+        return (isNaN(hh) || isNaN(mm)) ? -1 : hh * 60 + mm;
+      };
+
+      const start = toMins(s.timeStart);
+      const end = toMins(s.timeEnd);
+      if (start < 0 || end < 0) return false;
+      return nowMin >= start && nowMin <= end;
     },
 
     getSesiCourseCode(s) {
@@ -2055,8 +2101,12 @@ function kmApp() {
     },
 
     kmInitials() {
-      return String(this.currentUser?.display_name || 'KM').trim().split(/\s+/)
-        .slice(0, 2).map(part => part[0]).join('').toUpperCase();
+      const raw = this.currentUser?.display_name || 'KM';
+      const clean = String(raw).replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
+      const parts = clean.split(/\s+/).filter(Boolean);
+      if (!parts.length) return 'KM';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
     },
 
     async loadKMDashboard(silent = false) {
@@ -4331,16 +4381,61 @@ function kmApp() {
       }
     },
 
-    async logout() {
+    bukaModalProfilKM() {
+      if (this.drawer) this.drawer = false;
+      this.modalProfilKM = true;
+    },
+
+    tutupModalProfilKM() {
+      this.modalProfilKM = false;
+    },
+
+    aksiLogoutDariProfilKM() {
+      this.modalProfilKM = false;
+      this.konfirmasiLogout();
+    },
+
+    konfirmasiLogout() {
+      if (this.drawer) this.drawer = false;
+      this.modalLogout = true;
+    },
+
+    tutupModalLogout() {
+      if (this.logoutLoading) return;
+      this.modalLogout = false;
+    },
+
+    async jalankanLogout() {
+      if (this.logoutLoading) return;
+      this.logoutLoading = true;
       try {
         await API.logout();
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      this.currentUser = null;
       this.showToast('Berhasil keluar. Mengarahkan ke login...');
       setTimeout(() => {
-        window.location.href = '/login.html';
-      }, 500);
+        window.location.href = '/login.html?role=km';
+      }, 400);
+    },
+
+    logout() {
+      this.konfirmasiLogout();
+    },
+
+    formatNomorWA(num) {
+      if (!num) return '-';
+      const clean = String(num).replace(/[^0-9]/g, '');
+      if (clean.startsWith('62')) {
+        const rest = clean.slice(2);
+        return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+      }
+      if (clean.startsWith('08')) {
+        const rest = clean.slice(1);
+        return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+      }
+      return String(num);
     },
 
     showToast(msg) {

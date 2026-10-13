@@ -165,12 +165,35 @@ func (s *Server) handlePJDashboard(w http.ResponseWriter, r *http.Request) {
 			Term         string `json:"term"`
 		}{semesterID, year, term}
 
-		offRows, err := s.v1DB.QueryContext(r.Context(), `
-			SELECT co.id, co.display_name, c.code, c.name
-			FROM course_offerings co
-			JOIN courses c ON c.id = co.course_id
-			WHERE co.semester_id = ? AND co.status = 'ACTIVE'
-			ORDER BY co.display_name ASC`, semesterID)
+		var offRows *sql.Rows
+		if u.ActiveRole == "SYSTEM_ADMIN" {
+			offRows, err = s.v1DB.QueryContext(r.Context(), `
+				SELECT co.id, co.display_name, c.code, c.name
+				FROM course_offerings co
+				JOIN courses c ON c.id = co.course_id
+				WHERE co.semester_id = ? AND co.status = 'ACTIVE'
+				ORDER BY co.display_name ASC`, semesterID)
+		} else {
+			var activeOfferingID int64
+			if u.ActiveCourseOfferingID.Valid {
+				activeOfferingID = u.ActiveCourseOfferingID.Int64
+			}
+			offRows, err = s.v1DB.QueryContext(r.Context(), `
+				SELECT co.id, co.display_name, c.code, c.name
+				FROM course_offerings co
+				JOIN courses c ON c.id = co.course_id
+				WHERE co.semester_id = ? AND co.status = 'ACTIVE'
+				  AND (
+				      co.id IN (
+				          SELECT course_offering_id FROM role_assignments
+				          WHERE user_id = ? AND role = 'PJ' AND status = 'ACTIVE'
+				            AND (valid_from IS NULL OR julianday(valid_from) <= julianday('now'))
+				            AND (valid_until IS NULL OR julianday(valid_until) > julianday('now'))
+				      )
+				      OR (co.id = ? AND ? > 0)
+				  )
+				ORDER BY co.display_name ASC`, semesterID, u.UserID, activeOfferingID, activeOfferingID)
+		}
 		if err == nil {
 			defer offRows.Close()
 			for offRows.Next() {
@@ -192,6 +215,19 @@ func (s *Server) handlePJDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		if chosenOfferingID == 0 && len(data.Offerings) > 0 {
 			chosenOfferingID = data.Offerings[0].ID
+		}
+
+		if u.ActiveRole == "PJ" && chosenOfferingID > 0 && len(data.Offerings) > 0 {
+			allowed := false
+			for _, o := range data.Offerings {
+				if o.ID == chosenOfferingID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				chosenOfferingID = data.Offerings[0].ID
+			}
 		}
 
 		for _, o := range data.Offerings {

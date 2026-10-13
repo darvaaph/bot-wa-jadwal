@@ -30,6 +30,21 @@ const AsteriskShell = (() => {
       modalLogout: false,
       logoutLoading: false,
       modalProfilAdmin: false,
+      modalProfilPJ: false,
+      modalProfilKM: false,
+      formatNomorWA(num) {
+        if (!num) return '-';
+        const clean = String(num).replace(/[^0-9]/g, '');
+        if (clean.startsWith('62')) {
+          const rest = clean.slice(2);
+          return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+        }
+        if (clean.startsWith('08')) {
+          const rest = clean.slice(1);
+          return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+        }
+        return String(num);
+      },
       shellNavSections() { return this.navSections || []; },
       shellIdentity() {
         if (role === 'portal') return { label: 'Portal Kelas', detail: this.selectedClass || 'Pilih kelas', sub: this.semesterLabel || 'Hanya lihat', short: 'PK' };
@@ -136,8 +151,9 @@ const AsteriskShell = (() => {
         return open + (paths[key] || paths['dashboard']) + '</svg>';
       },
       kmInitials() {
-        const detail = (this.currentUser && this.currentUser.display_name) || (this.shellIdentity && this.shellIdentity().detail) || '';
-        const words = String(detail).trim().split(/\s+/).filter(Boolean);
+        const raw = (this.currentUser && this.currentUser.display_name) || (this.shellIdentity && this.shellIdentity().detail) || '';
+        const clean = String(raw).replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
+        const words = clean.split(/\s+/).filter(Boolean);
         if (!words.length) return 'KM';
         if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
         return (words[0][0] + words[1][0]).toUpperCase();

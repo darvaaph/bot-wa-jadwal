@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Bot Jadwal — Portal Mahasiswa</title>
   <link rel="stylesheet" href="/css/tailwind.css?v=20261003" />
-  <link rel="stylesheet" href="/css/fonts.css?v=20261003" />
+  <link rel="stylesheet" href="/css/fonts.css?v=20261013" />
   <link rel="stylesheet" href="/css/style.css?v=20261003" />
   <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
   <link rel="stylesheet" href="/css/components.css?v=20261003-2" />
@@ -20,7 +20,7 @@
   Area KM pindah ke /km.html, PJ di /pj.html, System Admin di /system-admin.html (lama: /superadmin.html, tetap dialihkan).
   Gerbang PIN + isi: web/partials/portal/*.html via initPortal() di js/app-portal.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="portalApp()" x-init="initPortal()" @keydown.escape.window="shellCloseDrawer()">
+<body class="bg-white text-ink min-h-screen" x-data="portalApp()" x-init="initPortal()" @keydown.escape.window="shellCloseDrawer(); classModalOpen = false; tutupDetailSesi(); tutupRiwayatPerubahan(); tutupArsipSemester(); detailMateriModalOpen = false">
   <div id="portal-gate" x-show="!unlocked"></div>
   <div x-show="unlocked" x-cloak><div id="app-shell"></div></div>
 </body>

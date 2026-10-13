@@ -240,18 +240,28 @@
                     <template x-if="!s.isDraft">
                       <div @click="bukaDetailSesi(s, d)"
                         class="p-2.5 rounded-[9px] flex flex-col gap-1.5 transition text-left relative cursor-pointer hover:shadow-md"
-                        :class="isMatkulSaya(s)
-                          ? 'bg-[#EFF6FF] border-2 border-[#3B82F6] shadow-2xs'
-                          : (s.eventKind === 'REPLACEMENT'
-                            ? 'bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs'
-                            : 'bg-white border border-[#E2E8F0] hover:border-slate-300 shadow-2xs')">
+                        :class="isSesiOngoing(s)
+                          ? 'bg-[#F0FDF4] border-2 border-[#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
+                          : (isMatkulSaya(s)
+                            ? 'bg-[#EFF6FF] border-2 border-[#3B82F6] shadow-2xs'
+                            : (s.eventKind === 'REPLACEMENT'
+                              ? 'bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs'
+                              : 'bg-white border border-[#E2E8F0] hover:border-slate-300 shadow-2xs'))">
                         
                         <!-- Baris Atas: Jam & Jenis -->
                         <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-[6px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]"
+                          <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-[6px]"
+                            :class="isSesiOngoing(s) ? 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
                             x-text="(s.timeStart || '') + ' – ' + (s.timeEnd || '')">-</span>
                           <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
                             :class="sesiTypeBadgeClass(s)" x-text="sesiType(s)">-</span>
+
+                          <!-- Live Badge if Ongoing -->
+                          <template x-if="isSesiOngoing(s)">
+                            <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                              <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                            </span>
+                          </template>
                           
                           <!-- Badge Khusus Mata Kuliah Anda -->
                           <template x-if="isMatkulSaya(s)">
@@ -263,12 +273,12 @@
 
                         <!-- Judul Mata Kuliah -->
                         <h3 class="text-[13px] font-bold leading-snug line-clamp-2"
-                          :class="s.eventKind === 'REPLACEMENT' ? 'text-[#78350F]' : 'text-[#1D1B3A]'"
+                          :class="isSesiOngoing(s) ? 'text-[#14532D]' : (s.eventKind === 'REPLACEMENT' ? 'text-[#78350F]' : 'text-[#1D1B3A]')"
                           x-text="s.matkul">-</h3>
 
                         <!-- Ruangan & Dosen -->
                         <p class="text-[11px] line-clamp-1"
-                          :class="s.eventKind === 'REPLACEMENT' ? 'text-[#92400E]' : 'text-[#667085]'">
+                          :class="isSesiOngoing(s) ? 'text-[#166534]' : (s.eventKind === 'REPLACEMENT' ? 'text-[#92400E]' : 'text-[#667085]')">
                           <span x-text="s.ruang ? 'Ruang ' + s.ruang : 'Tanpa ruangan'"></span>
                           <span x-show="s.dosen" x-text="' · ' + s.dosen"></span>
                         </p>
@@ -351,19 +361,27 @@
 
                   <!-- Tampilan Daftar untuk Sesi Terbit / Reguler -->
                   <template x-if="!s.isDraft">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg transition"
+                         :class="isSesiOngoing(s) ? 'bg-[#F0FDF4] border-l-4 border-l-[#22C55E] pl-3' : ''">
                       <div class="flex items-start gap-3 min-w-0">
-                        <span class="font-mono text-[12px] font-bold px-2 py-0.5 rounded-[6px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] whitespace-nowrap"
+                        <span class="font-mono text-[12px] font-bold px-2 py-0.5 rounded-[6px] whitespace-nowrap"
+                          :class="isSesiOngoing(s) ? 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
                           x-text="(s.timeStart || '') + ' – ' + (s.timeEnd || '')">-</span>
                         <div class="min-w-0">
                           <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-[13px] font-bold text-[#1D1B3A]" x-text="s.matkul">-</span>
+                            <span class="text-[13px] font-bold" :class="isSesiOngoing(s) ? 'text-[#14532D]' : 'text-[#1D1B3A]'" x-text="s.matkul">-</span>
                             <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]" :class="sesiTypeBadgeClass(s)" x-text="sesiType(s)">-</span>
+                            <!-- Live badge if Ongoing -->
+                            <template x-if="isSesiOngoing(s)">
+                              <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>BERLANGSUNG
+                              </span>
+                            </template>
                             <template x-if="isMatkulSaya(s)">
                               <span class="bg-[#2563EB] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[4px]">Mata Kuliah Anda</span>
                             </template>
                           </div>
-                          <p class="text-[11px] text-[#667085] mt-0.5">
+                          <p class="text-[11px] mt-0.5" :class="isSesiOngoing(s) ? 'text-[#166534]' : 'text-[#667085]'">
                             <span x-text="s.ruang ? 'Ruang ' + s.ruang : 'Tanpa ruangan'"></span>
                             <span x-show="s.dosen" x-text="' · ' + s.dosen"></span>
                             <span x-show="s.eventKind === 'REPLACEMENT'" class="italic text-[#B45309]" x-text="' · Pengganti sesi ' + (s.originDateNote || s.originDate || '')"></span>
@@ -1455,6 +1473,14 @@
                   <span class="text-[11px] font-semibold uppercase tracking-wider" x-text="selectedSessionDetail.sesiType"></span>
                 </div>
 
+                <!-- Live Status Badge if Ongoing -->
+                <template x-if="selectedSessionDetail.isOngoing">
+                  <div class="px-2 py-0.5 rounded-[6px] bg-[#DCFCE7] border border-[#BBF7D0] text-[#15803D] flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
+                    <span class="text-[10px] font-bold tracking-wide uppercase">SEDANG BERLANGSUNG</span>
+                  </div>
+                </template>
+
                 <!-- Badge Kepemilikan (Mata Kuliah Anda vs PJ Matkul Lain) -->
                 <template x-if="selectedSessionDetail.isMine">
                   <div class="px-2 py-0.5 bg-[#2563EB] rounded-[6px]">
@@ -1514,7 +1540,14 @@
               <!-- Status Pertemuan -->
               <div class="py-3 flex flex-row gap-3 items-start">
                 <span class="text-[12px] w-[126px] shrink-0 text-[#64748B] font-medium">Status Pertemuan</span>
-                <span class="text-[12px] text-[#334155] font-normal flex-1 leading-snug" x-text="selectedSessionDetail.statusText"></span>
+                <div class="flex-1 flex flex-col gap-1">
+                  <span class="text-[12px] text-[#334155] font-normal leading-snug" x-text="selectedSessionDetail.statusText"></span>
+                  <template x-if="selectedSessionDetail.liveStatus">
+                    <span class="w-fit inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-bold"
+                          :class="selectedSessionDetail.liveStatus.class"
+                          x-text="selectedSessionDetail.liveStatus.label"></span>
+                  </template>
+                </div>
               </div>
 
               <!-- Opsional: Tautan Tatap Muka -->
