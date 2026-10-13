@@ -2,8 +2,8 @@
 <section x-show="view === 'log'" x-cloak class="w-full flex flex-col gap-4">
   <!-- Header Riwayat Audit -->
   <div class="w-full flex flex-col gap-1">
-    <h1 class="text-[26px] font-[Poppins,system-ui,sans-serif] font-bold text-[#0F172A] leading-tight">Riwayat Audit Kelas</h1>
-    <p class="text-[13px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+    <h1 class="text-[26px] font-heading font-bold text-[#0F172A] leading-tight">Riwayat Audit Kelas</h1>
+    <p class="text-[13px] text-[#64748B]">
       Catatan riwayat perubahan jadwal, tugas, dan penugasan peran di kelas <span class="font-semibold text-[#1E293B]" x-text="selectedClass">-</span>.
     </p>
   </div>
@@ -14,7 +14,7 @@
     <div class="flex-1 min-w-[160px]">
       <label for="km-audit-filter-obj" class="sr-only">Filter Objek</label>
       <select id="km-audit-filter-obj" x-model="auditFilter.object" @change="terapkanAuditFilter()"
-        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#334155] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-medium text-[#334155] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
         <option value="">Semua Objek</option>
         <option value="JADWAL">Jadwal Kuliah</option>
         <option value="PERAN">Peran &amp; PJ</option>
@@ -29,14 +29,14 @@
     <div class="flex-1 min-w-[200px]">
       <label for="km-audit-filter-actor" class="sr-only">Cari Pelaku</label>
       <input id="km-audit-filter-actor" type="text" x-model="auditFilter.actor" @keydown.enter="terapkanAuditFilter()" placeholder="Cari pelaku / nomor WA..."
-        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-medium text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
     </div>
 
     <!-- Filter 3: Rentang Waktu -->
     <div class="flex-1 min-w-[160px]">
       <label for="km-audit-filter-time" class="sr-only">Rentang Waktu</label>
       <select id="km-audit-filter-time" x-model="auditFilter.timeRange" @change="terapkanAuditFilter()"
-        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#334155] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        class="w-full h-[40px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[12px] font-medium text-[#334155] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
         <option value="">Semua Waktu</option>
         <option value="today">Hari Ini</option>
         <option value="7d">7 Hari Terakhir</option>
@@ -47,11 +47,11 @@
     <!-- Aksi Filter -->
     <div class="flex items-center gap-2 shrink-0">
       <button type="button" @click="terapkanAuditFilter()"
-        class="h-[40px] px-4 bg-[#2563EB] hover:bg-blue-700 text-white font-[Inter,system-ui,sans-serif] font-semibold text-[12px] rounded-[12px] shadow-sm transition min-h-[40px] flex items-center justify-center">
+        class="h-[40px] px-4 bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-[12px] rounded-[12px] shadow-sm transition min-h-[40px] flex items-center justify-center">
         Terapkan
       </button>
       <button type="button" @click="resetFilterDanMuat()"
-        class="h-[40px] px-3 bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#475569] font-[Inter,system-ui,sans-serif] font-medium text-[12px] rounded-[12px] transition min-h-[40px] flex items-center justify-center">
+        class="h-[40px] px-3 bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#475569] font-medium text-[12px] rounded-[12px] transition min-h-[40px] flex items-center justify-center">
         Reset
       </button>
     </div>
@@ -93,7 +93,7 @@
     <!-- Header Tabel -->
     <div class="w-full overflow-x-auto">
       <div class="min-w-[850px] w-full">
-        <div class="h-[48px] px-4 flex items-center bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-[Inter,system-ui,sans-serif] font-bold text-[#475569] tracking-[0.7px] uppercase select-none">
+        <div class="h-[48px] px-4 flex items-center bg-[#F8FAFC] border-b border-[#E2E8F0] text-[11px] font-bold text-[#475569] tracking-[0.7px] uppercase select-none">
           <div class="w-[155px] shrink-0">TIPE &amp; OBJEK</div>
           <div class="flex-1 min-w-[280px]">RINGKASAN TINDAKAN</div>
           <div class="w-[200px] shrink-0">PELAKU (AKTOR)</div>
@@ -107,38 +107,38 @@
             <div class="px-4 py-3.5 flex items-center hover:bg-slate-50/70 transition-colors">
               <!-- Sel 1: Tipe & Objek -->
               <div class="w-[155px] shrink-0 flex flex-col gap-1 items-start">
-                <span class="px-2 py-0.5 rounded-[6px] text-[11px] font-[Inter,system-ui,sans-serif] font-semibold border"
+                <span class="px-2 py-0.5 rounded-[6px] text-[11px] font-semibold border"
                   :class="badgeAuditInfo(row).badgeClass"
                   x-text="badgeAuditInfo(row).label">
                   JADWAL
                 </span>
-                <span class="text-[11px] font-['JetBrains_Mono',monospace] text-[#94A3B8]" x-text="'#' + (row.entity_id || row.id)">#0</span>
+                <span class="text-[11px] font-mono text-[#94A3B8]" x-text="'#' + (row.entity_id || row.id)">#0</span>
               </div>
 
               <!-- Sel 2: Ringkasan Tindakan -->
               <div class="flex-1 min-w-[280px] pr-4 flex flex-col gap-0.5">
-                <div class="text-[14px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A] leading-snug"
+                <div class="text-[14px] font-semibold text-[#0F172A] leading-snug"
                   x-text="ringkasanAksiAudit(row).judul">-</div>
-                <div class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B] truncate"
+                <div class="text-[12px] text-[#64748B] truncate"
                   x-text="ringkasanAksiAudit(row).subjek">-</div>
               </div>
 
               <!-- Sel 3: Pelaku (Aktor) -->
               <div class="w-[200px] shrink-0 flex flex-col gap-0.5">
-                <div class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#0F172A] truncate"
+                <div class="text-[12px] font-semibold text-[#0F172A] truncate"
                   x-text="row.actor_name || 'Sistem'">-</div>
-                <div class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] truncate"
+                <div class="text-[11px] text-[#64748B] truncate"
                   x-text="row.actor_role ? (row.actor_role === 'KM' ? 'Ketua Murid' : row.actor_role) : 'Otomatisasi Bot'">-</div>
               </div>
 
               <!-- Sel 4: Waktu -->
-              <div class="w-[160px] shrink-0 text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#334155]"
+              <div class="w-[160px] shrink-0 text-[12px] font-medium text-[#334155]"
                 x-text="fmtAuditWaktuRelatif(row.created_at)">-</div>
 
               <!-- Sel 5: Aksi / Detail -->
               <div class="w-[100px] shrink-0 flex justify-end">
                 <button type="button" @click="bukaDetailAudit(row)"
-                  class="h-[32px] px-3 bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] hover:text-[#0F172A] font-[Inter,system-ui,sans-serif] font-semibold text-[12px] rounded-[8px] transition min-h-[36px] flex items-center justify-center">
+                  class="h-[32px] px-3 bg-white border border-[#E2E8F0] hover:bg-slate-50 text-[#334155] hover:text-[#0F172A] font-semibold text-[12px] rounded-[8px] transition min-h-[36px] flex items-center justify-center">
                   Periksa
                 </button>
               </div>
@@ -150,7 +150,7 @@
 
     <!-- Footer Paginasi Audit -->
     <div class="h-[64px] px-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-[#E2E8F0] bg-white">
-      <div class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B]">
+      <div class="text-[12px] text-[#64748B]">
         Menampilkan <span class="font-medium text-[#1E293B]" x-text="auditPageStart">0</span>-<span class="font-medium text-[#1E293B]" x-text="auditPageEnd">0</span> dari <span class="font-medium text-[#1E293B]" x-text="auditTotalCount">0</span> aktivitas
       </div>
 
@@ -164,7 +164,7 @@
         <!-- Angka Halaman -->
         <template x-for="p in auditPageNumbers" :key="p">
           <button type="button" @click="setAuditPage(p)"
-            class="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] text-[13px] font-[Inter,system-ui,sans-serif] transition"
+            class="w-[32px] h-[32px] flex items-center justify-center rounded-[8px] text-[13px] transition"
             :class="auditPage === p ? 'bg-[#2563EB] text-white font-bold' : 'bg-white border border-[#E2E8F0] text-[#475569] font-medium hover:bg-slate-50'"
             x-text="p">
             1
@@ -192,17 +192,17 @@
     <div class="p-5 border-b border-[#F1F5F9] flex justify-between items-start gap-4">
       <div class="flex flex-col gap-[6px] min-w-0">
         <div class="w-fit px-[8px] py-[4px] rounded-[6px] bg-[#EFF6FF] border border-[#BFDBFE] flex items-center">
-          <span class="text-[11px] font-[Inter,system-ui,sans-serif] font-semibold text-[#1D4ED8]"
+          <span class="text-[11px] font-semibold text-[#1D4ED8]"
             :class="badgeAuditInfo(auditDetailItem).badgeClass"
             x-text="badgeAuditInfo(auditDetailItem).label">
             JADWAL PENGGANTI
           </span>
         </div>
-        <h2 id="modal-audit-title" class="text-[18px] font-[Inter,system-ui,sans-serif] font-bold text-[#0F172A] leading-snug"
+        <h2 id="modal-audit-title" class="text-[18px] font-heading font-bold text-[#0F172A] leading-snug"
           x-text="'Detail ' + ringkasanAksiAudit(auditDetailItem).judul">
           Detail Perubahan Jadwal Kuliah
         </h2>
-        <p class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#64748B] leading-relaxed">
+        <p class="text-[12px] text-[#64748B] leading-relaxed">
           Objek: <span class="font-mono text-[#334155]" x-text="(auditDetailItem?.entity_type || 'ENTITAS') + ' #' + (auditDetailItem?.entity_id || auditDetailItem?.id)">-</span>
           · Dicatat pada <span class="text-[#334155]" x-text="fmtAuditWaktuLengkap(auditDetailItem?.created_at)">-</span>
         </p>
@@ -221,7 +221,7 @@
     <div class="p-5 flex flex-col gap-[17px] max-h-[calc(85vh-140px)] overflow-y-auto">
       <!-- Box Aktor dan Alasan Tindakan -->
       <div class="w-full p-[14px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-[9px]">
-        <div class="flex flex-wrap items-center gap-[5px] text-[12px] font-[Inter,system-ui,sans-serif]">
+        <div class="flex flex-wrap items-center gap-[5px] text-[12px]">
           <span class="text-[#475569]">Dilakukan oleh:</span>
           <span class="font-semibold text-[#0F172A]" x-text="auditDetailItem?.actor_name || 'Sistem'">-</span>
           <span class="text-[#475569]" x-text="detailAktorRoleDanKontak(auditDetailItem)">-</span>
@@ -237,7 +237,7 @@
 
       <!-- Perbandingan Data (Diff Sebelum & Sesudah) -->
       <div class="flex flex-col gap-[9px]">
-        <div class="text-[12px] font-[Inter,system-ui,sans-serif] font-semibold tracking-[0.8px] text-[#334155] uppercase"
+        <div class="text-[12px] font-semibold tracking-[0.8px] text-[#334155] uppercase"
           x-text="judulDiffSection(auditDetailItem)">
           PERUBAHAN DATA PERKULIAHAN
         </div>
@@ -245,7 +245,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-[12px] items-start">
           <!-- Kolom Sebelum -->
           <div class="p-[12px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] flex flex-col gap-[9px]">
-            <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.7px] text-[#94A3B8] uppercase">
+            <div class="text-[11px] font-bold tracking-[0.7px] text-[#94A3B8] uppercase">
               SEBELUM
             </div>
 
@@ -253,8 +253,8 @@
               <div class="flex flex-col gap-[6px]">
                 <template x-for="(item, idx) in auditDiffData.beforeRows" :key="'bef-' + idx">
                   <div class="flex justify-between items-center gap-[6px]">
-                    <span class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
-                    <span class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#475569] font-medium text-right break-words" x-text="item.value">-</span>
+                    <span class="text-[11px] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
+                    <span class="text-[12px] text-[#475569] font-medium text-right break-words" x-text="item.value">-</span>
                   </div>
                 </template>
               </div>
@@ -267,7 +267,7 @@
 
           <!-- Kolom Sesudah (Aktif) -->
           <div class="p-[12px] bg-[#ECFDF5]/50 border border-[#A7F3D0] rounded-[12px] flex flex-col gap-[9px]">
-            <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.7px] text-[#047857] uppercase">
+            <div class="text-[11px] font-bold tracking-[0.7px] text-[#047857] uppercase">
               SESUDAH (AKTIF)
             </div>
 
@@ -275,8 +275,8 @@
               <div class="flex flex-col gap-[6px]">
                 <template x-for="(item, idx) in auditDiffData.afterRows" :key="'aft-' + idx">
                   <div class="flex justify-between items-center gap-[6px]">
-                    <span class="text-[11px] font-[Inter,system-ui,sans-serif] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
-                    <span class="text-[12px] font-[Inter,system-ui,sans-serif] text-[#065F46] font-bold text-right break-words" x-text="item.value">-</span>
+                    <span class="text-[11px] text-[#64748B] font-medium shrink-0" x-text="item.label">-</span>
+                    <span class="text-[12px] text-[#065F46] font-bold text-right break-words" x-text="item.value">-</span>
                   </div>
                 </template>
               </div>
@@ -293,7 +293,7 @@
     <!-- Footer Modal Detail Audit -->
     <div class="p-4 bg-[#F8FAFC] border-t border-[#F1F5F9] flex justify-end items-center">
       <button type="button" @click="tutupDetailAudit()"
-        class="h-[36px] px-[20px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] font-[Inter,system-ui,sans-serif] font-semibold text-[12px] rounded-[12px] transition min-h-[40px] flex items-center justify-center">
+        class="h-[36px] px-[20px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] font-semibold text-[12px] rounded-[12px] transition min-h-[40px] flex items-center justify-center">
         Tutup
       </button>
     </div>

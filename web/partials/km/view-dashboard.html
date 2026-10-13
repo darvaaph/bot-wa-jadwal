@@ -151,22 +151,19 @@
         </div>
       </div>
 
-      <!-- Card 3: Status Bot WhatsApp -->
-      <div @click="checkBot()" :title="botOnline ? 'WhatsApp terhubung. Klik untuk periksa ulang.' : 'WhatsApp terputus. Klik untuk periksa ulang.'" class="bg-white border border-[#D7DDE7] rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-slate-400 hover:shadow-sm transition-all group min-h-[147px]">
+      <!-- Card 3: Review Tugas PJ -->
+      <div @click="bukaAntreanReview()" :title="antrean.length > 0 ? (antrean.length + ' usulan tugas menunggu persetujuan KM') : 'Semua usulan tugas telah diperiksa'" class="bg-white border border-[#D7DDE7] rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-[#F59E0B]/50 hover:shadow-sm transition-all group min-h-[147px]">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold tracking-[0.4px] text-[#667085] uppercase">STATUS BOT WHATSAPP</span>
-          <div class="w-[38px] h-[38px] rounded-[11px] flex items-center justify-center transition-transform group-hover:scale-105" :class="botOnline ? 'bg-[#F0FDF4] text-[#16A34A]' : 'bg-[#FFF1F2] text-[#E11D48]'">
+          <span class="text-[11px] font-semibold tracking-[0.4px] text-[#667085] uppercase">REVIEW TUGAS PJ</span>
+          <div class="w-[38px] h-[38px] rounded-[11px] bg-[#FEF3C7] flex items-center justify-center text-[#D97706] group-hover:scale-105 transition-transform">
             <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
-              <path d="M7 12.25q-0.61182 0-1.03564-0.42041-0.42383-0.42383-0.42383-1.03906 0-0.61182 0.42383-1.03223 0.42383-0.42383 1.03564-0.42383 0.61182 0 1.03564 0.42383 0.42383 0.42041 0.42383 1.03223 0 0.61523-0.42383 1.03906-0.42383 0.42041-1.03564 0.42041z m0-6.41553q1.0835 0 2.0542 0.3418 0.97412 0.3418 1.77051 0.94336 0.30762 0.22559 0.31445 0.60498 0.01025 0.37598-0.2666 0.65283-0.26318 0.26318-0.64941 0.27686-0.38623 0.01367-0.69727-0.19825-0.53662-0.35889-1.17578-0.56054-0.63916-0.20508-1.3501-0.20508-0.70752 0-1.34668 0.20166-0.63574 0.20166-1.17236 0.56055-0.31445 0.21191-0.7041 0.19482-0.38623-0.01709-0.64942-0.28369-0.2666-0.27344-0.26318-0.64941 0.00342-0.37939 0.31103-0.60498 0.79639-0.59814 1.76709-0.93653 0.97412-0.33838 2.05762-0.33838z m0-3.5q1.80811 0 3.40771 0.59131 1.59961 0.58789 2.87794 1.66455 0.31103 0.25977 0.32812 0.646 0.01709 0.38281-0.25977 0.65967-0.2666 0.2666-0.65283 0.27685-0.38623 0.00684-0.69726-0.23584-1.03564-0.83398-2.30713-1.28857-1.27148-0.45801-2.69678-0.45801-1.42529 0-2.69678 0.45801-1.27148 0.45459-2.30713 1.28857-0.31104 0.24268-0.69726 0.23584-0.38281-0.01025-0.64942-0.27685-0.27686-0.27686-0.26318-0.65967 0.01709-0.38623 0.32813-0.646 1.27832-1.07666 2.87793-1.66455 1.59961-0.59131 3.40771-0.59131z"/>
+              <path d="M4.13574 8.19287l0.93653 0q0.1333 0 0.25634-0.04785 0.12305-0.04785 0.21875-0.14697l2.62842-2.625q0.14014-0.14355 0.2085-0.32129 0.07178-0.17773 0.07177-0.35547 0-0.17432-0.07861-0.3418-0.0752-0.16748-0.20166-0.30761l-0.52978-0.5503q-0.14014-0.14355-0.31446-0.21191-0.17432-0.07178-0.3623-0.07178-0.17432 0-0.35205 0.07178-0.17773 0.06836-0.31787 0.20849l-2.62842 2.625q-0.0957 0.09912-0.14697 0.22217-0.05127 0.11963-0.05127 0.25293l0 0.93653q0 0.28027 0.1914 0.47167 0.19141 0.19141 0.47168 0.19141z"/>
             </svg>
           </div>
         </div>
         <div class="mt-2">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full shrink-0" :class="botOnline ? 'bg-[#16A34A]' : 'bg-[#E11D48]'"></span>
-            <p class="text-[18px] font-bold" :class="botOnline ? 'text-[#15803D]' : 'text-[#BE123C]'" x-text="botOnline ? 'Terhubung & Aktif' : 'Terputus'">-</p>
-          </div>
-          <p class="text-[12px] font-normal text-[#667085] mt-1" x-text="botOnline ? 'Siaran dan pengingat berjalan normal' : 'Siaran WhatsApp terjeda sementara'">Siaran dan pengingat berjalan normal</p>
+          <p class="text-[26px] font-bold tracking-tight" :class="antrean.length > 0 ? 'text-[#D97706]' : 'text-[#1D1B3A]'" x-text="(antrean.length || 0) + ' Usulan'">0 Usulan</p>
+          <p class="text-[12px] font-medium mt-1" :class="antrean.length > 0 ? 'text-[#D97706]' : 'text-[#667085]'" x-text="antrean.length > 0 ? (antrean.length + ' tugas menunggu persetujuan') : 'Semua usulan tugas telah ditinjau'">Semua usulan tugas telah ditinjau</p>
         </div>
       </div>
     </div>

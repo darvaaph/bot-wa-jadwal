@@ -3,20 +3,20 @@
 
   <!-- Judul dan pengantar materi (Desktop: SCR-USER-MAT-001) -->
   <div class="hidden md:flex flex-col gap-[5px] justify-start items-start w-full">
-    <h1 class="text-[25px] leading-tight text-[#0F172A] font-[Poppins,system-ui,sans-serif] font-bold text-left">
+    <h1 class="text-[25px] leading-tight text-[#0F172A] font-heading font-bold text-left">
       Materi &amp; Modul Kuliah
     </h1>
-    <p class="text-[12px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium text-left">
+    <p class="text-[12px] text-[#64748B] font-medium text-left">
       Kumpulan modul, slide presentasi dosen, dan rekaman kuliah <span x-text="selectedClassFormatted">D4-TI 1A</span>.
     </p>
   </div>
 
   <!-- Judul dan pengantar materi (Mobile: SCR-USER-MAT-001 Mobile 375) -->
   <div class="flex md:hidden flex-col gap-[3px] justify-start items-start w-full">
-    <h1 class="text-[20px] leading-tight text-[#0F172A] font-[Poppins,system-ui,sans-serif] font-bold text-left">
+    <h1 class="text-[20px] leading-tight text-[#0F172A] font-heading font-bold text-left">
       Materi Kuliah
     </h1>
-    <p class="text-[11px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium text-left">
+    <p class="text-[11px] text-[#64748B] font-medium text-left">
       <span x-text="filteredMateriList.length">28</span> berkas untuk <span x-text="selectedClassFormatted">D4-TI
         1A</span>
     </p>
@@ -28,7 +28,7 @@
       <template x-for="cat in materiCategories" :key="'mob-cat-' + cat.key">
         <button type="button" @click="filterMateriMatkul = cat.key"
           :class="filterMateriMatkul === cat.key ? 'bg-[#2563EB] text-[#FFFFFF] [outline:1px_solid_#2563EB] font-bold' : 'bg-[#FFFFFF] text-[#334155] [outline:1px_solid_#E2E8F0] font-semibold hover:bg-slate-50'"
-          class="h-[44px] shrink-0 flex items-center justify-center px-[11px] [outline-offset:-0.5px] rounded-[10px] text-[11px] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap transition-colors cursor-pointer">
+          class="h-[44px] shrink-0 flex items-center justify-center px-[11px] [outline-offset:-0.5px] rounded-[10px] text-[11px] whitespace-nowrap transition-colors cursor-pointer">
           <span x-text="cat.shortLabel + ' (' + cat.count + ')'">Semua (28)</span>
         </button>
       </template>
@@ -42,7 +42,7 @@
     <div
       class="hidden lg:flex w-[256px] shrink-0 [box-shadow:0px_2px_8px_#0F172A08] flex-col gap-[14px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
       <div
-        class="text-[11px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-bold tracking-[0.6px] text-left uppercase whitespace-nowrap">
+        class="text-[11px] text-[#64748B] font-bold tracking-[0.6px] text-left uppercase whitespace-nowrap">
         MATA KULIAH
       </div>
       <div class="w-full flex flex-col gap-[6px] justify-start items-start">
@@ -51,7 +51,7 @@
             :class="filterMateriMatkul === cat.key ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#FFFFFF] hover:bg-slate-50 text-[#475569]'"
             class="w-full h-[44px] shrink-0 flex flex-row gap-[8px] px-[12px] justify-between items-center rounded-[12px] cursor-pointer transition-colors text-left">
             <div :class="filterMateriMatkul === cat.key ? 'text-[#1D4ED8] font-bold' : 'text-[#475569] font-medium'"
-              class="text-[11px] leading-[14px] flex-1 font-[Montserrat,system-ui,sans-serif] truncate"
+              class="text-[11px] leading-[14px] flex-1 truncate"
               x-text="cat.label">
               Semua Materi
             </div>
@@ -71,13 +71,13 @@
       <!-- Kepala daftar materi & urutan -->
       <div class="w-full flex flex-row justify-between items-center pb-1">
         <div
-          class="text-[15px] md:text-[16px] text-[#0F172A] font-[Poppins,system-ui,sans-serif] font-bold text-left whitespace-nowrap truncate"
+          class="text-[15px] md:text-[16px] text-[#0F172A] font-heading font-bold text-left whitespace-nowrap truncate"
           x-text="currentMateriHeading">
           Semua Berkas Materi (28 Berkas)
         </div>
         <div class="relative" x-data="{ sortDropdownOpen: false }">
           <button type="button" @click="sortDropdownOpen = !sortDropdownOpen"
-            class="text-[11px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium hover:text-[#0F172A] flex items-center gap-1 cursor-pointer transition-colors">
+            class="text-[11px] text-[#64748B] font-medium hover:text-[#0F172A] flex items-center gap-1 cursor-pointer transition-colors">
             <span x-text="sortMateri === 'terbaru' ? 'Urutkan: Terbaru ▾' : 'Urutkan: Terlama ▾'">Urutkan: Terbaru
               ▾</span>
           </button>
@@ -85,12 +85,12 @@
             class="absolute right-0 mt-1.5 w-36 bg-white border border-[#E2E8F0] rounded-[12px] shadow-lg py-1 z-30">
             <button type="button" @click="sortMateri = 'terbaru'; sortDropdownOpen = false"
               :class="sortMateri === 'terbaru' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold' : 'text-[#334155] font-medium'"
-              class="w-full text-left px-3 py-2 text-[11px] font-[Montserrat,system-ui,sans-serif] hover:bg-slate-50 transition-colors">
+              class="w-full text-left px-3 py-2 text-[11px] hover:bg-slate-50 transition-colors">
               Terbaru
             </button>
             <button type="button" @click="sortMateri = 'terlama'; sortDropdownOpen = false"
               :class="sortMateri === 'terlama' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold' : 'text-[#334155] font-medium'"
-              class="w-full text-left px-3 py-2 text-[11px] font-[Montserrat,system-ui,sans-serif] hover:bg-slate-50 transition-colors">
+              class="w-full text-left px-3 py-2 text-[11px] hover:bg-slate-50 transition-colors">
               Terlama
             </button>
           </div>
@@ -152,7 +152,7 @@
 
       <!-- State Loading -->
       <div x-show="materiLoading"
-        class="w-full py-12 text-center text-[13px] text-slate-400 font-[Montserrat,system-ui,sans-serif]">
+        class="w-full py-12 text-center text-[13px] text-slate-400">
         Memuat berkas materi...
       </div>
 
@@ -163,9 +163,9 @@
           <path stroke-linecap="round" stroke-linejoin="round"
             d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
         </svg>
-        <p class="text-[14px] font-[Montserrat,system-ui,sans-serif] font-semibold text-slate-700 mt-3">Tidak ada materi
+        <p class="text-[14px] font-semibold text-slate-700 mt-3">Tidak ada materi
         </p>
-        <p class="text-[12px] font-[Montserrat,system-ui,sans-serif] text-slate-400 mt-1">Belum ada berkas untuk
+        <p class="text-[12px] text-slate-400 mt-1">Belum ada berkas untuk
           kategori mata kuliah yang dipilih.</p>
       </div>
 
@@ -196,12 +196,12 @@
               <!-- Informasi Berkas (Judul & Sumber) -->
               <div class="flex-1 min-w-0 flex flex-col gap-[4px] justify-start items-start text-left">
                 <div
-                  class="text-[13px] leading-[18px] w-full text-[#0F172A] font-[Montserrat,system-ui,sans-serif] font-bold truncate"
+                  class="text-[13px] leading-[18px] w-full text-[#0F172A] font-bold truncate"
                   x-text="m.title">
                   Slide Normalisasi Database: 1NF hingga BCNF
                 </div>
                 <div
-                  class="text-[11px] leading-[15px] w-full text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium truncate"
+                  class="text-[11px] leading-[15px] w-full text-[#64748B] font-medium truncate"
                   x-text="getMateriSubtitle(m)">
                   Sistem Basis Data · PDF · Diunggah oleh PJ (Farhan)
                 </div>
@@ -210,19 +210,19 @@
               <!-- Jenis, Tanggal, dan Aksi Buka Tautan -->
               <div class="w-fit shrink-0 flex flex-row gap-[12px] items-center">
                 <div
-                  class="text-[11px] text-[#475569] font-[Montserrat,system-ui,sans-serif] font-semibold whitespace-nowrap"
+                  class="text-[11px] text-[#475569] font-semibold whitespace-nowrap"
                   x-text="getMateriType(m)">
                   Slide
                 </div>
                 <div
-                  class="text-[11px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium whitespace-nowrap"
+                  class="text-[11px] text-[#64748B] font-medium whitespace-nowrap"
                   x-text="getMateriDate(m)">
                   06 Okt
                 </div>
                 <button type="button" @click.stop="bukaTautanLangsung(m.url)"
                   class="h-[40px] px-[12px] flex flex-row gap-[5px] items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer">
                   <span
-                    class="text-[11px] text-[#334155] font-[Montserrat,system-ui,sans-serif] font-bold whitespace-nowrap">Buka
+                    class="text-[11px] text-[#334155] font-bold whitespace-nowrap">Buka
                     Tautan</span>
                   <svg class="w-[14px] h-[14px] text-[#475569]" viewBox="0 0 14 14" fill="currentColor">
                     <path
@@ -259,12 +259,12 @@
               </div>
               <div class="flex-1 min-w-0 flex flex-col gap-[5px] justify-start items-start">
                 <div
-                  class="text-[13px] leading-[18px] w-full text-[#0F172A] font-[Montserrat,system-ui,sans-serif] font-bold line-clamp-2"
+                  class="text-[13px] leading-[18px] w-full text-[#0F172A] font-bold line-clamp-2"
                   x-text="m.title">
                   Slide Normalisasi Database: 1NF hingga BCNF
                 </div>
                 <div
-                  class="text-[11px] leading-[15px] w-full text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium truncate"
+                  class="text-[11px] leading-[15px] w-full text-[#64748B] font-medium truncate"
                   x-text="getMateriSubtitle(m)">
                   Sistem Basis Data · PDF · Diunggah oleh PJ (Farhan)
                 </div>
@@ -276,17 +276,17 @@
               <div class="flex items-center gap-[8px]">
                 <div class="px-[7px] py-[5px] bg-[#F1F5F9] rounded-[6px]">
                   <span
-                    class="text-[10px] text-[#475569] font-[Montserrat,system-ui,sans-serif] font-bold whitespace-nowrap"
+                    class="text-[10px] text-[#475569] font-bold whitespace-nowrap"
                     x-text="getMateriType(m)">Slide</span>
                 </div>
                 <span
-                  class="text-[10px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium whitespace-nowrap"
+                  class="text-[10px] text-[#64748B] font-medium whitespace-nowrap"
                   x-text="getMateriDate(m)">06 Okt</span>
               </div>
               <button type="button" @click.stop="bukaTautanLangsung(m.url)"
                 class="h-[44px] px-[12px] flex items-center gap-[5px] bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer">
                 <span
-                  class="text-[11px] text-[#334155] font-[Montserrat,system-ui,sans-serif] font-bold whitespace-nowrap">Buka</span>
+                  class="text-[11px] text-[#334155] font-bold whitespace-nowrap">Buka</span>
                 <svg class="w-[15px] h-[15px] text-[#475569]" viewBox="0 0 14 14" fill="currentColor">
                   <path
                     d="M3.27 11.67a.94.94 0 0 1-.94-.94V3.27c0-.52.42-.94.94-.94h2.98a.29.29 0 0 1 .21.09.29.29 0 0 1 .08.2.29.29 0 0 1-.08.21.29.29 0 0 1-.21.08H3.27a.36.36 0 0 0-.36.36v7.46c0 .2.16.36.36.36h7.45a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .09-.21.29.29 0 0 1 .2-.08.29.29 0 0 1 .21.08.29.29 0 0 1 .08.21v2.98a.94.94 0 0 1-.94.94H3.27zm7.81-8.34L5.88 8.52a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.2-5.2H8.46a.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21.29.29 0 0 1 .08-.2.29.29 0 0 1 .21-.09h2.74c.2 0 .34.14.34.34v2.74a.29.29 0 0 1-.09.21.29.29 0 0 1-.2.08.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21V3.33z" />
@@ -323,14 +323,14 @@
               <!-- Kategori Pill -->
               <div class="w-fit px-[8px] py-[5px] bg-[#EFF6FF] rounded-[6px]">
                 <span
-                  class="text-[10px] text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] font-bold whitespace-nowrap uppercase tracking-wider"
+                  class="text-[10px] text-[#1D4ED8] font-bold whitespace-nowrap uppercase tracking-wider"
                   x-text="(selectedMateri.course_name || 'UMUM KELAS').toUpperCase()">SISTEM BASIS DATA</span>
               </div>
               <!-- Judul Materi -->
-              <h2 class="text-[18px] leading-[23px] text-[#0F172A] font-[Poppins,system-ui,sans-serif] font-bold"
+              <h2 class="text-[18px] leading-[23px] text-[#0F172A] font-heading font-bold"
                 x-text="selectedMateri.title">Slide Normalisasi Database: 1NF hingga BCNF</h2>
               <!-- Format & Pengunggah -->
-              <div class="text-[11px] leading-[15px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-medium"
+              <div class="text-[11px] leading-[15px] text-[#64748B] font-medium"
                 x-text="getMateriModalMeta(selectedMateri)">
                 Format: Dokumen PDF · Diunggah oleh Farhan Pratama (PJ)
               </div>
@@ -351,12 +351,12 @@
             <!-- CATATAN & INSTRUKSI -->
             <div class="w-full flex flex-col gap-[7px]" x-show="selectedMateri.description">
               <div
-                class="text-[10px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-bold tracking-[0.5px] uppercase">
+                class="text-[10px] text-[#64748B] font-bold tracking-[0.5px] uppercase">
                 CATATAN &amp; INSTRUKSI
               </div>
               <div
                 class="w-full p-[14px] bg-[#F8FAFC] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
-                <p class="text-[12px] leading-[19px] text-[#334155] font-[Montserrat,system-ui,sans-serif] font-medium whitespace-pre-line"
+                <p class="text-[12px] leading-[19px] text-[#334155] font-medium whitespace-pre-line"
                   x-text="selectedMateri.description">
                   Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form
                   (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.
@@ -367,7 +367,7 @@
             <!-- AKSES BERKAS -->
             <div class="w-full flex flex-col gap-[7px]" x-show="selectedMateri.url">
               <div
-                class="text-[10px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-bold tracking-[0.5px] uppercase">
+                class="text-[10px] text-[#64748B] font-bold tracking-[0.5px] uppercase">
                 AKSES BERKAS
               </div>
               <div
@@ -384,7 +384,7 @@
                 </div>
                 <!-- Tombol Salin -->
                 <button type="button" @click="salinTautanMateri(selectedMateri.url)"
-                  class="h-[36px] md:h-[44px] px-[12px] bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] text-[11px] text-[#334155] font-[Montserrat,system-ui,sans-serif] font-bold hover:bg-slate-50 transition-colors cursor-pointer shrink-0">
+                  class="h-[36px] md:h-[44px] px-[12px] bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] text-[11px] text-[#334155] font-bold hover:bg-slate-50 transition-colors cursor-pointer shrink-0">
                   Salin
                 </button>
               </div>
@@ -395,7 +395,7 @@
           <!-- Aksi detail materi -->
           <div class="w-full flex flex-col gap-[4px] mt-2">
             <button type="button" @click="bukaTautanLangsung(selectedMateri.url)"
-              class="w-full h-[48px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] flex items-center justify-center gap-[8px] text-[12px] font-[Montserrat,system-ui,sans-serif] font-bold shadow-sm transition-colors cursor-pointer">
+              class="w-full h-[48px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] flex items-center justify-center gap-[8px] text-[12px] font-bold shadow-sm transition-colors cursor-pointer">
               <span
                 x-text="selectedMateri.url && selectedMateri.url.includes('drive.google.com') ? 'Buka Berkas di Google Drive' : (selectedMateri.url && selectedMateri.url.includes('github.com') ? 'Buka di GitHub' : 'Buka Berkas')">Buka
                 Berkas di Google Drive</span>
@@ -405,7 +405,7 @@
               </svg>
             </button>
             <button type="button" @click="tutupDetailMateri()"
-              class="w-full h-[44px] flex items-center justify-center text-[12px] text-[#64748B] font-[Montserrat,system-ui,sans-serif] font-bold hover:text-[#0F172A] transition-colors cursor-pointer">
+              class="w-full h-[44px] flex items-center justify-center text-[12px] text-[#64748B] font-bold hover:text-[#0F172A] transition-colors cursor-pointer">
               Tutup
             </button>
           </div>

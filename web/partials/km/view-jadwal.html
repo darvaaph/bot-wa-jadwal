@@ -10,7 +10,7 @@
         <span>/</span>
         <span class="text-[#3965FB] font-semibold">Jadwal Kuliah</span>
       </div>
-      <h1 class="font-[Poppins] text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Manajemen Jadwal Kuliah</h1>
+      <h1 class="font-heading text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Manajemen Jadwal Kuliah</h1>
       <p class="text-[13px] text-[#667085] mt-1">Jadwal perkuliahan mingguan, kuliah pengganti, dan pemetaan slot kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || '—'">-</span>.</p>
       
       <!-- Semester Pill Selector -->
@@ -36,7 +36,7 @@
       <!-- Cek Jam Kosong -->
       <button type="button" @click="bukaModalJamKosong()"
               data-pencil-name="Cek Jam Kosong"
-              class="h-[40px] px-[14px] bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-semibold text-[13px] flex items-center gap-[7px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer min-h-[40px]">
+              class="h-[40px] px-[14px] bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center gap-[7px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer min-h-[40px]">
         <svg data-pencil-name="Ikon Cek Jam Kosong" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
           <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"></path>
         </svg>
@@ -46,7 +46,7 @@
       <!-- Buat Perubahan Jadwal -->
       <button type="button" @click="mulaiUbah()"
               data-pencil-name="Buat Perubahan Jadwal"
-              class="h-[40px] px-[16px] bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white font-[Inter,system-ui,sans-serif] font-semibold text-[13px] flex items-center gap-[8px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer min-h-[40px]">
+              class="h-[40px] px-[16px] bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white font-semibold text-[13px] flex items-center gap-[8px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer min-h-[40px]">
         <svg data-pencil-name="Ikon Buat Perubahan" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] shrink-0 fill-white" aria-hidden="true">
           <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"></path>
         </svg>
@@ -77,7 +77,7 @@
         <div data-pencil-name="Badge Pekan 6"
              class="box-border w-fit shrink-0 h-fit flex flex-row p-[5px_8px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
           <span data-pencil-name="Teks Pekan 6"
-                class="text-[#475467] text-[11px] font-[Inter,system-ui,sans-serif] font-semibold leading-none whitespace-nowrap"
+                class="text-[#475467] text-[11px] font-semibold leading-none whitespace-nowrap"
                 x-text="pekanLabel">Pekan 6</span>
         </div>
 
@@ -91,13 +91,13 @@
 
         <button type="button" @click="weekOffset = 0; if (['Sabtu','Minggu'].includes(todayName)) { activeScheduleDay = 'Senin'; } else { activeScheduleDay = todayName; }"
                 data-pencil-name="Kembali ke Minggu Ini"
-                class="h-[36px] px-[12px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-[#F8FAFC] hover:bg-slate-100 text-[12px] font-[Inter,system-ui,sans-serif] font-semibold text-[#1D1B3A] transition-colors ml-0.5 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer whitespace-nowrap">
+                class="h-[36px] px-[12px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-[#F8FAFC] hover:bg-slate-100 text-[12px] font-semibold text-[#1D1B3A] transition-colors ml-0.5 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer whitespace-nowrap">
           Minggu Ini
         </button>
       </div>
 
       <!-- Right: Legenda Jenis Sesi -->
-      <div data-pencil-name="Legenda Jenis Sesi" class="flex items-center gap-[9px] text-[12px] font-[Inter,system-ui,sans-serif] font-medium text-[#667085]">
+      <div data-pencil-name="Legenda Jenis Sesi" class="flex items-center gap-[9px] text-[12px] font-medium text-[#667085]">
         <div data-pencil-name="Legenda Teori" class="flex items-center gap-[6px]">
           <span class="w-[4px] h-[14px] bg-[#3965FB] rounded-[2px] shrink-0"></span>
           <span class="whitespace-nowrap">Teori</span>
@@ -127,11 +127,11 @@
       <!-- Card Top Bar: Title + Subtitle + Toggle Pill -->
       <div class="box-border w-full min-h-[42px] shrink-0 flex flex-col sm:flex-row gap-[12px] justify-between sm:items-center pb-3 border-b border-[#F1F5F9]">
         <div class="flex flex-col gap-[3px]">
-          <h2 class="text-[16px] font-[Poppins,system-ui,sans-serif] font-bold text-[#0F172A]"
+          <h2 class="text-[16px] font-heading font-bold text-[#0F172A]"
               x-text="calendarViewMode === 'calendar' ? 'Kalender Mingguan Kelas' : 'Jadwal Mingguan Kelas'">
             Kalender Mingguan Kelas
           </h2>
-          <p class="text-[12px] font-[Inter,system-ui,sans-serif] font-normal text-[#64748B]"
+          <p class="text-[12px] font-normal text-[#64748B]"
              x-text="calendarViewMode === 'calendar' ? 'Klik pada sesi untuk rincian kelas atau mengajukan kuliah pengganti.' : 'Daftar terurut sesi perkuliahan pekan ini. Klik baris untuk melihat rincian sesi.'">
             Klik pada sesi untuk rincian kelas atau mengajukan kuliah pengganti.
           </p>
@@ -166,23 +166,23 @@
             <div class="box-border w-full h-[63px] shrink-0 p-[0px_11px] flex justify-between items-center transition-colors rounded-t-[12px]"
                  :class="isToday(d.name) && weekOffset === 0 ? 'bg-[#3965FB] border border-[#3965FB]' : 'bg-[#FFFFFF] border border-[#E2E8F0]'">
               <div class="box-border w-fit shrink-0 flex flex-col gap-[2px]">
-                <div class="text-[13px] font-[Inter,system-ui,sans-serif] font-bold leading-tight"
+                <div class="text-[13px] font-bold leading-tight"
                      :class="isToday(d.name) && weekOffset === 0 ? 'text-[#FFFFFF]' : 'text-[#1D1B3A]'"
                      x-text="d.name">-</div>
-                <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-normal leading-tight"
+                <div class="text-[11px] font-normal leading-tight"
                      :class="isToday(d.name) && weekOffset === 0 ? 'text-[#DBEAFE]' : 'text-[#667085]'"
                      x-text="d.dateShort || (d.dateNum + ' ' + weekLabel.split(' ')[1])">-</div>
               </div>
               <div>
                 <template x-if="isToday(d.name) && weekOffset === 0">
                   <div class="box-border w-fit shrink-0 p-[4px_6px] bg-[#FFFFFF] rounded-[5px]">
-                    <span class="text-[9px] font-[Inter,system-ui,sans-serif] font-extrabold text-[#3965FB] uppercase leading-none tracking-wide">
+                    <span class="text-[9px] font-extrabold text-[#3965FB] uppercase leading-none tracking-wide">
                       HARI INI
                     </span>
                   </div>
                 </template>
                 <template x-if="!(isToday(d.name) && weekOffset === 0)">
-                  <span class="text-[11px] font-[Inter,system-ui,sans-serif] font-medium text-[#98A2B3]"
+                  <span class="text-[11px] font-medium text-[#98A2B3]"
                         x-text="daySessions(d.name).length + ' Sesi'"></span>
                 </template>
               </div>
@@ -211,7 +211,7 @@
                                  : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
                                     ? 'bg-[#FEF3C7] border border-[#FDE68A]'
                                     : 'bg-[#EFF6FF] border border-[#BFDBFE]')">
-                      <span class="text-[10px] font-['JetBrains_Mono',system-ui,sans-serif] font-bold leading-none block"
+                      <span class="text-[10px] font-mono font-bold leading-none block"
                             :class="isSesiOngoing(s)
                                     ? 'text-[#15803D]'
                                     : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#1D4ED8]')"
@@ -231,28 +231,28 @@
                   <!-- Jenis Sesi Badge -->
                   <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
                     <div class="box-border w-fit h-fit shrink-0 p-[3px_7px] bg-[#FEF3C7] border border-[#FDE68A] rounded-[6px]">
-                      <span class="text-[10px] font-[Inter,system-ui,sans-serif] font-bold text-[#92400E] leading-none block">
+                      <span class="text-[10px] font-bold text-[#92400E] leading-none block">
                         Pengganti
                       </span>
                     </div>
                   </template>
                   <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Praktikum'">
                     <div class="box-border w-fit h-fit shrink-0 p-[3px_7px] bg-[#F5F3FF] border border-[#DDD6FE] rounded-[6px]">
-                      <span class="text-[10px] font-[Inter,system-ui,sans-serif] font-semibold text-[#6D28D9] leading-none block">
+                      <span class="text-[10px] font-semibold text-[#6D28D9] leading-none block">
                         Praktikum
                       </span>
                     </div>
                   </template>
                   <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Teori'">
                     <div class="box-border w-fit h-fit shrink-0 p-[3px_7px] bg-[#EFF6FF] border border-[#EFF6FF] rounded-[6px]">
-                      <span class="text-[10px] font-[Inter,system-ui,sans-serif] font-semibold text-[#1D4ED8] leading-none block">
+                      <span class="text-[10px] font-semibold text-[#1D4ED8] leading-none block">
                         Teori
                       </span>
                     </div>
                   </template>
 
                   <!-- Judul Matkul -->
-                  <div class="text-[13px]/[17px] box-border w-full font-[Inter,system-ui,sans-serif] font-bold text-left line-clamp-2 transition-colors"
+                  <div class="text-[13px]/[17px] box-border w-full font-bold text-left line-clamp-2 transition-colors"
                        :class="isSesiOngoing(s)
                                ? 'text-[#14532D] group-hover:text-[#16A34A]'
                                : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
@@ -262,14 +262,14 @@
                   </div>
 
                   <!-- Ruangan & Dosen -->
-                  <div class="text-[11px]/[15px] box-border w-full font-[Inter,system-ui,sans-serif] font-normal text-left truncate"
+                  <div class="text-[11px]/[15px] box-border w-full font-normal text-left truncate"
                        :class="isSesiOngoing(s) ? 'text-[#166534]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]')"
                        x-text="(s.ruang || 'Tanpa ruang') + (s.dosen ? ' · ' + s.dosen : '')">
                   </div>
 
                   <!-- Origin Footnote untuk Kuliah Pengganti -->
                   <template x-if="(s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti') && s.originNote">
-                    <div class="text-[11px]/[15px] italic text-[#B45309] font-[Inter,system-ui,sans-serif] truncate">
+                    <div class="text-[11px]/[15px] italic text-[#B45309] truncate">
                       <span x-text="s.originNote"></span>
                     </div>
                   </template>
@@ -309,19 +309,19 @@
             <div class="box-border w-full flex flex-col gap-[3px]">
               <!-- Header Hari & Tanggal -->
               <div class="box-border w-full h-[24px] flex flex-row gap-[8px] justify-start items-center">
-                <div class="text-[14px]/[normal] box-border text-[#0F172A] font-[Inter,system-ui,sans-serif] font-bold text-left whitespace-nowrap"
+                <div class="text-[14px]/[normal] box-border text-[#0F172A] font-bold text-left whitespace-nowrap"
                      x-text="formatFullDate(d.full)">
                   Senin, 5 Oktober 2026
                 </div>
                 <template x-if="isToday(d.name) && weekOffset === 0">
                   <div class="box-border w-fit shrink-0 h-fit flex flex-row p-[3px_8px] justify-start items-start bg-[#2563EB] rounded-[12px]">
-                    <span class="text-[10px]/[normal] box-border text-[#FFFFFF] font-[Inter,system-ui,sans-serif] font-bold text-left whitespace-nowrap uppercase leading-none">
+                    <span class="text-[10px]/[normal] box-border text-[#FFFFFF] font-bold text-left whitespace-nowrap uppercase leading-none">
                       HARI INI
                     </span>
                   </div>
                 </template>
                 <div class="box-border flex-1 h-[1px]"></div>
-                <div class="text-[12px]/[normal] box-border text-[#64748B] font-[Inter,system-ui,sans-serif] font-normal text-left whitespace-nowrap"
+                <div class="text-[12px]/[normal] box-border text-[#64748B] font-normal text-left whitespace-nowrap"
                      x-text="daySessions(d.name).length + ' Sesi Perkuliahan'">
                   3 Sesi Perkuliahan
                 </div>
@@ -340,7 +340,7 @@
                     
                     <!-- Jam Sesi: md:w-[150px] shrink-0 -->
                     <div class="box-border md:w-[150px] shrink-0 flex flex-row justify-start items-center">
-                      <span class="text-[12px]/[normal] box-border font-['JetBrains_Mono',system-ui,sans-serif] font-semibold text-left whitespace-nowrap"
+                      <span class="text-[12px]/[normal] box-border font-mono font-semibold text-left whitespace-nowrap"
                             :class="isSesiOngoing(s) ? 'text-[#15803D]' : 'text-[#334155]'"
                             x-text="s.timeStart + ' - ' + (s.timeEnd || '') + ' WIB'">
                         08:40 - 10:20 WIB
@@ -353,7 +353,7 @@
                       <template x-if="isSesiOngoing(s)">
                         <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#DCFCE7] border border-[#BBF7D0] rounded-[6px] flex items-center gap-1">
                           <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
-                          <span class="text-[10px]/[normal] box-border text-[#15803D] font-[Inter,system-ui,sans-serif] font-bold text-left whitespace-nowrap block leading-none uppercase">
+                          <span class="text-[10px]/[normal] box-border text-[#15803D] font-bold text-left whitespace-nowrap block leading-none uppercase">
                             BERLANGSUNG
                           </span>
                         </div>
@@ -361,7 +361,7 @@
                       <!-- PENGGANTI -->
                       <template x-if="s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'">
                         <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#FEF3C7] border border-[#FCD34D] rounded-[6px]">
-                          <span class="text-[10px]/[normal] box-border text-[#92400E] font-[Inter,system-ui,sans-serif] font-bold text-left whitespace-nowrap block leading-none uppercase">
+                          <span class="text-[10px]/[normal] box-border text-[#92400E] font-bold text-left whitespace-nowrap block leading-none uppercase">
                             PENGGANTI
                           </span>
                         </div>
@@ -369,7 +369,7 @@
                       <!-- PRAKTIKUM -->
                       <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Praktikum'">
                         <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#F5F3FF] border border-[#DDD6FE] rounded-[6px]">
-                          <span class="text-[10px]/[normal] box-border text-[#6D28D9] font-[Inter,system-ui,sans-serif] font-semibold text-left whitespace-nowrap block leading-none uppercase">
+                          <span class="text-[10px]/[normal] box-border text-[#6D28D9] font-semibold text-left whitespace-nowrap block leading-none uppercase">
                             PRAKTIKUM
                           </span>
                         </div>
@@ -377,7 +377,7 @@
                       <!-- TEORI -->
                       <template x-if="!s.isReplacement && slotKind(s.matkul, s.eventKind) === 'Teori'">
                         <div class="box-border w-fit shrink-0 p-[3px_7px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px]">
-                          <span class="text-[10px]/[normal] box-border text-[#1D4ED8] font-[Inter,system-ui,sans-serif] font-semibold text-left whitespace-nowrap block leading-none uppercase">
+                          <span class="text-[10px]/[normal] box-border text-[#1D4ED8] font-semibold text-left whitespace-nowrap block leading-none uppercase">
                             TEORI
                           </span>
                         </div>
@@ -386,19 +386,19 @@
 
                     <!-- Detail Mata Kuliah & Dosen / Asal: flex-1 -->
                     <div class="box-border flex-1 min-w-0 flex flex-col gap-[1px] justify-start items-start">
-                      <div class="text-[13px]/[normal] box-border w-full font-[Inter,system-ui,sans-serif] font-bold text-left truncate"
+                      <div class="text-[13px]/[normal] box-border w-full font-bold text-left truncate"
                            :class="isSesiOngoing(s) ? 'text-[#14532D]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#78350F]' : 'text-[#0F172A]')"
                            x-text="s.matkul + (s.isReplacement && !s.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
                         Pemrograman Berorientasi Objek
                       </div>
                       <div class="box-border w-fit shrink-0 flex flex-row flex-wrap items-center gap-[8px]">
-                        <span class="text-[11px]/[normal] box-border font-[Inter,system-ui,sans-serif] font-normal text-left whitespace-nowrap"
+                        <span class="text-[11px]/[normal] box-border font-normal text-left whitespace-nowrap"
                               :class="isSesiOngoing(s) ? 'text-[#166534]' : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti' ? 'text-[#92400E]' : 'text-[#667085]')"
                               x-text="s.dosen || (s.ruang ? '' : 'Dosen belum ditentukan')">
                           Bpk. M. Ridwan
                         </span>
                         <template x-if="(s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti') && s.originNote">
-                          <span class="text-[11px]/[normal] box-border text-[#B45309] font-[Inter,system-ui,sans-serif] font-normal italic text-left whitespace-nowrap"
+                          <span class="text-[11px]/[normal] box-border text-[#B45309] font-normal italic text-left whitespace-nowrap"
                                 x-text="s.originNote">
                             Pengganti sesi Jumat, 2 Okt
                           </span>
@@ -408,7 +408,7 @@
 
                     <!-- Ruangan: md:w-[130px] shrink-0 -->
                     <div class="box-border md:w-[130px] shrink-0 flex flex-row justify-start items-center">
-                      <span class="text-[12px]/[normal] box-border text-[#334155] font-[Inter,system-ui,sans-serif] font-medium text-left whitespace-nowrap"
+                      <span class="text-[12px]/[normal] box-border text-[#334155] font-medium text-left whitespace-nowrap"
                             x-text="s.ruang || 'Tanpa ruang'">
                         Ruang D102
                       </span>
@@ -418,7 +418,7 @@
                     <div class="box-border md:w-[90px] shrink-0 flex flex-row justify-end items-center">
                       <button type="button" @click.stop="bukaAksiSesi(s)"
                               :aria-label="'Buka detail sesi ' + s.matkul"
-                              class="box-border w-fit shrink-0 h-[30px] flex flex-row p-[0px_9px] justify-center items-center bg-[#FFFFFF] border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-slate-50 rounded-[8px] text-[11px]/[normal] font-[Inter,system-ui,sans-serif] font-semibold text-[#334155] hover:text-[#0F172A] transition-all cursor-pointer shadow-xs">
+                              class="box-border w-fit shrink-0 h-[30px] flex flex-row p-[0px_9px] justify-center items-center bg-[#FFFFFF] border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-slate-50 rounded-[8px] text-[11px]/[normal] font-semibold text-[#334155] hover:text-[#0F172A] transition-all cursor-pointer shadow-xs">
                         <span>Detail →</span>
                       </button>
                     </div>
@@ -605,7 +605,7 @@
     <!-- Header Section -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
-        <h1 class="font-[Poppins] text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Buat Perubahan Jadwal</h1>
+        <h1 class="font-heading text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Buat Perubahan Jadwal</h1>
         <p class="text-[13px] text-[#667085] mt-0.5">Ajukan sesi kuliah pengganti, kelas tambahan, atau pembatalan jadwal kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || 'D4-TI 1A'"></span>.</p>
       </div>
       <button type="button" @click="simpanDrafPerubahan()"
@@ -1106,13 +1106,13 @@
                 </div>
 
                 <!-- Judul Mata Kuliah -->
-                <h3 id="modal-sesi-title" class="font-[Poppins] text-[20px] font-bold text-[#1D1B3A] mt-2 leading-snug"
+                <h3 id="modal-sesi-title" class="font-heading text-[20px] font-bold text-[#1D1B3A] mt-2 leading-snug"
                     x-text="modalSesiData.matkul + (modalSesiData.isReplacement && !modalSesiData.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
                   Pemrograman Berorientasi Objek
                 </h3>
 
                 <!-- Kode Mata Kuliah & Kelas -->
-                <p class="font-['JetBrains_Mono',monospace] text-[12px] font-medium text-[#667085] mt-0.5"
+                <p class="font-mono text-[12px] font-medium text-[#667085] mt-0.5"
                    x-text="(getSesiCourseCode(modalSesiData) ? 'Kode: ' + getSesiCourseCode(modalSesiData) + ' · ' : '') + 'Kelas ' + (selectedClass || 'D4-TI 1A')">
                   Kode: 25IF1101 · Kelas D4-TI 1A
                 </p>
@@ -1147,7 +1147,7 @@
                   <!-- Waktu -->
                   <div class="flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-[16px] text-[#3965FB]">schedule</span>
-                    <span class="text-[13px] font-['JetBrains_Mono',monospace] font-bold text-[#3965FB]"
+                    <span class="text-[13px] font-mono font-bold text-[#3965FB]"
                           x-text="(modalSesiData.timeStart || '') + ' – ' + (modalSesiData.timeEnd || '') + ' WIB'">
                       08:40 – 10:20 WIB
                     </span>
@@ -1303,11 +1303,11 @@
                class="flex-1 min-w-0 flex flex-col gap-[3px] justify-start items-start">
             <h3 id="modal-jam-kosong-title"
                 data-pencil-name="Judul Modal"
-                class="text-[18px] text-[#1D1B3A] font-[Poppins,system-ui,sans-serif] font-bold leading-normal">
+                class="text-[18px] text-[#1D1B3A] font-heading font-bold leading-normal">
               Jam Kosong Perkuliahan
             </h3>
             <p data-pencil-name="Konteks Pekan"
-               class="text-[12px] w-full text-[#667085] font-[Inter,system-ui,sans-serif] font-normal truncate"
+               class="text-[12px] w-full text-[#667085] font-normal truncate"
                x-text="'Daftar slot waktu bebas kuliah kelas ' + (selectedClass || 'D4-TI 1A') + ' · ' + (pekanLabel || 'Pekan 6') + ' (' + (weekRangeLabel || '5 – 11 Okt 2026') + ')'">
               Daftar slot waktu bebas kuliah kelas D4-TI 1A · Pekan 6 (5 – 11 Okt 2026)
             </p>
@@ -1337,7 +1337,7 @@
                   :class="filterHariJamKosong === 'all' 
                           ? 'bg-[#3965FB] text-[#FFFFFF] font-semibold' 
                           : 'bg-[#F1F5F9] text-[#475467] font-medium hover:bg-slate-200'"
-                  class="w-fit shrink-0 p-[6px_12px] flex items-center rounded-[16px] text-[11px] font-[Inter,system-ui,sans-serif] whitespace-nowrap transition-colors cursor-pointer">
+                  class="w-fit shrink-0 p-[6px_12px] flex items-center rounded-[16px] text-[11px] whitespace-nowrap transition-colors cursor-pointer">
             <span x-text="'Semua Hari (' + totalJamKosongCount + ' Slot)'">Semua Hari (6 Slot)</span>
           </button>
 
@@ -1348,7 +1348,7 @@
                     :class="filterHariJamKosong === d.name 
                             ? 'bg-[#3965FB] text-[#FFFFFF] font-semibold' 
                             : 'bg-[#F1F5F9] text-[#475467] font-medium hover:bg-slate-200'"
-                    class="w-fit shrink-0 p-[6px_10px] flex items-center rounded-[16px] text-[11px] font-[Inter,system-ui,sans-serif] whitespace-nowrap transition-colors cursor-pointer">
+                    class="w-fit shrink-0 p-[6px_10px] flex items-center rounded-[16px] text-[11px] whitespace-nowrap transition-colors cursor-pointer">
               <span x-text="d.name + ' (' + (jamKosongByDay[d.name] || []).length + ')'">Senin (1)</span>
             </button>
           </template>
@@ -1379,7 +1379,7 @@
               
               <!-- Header Hari -->
               <div class="w-full h-[27px] shrink-0 flex flex-row px-[14px] items-center bg-[#F8FAFC]">
-                <div class="text-[11px] text-[#667085] font-[Inter,system-ui,sans-serif] font-bold tracking-[0.8px] whitespace-nowrap uppercase"
+                <div class="text-[11px] text-[#667085] font-bold tracking-[0.8px] whitespace-nowrap uppercase"
                      x-text="group.headerText">
                   SENIN, 5 OKT 2026
                 </div>
@@ -1393,7 +1393,7 @@
                   <!-- Slot Details -->
                   <div class="flex-1 min-w-0 flex flex-col gap-[4px] justify-start items-start">
                     <div class="w-fit flex flex-row gap-[8px] items-center flex-wrap">
-                      <div class="text-[13px] text-[#1D1B3A] font-['JetBrains_Mono',system-ui,sans-serif] font-bold whitespace-nowrap"
+                      <div class="text-[13px] text-[#1D1B3A] font-mono font-bold whitespace-nowrap"
                            x-text="slot.timeRange">
                         14:40 – 17:00 WIB
                       </div>
@@ -1401,7 +1401,7 @@
                       <!-- Durasi Pill -->
                       <div class="w-fit shrink-0 p-[3px_8px] flex items-center rounded-[5px]"
                            :class="slot.isLong ? 'bg-[#DCFCE7]' : 'bg-[#EFF6FF]'">
-                        <div class="text-[11px] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap"
+                        <div class="text-[11px] font-semibold whitespace-nowrap"
                              :class="slot.isLong ? 'text-[#15803D]' : 'text-[#3965FB]'"
                              x-text="slot.durationText">
                           2 Jam 20 Menit
@@ -1410,13 +1410,13 @@
 
                       <!-- Rekomendasi Badge -->
                       <div x-show="slot.isRecommended"
-                           class="text-[10px] text-[#16A34A] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+                           class="text-[10px] text-[#16A34A] font-semibold whitespace-nowrap">
                         Rekomendasi
                       </div>
                     </div>
 
                     <!-- Keterangan Context -->
-                    <div class="text-[11px] leading-[15px] w-full text-[#667085] font-[Inter,system-ui,sans-serif] font-normal"
+                    <div class="text-[11px] leading-[15px] w-full text-[#667085] font-normal"
                          x-text="slot.description">
                       Bebas perkuliahan setelah sesi Matematika Diskrit
                     </div>
@@ -1426,8 +1426,8 @@
                   <button type="button"
                           @click="gunakanSlotJamKosong(slot)"
                           class="w-fit shrink-0 h-[32px] flex flex-row gap-[4px] px-[11px] items-center bg-[#EFF6FF] hover:bg-[#DBEAFE] rounded-[8px] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#3965FB]/30">
-                    <div class="text-[14px] text-[#3965FB] font-[Inter,system-ui,sans-serif] font-semibold leading-none">+</div>
-                    <div class="text-[11px] text-[#3965FB] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+                    <div class="text-[14px] text-[#3965FB] font-semibold leading-none">+</div>
+                    <div class="text-[11px] text-[#3965FB] font-semibold whitespace-nowrap">
                       Gunakan Slot
                     </div>
                   </button>
@@ -1452,7 +1452,7 @@
               <path d="M7 12.33887q-0.40332 0-0.70068-0.27002-0.29736-0.27002-0.35547-0.66992l2.1123 0q-0.05811 0.3999-0.35547 0.66992-0.29736 0.27002-0.70068 0.27002z m-1.75-1.97217q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.21192 0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545l3.5 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20507 0 0.12646-0.08545 0.21192-0.08203 0.08203-0.20508 0.08203l-3.5 0z m-0.25635-1.6167q-0.82715-0.54346-1.30566-1.37402-0.47852-0.83398-0.47852-1.83545 0-1.58594 1.10059-2.68653 1.104-1.104 2.68994-1.104 1.58594 0 2.68652 1.104 1.104 1.10059 1.10401 2.68653 0 1.00146-0.47852 1.83545-0.47852 0.83057-1.30566 1.37402l-4.0127 0z m0.16748-0.58447l3.67774 0q0.65625-0.46484 1.01172-1.14844 0.35889-0.68701 0.35888-1.47656 0-1.33984-0.9331-2.27295-0.93311-0.93311-2.27637-0.93311-1.34326 0-2.27637 0.93311-0.93311 0.93311-0.9331 2.27295 0 0.78955 0.35547 1.47656 0.35889 0.68359 1.01513 1.14844z"></path>
             </svg>
             <div data-pencil-name="Teks Petunjuk Slot"
-                 class="text-[11px] leading-[15px] flex-1 text-[#667085] font-[Inter,system-ui,sans-serif] font-normal">
+                 class="text-[11px] leading-[15px] flex-1 text-[#667085] font-normal">
               Mengklik '+ Gunakan Slot' akan otomatis membuka form kuliah pengganti dengan jam yang terisi.
             </div>
           </div>
@@ -1463,7 +1463,7 @@
                   data-pencil-name="Tombol Tutup Jam Kosong"
                   class="w-fit shrink-0 h-[36px] px-[16px] flex justify-center items-center bg-[#FFFFFF] border border-[#CBD5E1] hover:bg-slate-50 hover:border-[#94A3B8] rounded-[12px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
             <div data-pencil-name="Label Tutup Jam Kosong"
-                 class="text-[12px] text-[#1D1B3A] font-[Inter,system-ui,sans-serif] font-semibold whitespace-nowrap">
+                 class="text-[12px] text-[#1D1B3A] font-semibold whitespace-nowrap">
               Tutup
             </div>
           </button>
