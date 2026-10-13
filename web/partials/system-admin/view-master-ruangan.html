@@ -108,8 +108,10 @@
       </button>
     </div>
 
+    <div x-data="{ filtersOpen: false }" class="w-full space-y-2 md:contents">
+    <button type="button" @click="filtersOpen = !filtersOpen" :aria-expanded="String(filtersOpen)" class="md:hidden w-full rounded-lg border border-[#D7DDE7] bg-white px-3 text-left text-[13px] font-semibold" x-text="'Filter' + ([ruangBuildingFilter, ruangTypeFilter, ruangStatusFilter].filter(Boolean).length ? ' (' + [ruangBuildingFilter, ruangTypeFilter, ruangStatusFilter].filter(Boolean).length + ' aktif)' : '')"></button>
     <!-- Dropdown Filter Gedung -->
-    <div class="relative w-full sm:w-[170px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+    <div :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative w-full md:w-[170px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] items-center px-3 focus-within:border-[#3965FB] transition-all">
       <select x-model="ruangBuildingFilter"
               @change="ruangPage = 1"
               aria-label="Filter gedung"
@@ -125,7 +127,7 @@
     </div>
 
     <!-- Dropdown Filter Jenis -->
-    <div class="relative w-full sm:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+    <div :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative w-full md:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] items-center px-3 focus-within:border-[#3965FB] transition-all">
       <select x-model="ruangTypeFilter"
               @change="ruangPage = 1"
               aria-label="Filter jenis ruangan"
@@ -140,7 +142,7 @@
     </div>
 
     <!-- Dropdown Filter Status -->
-    <div class="relative w-full sm:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] flex items-center px-3 focus-within:border-[#3965FB] transition-all">
+    <div :class="filtersOpen ? 'flex' : 'hidden md:flex'" class="relative w-full md:w-[160px] shrink-0 bg-white border border-[#CBD5E1] rounded-[10px] h-[44px] items-center px-3 focus-within:border-[#3965FB] transition-all">
       <select x-model="ruangStatusFilter"
               @change="ruangPage = 1"
               aria-label="Filter status ruangan"
@@ -152,6 +154,7 @@
       <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-3 shrink-0" aria-hidden="true" focusable="false">
         <path d="M7 8.3877q-0.0957 0-0.17432-0.03077-0.07861-0.03076-0.1538-0.10595l-2.56006-2.56006q-0.08203-0.08203-0.08887-0.20166-0.00684-0.11963 0.08887-0.21192 0.09229-0.09229 0.20507-0.09228 0.11279 0 0.20508 0.09228l2.47803 2.47803 2.47803-2.47803q0.08203-0.08203 0.19824-0.08545 0.11963-0.00684 0.21191 0.08545 0.0957 0.09229 0.09571 0.20508 0 0.11279-0.09571 0.2085l-2.56005 2.56006q-0.0752 0.0752-0.15381 0.10595-0.07861 0.03076-0.17432 0.03077z"/>
       </svg>
+    </div>
     </div>
   </div>
 
@@ -383,8 +386,9 @@
           <span class="hidden sm:inline">Sebelumnya</span>
         </button>
 
+        <span class="sm:hidden px-2 text-[12px] text-[#475467]" x-text="ruangPage + ' dari ' + totalHalamanRuang()"></span>
         <template x-for="(p, pIdx) in halamanArrayRuang()" :key="pIdx">
-          <div>
+          <div class="hidden sm:block">
             <template x-if="p === '...'">
               <span class="px-2 py-1 text-[12px] text-[#667085]">...</span>
             </template>

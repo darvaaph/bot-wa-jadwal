@@ -18,7 +18,7 @@ function systemAdminApp() {
     navSections: [
       { title: 'UTAMA', items: [
         { id: 'dashboard', label: 'Ringkasan Sistem', icon: 'sa-grid', img: '/assets/icons/home.svg' },
-        { id: 'kelas', label: 'Kelas & Semester', icon: 'sa-cap', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','undang','undang-siap'] },
+        { id: 'kelas', label: 'Kelas & Semester', icon: 'sa-cap', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','jadwal','undang','undang-siap'] },
         { id: 'pengguna', label: 'Pengguna & Peran', icon: 'sa-users', img: '/assets/icons/people.svg' }
       ] },
       { title: 'DATA AKADEMIK', items: [

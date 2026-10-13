@@ -73,7 +73,7 @@
         <svg class="w-[18px] h-[18px] shrink-0 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p class="flex-1" x-text="isJadwalDraft() ? 'Semester draf ini belum memiliki mata kuliah. Tambahkan mata kuliah dari Master Data atau impor berkas JSON untuk mulai menyusun sesi.' : 'Semester aktif ini belum memiliki mata kuliah. Penambahan mata kuliah hanya dapat dilakukan saat semester berstatus DRAFT.'"></p>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="flex flex-wrap items-center gap-2 sm:shrink-0">
         <button x-show="isJadwalDraft()" type="button" @click="bukaTambahOffering(jadwalSemester)" class="box-border w-fit shrink-0 h-[36px] px-3.5 flex items-center justify-center bg-[#3965FB] hover:bg-blue-600 rounded-[8px] text-[12px] font-bold text-white shadow-sm whitespace-nowrap transition-colors">
           + Tambah Matkul Master
         </button>

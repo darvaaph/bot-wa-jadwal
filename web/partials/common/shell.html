@@ -796,8 +796,8 @@
 <nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin)) || (shellRoleKey === 'pj' && (modalLogout || modalProfilPJ)) || (shellRoleKey === 'km' && (modalLogout || modalProfilKM))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
     <template x-for="item in shellBottomNav()" :key="item.id">
-      <button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover font-bold' : 'text-muted font-medium'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center relative transition-colors">
-        <span class="px-3 py-1 rounded-full relative flex items-center justify-center" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft text-primary' : '')">
+      <button type="button" @click="shellGo(item, $event)" :aria-current="item.id !== '__more' && shellBottomIsActive(item) ? 'page' : null" :aria-expanded="item.id === '__more' ? String(drawer) : null" :aria-label="item.ariaLabel || item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover font-bold' : 'text-muted font-medium'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center relative transition-colors">
+        <span class="px-3 py-1 rounded-full relative flex items-center justify-center" :class="shellBottomIsActive(item) ? 'bg-primary-soft text-primary' : ''">
           <span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span>
           <span x-show="shellRoleKey === 'km'" x-html="kmIcon(item.id, shellBottomIsActive(item))" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span>
           <span x-show="shellRoleKey === 'pj'" x-html="pjNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span>

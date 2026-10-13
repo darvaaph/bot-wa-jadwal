@@ -12,6 +12,35 @@
 #app-shell .app-mobile-drawer { top: var(--support-banner-height); height: calc(100dvh - var(--support-banner-height)); }
 
 html, body { overflow-x: hidden; max-width: 100vw; }
+
+@media (max-width: 767px) {
+  .system-admin button,
+  .system-admin select,
+  .system-admin input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+    min-height: 44px;
+  }
+  .system-admin button[aria-label],
+  .system-admin button[class~="w-8"],
+  .system-admin button[class~="w-9"] { min-width: 44px; }
+  .system-admin :is(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid #3965FB;
+    outline-offset: 2px;
+  }
+  .system-admin .admin-mobile-wrap { min-width: 0; overflow-wrap: anywhere; }
+  .system-admin .fixed.inset-0.flex.items-center.justify-center {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .system-admin .fixed.inset-0.flex.items-center.justify-center > div:not(.fixed) {
+    width: 100%;
+    max-width: 100vw;
+    max-height: calc(100dvh - 0.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1rem 1rem 0 0;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
 body, .font-body, .font-sans { min-width: 0; font-family: 'Montserrat', system-ui, -apple-system, sans-serif !important; }
 h1, h2, h3, h4, .font-heading, .font-display { font-family: 'Poppins', system-ui, sans-serif !important; }
 .font-mono, code, kbd, samp, pre, time, [data-time] { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; font-variant-numeric: tabular-nums; }
