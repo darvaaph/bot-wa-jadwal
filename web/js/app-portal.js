@@ -1444,6 +1444,8 @@ function portalApp() {
             id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
             title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
             instructions: t.instructions || '',
+            submission_text: t.submission_text || '',
+            submission_url: t.submission_url || '',
             deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
             urgency: u.level, countdown: u.badge
           };

@@ -84,11 +84,31 @@ const DateUtil = {
       if (completed) return { level: 'aman', badge: 'Selesai' };
       const d = new Date(iso);
       if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
-      const diffH = (d - new Date()) / 3600000;
-      if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-      if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-      if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
-      return { level: 'aman', badge: 'Aktif' };
+      const now = new Date();
+      const diffMs = d - now;
+      const diffH = diffMs / 3600000;
+      if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+
+      const isToday = d.getFullYear() === now.getFullYear() &&
+                      d.getMonth() === now.getMonth() &&
+                      d.getDate() === now.getDate();
+      if (isToday) {
+        const hours = Math.floor(diffH);
+        if (hours > 0) return { level: 'mendesak', badge: `Hari ini (~${hours} jam)` };
+        const mins = Math.max(1, Math.floor(diffMs / 60000));
+        return { level: 'mendesak', badge: `Hari ini (~${mins} menit)` };
+      }
+
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const isTomorrow = d.getFullYear() === tomorrow.getFullYear() &&
+                         d.getMonth() === tomorrow.getMonth() &&
+                         d.getDate() === tomorrow.getDate();
+      if (isTomorrow) return { level: 'mendekati', badge: 'Besok (H-1)' };
+
+      const days = Math.ceil(diffH / 24);
+      if (days <= 3) return { level: 'mendekati', badge: `Sisa ${days} hari` };
+      return { level: 'aman', badge: `${days} hari lagi` };
     } catch (e) {
       return { level: 'aman', badge: 'Aktif' };
     }
@@ -282,6 +302,34 @@ const BotApi = {
     }
     if (!res.ok) {
       const err = new Error('Gagal menandai selesai di server.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
+  },
+
+  async uncompleteTask(taskId, version) {
+    let v = version;
+    if (!v) {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version));
+    }
+    const res = await fetch('/api/v1/tasks/' + taskId + '/uncomplete', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify({ version: v || 0 })
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (res.status === 409) {
+      throw this.versionConflictErr('Versi tugas telah berubah. Muat ulang sebelum mengubah status.');
+    }
+    if (!res.ok) {
+      const err = new Error('Gagal mengembalikan status tugas di server.');
       err.code = 'SAVE_FAILED';
       throw err;
     }

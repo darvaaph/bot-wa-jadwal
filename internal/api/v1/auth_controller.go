@@ -494,12 +494,32 @@ func (c *AuthController) GetMe(w http.ResponseWriter, r *http.Request) {
 		if u.ActiveCourseOfferingID.Valid {
 			_ = c.db.QueryRow(`SELECT display_name FROM course_offerings WHERE id = ?;`, u.ActiveCourseOfferingID.Int64).Scan(&offeringName)
 		}
+		var className string
+		if u.ActiveClassID.Valid && u.ActiveClassID.Int64 > 0 {
+			var prog, grp string
+			var cohort int
+			if err := c.db.QueryRow(`SELECT study_program, cohort_year, group_label FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&prog, &cohort, &grp); err == nil {
+				tingkat := 1
+				if cohort > 0 {
+					t := 2026 - cohort + 1
+					if t > 0 && t <= 4 {
+						tingkat = t
+					}
+				}
+				prodiShort := "D4-TI"
+				if strings.Contains(strings.ToLower(prog), "d3") {
+					prodiShort = "D3-TI"
+				}
+				className = fmt.Sprintf("%s %d%s", prodiShort, tingkat, grp)
+			}
+		}
 		activeAssignmentData = map[string]any{
 			"id":         u.ActiveAssignmentID,
 			"role":       u.ActiveRole,
 			"scope_type": u.ActiveScopeType,
 			"class_id":   u.ActiveClassID.Int64,
 			"class_slug": u.ActiveClassSlug,
+			"class_name": className,
 			"semester_id": func() any {
 				if u.ActiveSemesterID.Valid {
 					return u.ActiveSemesterID.Int64

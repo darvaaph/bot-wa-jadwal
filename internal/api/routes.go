@@ -90,6 +90,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleReviewV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCompleteV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleUncompleteV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleArchiveV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleRestoreV1Task)))
 

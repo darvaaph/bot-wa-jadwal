@@ -36,6 +36,7 @@ const (
 	ActionUpdateTask             = "UPDATE_TASK"
 	ActionReviewTask             = "REVIEW_TASK"
 	ActionCompleteTask           = "COMPLETE_TASK"
+	ActionUncompleteTask         = "UNCOMPLETE_TASK"
 	ActionArchiveTask            = "ARCHIVE_TASK"
 	ActionRestoreTask            = "RESTORE_TASK"
 	ActionActivateSemester       = "ACTIVATE_SEMESTER"

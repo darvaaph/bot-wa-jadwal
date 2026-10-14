@@ -430,12 +430,15 @@
           </div>
         </div>
         <div class="space-y-1.5">
-          <label class="block text-[12px] font-semibold text-[#334155]">Keterangan Tempat</label>
+          <div class="flex items-center justify-between">
+            <label class="block text-[12px] font-semibold text-[#334155]">Keterangan Tempat</label>
+            <span class="text-[11px] font-medium" :class="tugasForm.kumpulUrl ? 'text-[#64748B]' : 'text-amber-600'" x-text="tugasForm.kumpulUrl ? 'Opsional jika ada tautan' : 'Wajib jika tanpa tautan'"></span>
+          </div>
           <input
             aria-label="Keterangan tempat"
             type="text"
             x-model="tugasForm.kumpul"
-            placeholder="Google Classroom / LMS Kampus"
+            placeholder="Contoh: Meja Dosen R-301 / Di Kelas / Email"
             class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition"
           />
         </div>
@@ -443,15 +446,18 @@
 
       <!-- Field Tautan URL -->
       <div class="space-y-1.5">
-        <label class="block text-[12px] font-semibold text-[#334155]">Tautan URL</label>
+        <div class="flex items-center justify-between">
+          <label class="block text-[12px] font-semibold text-[#334155]">Tautan URL</label>
+          <span class="text-[11px] font-medium" :class="tugasForm.kumpul ? 'text-[#64748B]' : 'text-amber-600'" x-text="tugasForm.kumpul ? 'Opsional jika ada keterangan' : 'Wajib jika tanpa keterangan'"></span>
+        </div>
         <input
           aria-label="Tautan URL"
           type="url"
           x-model="tugasForm.kumpulUrl"
-          placeholder="https://classroom.google.com/c/..."
+          placeholder="https://classroom.google.com/... atau https://drive.google.com/..."
           class="w-full h-[42px] px-3.5 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] transition font-mono text-[12px]"
         />
-        <p class="text-[11px] text-[#64748B]">Isi keterangan tempat atau tautan agar mahasiswa tahu ke mana mengumpulkan tugas.</p>
+        <p class="text-[11px] text-[#64748B]">Wajib mengisi minimal salah satu: Keterangan tempat fisik ATAU Tautan URL.</p>
       </div>
 
       <!-- Aksi Form Draf Tugas -->
@@ -491,16 +497,16 @@
         </div>
 
         <!-- Kartu Tugas untuk Mahasiswa -->
-        <div class="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
-          <div class="flex items-start gap-2.5">
+        <div class="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 min-w-0 overflow-hidden">
+          <div class="flex items-start gap-2.5 min-w-0">
             <div class="w-9 h-9 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center shrink-0 text-[#2563EB]">
               <svg class="w-[19px] h-[19px]" viewBox="0 0 14 14" fill="currentColor">
                 <path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.27686 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0zm0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279zm1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203zm0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203zm0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203zm2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z"/>
               </svg>
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="text-[14px] font-bold text-[#0F172A] leading-snug line-clamp-2" x-text="tugasForm.judul || 'Contoh: Praktikum 03 - Pemodelan Data Relasional (BCNF)'"></h3>
-              <p class="text-[12px] text-[#64748B] mt-0.5 line-clamp-1">
+              <h3 class="text-[14px] font-bold text-[#0F172A] leading-snug line-clamp-2 break-words break-all [overflow-wrap:anywhere]" x-text="tugasForm.judul || 'Contoh: Praktikum 03 - Pemodelan Data Relasional (BCNF)'"></h3>
+              <p class="text-[12px] text-[#64748B] mt-0.5 line-clamp-1 truncate">
                 <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span> · Dosen: <span x-text="tugasDosen()">Dosen Pengampu</span>
               </p>
             </div>
@@ -612,6 +618,7 @@
           </button>
 
           <button type="button" @click="tandaiSelesai(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.publication_status === 'PUBLISHED' && !tugasDetail.completed_at && !tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-green-600 text-green-700 text-[13px] font-semibold min-h-[44px] w-full sm:w-auto flex items-center justify-center">Tandai Selesai</button>
+          <button type="button" @click="batalkanSelesai(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.publication_status === 'PUBLISHED' && tugasDetail.completed_at && !tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-blue-600 text-blue-700 text-[13px] font-semibold min-h-[44px] w-full sm:w-auto flex items-center justify-center">Kembalikan ke Aktif</button>
           <button type="button" @click="arsipkanTugas(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.archived_at" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px] flex items-center justify-center gap-1 w-full sm:w-auto"><span class="material-symbols-outlined text-[18px]">archive</span>Arsipkan</button>
           <button type="button" @click="pulihkanTugas(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.archived_at" class="ui-button ui-button--outline text-primary text-[13px] font-semibold min-h-[44px] w-full sm:w-auto flex items-center justify-center">Pulihkan</button>
         </div>

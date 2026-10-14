@@ -1220,8 +1220,21 @@ func TestV1Tasks_DetailIncludesTimestamps(t *testing.T) {
 		t.Errorf("completed_at expected terisi setelah complete, got %v", task["completed_at"])
 	}
 
+	// Uncomplete -> completed_at kembali null
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/uncomplete", strings.NewReader(`{"version":2}`))
+	req.Header.Set("Authorization", "Bearer "+kmToken)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Uncomplete expected 200, got %d", w.Code)
+	}
+	task = getDetail()
+	if task["completed_at"] != nil {
+		t.Errorf("completed_at expected null setelah uncomplete, got %v", task["completed_at"])
+	}
+
 	// Archive -> archived_at terisi
-	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":2}`))
+	req = httptest.NewRequest("POST", "/api/v1/tasks/1/archive", strings.NewReader(`{"version":3}`))
 	req.Header.Set("Authorization", "Bearer "+kmToken)
 	w = httptest.NewRecorder()
 	s.httpServer.Handler.ServeHTTP(w, req)

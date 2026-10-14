@@ -369,28 +369,28 @@ func (csm *ChatSettingsManager) SyncWithClassManager(classMgr *schedule.ClassMan
 // GetOnboardingPrompt mengembalikan pesan panduan onboarding ketika chat belum memilih kelas
 func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 	var sb strings.Builder
-	sb.WriteString("👋 *HALO! KELAS BELUM DIATUR*\n")
+	sb.WriteString("*HALO! KELAS BELUM DIATUR*\n")
 	sb.WriteString("──────────\n")
 	if isGroup {
 		sb.WriteString("Grup ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Tautkan grup ini terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian yang sesuai.\n\n")
-		sb.WriteString("👉 *Cara Menautkan Grup ke Kelas:*\n")
+		sb.WriteString("*Cara Menautkan Grup ke Kelas:*\n")
 		sb.WriteString("1. Ketik `!kanal` di grup ini untuk menyalin ID grup (JID).\n")
-		sb.WriteString("2. Buka Dashboard (KM / Admin) ➔ menu *Pengaturan Kelas*.\n")
+		sb.WriteString("2. Buka Dashboard (KM / Admin) -> menu *Pengaturan Kelas*.\n")
 		sb.WriteString("3. Tempel ID pada bagian *Kanal WhatsApp Kelas* lalu simpan.\n\n")
 		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/\n\n")
-		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia (dikelompokkan per semester).\n")
+		sb.WriteString("Ketik `!daftarkelas` untuk melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("⚠️ _Catatan: Penautan grup WhatsApp dilakukan oleh Ketua Murid (KM) atau Admin melalui dashboard._")
+		sb.WriteString("_Catatan: Penautan grup WhatsApp dilakukan oleh Ketua Murid (KM) atau Admin melalui dashboard._")
 	} else {
 		sb.WriteString("Chat pribadi ini belum terhubung ke jadwal kelas mana pun.\n")
 		sb.WriteString("Silakan tentukan kelas Anda terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian Anda.\n\n")
-		sb.WriteString("👉 *Cara Memilih Kelas:*\n")
+		sb.WriteString("*Cara Memilih Kelas:*\n")
 		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
 		sb.WriteString("Contoh: `!setkelas D4-TI-SMT3-A` atau `!setkelas smt 3 a`\n\n")
-		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia (dikelompokkan per semester).\n")
+		sb.WriteString("Ketik `!daftarkelas` untuk melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("💡 _Di chat pribadi, Anda bebas mengganti kelas kapan saja sesuai kebutuhan._")
+		sb.WriteString("_Di chat pribadi, Anda bebas mengganti kelas kapan saja sesuai kebutuhan._")
 	}
 	return sb.String()
 }
@@ -401,39 +401,38 @@ func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	sb.WriteString("*JADWAL KULIAH MAHASISWA*\n")
 	sb.WriteString("Jurusan Teknik Komputer dan Informatika - POLBAN\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString("⚠️ *STATUS: KELAS BELUM DIATUR*\n")
+	sb.WriteString("*STATUS: KELAS BELUM DIATUR*\n")
 	sb.WriteString("Chat ini belum memilih kelas perkuliahan aktif.\n\n")
 
 	if isGroup {
-		sb.WriteString("🚀 *LANGKAH PENAUTAN GRUP:*\n")
-		sb.WriteString("1. Ketik `!kanal` ➔ Salin ID JID grup ini\n")
-		sb.WriteString("2. Buka Dashboard Web (Admin/KM) ➔ menu *Kanal WhatsApp*\n")
+		sb.WriteString("*LANGKAH PENAUTAN GRUP:*\n")
+		sb.WriteString("1. Ketik `!kanal` - Salin ID JID grup ini\n")
+		sb.WriteString("2. Buka Dashboard Web (Admin/KM) - menu *Kanal WhatsApp*\n")
 		sb.WriteString("3. Tempel ID grup pada kelas yang sesuai lalu simpan\n\n")
 	} else {
-		sb.WriteString("🚀 *LANGKAH AWAL (ONBOARDING):*\n")
-		sb.WriteString("1. Ketik `!daftarkelas` ➔ Melihat 19 pilihan kelas D3 & D4 (dikelompokkan per semester)\n")
-		sb.WriteString("2. Ketik `!setkelas [nama_kelas]` ➔ Mengaktifkan kelas untuk chat pribadi ini\n")
+		sb.WriteString("*LANGKAH AWAL (ONBOARDING):*\n")
+		sb.WriteString("1. Ketik `!daftarkelas` - Melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester)\n")
+		sb.WriteString("2. Ketik `!setkelas [nama_kelas]` - Mengaktifkan kelas untuk chat pribadi ini\n")
 		sb.WriteString("   _Contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`_\n\n")
 	}
 
 	sb.WriteString("──────────\n")
-	sb.WriteString("📋 *DAFTAR FITUR & PERINTAH (Setelah Kelas Aktif):*\n")
-	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
-	sb.WriteString("• `!hari ini` ➔ Jadwal kuliah hari ini\n")
-	sb.WriteString("• `!besok` ➔ Jadwal kuliah besok\n")
-	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n")
-	sb.WriteString("• `!matkul` ➔ Daftar mata kuliah & dosen\n")
-	sb.WriteString("• `!tugas` ➔ Pengingat tugas & deadline\n")
-	sb.WriteString("• `!link` ➔ Tautan penting kelas (Drive/Zoom)\n")
-	sb.WriteString("• `!reminder on` ➔ Pengingat pagi otomatis (06:00 WIB)\n")
-	sb.WriteString("• `!dosen [nama/kode]` ➔ Cari jadwal dosen\n")
-	sb.WriteString("• `!ruang [nama]` ➔ Cari jadwal ruangan\n")
-	sb.WriteString("• `!cari [kata]` ➔ Pencarian global\n\n")
+	sb.WriteString("*DAFTAR FITUR & PERINTAH (Setelah Kelas Aktif):*\n")
+	sb.WriteString("- !next          : Kuliah sedang/berikutnya\n")
+	sb.WriteString("- !hari ini      : Jadwal kuliah hari ini\n")
+	sb.WriteString("- !besok         : Jadwal kuliah besok\n")
+	sb.WriteString("- !seminggu      : Jadwal Senin - Jumat\n")
+	sb.WriteString("- !matkul        : Daftar mata kuliah & dosen\n")
+	sb.WriteString("- !tugas         : Pengingat tugas & deadline\n")
+	sb.WriteString("- !link          : Tautan penting kelas (Drive/Zoom)\n")
+	sb.WriteString("- !dosen [nama]  : Cari jadwal dosen\n")
+	sb.WriteString("- !ruang [nama]  : Cari jadwal ruangan\n")
+	sb.WriteString("- !cari [kata]   : Pencarian global\n\n")
 
 	if isGroup {
-		sb.WriteString("💡 _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard (Kanal WhatsApp)._")
+		sb.WriteString("_Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard (Kanal WhatsApp)._")
 	} else {
-		sb.WriteString("💡 _Di chat pribadi (DM), Anda bebas menyetel kelas sesuai perkuliahan Anda._")
+		sb.WriteString("_Di chat pribadi (DM), Anda bebas menyetel kelas sesuai perkuliahan Anda._")
 	}
 	return sb.String()
 }
@@ -529,9 +528,9 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🏫 *DAFTAR KELAS PERKULIAHAN*\n")
+	sb.WriteString("*DAFTAR KELAS PERKULIAHAN*\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString(fmt.Sprintf("📌 *Kelas Aktif di Chat Ini:* %s\n\n", statusStr))
+	sb.WriteString(fmt.Sprintf("*Kelas Aktif di Chat Ini:* %s\n\n", statusStr))
 	sb.WriteString("Pilihan kelas resmi (dikelompokkan per semester):\n\n")
 
 	for _, pName := range progOrder {
@@ -540,13 +539,13 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 			continue
 		}
 
-		sb.WriteString(fmt.Sprintf("📚 *PROGRAM STUDI %s*\n", pb.name))
+		sb.WriteString(fmt.Sprintf("*PROGRAM STUDI %s*\n", pb.name))
 		for _, sem := range pb.semesters {
 			semLabel := fmt.Sprintf("Semester %d", sem.semester)
 			if sem.semester == 0 {
 				semLabel = "Umum / Lintas Semester"
 			}
-			sb.WriteString(fmt.Sprintf("  • *%s:*\n", semLabel))
+			sb.WriteString(fmt.Sprintf("  - *%s:*\n", semLabel))
 			for _, item := range sem.items {
 				isActive := canonicalActive != "" && (item.id == canonicalActive || item.id == active)
 				tingkat := (sem.semester + 1) / 2
@@ -559,9 +558,9 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 					}
 				}
 				if isActive {
-					sb.WriteString(fmt.Sprintf("    - ✅ *`%s`*%s *(Aktif)*\n", item.id, aliasHint))
+					sb.WriteString(fmt.Sprintf("    - *`%s`*%s *(Aktif)*\n", item.id, aliasHint))
 				} else {
-					sb.WriteString(fmt.Sprintf("    - 🔘 `%s`%s\n", item.id, aliasHint))
+					sb.WriteString(fmt.Sprintf("    - `%s`%s\n", item.id, aliasHint))
 				}
 			}
 		}
@@ -570,15 +569,15 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 
 	sb.WriteString("──────────\n")
 	if isGroup {
-		sb.WriteString("🔒 *Pengaturan Kelas Grup WhatsApp:*\n")
+		sb.WriteString("*Pengaturan Kelas Grup WhatsApp:*\n")
 		sb.WriteString("Pengaturan kelas grup dilakukan oleh Admin / KM melalui Dashboard Web (menu *Kanal WhatsApp*).\n")
 		sb.WriteString("Ketik `!kanal` untuk menyalin ID JID grup ini saat menautkannya di Dashboard.")
 	} else {
-		sb.WriteString("💡 *Cara Memilih / Mengatur Kelas:*\n")
+		sb.WriteString("*Cara Memilih / Mengatur Kelas:*\n")
 		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
 		sb.WriteString("Contoh: `!setkelas D4-TI-2025-A`\n")
 		sb.WriteString("_Tips: Anda juga dapat mengetik santai seperti `!setkelas 2a` atau `!setkelas d4 2a`._\n\n")
-		sb.WriteString("💡 _Catatan: Di chat pribadi (DM), Anda bebas menyetel kelas sesuai kebutuhan Anda._")
+		sb.WriteString("_Catatan: Di chat pribadi (DM), Anda bebas menyetel kelas sesuai kebutuhan Anda._")
 	}
 
 	return sb.String()
@@ -642,7 +641,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 			classLabel = fmt.Sprintf("%s (Kelas %d%s, Tingkat %d)", canonicalClass, ting, letter, ting)
 		}
 
-		return fmt.Sprintf("✅ *KELAS BERHASIL DIATUR!*\n──────────\nChat/Grup ini sekarang terhubung ke:\n📌 *Kelas %s*\n🏛️ _%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) dan pengingat harian otomatis mengikuti kelas ini. ✨", classLabel, cfg.Kampus)
+		return fmt.Sprintf("*KELAS BERHASIL DIATUR*\n──────────\nChat/Grup ini sekarang terhubung ke:\n*Kelas %s*\n_%s_\n\nSeluruh jadwal perkuliahan (`!jadwal`, `!hari ini`, `!besok`) otomatis mengikuti kelas ini.", classLabel, cfg.Kampus)
 
 	case "resetkelas", "hapuskelas":
 		if isGroup {
@@ -650,7 +649,7 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		_ = csm.DeleteClass(chatJID)
-		return "🔄 *PENGATURAN KELAS DIRESET*\n──────────\nPengaturan kelas untuk chat ini telah dihapus (status: *Belum Diatur*).\n\nSilakan gunakan perintah `!setkelas [nama_kelas]` untuk memilih kelas kembali."
+		return "*PENGATURAN KELAS DIRESET*\n──────────\nPengaturan kelas untuk chat ini telah dihapus (status: *Belum Diatur*).\n\nSilakan gunakan perintah `!setkelas [nama_kelas]` untuk memilih kelas kembali."
 
 	default:
 		return ""

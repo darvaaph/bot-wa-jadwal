@@ -397,7 +397,7 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 		t.Fatalf("GetSchedule gagal: %v", err)
 	}
 
-	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬"}
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍"}
 	for _, emoji := range slopEmojis {
 		if strings.Contains(resp, emoji) {
 			t.Errorf("Output GetSchedule masih memuat emoji AI-slop %s: %s", emoji, resp)
@@ -406,5 +406,35 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 
 	if !strings.Contains(resp, "- Waktu:") || !strings.Contains(resp, "- Ruang:") {
 		t.Errorf("Output GetSchedule harus memuat format bullet strip (-): %s", resp)
+	}
+
+	// Verifikasi GetTasks bebas emoji dekoratif dan menggunakan strip
+	dl := time.Now().Add(48 * time.Hour).Format(time.RFC3339)
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Algoritma AntiSlop', 'Buat laporan praktikum', ?,
+		          'Kumpul di Portal', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dl)
+	if err != nil {
+		t.Fatalf("Insert task gagal: %v", err)
+	}
+
+	respTasks, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks gagal: %v", err)
+	}
+
+	for _, emoji := range slopEmojis {
+		if strings.Contains(respTasks, emoji) {
+			t.Errorf("Output GetTasks masih memuat emoji AI-slop %s: %s", emoji, respTasks)
+		}
+	}
+
+	if !strings.Contains(respTasks, "- ID Tugas:") || !strings.Contains(respTasks, "- Tenggat :") {
+		t.Errorf("Output GetTasks harus memuat format bullet strip (-): %s", respTasks)
 	}
 }

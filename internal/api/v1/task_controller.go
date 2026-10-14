@@ -68,6 +68,7 @@ func (c *TaskController) RegisterRoutes(mux *http.ServeMux, auth *middleware.Aut
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ReviewTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CompleteTask)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.UncompleteTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.ArchiveTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.RestoreTask)))
 }
@@ -954,6 +955,11 @@ func (c *TaskController) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	c.handleTaskStateChange(w, r, "complete")
 }
 
+// UncompleteTask menangani POST /api/v1/tasks/{id}/uncomplete
+func (c *TaskController) UncompleteTask(w http.ResponseWriter, r *http.Request) {
+	c.handleTaskStateChange(w, r, "uncomplete")
+}
+
 // ArchiveTask menangani POST /api/v1/tasks/{id}/archive
 func (c *TaskController) ArchiveTask(w http.ResponseWriter, r *http.Request) {
 	c.handleTaskStateChange(w, r, "archive")
@@ -1038,6 +1044,9 @@ func (c *TaskController) handleTaskStateChange(w http.ResponseWriter, r *http.Re
 	if action == "complete" {
 		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "COMPLETE_TASK"
+	} else if action == "uncomplete" {
+		updateQuery = "UPDATE tasks SET completed_at = NULL, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		auditAction = "UNCOMPLETE_TASK"
 	} else if action == "archive" {
 		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "ARCHIVE_TASK"

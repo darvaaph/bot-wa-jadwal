@@ -219,6 +219,14 @@ function kmApp() {
       error: ''
     },
 
+    // Modal Konfirmasi Tandai Selesai (KM)
+    modalSelesai: {
+      open: false,
+      task: null,
+      isSubmitting: false,
+      error: ''
+    },
+
     // Pengaturan kelas (ditulis ke server; berlaku pengiriman berikutnya).
     pengaturan: {
       pagi: '06:00',
@@ -373,11 +381,11 @@ function kmApp() {
     },
 
     tugasTabTitle() {
-      if (this.tugasTab === 'review') return 'Daftar Perlu Review';
-      if (this.tugasTab === 'draf') return 'Daftar Draf Tugas';
-      if (this.tugasTab === 'selesai_terlewat' || this.tugasTab === 'selesai' || this.tugasTab === 'terlewat') return 'Daftar Tugas Selesai & Terlewat';
-      if (this.tugasTab === 'arsip') return 'Daftar Arsip Tugas';
-      return 'Daftar Tugas Aktif';
+      if (this.tugasTab === 'review') return 'Usulan Menunggu Pemeriksaan';
+      if (this.tugasTab === 'draf') return 'Draf Tugas Belum Terbit';
+      if (this.tugasTab === 'selesai_terlewat' || this.tugasTab === 'selesai' || this.tugasTab === 'terlewat') return 'Riwayat Tugas Selesai & Terlewat';
+      if (this.tugasTab === 'arsip') return 'Arsip Tugas Lampau';
+      return 'Daftar Tugas Aktif Kuliah';
     },
 
     get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || this.tugasRentang || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
@@ -2499,7 +2507,7 @@ function kmApp() {
       if (!f.judul || f.judul.trim().length < 5) return 'Judul tugas minimal 5 karakter.';
       if (!f.tanggal || !f.jam) return 'Tanggal dan jam deadline wajib diisi.';
       if (!f.deskripsi || f.deskripsi.trim().length < 5) return 'Instruksi tugas minimal 5 karakter.';
-      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan atau tautan).';
+      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Wajib mengisi tempat pengumpulan: isi keterangan tempat (misal: Ruang Dosen) atau tautan URL online.';
       if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.';
       return '';
     },
@@ -2691,7 +2699,55 @@ function kmApp() {
       }
     },
 
+    bukaModalSelesai(task) {
+      if (!task) return;
+      this.modalSelesai = {
+        open: true,
+        task: task,
+        isSubmitting: false,
+        error: ''
+      };
+    },
+
+    tutupModalSelesai() {
+      if (this.modalSelesai.isSubmitting) return;
+      this.modalSelesai.open = false;
+      this.modalSelesai.task = null;
+      this.modalSelesai.error = '';
+    },
+
+    async konfirmasiSelesai() {
+      const task = this.modalSelesai.task;
+      if (!task) return;
+      this.modalSelesai.isSubmitting = true;
+      this.modalSelesai.error = '';
+      try {
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.completeTask(task.id, version);
+        const taskId = task.id;
+        this.tutupModalSelesai();
+        await this.loadTasks();
+        this.showToast('Tugas berhasil ditandai selesai.');
+        if (this.tugasSub === 'detail') await this.bukaDetailTugas(taskId);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.modalSelesai.error = 'Versi tugas telah diperbarui oleh pengguna lain. Silakan muat ulang data terbaru.';
+          await this.loadTasks();
+        } else {
+          this.modalSelesai.error = e.message || 'Gagal menandai tugas selesai.';
+        }
+      } finally {
+        this.modalSelesai.isSubmitting = false;
+      }
+    },
+
     async tandaiSelesai(id, version) {
+      const t = (this.tasks || []).find(x => String(x.id) === String(id)) || this.tugasDetail;
+      if (t) {
+        this.bukaModalSelesai(t);
+        return;
+      }
       try {
         await API.completeTask(id, version);
         await this.loadTasks();
@@ -2699,6 +2755,18 @@ function kmApp() {
         if (this.tugasSub === 'detail') await this.bukaDetailTugas(id);
       } catch (e) {
         this.showToast(e.message || 'Gagal menandai selesai.');
+        await this.loadTasks();
+      }
+    },
+
+    async batalkanSelesai(id, version) {
+      try {
+        await API.uncompleteTask(id, version);
+        await this.loadTasks();
+        this.showToast('Status tugas dikembalikan ke aktif.');
+        if (this.tugasSub === 'detail') await this.bukaDetailTugas(id);
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengembalikan status tugas.');
         await this.loadTasks();
       }
     },

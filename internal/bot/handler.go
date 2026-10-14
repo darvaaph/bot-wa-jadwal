@@ -40,9 +40,9 @@ var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", 
 // Fungsi murni agar isi balasan dapat diuji tanpa klien WhatsApp.
 func kanalReplyText(chatJID string, isGroup bool) string {
 	if isGroup {
-		return fmt.Sprintf("📡 *ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) ➔ menu *Kanal WhatsApp*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
+		return fmt.Sprintf("*ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) -> menu *Kanal WhatsApp*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
 	}
-	return fmt.Sprintf("📡 *ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`).", chatJID)
+	return fmt.Sprintf("*ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`).", chatJID)
 }
 
 // linkRestrictedDMMessage menyusun teks pemberitahuan pembatasan akses tautan di chat pribadi.
@@ -107,11 +107,11 @@ func RedirectMessage(entity string) string {
 // PortalMessage menyusun balasan perintah !portal/!web.
 func PortalMessage() string {
 	var sb strings.Builder
-	sb.WriteString("🌐 *PORTAL & DASHBOARD*\n")
+	sb.WriteString("*PORTAL & DASHBOARD*\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
+	sb.WriteString("*Portal Kelas (mahasiswa):*\n")
 	sb.WriteString(util.PublicBaseURL() + "/ (pilih kelas Anda)\n\n")
-	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
+	sb.WriteString("*Dashboard Pengelola (PJ/KM):*\n")
 	sb.WriteString(util.PublicBaseURL() + "/login.html\n")
 	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
 	return sb.String()
@@ -374,12 +374,77 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// 7. Jika kelas target adalah kelas pilot v1 dan pesan adalah perintah jadwal, layani dari database v1
-	if v1Class != nil && v1Service != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
-		schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
-		if err == nil && schedReply != "" {
-			reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
-			return
+	// 7. Jika kelas target adalah kelas pilot v1, layani perintah jadwal, menu, dan pencarian dari database v1
+	if v1Class != nil && v1Service != nil {
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
+			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
+			if err == nil && schedReply != "" {
+				reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "keyword", "keywords", "katakunci") {
+			kwReply, err := v1Service.GetKeywords(context.Background(), v1Class.ID)
+			if err == nil && kwReply != "" {
+				reply(kwReply, "📖", 600*time.Millisecond, "keywords v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "menu", "help", "bantuan", "panduan") {
+			menuReply, err := v1Service.GetMenu(context.Background(), v1Class.ID)
+			if err == nil && menuReply != "" {
+				reply(menuReply, "📋", 600*time.Millisecond, "menu v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "matkul", "matakuliah", "mata kuliah", "daftarmatkul") {
+			courseReply, err := v1Service.GetCourses(context.Background(), v1Class.ID)
+			if err == nil && courseReply != "" {
+				reply(courseReply, "📚", 600*time.Millisecond, "matkul v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "dosen") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			dosenReply, err := v1Service.SearchDosen(context.Background(), v1Class.ID, query)
+			if err == nil && dosenReply != "" {
+				reply(dosenReply, "👨‍🏫", 600*time.Millisecond, "dosen v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "ruang", "ruangan", "lab") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			ruangReply, err := v1Service.SearchRuang(context.Background(), v1Class.ID, query)
+			if err == nil && ruangReply != "" {
+				reply(ruangReply, "🏫", 600*time.Millisecond, "ruang v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "cari", "search") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			cariReply, err := v1Service.SearchGlobal(context.Background(), v1Class.ID, query)
+			if err == nil && cariReply != "" {
+				reply(cariReply, "🔍", 600*time.Millisecond, "cari v1")
+				return
+			}
 		}
 	}
 

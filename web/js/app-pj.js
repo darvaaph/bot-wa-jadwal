@@ -2840,7 +2840,7 @@ function pjApp() {
       if (!f.judul || f.judul.trim().length < 5) return 'Judul tugas minimal 5 karakter.';
       if (!f.tanggal || !f.jam) return 'Tanggal dan jam deadline wajib diisi.';
       if (!f.deskripsi || f.deskripsi.trim().length < 5) return 'Instruksi tugas minimal 5 karakter.';
-      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan tempat atau tautan URL).';
+      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Wajib mengisi tempat pengumpulan: isi keterangan tempat (misal: Ruang Dosen) atau tautan URL online.';
       if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak valid. Gunakan format YYYY-MM-DD dan HH:MM.';
       return '';
     },
@@ -3123,6 +3123,18 @@ function pjApp() {
         if (this.view === 'detail-tugas') await this.bukaDetailTugas(id);
       } catch (e) {
         this.showToast(e.message || 'Gagal menandai selesai.');
+        await this.loadTasks();
+      }
+    },
+
+    async batalkanSelesai(id, version) {
+      try {
+        await API.uncompleteTask(id, version);
+        await this.loadTasks();
+        this.showToast('Status tugas dikembalikan ke aktif.');
+        if (this.view === 'detail-tugas') await this.bukaDetailTugas(id);
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengembalikan status tugas.');
         await this.loadTasks();
       }
     },

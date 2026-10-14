@@ -194,25 +194,39 @@ const AsteriskShell = (() => {
       kmClassName() {
         const asg = (this.meCache && this.meCache.active_assignment) || {};
         if (asg.class_name) return asg.class_name;
-        const c = (this.classList || []).find(x => (x.slug || x) === this.selectedClass);
+        const c = (this.classList || []).find(x => (x.slug || x) === this.selectedClass || (x.code || '') === this.selectedClass);
         if (c && c.name) return c.name;
-        if (this.selectedClass) {
-          const raw = String(this.selectedClass).trim();
+        if (c && c.program && c.cohort && c.group) {
+          const prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
+          const cohort = parseInt(c.cohort, 10);
+          const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+          return `${prodi} ${tingkat}${c.group}`;
+        }
+        const raw = String(this.selectedClass || asg.class_slug || '').trim();
+        if (raw) {
           const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
-          if (m) return `${m[1].toUpperCase()}-${m[2].toUpperCase()} 1${m[4].toUpperCase()}`;
+          if (m) {
+            const cohort = parseInt(m[3], 10);
+            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+          }
           return raw;
         }
-        return 'D4 - Teknik Informatika 1A';
+        return 'D4-TI 2A';
       },
       pjClassName() {
         if (this.dashboardData?.class?.label) return this.dashboardData.class.label;
         const asg = (this.meCache && this.meCache.active_assignment) || {};
         if (asg.class_name) return asg.class_name;
-        const raw = this.selectedClass || (this.dashboardData?.class?.slug) || '';
+        const raw = String(this.selectedClass || (this.dashboardData?.class?.slug) || '').trim();
         if (raw) {
-          const m = String(raw).trim().match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
-          if (m) return `${m[1].toUpperCase()}-${m[2].toUpperCase()} 1${m[4].toUpperCase()}`;
-          return String(raw).toUpperCase();
+          const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+          if (m) {
+            const cohort = parseInt(m[3], 10);
+            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+          }
+          return raw.toUpperCase();
         }
         return '';
       },
@@ -221,8 +235,9 @@ const AsteriskShell = (() => {
         if (/D4.*Teknik Informatika\s*([0-9][A-Za-z])/i.test(full)) {
           return full.replace(/.*Teknik Informatika\s*/i, 'D4-TI ');
         }
-        const asg = (this.meCache && this.meCache.active_assignment) || {};
-        if (asg.class_slug) return asg.class_slug.toUpperCase();
+        if (/D3.*Teknik Informatika\s*([0-9][A-Za-z])/i.test(full)) {
+          return full.replace(/.*Teknik Informatika\s*/i, 'D3-TI ');
+        }
         return full;
       },
       kmCrumb() {
