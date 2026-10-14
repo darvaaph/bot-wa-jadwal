@@ -140,10 +140,10 @@
     </div>
   </div>
 
-  <!-- Card Daftar Tugas -->
-  <div class="p-5 md:p-6 rounded-2xl bg-white border border-border shadow-2xs space-y-4">
+  <!-- Card Daftar Tugas (Responsive: Flat on Mobile Canvas, Card Panel on Desktop) -->
+  <div class="p-0 sm:p-5 md:p-6 rounded-none sm:rounded-2xl bg-transparent sm:bg-white border-0 sm:border border-border shadow-none sm:shadow-2xs space-y-3 sm:space-y-4">
     <!-- Header Card -->
-    <div class="flex items-center justify-between pb-3 border-b border-border">
+    <div class="flex items-center justify-between pb-1 sm:pb-3 border-b-0 sm:border-b border-border">
       <h2 class="text-[16px] font-bold text-ink">
         <span x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Draf & Menunggu Review ' : (tugasTab === 'selesai' ? 'Tugas Selesai ' : (tugasTab === 'arsip' ? 'Arsip Tugas ' : 'Daftar Tugas '))"></span>
         <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'"></span>
@@ -180,7 +180,7 @@
     </div>
 
     <!-- State: Empty (Belum Ada Tugas Sama Sekali) -->
-    <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-12 text-center space-y-3">
+    <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-12 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-200">
       <img src="/assets/illustrations/empty-folder.svg" alt="" class="w-16 h-16 mx-auto opacity-70" />
       <div>
         <p class="text-[15px] font-bold text-ink">Belum ada tugas untuk mata kuliah ini</p>
@@ -192,7 +192,7 @@
     </div>
 
     <!-- State: Empty (Filter Tidak Menemukan Tugas) -->
-    <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0" class="py-10 text-center space-y-2">
+    <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0" class="py-10 px-4 text-center space-y-2 bg-white rounded-2xl border border-dashed border-slate-200">
       <p class="text-[15px] font-bold text-ink" x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Belum ada draf atau tugas yang menunggu review' : 'Tidak ada tugas yang cocok'"></p>
       <p class="text-[13px] text-muted" x-text="(tugasTab === 'draf' || tugasTab === 'draf_review') ? 'Semua tugas draf telah disetujui atau Anda belum membuat draf baru.' : (q.trim() ? 'Tidak ada tugas yang cocok dengan pencarian dan filter rentang tenggat.' : 'Tidak ada tugas pada tab atau rentang tenggat yang dipilih.')"></p>
       <button type="button" x-show="tugasTab !== 'draf' && tugasTab !== 'draf_review'" @click="q = ''; hapusTugasFilter(); tugasTab = 'aktif'" class="ui-button ui-button--outline text-primary text-[13px] font-semibold h-9 px-4 rounded-xl mt-2">

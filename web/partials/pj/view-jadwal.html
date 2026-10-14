@@ -148,13 +148,13 @@
       </template>
     </div>
 
-    <!-- Kalender Mingguan Kelas -->
-    <div class="mt-4 p-4 sm:p-5 md:p-[20px] bg-white border border-[#E2E8F0] rounded-[16px] shadow-xs">
+    <!-- Kalender Mingguan Kelas (Responsive: Flat on Mobile Canvas, Card Panel on Desktop) -->
+    <div class="mt-4 p-0 sm:p-5 md:p-[20px] bg-transparent sm:bg-white border-0 sm:border border-[#E2E8F0] rounded-none sm:rounded-[16px] shadow-none sm:shadow-xs">
       <!-- Header Kalender Mingguan -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 sm:pb-3 border-b-0 sm:border-b border-slate-100">
         <div>
           <h2 class="text-[16px] font-bold text-[#0F172A] font-display">Kalender Mingguan Kelas</h2>
-          <p class="text-[12px] text-[#667085] mt-0.5">Pilih sesi untuk rincian kelas atau mengajukan kuliah pengganti.</p>
+          <p class="text-[12px] text-[#64748B] mt-0.5">Pilih sesi untuk rincian kelas atau mengajukan kuliah pengganti.</p>
         </div>
 
         <!-- Pengalih Tampilan (Kalender vs Daftar) -->
@@ -313,16 +313,14 @@
                   <template x-if="!item.session.isDraft">
                     <div
                       @click="bukaDetailSesi(item.session, weekDays.find(d => d.name === activeMobileDay))"
-                      class="p-4 rounded-2xl border transition text-left cursor-pointer shadow-2xs space-y-2"
+                      class="p-4 rounded-[16px] bg-white hover:bg-[#F8FAFC] border shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition text-left cursor-pointer space-y-2.5"
                       :class="isSesiOngoing(item.session)
-                        ? 'bg-[#F0FDF4] border border-[#86EFAC] ring-2 ring-[#22C55E]/20'
+                        ? 'bg-[#F0FDF4] border-[#86EFAC] ring-2 ring-[#22C55E]/20'
                         : (isMatkulSaya(item.session)
-                          ? 'bg-[#EFF6FF] border-2 border-[#3B82F6]'
+                          ? 'border-[#3B82F6] ring-1 ring-blue-500/20'
                           : (item.session.eventKind === 'REPLACEMENT'
-                            ? 'bg-[#FFFBEB] border border-[#FDE68A]'
-                            : (sesiType(item.session) === 'Praktikum'
-                              ? 'bg-[#FAF5FF] border border-[#DDD6FE]'
-                              : 'bg-[#F0F7FF] border border-[#BFDBFE]')))"
+                            ? 'bg-[#FFFBEB] border-[#FDE68A]'
+                            : 'border-[#E2E8F0]'))"
                     >
                       <!-- Baris Waktu & Badge -->
                       <div class="flex items-center justify-between gap-2 flex-wrap">

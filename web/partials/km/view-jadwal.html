@@ -113,7 +113,7 @@
     </div>
 
     <!-- Calendar Container Card (SCR-SCHED-001 & SCR-SCHED-001B) -->
-    <div class="box-border w-full shadow-[0px_4px_16px_#0F172A0A] flex flex-col gap-[15px] p-4 sm:p-5 md:p-[20px] justify-start items-start bg-[#FFFFFF] border border-[#D7DDE7] rounded-[16px] mt-4">
+    <div class="box-border w-full shadow-none sm:shadow-[0px_4px_16px_#0F172A0A] flex flex-col gap-3 sm:gap-[15px] p-0 sm:p-5 md:p-[20px] justify-start items-start bg-transparent sm:bg-[#FFFFFF] border-0 sm:border border-[#D7DDE7] rounded-none sm:rounded-[16px] mt-4">
       <div x-show="scheduleLoading" class="mb-4 text-[13px] text-[#64748B] flex items-center gap-2">
         <span class="material-symbols-outlined text-[18px] animate-spin text-[#3965FB]">progress_activity</span>
         <span>Memuat jadwal perkuliahan...</span>
@@ -124,7 +124,7 @@
       </div>
 
       <!-- Card Top Bar: Title + Subtitle + Toggle Pill -->
-      <div class="box-border w-full min-h-[42px] shrink-0 flex flex-col sm:flex-row gap-[12px] justify-between sm:items-center pb-3 border-b border-[#F1F5F9]">
+      <div class="box-border w-full min-h-[42px] shrink-0 flex flex-col sm:flex-row gap-[12px] justify-between sm:items-center pb-1 sm:pb-3 border-b-0 sm:border-b border-[#F1F5F9]">
         <div class="flex flex-col gap-[3px]">
           <h2 class="text-[16px] font-heading font-bold text-[#0F172A]"
               x-text="calendarViewMode === 'calendar' ? 'Kalender Mingguan Kelas' : 'Jadwal Mingguan Kelas'">
@@ -438,9 +438,9 @@
       </div>
 
       <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden saat mode kalender) -->
-      <div x-show="calendarViewMode === 'calendar'" class="md:hidden mt-4">
+      <div x-show="calendarViewMode === 'calendar'" class="md:hidden mt-4 w-full">
         <!-- Horizontal Day Pill Selector (Fit 5 Hari di Mobile & Scroll Halus) -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x" role="tablist" aria-label="Pilih hari jadwal">
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 scroll-smooth touch-pan-x" role="tablist" aria-label="Pilih hari jadwal">
           <template x-for="d in weekDays" :key="'mob-tab-' + d.name">
             <button type="button" role="tab"
                     :aria-selected="currentScheduleDay === d.name"
@@ -472,14 +472,12 @@
         <div class="space-y-3 mt-2">
           <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-s-' + s.id">
             <div @click="bukaAksiSesi(s)"
-                 class="p-3.5 rounded-[12px] border transition-all cursor-pointer group"
+                 class="p-4 rounded-[16px] bg-white hover:bg-[#F8FAFC] border shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all cursor-pointer group"
                  :class="isSesiOngoing(s)
-                         ? 'bg-[#F0FDF4] border border-[#86EFAC] ring-2 ring-[#22C55E]/20 shadow-xs'
+                         ? 'bg-[#F0FDF4] border-[#86EFAC] ring-2 ring-[#22C55E]/20'
                          : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
-                            ? 'bg-[#FFFBEB] border border-[#FDE68A]'
-                            : (slotKind(s.matkul, s.eventKind) === 'Praktikum'
-                               ? 'bg-[#FAF5FF] border border-[#DDD6FE]'
-                               : 'bg-[#F0F7FF] border border-[#BFDBFE]'))">
+                            ? 'bg-[#FFFBEB] border-[#FDE68A]'
+                            : 'border-[#E2E8F0]')">
               <div class="flex items-center justify-between gap-2 mb-2">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="font-mono text-[11px] font-bold"
@@ -508,14 +506,14 @@
                           ? 'text-[#14532D]'
                           : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
                              ? 'text-[#78350F]'
-                             : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'text-[#4C1D95]' : 'text-[#0F172A]'))"
+                             : 'text-[#0F172A]')"
                   x-text="cleanMatkul(s.matkul)">-</h4>
               <div class="mt-2 pt-2 border-t flex flex-col gap-1 text-[11px]"
                    :class="isSesiOngoing(s)
                            ? 'border-[#BBF7D0]'
                            : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
                               ? 'border-[#FDE68A] text-[#92400E]'
-                              : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'border-[#E9D5FF] text-[#6D28D9]' : 'border-[#DBEAFE] text-[#334155]'))">
+                              : 'border-[#F1F5F9] text-[#64748B]')">
                 <p x-text="'Ruang: ' + cleanRuang(s.ruang)"></p>
                 <p x-show="s.dosen" x-text="'Dosen: ' + s.dosen"></p>
                 <p x-show="s.originNote" class="italic text-[#B45309]" x-text="'Catatan: ' + s.originNote"></p>
@@ -526,24 +524,19 @@
                            ? 'border-[#BBF7D0]'
                            : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
                               ? 'border-[#FDE68A]'
-                              : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'border-[#E9D5FF]' : 'border-[#DBEAFE]'))">
+                              : 'border-[#F1F5F9]')">
                 <span class="text-[11px] font-medium text-slate-500 truncate">
                   Ketuk untuk aksi / kuliah pengganti
                 </span>
                 <button type="button" @click.stop="bukaAksiSesi(s)"
-                        class="h-9 px-3 rounded-[8px] bg-white text-[12px] font-semibold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer shrink-0"
-                        :class="isSesiOngoing(s)
-                                ? 'text-[#166534] border border-[#86EFAC]'
-                                : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
-                                   ? 'text-[#92400E] border border-[#FDE68A]'
-                                   : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'text-[#6D28D9] border border-[#DDD6FE]' : 'text-[#1D4ED8] border border-[#BFDBFE]'))">
+                        class="h-9 px-3 rounded-[8px] bg-white text-[12px] font-semibold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer shrink-0 border border-[#CBD5E1] text-[#1D1B3A] hover:bg-slate-50">
                   <span>Detail Sesi</span>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true"><path d="M6 12l4-4-4-4"/></svg>
                 </button>
               </div>
             </div>
           </template>
-          <div x-show="daySessions(currentScheduleDay).length === 0" class="py-10 px-4 rounded-[12px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] text-center flex flex-col items-center justify-center">
+          <div x-show="daySessions(currentScheduleDay).length === 0" class="py-10 px-4 rounded-[16px] border border-dashed border-slate-200 bg-white text-center flex flex-col items-center justify-center">
             <svg viewBox="0 0 24 24" class="w-[32px] h-[32px] shrink-0 fill-[#CBD5E1] mb-2" aria-hidden="true">
               <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm-8.5-2.5l-3-3 1.41-1.41L10.5 14.67l5.59-5.59L17.5 10.5l-7 7z"/>
             </svg>

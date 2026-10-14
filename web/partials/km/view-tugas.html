@@ -114,9 +114,9 @@
       </div>
 
       <!-- Card Container Daftar Tugas -->
-      <div class="bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-4 sm:p-6 pb-8 space-y-4">
+      <div class="bg-transparent sm:bg-white rounded-none sm:rounded-[16px] border-0 sm:border border-[#D7DDE7] shadow-none sm:shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-0 sm:p-6 pb-4 sm:pb-8 space-y-3 sm:space-y-4">
         <!-- Header Daftar Tugas -->
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#F2F4F7]">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 pb-1 sm:pb-2.5 border-b-0 sm:border-b border-[#F2F4F7]">
           <h2 class="text-[15px] sm:text-[16px] font-bold text-[#1D1B3A]" x-text="tugasTab === 'review' ? 'Usulan Menunggu Pemeriksaan' : tugasTabTitle()">
             Daftar Tugas Aktif Kuliah
           </h2>
@@ -157,7 +157,7 @@
         </div>
 
         <!-- State Kosong - Belum ada tugas sama sekali -->
-        <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-12 text-center space-y-3">
+        <div x-show="!tugasLoading && !tugasListError && tasks.length === 0" class="py-12 px-4 text-center space-y-3 bg-white rounded-[16px] border border-dashed border-slate-200">
           <div class="w-16 h-16 mx-auto rounded-2xl bg-blue-50 flex items-center justify-center text-[#3965FB]">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8" aria-hidden="true" focusable="false">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
@@ -171,7 +171,7 @@
         </div>
 
         <!-- State Kosong Khusus Tab Review: Semua tugas sudah diperiksa -->
-        <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0 && tugasTab === 'review'" class="py-10 text-center space-y-2">
+        <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0 && tugasTab === 'review'" class="py-10 px-4 text-center space-y-2 bg-white rounded-[16px] border border-dashed border-slate-200">
           <div class="w-12 h-12 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           </div>
@@ -180,7 +180,7 @@
         </div>
 
         <!-- State Kosong Tab Lainnya: Tidak ada yang cocok dengan filter -->
-        <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0 && tugasTab !== 'review'" class="py-10 text-center space-y-2">
+        <div x-show="!tugasLoading && !tugasListError && tasks.length > 0 && tugasTabList.length === 0 && tugasTab !== 'review'" class="py-10 px-4 text-center space-y-2 bg-white rounded-[16px] border border-dashed border-slate-200">
           <p class="text-[15px] font-semibold text-[#1D1B3A]">Tidak ada tugas yang cocok</p>
           <p class="text-[13px] text-[#667085]" x-text="q.trim() ? 'Tidak ada tugas yang sesuai dengan pencarian dan filter yang dipilih.' : 'Tidak ada tugas dengan filter yang dipilih pada tab ini.'"></p>
           <div class="pt-2">
@@ -193,7 +193,7 @@
         <!-- 1. Daftar Tugas: Tab Review (Tampilan Kartu Usulan PJ Sesuai Figma SCR-TASK-001) -->
         <div x-show="!tugasLoading && !tugasListError && tugasTabList.length > 0 && tugasTab === 'review'" class="space-y-4">
           <template x-for="t in tugasTabList" :key="t.id">
-            <div class="w-full flex flex-col gap-2.5 p-4 sm:p-5 bg-white border border-[#E2E8F0] rounded-[12px] hover:border-slate-300 transition-colors">
+            <div class="w-full flex flex-col gap-2.5 p-4 sm:p-5 bg-white border border-[#E2E8F0] rounded-[16px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:border-slate-300 transition-colors">
               <!-- Baris Identitas Pengusul & Status -->
               <div class="w-full flex flex-wrap items-center gap-2 sm:gap-2.5">
                 <span class="px-2.5 py-1 rounded-[9px] bg-[#EFF6FF] text-[#3965FB] text-[11px] font-semibold tracking-wide uppercase truncate"
@@ -283,7 +283,7 @@
         <div x-show="!tugasLoading && !tugasListError && tugasTabList.length > 0 && tugasTab !== 'review'" class="space-y-3 pt-2 pb-2">
           <template x-for="t in tugasTabList" :key="t.id">
             <div @click="bukaDetailTugas(t.id)"
-              class="p-4 sm:p-5 rounded-[14px] border border-[#E2E8F0] hover:border-slate-300 hover:shadow-sm bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 group cursor-pointer">
+              class="p-4 sm:p-5 rounded-[16px] border border-[#E2E8F0] hover:border-slate-300 shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 group cursor-pointer">
               <!-- Sisi Kiri: Ikon + Judul + Matkul + Badges -->
               <div class="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
                 <!-- Ikon Glyph Tugas -->
