@@ -278,7 +278,8 @@ function portalApp() {
     listDaysToShow() {
       const days = this.pekanHariListAgenda;
       if (this.listDayFilter === 'all') {
-        return days.filter(d => this.portalDaySessions(d).length > 0);
+        const active = days.filter(d => this.portalDaySessions(d).length > 0);
+        return active.length > 0 ? active : days;
       }
       return days.filter(d => d === this.listDayFilter);
     },
@@ -287,9 +288,21 @@ function portalApp() {
       if (!s) return 'TEORI';
       if (s.kind === 'PENGGANTI') return 'PENGGANTI';
       const m = String(s.matkul || '').toLowerCase();
+      const r = String(s.ruang || '').toLowerCase();
       const act = String(s.activityType || '').toUpperCase();
-      if (act === 'PRACTICE' || act === 'PRAKTIKUM' || act === 'LAB' || m.includes('praktik')) return 'PRAKTIKUM';
+      if (act === 'PRACTICE' || act === 'PRAKTIKUM' || act === 'LAB' || m.includes('praktik') || r.includes('lab')) return 'PRAKTIKUM';
       return 'TEORI';
+    },
+
+    portalSesiBadgeClass(s) {
+      const type = this.portalSesiType(s);
+      if (type === 'PENGGANTI') {
+        return 'bg-amber-50 text-amber-800 border-amber-200/80';
+      }
+      if (type === 'PRAKTIKUM') {
+        return 'bg-purple-50 text-purple-700 border-purple-200/80';
+      }
+      return 'bg-blue-50 text-blue-700 border-blue-200/80';
     },
 
     get jadwalEfektifHariIni() {
@@ -1003,23 +1016,37 @@ function portalApp() {
     },
 
     normalisasiEfektif(items, hariLabel) {
-      return (items || []).map((it, i) => ({
-        id: it.id || `ef-${i}`,
-        hari: hariLabel || '',
-        kind: it.kind || 'REGULER',
-        activityType: String(it.activity_type || 'THEORY').toUpperCase(),
-        matkul: it.offering || it.title || 'Mata Kuliah',
-        code: it.code || '',
-        dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
-        ruang: it.room || '',
-        link: it.meeting_link || '',
-        timeStart: (it.starts_at || '').slice(0, 5),
-        timeEnd: (it.ends_at || '').slice(0, 5),
-        pj: it.pj || '',
-        pjPhone: it.pj_phone || '',
-        originDate: it.origin_occurrence_date || '',
-        reason: it.reason || ''
-      }));
+      return (items || []).map((it, i) => {
+        let act = String(it.activity_type || '').toUpperCase();
+        const matkulTitle = it.offering || it.title || 'Mata Kuliah';
+        const roomName = it.room || '';
+        if (!act || act === 'THEORY') {
+          const mLower = matkulTitle.toLowerCase();
+          const rLower = roomName.toLowerCase();
+          if (mLower.includes('praktik') || rLower.includes('lab')) {
+            act = 'PRACTICE';
+          } else {
+            act = act || 'THEORY';
+          }
+        }
+        return {
+          id: it.id || `ef-${i}`,
+          hari: hariLabel || '',
+          kind: it.kind || 'REGULER',
+          activityType: act,
+          matkul: matkulTitle,
+          code: it.code || '',
+          dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
+          ruang: roomName,
+          link: it.meeting_link || '',
+          timeStart: (it.starts_at || '').slice(0, 5),
+          timeEnd: (it.ends_at || '').slice(0, 5),
+          pj: it.pj || '',
+          pjPhone: it.pj_phone || '',
+          originDate: it.origin_occurrence_date || '',
+          reason: it.reason || ''
+        };
+      });
     },
 
     cleanMatkul(matkul) {
@@ -1456,12 +1483,17 @@ function portalApp() {
           if (!useLegacyFallback && res && Array.isArray(res.items)) {
             newPekan[d] = this.normalisasiEfektif(res.items, d);
           } else {
-            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => ({
-              id: s.id, hari: s.hari, kind: 'REGULER', activityType: 'THEORY',
-              matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
-              timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
-              link: '', pj: '', originDate: '', reason: ''
-            }));
+            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => {
+              const mLower = String(s.matkul || '').toLowerCase();
+              const rLower = String(s.ruang || '').toLowerCase();
+              const isPrak = mLower.includes('praktik') || rLower.includes('lab');
+              return {
+                id: s.id, hari: s.hari, kind: 'REGULER', activityType: isPrak ? 'PRACTICE' : 'THEORY',
+                matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
+                timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
+                link: '', pj: '', originDate: '', reason: ''
+              };
+            });
           }
         });
         this.jadwalPekan = newPekan;

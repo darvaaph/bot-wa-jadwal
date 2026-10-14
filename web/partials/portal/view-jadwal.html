@@ -1,6 +1,6 @@
 <!-- partials/portal/view-jadwal.html — Portal Jadwal Mahasiswa (Redesain Figma Desktop & Mobile 390) -->
 <section x-show="view === 'jadwal'" x-cloak
-  class="w-full flex flex-col gap-[20px] p-[20px_16px_36px_16px] md:p-[30px_32px_36px_32px]">
+  class="w-full flex flex-col gap-[20px] px-4 pt-5 pb-32 md:p-[30px_32px_36px_32px]">
 
   <!-- Judul dan konteks jadwal -->
   <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[5px] justify-start items-start">
@@ -102,35 +102,36 @@
   </div>
 
   <!-- Navigasi Pekan dan Hari (MOBILE) -->
-  <div class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[10px] justify-start items-start">
-    <div class="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center">
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row items-center">
-        <button type="button" @click="prevWeek()" title="Pekan Sebelumnya"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center text-slate-600 active:bg-slate-100 rounded-lg">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
+  <div class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[12px] justify-start items-start">
+    <div class="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center gap-2">
+      <!-- Stepper Pekan Terpadu (Fitts's Law >= 44px) -->
+      <div class="inline-flex items-center bg-white border border-slate-200/90 rounded-xl shadow-2xs overflow-hidden h-[44px]">
+        <button type="button" @click="prevWeek()" title="Pekan Sebelumnya" aria-label="Pekan Sebelumnya"
+          class="w-[44px] h-[44px] flex justify-center items-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+          <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
             <path
               d="M5.896 7l2.478 2.478a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L5.4 7.33a.47.47 0 0 1 0-.66l2.56-2.56a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L5.896 7z" />
           </svg>
         </button>
-        <div class="text-[12px] text-[#1E293B] font-bold whitespace-nowrap" x-text="rentangPekanSingkatLabel">
+        <div class="px-2.5 text-[12px] text-slate-800 font-bold whitespace-nowrap border-x border-slate-100" x-text="rentangPekanSingkatLabel">
           5 - 11 Okt (Pekan 6)
         </div>
-        <button type="button" @click="nextWeek()" title="Pekan Berikutnya"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center text-slate-600 active:bg-slate-100 rounded-lg">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
+        <button type="button" @click="nextWeek()" title="Pekan Berikutnya" aria-label="Pekan Berikutnya"
+          class="w-[44px] h-[44px] flex justify-center items-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+          <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
             <path
               d="M7.755 7L5.277 4.522a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l2.56 2.56a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L7.755 7z" />
           </svg>
         </button>
       </div>
 
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] items-center">
+      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-2 items-center">
         <button type="button" @click="mingguIni()"
-          class="box-border w-fit shrink-0 h-[40px] px-[8px] flex items-center text-[12px] text-[#2563EB] font-bold active:bg-blue-50 rounded-lg transition-colors">
-          Hari Ini
+          class="h-[44px] px-3 flex items-center text-[12px] text-blue-600 font-bold bg-white border border-slate-200/90 rounded-xl hover:bg-blue-50/50 active:bg-blue-50 shadow-2xs transition-colors">
+          Pekan Ini
         </button>
         <button type="button" @click="bukaRiwayatPerubahan()"
-          class="relative box-border w-[40px] h-[40px] flex justify-center items-center rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 transition-all border border-slate-200/80 shadow-2xs"
+          class="relative w-[44px] h-[44px] flex justify-center items-center rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 transition-all border border-slate-200/90 shadow-2xs"
           title="Riwayat Perubahan Jadwal"
           aria-label="Riwayat Perubahan Jadwal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] shrink-0 text-slate-700">
@@ -147,26 +148,26 @@
       </div>
     </div>
 
-    <!-- Pengalih Mode Jadwal Mobile (Per Hari vs Semua Pekan) -->
+    <!-- Pengalih Mode Jadwal Mobile (Harian vs Mingguan) -->
     <div data-pencil-name="Pengalih mode jadwal mobile"
-      class="box-border w-full h-[52px] shrink-0 flex flex-row gap-[4px] p-[4px] justify-start items-center bg-[#F1F5F9] rounded-[10px]">
+      class="box-border w-full h-[48px] shrink-0 flex flex-row gap-[4px] p-[4px] justify-start items-center bg-slate-100 rounded-xl border border-slate-200/80">
       <button type="button" @click="mobileJadwalMode = 'per_hari'"
-        :class="mobileJadwalMode === 'per_hari' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#2563EB] font-bold' : 'bg-[#F1F5F9] text-[#64748B] font-medium hover:text-[#334155]'"
-        class="box-border flex-1 h-[44px] flex flex-row gap-[5px] justify-center items-center rounded-[8px] transition-all">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
+        :class="mobileJadwalMode === 'per_hari' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
+        class="flex-1 h-[40px] flex flex-row gap-1.5 justify-center items-center rounded-lg transition-all">
+        <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M3.274 9.334q-.39 0-.666-.273-.274-.277-.274-.67V5.61q0-.393.274-.667.277-.276.666-.276h7.452q.39 0 .663.276.277.274.277.667v2.782q0 .393-.277.67-.273.273-.663.273H3.274zm0-.584h7.452q.157 0 .256-.1.103-.1.103-.26V5.61q0-.157-.103-.256-.1-.103-.256-.103H3.274q-.157 0-.26.103-.1.1-.1.256v2.782q0 .157.1.26.1.1.26.1zm-.663-5.476q-.113 0-.195-.082-.082-.085-.082-.208 0-.123.082-.205.085-.085.208-.085h8.764q.113 0 .195.085.082.082.082.205 0 .123-.085.208-.082.082-.205.082H2.611zm0 8.032q-.113 0-.195-.082-.082-.085-.082-.208 0-.123.082-.205.085-.085.208-.085h8.764q.113 0 .195.085.082.082.082.205 0 .123-.085.208-.082.082-.205.082H2.611z" />
         </svg>
-        <span class="text-[12px] whitespace-nowrap">Per Hari</span>
+        <span class="text-[12px] whitespace-nowrap">Harian</span>
       </button>
       <button type="button" @click="mobileJadwalMode = 'semua_pekan'"
-        :class="mobileJadwalMode === 'semua_pekan' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#2563EB] font-bold' : 'bg-[#F1F5F9] text-[#64748B] font-medium hover:text-[#334155]'"
-        class="box-border flex-1 h-[44px] flex flex-row gap-[5px] justify-center items-center rounded-[8px] transition-all">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
+        :class="mobileJadwalMode === 'semua_pekan' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
+        class="flex-1 h-[40px] flex flex-row gap-1.5 justify-center items-center rounded-lg transition-all">
+        <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M4.758 5.318a.29.29 0 0 1-.294-.297.29.29 0 0 1 .294-.29h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.297H4.758zm0 1.972a.29.29 0 0 1-.294-.293.29.29 0 0 1 .294-.291h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.294H4.758zm0 1.976a.29.29 0 0 1-.294-.291.29.29 0 0 1 .294-.294h6.617a.29.29 0 0 1 .29.294.29.29 0 0 1-.29.291H4.758zM2.693 5.385a.36.36 0 0 1-.36-.369.36.36 0 0 1 .36-.349.36.36 0 0 1 .358.35.36.36 0 0 1-.358.368zm0 1.965a.36.36 0 0 1-.36-.352.36.36 0 0 1 .36-.369.36.36 0 0 1 .358.37.36.36 0 0 1-.358.351zm0 1.986a.36.36 0 0 1-.36-.376.36.36 0 0 1 .36-.345.36.36 0 0 1 .358.345.36.36 0 0 1-.358.376z" />
         </svg>
-        <span class="text-[12px] whitespace-nowrap">Semua Pekan (Daftar)</span>
+        <span class="text-[12px] whitespace-nowrap">Mingguan</span>
       </button>
     </div>
 
@@ -175,16 +176,33 @@
       class="box-border w-auto h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
       <template x-for="d in pekanHariListMobile" :key="d">
         <button type="button" @click="pilihHari(d)"
-          :class="hari === d ? 'bg-[#2563EB] text-white [box-shadow:0px_2px_4px_#0F172A14]' : 'bg-[#F1F5F9] text-[#334155]'"
-          class="box-border flex-1 h-[44px] min-w-[52px] flex justify-center items-center rounded-[12px] relative transition-all">
-          <span class="text-[10px] font-bold whitespace-nowrap"
+          :class="hari === d ? 'bg-blue-600 text-white shadow-2xs font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+          class="box-border flex-1 h-[44px] min-w-[52px] flex justify-center items-center rounded-xl relative transition-all">
+          <span class="text-[11px] font-semibold whitespace-nowrap"
             x-text="d.slice(0, 3) + ' ' + (tanggalPekan[d] ? tanggalPekan[d].slice(8, 10) : '')">Sen 5</span>
           <!-- Indikator ada sesi pengganti khusus Sabtu -->
           <template x-if="d === 'Sabtu' && hasSaturdayClass">
             <div
-              class="box-border w-[7px] h-[7px] absolute right-[6px] top-[4px] bg-[#D97706] rounded-full border border-white">
+              class="box-border w-[7px] h-[7px] absolute right-[6px] top-[4px] bg-amber-500 rounded-full border border-white">
             </div>
           </template>
+        </button>
+      </template>
+    </div>
+
+    <!-- Strip Filter Hari Cepat (Mobile - tampil saat mode semua_pekan / Mingguan) -->
+    <div x-show="mobileJadwalMode === 'semua_pekan'"
+      class="box-border w-full h-[40px] shrink-0 flex flex-row gap-1.5 justify-start items-center overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
+      <button type="button" @click="listDayFilter = 'all'"
+        :class="listDayFilter === 'all' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 font-medium border border-slate-200/80 hover:bg-slate-200'"
+        class="h-[36px] px-3.5 flex items-center justify-center rounded-xl text-[11px] whitespace-nowrap shrink-0 transition-colors">
+        Semua Hari
+      </button>
+      <template x-for="d in pekanHariListAgenda" :key="'mob-filter-' + d">
+        <button type="button" @click="listDayFilter = (listDayFilter === d ? 'all' : d)"
+          :class="listDayFilter === d ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 font-medium border border-slate-200/80 hover:bg-slate-200'"
+          class="h-[36px] px-3 flex items-center justify-center rounded-xl text-[11px] whitespace-nowrap shrink-0 transition-colors">
+          <span x-text="d.slice(0, 3) + ' (' + portalDaySessions(d).length + ')'">Sen (2)</span>
         </button>
       </template>
     </div>
@@ -553,13 +571,9 @@
                     </span>
                   </template>
                 </div>
-                <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]"
-                      :class="s.kind === 'PENGGANTI'
-                              ? 'bg-[#FEF3C7] text-[#92400E]'
-                              : (s.activityType === 'PRACTICE'
-                                 ? 'bg-[#EDE9FE] text-[#5B21B6]'
-                                 : 'bg-[#DBEAFE] text-[#1E40AF]')"
-                      x-text="s.kind === 'PENGGANTI' ? 'PENGGANTI' : (s.link && s.activityType === 'THEORY' ? 'TEORI HYBRID' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">
+                <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px] border"
+                      :class="portalSesiBadgeClass(s)"
+                      x-text="portalSesiType(s) === 'PENGGANTI' ? 'PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI HYBRID' : portalSesiType(s))">
                   TEORI
                 </span>
               </div>
@@ -664,23 +678,23 @@
     <!-- 2. MODE SEMUA PEKAN (DAFTAR VERTIKAL LENGKAP - SCR-USER-SCHED-001B Mobile 390) -->
     <div x-show="mobileJadwalMode === 'semua_pekan'"
       class="box-border w-full h-fit shrink-0 flex flex-col gap-[16px] justify-start items-start">
-      <template x-for="d in pekanHariListAgenda" :key="'mob-pekan-' + d">
+      <template x-for="d in listDaysToShow()" :key="'mob-pekan-' + d">
         <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[10px] justify-start items-start">
           <!-- Pembatas Hari -->
           <div
-            class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[6px] px-[12px] justify-start items-center bg-[#F1F5F9] rounded-[8px]">
-            <div class="text-[11px] box-border text-[#334155] font-bold text-left whitespace-nowrap"
+            class="box-border w-full h-[40px] shrink-0 flex flex-row gap-[8px] px-3.5 justify-start items-center bg-slate-100/90 border border-slate-200/80 rounded-xl">
+            <div class="text-[12px] box-border text-slate-800 font-bold text-left whitespace-nowrap"
               x-text="formatTanggalLengkap(d)">
               Senin, 5 Oktober 2026
             </div>
             <template x-if="d === todayName && weekOffset === 0">
               <div
-                class="box-border w-fit shrink-0 h-fit flex flex-row px-[5px] py-[3px] justify-start items-start bg-[#DBEAFE] rounded-[6px]">
-                <span class="text-[9px] text-[#1D4ED8] font-bold whitespace-nowrap">Hari Ini</span>
+                class="box-border w-fit shrink-0 h-fit flex flex-row px-2 py-0.5 justify-start items-start bg-blue-100 text-blue-700 rounded-md border border-blue-200/80">
+                <span class="text-[10px] font-bold whitespace-nowrap">Hari Ini</span>
               </div>
             </template>
             <div class="box-border flex-1 h-[1px]"></div>
-            <div class="text-[10px] text-[#64748B] font-bold text-left whitespace-nowrap"
+            <div class="text-[11px] text-slate-500 font-bold text-left whitespace-nowrap"
               x-text="(jadwalPekan[d] || []).length + ' Sesi'">
               3 Sesi
             </div>
@@ -691,13 +705,13 @@
             <div @click="bukaDetailSesi(s)"
               :class="isSesiOngoing(s, d)
                       ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                      : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
+                      : (portalSesiType(s) === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
               class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px_12px] justify-start items-start [outline-offset:-0.5px] rounded-[12px] active:bg-slate-50 transition-colors cursor-pointer">
               <!-- Waktu dan jenis -->
               <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
                 <div class="flex items-center gap-1.5">
                   <div class="text-[11px] box-border font-mono font-bold text-left whitespace-nowrap"
-                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
+                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (portalSesiType(s) === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
                     x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
                     08:40 – 10:20 WIB
                   </div>
@@ -710,23 +724,24 @@
                 <div class="box-border flex-1 h-[1px]"></div>
                 <!-- Badge Jenis -->
                 <div
-                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[7px] py-[4px] justify-start items-start rounded-[5px]"
-                  :class="s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] text-[#92400E]' : (s.link && s.activityType === 'THEORY' ? 'bg-[#EFF6FF] text-[#1D4ED8]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]'))">
+                  class="box-border w-fit shrink-0 h-fit flex flex-row px-2 py-1 justify-start items-start rounded-md border"
+                  :class="portalSesiBadgeClass(s)">
                   <span class="text-[9px] font-bold whitespace-nowrap"
-                    x-text="s.kind === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && s.activityType === 'THEORY' ? 'TEORI · HYBRID' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">TEORI</span>
+                    x-text="portalSesiType(s) === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI · HYBRID' : portalSesiType(s))">TEORI</span>
                 </div>
               </div>
 
               <!-- Rincian dan akses -->
-              <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[4px] justify-start items-center">
-                <div class="box-border flex-1 h-fit flex flex-col gap-[2px] justify-start items-start min-w-0 pr-1">
+              <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
+                <div class="box-border flex-1 h-fit flex flex-col gap-[3px] justify-start items-start min-w-0 pr-1">
                   <div class="text-[13px] box-border w-full text-[#0F172A] font-bold text-left truncate"
                     x-text="s.matkul">
                     Mata Kuliah
                   </div>
-                  <div class="text-[11px] box-border text-[#64748B] font-medium text-left truncate"
-                    x-text="s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')">
-                    Ruang D105
+                  <div class="text-[11px] box-border text-[#64748B] font-medium text-left truncate flex items-center gap-1.5 flex-wrap">
+                    <span x-text="s.ruang ? 'Ruang ' + cleanRuang(s.ruang) : (s.link ? 'Kuliah Daring' : '—')">Ruang D105</span>
+                    <span x-show="s.dosen" class="text-slate-300">·</span>
+                    <span x-show="s.dosen" class="text-slate-600 truncate max-w-[200px]" x-text="s.dosen"></span>
                   </div>
                 </div>
                 <!-- Area sentuh detail chevron -->
@@ -823,9 +838,9 @@
                 <template x-if="detailSesi.kind !== 'PENGGANTI'">
                   <div
                     class="box-border w-fit shrink-0 h-fit flex flex-row px-[10px] py-[6px] justify-start items-center rounded-[7px]"
-                    :class="detailSesi.activityType === 'PRACTICE' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
+                    :class="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
                     <span class="text-[12px] font-bold whitespace-nowrap"
-                      x-text="detailSesi.activityType === 'PRACTICE' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
+                      x-text="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
                   </div>
                 </template>
                 <template x-if="isSesiOngoing(detailSesi)">
@@ -967,7 +982,7 @@
                   d="M3.79 9.355c.766 0 1.487.178 2.432.571V4.2c-.632-.45-1.394-.676-2.158-.676-.523 0-.92.065-1.313.232a.29.29 0 0 0-.176.269v5.26c0 .157.113.229.246.017.321-.11.738-.174 1.259-.174zm3.5.748c.71-.396 1.432-.57 2.198-.57.523 0 .94.065 1.345.174a.29.29 0 0 0 .34-.23v-5.26a.29.29 0 0 0-.188-.28c-.482-.17-.878-.232-1.4-.232-.765 0-1.527.226-2.295.676v5.725z" />
               </svg>
               <span
-                x-text="detailSesi.activityType === 'PRACTICE' ? 'Buka Modul Praktikum' : 'Buka Materi Perkuliahan'">Buka
+                x-text="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'Buka Modul Praktikum' : 'Buka Materi Perkuliahan'">Buka
                 Materi Perkuliahan</span>
             </button>
 

@@ -570,12 +570,13 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 			}
 		}
 
-		cleanInstructions := strings.TrimSpace(t.instructions)
-		if cleanInstructions != "" {
-			runes := []rune(cleanInstructions)
-			if len(runes) > 100 {
-				cleanInstructions = string(runes[:97]) + "... (selengkapnya di Portal)"
-			}
+		pengumpulan := ""
+		if t.submissionText != "" && t.url != "" && t.submissionText != t.url {
+			pengumpulan = fmt.Sprintf("%s (%s)", t.submissionText, t.url)
+		} else if t.url != "" {
+			pengumpulan = t.url
+		} else if t.submissionText != "" {
+			pengumpulan = t.submissionText
 		}
 
 		b.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, t.title))
@@ -583,14 +584,8 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 		b.WriteString(fmt.Sprintf("   - Matkul  : %s\n", t.course))
 		b.WriteString(fmt.Sprintf("   - Tenggat : %s\n", deadlineFormatted))
 		b.WriteString(fmt.Sprintf("   - Status  : %s\n", statusStr))
-		if cleanInstructions != "" {
-			b.WriteString(fmt.Sprintf("   - Catatan : %s\n", cleanInstructions))
-		}
-		if t.url != "" {
-			b.WriteString(fmt.Sprintf("   - Link    : %s\n", t.url))
-		}
-		if t.submissionText != "" && t.submissionText != t.url {
-			b.WriteString(fmt.Sprintf("   - Tempat  : %s\n", t.submissionText))
+		if pengumpulan != "" {
+			b.WriteString(fmt.Sprintf("   - Pengumpulan: %s\n", pengumpulan))
 		}
 		if i < len(tasks)-1 {
 			b.WriteString("\n")
@@ -598,6 +593,11 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	}
 
 	b.WriteString("\n────────────────────\n")
+	portalURL := util.PublicBaseURL() + "/"
+	if slug != "" {
+		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
+	}
+	b.WriteString(fmt.Sprintf("Detail instruksi & lampiran: %s\n", portalURL))
 	b.WriteString("_Ketik !jadwal untuk melihat jadwal kuliah hari ini._")
 
 	return b.String(), nil

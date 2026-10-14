@@ -4136,6 +4136,110 @@ function kmApp() {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     },
 
+    formatPhone(val) {
+      if (!val) return '-';
+      const clean = String(val).trim();
+      if (clean.startsWith('+62')) {
+        const rest = clean.slice(3);
+        if (rest.length >= 8) {
+          if (rest.length >= 10) {
+            return `+62 ${rest.slice(0, 3)}-${rest.slice(3, 7)}-${rest.slice(7)}`;
+          }
+          return `+62 ${rest.slice(0, 3)}-${rest.slice(3)}`;
+        }
+        return `+62 ${rest}`;
+      } else if (clean.startsWith('08')) {
+        const rest = clean.slice(2);
+        if (rest.length >= 8) {
+          return `08${rest.slice(0, 2)}-${rest.slice(2, 6)}-${rest.slice(6)}`;
+        }
+        return clean;
+      }
+      return clean;
+    },
+
+    pjOfferingDetails(a) {
+      if (!a) return { matkul: 'Mata Kuliah', kind: '', code: '' };
+      let title = a.offering_display || a.course_name || '';
+      let code = a.course_code || '';
+      if (!title && a.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(a.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = code || off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+
+      let kind = '';
+      if (/praktikum/i.test(title)) {
+        kind = 'Praktikum';
+      } else if (/teori/i.test(title)) {
+        kind = 'Teori';
+      }
+
+      if (!code) {
+        const codeMatch = title.match(/\(([0-9]{2}[A-Za-z0-9_-]+)\)/);
+        if (codeMatch) {
+          code = codeMatch[1];
+        }
+      }
+
+      let cleanMatkul = title
+        .replace(/^PJ\s*[-·:]\s*/i, '')
+        .replace(/\s*\((praktikum|teori)\)/gi, '')
+        .replace(/\s*\([0-9]{2}[A-Za-z0-9_-]+\)/g, '')
+        .replace(/\s*\([A-Za-z0-9_-]+\)$/g, '')
+        .trim();
+
+      return {
+        matkul: cleanMatkul || title,
+        kind: kind,
+        code: code
+      };
+    },
+
+    undanganOfferingDetails(u) {
+      if (!u) return { matkul: 'Mata Kuliah', kind: '', code: '' };
+      let title = '';
+      let code = '';
+      if (u.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(u.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+
+      let kind = '';
+      if (/praktikum/i.test(title)) {
+        kind = 'Praktikum';
+      } else if (/teori/i.test(title)) {
+        kind = 'Teori';
+      }
+
+      if (!code) {
+        const codeMatch = title.match(/\(([0-9]{2}[A-Za-z0-9_-]+)\)/);
+        if (codeMatch) {
+          code = codeMatch[1];
+        }
+      }
+
+      let cleanMatkul = title
+        .replace(/^PJ\s*[-·:]\s*/i, '')
+        .replace(/\s*\((praktikum|teori)\)/gi, '')
+        .replace(/\s*\([0-9]{2}[A-Za-z0-9_-]+\)/g, '')
+        .replace(/\s*\([A-Za-z0-9_-]+\)$/g, '')
+        .trim();
+
+      return {
+        matkul: cleanMatkul || title,
+        kind: kind,
+        code: code
+      };
+    },
+
     pjOfferingBadge(a) {
       if (!a) return 'PJ';
       let title = a.offering_display || a.course_name || '';
