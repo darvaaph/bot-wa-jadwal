@@ -207,6 +207,16 @@ func (csm *ChatSettingsManager) BackfillLegacyChatSettingsContext(ctx context.Co
 
 // GetClass mengambil ID kelas yang diatur untuk suatu chat/grup (mengembalikan string kosong jika belum diatur)
 func (csm *ChatSettingsManager) GetClass(scopeJID string) string {
+	if strings.HasSuffix(scopeJID, "@g.us") {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		var code string
+		err := csm.db.QueryRowContext(ctx, `SELECT c.code FROM whatsapp_channels wc JOIN classes c ON c.id=wc.class_id WHERE wc.jid=? AND wc.status='ACTIVE'`, scopeJID).Scan(&code)
+		if err != nil {
+			return ""
+		}
+		return schedule.NormalizeClassID(code)
+	}
 	csm.mu.RLock()
 	defer csm.mu.RUnlock()
 
@@ -366,7 +376,7 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 		sb.WriteString("Silakan tentukan kelas terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian yang sesuai.\n\n")
 		sb.WriteString("👉 *Cara Menautkan Grup (Admin):*\n")
 		sb.WriteString("Buka Dashboard → Kanal WhatsApp, pilih chat ini, lalu tautkan ke kelas.\n")
-		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: http://localhost:8080/\n\n")
+		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/\n\n")
 		sb.WriteString("💡 Ketik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("⚠️ _Catatan: Penautan grup WhatsApp hanya dapat dilakukan admin via dashboard._")

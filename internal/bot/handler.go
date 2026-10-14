@@ -10,7 +10,6 @@ import (
 
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/internal/util"
@@ -27,13 +26,6 @@ var defaultCommandLimiter = NewRateLimiter(2 * time.Second)
 func SetDefaultCommandLimiter(limiter *RateLimiter) {
 	defaultCommandLimiter = limiter
 }
-
-// DashboardBaseURL adalah basis URL Web Dashboard. Ganti dengan domain
-// produksi saat deploy (contoh: https://jadwal.kelas.ac.id).
-const DashboardBaseURL = "http://localhost:8080"
-
-// PortalBaseURL adalah basis URL Portal Kelas Mahasiswa.
-const PortalBaseURL = "http://localhost:8080"
 
 var tugasMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "selesai", "done", "edit", "update", "mundur", "perpanjang", "ganti"}
 
@@ -104,11 +96,10 @@ func PortalMessage() string {
 	sb.WriteString("🌐 *PORTAL & DASHBOARD*\n")
 	sb.WriteString("──────────\n")
 	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
-	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
+	sb.WriteString(util.PublicBaseURL() + "/ (pilih kelas Anda)\n\n")
 	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
-	sb.WriteString(DashboardBaseURL + "/login.html\n")
+	sb.WriteString(util.PublicBaseURL() + "/login.html\n")
 	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
-	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
 	return sb.String()
 }
 
@@ -127,7 +118,6 @@ func HandleIncomingMessage(
 	v *events.Message,
 	classManager *schedule.ClassManager,
 	chatSettingsManager *chat.ChatSettingsManager,
-	reminderManager *reminder.ReminderManager,
 	taskManager *task.TaskManager,
 	overrideManager *schedule.OverrideManager,
 	linkManager *link.LinkManager,
@@ -164,8 +154,6 @@ func HandleIncomingMessage(
 	}
 
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
-
-	lowerMsg := strings.ToLower(msgText)
 
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
 		ReplyWithTyping(
@@ -266,45 +254,7 @@ func HandleIncomingMessage(
 	}
 
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
-		parts := strings.Fields(lowerMsg)
-		subCmd := ""
-		if len(parts) > 1 {
-			subCmd = parts[1]
-		}
-
-		var reminderReply string
-		switch subCmd {
-		case "on", "aktif", "start", "enable":
-			if activeClassID == "" {
-				reminderReply = "⚠️ *PENGINGAT TIDAK DAPAT DIAKTIFKAN*\n──────────\nChat ini belum menentukan kelas perkuliahan.\nSilakan atur kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
-			} else {
-				chatJID := v.Info.Chat.String()
-				groupName := "Grup Chat"
-				if v.Info.IsGroup {
-					info, err := defaultGroupAdminResolver.GetGroupInfo(context.Background(), client, v.Info.Chat)
-					if err == nil && info != nil && info.Name != "" {
-						groupName = info.Name
-					}
-				}
-				_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
-			}
-
-		case "off", "nonaktif", "stop", "disable", "matikan":
-			chatJID := v.Info.Chat.String()
-			_, reminderReply = reminderManager.RemoveGroup(chatJID)
-
-		case "test", "tes", "try":
-			if activeClassID == "" && chatSettingsManager != nil {
-				reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
-			} else {
-				reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", reminder.BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now(), linkManager))
-			}
-
-		default:
-			reminderReply = reminderManager.Status(v.Info.Chat.String())
-		}
-
-		reply(reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
+		reply("⏰ Pengingat kelas diatur melalui Dashboard Pengelola → Pengaturan Pengingat. Tautkan kanal WhatsApp kelas melalui Dashboard System Admin agar pesan terjadwal dapat terkirim.\n"+util.PublicBaseURL()+"/login.html", "⏰", 600*time.Millisecond, "pengaturan reminder")
 		return
 	}
 

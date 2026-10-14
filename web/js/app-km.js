@@ -1857,11 +1857,6 @@ function kmApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
-      const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
-      if (!token) {
-        window.location.replace('/login.html?role=km');
-        return;
-      }
       try {
         const me = await API.getMe();
         if (!me || !me.user) {

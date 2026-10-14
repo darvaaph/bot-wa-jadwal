@@ -22,10 +22,16 @@ type Sender interface {
 }
 
 type Service struct {
-	db *sql.DB
+	db               *sql.DB
+	dailyTextBuilder func(context.Context, int64, time.Time) (string, error)
 }
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
+
+// SetDailyTextBuilder uses the same effective schedule resolver as bot commands.
+func (s *Service) SetDailyTextBuilder(builder func(context.Context, int64, time.Time) (string, error)) {
+	s.dailyTextBuilder = builder
+}
 
 func nowStr() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
@@ -111,11 +117,25 @@ func taskKey(classID int64, date string) string {
 func eventRevokeKey(eventID int64) string { return fmt.Sprintf("event-revoke:%d", eventID) }
 func replacementKey(eventID int64) string { return fmt.Sprintf("replacement-reminder:%d", eventID) }
 
-// BuildDailyText composes the morning summary per PRD template from effective schedule + urgent tasks.
+// BuildDailyText composes the morning schedule summary.
 func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string, link string) (string, error) {
 	loc, semID, classCode, err := s.classContext(ctx, classID)
 	if err != nil {
 		return "", err
+	}
+	if s.dailyTextBuilder != nil {
+		day, err := time.ParseInLocation("2006-01-02", date, loc)
+		if err != nil {
+			return "", err
+		}
+		text, err := s.dailyTextBuilder(ctx, classID, day)
+		if err != nil {
+			return "", err
+		}
+		if link != "" {
+			text += "\n\nDetail jadwal dan tugas:\n" + link
+		}
+		return text, nil
 	}
 	_ = semID
 	dayName := indonesianWeekday(date)
@@ -164,7 +184,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string)
 	rows, err := s.db.QueryContext(ctx, `SELECT c.name, t.title, t.deadline_at FROM tasks t
 		JOIN course_offerings co ON co.id = t.course_offering_id
 		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
-		WHERE sem.class_id = ? AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL
+		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL
 		AND t.archived_at IS NULL AND t.completed_at IS NULL
 		ORDER BY t.deadline_at ASC LIMIT 10`, classID)
 	if err != nil {
@@ -220,10 +240,16 @@ func (s *Service) classContext(ctx context.Context, classID int64) (*time.Locati
 	return loc, semID, code, nil
 }
 
+func reminderWindowOpen(local time.Time, hm string) bool {
+	due, err := time.ParseInLocation("2006-01-02 15:04", local.Format("2006-01-02")+" "+hm, local.Location())
+	return err == nil && !local.Before(due) && local.Before(due.Add(time.Hour))
+}
+
 // EnsureDailySummaries enqueues morning summaries for classes whose local time matches config.
 func (s *Service) EnsureDailySummaries(ctx context.Context, now time.Time) (int, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.morning_reminder_time,'06:00'), COALESCE(cs.timezone,'Asia/Jakarta')
-		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'`)
+		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
+		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
 	if err != nil {
 		return 0, err
 	}
@@ -240,19 +266,16 @@ func (s *Service) EnsureDailySummaries(ctx context.Context, now time.Time) (int,
 			loc = time.FixedZone("WIB", 7*3600)
 		}
 		local := now.In(loc)
-		if local.Format("15:04") != hm {
+		if !reminderWindowOpen(local, hm) {
 			continue
 		}
 		date := local.Format("2006-01-02")
-		chID, _, err := s.ChannelForClass(ctx, classID)
-		if err != nil {
-			continue
-		}
+		chID, _, _ := s.ChannelForClass(ctx, classID)
 		text, err := s.BuildDailyText(ctx, classID, date, "")
 		if err != nil {
 			continue
 		}
-		sched := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), local.Minute(), 0, 0, time.UTC)
+		sched := now.UTC()
 		if _, created, err := s.Enqueue(ctx, classID, chID, "DAILY_SUMMARY", "CLASS", classID, dailyKey(classID, date), text, "", sched, nil); err == nil && created {
 			enqueued++
 		}
@@ -263,7 +286,8 @@ func (s *Service) EnsureDailySummaries(ctx context.Context, now time.Time) (int,
 // EnsureTaskReminders enqueues afternoon reminders similarly.
 func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.afternoon_reminder_time,'17:00'), COALESCE(cs.timezone,'Asia/Jakarta')
-		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'`)
+		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
+		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
 	if err != nil {
 		return 0, err
 	}
@@ -280,19 +304,16 @@ func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, 
 			loc = time.FixedZone("WIB", 7*3600)
 		}
 		local := now.In(loc)
-		if local.Format("15:04") != hm {
+		if !reminderWindowOpen(local, hm) {
 			continue
 		}
 		date := local.Format("2006-01-02")
-		chID, _, err := s.ChannelForClass(ctx, classID)
-		if err != nil {
-			continue
-		}
+		chID, _, _ := s.ChannelForClass(ctx, classID)
 		text, err := s.BuildTaskText(ctx, classID, "")
 		if err != nil {
 			continue
 		}
-		sched := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), local.Minute(), 0, 0, time.UTC)
+		sched := now.UTC()
 		if _, created, err := s.Enqueue(ctx, classID, chID, "TASK_REMINDER", "CLASS", classID, taskKey(classID, date), text, "", sched, nil); err == nil && created {
 			enqueued++
 		}
@@ -309,7 +330,7 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
 		JOIN whatsapp_channels ch ON ch.class_id = sem.class_id AND ch.status='ACTIVE'
-		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED'`)
+		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED' AND sem.status='ACTIVE'`)
 	if err != nil {
 		return 0, err
 	}
@@ -392,7 +413,7 @@ func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64
 	cutoff := now.Add(-staleProcessingTimeout).UTC().Format(time.RFC3339Nano)
 	res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PENDING',
 		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE status='PROCESSING' AND updated_at < ?`, cutoff)
+		WHERE status='PROCESSING' AND datetime(updated_at) < datetime(?)`, cutoff)
 	if err != nil {
 		return 0, err
 	}

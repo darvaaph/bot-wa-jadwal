@@ -46,7 +46,7 @@ function inviteApp() {
       try {
         const res = await API.acceptInvitation(this.token, this.sandi, this.nama.trim());
         if (res && res.token) {
-          API.setAuthToken(res.token);
+          API.clearStoredAuthToken();
           const daftar = (res && res.assignments) || [];
           const peran = daftar.length > 0 ? String(daftar[0].role || '').toUpperCase() : '';
           const tujuan = peran === 'SYSTEM_ADMIN' ? '/system-admin.html' : (peran === 'KM' ? '/km.html' : '/pj.html');

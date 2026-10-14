@@ -9,25 +9,14 @@ function readCookie(name) {
   return '';
 }
 
-function getAuthToken() {
-  if (typeof localStorage === 'undefined') return '';
-  return localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-}
-
-function setAuthToken(token) {
+function clearStoredAuthToken() {
   if (typeof localStorage === 'undefined') return;
-  if (token) {
-    localStorage.setItem('access_token', token);
-  } else {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('token');
-  }
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('token');
 }
 
 function authHeaders(extra) {
   const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
-  const token = getAuthToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
   const csrf = readCookie('bot_jadwal_csrf');
   if (csrf) headers['X-CSRF-Token'] = csrf;
   return headers;
@@ -1370,19 +1359,15 @@ const BotApi = {
   },
 
   async getPortalMaterials(slug, semesterId) {
-    try {
-      const qs = new URLSearchParams();
-      if (semesterId) qs.set('semester_id', String(semesterId));
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials' + (qs.toString() ? '?' + qs.toString() : ''), {
-        credentials: 'same-origin',
-        headers: this.portalHeaders(slug)
-      });
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.data || [];
-    } catch (e) {
-      return [];
-    }
+    const qs = new URLSearchParams();
+    if (semesterId) qs.set('semester_id', String(semesterId));
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials' + (qs.toString() ? '?' + qs.toString() : ''), {
+      credentials: 'same-origin',
+      headers: this.portalHeaders(slug)
+    });
+    if (!res.ok) throw new Error('Materi gagal dimuat.');
+    const json = await res.json();
+    return json.data || [];
   },
 
   async getPortalTasks(slug, group, semesterId) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
@@ -1491,9 +1476,7 @@ const BotApi = {
       err.payload = json && json.data ? json.data : null;
       throw err;
     }
-    if (json && json.data && json.data.token) {
-      setAuthToken(json.data.token);
-    }
+    clearStoredAuthToken();
     return json.data;
   },
 
@@ -1538,9 +1521,7 @@ const BotApi = {
       err.code = 'SWITCH_FAILED';
       throw err;
     }
-    if (json && json.data && json.data.token) {
-      setAuthToken(json.data.token);
-    }
+    clearStoredAuthToken();
     return json.data;
   },
 
@@ -1554,7 +1535,7 @@ const BotApi = {
     } catch (e) {
       // Session cleanup is best-effort; local state is cleared regardless.
     }
-    setAuthToken(null);
+    clearStoredAuthToken();
   },
 
   async acceptInvitation(token, password, displayName) {
@@ -1940,8 +1921,7 @@ const BotApi = {
     return json.data;
   },
 
-  getAuthToken: getAuthToken,
-  setAuthToken: setAuthToken
+  clearStoredAuthToken: clearStoredAuthToken
 };
 
 // Ekspor global untuk komponen Alpine.js (app-portal.js, app-km.js, app-pj.js, app-login.js, app-system-admin.js)

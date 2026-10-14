@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/maintenance"
+	"bot-jadwal/internal/notify"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -25,13 +26,18 @@ type WhatsAppSender interface {
 
 // NotificationWorker memantau antrean notification_messages dan menyiarkan pesan ke grup WhatsApp terkait
 type NotificationWorker struct {
-	db           *sql.DB
-	sender       WhatsAppSender
-	pollInterval time.Duration
-	stopChan     chan struct{}
-	wg           sync.WaitGroup
-	running      bool
-	mu           sync.Mutex
+	db              *sql.DB
+	sender          WhatsAppSender
+	pollInterval    time.Duration
+	stopChan        chan struct{}
+	wg              sync.WaitGroup
+	running         bool
+	mu              sync.Mutex
+	scheduleService *notify.Service
+}
+
+func (w *NotificationWorker) SetScheduleService(service *notify.Service) {
+	w.scheduleService = service
 }
 
 // NewNotificationWorker menginisialisasi worker pemroses antrean notifikasi WhatsApp
@@ -92,6 +98,12 @@ func (w *NotificationWorker) loop() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			if w.scheduleService != nil {
+				now := time.Now()
+				_, _ = w.scheduleService.EnsureDailySummaries(ctx, now)
+				_, _ = w.scheduleService.EnsureTaskReminders(ctx, now)
+				_, _ = w.scheduleService.EnsureReplacementReminders(ctx, now)
+			}
 			_, _ = w.ProcessPending(ctx)
 			cancel()
 		}
@@ -117,6 +129,13 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 	if w.db == nil {
 		return 0, fmt.Errorf("database nil")
 	}
+	service := notify.NewService(w.db)
+	if _, err := service.ReapStaleProcessing(ctx, time.Now()); err != nil {
+		return 0, err
+	}
+	if _, err := service.ReconcilePendingChannels(ctx, nil); err != nil {
+		return 0, err
+	}
 
 	query := `
 		SELECT nm.id, nm.class_id, nm.event_type, nm.payload_json,
@@ -126,7 +145,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 		WHERE nm.status = 'PENDING'
 		  AND nm.whatsapp_channel_id IS NOT NULL
 		  AND nm.scheduled_at IS NOT NULL
-		  AND nm.scheduled_at <= CURRENT_TIMESTAMP
+		  AND datetime(nm.scheduled_at) <= datetime('now')
 		ORDER BY nm.created_at ASC
 		LIMIT 10;
 	`
@@ -140,9 +159,13 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 	var pending []PendingNotificationItem
 	for rows.Next() {
 		var item PendingNotificationItem
-		if err := rows.Scan(&item.ID, &item.ClassID, &item.EventType, &item.PayloadJSON, &item.ChannelJID); err == nil {
-			pending = append(pending, item)
+		if err := rows.Scan(&item.ID, &item.ClassID, &item.EventType, &item.PayloadJSON, &item.ChannelJID); err != nil {
+			return 0, err
 		}
+		pending = append(pending, item)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
 	}
 
 	processedCount := 0
@@ -156,7 +179,7 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 		// 1. Transisi status atomik: PENDING -> PROCESSING
 		res, err := w.db.ExecContext(ctx, `
 			UPDATE notification_messages
-			SET status = 'PROCESSING'
+			SET status = 'PROCESSING', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 			WHERE id = ? AND status = 'PENDING';
 		`, item.ID)
 		if err != nil {
@@ -175,21 +198,17 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 			WHERE notification_message_id = ?;
 		`, item.ID).Scan(&attemptNum)
 
-		// 3. Cari kanal WhatsApp jika belum terasosiasi di baris pesan
-		channelJID := strings.TrimSpace(item.ChannelJID)
-		if channelJID == "" {
-			_ = w.db.QueryRowContext(ctx, `
-				SELECT jid FROM whatsapp_channels
-				WHERE class_id = ? AND status = 'ACTIVE'
-				ORDER BY id DESC LIMIT 1;
-			`, item.ClassID).Scan(&channelJID)
-		}
+		// Recheck after claiming: dashboard may revoke a channel during polling.
+		var channelJID string
+		_ = w.db.QueryRowContext(ctx, `SELECT wc.jid FROM notification_messages nm
+			JOIN whatsapp_channels wc ON wc.id=nm.whatsapp_channel_id AND wc.status='ACTIVE'
+			WHERE nm.id=?`, item.ID).Scan(&channelJID)
 
 		if channelJID == "" {
 			// BE-005: tanpa kanal aktif pesan tetap PENDING menunggu rekonsiliasi.
 			// Kembalikan ke PENDING tanpa attempt agar tidak dianggap gagal kirim.
 			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'PENDING' WHERE id = ?;
+				UPDATE notification_messages SET status = 'PENDING', whatsapp_channel_id=NULL, scheduled_at=NULL WHERE id = ?;
 			`, item.ID)
 			continue
 		}
@@ -268,6 +287,9 @@ func FormatNotificationText(eventType, payloadJSON string) string {
 			return strings.TrimSpace(fmt.Sprintf("%v", val))
 		}
 		return ""
+	}
+	if text := getString("text"); text != "" {
+		return text
 	}
 
 	switch strings.ToUpper(eventType) {

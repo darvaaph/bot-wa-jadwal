@@ -1,14 +1,16 @@
 # 🤖 Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v3.0
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![Frontend](https://img.shields.io/badge/Frontend-Tailwind_CDN_%2B_Alpine.js-38B2AC?style=flat&logo=tailwindcss)](https://tailwindcss.com)
+[![Frontend](https://img.shields.io/badge/Frontend-Vendored_Tailwind_%2B_Alpine.js-38B2AC?style=flat&logo=tailwindcss)](https://tailwindcss.com)
 [![Database](https://img.shields.io/badge/Database-SQLite_WAL-003B57?style=flat&logo=sqlite)](https://sqlite.org)
 [![Library](https://img.shields.io/badge/WhatsApp-whatsmeow-25D366?style=flat&logo=whatsapp)](https://github.com/tulir/whatsmeow)
 [![Server](https://img.shields.io/badge/Cloud-Microsoft_Azure-0078D4?style=flat&logo=microsoftazure)](https://azure.microsoft.com)
 
 Asisten perkuliahan cerdas berbasis **Bot WhatsApp Multi-Device** dan **Web Admin Dashboard Responsif** yang disematkan langsung ke dalam satu biner Go (*single binary embedded* via `embed.FS`). 
 
-Sistem ini membantu mahasiswa dan pengurus kelas memantau jadwal perkuliahan harian, melacak tenggat waktu tugas (*deadline tracker*), mengelola tautan kuliah daring, mengakomodasi jadwal kuliah pengganti (*schedule overrides*), serta mengirimkan broadcast pengingat pagi otomatis setiap hari kuliah pukul **06:00 WIB**.
+Sistem ini membantu mahasiswa dan pengurus kelas memantau jadwal, tugas, materi, dan perubahan kuliah. Pengingat WhatsApp memakai data dan antrean di `storage/bot_v1.db`; waktu kirim mengikuti pengaturan zona waktu setiap kelas. Status rilis dan pemeriksaan sebelum produksi ada di [panduan kesiapan produksi](docs/ops/PRODUCTION_READINESS.md).
+
+Manifest migrasi v1 saat ini memuat dua kelas pilot. Kelas lain masih memerlukan verifikasi dan migrasi sebelum bot serta portal dapat dinyatakan sinkron untuk seluruh kelas.
 
 ---
 
@@ -18,19 +20,15 @@ Seluruh acuan kerja, arsitektur, dan panduan operasional tim telah didokumentasi
 
 | Dokumen | Deskripsi & Target Pembaca |
 | :--- | :--- |
-| 🚀 [**docs/TEAM_ONBOARDING.md**](docs/TEAM_ONBOARDING.md) | **Panduan Onboarding & Kickoff Meeting Tim** *(Wajib untuk seluruh tim baru: visi v3.0, roadmap sprint, dan panduan PM).* |
-| 📋 [**docs/PRD.md**](docs/PRD.md) | **Ruang Lingkup Produk** *(Tujuan, epic, prioritas rilis, dan ukuran keberhasilan).* |
 | 🧭 [**docs/product/PRODUCT_DEFINITION.md**](docs/product/PRODUCT_DEFINITION.md) | **Arah dan Keputusan Produk** *(Sumber keputusan alur, akses, peran, dan aturan utama).* |
 | ✅ [**docs/product/FUNCTIONAL_REQUIREMENTS.md**](docs/product/FUNCTIONAL_REQUIREMENTS.md) | **Kebutuhan Fungsional Kanonis** *(Satu-satunya sumber ID FR dan acceptance criteria).* |
 | 🗂️ [**docs/product/INFORMATION_ARCHITECTURE.md**](docs/product/INFORMATION_ARCHITECTURE.md) | **Struktur Informasi** *(Peta halaman, navigasi, konteks, dan state).* |
 | 🔗 [**docs/product/TRACEABILITY.md**](docs/product/TRACEABILITY.md) | **Matriks Ketertelusuran** *(Pemetaan UR, FR, BR, user flow, dan entitas).* |
-| 🤝 [**docs/CONTRIBUTING.md**](docs/CONTRIBUTING.md) | **Panduan Standar Kontribusi & Git Flow** *(Aturan branching, Conventional Commits, dan ceklis Pull Request).* |
 | 🧱 [**docs/product/DATA_MODEL.md**](docs/product/DATA_MODEL.md) | **Model Data Target** *(Entitas, constraint, migrasi, dan kepemilikan data).* |
 | 🕸️ [**docs/product/ERD.md**](docs/product/ERD.md) | **ERD Mermaid** *(Visualisasi model data per domain).* |
-| ☁️ [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | **Panduan Server Azure & DevOps Runbook** *(Operasional server Linux Azure VM, service systemd, SOP deploy 6-langkah, dan emergency rollback).* |
-| 🔐 [**docs/CONFIG_AND_SECURITY.md**](docs/CONFIG_AND_SECURITY.md) | **Panduan Konfigurasi & Keamanan Produksi** *(Referensi env var, rate limit ADR-0009, CORS, CSRF, HSTS, CSP, dan rotasi secret).* |
-| 📖 [**docs/PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) | **Panduan Lengkap Perintah Bot & Dashboard** *(Cheat sheet perintah WhatsApp, format tanggal alami, dan otorisasi admin grup).* |
-| 📦 [**docs/RELEASE_NOTES_v3.0.0.md**](docs/RELEASE_NOTES_v3.0.0.md) | **Catatan Rilis Resmi v3.0.0** *(Daftar fitur baru, perbaikan keamanan, perubahan schema, dan panduan upgrade).* |
+| ☁️ [**docs/ops/PRODUCTION_READINESS.md**](docs/ops/PRODUCTION_READINESS.md) | **Gate produksi, konfigurasi wajib, dan uji lapangan**. |
+| 🔐 [**docs/adr/0010-cors-and-security-headers.md**](docs/adr/0010-cors-and-security-headers.md) | **Keputusan CORS, CSRF, dan header keamanan**. |
+| 🧰 [**docs/ops/RESTORE_PROCEDURE.md**](docs/ops/RESTORE_PROCEDURE.md) | **Prosedur pemulihan**. |
 | 🤖 [**.agent/skills/vibe-coding-guide/**](.agent/skills/vibe-coding-guide/SKILL.md) | **Guardrails Vibe Coding AI** *(Aturan anti-bloat: dilarang npm, Go single binary, dan protokol tutor edukasi).* |
 | 🌿 [**.agent/skills/git-team-flow/**](.agent/skills/git-team-flow/SKILL.md) | **Panduan Kolaborasi Git Tim** *(Penamaan branch per tiket, etika commit, dan larangan auto-commit liar oleh AI).* |
 
@@ -147,7 +145,7 @@ Seluruh pengembang wajib mematuhi batasan teknis berikut:
 
 1. **Zero-Build Frontend (Dilarang Menginstal NPM / Node.js):**
    - JANGAN PERNAH menjalankan `npm init`, `npm install`, atau memasukkan `package.json` dan `node_modules`.
-   - Stack frontend murni **HTML5 + Tailwind CSS (CDN) + Alpine.js (CDN)** di folder `web/` agar tersemat langsung ke biner Go via `embed.FS`.
+   - Stack frontend murni **HTML5 + Tailwind dan Alpine.js vendored** di folder `web/` agar tersemat langsung ke biner Go via `embed.FS`.
 2. **Modular Go Backend:**
    - Gunakan perutean standar Go v1.22+ (`http.ServeMux`).
    - Pisahkan handler API di `internal/api/`: `tasks_handler.go`, `schedule_handler.go`, `bot_handler.go`.
@@ -190,7 +188,7 @@ bot-jadwal/
 │   ├── database/            # Inisialisasi SQLite connection pool WAL mode & migrasi skema
 │   ├── link/                # LinkManager SQLite tautan perkuliahan
 │   ├── outbox/              # Broadcast outbox queue & pengiriman pesan terjadwal
-│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
+│   ├── reminder/            # Kompatibilitas pengingat lama; scheduler produksi ada di notify/
 │   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
 │   ├── system/              # Telemetri sistem, health check, & audit logging
 │   ├── task/                # TaskManager SQLite & kalkulasi deadline
@@ -202,14 +200,10 @@ bot-jadwal/
 │   ├── bot_v1.db            # Database SQLite utama v3.0 (tasks, users, audit, rate limit)
 │   ├── tugas.db             # Database SQLite tugas/link legacy compatibility
 │   ├── sesi_bot.db          # Database sesi login WhatsMeow produksi (Azure VM)
-│   └── reminder_groups.json # Data preferensi broadcast pengingat
+│   └── reminder_groups.json # Berkas kompatibilitas lama, bukan sumber pengingat v1
 ├── docs/                    # Dokumentasi lengkap sistem & tim
-│   ├── TEAM_ONBOARDING.md   # Panduan kickoff meeting tim pengembang
-│   ├── PRD.md               # Ruang lingkup dan prioritas produk
-│   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
 │   ├── product/             # Dokumen produk kanonis, data model, dan ERD
-│   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
-│   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
+│   ├── ops/                 # Kesiapan produksi dan prosedur pemulihan
 │   └── api/                 # Spesifikasi API v1, QA card, dan panduan testing
 ├── .agent/                  # Custom Agent Skills untuk bimbingan tim & AI
 │   └── skills/
@@ -239,10 +233,7 @@ bot-jadwal/
 
 ### 2. Manajemen Tugas & Deadline Tracker
 * `!tugas` ➔ Menampilkan daftar tugas aktif beserta hitung mundur (*countdown*).
-* `!tugas tambah <Nama Tugas> | <Matkul> | <Deadline>` ➔ Menambah tugas baru *(Khusus Admin Grup / Ketua Kelas)*.  
-  *Contoh:* `!tugas tambah Laporan Praktikum | Basis Data | Jumat 23:59`
-* `!tugas selesai <ID>` ➔ Menandai tugas sebagai selesai.
-* `!tugas hapus <ID>` ➔ Menghapus tugas dari sistem.
+* Penambahan, perubahan, dan penyelesaian tugas dilakukan melalui Dashboard Pengelola agar autentikasi dan audit tercatat.
 
 ### 3. Tautan Penting Kelas (!link)
 * `!link` / `!tautan` ➔ Menampilkan seluruh link penting (Drive, Zoom/Meet, Portal).
@@ -250,9 +241,9 @@ bot-jadwal/
 * `!zoom` / `!meet` ➔ Menampilkan link perkuliahan daring aktif.
 
 ### 4. Pengingat Pagi & Pengaturan Kelas
-* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal pagi (**06:00 WIB**).
+* `!reminder` ➔ Menampilkan arah ke pengaturan pengingat di Dashboard Pengelola. Jadwal kirim mengikuti pengaturan setiap kelas.
 * `!daftarkelas` ➔ Menampilkan 19 pilihan kelas yang tersedia.
-* `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut *(Contoh: `!setkelas D4-TI-1A`)*.
+* Tautan grup ke kelas diatur oleh System Admin melalui Dashboard → Kanal WhatsApp.
 
 ---
 

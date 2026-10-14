@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/maintenance"
+	"bot-jadwal/internal/util"
 )
 
 // V1ClassInfo menyimpan metadata kelas v1
@@ -180,7 +181,7 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 	}
 
 	b.WriteString("\n──────────\n")
-	b.WriteString(fmt.Sprintf("_Akses Portal Kelas: /portal/%s/summary_", classSlug))
+	b.WriteString(fmt.Sprintf("_Akses Portal Kelas: %s/c/%s_", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
 }
@@ -223,6 +224,7 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 	if weekday == 0 {
 		weekday = 7
 	}
+	date := targetDate.Format("2006-01-02")
 
 	patternQuery := `
 		SELECT sp.id, co.display_name, c.name, sp.start_time, sp.end_time,
@@ -237,10 +239,12 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		WHERE co.semester_id = ?
 		  AND sp.day_of_week = ?
 		  AND sp.status = 'ACTIVE'
+		  AND sp.effective_from <= ?
+		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
 		GROUP BY sp.id
 		ORDER BY sp.start_time ASC;
 	`
-	rows, err := s.db.QueryContext(ctx, patternQuery, semID, weekday)
+	rows, err := s.db.QueryContext(ctx, patternQuery, semID, weekday, date, date)
 	if err != nil {
 		return className, classSlug, semTerm, semYear, nil, err
 	}
@@ -259,8 +263,8 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		}
 	}
 
-	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location()).Format(time.RFC3339)
-	dayEnd := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 23, 59, 59, 0, targetDate.Location()).Format(time.RFC3339)
+	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	dayEnd := dayStart.AddDate(0, 0, 1)
 
 	eventQuery := `
 		SELECT te.id, te.event_kind, te.starts_at, te.ends_at, COALESCE(te.reason, ''),
@@ -273,10 +277,10 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE co.semester_id = ?
 		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND te.starts_at >= ? AND te.starts_at <= ?
+		  AND datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?)
 		ORDER BY te.starts_at ASC;
 	`
-	evRows, err := s.db.QueryContext(ctx, eventQuery, semID, dayStart, dayEnd)
+	evRows, err := s.db.QueryContext(ctx, eventQuery, semID, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339))
 	if err == nil {
 		defer evRows.Close()
 		for evRows.Next() {
@@ -285,11 +289,11 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 			if err := evRows.Scan(&evID, &evKind, &startsAtStr, &endsAtStr, &reason, &originPatternID, &offName, &roomCode); err == nil {
 				startTime := startsAtStr
 				endTime := endsAtStr
-				if tStart, errT := time.Parse(time.RFC3339, startsAtStr); errT == nil {
-					startTime = tStart.Format("15:04")
+				if tStart, errT := time.Parse(time.RFC3339Nano, startsAtStr); errT == nil {
+					startTime = tStart.In(targetDate.Location()).Format("15:04")
 				}
-				if tEnd, errT := time.Parse(time.RFC3339, endsAtStr); errT == nil {
-					endTime = tEnd.Format("15:04")
+				if tEnd, errT := time.Parse(time.RFC3339Nano, endsAtStr); errT == nil {
+					endTime = tEnd.In(targetDate.Location()).Format("15:04")
 				}
 
 				if evKind == "SESSION_CANCELLED" && originPatternID > 0 {
@@ -400,7 +404,7 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	}
 
 	b.WriteString("\n──────────\n")
-	b.WriteString(fmt.Sprintf("_Selesaikan tugas via portal atau ketik `!tugas selesai <id>`_"))
+	b.WriteString("_Kelola tugas melalui Dashboard Pengelola._")
 
 	return b.String(), nil
 }

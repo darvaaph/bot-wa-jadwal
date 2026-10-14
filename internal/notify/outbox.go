@@ -116,6 +116,20 @@ func (s *Service) EnqueueDurable(ctx context.Context, req EnqueueRequest) (int64
 // ReconcilePendingChannels memasangkan pesan PENDING tanpa channel ke
 // channel aktif kelasnya secara atomik. Mengembalikan jumlah yang dijadwalkan.
 func (s *Service) ReconcilePendingChannels(ctx context.Context, classID *int64) (int64, error) {
+	// A channel can be revoked while a message is waiting. Keep the intent,
+	// detach the old JID, then attach the current active channel below.
+	detachQuery := `UPDATE notification_messages SET whatsapp_channel_id=NULL, scheduled_at=NULL,
+		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE status='PENDING' AND whatsapp_channel_id IS NOT NULL
+		AND NOT EXISTS (SELECT 1 FROM whatsapp_channels old WHERE old.id=notification_messages.whatsapp_channel_id AND old.status='ACTIVE')`
+	var detachArgs []any
+	if classID != nil {
+		detachQuery += ` AND class_id=?`
+		detachArgs = append(detachArgs, *classID)
+	}
+	if _, err := s.db.ExecContext(ctx, detachQuery, detachArgs...); err != nil {
+		return 0, err
+	}
 	query := `UPDATE notification_messages SET whatsapp_channel_id = (
 			SELECT ch.id FROM whatsapp_channels ch
 			WHERE ch.class_id = notification_messages.class_id AND ch.status = 'ACTIVE'

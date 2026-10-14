@@ -18,6 +18,13 @@ function portalApp() {
     contextAssignments: [],
     contextSwitching: false,
     meCache: null,
+    currentUser: null,
+    botConnected: false,
+    pjMatkul: '',
+    pjNavIcon() { return ''; },
+    resetPasswordForm: { old_password: '', password: '', confirm: '', showOld: false, showNew: false, showConfirm: false },
+    resetPasswordError: '',
+    resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
 
@@ -95,6 +102,7 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
+    materiError: '',
     filterMateriMatkul: 'SEMUA',
     filterMateriSesi: 'SEMUA',
     searchMateriQuery: '',
@@ -704,7 +712,7 @@ function portalApp() {
     },
 
     get selectedClassFormatted() {
-      if (!this.selectedClass) return 'D4-TI 1A';
+      if (!this.selectedClass) return 'kelas ini';
       const raw = String(this.selectedClass).trim();
       const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
       if (mYear) {
@@ -725,7 +733,7 @@ function portalApp() {
     },
 
     get selectedClassMeta() {
-      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'D4-TI 1A' };
+      if (!this.selectedClass) return { prodi: '', smt: '', abjad: '', label: 'Kelas belum dipilih' };
       const p = this.parseClass(this.selectedClass);
       const prodiName = p.prodi === 'D4' ? 'D4 Teknik Informatika' : (p.prodi === 'D3' ? 'D3 Teknik Informatika' : p.prodi);
       return {
@@ -1489,317 +1497,15 @@ function portalApp() {
       }
     },
 
-    get defaultSampleMateri() {
-      return [
-        // 7 berkas - Sistem Basis Data
-        {
-          id: 101,
-          title: 'Slide Normalisasi Database: 1NF hingga BCNF',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/18k9aZ-Normalisasi-BCNF-Rev.pdf',
-          description: 'Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '06 Okt',
-        },
-        {
-          id: 102,
-          title: 'Rekaman Kuliah Sesi Pengganti: DDL & DML SQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1B9c8x-Rekaman-Kuliah-SQL-DDL-DML',
-          description: 'Rekaman kuliah sesi pengganti daring mata kuliah Sistem Basis Data untuk materi Data Definition Language (DDL) dan Data Manipulation Language (DML).',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '03 Okt',
-        },
-        {
-          id: 103,
-          title: 'Slide Pemodelan Konseptual: Entity Relationship Diagram (ERD)',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1C4d2e-ERD-Konseptual.pdf',
-          description: 'Materi representasi model data ERD: entitas kuat, entitas lemah, kardinalitas relasi, dan mapping ERD ke skema relasional.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '28 Sep',
-        },
-        {
-          id: 104,
-          title: 'Modul Praktikum 02: Manajemen Tabel & Constraint SQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1D5f6g-Praktikum-SQL-Constraint.pdf',
-          description: 'Panduan praktikum laboratorium basis data sintaks CREATE TABLE, ALTER TABLE, PRIMARY KEY, FOREIGN KEY, dan CHECK constraint.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '24 Sep',
-        },
-        {
-          id: 105,
-          title: 'Kumpulan Kueri Contoh: Join & Subquery PostgreSQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/sbd-queries-join-subquery',
-          description: 'Kumpulan skrip SQL demonstrasi inner join, left join, full outer join, dan korelasi subquery untuk latihan mandiri.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '20 Sep',
-        },
-        {
-          id: 106,
-          title: 'Slide Pengenalan Relational DBMS & Arsitektur PostgreSQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1E6g7h-Intro-RDBMS-Postgres.pdf',
-          description: 'Konsep dasar ACID, storage engine, dan arsitektur client-server sistem manajemen basis data relasional.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '15 Sep',
-        },
-        {
-          id: 107,
-          title: 'Latihan Mandiri: Normalisasi Kasus Transaksi Penjualan',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1F7h8i-Latihan-Normalisasi-Transaksi.pdf',
-          description: 'Studi kasus faktur belanja supermarket untuk didekomposisi dari unnormalized form (UNF) hingga 3NF.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '12 Sep',
-        },
-
-        // 6 berkas - Pemrograman Berorientasi Objek
-        {
-          id: 201,
-          title: 'Starter Repository: Template Proyek Java OOP',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/oop-java-starter-template',
-          description: 'Starter repository untuk proyek pemrograman berorientasi objek menggunakan Java. Sudah dilengkapi modul Gradle dan template boilerplate.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '28 Sep',
-        },
-        {
-          id: 202,
-          title: 'Slide Inheritance & Polymorphism dalam Java',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1G8i9j-Java-Inheritance-Poly.pdf',
-          description: 'Konsep pewarisan kelas, method overriding, overloading, dynamic method dispatch, dan interface implementation.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '26 Sep',
-        },
-        {
-          id: 203,
-          title: 'Rekaman Sesi Lab: Implementasi Abstract Class & Interface',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1H9j0k-Lab-Abstract-Interface',
-          description: 'Demonstrasi live coding pembuatan hierarki objek, antarmuka kontrak, dan sistem pembayaran elektronik.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '22 Sep',
-        },
-        {
-          id: 204,
-          title: 'Slide Encapsulation & Access Modifiers',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1I0k1l-Encapsulation-Access.pdf',
-          description: 'Prinsip information hiding, penggunaan private, protected, public, serta pembuatan getter-setter yang konsisten.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '18 Sep',
-        },
-        {
-          id: 205,
-          title: 'Modul Praktikum Java Collections Framework',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1J1l2m-Java-Collections-Guide.pdf',
-          description: 'Panduan penggunaan List (ArrayList, LinkedList), Set (HashSet), dan Map (HashMap) dalam aplikasi Java.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '14 Sep',
-        },
-        {
-          id: 206,
-          title: 'Slide Pengenalan Objek, Kelas, & Siklus Hidup Instansiasi',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1K2m3n-Java-Class-Object-Lifecycle.pdf',
-          description: 'Dasar paradigma berorientasi objek: cetak biru kelas, instansiasi memori heap/stack, dan alokasi objek.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '08 Sep',
-        },
-
-        // 5 berkas - Matematika Diskrit
-        {
-          id: 301,
-          title: 'Slide Graf & Pohon Rentang Minimum (MST)',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1L3n4o-Graf-Spanning-Tree.pdf',
-          description: 'Teori graf dasar, matriks ketetanggaan, dan algoritma penentuan MST (Kruskal dan Prim).',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '02 Okt',
-        },
-        {
-          id: 302,
-          title: 'Modul Latihan Relasi Ekivalensi & Poset',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1M4o5p-Relasi-Poset-Latihan.pdf',
-          description: 'Sifat-sifat relasi biner, relasi kesetaraan, partisi himpunan, dan diagram Hasse untuk partially ordered set.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '27 Sep',
-        },
-        {
-          id: 303,
-          title: 'Slide Logika Proposisional & Inferensi Deduktif',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1N5p6q-Logika-Proposisi.pdf',
-          description: 'Tabel kebenaran, hukum aljabar proposisi, bentuk normal konjungtif (CNF), dan kaidah inferensi valid.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '21 Sep',
-        },
-        {
-          id: 304,
-          title: 'Rekaman Kuliah: Teknik Pembuktian & Induksi Matematika',
-          course_name: 'Matematika Diskrit',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1O6q7r-Rekaman-Induksi-Matematika',
-          description: 'Penjelasan pembuktian langsung, kontraposisi, kontradiksi, dan langkah basis serta langkah induktif.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '16 Sep',
-        },
-        {
-          id: 305,
-          title: 'Slide Kombinatorika & Prinsip Sarang Burung Merpati',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1P7r8s-Kombinatorika-Pigeonhole.pdf',
-          description: 'Kaidah perkalian, permutasi, kombinasi, dan aplikasi Pigeonhole Principle dalam komputasi.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '10 Sep',
-        },
-
-        // 4 berkas - Arsitektur Komputer
-        {
-          id: 401,
-          title: 'Slide Arsitektur Instruction Set & Datapath MIPS',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1Q8s9t-MIPS-Datapath.pdf',
-          description: 'Format instruksi MIPS 32-bit (R/I/J type), alur data prosesor single-cycle, dan sinyal kendali ALU.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '01 Okt',
-        },
-        {
-          id: 402,
-          title: 'Simulator MIPS MARS & Kumpulan Skrip Contoh',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/mars-mips-sample-code',
-          description: 'Panduan instalasi MARS simulator dan contoh implementasi aritmatika biner dalam bahasa assembly.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '25 Sep',
-        },
-        {
-          id: 403,
-          title: 'Slide Hirarki Memori & Manajemen Cache',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1R9t0u-Memory-Hierarchy-Cache.pdf',
-          description: 'Prinsip lokalitas waktu dan ruang, pemetaan cache direct vs associative, serta kebijakan write-through/back.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '19 Sep',
-        },
-        {
-          id: 404,
-          title: 'Slide Arsitektur Von Neumann & Siklus Instruksi',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1S0u1v-Von-Neumann-Cycle.pdf',
-          description: 'Komponen dasar von Neumann: register CPU, bus sistem, dan siklus fetch-decode-execute.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '11 Sep',
-        },
-
-        // 2 berkas - Umum Kelas (Silabus & RPS)
-        {
-          id: 501,
-          title: 'Silabus Perkuliahan & Kontrak Belajar D4-TI 1A',
-          course_name: 'Umum Kelas (Silabus & RPS)',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1T1v2w-Silabus-Kontrak-Kuliah.pdf',
-          description: 'Dokumen rujukan kurikulum, aturan presensi, bobot evaluasi nilai, dan tata tertib perkuliahan semester ganjil.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '05 Sep',
-        },
-        {
-          id: 502,
-          title: 'Rencana Pembelajaran Semester (RPS) Terpadu Kurikulum 2024',
-          course_name: 'Umum Kelas (Silabus & RPS)',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1U2w3x-RPS-Terpadu-Kurikulum.pdf',
-          description: 'Rincian capaian pembelajaran mata kuliah (CPMK) seluruh mata kuliah wajib D4 Teknik Informatika tingkat 1.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '03 Sep',
-        },
-
-        // 4 berkas pelengkap lainnya
-        {
-          id: 601,
-          title: 'Slide Modul Aljabar Linear: Eliminasi Gauss-Jordan & Matriks Invers',
-          course_name: 'Aljabar Linear',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1V3x4y-Alin-Gauss-Jordan.pdf',
-          description: 'Operasi baris elementer, eliminasi Gauss-Jordan, determinan, dan pencarian matriks balikan.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '29 Sep',
-        },
-        {
-          id: 602,
-          title: 'Repositori Praktikum Aljabar Linear dengan NumPy',
-          course_name: 'Aljabar Linear',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/alin-numpy-labs',
-          description: 'Kumpulan notebook praktikum komputasi vektor dan operasi matriks menggunakan pustaka Python NumPy.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '23 Sep',
-        },
-        {
-          id: 603,
-          title: 'Slide Technical Writing & Standar Penulisan Laporan',
-          course_name: 'Bahasa Inggris',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1W4y5z-English-Tech-Writing.pdf',
-          description: 'Pedoman penulisan laporan teknis praktikum, gaya sitasi IEEE, dan terminologi teknologi informasi formal.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '17 Sep',
-        },
-        {
-          id: 604,
-          title: 'Panduan Etika Akademik & Keselamatan Kerja Lab Komputer',
-          course_name: 'Etika Profesi',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1X5z6a-K3-Etika-Lab.pdf',
-          description: 'Prosedur operasional baku penggunaan laboratorium komputer, hak cipta software, dan pencegahan plagiarisme kode.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '07 Sep',
-        },
-      ];
-    },
-
     async loadMateri() {
       this.materiLoading = true;
       this.materiError = '';
       try {
-        const dbItems = await API.getPortalMaterials(this.selectedClassSlug).catch(() => []);
-        if (dbItems && dbItems.length > 0) {
-          const sample = this.defaultSampleMateri;
-          const titles = new Set(dbItems.map(d => (d.title || '').toLowerCase().trim()));
-          const filteredSample = sample.filter(s => !titles.has((s.title || '').toLowerCase().trim()));
-          this.materiList = [...dbItems, ...filteredSample];
-        } else {
-          this.materiList = [...this.defaultSampleMateri];
-        }
+        const items = await API.getPortalMaterials(this.selectedClassSlug);
+        this.materiList = Array.isArray(items) ? items : [];
       } catch (e) {
-        this.materiList = [...this.defaultSampleMateri];
+        this.materiList = [];
+        this.materiError = 'Materi gagal dimuat. Coba lagi.';
       } finally {
         this.materiLoading = false;
       }
@@ -2020,12 +1726,12 @@ function portalApp() {
 
       let format = 'PDF';
       if (m.url && !m.url.includes('.pdf') && !m.url.includes('drive')) format = 'Dokumen';
-      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ (Farhan)';
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
       return `${course} · ${format} · ${uploader}`;
     },
 
     getMateriDate(m) {
-      if (!m) return '06 Okt';
+      if (!m) return '-';
       if (m.date_display) return m.date_display;
       if (m.created_at) {
         try {
@@ -2037,7 +1743,7 @@ function portalApp() {
           }
         } catch (e) { }
       }
-      return '06 Okt';
+      return '-';
     },
 
     getMateriModalMeta(m) {
@@ -2048,12 +1754,12 @@ function portalApp() {
       if (type === 'Video') format = 'Tautan Video (Google Drive)';
       else if (type === 'Repositori') format = 'Repositori Kode (GitHub)';
 
-      const uploader = m.uploader_name || 'Farhan Pratama (PJ)';
-      return `Format: ${format} · Sesi: ${act} · Diunggah oleh ${uploader}`;
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
+      return `Format: ${format} · Sesi: ${act} · ${uploader}`;
     },
 
     cleanUrlDisplay(url) {
-      if (!url) return 'drive.google.com/...';
+      if (!url) return '-';
       let clean = url.replace(/^https?:\/\//i, '');
       if (clean.length > 42) {
         clean = clean.substring(0, 39) + '...';

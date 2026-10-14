@@ -190,6 +190,49 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 	}
 }
 
+func TestV1BotService_ResolveDailyItems_RespectsEffectiveDates(t *testing.T) {
+	svc := setupTestV1DB(t)
+	if _, err := svc.db.Exec(`UPDATE schedule_patterns SET effective_from='2025-01-06', effective_until='2025-01-13' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		date  string
+		count int
+	}{{"2024-12-30", 0}, {"2025-01-06", 1}, {"2025-01-13", 1}, {"2025-01-20", 0}} {
+		day, _ := time.Parse("2006-01-02", tc.date)
+		_, _, _, _, items, err := svc.ResolveDailyItems(context.Background(), 1, day)
+		if err != nil || len(items) != tc.count {
+			t.Errorf("date=%s items=%d want=%d err=%v", tc.date, len(items), tc.count, err)
+		}
+	}
+}
+
+func TestV1BotService_ResolveDailyItems_UsesClassDayForUTCEvent(t *testing.T) {
+	svc := setupTestV1DB(t)
+	_, err := svc.db.Exec(`INSERT INTO teaching_events (event_kind,starts_at,ends_at,lifecycle_status,published_by_user_id,published_at)
+		VALUES ('EXTRA','2025-01-05T18:00:00Z','2025-01-05T19:00:00Z','PUBLISHED',1,CURRENT_TIMESTAMP);
+		INSERT INTO teaching_event_offerings (teaching_event_id,course_offering_id,participation_role,participation_status)
+		VALUES (1,1,'OWNER','ACCEPTED')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	day := time.Date(2025, 1, 6, 0, 0, 0, 0, loc)
+	_, _, _, _, items, err := svc.ResolveDailyItems(context.Background(), 1, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, item := range items {
+		if item.Status == "EXTRA" && item.StartTime == "01:00" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("acara 01:00 WIB tidak ada: %+v", items)
+	}
+}
+
 func TestV1BotService_GetWeeklySchedule(t *testing.T) {
 	svc := setupTestV1DB(t)
 	ctx := context.Background()

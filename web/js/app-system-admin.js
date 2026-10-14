@@ -823,8 +823,6 @@ function systemAdminApp() {
 
     async checkAuth() {
       try {
-        const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
-        if (!token) return false;
         const me = await API.getMe();
         if (me && me.user) {
           const role = me.active_assignment && me.active_assignment.role;
@@ -870,7 +868,7 @@ function systemAdminApp() {
     redirectToLogin() {
       if (this.sessionRedirecting) return;
       this.sessionRedirecting = true;
-      API.setAuthToken(null);
+      API.clearStoredAuthToken();
       this.currentUser = null;
       window.location.replace('/login.html?role=sa');
     },

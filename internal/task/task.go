@@ -982,8 +982,8 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("⚠️ *Penambahan, perubahan, dan penyelesaian tugas kini hanya melalui Web Dashboard Pengelola:*\n")
-		sb.WriteString("👉 http://localhost:8080/login.html (atau domain portal Anda)\n\n")
-		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
+		sb.WriteString("👉 " + util.PublicBaseURL() + "/login.html\n\n")
+		sb.WriteString("_Pengingat tugas dikirim sesuai waktu sore pada pengaturan kelas._")
 		return sb.String()
 
 	default:
@@ -1018,9 +1018,9 @@ func (tm *TaskManager) HandleCommand(
 		sb.WriteString("• `!tugas riwayat / !tugas arsip`\n  ➔ Rekam jejak tugas yang sudah selesai (Arsip)\n\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("⚠️ *Penambahan, perubahan, dan penyelesaian tugas kini hanya melalui Web Dashboard Pengelola:*\n")
-		sb.WriteString("👉 http://localhost:8080/login.html (atau domain portal Anda)\n\n")
+		sb.WriteString("👉 " + util.PublicBaseURL() + "/login.html\n\n")
 		sb.WriteString("──────────\n")
-		sb.WriteString("_Tips: Bot otomatis memberi alert di jadwal pagi 06:00 jika ada tugas mendesak._")
+		sb.WriteString("_Pengingat tugas dikirim sesuai waktu sore pada pengaturan kelas._")
 		return sb.String()
 	}
 }

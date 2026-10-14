@@ -12,6 +12,7 @@ import (
 func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/ready", s.handleReady)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
 	// Registrasi Route Jadwal & Kelas Legacy

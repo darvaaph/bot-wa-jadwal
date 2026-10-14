@@ -128,6 +128,14 @@ func TestNotify_Schedulers(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("daily: n=%d err=%v", n, err)
 	}
+	var scheduled string
+	if err := svc.db.QueryRow(`SELECT scheduled_at FROM notification_messages WHERE idempotency_key='daily:1:2026-10-06'`).Scan(&scheduled); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, scheduled)
+	if err != nil || !parsed.Equal(morning) {
+		t.Fatalf("waktu pengingat pagi=%q, ingin %s (UTC): %v", scheduled, morning, err)
+	}
 	n, _ = svc.EnsureDailySummaries(ctx, morning)
 	if n != 0 {
 		t.Fatalf("daily idempoten: n=%d", n)
@@ -145,6 +153,19 @@ func TestNotify_Schedulers(t *testing.T) {
 	taskText, err := svc.BuildTaskText(ctx, 1, "")
 	if err != nil || taskText == "" {
 		t.Fatalf("build tasks: %v", err)
+	}
+}
+
+func TestNotify_MorningReminderCatchesUpAfterRestart(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	late := time.Date(2026, 10, 5, 23, 20, 0, 0, time.UTC)
+	n, err := svc.EnsureDailySummaries(ctx, late)
+	if err != nil || n != 1 {
+		t.Fatalf("20 menit terlambat: n=%d err=%v", n, err)
+	}
+	n, err = svc.EnsureDailySummaries(ctx, late.Add(10*time.Minute))
+	if err != nil || n != 0 {
+		t.Fatalf("harus idempoten: n=%d err=%v", n, err)
 	}
 }
 

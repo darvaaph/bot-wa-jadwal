@@ -15,7 +15,7 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/reminder"
+	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 
@@ -34,8 +34,8 @@ func main() {
 	// BE-013: validasi security sebelum server menerima traffic.
 	// Production gagal bila hash key, secure cookie, origin, atau proxy invalid.
 	if err := cfg.Validate(); err != nil {
-		fmt.Printf("❌ Konfigurasi security tidak valid: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "❌ Konfigurasi security tidak valid: %v\n", err)
+		os.Exit(1)
 	}
 	if *sessionPath != "" {
 		cfg.SessionDBPath = *sessionPath
@@ -49,24 +49,22 @@ func main() {
 	}
 
 	if err := cfg.EnsureStorageAndMigrate(); err != nil {
-		fmt.Printf("⚠️ Peringatan direktori storage: %v\n", err)
+		fmt.Fprintf(os.Stderr, "❌ Gagal menyiapkan storage: %v\n", err)
+		os.Exit(1)
 	}
 
 	classManager, err := schedule.NewClassManager(cfg.DataJadwalDir, cfg.DefaultJadwal)
 	if err != nil {
-		fmt.Printf("Peringatan: %v\n", err)
-		fmt.Println("Pastikan direktori data/jadwal atau file jadwal.json tersedia.")
-		return
+		fmt.Fprintf(os.Stderr, "❌ Gagal memuat jadwal: %v\n", err)
+		os.Exit(1)
 	}
 	fmt.Printf("Berhasil memuat %d kelas perkuliahan: %v (Kelas Default: %s)\n",
 		len(classManager.ListClasses()), classManager.ListClasses(), classManager.GetDefaultClassID())
 
-	reminderManager := reminder.LoadReminderManager(cfg.ReminderPath)
-
 	appDB, err := database.OpenPool(cfg.AppDBPath)
 	if err != nil {
-		fmt.Printf("❌ Gagal menginisialisasi database utama: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "❌ Gagal menginisialisasi database utama: %v\n", err)
+		os.Exit(1)
 	} else {
 		fmt.Printf("Berhasil menghubungkan database utama (%s) [WAL Mode]\n", cfg.AppDBPath)
 	}
@@ -74,25 +72,22 @@ func main() {
 	// 4b. Setup Database v1 (SQLite - storage/bot_v1.db dengan WAL & Busy Timeout)
 	v1DB, err := database.InitDB(cfg.V1DBPath)
 	if err != nil {
-		fmt.Printf("Peringatan inisialisasi database v1: %v\n", err)
-	} else {
-		fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
+		fmt.Fprintf(os.Stderr, "❌ Gagal menginisialisasi database v1: %v\n", err)
+		os.Exit(1)
 	}
+	fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
 
 	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
-	var chatSettingsManager *chat.ChatSettingsManager
-	if appDB != nil {
-		chatSettingsManager, err = chat.NewChatSettingsManager(appDB)
-		if err != nil {
-			fmt.Printf("Peringatan inisialisasi modul chat_settings: %v\n", err)
-		} else {
-			upgraded := chatSettingsManager.SyncWithClassManager(classManager)
-			if upgraded > 0 {
-				fmt.Printf("Berhasil menyelaraskan %d setelan kelas lama ke format kanonikal semester\n", upgraded)
-			}
-			fmt.Printf("Berhasil menginisialisasi modul setelan kelas (%d chat terhubung)\n", chatSettingsManager.CountSettings())
-		}
+	chatSettingsManager, err := chat.NewChatSettingsManager(v1DB)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Gagal menginisialisasi pemetaan chat: %v\n", err)
+		os.Exit(1)
 	}
+	upgraded := chatSettingsManager.SyncWithClassManager(classManager)
+	if upgraded > 0 {
+		fmt.Printf("Berhasil menyelaraskan %d setelan kelas lama ke format kanonikal semester\n", upgraded)
+	}
+	fmt.Printf("Berhasil menginisialisasi modul setelan kelas (%d chat terhubung)\n", chatSettingsManager.CountSettings())
 
 	var taskManager *task.TaskManager
 	if appDB != nil {
@@ -153,7 +148,6 @@ func main() {
 					v,
 					classManager,
 					chatSettingsManager,
-					reminderManager,
 					taskManager,
 					overrideManager,
 					linkManager,
@@ -167,11 +161,13 @@ func main() {
 			panic(fmt.Sprintf("Gagal menyambungkan WhatsApp: %v", err))
 		}
 
-		reminderManager.StartScheduler(botClient.Client, classManager, chatSettingsManager, taskManager, linkManager)
-
 		// 12b. Jalankan background worker siaran notifikasi WhatsApp (bot_v1.db)
 		if v1DB != nil {
 			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
+			notifService := notify.NewService(v1DB)
+			v1BotService := bot.NewV1BotService(v1DB)
+			notifService.SetDailyTextBuilder(v1BotService.GetSchedule)
+			notifWorker.SetScheduleService(notifService)
 			notifWorker.Start()
 		}
 	} else {
@@ -189,8 +185,8 @@ func main() {
 		SecureCookies:     cfg.SecureCookies,
 	})
 	if err := apiServer.Start(); err != nil {
-		fmt.Printf("❌ Gagal memulai server Web API: %v\n", err)
-		return
+		fmt.Fprintf(os.Stderr, "❌ Gagal memulai server Web API: %v\n", err)
+		os.Exit(1)
 	}
 	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
 	stopSig := make(chan os.Signal, 1)

@@ -1293,6 +1293,8 @@ func (c *PortalController) resolvePortalSemester(w http.ResponseWriter, r *http.
 
 func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
 	dateStr := targetDate.Format("2006-01-02")
+	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	dayEnd := dayStart.AddDate(0, 0, 1)
 
 	patternRows, err := c.db.Query(`
 		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
@@ -1349,8 +1351,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 
 	eventRows, err := c.db.Query(`
 		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
-		       strftime('%H:%M', te.starts_at) as start_time,
-		       strftime('%H:%M', te.ends_at) as end_time,
+		       te.starts_at, te.ends_at,
 		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, ''),
 		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, ''), c.code
 		FROM teaching_events te
@@ -1362,8 +1363,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		WHERE sem.class_id = ?
 		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
 		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND date(te.starts_at) = ?;
-	`, classID, semesterID, semesterID, dateStr)
+		  AND datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?);
+	`, classID, semesterID, semesterID, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339))
 
 	if err == nil {
 		defer eventRows.Close()
@@ -1374,6 +1375,12 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 			var originOccDate, reason, courseCode string
 
 			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason, &courseCode); err == nil {
+				if t, err := time.Parse(time.RFC3339Nano, startTime); err == nil {
+					startTime = t.In(targetDate.Location()).Format("15:04")
+				}
+				if t, err := time.Parse(time.RFC3339Nano, endTime); err == nil {
+					endTime = t.In(targetDate.Location()).Format("15:04")
+				}
 				kindMap := map[string]string{
 					"REPLACEMENT":       "PENGGANTI",
 					"EXTRA":             "TAMBAHAN",

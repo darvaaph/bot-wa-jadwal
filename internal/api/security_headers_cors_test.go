@@ -226,6 +226,9 @@ func TestBE014_SecurityHeadersAndHSTS(t *testing.T) {
 	if strings.Contains(csp, "cdn.tailwindcss.com") || strings.Contains(csp, "cdn.jsdelivr.net") {
 		t.Fatalf("CSP tidak boleh lagi memuat host CDN JS: %s", csp)
 	}
+	if strings.Contains(csp, "script-src 'self' 'unsafe-inline'") || !strings.Contains(csp, "style-src-elem 'self'") {
+		t.Fatalf("CSP harus membatasi skrip dan stylesheet ke berkas lokal: %s", csp)
+	}
 
 	// 2. Request HTTPS langsung di production: HSTS wajib aktif
 	reqHTTPS := httptest.NewRequest(http.MethodGet, "/api/health", nil)
@@ -360,6 +363,9 @@ func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 		}
 		if strings.Contains(body, "cdn.jsdelivr.net") {
 			t.Fatalf("halaman %s masih memuat jsdelivr CDN", page)
+		}
+		if strings.Contains(body, "tailwindcss.play.js") || strings.Contains(body, "<script>") || strings.Contains(body, "<style>") {
+			t.Fatalf("halaman %s masih memuat Tailwind runtime atau skrip/style inline", page)
 		}
 		if strings.Contains(body, "fonts.googleapis.com") && !strings.Contains(csp, "https://fonts.googleapis.com") {
 			t.Fatalf("halaman %s memuat Google Fonts tapi tidak diizinkan oleh CSP", page)

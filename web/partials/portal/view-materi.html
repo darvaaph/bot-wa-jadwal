@@ -7,7 +7,7 @@
       Materi &amp; Modul Kuliah
     </h1>
     <p class="text-[12px] text-[#64748B] font-medium text-left">
-      Kumpulan modul, slide presentasi dosen, dan rekaman kuliah <span x-text="selectedClassFormatted">D4-TI 1A</span>.
+      Kumpulan modul, slide presentasi dosen, dan rekaman kuliah <span x-text="selectedClassFormatted">kelas ini</span>.
     </p>
   </div>
 
@@ -17,7 +17,7 @@
       Materi Kuliah
     </h1>
     <p class="text-[11px] text-[#64748B] font-medium text-left">
-      <span x-text="filteredMateriList.length">28</span> berkas untuk <span x-text="selectedClassFormatted">D4-TI 1A</span>
+      <span x-text="filteredMateriList.length">0</span> berkas untuk <span x-text="selectedClassFormatted">kelas ini</span>
     </p>
   </div>
 
@@ -50,7 +50,7 @@
             :class="filterMateriMatkul === cat.key ? 'bg-[#2563EB] text-[#FFFFFF] border-[#2563EB] font-bold shadow-xs' : 'bg-[#FFFFFF] text-[#334155] border-[#E2E8F0] font-semibold hover:bg-slate-50'"
             class="h-[38px] min-h-[38px] shrink-0 flex items-center justify-center px-[13px] border rounded-full text-[12px] whitespace-nowrap transition-all cursor-pointer active:scale-95">
             <span x-text="cat.shortLabel">Semua</span>
-            <span class="ml-1 text-[10px] opacity-80 font-mono" x-text="'(' + cat.count + ')'">(28)</span>
+            <span class="ml-1 text-[10px] opacity-80 font-mono" x-text="'(' + cat.count + ')'">(0)</span>
           </button>
         </template>
       </div>
@@ -81,7 +81,7 @@
             </div>
             <div :class="filterMateriMatkul === cat.key ? 'text-[#1D4ED8]' : 'text-[#64748B]'"
               class="text-[11px] font-mono font-semibold whitespace-nowrap shrink-0" x-text="cat.count">
-              28
+              0
             </div>
           </button>
         </template>
@@ -98,7 +98,7 @@
           <div
             class="text-[14px] md:text-[16px] text-[#0F172A] font-heading font-bold text-left truncate"
             x-text="currentMateriHeading">
-            Semua Berkas Materi (28 Berkas)
+            Semua Berkas Materi
           </div>
         </div>
 
@@ -109,21 +109,21 @@
               :class="filterMateriSesi === 'SEMUA' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'"
               class="h-[30px] px-2.5 rounded-[8px] text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95">
               <span>Semua</span>
-              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.total + ')'">(28)</span>
+              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.total + ')'">(0)</span>
             </button>
             <button type="button" @click="filterMateriSesi = 'TEORI'"
               :class="filterMateriSesi === 'TEORI' ? 'bg-white text-blue-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'"
               class="h-[30px] px-2.5 rounded-[8px] text-[11px] transition-all cursor-pointer flex items-center gap-1.5 active:scale-95">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
               <span>Teori</span>
-              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.teori + ')'">(18)</span>
+              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.teori + ')'">(0)</span>
             </button>
             <button type="button" @click="filterMateriSesi = 'PRAKTIKUM'"
               :class="filterMateriSesi === 'PRAKTIKUM' ? 'bg-white text-purple-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'"
               class="h-[30px] px-2.5 rounded-[8px] text-[11px] transition-all cursor-pointer flex items-center gap-1.5 active:scale-95">
               <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
               <span>Praktikum</span>
-              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.praktikum + ')'">(8)</span>
+              <span class="text-[9.5px] opacity-75 font-mono" x-text="'(' + materiSesiCounts.praktikum + ')'">(0)</span>
             </button>
           </div>
 
@@ -156,8 +156,14 @@
         Memuat berkas materi...
       </div>
 
+      <div x-show="!materiLoading && materiError" x-cloak
+        class="w-full py-10 text-center text-[13px] text-red-700" role="alert">
+        <p x-text="materiError"></p>
+        <button type="button" @click="loadMateri()" class="mt-3 rounded-lg border border-red-300 px-4 py-2 font-semibold hover:bg-red-50">Coba lagi</button>
+      </div>
+
       <!-- State Kosong -->
-      <div x-show="!materiLoading && filteredMateriList.length === 0"
+      <div x-show="!materiLoading && !materiError && filteredMateriList.length === 0"
         class="w-full py-12 flex flex-col items-center justify-center text-center">
         <svg class="w-12 h-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -170,7 +176,7 @@
       </div>
 
       <!-- DAFTAR BERKAS (DESKTOP: Baris Rapi dengan Pemisah Garis #F1F5F9) -->
-      <div x-show="!materiLoading && filteredMateriList.length > 0" class="hidden md:flex w-full flex-col">
+      <div x-show="!materiLoading && !materiError && filteredMateriList.length > 0" class="hidden md:flex w-full flex-col">
         <template x-for="(m, idx) in filteredMateriList" :key="'desk-row-' + (m.id || idx)">
           <div class="w-full">
             <div
@@ -200,7 +206,7 @@
                   <div
                     class="text-[13px] leading-[18px] text-[#0F172A] font-bold truncate"
                     x-text="m.title">
-                    Slide Normalisasi Database: 1NF hingga BCNF
+                    Judul materi
                   </div>
                   <!-- Tag Sesi (Teori / Praktikum) -->
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[9.5px] font-bold tracking-wide uppercase shrink-0"
@@ -212,7 +218,7 @@
                 <div
                   class="text-[11px] leading-[15px] w-full text-[#64748B] font-medium truncate"
                   x-text="getMateriSubtitle(m)">
-                  Sistem Basis Data · PDF · Diunggah oleh PJ (Farhan)
+                  Detail materi
                 </div>
               </div>
 
@@ -226,7 +232,7 @@
                 <div
                   class="text-[11px] text-[#64748B] font-medium whitespace-nowrap"
                   x-text="getMateriDate(m)">
-                  06 Okt
+                  -
                 </div>
                 <button type="button" @click.stop="bukaTautanLangsung(m.url)"
                   class="h-[40px] px-[12px] flex flex-row gap-[5px] items-center bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] hover:bg-slate-50 transition-colors cursor-pointer">
@@ -248,7 +254,7 @@
       </div>
 
       <!-- DAFTAR BERKAS (MOBILE: Kartu Mandiri, Aksen Warna, & Thumb-friendly Tap Target) -->
-      <div x-show="!materiLoading && filteredMateriList.length > 0" class="flex md:hidden w-full flex-col gap-[10px]">
+      <div x-show="!materiLoading && !materiError && filteredMateriList.length > 0" class="flex md:hidden w-full flex-col gap-[10px]">
         <template x-for="m in filteredMateriList" :key="'mob-card-' + m.id">
           <div @click="bukaDetailMateri(m)"
             class="w-full bg-white border border-slate-200 rounded-[14px] p-3.5 shadow-2xs active:bg-slate-50 transition-all cursor-pointer text-left flex flex-col gap-2.5">
@@ -258,7 +264,7 @@
               <div class="flex items-center gap-1.5 min-w-0">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200 max-w-[130px] sm:max-w-none truncate"
                   x-text="m.course_name || 'UMUM KELAS'">
-                  SISTEM BASIS DATA
+                  MATA KULIAH
                 </span>
                 <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase shrink-0"
                   :class="getMateriActivityTheme(m)"
@@ -267,7 +273,7 @@
                 </span>
               </div>
               <span class="text-[10px] text-slate-400 font-medium whitespace-nowrap shrink-0"
-                x-text="getMateriDate(m)">06 Okt</span>
+                x-text="getMateriDate(m)">-</span>
             </div>
 
             <!-- Baris 2: Ikon Tipe Berkas & Judul Materi -->
@@ -289,11 +295,11 @@
               <div class="flex-1 min-w-0">
                 <h3 class="text-[13px] leading-[18px] text-slate-900 font-bold line-clamp-2"
                   x-text="m.title">
-                  Slide Normalisasi Database: 1NF hingga BCNF
+                  Judul materi
                 </h3>
                 <p class="text-[11px] leading-[15px] text-slate-500 font-medium truncate mt-0.5"
                   x-text="m.uploader_name ? 'Oleh ' + m.uploader_name : 'Oleh PJ Kelas'">
-                  Oleh Farhan Pratama (PJ)
+                  Pengunggah materi
                 </p>
               </div>
             </div>
@@ -377,7 +383,7 @@
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200"
                   x-text="(selectedMateri.course_name || 'UMUM KELAS').toUpperCase()">
-                  SISTEM BASIS DATA
+                  MATA KULIAH
                 </span>
                 <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase"
                   :class="getMateriActivityTheme(selectedMateri)"
@@ -387,11 +393,11 @@
               </div>
               <!-- Judul Materi -->
               <h2 class="text-[18px] leading-[23px] text-[#0F172A] font-heading font-bold"
-                x-text="selectedMateri.title">Slide Normalisasi Database: 1NF hingga BCNF</h2>
+                x-text="selectedMateri.title">Judul materi</h2>
               <!-- Format & Pengunggah -->
               <div class="text-[11px] leading-[15px] text-[#64748B] font-medium"
                 x-text="getMateriModalMeta(selectedMateri)">
-                Format: Dokumen PDF · Diunggah oleh Farhan Pratama (PJ)
+                Informasi berkas
               </div>
             </div>
             <!-- Tombol Tutup Silang -->
@@ -417,8 +423,7 @@
                 class="w-full p-[14px] bg-[#F8FAFC] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
                 <p class="text-[12px] leading-[19px] text-[#334155] font-medium whitespace-pre-line"
                   x-text="selectedMateri.description">
-                  Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form
-                  (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.
+                  Catatan materi
                 </p>
               </div>
             </div>
@@ -439,7 +444,7 @@
                 <!-- Alamat URL -->
                 <div class="text-[10px] text-[#475569] font-mono font-medium truncate flex-1"
                   x-text="cleanUrlDisplay(selectedMateri.url)">
-                  drive.google.com/file/d/18k9aZ-Normalisasi...
+                  Alamat berkas
                 </div>
                 <!-- Tombol Salin -->
                 <button type="button" @click="salinTautanMateri(selectedMateri.url)"
