@@ -10,7 +10,7 @@ Asisten perkuliahan cerdas berbasis **Bot WhatsApp Multi-Device** dan **Web Admi
 
 Sistem ini membantu mahasiswa dan pengurus kelas memantau jadwal, tugas, materi, dan perubahan kuliah. Pengingat WhatsApp memakai data dan antrean di `storage/bot_v1.db`; waktu kirim mengikuti pengaturan zona waktu setiap kelas. Status rilis dan pemeriksaan sebelum produksi ada di [panduan kesiapan produksi](docs/ops/PRODUCTION_READINESS.md).
 
-Manifest migrasi v1 saat ini memuat dua kelas pilot. Kelas lain masih memerlukan verifikasi dan migrasi sebelum bot serta portal dapat dinyatakan sinkron untuk seluruh kelas.
+Seluruh 19 kelas akademik (7 kelas D3 dan 12 kelas D4) telah terpetakan di manifest migrasi dan tersimpan di database v1, menjamin keselarasan jawaban bot dan web portal. Panduan teknis deployment ke server Linux tersedia di [panduan deployment produksi](docs/ops/DEPLOYMENT_GUIDE.md).
 
 ---
 
