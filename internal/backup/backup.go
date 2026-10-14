@@ -320,27 +320,3 @@ func strVal(v any) string {
 		return fmt.Sprint(s)
 	}
 }
-func nullInt64(v any) any {
-	if v == nil {
-		return nil
-	}
-	switch n := v.(type) {
-	case int64:
-		if n == 0 {
-			return nil
-		}
-		return n
-	case []byte:
-		if len(n) == 0 {
-			return nil
-		}
-		return string(n)
-	case string:
-		if n == "" {
-			return nil
-		}
-		return n
-	default:
-		return v
-	}
-}

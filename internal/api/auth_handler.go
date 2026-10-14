@@ -62,15 +62,6 @@ func (s *Server) handleGetV1ClassesAccess(w http.ResponseWriter, r *http.Request
 	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
 }
 
-// handleGetV1Classes mendelegasikan listing kelas (ADMIN) ke AuthController.
-func (s *Server) handleGetV1Classes(w http.ResponseWriter, r *http.Request) {
-	if s.authController != nil {
-		s.authController.GetClasses(w, r)
-		return
-	}
-	http.Error(w, "Auth controller belum diinisialisasi", http.StatusInternalServerError)
-}
-
 // handlePatchV1ClassStatus mendelegasikan perubahan lifecycle status kelas ke AuthController.
 func (s *Server) handlePatchV1ClassStatus(w http.ResponseWriter, r *http.Request) {
 	if s.authController != nil {

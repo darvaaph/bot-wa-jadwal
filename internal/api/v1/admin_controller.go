@@ -897,8 +897,6 @@ func (c *AdminController) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		ID: record.ID, ClassID: &classID, SemesterID: scopedSemester,
 		Checksum: record.Checksum, Status: record.Status, Reason: &reason, CreatedAt: record.CreatedAt,
 	})
-	return
-
 }
 
 // nullableInt memformat sql.NullInt64 untuk audit JSON (null bila invalid).

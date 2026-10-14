@@ -2299,6 +2299,20 @@ function pjApp() {
       return todayList.find(s => !this.isSessionOngoing(s) && !this.isSessionPassed(s)) || null;
     },
 
+    get currentPJSession() {
+      const todayList = this.dashboardData?.schedule?.today || [];
+      return todayList.find(s => s.is_my_course && this.isSessionOngoing(s)) || null;
+    },
+
+    get nextPJSession() {
+      const todayList = this.dashboardData?.schedule?.today || [];
+      return todayList.find(s => s.is_my_course && !this.isSessionOngoing(s) && !this.isSessionPassed(s)) || null;
+    },
+
+    get hasPJSessionToday() {
+      return (this.dashboardData?.metrics?.today_pj_sessions || 0) > 0;
+    },
+
     pjDeadlineBadge(deadlineAt) {
       if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
       const d = new Date(deadlineAt);

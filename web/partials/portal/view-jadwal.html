@@ -63,10 +63,10 @@
       <button type="button" @click="bukaRiwayatPerubahan()"
         class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[6px] px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[8px] transition-colors"
         title="Riwayat Perubahan Jadwal">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
-          <path
-            d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z"
-            fill="#475569" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-slate-600">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l4 2" />
         </svg>
         <span class="text-[11px] text-[#334155] font-bold whitespace-nowrap">Riwayat Perubahan</span>
         <div
@@ -124,25 +124,25 @@
         </button>
       </div>
 
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] items-center">
+      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] items-center">
         <button type="button" @click="mingguIni()"
-          class="box-border w-fit shrink-0 h-[44px] px-[5px] flex items-center text-[12px] text-[#2563EB] font-bold">
+          class="box-border w-fit shrink-0 h-[40px] px-[8px] flex items-center text-[12px] text-[#2563EB] font-bold active:bg-blue-50 rounded-lg transition-colors">
           Hari Ini
         </button>
         <button type="button" @click="bukaRiwayatPerubahan()"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center" title="Riwayat Perubahan">
-          <div
-            class="box-border w-[36px] shrink-0 h-[36px] flex justify-center items-center bg-[#F1F5F9] rounded-full relative">
-            <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-slate-600" fill="currentColor">
-              <path
-                d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
-            </svg>
-            <template x-if="perubahanList && perubahanList.length > 0">
-              <div
-                class="box-border w-[10px] h-[10px] absolute right-[-1px] top-[-1px] bg-[#F59E0B] border-2 border-white rounded-full">
-              </div>
-            </template>
-          </div>
+          class="relative box-border w-[40px] h-[40px] flex justify-center items-center rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 transition-all border border-slate-200/80 shadow-2xs"
+          title="Riwayat Perubahan Jadwal"
+          aria-label="Riwayat Perubahan Jadwal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] shrink-0 text-slate-700">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M12 7v5l4 2" />
+          </svg>
+          <template x-if="perubahanList && perubahanList.length > 0">
+            <span
+              class="box-border w-[9px] h-[9px] absolute -top-0.5 -right-0.5 bg-amber-500 border-2 border-white rounded-full">
+            </span>
+          </template>
         </button>
       </div>
     </div>
@@ -1023,9 +1023,10 @@
         @pointercancel="onRiwayatPointerUp($event)">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-slate-700 shrink-0" viewBox="0 0 14 14" fill="currentColor">
-              <path
-                d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
+            <svg class="w-5 h-5 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l4 2" />
             </svg>
             <h2 class="text-[18px] font-heading font-bold text-[#0F172A] leading-tight">Riwayat Perubahan</h2>
           </div>
@@ -1134,9 +1135,10 @@
         <template x-if="!perubahanLoading && perubahanList.length === 0">
           <div class="w-full py-12 px-4 flex flex-col items-center justify-center text-center gap-2">
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
-              <svg viewBox="0 0 14 14" class="w-6 h-6" fill="currentColor">
-                <path
-                  d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M12 7v5l4 2" />
               </svg>
             </div>
             <div class="text-[15px] font-heading font-bold text-[#0F172A]">Belum Ada Perubahan Jadwal</div>

@@ -85,17 +85,6 @@ func parseTime(raw string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("format timestamp %q tidak didukung", raw)
 }
 
-func parseNullTime(s *string) (*time.Time, error) {
-	if s == nil || *s == "" {
-		return nil, nil
-	}
-	t, err := parseTime(*s)
-	if err != nil {
-		return nil, err
-	}
-	return &t, nil
-}
-
 // GetClasses mengambil seluruh kelas akademik terdaftar yang terurut berdasarkan kode.
 func (r *Repository) GetClasses(ctx context.Context) ([]Class, error) {
 	query := `

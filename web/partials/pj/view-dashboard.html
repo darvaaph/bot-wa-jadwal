@@ -34,28 +34,43 @@
       <div class="flex flex-col gap-3">
         <!-- Live Status Badge Row -->
         <div class="flex items-center gap-2 flex-wrap">
-          <template x-if="currentSession">
+          <!-- Kondisi 1: Sesi Matkul PJ sedang berlangsung -->
+          <template x-if="currentPJSession">
             <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
               <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
               <span>SEDANG BERLANGSUNG</span>
             </span>
           </template>
-          <template x-if="!currentSession && nextSession">
+          <!-- Kondisi 2: Sesi Matkul PJ berikutnya hari ini -->
+          <template x-if="!currentPJSession && nextPJSession">
             <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
-              <span>KULIAH BERIKUTNYA</span>
+              <span>KULIAH ANDA BERIKUTNYA</span>
             </span>
           </template>
-          <template x-if="!currentSession && !nextSession && (dashboardData?.schedule?.today?.length || 0) > 0">
+          <!-- Kondisi 3: Ada jadwal matkul PJ hari ini, tapi sudah selesai -->
+          <template x-if="!currentPJSession && !nextPJSession && hasPJSessionToday">
             <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-              <span>SEMUA KULIAH HARI INI SELESAI</span>
+              <span>KULIAH ANDA HARI INI SELESAI</span>
             </span>
           </template>
-          <template x-if="!dashboardData?.schedule?.today?.length">
+          <!-- Kondisi 4: Hari ini tidak ada jadwal matkul PJ -->
+          <template x-if="!hasPJSessionToday">
             <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
-              <span>TIDAK ADA KULIAH HARI INI</span>
+              <span>TIDAK ADA JADWAL HARI INI</span>
             </span>
           </template>
-          <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (pjTime((currentSession || nextSession).starts_at) + ' - ' + pjTime((currentSession || nextSession).ends_at) + ' WIB') : (todayFull || 'Hari Ini')"></span>
+
+          <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold"
+            x-text="(currentPJSession || nextPJSession) ? (pjTime((currentPJSession || nextPJSession).starts_at) + ' - ' + pjTime((currentPJSession || nextPJSession).ends_at) + ' WIB') : (todayFull || 'Hari Ini')">
+          </span>
+
+          <!-- Indikator informatif jika kelas sedang berlangsung sesi matkul lain -->
+          <template x-if="!currentPJSession && currentSession">
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium bg-amber-400/20 text-amber-200 border border-amber-400/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <span x-text="'Kelas: ' + currentSession.title"></span>
+            </span>
+          </template>
         </div>
 
         <!-- Matkul Title -->
@@ -67,18 +82,38 @@
         </div>
 
         <!-- Subtitle / Lokasi Perkuliahan atau Deskripsi -->
-        <p class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
-          <template x-if="currentSession || nextSession">
-            <span>
-              Sesi: <span class="text-white font-medium" x-text="(currentSession || nextSession).title"></span>
-              <span x-show="(currentSession || nextSession).room" x-text="' · Ruang ' + (currentSession || nextSession).room"></span>
-              <span x-show="(currentSession || nextSession).lecturers" x-text="' · Dosen: ' + (currentSession || nextSession).lecturers"></span>
-            </span>
+        <div class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
+          <template x-if="currentPJSession">
+            <p>
+              Sesi Anda: <span class="text-white font-medium" x-text="currentPJSession.title"></span>
+              <span x-show="currentPJSession.room" x-text="' · Ruang ' + currentPJSession.room"></span>
+              <span x-show="currentPJSession.lecturers" x-text="' · Dosen: ' + currentPJSession.lecturers"></span>
+            </p>
           </template>
-          <template x-if="!currentSession && !nextSession">
-            <span>Ruang kerja pengampu untuk mengelola draf tugas, materi perkuliahan, dan agenda akademik kelas.</span>
+          <template x-if="!currentPJSession && nextPJSession">
+            <p>
+              Sesi Anda berikutnya: <span class="text-white font-medium" x-text="nextPJSession.title"></span>
+              <span x-show="nextPJSession.room" x-text="' · Ruang ' + nextPJSession.room"></span>
+              <span x-show="nextPJSession.lecturers" x-text="' · Dosen: ' + nextPJSession.lecturers"></span>
+            </p>
           </template>
-        </p>
+          <template x-if="!currentPJSession && !nextPJSession && hasPJSessionToday">
+            <p>Sesi perkuliahan Anda untuk hari ini telah selesai. Anda dapat meninjau draf tugas atau materi perkuliahan.</p>
+          </template>
+          <template x-if="!hasPJSessionToday">
+            <div>
+              <template x-if="currentSession">
+                <p>
+                  Tidak ada sesi perkuliahan <span class="text-white font-medium" x-text="dashboardData?.offering?.course_name || 'matkul ini'"></span> hari ini.
+                  <span class="text-slate-300">Agenda kelas saat ini: <strong class="text-white font-medium" x-text="currentSession.title"></strong> (Ruang <span x-text="currentSession.room || '—'"></span> · <span x-text="pjTime(currentSession.starts_at) + ' - ' + pjTime(currentSession.ends_at) + ' WIB'"></span>).</span>
+                </p>
+              </template>
+              <template x-if="!currentSession">
+                <p>Tidak ada sesi perkuliahan untuk mata kuliah ini hari ini. Ruang kerja pengampu siap digunakan untuk mengelola draf tugas dan materi perkuliahan.</p>
+              </template>
+            </div>
+          </template>
+        </div>
       </div>
 
       <!-- Baris Aksi & Switcher Matkul -->
@@ -185,10 +220,10 @@
         </div>
       </div>
 
-      <!-- Card 3: Jadwal Perkuliahan Hari Ini -->
+      <!-- Card 3: Sesi Mata Kuliah Anda Hari Ini -->
       <div @click="go('jadwal')" class="bg-white border border-slate-200/80 rounded-[16px] p-5 flex flex-col justify-between cursor-pointer hover:border-emerald-400 hover:shadow-[0_8px_20px_-4px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 transition-all duration-200 group min-h-[147px] shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)]">
         <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold tracking-[0.4px] text-slate-500 uppercase">JADWAL HARI INI</span>
+          <span class="text-[11px] font-semibold tracking-[0.4px] text-slate-500 uppercase">SESI MATKUL ANDA</span>
           <div class="w-[38px] h-[38px] rounded-[11px] bg-[#F0FDF4] flex items-center justify-center text-[#16A34A] group-hover:scale-105 transition-transform">
             <svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">
               <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z"/>
@@ -197,7 +232,11 @@
         </div>
         <div class="mt-2">
           <p class="text-[28px] font-bold text-[#0F172A] tracking-tight" x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) + ' Sesi'"></p>
-          <p class="text-[12px] font-medium mt-1 text-slate-500" x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0 ? 'Sesi aktif mata kuliah Anda' : ('Tidak ada sesi ' + (dashboardData?.offering?.course_name || 'matkul') + ' hari ini')"></p>
+          <p class="text-[12px] font-medium mt-1 text-slate-500"
+            x-text="(dashboardData?.metrics?.today_pj_sessions ?? 0) > 0
+              ? ('Sesi aktif ' + (dashboardData?.offering?.course_name || 'matkul Anda'))
+              : ('0 dari ' + (dashboardData?.metrics?.today_total_sessions ?? 0) + ' sesi kelas hari ini')">
+          </p>
         </div>
       </div>
     </div>
@@ -257,12 +296,12 @@
         </div>
       </section>
 
-      <!-- Panel Jadwal Hari Ini -->
+      <!-- Panel Agenda Kuliah Kelas Hari Ini -->
       <section class="lg:col-span-5 bg-white border border-slate-200/80 rounded-[16px] p-5 lg:p-6 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.05)] flex flex-col gap-4" aria-labelledby="pj-schedule-heading">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-[#0F172A]">Jadwal Hari Ini</h2>
-            <p class="text-[12px] text-slate-500 mt-0.5" x-text="todayFull || 'Hari Ini'"></p>
+            <h2 id="pj-schedule-heading" class="text-[16px] font-bold text-[#0F172A]">Agenda Kuliah Kelas</h2>
+            <p class="text-[12px] text-slate-500 mt-0.5" x-text="(todayFull || 'Hari Ini') + ' · ' + (dashboardData?.schedule?.today?.length || 0) + ' Sesi'"></p>
           </div>
           <button type="button" @click="go('jadwal')" class="min-h-[44px] inline-flex items-center text-[12px] font-semibold text-[#3965FB] hover:text-blue-700 hover:underline cursor-pointer">
             Pekan ini &rarr;
