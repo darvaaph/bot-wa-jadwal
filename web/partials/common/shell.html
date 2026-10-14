@@ -44,7 +44,7 @@
           <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight uppercase tracking-wider">System Admin</span>
         </div>
       </button>
-      <div class="sidebar-section shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="sidebar-section relative shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''" @click.outside="lingkupDropdownOpen = false">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -55,17 +55,57 @@
           </div>
         </template>
         <template x-if="!dukunganAktif">
-        <label class="relative flex items-center gap-2 min-h-[36px] cursor-pointer">
-          <span class="text-[16px] leading-none shrink-0" aria-hidden="true">🏢</span>
-          <span class="sr-only">Lingkup kerja</span>
-          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB] rounded-lg">
-            <option value="">Seluruh Kampus</option>
-            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
-          </svg>
-        </label>
+          <div class="w-full">
+            <button type="button"
+                    @click="toggleLingkupDropdown()"
+                    :aria-expanded="String(lingkupDropdownOpen)"
+                    aria-haspopup="listbox"
+                    aria-label="Pilih lingkup kerja"
+                    class="w-full flex items-center gap-2 min-h-[34px] -mx-1 px-1.5 py-1 rounded-[8px] hover:bg-white/80 transition-colors text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+              <svg class="w-4 h-4 text-[#3965FB] shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M1 14.5a.5.5 0 00.5.5h13a.5.5 0 000-1h-1v-11a.5.5 0 00-.5-.5H3a.5.5 0 00-.5.5v11h-1a.5.5 0 00-.5.5zM3.5 3h9v11h-9V3zm2 2a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm-4 4a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9z"/>
+              </svg>
+              <span class="min-w-0 flex-1 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="lingkupLabel()">Seluruh Kampus</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200" :class="lingkupDropdownOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+                <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
+              </svg>
+            </button>
+
+            <!-- Menu Popover Dropdown -->
+            <div x-show="lingkupDropdownOpen"
+                 x-cloak
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-1"
+                 role="listbox"
+                 aria-label="Pilihan lingkup kerja"
+                 class="absolute left-0 right-0 top-full mt-2 z-50 bg-white border border-[#D7DDE7] rounded-[10px] shadow-xl py-1 max-h-[220px] overflow-y-auto scroll-slim">
+              <button type="button"
+                      role="option"
+                      :aria-selected="String(!lingkupKelas)"
+                      @click="pilihLingkup('')"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                      :class="!lingkupKelas ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                <span class="truncate">Seluruh Kampus</span>
+                <span x-show="!lingkupKelas" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+              </button>
+              <div class="h-px bg-[#EEEEEE] my-1"></div>
+              <template x-for="k in kelasList" :key="k.slug">
+                <button type="button"
+                        role="option"
+                        :aria-selected="String(lingkupKelas === k.slug)"
+                        @click="pilihLingkup(k.slug)"
+                        class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                        :class="lingkupKelas === k.slug ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="k.nama"></span>
+                  <span x-show="lingkupKelas === k.slug" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </template>
       </div>
       <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px] shrink-0">
@@ -567,7 +607,7 @@
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="relative shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''" @click.outside="lingkupDropdownOpen = false">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -578,17 +618,57 @@
           </div>
         </template>
         <template x-if="!dukunganAktif">
-        <label class="relative flex items-center gap-2 min-h-[36px] cursor-pointer">
-          <span class="text-[16px] leading-none shrink-0" aria-hidden="true">🏢</span>
-          <span class="sr-only">Lingkup kerja</span>
-          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-            <option value="">Seluruh Kampus</option>
-            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
-          </svg>
-        </label>
+          <div class="w-full">
+            <button type="button"
+                    @click="toggleLingkupDropdown()"
+                    :aria-expanded="String(lingkupDropdownOpen)"
+                    aria-haspopup="listbox"
+                    aria-label="Pilih lingkup kerja"
+                    class="w-full flex items-center gap-2 min-h-[34px] -mx-1 px-1.5 py-1 rounded-[8px] hover:bg-white/80 transition-colors text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+              <svg class="w-4 h-4 text-[#3965FB] shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M1 14.5a.5.5 0 00.5.5h13a.5.5 0 000-1h-1v-11a.5.5 0 00-.5-.5H3a.5.5 0 00-.5.5v11h-1a.5.5 0 00-.5.5zM3.5 3h9v11h-9V3zm2 2a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm-4 4a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9z"/>
+              </svg>
+              <span class="min-w-0 flex-1 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="lingkupLabel()">Seluruh Kampus</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200" :class="lingkupDropdownOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+                <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
+              </svg>
+            </button>
+
+            <!-- Menu Popover Dropdown -->
+            <div x-show="lingkupDropdownOpen"
+                 x-cloak
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-1"
+                 role="listbox"
+                 aria-label="Pilihan lingkup kerja"
+                 class="absolute left-0 right-0 top-full mt-2 z-50 bg-white border border-[#D7DDE7] rounded-[10px] shadow-xl py-1 max-h-[220px] overflow-y-auto scroll-slim">
+              <button type="button"
+                      role="option"
+                      :aria-selected="String(!lingkupKelas)"
+                      @click="pilihLingkup('')"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                      :class="!lingkupKelas ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                <span class="truncate">Seluruh Kampus</span>
+                <span x-show="!lingkupKelas" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+              </button>
+              <div class="h-px bg-[#EEEEEE] my-1"></div>
+              <template x-for="k in kelasList" :key="k.slug">
+                <button type="button"
+                        role="option"
+                        :aria-selected="String(lingkupKelas === k.slug)"
+                        @click="pilihLingkup(k.slug)"
+                        class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                        :class="lingkupKelas === k.slug ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="k.nama"></span>
+                  <span x-show="lingkupKelas === k.slug" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </template>
       </div>
       <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px] shrink-0">
@@ -963,6 +1043,20 @@
         <span class="text-[#667085]">Status Bot WA</span>
         <span :class="botOnline ? 'text-[#15803D]' : 'text-[#667085]'" class="font-medium" x-text="botOnline ? 'Aktif' : 'Standby'">Standby</span>
       </div>
+    </div>
+
+    <!-- Pindah Ruang Kerja Cepat (Hanya tampil jika Multi-Assignment) -->
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="w-full p-3 bg-blue-50/70 border border-blue-200 rounded-[12px]">
+      <label for="modal-pj-context-select" class="block text-[11px] font-bold text-blue-900 uppercase tracking-wider">Pindah Ruang Kerja</label>
+      <select id="modal-pj-context-select"
+              :value="meCache?.active_assignment?.id || ''"
+              @change="switchContextById($event.target.value); tutupModalProfilPJ()"
+              :disabled="contextSwitching"
+              class="mt-1.5 w-full min-h-[44px] h-10 px-3 rounded-lg border border-blue-300 bg-white text-slate-900 text-[12px] font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer">
+        <template x-for="a in contextAssignments || []" :key="a.id">
+          <option :value="a.id" x-text="contextLabel(a)"></option>
+        </template>
+      </select>
     </div>
 
     <!-- Info Footer -->

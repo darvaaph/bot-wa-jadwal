@@ -105,6 +105,8 @@ function kmApp() {
     scheduleLoading: false,
     scheduleError: '',
     calendarViewMode: 'calendar',
+    listDayFilter: 'all',
+    schedSearch: '',
     tasks: [],
     offeringList: [],
     offeringLoading: false,
@@ -633,13 +635,31 @@ function kmApp() {
     },
 
     daySessions(dayName) {
-      const sessions = this.fullSchedule
+      const q = (this.schedSearch || '').toLowerCase().trim();
+      return (this.fullSchedule || [])
         .filter(s => s.hari === dayName)
-        .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
+        .filter(s => {
+          if (q) {
+            const hay = [s.matkul, s.dosen, s.ruang].filter(Boolean).join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]);
+        })
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
-      if (this.hideEmpty) return sessions;
-      return sessions;
+    },
+
+    allSessionsCount() {
+      const days = this.weekDays || [];
+      return days.reduce((acc, d) => acc + this.daySessions(d.name).length, 0);
+    },
+
+    listDaysToShow() {
+      const allDays = this.weekDays || [];
+      if (this.listDayFilter === 'all') {
+        return allDays.filter(d => this.daySessions(d.name).length > 0);
+      }
+      return allDays.filter(d => d.name === this.listDayFilter);
     },
 
     goPindah(dayName, slotHH, session) {

@@ -47,6 +47,10 @@
         <span>Semester Aktif</span>
         <span class="font-semibold text-slate-700" x-text="semesterStatus || 'Aktif'">Aktif</span>
       </div>
+      <div x-show="!contextAssignments || contextAssignments.length <= 1" class="flex justify-between items-center py-1">
+        <span>Status Penugasan</span>
+        <span class="font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">Penugasan Tunggal</span>
+      </div>
     </div>
 
     <!-- Aksi Keluar -->

@@ -709,7 +709,7 @@ function pjApp() {
     },
 
     daySessionCountLabel(dayName) {
-      const sessions = this.daySessions(dayName);
+      const sessions = this.daySessionsFiltered(dayName);
       const drafts = sessions.filter(s => s.isDraft).length;
       const regulars = sessions.filter(s => !s.isDraft).length;
       if (regulars === 0 && drafts > 0) {
@@ -763,15 +763,106 @@ function pjApp() {
     daySessions(dayName) {
       const dayObj = (this.weekDays || []).find(d => d.name === dayName);
       const activeDateStr = dayObj ? dayObj.dateStr : null;
+      const q = (this.schedSearch || '').toLowerCase().trim();
       return (this.fullSchedule || [])
         .filter(s => {
           if (s.hari !== dayName) return false;
           if (s.dateStr && activeDateStr && s.dateStr !== activeDateStr) return false;
           return true;
         })
-        .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
+        .filter(s => {
+          if (q) {
+            const hay = [s.matkul, s.dosen, s.ruang].filter(Boolean).join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]);
+        })
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+    },
+
+    daySessionsFiltered(dayName) {
+      const all = this.daySessions(dayName);
+      if (this.schedFilter === 'mine') {
+        return all.filter(s => this.isMatkulSaya(s));
+      }
+      return all;
+    },
+
+    mySessionsCount() {
+      return (this.fullSchedule || []).filter(s => this.isMatkulSaya(s)).length;
+    },
+
+    allSessionsCount() {
+      return (this.fullSchedule || []).length;
+    },
+
+    // Menghasilkan timeline: sesi perkuliahan diselingi indikator slot jam kosong (free slot)
+    dayTimelineItems(dayName) {
+      const sessions = this.daySessions(dayName);
+      if (!sessions || sessions.length === 0) return [];
+
+      // Jika difilter hanya matkul saya, tampilkan langsung sesi matkul saya
+      if (this.schedFilter === 'mine') {
+        return sessions.filter(s => this.isMatkulSaya(s)).map(s => ({ isGap: false, session: s }));
+      }
+
+      const items = [];
+      for (let i = 0; i < sessions.length; i++) {
+        const cur = sessions[i];
+        items.push({ isGap: false, session: cur });
+
+        // Cek jeda waktu dengan sesi reguler berikutnya
+        if (i < sessions.length - 1) {
+          const nxt = sessions[i + 1];
+          const curEnd = (cur.timeEnd || '').slice(0, 5);
+          const nxtStart = (nxt.timeStart || '').slice(0, 5);
+
+          if (curEnd && nxtStart) {
+            const [curH, curM] = curEnd.split(':').map(Number);
+            const [nxtH, nxtM] = nxtStart.split(':').map(Number);
+            const curTotal = (curH * 60) + curM;
+            const nxtTotal = (nxtH * 60) + nxtM;
+            const diffMins = nxtTotal - curTotal;
+
+            // Jika ada jeda kosong >= 45 menit, tandai sebagai slot luang
+            if (diffMins >= 45) {
+              const hours = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
+              let label = '';
+              if (hours > 0 && mins > 0) label = `${hours}j ${mins}m`;
+              else if (hours > 0) label = `${hours} jam`;
+              else label = `${mins} menit`;
+
+              items.push({
+                isGap: true,
+                startTime: curEnd,
+                endTime: nxtStart,
+                durationMins: diffMins,
+                durationLabel: label
+              });
+            }
+          }
+        }
+      }
+      return items;
+    },
+
+    pilihSlotDariTimeline(dayObj, gap) {
+      const dateStr = (dayObj && dayObj.dateStr) || '';
+      this.bukaModalPengganti({
+        date: dateStr,
+        start: gap.startTime,
+        end: gap.endTime
+      });
+    },
+
+    listDaysToShow() {
+      const allDays = this.hasSaturdaySessions() ? (this.weekDays || []) : (this.weekDays || []).slice(0, 5);
+      if (this.listDayFilter === 'all') {
+        return allDays.filter(d => this.daySessionsFiltered(d.name).length > 0);
+      }
+      return allDays.filter(d => d.name === this.listDayFilter);
     },
 
     goPindah(dayName, slotHH) {
@@ -801,6 +892,10 @@ function pjApp() {
     // SCR-SCH-004 detail · SCR-SCH-005 partisipasi kelas (KM pemilik)
     jadwalSub: 'daftar',
     schedViewMode: 'calendar', // 'calendar' | 'list'
+    schedFilter: 'all', // 'all' | 'mine'
+    listDayFilter: 'all', // 'all' | dayName (e.g. 'Senin')
+    schedSearch: '',
+    showTuNotice: true,
     scheduleLoading: false,
     scheduleError: '',
     showRoomQuickCheck: false,

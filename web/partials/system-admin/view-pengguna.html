@@ -181,7 +181,7 @@
       <div x-show="!penggunaLoading && !penugasanLoading && !undanganLoading && barisPenggunaCount() > 0" class="hidden md:block overflow-x-auto min-h-[300px] pb-24">
         <div class="min-w-[760px]">
           <!-- Table Header -->
-          <div class="grid grid-cols-[minmax(190px,1.2fr)_125px_115px_140px_minmax(120px,auto)] gap-3 px-3 h-10 items-center bg-[#F8FAFC] rounded-lg text-[10px] font-bold text-[#667085] tracking-wider uppercase" aria-hidden="true">
+          <div class="grid grid-cols-[minmax(0,1fr)_125px_115px_140px_96px] gap-3 px-3 h-10 items-center bg-[#F8FAFC] rounded-lg text-[10px] font-bold text-[#667085] tracking-wider uppercase" aria-hidden="true">
             <span>PENGGUNA</span>
             <span>PERAN</span>
             <span>KELAS</span>
@@ -194,7 +194,7 @@
             <div>
               <!-- Baris Penugasan (User Aktif & Ditangguhkan) -->
               <template x-if="row.kind === 'assignment'">
-                <div class="grid grid-cols-[minmax(190px,1.2fr)_125px_115px_140px_minmax(120px,auto)] gap-3 px-3 py-3.5 items-center border-b border-[#F1F5F9] transition-colors" :class="idx % 2 === 1 ? 'bg-[#FAFCFE]' : 'bg-white'">
+                <div class="grid grid-cols-[minmax(0,1fr)_125px_115px_140px_96px] gap-3 px-3 py-3.5 items-center border-b border-[#F1F5F9] transition-colors" :class="idx % 2 === 1 ? 'bg-[#FAFCFE]' : 'bg-white'">
                   <!-- Pengguna -->
                   <div class="min-w-0 pr-2">
                     <div class="flex items-center gap-1.5 flex-wrap">
@@ -238,9 +238,8 @@
                   <div class="flex items-center justify-end gap-1.5 relative">
                     <!-- Tombol Cepat: Aktifkan (jika ditangguhkan) -->
                     <template x-if="String(row.data.status || '').toUpperCase() === 'SUSPENDED'">
-                      <button type="button" @click="aktifkanCepatPengguna(row.data)" class="h-9 px-2.5 rounded-[8px] bg-[#EBFDF2] hover:bg-[#D1FADF] border border-[#A6F4C5] text-[#027A48] text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer min-h-[36px]" title="Aktifkan kembali akun pengguna">
-                        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-                        <span>Aktifkan</span>
+                      <button type="button" @click="aktifkanCepatPengguna(row.data)" class="w-9 h-9 flex items-center justify-center rounded-[8px] bg-[#EBFDF2] hover:bg-[#D1FADF] border border-[#A6F4C5] text-[#027A48] transition-colors cursor-pointer min-w-[36px] min-h-[36px]" title="Aktifkan kembali akun pengguna" aria-label="Aktifkan kembali akun pengguna">
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
                       </button>
                     </template>
 
@@ -315,7 +314,7 @@
 
               <!-- Baris Undangan (Undangan Tertunda) -->
               <template x-if="row.kind === 'invitation'">
-                <div class="grid grid-cols-[minmax(190px,1.2fr)_125px_115px_140px_minmax(120px,auto)] gap-3 px-3 py-3.5 items-center border-b border-[#F1F5F9] transition-colors" :class="idx % 2 === 1 ? 'bg-[#FAFCFE]' : 'bg-white'">
+                <div class="grid grid-cols-[minmax(0,1fr)_125px_115px_140px_96px] gap-3 px-3 py-3.5 items-center border-b border-[#F1F5F9] transition-colors" :class="idx % 2 === 1 ? 'bg-[#FAFCFE]' : 'bg-white'">
                   <!-- Pengguna Undangan -->
                   <div class="min-w-0 pr-2">
                     <span class="text-[13px] font-semibold text-[#1D1B3A] font-mono truncate block" x-text="row.data.invited_identity_key"></span>
@@ -351,9 +350,8 @@
                   <div class="flex items-center justify-end gap-1.5 relative">
                     <!-- Tombol Cepat: Salin link (HANYA untuk undangan yang masih menunggu) -->
                     <template x-if="undanganMenunggu(row.data)">
-                      <button type="button" @click="salinLinkAtauBuatBaru(row.data)" class="h-9 px-2.5 rounded-[8px] bg-[#EFF4FF] hover:bg-[#DFE4FF] border border-[#D1E0FF] text-[#3965FB] text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer min-h-[36px]" title="Salin tautan undangan">
-                        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        <span>Salin link</span>
+                      <button type="button" @click="salinLinkAtauBuatBaru(row.data)" class="w-9 h-9 flex items-center justify-center rounded-[8px] bg-[#EFF4FF] hover:bg-[#DFE4FF] border border-[#D1E0FF] text-[#3965FB] transition-colors cursor-pointer min-w-[36px] min-h-[36px]" title="Salin tautan undangan" aria-label="Salin tautan undangan">
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                       </button>
                     </template>
 

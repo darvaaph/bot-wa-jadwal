@@ -67,6 +67,8 @@ function portalApp() {
     jadwalPekan: { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] },
     weekOffset: 0,
     modeTampilan: 'kalender',
+    listDayFilter: 'all',
+    schedSearch: '',
     mobileJadwalMode: 'per_hari',
     detailModalOpen: false,
     detailSesi: null,
@@ -249,6 +251,37 @@ function portalApp() {
       } catch (e) {
         return h;
       }
+    },
+
+    portalDaySessions(d) {
+      const list = this.jadwalPekan[d] || [];
+      const q = (this.schedSearch || '').toLowerCase().trim();
+      if (!q) return list;
+      return list.filter(s => {
+        const hay = [s.matkul, s.dosen, s.ruang].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    },
+
+    allSessionsCount() {
+      return this.pekanHariListAgenda.reduce((acc, d) => acc + this.portalDaySessions(d).length, 0);
+    },
+
+    listDaysToShow() {
+      const days = this.pekanHariListAgenda;
+      if (this.listDayFilter === 'all') {
+        return days.filter(d => this.portalDaySessions(d).length > 0);
+      }
+      return days.filter(d => d === this.listDayFilter);
+    },
+
+    portalSesiType(s) {
+      if (!s) return 'TEORI';
+      if (s.kind === 'PENGGANTI') return 'PENGGANTI';
+      const m = String(s.matkul || '').toLowerCase();
+      const act = String(s.activityType || '').toUpperCase();
+      if (act === 'PRACTICE' || act === 'PRAKTIKUM' || act === 'LAB' || m.includes('praktik')) return 'PRAKTIKUM';
+      return 'TEORI';
     },
 
     get jadwalEfektifHariIni() {

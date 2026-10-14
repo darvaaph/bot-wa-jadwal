@@ -58,6 +58,7 @@ function systemAdminApp() {
     kelasLoading: false,
     kelasFilter: { prodi: '', angkatan: '', rombel: '', status: '' },
     lingkupKelas: '',
+    lingkupDropdownOpen: false,
     kelasMenu: null,
     kelasFilterLanjutan: false,
     kelasSemesterMap: {},
@@ -296,6 +297,10 @@ function systemAdminApp() {
     importDosenError: '',
     importDosenSuccess: '',
     syncAllLoading: false,
+    modalSyncMasterConfirm: false,
+    masterLastSyncedAt: null,
+    masterSyncCooldown: false,
+    masterSyncSuccessState: false,
 
     usulanList: [],
     usulanLoading: false,
@@ -484,6 +489,17 @@ function systemAdminApp() {
       if (!slug) return 'Seluruh Kampus';
       const target = (this.kelasList || []).find(k => k.slug === slug);
       return target ? target.nama : 'Seluruh Kampus';
+    },
+
+    toggleLingkupDropdown() {
+      this.lingkupDropdownOpen = !this.lingkupDropdownOpen;
+    },
+
+    pilihLingkup(slug) {
+      this.lingkupKelas = slug || '';
+      this.lingkupDropdownOpen = false;
+      this.onLingkupChange();
+      if (this.drawer) this.shellCloseDrawer();
     },
 
     onLingkupChange() {
@@ -732,6 +748,7 @@ function systemAdminApp() {
     },
 
     toggleSidebar() {
+      this.lingkupDropdownOpen = false;
       this.sidebarCollapsed = !this.sidebarCollapsed;
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
@@ -747,6 +764,10 @@ function systemAdminApp() {
 
     async initSystemAdmin() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      try {
+        const savedSync = localStorage.getItem('asterisk:master:last_synced');
+        if (savedSync) this.masterLastSyncedAt = savedSync;
+      } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       const authResult = await this.checkAuth();
@@ -2339,6 +2360,9 @@ function systemAdminApp() {
         const msg = res.message || `Berhasil menyinkronkan seluruh ${res.total_synced || 106} master data kampus.`;
         this.importRuangSuccess = msg;
         this.showToast(msg);
+        const nowIso = new Date().toISOString();
+        this.masterLastSyncedAt = nowIso;
+        try { localStorage.setItem('asterisk:master:last_synced', nowIso); } catch (e) {}
       } catch (err) {
         this.importRuangError = err.message || 'Gagal menyinkronkan master data kampus.';
       } finally {
@@ -3341,16 +3365,57 @@ function systemAdminApp() {
       }
     },
 
+    bukaModalSyncMaster() {
+      if (this.syncAllLoading || this.masterSyncCooldown) return;
+      this.modalSyncMasterConfirm = true;
+    },
+
+    tutupModalSyncMaster() {
+      if (this.syncAllLoading) return;
+      this.modalSyncMasterConfirm = false;
+    },
+
+    formatWaktuTerakhirSync() {
+      if (!this.masterLastSyncedAt) return '';
+      try {
+        const d = new Date(this.masterLastSyncedAt);
+        if (isNaN(d.getTime())) return '';
+        const now = new Date();
+        const diffMs = now.getTime() - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 60) return 'Baru saja';
+        const diffMnt = Math.floor(diffSec / 60);
+        if (diffMnt < 60) return diffMnt + ' menit lalu';
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const isToday = d.toDateString() === now.toDateString();
+        return isToday ? 'Hari ini, pukul ' + hh + ':' + mm : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ', pukul ' + hh + ':' + mm;
+      } catch (e) {
+        return '';
+      }
+    },
+
     async sinkronSemuaMaster() {
+      if (this.syncAllLoading || this.masterSyncCooldown) return;
       this.syncAllLoading = true;
       this.importError = '';
       this.importSuccess = '';
       try {
         const res = await API.syncMasterAllJadwal();
         await Promise.all([this.loadMatkul(), this.loadRuang(), this.loadDosen()]);
-        const msg = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} master data kampus.`;
+        const msg = res.message || `Berhasil menyinkronkan seluruh master data kampus.`;
         this.importSuccess = msg;
         this.showToast(msg);
+        const nowIso = new Date().toISOString();
+        this.masterLastSyncedAt = nowIso;
+        try { localStorage.setItem('asterisk:master:last_synced', nowIso); } catch (e) {}
+        this.modalSyncMasterConfirm = false;
+        this.masterSyncSuccessState = true;
+        this.masterSyncCooldown = true;
+        setTimeout(() => {
+          this.masterSyncSuccessState = false;
+          this.masterSyncCooldown = false;
+        }, 8000);
       } catch (err) {
         this.importError = err.message || 'Gagal menyinkronkan master data kampus.';
         this.showToast(this.importError);
