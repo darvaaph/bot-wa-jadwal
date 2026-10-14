@@ -207,6 +207,14 @@ function pjApp() {
     editTugasId: '', editTugasVersion: 0, tugasConflict: null,
     initialInstructions: '',
 
+    // Modal Konfirmasi Tandai Selesai (PJ)
+    modalSelesai: {
+      open: false,
+      task: null,
+      isSubmitting: false,
+      error: ''
+    },
+
     patternsList: [],
 
     toast: { show: false, message: '', timer: null },
@@ -441,6 +449,94 @@ function pjApp() {
         return `${datePart}, ${timePart}`;
       } catch (e) {
         return String(iso);
+      }
+    },
+
+    fmtDeadlineDetailed(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso);
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const isToday = d.toDateString() === now.toDateString();
+        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const timePart = d.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace('.', ':') + ' WIB';
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dayName = isToday ? 'Hari ini' : (isTomorrow ? 'Besok' : dayNames[d.getDay()]);
+        const datePart = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+        return `${dayName}, ${datePart} · ${timePart}`;
+      } catch (e) {
+        return String(iso);
+      }
+    },
+
+    deadlineRelative(iso) {
+      if (!iso) return 'Aktif';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return 'Aktif';
+        const now = new Date();
+        const diffH = (d - now) / 3600000;
+        if (diffH < 0) return 'Terlewat';
+        if (diffH <= 48) {
+          const jam = Math.max(1, Math.round(diffH));
+          return `Sisa ${jam} jam`;
+        }
+        const hari = Math.round(diffH / 24);
+        return `Sisa ${hari} hari`;
+      } catch (e) {
+        return 'Aktif';
+      }
+    },
+
+    urgencyStyle(iso) {
+      if (!iso) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+        const now = new Date();
+        const diffH = (d - now) / 3600000;
+        if (diffH <= 28) {
+          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+        }
+        if (diffH <= 72) {
+          return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#D97706]' };
+        }
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      } catch (e) {
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
+      }
+    },
+
+    waktuRelatif(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMin = Math.round(diffMs / 60000);
+        if (diffMin < 1) return 'Baru saja';
+        if (diffMin < 60) return `${diffMin} menit yang lalu`;
+        const diffH = Math.round(diffMin / 60);
+        if (diffH < 24) return `${diffH} jam yang lalu`;
+        const diffDay = Math.round(diffH / 24);
+        if (diffDay === 1) {
+          const pad = n => String(n).padStart(2, '0');
+          return `Kemarin, ${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+        }
+        if (diffDay < 7) return `${diffDay} hari yang lalu`;
+        return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' });
+      } catch (e) {
+        return '';
       }
     },
 
@@ -3115,7 +3211,55 @@ function pjApp() {
       }
     },
 
+    bukaModalSelesai(task) {
+      if (!task) return;
+      this.modalSelesai = {
+        open: true,
+        task: task,
+        isSubmitting: false,
+        error: ''
+      };
+    },
+
+    tutupModalSelesai() {
+      if (this.modalSelesai.isSubmitting) return;
+      this.modalSelesai.open = false;
+      this.modalSelesai.task = null;
+      this.modalSelesai.error = '';
+    },
+
+    async konfirmasiSelesai() {
+      const task = this.modalSelesai.task;
+      if (!task) return;
+      this.modalSelesai.isSubmitting = true;
+      this.modalSelesai.error = '';
+      try {
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.completeTask(task.id, version);
+        const taskId = task.id;
+        this.tutupModalSelesai();
+        await this.loadTasks();
+        this.showToast('Tugas berhasil ditandai selesai.');
+        if (this.view === 'detail-tugas') await this.bukaDetailTugas(taskId);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.modalSelesai.error = 'Versi tugas telah diperbarui oleh pengguna lain. Silakan muat ulang data terbaru.';
+          await this.loadTasks();
+        } else {
+          this.modalSelesai.error = e.message || 'Gagal menandai tugas selesai.';
+        }
+      } finally {
+        this.modalSelesai.isSubmitting = false;
+      }
+    },
+
     async tandaiSelesai(id, version) {
+      const t = (this.tasks || []).find(x => String(x.id) === String(id)) || this.tugasDetail;
+      if (t) {
+        this.bukaModalSelesai(t);
+        return;
+      }
       try {
         await API.completeTask(id, version);
         await this.loadTasks();

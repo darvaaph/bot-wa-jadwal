@@ -24,12 +24,12 @@
       </div>
     </div>
 
-    <!-- Header Action Buttons -->
-    <div class="flex items-center gap-2.5 self-start lg:self-auto" x-show="jadwalSub === 'daftar'">
+    <!-- Header Action Buttons (Mobile-First Reflow) -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto mt-2 lg:mt-0" x-show="jadwalSub === 'daftar'">
       <!-- Cek Jam Kosong -->
       <button type="button" @click="bukaModalJamKosong()"
               data-pencil-name="Cek Jam Kosong"
-              class="h-[40px] px-[14px] bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center gap-[7px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer min-h-[40px]">
+              class="w-full sm:w-auto h-[40px] min-h-[44px] px-[14px] bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-[#F8FAFC] rounded-[10px] text-[#1D1B3A] font-semibold text-[13px] flex items-center justify-center gap-[7px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer order-last sm:order-first">
         <svg data-pencil-name="Ikon Cek Jam Kosong" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
           <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"></path>
         </svg>
@@ -39,7 +39,7 @@
       <!-- Buat Perubahan Jadwal -->
       <button type="button" @click="mulaiUbah()"
               data-pencil-name="Buat Perubahan Jadwal"
-              class="h-[40px] px-[16px] bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white font-semibold text-[13px] flex items-center gap-[8px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer min-h-[40px]">
+              class="w-full sm:w-auto h-[40px] min-h-[44px] px-[16px] bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white font-semibold text-[13px] flex items-center justify-center gap-[8px] shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer order-first sm:order-last">
         <svg data-pencil-name="Ikon Buat Perubahan" viewBox="0 0 14 14" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px] shrink-0 fill-white" aria-hidden="true">
           <path d="M6.70947 7.29053l-2.91894 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l2.91894 0 0-2.91894q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508l0 2.91894 2.91894 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-2.91894 0 0 2.91894q0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085l0-2.91894z"></path>
         </svg>
@@ -50,47 +50,53 @@
 
   <!-- ============ SUB: DAFTAR ============ -->
   <div x-show="jadwalSub === 'daftar'">
-    <!-- Navigasi Pekan dan Legenda -->
+    <!-- Navigasi Pekan dan Legenda (Mobile-First Reflow) -->
     <div data-pencil-name="Navigasi Pekan dan Legenda"
-         class="h-auto md:h-[66px] bg-white border border-[#D7DDE7] rounded-[12px] p-3 md:px-[12px] flex flex-col md:flex-row md:justify-between items-start md:items-center gap-3 shadow-[0px_3px_12px_#0F172A08] mt-4">
+         class="h-auto bg-white border border-[#D7DDE7] rounded-[12px] p-3 md:px-[14px] flex flex-col md:flex-row md:justify-between items-stretch md:items-center gap-3 shadow-[0px_3px_12px_#0F172A08] mt-4">
       <!-- Left: Kontrol Perpindahan Minggu -->
-      <div data-pencil-name="Kontrol Perpindahan Minggu" class="flex items-center gap-[7px]">
-        <button type="button" @click="weekOffset--" aria-label="Minggu sebelumnya"
-                data-pencil-name="Minggu Sebelumnya"
-                class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#1D1B3A] flex items-center justify-center transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
-            <path d="M5.896 7l2.47802 2.47803q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.20849-0.0957 0.0957-0.20849 0.09571-0.11279 0-0.20508-0.09571l-2.56006-2.56006q-0.0752-0.0752-0.10596-0.1538-0.03076-0.07861-0.03076-0.17432 0-0.0957 0.03076-0.17432 0.03076-0.07861 0.10596-0.15381l2.56006-2.56005q0.08203-0.08203 0.19824-0.08887 0.11963-0.00684 0.21533 0.08887 0.09229 0.09229 0.09229 0.20507 0 0.11279-0.09229 0.20508l-2.47802 2.47803z"/>
-          </svg>
-        </button>
-
-        <span data-pencil-name="Rentang Pekan"
-              class="font-mono font-bold text-[14px] text-[#1D1B3A] px-1 tracking-tight whitespace-nowrap"
-              x-text="weekRangeLabel || weekLabel">5 - 11 Oktober 2026</span>
-
-        <div data-pencil-name="Badge Pekan 6"
-             class="box-border w-fit shrink-0 h-fit flex flex-row p-[5px_8px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
-          <span data-pencil-name="Teks Pekan 6"
-                class="text-[#475467] text-[11px] font-semibold leading-none whitespace-nowrap"
-                x-text="pekanLabel">Pekan 6</span>
+      <div data-pencil-name="Kontrol Perpindahan Minggu" class="flex items-center justify-between w-full md:w-auto gap-2">
+        <!-- Tombol Panah Kiri & Kanan Bersebelahan -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" @click="weekOffset--" aria-label="Minggu sebelumnya"
+                  data-pencil-name="Minggu Sebelumnya"
+                  class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#1D1B3A] flex items-center justify-center transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+            <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
+              <path d="M5.896 7l2.47802 2.47803q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.20849-0.0957 0.0957-0.20849 0.09571-0.11279 0-0.20508-0.09571l-2.56006-2.56006q-0.0752-0.0752-0.10596-0.1538-0.03076-0.07861-0.03076-0.17432 0-0.0957 0.03076-0.17432 0.03076-0.07861 0.10596-0.15381l2.56006-2.56005q0.08203-0.08203 0.19824-0.08887 0.11963-0.00684 0.21533 0.08887 0.09229 0.09229 0.09229 0.20507 0 0.11279-0.09229 0.20508l-2.47802 2.47803z"/>
+            </svg>
+          </button>
+          <button type="button" @click="weekOffset++" aria-label="Minggu berikutnya"
+                  data-pencil-name="Minggu Berikutnya"
+                  class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#1D1B3A] flex items-center justify-center transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+            <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
+              <path d="M7.75537 7l-2.47803-2.47803q-0.08203-0.08203-0.08886-0.19824-0.00342-0.11963 0.08886-0.21191 0.09229-0.0957 0.20508-0.09571 0.11279 0 0.2085 0.09571l2.56006 2.56005q0.0752 0.0752 0.10595 0.15381 0.03076 0.07861 0.03077 0.17432 0 0.0957-0.03077 0.17432-0.03076 0.07861-0.10595 0.1538l-2.56006 2.56006q-0.08203 0.08203-0.20166 0.08887-0.11963 0.00684-0.21192-0.08887-0.09229-0.09229-0.09228-0.20507 0-0.11279 0.09228-0.20508l2.47803-2.47803z"/>
+            </svg>
+          </button>
         </div>
 
-        <button type="button" @click="weekOffset++" aria-label="Minggu berikutnya"
-                data-pencil-name="Minggu Berikutnya"
-                class="w-[36px] h-[36px] min-h-[36px] min-w-[36px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-white hover:bg-slate-50 text-[#1D1B3A] flex items-center justify-center transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0 fill-[#1D1B3A]" aria-hidden="true">
-            <path d="M7.75537 7l-2.47803-2.47803q-0.08203-0.08203-0.08886-0.19824-0.00342-0.11963 0.08886-0.21191 0.09229-0.0957 0.20508-0.09571 0.11279 0 0.2085 0.09571l2.56006 2.56005q0.0752 0.0752 0.10595 0.15381 0.03076 0.07861 0.03077 0.17432 0 0.0957-0.03077 0.17432-0.03076 0.07861-0.10595 0.1538l-2.56006 2.56006q-0.08203 0.08203-0.20166 0.08887-0.11963 0.00684-0.21192-0.08887-0.09229-0.09229-0.09228-0.20507 0-0.11279 0.09228-0.20508l2.47803-2.47803z"/>
-          </svg>
-        </button>
+        <!-- Rentang Pekan & Badge Pekan -->
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span data-pencil-name="Rentang Pekan"
+                class="font-mono font-bold text-[12px] sm:text-[14px] text-[#1D1B3A] tracking-tight truncate"
+                x-text="weekRangeLabel || weekLabel">5 - 11 Oktober 2026</span>
 
+          <div data-pencil-name="Badge Pekan 6"
+               class="box-border w-fit shrink-0 h-fit flex flex-row p-[4px_6px] sm:p-[5px_8px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
+            <span data-pencil-name="Teks Pekan 6"
+                  class="text-[#475467] text-[10px] sm:text-[11px] font-semibold leading-none whitespace-nowrap"
+                  x-text="pekanLabel">Pekan 6</span>
+          </div>
+        </div>
+
+        <!-- Tombol Minggu Ini (Utuh Tanpa Terpotong) -->
         <button type="button" @click="weekOffset = 0; if (['Sabtu','Minggu'].includes(todayName)) { activeScheduleDay = 'Senin'; } else { activeScheduleDay = todayName; }"
                 data-pencil-name="Kembali ke Minggu Ini"
-                class="h-[36px] px-[12px] rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-[#F8FAFC] hover:bg-slate-100 text-[12px] font-semibold text-[#1D1B3A] transition-colors ml-0.5 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer whitespace-nowrap">
+                class="h-[36px] px-2.5 sm:px-3 rounded-[8px] border border-[#CBD5E1] hover:border-[#94A3B8] bg-[#F8FAFC] hover:bg-slate-100 text-[11px] sm:text-[12px] font-semibold text-[#1D1B3A] transition-colors shrink-0 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer whitespace-nowrap">
           Minggu Ini
         </button>
       </div>
 
-      <!-- Right: Legenda Jenis Sesi -->
-      <div data-pencil-name="Legenda Jenis Sesi" class="flex items-center gap-[12px] text-[12px] font-medium text-[#667085]">
+      <!-- Right: Legenda Jenis Sesi (Wrap Bersih Tanpa Terdesak) -->
+      <div data-pencil-name="Legenda Jenis Sesi" class="flex items-center gap-3 sm:gap-[12px] text-[11px] sm:text-[12px] font-medium text-[#667085] flex-wrap pt-2.5 md:pt-0 border-t border-[#F1F5F9] md:border-t-0">
         <div data-pencil-name="Legenda Teori" class="flex items-center gap-[6px]">
           <span class="w-[8px] h-[8px] bg-[#3965FB] rounded-full shrink-0"></span>
           <span class="whitespace-nowrap">Teori</span>
@@ -107,7 +113,7 @@
     </div>
 
     <!-- Calendar Container Card (SCR-SCHED-001 & SCR-SCHED-001B) -->
-    <div class="box-border w-full shadow-[0px_4px_16px_#0F172A0A] flex flex-col gap-[15px] p-[20px] justify-start items-start bg-[#FFFFFF] border border-[#D7DDE7] rounded-[16px] mt-4">
+    <div class="box-border w-full shadow-[0px_4px_16px_#0F172A0A] flex flex-col gap-[15px] p-4 sm:p-5 md:p-[20px] justify-start items-start bg-[#FFFFFF] border border-[#D7DDE7] rounded-[16px] mt-4">
       <div x-show="scheduleLoading" class="mb-4 text-[13px] text-[#64748B] flex items-center gap-2">
         <span class="material-symbols-outlined text-[18px] animate-spin text-[#3965FB]">progress_activity</span>
         <span>Memuat jadwal perkuliahan...</span>
@@ -321,7 +327,7 @@
         <!-- Toolbar: Filter Hari & Pencarian untuk Mode Daftar (Sama seperti Admin) -->
         <div class="flex flex-col md:flex-row gap-3 md:items-center justify-between">
           <!-- Tabs Filter Hari -->
-          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label="Filter hari daftar">
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x" role="tablist" aria-label="Filter hari daftar">
             <button type="button" role="tab" :aria-selected="listDayFilter === 'all'" @click="listDayFilter = 'all'"
               class="box-border w-fit shrink-0 h-[36px] px-3.5 flex flex-row items-center justify-center rounded-[10px] text-[12px] font-semibold whitespace-nowrap transition-colors min-h-[36px] cursor-pointer"
               :class="listDayFilter === 'all' ? 'bg-[#3965FB] text-white shadow-sm' : 'bg-white text-[#667085] hover:text-[#1D1B3A] border border-[#E2E8F0] hover:bg-slate-50'">
@@ -433,17 +439,17 @@
 
       <!-- MOBILE VIEW: Day Tabs Selector + Active Day Card List (md:hidden saat mode kalender) -->
       <div x-show="calendarViewMode === 'calendar'" class="md:hidden mt-4">
-        <!-- Horizontal Day Pill Selector -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-1 px-1" role="tablist" aria-label="Pilih hari jadwal">
+        <!-- Horizontal Day Pill Selector (Fit 5 Hari di Mobile & Scroll Halus) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x" role="tablist" aria-label="Pilih hari jadwal">
           <template x-for="d in weekDays" :key="'mob-tab-' + d.name">
             <button type="button" role="tab"
                     :aria-selected="currentScheduleDay === d.name"
                     @click="activeScheduleDay = d.name"
-                    class="flex-1 min-w-[62px] py-2 px-1 rounded-[10px] text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus:outline-none"
+                    class="flex-1 min-w-[50px] sm:min-w-[60px] py-2 px-1 rounded-[10px] text-center transition-all min-h-[44px] flex flex-col items-center justify-center border focus:outline-none shrink-0"
                     :class="currentScheduleDay === d.name ? 'bg-[#3965FB] text-white border-[#3965FB] shadow-sm font-bold' : 'bg-[#F8FAFC] hover:bg-slate-100 text-[#1D1B3A] border-[#E2E8F0] font-medium'">
               <span class="text-[11px] uppercase tracking-wide leading-tight" x-text="d.name.slice(0, 3)">-</span>
               <div class="flex items-center gap-1 mt-0.5">
-                <span class="text-[14px] leading-tight" x-text="d.dateNum">-</span>
+                <span class="text-[13px] sm:text-[14px] leading-tight font-mono font-bold" x-text="d.dateNum">-</span>
                 <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="currentScheduleDay === d.name ? 'bg-white' : 'bg-[#3965FB]'"></span>
               </div>
             </button>
@@ -451,7 +457,7 @@
         </div>
 
         <!-- Active Day Header -->
-        <div class="flex items-center justify-between mt-3 mb-2 px-1">
+        <div class="flex items-center justify-between mt-3 mb-2 px-0.5">
           <div class="flex items-center gap-2">
             <h3 class="text-[15px] font-bold text-[#1D1B3A]">
               <span x-text="currentScheduleDay"></span>
@@ -462,10 +468,11 @@
           <span class="text-[12px] font-semibold text-[#667085]" x-text="daySessions(currentScheduleDay).length + ' Sesi'"></span>
         </div>
 
-        <!-- Active Day Sessions List -->
+        <!-- Active Day Sessions List (Full Card Clickable Affordance) -->
         <div class="space-y-3 mt-2">
           <template x-for="s in daySessions(currentScheduleDay)" :key="'mob-s-' + s.id">
-            <div class="p-3.5 rounded-[12px] border transition-all"
+            <div @click="bukaAksiSesi(s)"
+                 class="p-3.5 rounded-[12px] border transition-all cursor-pointer group"
                  :class="isSesiOngoing(s)
                          ? 'bg-[#F0FDF4] border border-[#86EFAC] ring-2 ring-[#22C55E]/20 shadow-xs'
                          : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
@@ -496,7 +503,7 @@
                                  : 'bg-[#DBEAFE] text-[#1E40AF]')"
                       x-text="s.isReplacement ? 'Pengganti' : slotKind(s.matkul, s.eventKind)">-</span>
               </div>
-              <h4 class="font-bold text-[14px] leading-snug"
+              <h4 class="font-bold text-[14px] leading-snug group-hover:text-[#2563EB] transition-colors"
                   :class="isSesiOngoing(s)
                           ? 'text-[#14532D]'
                           : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
@@ -513,18 +520,25 @@
                 <p x-show="s.dosen" x-text="'Dosen: ' + s.dosen"></p>
                 <p x-show="s.originNote" class="italic text-[#B45309]" x-text="'Catatan: ' + s.originNote"></p>
               </div>
-              <div class="mt-3 pt-2 flex justify-end">
-                <button type="button" @click="bukaAksiSesi(s)"
-                        class="h-9 px-3.5 rounded-[8px] bg-white/80 hover:bg-white text-[12px] font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              <!-- Footer Kartu Sesi Mobile -->
+              <div class="mt-3 pt-2.5 border-t flex items-center justify-between gap-2"
+                   :class="isSesiOngoing(s)
+                           ? 'border-[#BBF7D0]'
+                           : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
+                              ? 'border-[#FDE68A]'
+                              : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'border-[#E9D5FF]' : 'border-[#DBEAFE]'))">
+                <span class="text-[11px] font-medium text-slate-500 truncate">
+                  Ketuk untuk aksi / kuliah pengganti
+                </span>
+                <button type="button" @click.stop="bukaAksiSesi(s)"
+                        class="h-9 px-3 rounded-[8px] bg-white text-[12px] font-semibold flex items-center gap-1 transition-colors shadow-2xs cursor-pointer shrink-0"
                         :class="isSesiOngoing(s)
                                 ? 'text-[#166534] border border-[#86EFAC]'
                                 : (s.isReplacement || slotKind(s.matkul, s.eventKind) === 'Pengganti'
                                    ? 'text-[#92400E] border border-[#FDE68A]'
                                    : (slotKind(s.matkul, s.eventKind) === 'Praktikum' ? 'text-[#6D28D9] border border-[#DDD6FE]' : 'text-[#1D4ED8] border border-[#BFDBFE]'))">
-                  <svg viewBox="0 0 14 14" class="w-[14px] h-[14px] shrink-0 fill-current opacity-80" aria-hidden="true">
-                    <path d="M7 12.25A5.25 5.25 0 1 0 7 1.75a5.25 5.25 0 0 0 0 10.5zm0-8.167a.729.729 0 1 1 0 1.458.729.729 0 0 1 0-1.458zm-.729 2.917h1.458v3.5H6.271v-3.5z"/>
-                  </svg>
                   <span>Detail Sesi</span>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true"><path d="M6 12l4-4-4-4"/></svg>
                 </button>
               </div>
             </div>

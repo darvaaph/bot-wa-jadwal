@@ -24,45 +24,46 @@
 
       <!-- Navigasi Terpadu Manajemen Tugas -->
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
-        <!-- Tab Status dan Review -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1" role="tablist" aria-label="Tab status tugas">
+        <!-- Tab Status dan Review (Edge-to-Edge Scroll di Mobile) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x" role="tablist" aria-label="Tab status tugas">
           <button type="button" @click="tugasTab = 'aktif'" role="tab" :aria-selected="tugasTab === 'aktif'"
             :class="tugasTab === 'aktif' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold border-[#BFDBFE]' : 'bg-white text-[#475569] font-medium border-[#E2E8F0] hover:bg-slate-50'"
-            class="min-h-[44px] h-[36px] px-3 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
+            class="shrink-0 min-h-[44px] h-[36px] px-3.5 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
             <span>Tugas Aktif</span>
             <span class="ml-1" x-text="'(' + (tugasTabCounts.aktif || 0) + ')'">(0)</span>
           </button>
           <button type="button" @click="tugasTab = 'review'" role="tab" :aria-selected="tugasTab === 'review'"
             :class="tugasTab === 'review' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold border-[#BFDBFE]' : 'bg-white text-[#475569] font-medium border-[#E2E8F0] hover:bg-slate-50'"
-            class="min-h-[44px] h-[36px] px-3 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
+            class="shrink-0 min-h-[44px] h-[36px] px-3.5 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
             <span>Perlu Review</span>
             <span class="ml-1" x-text="'(' + (tugasTabCounts.review || 0) + ')'">(0)</span>
           </button>
           <button type="button" @click="tugasTab = 'draf'" role="tab" :aria-selected="tugasTab === 'draf'"
             :class="tugasTab === 'draf' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold border-[#BFDBFE]' : 'bg-white text-[#475569] font-medium border-[#E2E8F0] hover:bg-slate-50'"
-            class="min-h-[44px] h-[36px] px-3 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
+            class="shrink-0 min-h-[44px] h-[36px] px-3.5 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
             <span>Draf</span>
             <span class="ml-1" x-text="'(' + (tugasTabCounts.draf || 0) + ')'">(0)</span>
           </button>
           <button type="button" @click="tugasTab = 'selesai_terlewat'" role="tab" :aria-selected="tugasTab === 'selesai_terlewat' || tugasTab === 'selesai' || tugasTab === 'terlewat'"
             :class="(tugasTab === 'selesai_terlewat' || tugasTab === 'selesai' || tugasTab === 'terlewat') ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold border-[#BFDBFE]' : 'bg-white text-[#475569] font-medium border-[#E2E8F0] hover:bg-slate-50'"
-            class="min-h-[44px] h-[36px] px-3 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
+            class="shrink-0 min-h-[44px] h-[36px] px-3.5 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
             <span>Selesai &amp; Terlewat</span>
             <span class="ml-1" x-text="'(' + (tugasTabCounts.selesai_terlewat || 0) + ')'">(0)</span>
           </button>
           <button type="button" @click="tugasTab = 'arsip'" role="tab" :aria-selected="tugasTab === 'arsip'"
             :class="tugasTab === 'arsip' ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold border-[#BFDBFE]' : 'bg-white text-[#475569] font-medium border-[#E2E8F0] hover:bg-slate-50'"
-            class="min-h-[44px] h-[36px] px-3 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
+            class="shrink-0 min-h-[44px] h-[36px] px-3.5 rounded-[10px] border text-[12px] whitespace-nowrap flex items-center transition-colors">
             <span>Arsip</span>
             <span class="ml-1" x-text="'(' + (tugasTabCounts.arsip || 0) + ')'">(0)</span>
           </button>
         </div>
 
-        <!-- Filter Tugas Terpadu -->
-        <div class="flex items-center gap-2 flex-wrap">
-          <div class="relative inline-block">
+        <!-- Filter Tugas Terpadu (Mobile-First Reflow) -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+          <!-- Filter Matkul (Lebar Penuh di Mobile, Auto di Desktop) -->
+          <div class="relative w-full sm:w-auto">
             <select x-model="tugasMatkul" aria-label="Filter semua mata kuliah"
-              class="min-h-[44px] h-[36px] appearance-none pl-3 pr-8 rounded-[10px] bg-white border border-[#CBD5E1] text-[12px] text-[#334155] font-normal hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#2563EB] transition-colors cursor-pointer">
+              class="w-full sm:w-auto min-h-[44px] h-[36px] appearance-none pl-3 pr-8 rounded-[10px] bg-white border border-[#CBD5E1] text-[12px] text-[#334155] font-normal hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#2563EB] transition-colors cursor-pointer">
               <option value="Semua">Semua Mata Kuliah</option>
               <template x-for="m in matkulOpts" :key="m">
                 <option :value="m" x-text="m">-</option>
@@ -75,27 +76,30 @@
             </div>
           </div>
 
-          <div class="relative inline-block">
-            <select x-model="tugasRentang" aria-label="Filter rentang waktu"
-              class="min-h-[44px] h-[36px] appearance-none pl-3 pr-8 rounded-[10px] bg-white border border-[#CBD5E1] text-[12px] text-[#334155] font-normal hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#2563EB] transition-colors cursor-pointer">
-              <option value="">Semua Rentang</option>
-              <option value="7">7 Hari Terakhir</option>
-              <option value="14">14 Hari ke Depan</option>
-              <option value="30">30 Hari ke Depan</option>
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#64748B]">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true" focusable="false">
-                <path d="M3.34619 4.68945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04785 0.25977 0.05127 0.08887 1.8628 1.9038 1.81152 1.81152 1.9038 1.8628 0.09229 0.04785 0.25977 0.04785 0.16748 0 0.25635-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"/>
-              </svg>
+          <!-- Baris 2 pada Mobile: Rentang Waktu (flex-1) + Tombol Urutkan (shrink-0) -->
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-auto">
+              <select x-model="tugasRentang" aria-label="Filter rentang waktu"
+                class="w-full sm:w-auto min-h-[44px] h-[36px] appearance-none pl-3 pr-8 rounded-[10px] bg-white border border-[#CBD5E1] text-[12px] text-[#334155] font-normal hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-[#2563EB] transition-colors cursor-pointer">
+                <option value="">Semua Rentang</option>
+                <option value="7">7 Hari Terakhir</option>
+                <option value="14">14 Hari ke Depan</option>
+                <option value="30">30 Hari ke Depan</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[#64748B]">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true" focusable="false">
+                  <path d="M3.34619 4.68945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04785 0.25977 0.05127 0.08887 1.8628 1.9038 1.81152 1.81152 1.9038 1.8628 0.09229 0.04785 0.25977 0.04785 0.16748 0 0.25635-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.11279 0.04102-0.09912 0.05811-1.66455 1.62695l-1.56885 1.56543-2.82666-2.81299q-0.31104-0.29395-0.42041-0.37939-0.08545-0.05469-0.19824-0.05469l-0.02735 0q-0.14014 0-0.18115 0.01367z"/>
+                </svg>
+              </div>
             </div>
-          </div>
 
-          <button type="button" @click="tugasSort = tugasSort === 'dekat' ? 'jauh' : 'dekat'" title="Urutkan tenggat" aria-label="Urutkan tenggat"
-            class="min-h-[44px] h-[36px] w-[36px] rounded-[10px] bg-white border border-[#CBD5E1] flex items-center justify-center text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true" focusable="false">
-              <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/>
-            </svg>
-          </button>
+            <button type="button" @click="tugasSort = tugasSort === 'dekat' ? 'jauh' : 'dekat'" title="Urutkan tenggat" aria-label="Urutkan tenggat"
+              class="min-h-[44px] min-w-[44px] h-[44px] w-[44px] sm:h-[36px] sm:w-[36px] rounded-[10px] bg-white border border-[#CBD5E1] flex items-center justify-center text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-50 transition-colors shrink-0 cursor-pointer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true" focusable="false">
+                <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -110,7 +114,7 @@
       </div>
 
       <!-- Card Container Daftar Tugas -->
-      <div class="bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-5 sm:p-6 pb-8 space-y-4">
+      <div class="bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-4 sm:p-6 pb-8 space-y-4">
         <!-- Header Daftar Tugas -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#F2F4F7]">
           <h2 class="text-[15px] sm:text-[16px] font-bold text-[#1D1B3A]" x-text="tugasTab === 'review' ? 'Usulan Menunggu Pemeriksaan' : tugasTabTitle()">
@@ -278,9 +282,10 @@
         <!-- 2. Daftar Tugas: Tab Selain Review (Tampilan Baris Card Berspasi) -->
         <div x-show="!tugasLoading && !tugasListError && tugasTabList.length > 0 && tugasTab !== 'review'" class="space-y-3 pt-2 pb-2">
           <template x-for="t in tugasTabList" :key="t.id">
-            <div class="p-4 sm:p-5 rounded-[14px] border border-[#E2E8F0] hover:border-slate-300 hover:shadow-sm bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+            <div @click="bukaDetailTugas(t.id)"
+              class="p-4 sm:p-5 rounded-[14px] border border-[#E2E8F0] hover:border-slate-300 hover:shadow-sm bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 group cursor-pointer">
               <!-- Sisi Kiri: Ikon + Judul + Matkul + Badges -->
-              <div class="flex items-start gap-3.5 min-w-0 flex-1">
+              <div class="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
                 <!-- Ikon Glyph Tugas -->
                 <div class="w-10 h-10 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center shrink-0 text-[#2563EB] mt-0.5 sm:mt-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
@@ -294,9 +299,9 @@
 
                 <!-- Konten Teks Tugas -->
                 <div class="min-w-0 flex-1 space-y-1">
-                  <button type="button" @click="bukaDetailTugas(t.id)" class="text-left font-semibold text-[15px] text-[#1D1B3A] hover:text-[#2563EB] line-clamp-1 transition-colors cursor-pointer">
+                  <h3 class="text-left font-semibold text-[15px] text-[#1D1B3A] group-hover:text-[#2563EB] line-clamp-2 sm:line-clamp-1 break-words [overflow-wrap:anywhere] transition-colors">
                     <span x-text="t.title || t.deskripsi">-</span>
-                  </button>
+                  </h3>
                   <p class="text-[12px] text-[#64748B] truncate" x-text="t.matkul || 'Mata Kuliah Umum'">-</p>
 
                   <!-- Badges Atribut Tugas -->
@@ -345,33 +350,38 @@
                 </div>
               </div>
 
-              <!-- Sisi Kanan: Kolom Tenggat + Urgensi + Tombol Detail -->
-              <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pl-13 sm:pl-0">
+              <!-- Sisi Kanan / Bawah: Kolom Tenggat + Urgensi + Tombol Detail (Reflow Responsif) -->
+              <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-[#F1F5F9] sm:border-t-0 shrink-0">
                 <!-- Kolom Tenggat -->
-                <div class="min-w-[150px] sm:w-[190px] text-left">
-                  <div class="text-[11px] text-[#64748B] font-semibold tracking-wider uppercase">TENGGAT</div>
-                  <div class="text-[12px] font-bold text-[#1D1B3A] font-mono mt-0.5" x-text="fmtDeadlineDetailed(t.deadline_at || t.deadline)">
+                <div class="min-w-0 sm:w-[180px] text-left">
+                  <div class="text-[10px] sm:text-[11px] text-[#64748B] font-semibold tracking-wider uppercase">TENGGAT</div>
+                  <div class="text-[12px] font-bold text-[#1D1B3A] font-mono mt-0.5 truncate" x-text="fmtDeadlineDetailed(t.deadline_at || t.deadline)">
                     Besok, 8 Okt · 23:59 WIB
                   </div>
                 </div>
 
-                <!-- Kolom Urgensi (Pill Warna) -->
-                <div class="w-[95px] flex items-center justify-center shrink-0">
+                <!-- Kolom Urgensi (Pill Warna) + Affordance Navigasi -->
+                <div class="flex items-center gap-2 shrink-0">
                   <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
                     :class="urgencyStyle(t.deadline_at || t.deadline).bg + ' ' + urgencyStyle(t.deadline_at || t.deadline).text">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(t.deadline_at || t.deadline).dot"></span>
                     <span x-text="deadlineRelative(t.deadline_at || t.deadline)">Sisa 2 hari</span>
                   </div>
-                </div>
 
-                <!-- Tombol Buka Detail Tugas -->
-                <button type="button" @click="bukaDetailTugas(t.id)"
-                  class="min-h-[44px] h-[36px] px-3.5 rounded-[8px] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[12px] font-semibold text-[#1D1B3A] flex items-center justify-center gap-1.5 transition-colors shrink-0 cursor-pointer shadow-sm">
-                  <span>Detail</span>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#64748B] group-hover:text-[#1D1B3A]" aria-hidden="true">
-                    <path d="M6 12l4-4-4-4"/>
-                  </svg>
-                </button>
+                  <!-- Tombol Buka Detail Tugas (Desktop) -->
+                  <button type="button" @click.stop="bukaDetailTugas(t.id)"
+                    class="hidden sm:inline-flex min-h-[44px] h-[36px] px-3.5 rounded-[8px] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC] text-[12px] font-semibold text-[#1D1B3A] items-center justify-center gap-1.5 transition-colors shrink-0 cursor-pointer shadow-sm">
+                    <span>Detail</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#64748B] group-hover:text-[#1D1B3A]" aria-hidden="true">
+                      <path d="M6 12l4-4-4-4"/>
+                    </svg>
+                  </button>
+
+                  <!-- Indikator Chevron untuk Mobile -->
+                  <div class="sm:hidden text-slate-400 group-hover:text-[#2563EB] transition-colors pl-1">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
@@ -953,16 +963,16 @@
               </h1>
 
               <!-- Segmented Tab Navigasi Detail (Jelas, Berbobot, & Kontras) -->
-              <div class="flex items-center gap-1.5 p-1 bg-[#F1F5F9] rounded-[12px] border border-[#E2E8F0] mt-3" role="tablist" aria-label="Tab navigasi detail tugas">
+              <div class="flex items-center gap-1.5 p-1 bg-[#F1F5F9] rounded-[12px] border border-[#E2E8F0] mt-3 overflow-x-auto no-scrollbar" role="tablist" aria-label="Tab navigasi detail tugas">
                 <button type="button" @click="tugasDetailTab = 'detail'" role="tab" :aria-selected="tugasDetailTab === 'detail'"
                   :class="tugasDetailTab === 'detail' ? 'bg-white text-[#1D1B3A] font-bold shadow-sm' : 'text-[#64748B] hover:text-[#1D1B3A] font-medium'"
-                  class="flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer">
+                  class="shrink-0 sm:shrink sm:flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[12px] sm:text-[13px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all cursor-pointer whitespace-nowrap">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" :class="tugasDetailTab === 'detail' ? 'text-[#2563EB]' : 'text-[#94A3B8]'"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   <span>Detail Instruksi</span>
                 </button>
                 <button type="button" @click="tugasDetailTab = 'riwayat'" role="tab" :aria-selected="tugasDetailTab === 'riwayat'"
                   :class="tugasDetailTab === 'riwayat' ? 'bg-white text-[#1D1B3A] font-bold shadow-sm' : 'text-[#64748B] hover:text-[#1D1B3A] font-medium'"
-                  class="flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer">
+                  class="shrink-0 sm:shrink sm:flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[12px] sm:text-[13px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all cursor-pointer whitespace-nowrap">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" :class="tugasDetailTab === 'riwayat' ? 'text-[#2563EB]' : 'text-[#94A3B8]'"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
                   <span>Riwayat Review</span>
                   <span class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold"
@@ -971,7 +981,7 @@
                 </button>
                 <button type="button" @click="tugasDetailTab = 'notif'" role="tab" :aria-selected="tugasDetailTab === 'notif'"
                   :class="tugasDetailTab === 'notif' ? 'bg-white text-[#1D1B3A] font-bold shadow-sm' : 'text-[#64748B] hover:text-[#1D1B3A] font-medium'"
-                  class="flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer">
+                  class="shrink-0 sm:shrink sm:flex-1 min-h-[44px] h-[38px] px-3.5 rounded-[9px] text-[12px] sm:text-[13px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all cursor-pointer whitespace-nowrap">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" :class="tugasDetailTab === 'notif' ? 'text-[#2563EB]' : 'text-[#94A3B8]'"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <span>Notifikasi Bot</span>
                 </button>

@@ -995,8 +995,8 @@ func (s *V1BotService) GetMenu(ctx context.Context, classID int64) (string, erro
 	b.WriteString("- ![hari]        : Jadwal hari tertentu (contoh: !senin, !jumat)\n\n")
 
 	b.WriteString("*Tugas & Materi:*\n")
-	b.WriteString("- !tugas         : Daftar tugas aktif & tenggat waktu terdekat\n")
-	b.WriteString("- !link          : Tautan penting kelas (Drive, Zoom, RPS)\n\n")
+	b.WriteString("- !tugas           : Daftar tugas aktif & tenggat waktu terdekat\n")
+	b.WriteString("- !link / !materi  : Tautan & materi penting kelas (Drive, Zoom, RPS)\n\n")
 
 	b.WriteString("*Pencarian & Informasi:*\n")
 	b.WriteString("- !matkul        : Daftar mata kuliah semester aktif\n")

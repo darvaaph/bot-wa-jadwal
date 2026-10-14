@@ -459,6 +459,75 @@ function portalApp() {
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
     deadlineBadge(iso) { return API.deadlineBadge(iso); },
 
+    fmtDeadlineDetailed(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dayName = days[d.getDay()];
+        const day = d.getDate();
+        const m = months[d.getMonth()];
+        const y = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${dayName}, ${day} ${m} ${y} · ${hh}:${mm} WIB`;
+      } catch (e) {
+        return iso;
+      }
+    },
+
+    deadlineRelative(iso) {
+      if (!iso) return '-';
+      try {
+        const target = new Date(iso).getTime();
+        const now = Date.now();
+        const diffMs = target - now;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMs < 0) {
+          const absHours = Math.abs(diffHours);
+          if (absHours < 24) return `Terlewat ${absHours} jam`;
+          const absDays = Math.abs(diffDays);
+          return `Terlewat ${absDays} hari`;
+        }
+        if (diffHours < 1) {
+          const diffMinutes = Math.floor(diffMs / (1000 * 60));
+          return `Sisa ${Math.max(1, diffMinutes)} menit`;
+        }
+        if (diffHours < 24) return `Sisa ${diffHours} jam`;
+        if (diffDays === 1) return 'Besok';
+        return `Sisa ${diffDays} hari`;
+      } catch (e) {
+        return '-';
+      }
+    },
+
+    urgencyStyle(iso) {
+      if (!iso) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+      try {
+        const target = new Date(iso).getTime();
+        const now = Date.now();
+        const diffMs = target - now;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+        if (diffMs < 0) {
+          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+        }
+        if (diffHours <= 24) {
+          return { bg: 'bg-[#FEF2F2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' };
+        }
+        if (diffHours <= 72) {
+          return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#F59E0B]' };
+        }
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', dot: 'bg-[#16A34A]' };
+      } catch (e) {
+        return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+      }
+    },
+
     dashboardPartialsLoaded: false,
 
     async ensureDashboardPartials() {
@@ -1485,6 +1554,7 @@ function portalApp() {
           id: info.id, matkul: info.offering || '', title: info.title || '',
           instructions: info.instructions || '',
           deadline: this.fmtDeadlineID(info.deadline_at),
+          deadline_at: info.deadline_at,
           task_type: info.task_type || '',
           submission_text: info.submission_text || '', submission_url: info.submission_url || '',
           version: info.version || '', is_completed: !!info.is_completed,

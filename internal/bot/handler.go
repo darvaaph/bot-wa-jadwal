@@ -337,8 +337,8 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 6. Handler Khusus Perintah Tautan Penting Kelas (!link, !tautan, !drive, !gdrive, !zoom, !gmeet, !meet)
-	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "drive", "gdrive", "zoom", "gmeet", "meet") {
+	// 6. Handler Khusus Perintah Tautan & Materi Penting Kelas (!link, !tautan, !materi, !drive, !gdrive, !zoom, !gmeet, !meet)
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "materi", "drive", "gdrive", "zoom", "gmeet", "meet") {
 		if activeClassID == "" && chatSettingsManager != nil {
 			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding link")
 			return

@@ -172,7 +172,7 @@
 
     <!-- Strip Tanggal Satu Baris (Mobile - hanya tampil saat mode per_hari) -->
     <div x-show="mobileJadwalMode === 'per_hari'"
-      class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar">
+      class="box-border w-auto h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
       <template x-for="d in pekanHariListMobile" :key="d">
         <button type="button" @click="pilihHari(d)"
           :class="hari === d ? 'bg-[#2563EB] text-white [box-shadow:0px_2px_4px_#0F172A14]' : 'bg-[#F1F5F9] text-[#334155]'"

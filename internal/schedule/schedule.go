@@ -1325,8 +1325,8 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString("- !seminggu      : Jadwal Senin - Jumat\n\n")
 
 	sb.WriteString("*Tugas & Tautan:*\n")
-	sb.WriteString("- !tugas         : Catatan tugas & deadline\n")
-	sb.WriteString("- !link          : Tautan penting kelas (Drive/Zoom)\n\n")
+	sb.WriteString("- !tugas           : Catatan tugas & deadline\n")
+	sb.WriteString("- !link / !materi  : Tautan & materi penting kelas (Drive/Zoom)\n\n")
 
 	sb.WriteString("*Pencarian Cepat:*\n")
 	sb.WriteString("- !matkul        : Daftar semua mata kuliah\n")

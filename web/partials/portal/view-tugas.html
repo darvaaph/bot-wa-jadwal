@@ -1,4 +1,4 @@
-<!-- partials/portal/view-tugas.html — Portal Tugas per grup + Detail Mahasiswa (Figma SCR-USER-TASK) -->
+<!-- partials/portal/view-tugas.html - Portal Tugas per grup + Detail Mahasiswa (Figma SCR-USER-TASK) -->
 <section x-show="view === 'tugas'" x-cloak class="w-full flex flex-col gap-4">
   
   <!-- Judul dan pengantar tugas -->
@@ -11,13 +11,13 @@
     </p>
   </div>
 
-  <!-- Filter Grup & Dropdown Mata Kuliah -->
-  <div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 mt-2 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Grup tugas">
-    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
+  <!-- Filter Grup & Dropdown Mata Kuliah (Mobile-First Reflow) -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mt-2" role="tablist" aria-label="Grup tugas">
+    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
       <template x-for="g in [['hari_ini','Hari Ini'],['minggu_ini','Minggu Ini'],['mendatang','Mendatang'],['terlewat','Terlewat']]" :key="g[0]">
         <button type="button" @click="tugasTab = g[0]" role="tab" :aria-selected="tugasTab === g[0]"
           :class="tugasTab === g[0] ? 'bg-[#2563EB] text-white font-bold shadow-xs' : 'bg-white text-[#475467] border border-[#E2E8F0] hover:bg-slate-50 font-semibold'"
-          class="px-3.5 py-2 rounded-[10px] text-[12px] sm:text-[13px] whitespace-nowrap min-h-[40px] flex items-center gap-1.5 transition-all cursor-pointer">
+          class="shrink-0 px-3.5 py-2 rounded-[10px] text-[12px] sm:text-[13px] whitespace-nowrap min-h-[44px] flex items-center gap-1.5 transition-all cursor-pointer">
           <span x-text="g[1]">-</span>
           <span class="text-[11px] px-1.5 py-0.5 rounded-full font-bold"
             :class="tugasTab === g[0] ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'"
@@ -26,12 +26,10 @@
       </template>
     </div>
 
-    <div class="flex-1"></div>
-
     <!-- Filter per mata kuliah -->
     <div class="relative shrink-0 w-full sm:w-auto">
       <select x-model="tugasMatkul" aria-label="Filter mata kuliah"
-        class="w-full sm:w-auto min-h-[40px] bg-white border border-[#CBD5E1] rounded-[10px] px-3 pr-8 text-[12px] sm:text-[13px] font-medium text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-2xs">
+        class="w-full sm:w-auto min-h-[44px] bg-white border border-[#CBD5E1] rounded-[10px] px-3 pr-8 text-[12px] sm:text-[13px] font-medium text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-2xs cursor-pointer">
         <option value="Semua">Semua Mata Kuliah</option>
         <template x-for="m in matkulOpts" :key="m"><option :value="m" x-text="m">-</option></template>
       </select>
@@ -73,54 +71,58 @@
       <p class="text-[13px] text-[#64748B] max-w-sm" x-text="q.trim() ? 'Coba kata kunci pencarian lain.' : 'Semua tugas telah diselesaikan atau belum ada tugas baru untuk kategori ini.'"></p>
     </div>
 
-    <!-- Task Items List (Clean Card Feed, Left-Aligned!) -->
+    <!-- Task Items List (Spaced Cards dengan Inline SVG & Typography KM/PJ) -->
     <div x-show="!tugasLoading && !tugasError && tugasTabList.length > 0" class="space-y-3">
       <template x-for="t in tugasTabList" :key="t.id">
         <div @click="bukaDetailTugas(t)"
-          class="w-full text-left p-4 sm:p-5 bg-white hover:bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#3965FB] rounded-[12px] shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 group cursor-pointer">
+          class="w-full text-left p-4 sm:p-5 bg-white hover:bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#3965FB] rounded-[16px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 group cursor-pointer">
           
           <!-- Sisi Kiri: Icon + Info Tugas -->
           <div class="flex items-start gap-3.5 min-w-0 flex-1">
             <!-- Icon Document Bulat -->
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors"
-              :class="t.urgency === 'mendesak' ? 'bg-red-50 text-red-600' : (t.urgency === 'mendekati' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-[#3965FB]')">
-              <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
-                <path d="M2.95996 12.36963q-0.55029 0-0.93994-0.38965-0.38965-0.38965-0.38965-0.93994l0-8.08008q0-0.55029 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l2.33447 0q0.21191-0.52979 0.67334-0.84766 0.46484-0.31787 1.03223-0.31787 0.56738 0 1.02881 0.31787 0.46484 0.31787 0.67676 0.84766l2.33447 0q0.55029 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55029-0.38965 0.93994-0.38965 0.38965-0.93994 0.38965l-8.08008 0z m0-1.32959l8.08008 0 0-8.08008-8.08008 0 0 8.08008z m1.75-1.16553l2.86426 0q0.24609 0 0.41357-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24609-0.16748-0.41358-0.16748-0.16748-0.41357-0.16748l-2.86426 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41358 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29004l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29345l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41358 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24609 0.16748 0.41358 0.16748 0.16748 0.41699 0.16748z"/>
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors bg-[#EFF6FF] text-[#2563EB]">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
             </div>
 
             <!-- Teks Judul & Metadata (Strictly Left-Aligned) -->
             <div class="min-w-0 flex-1 text-left">
-              <span class="inline-block text-[11px] font-bold tracking-wide uppercase text-[#3965FB] mb-0.5 truncate max-w-full" x-text="t.matkul">Mata Kuliah</span>
+              <span class="inline-block text-[11px] font-bold tracking-wider uppercase text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded-[6px] mb-1.5 w-fit" x-text="t.matkul">Mata Kuliah</span>
               <h3 class="text-[15px] sm:text-[16px] font-bold text-[#1D1B3A] group-hover:text-[#2563EB] transition-colors leading-snug line-clamp-1 break-words [overflow-wrap:anywhere]" x-text="t.title || t.deskripsi">Judul Tugas</h3>
               
               <!-- Info Baris Bawah: Tenggat & Metode Pengumpulan -->
               <div class="flex items-center gap-2 mt-1.5 flex-wrap text-[12px] text-[#64748B]">
-                <span class="inline-flex items-center gap-1 font-mono font-medium text-slate-700">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5 text-slate-400 shrink-0"><path d="M7.29053 6.88037l0-2.50537q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.55322q0 0.08887 0.03076 0.17432 0.03418 0.08203 0.10938 0.16064l2.07129 2.07129q0.08203 0.08203 0.19824 0.08887 0.11963 0.00342 0.21533-0.08887 0.09229-0.0957 0.09229-0.20849 0-0.11279-0.09229-0.20508l-2.04394-2.04053z m-0.28711 5.36963q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z"/></svg>
-                  <span x-text="t.deadline">Rabu, 14 Okt 2026, 23.09 WIB</span>
+                <span class="inline-flex items-center gap-1.5 font-mono font-medium text-slate-700 text-[12px]">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-slate-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span x-text="fmtDeadlineDetailed(t.deadline_at) || t.deadline">Rabu, 14 Okt 2026, 23.09 WIB</span>
                 </span>
                 
                 <template x-if="t.submission_url">
-                  <span class="inline-flex items-center gap-1 text-[#2563EB] font-medium bg-blue-50/80 px-2 py-0.5 rounded-[6px]">
-                    <svg class="w-3 h-3 shrink-0" viewBox="0 0 14 14" fill="currentColor"><path d="M4.12891 9.37891q-0.98779 0-1.68506-0.69385-0.69385-0.69727-0.69385-1.68506 0-0.98438 0.69385-1.68164 0.69727-0.69727 1.68506-0.69727l1.7705 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.77392 0q-0.73828 0-1.26465 0.52636-0.52637 0.52637-0.52637 1.26807 0 0.7417 0.52637 1.26807 0.52637 0.52637 1.26465 0.52636l1.77392 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.7705 0z m1.12109-2.08838q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l3.5 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-3.5 0z"/></svg>
+                  <span class="inline-flex items-center gap-1 text-[#2563EB] font-medium bg-[#EFF6FF] px-2 py-0.5 rounded-[6px] text-[11px]">
+                    <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     <span>Pengumpulan Online</span>
                   </span>
                 </template>
                 <template x-if="!t.submission_url && t.submission_text">
-                  <span class="inline-flex items-center gap-1 text-slate-600 bg-slate-100 px-2 py-0.5 rounded-[6px] truncate max-w-[200px]" x-text="t.submission_text"></span>
+                  <span class="inline-flex items-center gap-1 text-slate-600 bg-slate-100 px-2 py-0.5 rounded-[6px] text-[11px] truncate max-w-[200px]" x-text="t.submission_text"></span>
                 </template>
               </div>
             </div>
           </div>
 
-          <!-- Sisi Kanan: Badge Countdown Semantik + Indikator Panah -->
-          <div class="flex items-center gap-2 self-start sm:self-center shrink-0">
-            <span class="px-2.5 py-1 rounded-[8px] text-[11px] font-bold tracking-tight whitespace-nowrap"
-              :class="t.urgency === 'mendesak' ? 'bg-red-50 text-red-700 border border-red-200' : (t.urgency === 'mendekati' ? 'bg-amber-50 text-amber-800 border border-amber-200' : (t.urgency === 'terlewat' ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'))"
-              x-text="t.countdown">Besok</span>
-            <div class="w-7 h-7 rounded-lg bg-slate-50 group-hover:bg-blue-50 flex items-center justify-center text-slate-400 group-hover:text-[#2563EB] transition-colors">
-              <svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          <!-- Sisi Kanan / Bawah: Badge Countdown Semantik + Indikator Panah (Reflow Responsif) -->
+          <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 pt-2.5 sm:pt-0 border-t border-[#F1F5F9] sm:border-t-0 shrink-0">
+            <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
+              :class="urgencyStyle(t.deadline_at).bg + ' ' + urgencyStyle(t.deadline_at).text">
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(t.deadline_at).dot"></span>
+              <span x-text="deadlineRelative(t.deadline_at) || t.countdown">Besok</span>
+            </div>
+            <div class="w-8 h-8 rounded-lg bg-slate-50 group-hover:bg-blue-50 flex items-center justify-center text-slate-400 group-hover:text-[#2563EB] transition-colors shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
 
@@ -130,20 +132,26 @@
   </div>
 </section>
 
-<!-- Halaman Detail Tugas Mahasiswa -->
+<!-- Halaman Detail Tugas Mahasiswa (2-Column Split Workspace Konsisten dengan KM & PJ) -->
 <section x-show="view === 'detail-tugas'" x-cloak class="w-full flex flex-col gap-4">
-  <!-- Navigasi Kembali -->
-  <div>
+  <!-- Navigasi Kembali ke Daftar Tugas -->
+  <div class="flex items-center justify-between gap-3">
     <button type="button" @click="go('tugas')"
-      class="inline-flex items-center gap-2 px-3.5 py-2 rounded-[10px] bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] transition shadow-2xs min-h-[44px] cursor-pointer">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+      class="min-h-[44px] h-[40px] px-4 rounded-[10px] bg-white border border-[#CBD5E1] text-[13px] font-semibold text-[#334155] hover:bg-slate-50 hover:text-[#0F172A] transition-colors shadow-sm inline-flex items-center gap-2 cursor-pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[#64748B]" aria-hidden="true">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
       <span>Kembali ke Daftar Tugas</span>
     </button>
+    <span class="text-[12px] text-[#64748B] hidden sm:inline" x-text="selectedClass || 'Kelas Anda'">-</span>
   </div>
 
   <!-- Loading State -->
-  <div x-show="detailTugas && detailTugas.memuat" class="w-full p-8 bg-white border border-[#E2E8F0] rounded-[16px] text-[13px] text-slate-400 text-center flex flex-col items-center justify-center gap-2 shadow-xs">
-    <span class="w-6 h-6 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin"></span>
+  <div x-show="detailTugas && detailTugas.memuat" class="w-full py-12 bg-white border border-[#D7DDE7] rounded-[16px] text-[13px] text-slate-500 text-center flex flex-col items-center justify-center gap-2 shadow-sm">
+    <svg class="animate-spin h-5 w-5 text-[#2563EB]" viewBox="0 0 24 24" fill="none">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+    </svg>
     <span>Memuat rincian tugas...</span>
   </div>
 
@@ -153,100 +161,135 @@
     Tugas ini sudah tidak terbit atau telah diarsipkan. Hubungi PJ mata kuliah atau KM kelas bila memerlukan informasi lebih lanjut.
   </div>
 
-  <!-- Konten Utama Detail Tugas -->
-  <div x-show="detailTugas && !detailTugas.memuat && !detailTugas.hilang && detailTugas.id"
-    class="w-full bg-white border border-[#E2E8F0] rounded-[16px] p-5 sm:p-7 shadow-xs flex flex-col gap-6 text-left">
+  <!-- Konten Utama Detail Tugas: 2-Column Split Workspace -->
+  <div x-show="detailTugas && !detailTugas.memuat && !detailTugas.hilang && detailTugas.id" class="w-full">
     
-    <!-- Header: Tag Matkul, Judul Tugas, Badges -->
-    <div class="flex flex-col gap-2.5">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="px-2.5 py-1 rounded-[8px] bg-[#EFF6FF] text-[#3965FB] text-[11px] font-bold uppercase tracking-wider" x-text="detailTugas.matkul || 'MATA KULIAH'"></span>
-        <template x-if="detailTugas.task_type">
-          <span class="px-2.5 py-1 rounded-[8px] bg-slate-100 text-slate-700 text-[11px] font-semibold" x-text="'Tugas ' + detailTugas.task_type"></span>
-        </template>
-        <div class="flex-1"></div>
-        <span class="px-2.5 py-1 rounded-[8px] text-[11px] font-bold tracking-tight whitespace-nowrap"
-          :class="detailTugas.urgency === 'mendesak' ? 'bg-red-50 text-red-700 border border-red-200' : (detailTugas.urgency === 'mendekati' ? 'bg-amber-50 text-amber-800 border border-amber-200' : (detailTugas.urgency === 'terlewat' ? 'bg-slate-100 text-slate-700 border border-slate-300' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'))"
-          x-text="detailTugas.countdown">Besok</span>
-      </div>
-
-      <h1 class="text-[22px] sm:text-[26px] font-bold text-[#1D1B3A] font-display leading-snug break-words [overflow-wrap:anywhere]" x-text="detailTugas.title || detailTugas.deskripsi">Judul Tugas</h1>
-    </div>
-
-    <!-- Hero Metadata Grid: Batas Waktu & Tempat Pengumpulan (Di ATAS Instruksi, Tidak Terkubur!) -->
-    <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4 p-4 sm:p-5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[14px]">
+    <!-- 2-Column Workspace (Flexbox Layout Samping Sesuai KM & PJ) -->
+    <div class="w-full flex flex-col lg:flex-row gap-5 sm:gap-6 items-start">
       
-      <!-- Box 1: Batas Waktu Pengumpulan -->
-      <div class="flex flex-col gap-2 justify-between">
-        <div class="flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase text-[#64748B]">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5 text-slate-400 shrink-0"><path d="M7.29053 6.88037l0-2.50537q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.55322q0 0.08887 0.03076 0.17432 0.03418 0.08203 0.10938 0.16064l2.07129 2.07129q0.08203 0.08203 0.19824 0.08887 0.11963 0.00342 0.21533-0.08887 0.09229-0.0957 0.09229-0.20849 0-0.11279-0.09229-0.20508l-2.04394-2.04053z m-0.28711 5.36963q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z"/></svg>
-          <span>Batas Waktu Pengumpulan</span>
-        </div>
-        <div>
-          <div class="text-[14px] sm:text-[15px] font-bold font-mono text-[#1D1B3A]" x-text="detailTugas.deadline">-</div>
-          <div class="text-[12px] text-slate-500 mt-0.5">Waktu Indonesia Barat (WIB)</div>
-        </div>
-      </div>
+      <!-- SISI KIRI: Reading Canvas (Header, Badges, Judul, Instruksi, Materi) -->
+      <div class="w-full lg:flex-1 min-w-0 space-y-5">
+        <div class="bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-5 sm:p-7 space-y-5">
+          
+          <!-- Baris Mata Kuliah & Badges Status (Inline SVG) -->
+          <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <!-- Mata Kuliah Pill -->
+            <span class="px-2.5 py-1 rounded-[8px] bg-[#EFF6FF] text-[#1D4ED8] text-[12px] font-bold uppercase tracking-wider" x-text="detailTugas.matkul || 'MATA KULIAH'">
+              Mata Kuliah
+            </span>
 
-      <!-- Box 2: Tempat & Metode Pengumpulan (dengan Tombol CTA!) -->
-      <div class="flex flex-col gap-2 justify-between border-t md:border-t-0 md:border-l border-[#E2E8F0] pt-3 md:pt-0 md:pl-5">
-        <div class="flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase text-[#64748B]">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5 text-slate-400 shrink-0"><path d="M4.12891 9.37891q-0.98779 0-1.68506-0.69385-0.69385-0.69727-0.69385-1.68506 0-0.98438 0.69385-1.68164 0.69727-0.69727 1.68506-0.69727l1.7705 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.77392 0q-0.73828 0-1.26465 0.52636-0.52637 0.52637-0.52637 1.26807 0 0.7417 0.52637 1.26807 0.52637 0.52637 1.26465 0.52636l1.77392 0q0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.7705 0z m1.12109-2.08838q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.2085-0.08545l3.5 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-3.5 0z"/></svg>
-          <span>Tempat Pengumpulan</span>
-        </div>
-        
-        <!-- Kondisi A: Ada URL Tautan Online (Tampilkan Tombol CTA Aktif!) -->
-        <template x-if="detailTugas.submission_url">
-          <div class="flex flex-col gap-1.5 items-start">
-            <span class="text-[13px] font-semibold text-[#1D1B3A]" x-text="detailTugas.submission_text || 'Tautan Pengumpulan Daring'"></span>
-            <a :href="detailTugas.submission_url" target="_blank" rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] sm:text-[13px] font-bold transition-colors shadow-xs cursor-pointer">
-              <span>Buka Tautan Pengumpulan</span>
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </a>
+            <!-- Jenis Tugas Pill -->
+            <template x-if="detailTugas.task_type">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-[8px] text-[11px] font-medium bg-[#F1F5F9] text-[#475569]" x-text="'Tugas ' + detailTugas.task_type">
+                Individu
+              </span>
+            </template>
+
+            <!-- Status Selesai jika tugas sudah diselesaikan -->
+            <template x-if="detailTugas.is_completed">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] text-[11px] font-semibold bg-[#DCFCE7] border border-[#BBF7D0] text-[#15803D]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Selesai</span>
+              </span>
+            </template>
           </div>
-        </template>
 
-        <!-- Kondisi B: Hanya Pengumpulan Fisik / Teks -->
-        <template x-if="!detailTugas.submission_url">
-          <div>
-            <div class="text-[13px] sm:text-[14px] font-bold text-[#1D1B3A]" x-text="detailTugas.submission_text || 'Langsung di Kelas / Meja Dosen'">-</div>
-            <div class="text-[12px] text-slate-500 mt-0.5">Pengumpulan fisik langsung</div>
-          </div>
-        </template>
-      </div>
+          <!-- Judul Tugas -->
+          <h1 class="text-[20px] sm:text-[24px] font-bold text-[#1D1B3A] tracking-tight leading-snug break-words [overflow-wrap:anywhere]" x-text="detailTugas.title || detailTugas.deskripsi">
+            Judul Tugas Kuliah
+          </h1>
 
-    </div>
+          <!-- Divider Halus -->
+          <div class="w-full h-[1px] bg-[#F1F5F9]"></div>
 
-    <!-- Kontainer Instruksi & Ketentuan Pengerjaan (Reading Canvas) -->
-    <div class="flex flex-col gap-2.5">
-      <h2 class="text-[15px] font-bold text-[#0F172A]">Instruksi &amp; Ketentuan Pengerjaan</h2>
-      <div class="w-full p-4 sm:p-6 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
-        <div class="text-[13px] sm:text-[14px] leading-relaxed text-[#334155] whitespace-pre-line break-words [overflow-wrap:anywhere]"
-          x-text="detailTugas.instructions || detailTugas.deskripsi || 'Tidak ada instruksi khusus tertulis untuk tugas ini.'"></div>
-      </div>
-    </div>
-
-    <!-- Materi Terkait (Jika Ada) -->
-    <div x-show="detailMateri && detailMateri.length > 0" class="flex flex-col gap-3 pt-2 border-t border-[#F1F5F9]">
-      <h2 class="text-[15px] font-bold text-[#0F172A]">Materi &amp; Berkas Terkait</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <template x-for="m in detailMateri" :key="m.id">
-          <div class="p-3.5 rounded-[12px] bg-white border border-[#E2E8F0] flex flex-col justify-between gap-2 shadow-2xs hover:border-[#3965FB] transition-colors">
-            <div>
-              <p class="text-[13px] font-bold text-[#1D1B3A]" x-text="m.title">-</p>
-              <p x-show="m.description" class="text-[12px] text-slate-500 mt-1 line-clamp-2" x-text="m.description">-</p>
+          <!-- Instruksi Pengerjaan (Reading Canvas Utama) -->
+          <div class="space-y-2.5">
+            <h2 class="text-[12px] font-bold text-[#64748B] uppercase tracking-wider">Instruksi &amp; Ketentuan Pengerjaan</h2>
+            <div class="p-4 sm:p-5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-[14px] leading-relaxed text-[#334155] whitespace-pre-line font-normal break-words [overflow-wrap:anywhere]"
+              x-text="detailTugas.instructions || detailTugas.deskripsi || 'Tidak ada instruksi khusus tertulis untuk tugas ini.'">
             </div>
-            <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#2563EB] hover:underline pt-2 border-t border-slate-100">
-              <span>Buka Berkas Materi</span>
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </a>
           </div>
-        </template>
-      </div>
-    </div>
 
+          <!-- Materi Terkait (Jika Ada) -->
+          <div x-show="detailMateri && detailMateri.length > 0" class="pt-4 border-t border-[#F1F5F9] space-y-3">
+            <h2 class="text-[12px] font-bold text-[#64748B] uppercase tracking-wider">Materi &amp; Berkas Terkait</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <template x-for="m in detailMateri" :key="m.id">
+                <div class="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col justify-between gap-2.5 shadow-2xs hover:border-[#3965FB] transition-colors">
+                  <div>
+                    <p class="text-[13px] font-bold text-[#1D1B3A]" x-text="m.title">-</p>
+                    <p x-show="m.description" class="text-[12px] text-slate-500 mt-1 line-clamp-2" x-text="m.description">-</p>
+                  </div>
+                  <a x-show="m.url" :href="m.url" target="_blank" rel="noopener noreferrer"
+                    class="min-h-[44px] inline-flex items-center gap-1.5 text-[12px] font-bold text-[#2563EB] hover:underline pt-2 border-t border-slate-200/80 cursor-pointer">
+                    <span>Buka Berkas Materi</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </a>
+                </div>
+              </template>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SISI KANAN: Command Center Mahasiswa (Tenggat, Tempat Pengumpulan CTA, & Bantuan) -->
+      <div class="w-full lg:w-[350px] lg:shrink-0 space-y-4 lg:sticky lg:top-6">
+        
+        <!-- Kartu 1: Informasi Tenggat & Pengumpulan -->
+        <div class="bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] p-4 sm:p-5 space-y-3.5">
+          <!-- Header Tenggat -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold text-[#64748B] uppercase tracking-wider">Tenggat Waktu</span>
+            <!-- Urgency Pill -->
+            <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
+              :class="urgencyStyle(detailTugas.deadline_at).bg + ' ' + urgencyStyle(detailTugas.deadline_at).text">
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(detailTugas.deadline_at).dot"></span>
+              <span x-text="deadlineRelative(detailTugas.deadline_at) || detailTugas.countdown">Besok</span>
+            </div>
+          </div>
+
+          <!-- Nilai Tenggat Lengkap (Monospace) -->
+          <div class="text-[15px] font-bold text-[#1D1B3A] font-mono" x-text="fmtDeadlineDetailed(detailTugas.deadline_at) || detailTugas.deadline">
+            -
+          </div>
+
+          <!-- Tempat Pengumpulan & Link CTA -->
+          <div class="pt-3 border-t border-[#F1F5F9] space-y-2">
+            <span class="text-[11px] font-bold text-[#64748B] uppercase tracking-wider block">Tempat Pengumpulan</span>
+            
+            <template x-if="detailTugas.submission_url">
+              <div class="space-y-2">
+                <p x-show="detailTugas.submission_text" class="text-[12px] font-medium text-[#475569]" x-text="detailTugas.submission_text"></p>
+                <a :href="detailTugas.submission_url" target="_blank" rel="noopener noreferrer"
+                  class="min-h-[44px] h-[40px] w-full px-3.5 rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
+                  <span class="truncate" x-text="detailTugas.submission_text || 'Buka Tautan Pengumpulan'">Buka Tautan Pengumpulan</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </template>
+            <template x-if="!detailTugas.submission_url">
+              <div class="p-3 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] text-[13px] font-semibold text-[#1D1B3A] flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-[#2563EB] shrink-0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span class="truncate" x-text="detailTugas.submission_text || 'Pengumpulan fisik di kelas / meja dosen'">Pengumpulan fisik</span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Kartu 2: Bantuan & Koordinasi -->
+        <div class="bg-[#F8FAFC] rounded-[16px] border border-[#E2E8F0] p-4 sm:p-5 space-y-2">
+          <h3 class="text-[12px] font-bold text-[#64748B] uppercase tracking-wider flex items-center gap-1.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-[#2563EB]"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Pertanyaan Tugas?</span>
+          </h3>
+          <p class="text-[12px] text-[#64748B] leading-relaxed">
+            Jika ada instruksi yang kurang jelas atau kendala teknis dalam pengumpulan, silakan koordinasikan dengan PJ mata kuliah atau Ketua Murid kelas Anda di grup WhatsApp.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
   </div>
 </section>
-

@@ -19,7 +19,7 @@
   AREA PJ (REVISI Figma). Pindah peran KM↔PJ via tautan di layar Akun kedua area.
   Isi per layar: web/partials/pj/*.html dimuat oleh initPJ() di js/app-pj.js.
 -->
-<body class="bg-white text-ink min-h-screen" x-data="pjApp()" x-init="initPJ()" @keydown.escape.window="shellCloseDrawer(); tutupModalLogout(); tutupModalProfilPJ(); tutupModalPengganti(); showDetailUsulanModal = false; showDetailSesiModal = false">
+<body class="bg-white text-ink min-h-screen" x-data="pjApp()" x-init="initPJ()" @keydown.escape.window="shellCloseDrawer(); tutupModalLogout(); tutupModalProfilPJ(); tutupModalPengganti(); tutupModalSelesai(); showDetailUsulanModal = false; showDetailSesiModal = false">
   <div id="app-shell"></div>
 </body>
 </html>
