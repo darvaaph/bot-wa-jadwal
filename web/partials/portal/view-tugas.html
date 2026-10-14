@@ -36,10 +36,10 @@
     </div>
   </div>
 
-  <!-- Kontainer Kartu Daftar Tugas -->
-  <div class="w-full bg-white border border-[#E2E8F0] rounded-[16px] p-4 sm:p-6 shadow-xs flex flex-col gap-4 mt-2">
+  <!-- Kontainer Kartu Daftar Tugas (Responsive: Flat on Mobile Canvas, Card Panel on Desktop) -->
+  <div class="w-full bg-transparent sm:bg-white border-0 sm:border border-[#E2E8F0] rounded-none sm:rounded-[16px] p-0 sm:p-6 shadow-none sm:shadow-xs flex flex-col gap-3 sm:gap-4 mt-2">
     <!-- Kepala Card: Judul & Urutan -->
-    <div class="w-full flex items-center justify-between pb-3 border-b border-[#F1F5F9] flex-wrap gap-2">
+    <div class="w-full flex items-center justify-between pb-1 sm:pb-3 border-b-0 sm:border-b border-[#F1F5F9] flex-wrap gap-2">
       <div class="flex items-center gap-2">
         <h2 class="text-[16px] sm:text-[18px] font-bold text-[#0F172A]">Daftar Tugas</h2>
         <span class="text-[12px] font-semibold text-slate-500 font-mono" x-text="'(' + tugasTabList.length + ')'">(0)</span>
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Empty State -->
-    <div x-show="!tugasLoading && !tugasError && tugasTabList.length === 0" class="py-12 px-4 text-center rounded-[12px] bg-[#F8FAFC] border border-dashed border-[#E2E8F0] flex flex-col items-center justify-center gap-2">
+    <div x-show="!tugasLoading && !tugasError && tugasTabList.length === 0" class="py-12 px-4 text-center rounded-[16px] bg-white sm:bg-[#F8FAFC] border border-dashed border-[#E2E8F0] flex flex-col items-center justify-center gap-2">
       <div class="w-12 h-12 rounded-full bg-blue-50 text-[#3965FB] flex items-center justify-center">
         <svg width="24" height="24" viewBox="0 0 14 14" fill="currentColor" class="w-6 h-6"><path d="M12.25 4.5l-6 6-3.5-3.5 1.06-1.06 2.44 2.44 4.94-4.94L12.25 4.5z"/></svg>
       </div>

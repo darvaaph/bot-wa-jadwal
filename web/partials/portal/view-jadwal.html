@@ -1,6 +1,5 @@
 <!-- partials/portal/view-jadwal.html — Portal Jadwal Mahasiswa (Redesain Figma Desktop & Mobile 390) -->
-<section x-show="view === 'jadwal'" x-cloak
-  class="w-full flex flex-col gap-[20px] px-4 pt-5 pb-32 md:p-[30px_32px_36px_32px]">
+<section x-show="view === 'jadwal'" x-cloak class="w-full flex flex-col gap-[20px]">
 
   <!-- Judul dan konteks jadwal -->
   <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[5px] justify-start items-start">
@@ -545,25 +544,23 @@
         <div class="w-full flex flex-col gap-[12px]">
           <template x-for="s in jadwalHari" :key="'mob-' + s.id">
             <div @click="bukaDetailSesi(s)"
-                 class="box-border w-full h-fit shrink-0 p-4 rounded-[12px] border transition-all cursor-pointer shadow-2xs flex flex-col gap-2"
+                 class="w-full text-left p-4 bg-white hover:bg-[#F8FAFC] border rounded-[16px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all flex flex-col gap-2.5 cursor-pointer"
                  :class="isSesiOngoing(s)
-                         ? 'bg-[#F0FDF4] border border-[#86EFAC] ring-2 ring-[#22C55E]/20'
-                         : (s.kind === 'PENGGANTI'
-                            ? 'bg-[#FFFBEB] border border-[#FDE68A]'
-                            : (s.activityType === 'PRACTICE'
-                               ? 'bg-[#FAF5FF] border border-[#DDD6FE]'
-                               : 'bg-[#F0F7FF] border border-[#BFDBFE]'))">
+                         ? 'border-[#86EFAC] ring-2 ring-[#22C55E]/20 bg-[#F0FDF4]'
+                         : (portalSesiType(s) === 'PENGGANTI'
+                            ? 'border-[#FDE68A] bg-[#FFFBEB]'
+                            : 'border-[#E2E8F0]')">
               <!-- Waktu dan jenis sesi -->
               <div class="flex items-center justify-between gap-2 w-full flex-wrap">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[11px] font-bold"
+                  <span class="font-mono text-[12px] font-bold"
                         :class="isSesiOngoing(s)
                                 ? 'text-[#15803D]'
-                                : (s.kind === 'PENGGANTI'
+                                : (portalSesiType(s) === 'PENGGANTI'
                                    ? 'text-[#92400E]'
-                                   : (s.activityType === 'PRACTICE' ? 'text-[#6D28D9]' : 'text-[#1D4ED8]'))"
-                        x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">
-                    08:40 - 10:20 WIB
+                                   : 'text-[#2563EB]')"
+                        x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
+                    08:40 – 10:20 WIB
                   </span>
                   <template x-if="isSesiOngoing(s)">
                     <span class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
@@ -571,34 +568,34 @@
                     </span>
                   </template>
                 </div>
-                <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px] border"
+                <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-[6px] border"
                       :class="portalSesiBadgeClass(s)"
-                      x-text="portalSesiType(s) === 'PENGGANTI' ? 'PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI HYBRID' : portalSesiType(s))">
+                      x-text="portalSesiType(s) === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI · HYBRID' : portalSesiType(s))">
                   TEORI
                 </span>
               </div>
 
               <!-- Nama Mata Kuliah -->
-              <h3 class="text-[14px] font-bold leading-snug"
-                  :class="isSesiOngoing(s)
-                          ? 'text-[#14532D]'
-                          : (s.kind === 'PENGGANTI'
-                             ? 'text-[#78350F]'
-                             : (s.activityType === 'PRACTICE' ? 'text-[#4C1D95]' : 'text-[#0F172A]'))"
+              <h3 class="text-[15px] font-bold text-[#0F172A] leading-snug"
                   x-text="cleanMatkul(s.matkul)">
                 Mata Kuliah
               </h3>
 
               <!-- Detail lokasi dan dosen -->
-              <div class="flex flex-col gap-1 text-[11px] pt-1.5 border-t"
-                   :class="isSesiOngoing(s)
-                           ? 'border-[#BBF7D0]'
-                           : (s.kind === 'PENGGANTI'
-                              ? 'border-[#FDE68A] text-[#92400E]'
-                              : (s.activityType === 'PRACTICE' ? 'border-[#E9D5FF] text-[#6D28D9]' : 'border-[#DBEAFE] text-[#334155]'))">
-                <p x-text="'Ruang: ' + cleanRuang(s.ruang)"></p>
-                <p x-show="s.dosen" x-text="'Dosen: ' + s.dosen"></p>
-                <p x-show="s.kind === 'PENGGANTI'" class="italic text-[#B45309]" x-text="fmtAsalPengganti(s.originDate, s.reason)"></p>
+              <div class="flex flex-col gap-1.5 text-[12px] text-[#64748B] pt-2 border-t border-slate-100">
+                <div class="flex items-center gap-1.5 font-medium">
+                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                    <path d="M7 1.75a3.5 3.5 0 0 0-3.5 3.5c0 2.625 3.5 7 3.5 7s3.5-4.375 3.5-7a3.5 3.5 0 0 0-3.5-3.5zm0 4.667a1.167 1.167 0 1 1 0-2.334 1.167 1.167 0 0 1 0 2.334z"/>
+                  </svg>
+                  <span x-text="'Ruang: ' + cleanRuang(s.ruang)"></span>
+                </div>
+                <div x-show="s.dosen" class="flex items-center gap-1.5 text-slate-500">
+                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                    <path d="M7 7a2.625 2.625 0 1 0 0-5.25A2.625 2.625 0 0 0 7 7zm0 1.167c-2.333 0-5.25 1.166-5.25 3.5v.583h10.5v-.583c0-2.334-2.917-3.5-5.25-3.5z"/>
+                  </svg>
+                  <span class="truncate" x-text="'Dosen: ' + s.dosen"></span>
+                </div>
+                <p x-show="portalSesiType(s) === 'PENGGANTI'" class="italic text-[#B45309] text-[11px]" x-text="fmtAsalPengganti(s.originDate, s.reason)"></p>
               </div>
 
               <!-- Tombol Gabung Zoom jika ada link -->
@@ -704,9 +701,9 @@
           <template x-for="s in (jadwalPekan[d] || [])" :key="'mob-all-' + s.id">
             <div @click="bukaDetailSesi(s)"
               :class="isSesiOngoing(s, d)
-                      ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                      : (portalSesiType(s) === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
-              class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px_12px] justify-start items-start [outline-offset:-0.5px] rounded-[12px] active:bg-slate-50 transition-colors cursor-pointer">
+                      ? 'border-[#86EFAC] ring-2 ring-[#22C55E]/20 bg-[#F0FDF4]'
+                      : (portalSesiType(s) === 'PENGGANTI' ? 'border-[#FDE68A] bg-[#FFFBEB]' : 'border-[#E2E8F0] bg-white')"
+              class="w-full text-left p-3.5 bg-white hover:bg-[#F8FAFC] border rounded-[14px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all flex flex-col gap-2 cursor-pointer">
               <!-- Waktu dan jenis -->
               <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
                 <div class="flex items-center gap-1.5">
