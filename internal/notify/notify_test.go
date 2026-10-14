@@ -142,13 +142,34 @@ func TestNotify_Schedulers(t *testing.T) {
 	}
 	// 17:00 WIB = 10:00 UTC.
 	afternoon := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
+	// Tanpa tugas aktif, pengingat sore harus senyap (Opsi B: n == 0).
 	n, err = svc.EnsureTaskReminders(ctx, afternoon)
-	if err != nil || n != 1 {
-		t.Fatalf("tasks: n=%d err=%v", n, err)
+	if err != nil || n != 0 {
+		t.Fatalf("tasks tanpa tugas harus senyap: n=%d err=%v", n, err)
 	}
 	text, err := svc.BuildDailyText(ctx, 1, "2026-10-06", "")
 	if err != nil || text == "" {
 		t.Fatalf("build daily: %v", err)
+	}
+
+	// Masukkan 1 tugas aktif untuk menguji pengingat saat ada tugas.
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO users (id, identity_key, display_name, password_hash) VALUES (1, '+6281111111111', 'User 1', 'hash')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (1, 1, 1, 'TEORI', 'Pemrograman (Teori)')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO tasks (course_offering_id, title, instructions, submission_text, deadline_at, publication_status, published_at, created_by_user_id) VALUES (1, 'Tugas 1', 'Kerjakan soal 1-5', 'Kirim via email', '2026-10-10T23:59:00Z', 'PUBLISHED', '2026-10-06T08:00:00Z', 1)`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Dengan tugas aktif, pengingat sore mengantrekan 1 pesan.
+	n, err = svc.EnsureTaskReminders(ctx, afternoon)
+	if err != nil || n != 1 {
+		t.Fatalf("tasks dengan tugas aktif: n=%d err=%v", n, err)
 	}
 	taskText, err := svc.BuildTaskText(ctx, 1, "")
 	if err != nil || taskText == "" {

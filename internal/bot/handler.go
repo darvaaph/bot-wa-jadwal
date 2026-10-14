@@ -39,11 +39,10 @@ var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", 
 // kanalReplyText menyusun teks balasan JID chat untuk perintah !kanal.
 // Fungsi murni agar isi balasan dapat diuji tanpa klien WhatsApp.
 func kanalReplyText(chatJID string, isGroup bool) string {
-	kind := "pribadi"
 	if isGroup {
-		kind = "grup"
+		return fmt.Sprintf("📡 *ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) ➔ menu *Pengaturan Kelas*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
 	}
-	return fmt.Sprintf("📡 *JID CHAT INI*\n──────────\nChat %s ini: `%s`\n\nSalin JID di atas ke form _Tautkan Kanal_ di dashboard System Admin untuk menautkan ke kelas.", kind, chatJID)
+	return fmt.Sprintf("📡 *ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2024-A`).", chatJID)
 }
 
 func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {

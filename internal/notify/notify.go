@@ -213,7 +213,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string)
 		fmt.Fprintf(&sb, "\n%d. *%s* | %s\n   Deadline: %s (%s)", i, course, title, deadline, status)
 	}
 	if i == 0 {
-		sb.WriteString("\nTidak ada tugas aktif.")
+		return "", nil
 	}
 	if link != "" {
 		fmt.Fprintf(&sb, "\n\nLihat detail:\n%s", link)
@@ -310,7 +310,7 @@ func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, 
 		date := local.Format("2006-01-02")
 		chID, _, _ := s.ChannelForClass(ctx, classID)
 		text, err := s.BuildTaskText(ctx, classID, "")
-		if err != nil {
+		if err != nil || text == "" {
 			continue
 		}
 		sched := now.UTC()
