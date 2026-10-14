@@ -19,6 +19,8 @@ function loginApp() {
     fieldError: '',
     ruangKerja: [],
     toast: { show: false, message: '', timer: null },
+    currentTheme: 'light',
+    isDarkMode: false,
 
     get roleLabel() {
       return { km: 'Ketua Murid', pj: 'PJ Mata Kuliah', sa: 'System Admin' }[this.role] || 'Pengurus';
@@ -29,6 +31,7 @@ function loginApp() {
     },
 
     initLogin() {
+      this.initTheme();
       try {
         const params = new URLSearchParams(window.location.search);
         const r = (params.get('role') || 'km').toLowerCase();
@@ -37,6 +40,26 @@ function loginApp() {
         if (this.recoveryToken && (params.get('mode') === 'recovery' || params.has('recovery_token') || params.has('token'))) this.mode = 'reset';
       } catch (e) { /* default km */ }
       this.ready = true;
+    },
+
+    initTheme() {
+      document.documentElement.classList.remove('dark');
+      this.currentTheme = 'light';
+      this.isDarkMode = false;
+    },
+
+    applyTheme(theme, animate = false) {
+      this.currentTheme = 'light';
+      this.isDarkMode = false;
+      document.documentElement.classList.remove('dark');
+    },
+
+    cycleTheme() {
+      this.applyTheme('light', false);
+    },
+
+    themeLabel() {
+      return 'Terang';
     },
 
     normalizedIdentity() {

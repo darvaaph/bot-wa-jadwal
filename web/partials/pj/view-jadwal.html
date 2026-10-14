@@ -94,15 +94,15 @@
       <!-- Legenda Jenis Sesi -->
       <div class="flex items-center gap-4 text-[12px] text-[#667085] font-medium flex-wrap">
         <div class="flex items-center gap-1.5">
-          <span class="w-1 h-3.5 bg-[#3965FB] rounded-xs inline-block"></span>
+          <span class="w-2 h-2 bg-[#3965FB] rounded-full inline-block"></span>
           <span>Teori</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="w-1 h-3.5 bg-[#7C3AED] rounded-xs inline-block"></span>
+          <span class="w-2 h-2 bg-[#7C3AED] rounded-full inline-block"></span>
           <span>Praktikum</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="w-1 h-3.5 bg-[#F59E0B] rounded-xs inline-block"></span>
+          <span class="w-2 h-2 bg-[#F59E0B] rounded-full inline-block"></span>
           <span>Kuliah Pengganti</span>
         </div>
       </div>
@@ -303,32 +303,46 @@
                     </div>
                   </template>
 
-                  <!-- Sesi Reguler -->
+                  <!-- Sesi Reguler (Soft-Tint Blocks) -->
                   <template x-if="!item.session.isDraft">
                     <div
                       @click="bukaDetailSesi(item.session, weekDays.find(d => d.name === activeMobileDay))"
-                      class="p-4 rounded-2xl border transition text-left cursor-pointer shadow-xs space-y-2"
+                      class="p-4 rounded-2xl border transition text-left cursor-pointer shadow-2xs space-y-2"
                       :class="isSesiOngoing(item.session)
-                        ? 'bg-[#F0FDF4] border-2 border-[#22C55E] ring-2 ring-[#22C55E]/30'
+                        ? 'bg-[#F0FDF4] border border-[#86EFAC] ring-2 ring-[#22C55E]/20'
                         : (isMatkulSaya(item.session)
-                          ? 'bg-[#EFF6FF] border-2 border-[#2563EB] shadow-xs'
+                          ? 'bg-[#EFF6FF] border-2 border-[#3B82F6]'
                           : (item.session.eventKind === 'REPLACEMENT'
                             ? 'bg-[#FFFBEB] border border-[#FDE68A]'
-                            : 'bg-white border-slate-200 hover:border-slate-300'))"
+                            : (sesiType(item.session) === 'Praktikum'
+                              ? 'bg-[#FAF5FF] border border-[#DDD6FE]'
+                              : 'bg-[#F0F7FF] border border-[#BFDBFE]')))"
                     >
                       <!-- Baris Waktu & Badge -->
                       <div class="flex items-center justify-between gap-2 flex-wrap">
                         <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md"
-                            :class="isSesiOngoing(item.session) ? 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
-                            x-text="(item.session.timeStart || '') + ' – ' + (item.session.timeEnd || '') + ' WIB'"></span>
-                          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md" :class="sesiTypeBadgeClass(item.session)" x-text="sesiType(item.session)">-</span>
+                          <span class="font-mono text-[11px] font-bold"
+                            :class="isSesiOngoing(item.session)
+                              ? 'text-[#15803D]'
+                              : (isMatkulSaya(item.session)
+                                ? 'text-[#1D4ED8]'
+                                : (item.session.eventKind === 'REPLACEMENT'
+                                  ? 'text-[#92400E]'
+                                  : (sesiType(item.session) === 'Praktikum' ? 'text-[#6D28D9]' : 'text-[#1D4ED8]')))"
+                            x-text="(item.session.timeStart || '') + ' - ' + (item.session.timeEnd || '') + ' WIB'"></span>
+                          <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]"
+                            :class="item.session.eventKind === 'REPLACEMENT'
+                              ? 'bg-[#FEF3C7] text-[#92400E]'
+                              : (sesiType(item.session) === 'Praktikum'
+                                ? 'bg-[#EDE9FE] text-[#5B21B6]'
+                                : 'bg-[#DBEAFE] text-[#1E40AF]')"
+                            x-text="sesiType(item.session)">-</span>
                         </div>
                         <div class="flex items-center gap-1">
-                          <span x-show="isSesiOngoing(item.session)" class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 border border-[#BBF7D0]">
-                            <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                          <span x-show="isSesiOngoing(item.session)" class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
+                            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
                           </span>
-                          <span x-show="isMatkulSaya(item.session)" class="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span x-show="isMatkulSaya(item.session)" class="bg-[#2563EB] text-white text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-[4px]">
                             Mata Kuliah Anda
                           </span>
                         </div>
@@ -336,20 +350,29 @@
 
                       <!-- Judul & Lokasi -->
                       <div>
-                        <h3 class="text-[14px] font-bold text-slate-900 leading-snug" x-text="item.session.matkul">-</h3>
-                        <p class="text-[12px] text-slate-600 mt-0.5">
-                          <span class="font-semibold text-slate-800" x-text="item.session.ruang ? 'Ruang ' + item.session.ruang : 'Tanpa ruangan'"></span>
+                        <h3 class="text-[14px] font-bold leading-snug"
+                          :class="isSesiOngoing(item.session)
+                            ? 'text-[#14532D]'
+                            : (isMatkulSaya(item.session)
+                              ? 'text-[#1E3A8A]'
+                              : (item.session.eventKind === 'REPLACEMENT'
+                                ? 'text-[#78350F]'
+                                : (sesiType(item.session) === 'Praktikum' ? 'text-[#4C1D95]' : 'text-[#0F172A]')))"
+                          x-text="cleanMatkul(item.session.matkul)">-</h3>
+                        <p class="text-[12px] mt-0.5"
+                          :class="isSesiOngoing(item.session) ? 'text-[#166534]' : (item.session.eventKind === 'REPLACEMENT' ? 'text-[#92400E]' : 'text-[#64748B]')">
+                          <span class="font-medium" x-text="cleanRuang(item.session.ruang)"></span>
                           <span x-show="item.session.dosen" x-text="' · Dosen: ' + item.session.dosen"></span>
                         </p>
                       </div>
 
                       <!-- Tombol Aksi jika Matkul Saya -->
-                      <div x-show="isMatkulSaya(item.session)" class="pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <span class="text-[11px] text-slate-500">Sentuh untuk lihat detail</span>
+                      <div x-show="isMatkulSaya(item.session)" class="pt-2 border-t border-blue-200/60 flex items-center justify-between">
+                        <span class="text-[11px] text-[#2563EB] font-medium">Sentuh untuk lihat detail</span>
                         <button
                           type="button"
                           @click.stop="bukaModalPengganti({ session: item.session, day: weekDays.find(d => d.name === activeMobileDay) })"
-                          class="h-9 px-3 rounded-lg bg-blue-50 text-[#1D4ED8] hover:bg-blue-100 text-[11px] font-bold flex items-center gap-1 min-h-[44px] cursor-pointer"
+                          class="h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center gap-1 min-h-[44px] cursor-pointer shadow-2xs"
                         >
                           <span>Ajukan Pengganti</span>
                           <span>&rarr;</span>
@@ -369,31 +392,44 @@
         <div class="grid gap-3"
           :class="hasSaturdaySessions() ? 'min-w-[1020px] grid-cols-6' : 'min-w-[850px] grid-cols-5'">
           <template x-for="d in weekDays" :key="'col-' + d.name">
-            <div class="flex flex-col min-w-0">
-              <!-- Header Hari -->
-              <div class="p-3 rounded-t-[12px] flex items-center justify-between"
-                :class="isToday(d.name) ? 'bg-[#3965FB] text-white shadow-2xs' : 'bg-white border border-[#E2E8F0]'">
-                <div class="flex flex-col">
-                  <span class="text-[13px] font-bold" :class="isToday(d.name) ? 'text-white' : 'text-[#1D1B3A]'" x-text="d.name">-</span>
-                  <span class="text-[11px]" :class="isToday(d.name) ? 'text-[#DBEAFE]' : 'text-[#667085]'" x-text="d.dateNum + ' ' + d.full.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' })">-</span>
+            <!-- Column Container: Single cohesive track, no split header/body box -->
+            <div class="box-border flex flex-col min-w-0 h-full rounded-[14px] p-2.5 transition-all"
+                 :class="isToday(d.name) && weekOffset === 0
+                         ? 'bg-[#EFF6FF]/60 ring-1 ring-[#3965FB]/30'
+                         : 'bg-[#F8FAFC] border border-[#E2E8F0]/80'">
+              <!-- Header Hari: Integrated, clean typography with subtle bottom divider -->
+              <div class="box-border w-full pb-2.5 px-0.5 flex justify-between items-center border-b transition-colors"
+                   :class="isToday(d.name) && weekOffset === 0 ? 'border-[#BFDBFE]' : 'border-[#E2E8F0]'">
+                <div class="box-border flex flex-col gap-0.5">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[13px] font-bold leading-tight"
+                          :class="isToday(d.name) && weekOffset === 0 ? 'text-[#1D4ED8]' : 'text-[#0F172A]'"
+                          x-text="d.name">-</span>
+                    <template x-if="isToday(d.name) && weekOffset === 0">
+                      <span class="px-1.5 py-0.5 bg-[#3965FB] text-white text-[9px] font-extrabold uppercase rounded-[4px] tracking-wide leading-none">
+                        HARI INI
+                      </span>
+                    </template>
+                  </div>
+                  <div class="text-[11px] font-normal leading-tight"
+                       :class="isToday(d.name) && weekOffset === 0 ? 'text-[#2563EB] font-medium' : 'text-[#64748B]'"
+                       x-text="d.dateNum + ' ' + d.full.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' })">-</div>
                 </div>
-                <template x-if="isToday(d.name)">
-                  <span class="px-1.5 py-0.5 rounded-[5px] bg-white text-[#3965FB] text-[9px] font-extrabold tracking-wide uppercase">Hari Ini</span>
-                </template>
-                <template x-if="!isToday(d.name)">
-                  <span class="text-[11px]"
-                    :class="dayHasDraft(d.name) ? 'text-[#92400E] font-semibold' : 'text-[#98A2B3] font-medium'"
-                    x-text="daySessionCountLabel(d.name)">-</span>
-                </template>
+                <span class="text-[11px] font-medium"
+                      :class="isToday(d.name) && weekOffset === 0 ? 'text-[#2563EB]' : 'text-[#94A3B8]'"
+                      x-text="daySessionCountLabel(d.name)">-</span>
               </div>
 
               <!-- Kontainer Sesi Perkuliahan -->
-              <div class="p-2.5 flex-1 flex flex-col gap-2.5 bg-[#F8FAFC] border-x border-b rounded-b-[12px] min-h-[440px]"
-                :class="isToday(d.name) ? 'border-[#BFDBFE]' : 'border-[#E2E8F0]'">
+              <div class="box-border w-full flex-1 flex flex-col gap-2 pt-2.5 min-h-[440px]">
                 <!-- Jika Hari Kosong -->
                 <template x-if="daySessionsFiltered(d.name).length === 0">
-                  <div class="p-4 rounded-[9px] border border-dashed border-[#CBD5E1] bg-white text-center text-[12px] text-[#94A3B8]">
-                    <span x-text="schedFilter === 'mine' ? 'Tidak ada kuliah Anda' : 'Tidak ada perkuliahan'"></span>
+                  <div class="my-auto py-10 w-full text-center flex flex-col items-center justify-center text-slate-400">
+                    <svg viewBox="0 0 14 14" class="w-6 h-6 text-slate-300 mb-1.5 fill-current" aria-hidden="true">
+                      <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z"/>
+                    </svg>
+                    <span class="text-[12px] font-medium text-slate-600" x-text="schedFilter === 'mine' ? 'Tidak ada kuliah Anda' : 'Hari Bebas Kuliah'"></span>
+                    <span class="text-[10px] text-slate-400 mt-0.5" x-show="schedFilter !== 'mine'">Tidak ada sesi terjadwal</span>
                   </div>
                 </template>
 
@@ -402,7 +438,7 @@
                   <div>
                     <!-- INDIKATOR JAM KOSONG (FREE SLOT) DI DESKTOP GRID -->
                     <template x-if="item.isGap">
-                      <div class="p-2 rounded-lg bg-emerald-50/80 border border-dashed border-emerald-300 text-center flex flex-col items-center gap-1 my-1">
+                      <div class="p-2.5 rounded-[10px] bg-emerald-50/70 border border-dashed border-emerald-300 text-center flex flex-col items-center gap-1 my-1">
                         <div class="flex items-center gap-1 text-[10px] font-semibold text-emerald-800">
                           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                           <span>Jam Kosong: <strong x-text="item.startTime + ' - ' + item.endTime"></strong></span>
@@ -424,97 +460,159 @@
                         <!-- Draf Pengganti (Garis Putus-Putus Amber - SCR-PJ-SCHED-002) -->
                         <template x-if="item.session.isDraft">
                           <div data-pencil-name="Slot Draf Pengganti Basis Data"
-                            class="p-3 rounded-[12px] flex flex-col gap-2 bg-[#FFFBEB] border-2 border-dashed border-[#FBBF24] relative shadow-2xs text-left transition hover:shadow-sm">
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-[4px] bg-[#FEF3C7] text-[#92400E]">
+                            class="p-3 rounded-[10px] flex flex-col gap-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border-2 border-dashed border-[#FBBF24] relative shadow-2xs text-left transition">
+                            <div class="flex items-center justify-between gap-1">
+                              <span class="font-mono text-[11px] font-bold text-[#78350F]" x-text="item.session.jam + ' WIB'">-</span>
+                              <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px] bg-[#FEF3C7] text-[#92400E]">
                                 Draf Pengganti
                               </span>
                             </div>
-                            <div class="font-mono text-[12px] font-semibold text-[#78350F]" x-text="item.session.jam + ' WIB'">-</div>
-                            <h3 class="text-[12px] font-bold text-[#0F172A] leading-snug line-clamp-2" x-text="item.session.matkul">-</h3>
+                            <h3 class="text-[13px] font-bold text-[#0F172A] leading-snug line-clamp-2 mt-0.5" x-text="cleanMatkul(item.session.matkul)">-</h3>
                             <p class="text-[11px] text-[#92400E] italic line-clamp-1"
-                              x-text="(item.session.ruang ? 'Ruang ' + item.session.ruang : 'Ruangan Belum Terpilih') + ' (Menunggu KM)'">-</p>
-                            <div class="mt-1 flex items-center justify-between gap-1 flex-wrap pt-1 border-t border-amber-200/60">
+                              x-text="(item.session.ruang ? cleanRuang(item.session.ruang) : 'Ruangan Belum Terpilih') + ' (Menunggu KM)'">-</p>
+                            <div class="mt-1 flex items-center justify-between gap-1 flex-wrap pt-1.5 border-t border-amber-200/60">
                               <button type="button" @click="bukaDetailUsulan(item.session.rawEvent || item.session)"
                                 class="text-[11px] font-semibold text-[#B45309] hover:underline flex items-center gap-0.5 shrink-0">
                                 <span>Lihat Detail</span>
-                                <span>→</span>
+                                <span>&rarr;</span>
                               </button>
                               <button type="button" @click="batalkanUsulan(item.session.rawEvent || item.session)"
                                 class="text-[11px] font-semibold text-[#BE123C] hover:underline shrink-0">
-                              Batalkan
-                            </button>
+                                Batalkan
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </template>
+                        </template>
 
-                      <!-- Sesi Reguler / Sesi Terbit -->
-                      <template x-if="!item.session.isDraft">
-                        <div @click="bukaDetailSesi(item.session, d)"
-                          class="p-2.5 rounded-[9px] flex flex-col gap-1.5 transition text-left relative cursor-pointer hover:shadow-md"
-                          :class="isSesiOngoing(item.session)
-                            ? 'bg-[#F0FDF4] border-2 border-[#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                            : (isMatkulSaya(item.session)
-                              ? 'bg-[#EFF6FF] border-2 border-[#3B82F6] shadow-2xs'
-                              : (item.session.eventKind === 'REPLACEMENT'
-                                ? 'bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs'
-                                : 'bg-white border border-[#E2E8F0] hover:border-slate-300 shadow-2xs'))">
-                          
-                          <!-- Baris Atas: Jam & Jenis -->
-                          <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-[6px]"
-                              :class="isSesiOngoing(item.session) ? 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]' : 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]'"
-                              x-text="(item.session.timeStart || '') + ' – ' + (item.session.timeEnd || '')">-</span>
-                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-[6px]"
-                              :class="sesiTypeBadgeClass(item.session)" x-text="sesiType(item.session)">-</span>
-
-                            <!-- Live Badge if Ongoing -->
-                            <template x-if="isSesiOngoing(item.session)">
-                              <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
-                              </span>
-                            </template>
+                        <!-- Sesi Reguler / Sesi Terbit (Soft-Tint Blocks) -->
+                        <template x-if="!item.session.isDraft">
+                          <div @click="bukaDetailSesi(item.session, d)"
+                            class="p-3 rounded-[10px] flex flex-col gap-1.5 transition text-left relative cursor-pointer hover:shadow-xs"
+                            :class="isSesiOngoing(item.session)
+                              ? 'bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#86EFAC] ring-2 ring-[#22C55E]/20'
+                              : (isMatkulSaya(item.session)
+                                ? 'bg-[#EFF6FF] hover:bg-[#DBEAFE] border-2 border-[#3B82F6]'
+                                : (item.session.eventKind === 'REPLACEMENT'
+                                  ? 'bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FDE68A]'
+                                  : (sesiType(item.session) === 'Praktikum'
+                                    ? 'bg-[#FAF5FF] hover:bg-[#F3E8FF] border border-[#DDD6FE]'
+                                    : 'bg-[#F0F7FF] hover:bg-[#E0F2FE] border border-[#BFDBFE]')))">
                             
+                            <!-- Baris Atas: Jam & Jenis (No nested pill boxes) -->
+                            <div class="flex items-center justify-between gap-1 w-full flex-wrap">
+                              <span class="font-mono text-[11px] font-bold leading-none tracking-tight"
+                                :class="isSesiOngoing(item.session)
+                                  ? 'text-[#15803D]'
+                                  : (isMatkulSaya(item.session)
+                                    ? 'text-[#1D4ED8]'
+                                    : (item.session.eventKind === 'REPLACEMENT'
+                                      ? 'text-[#92400E]'
+                                      : (sesiType(item.session) === 'Praktikum' ? 'text-[#6D28D9]' : 'text-[#1D4ED8]')))"
+                                x-text="(item.session.timeStart || '') + ' - ' + (item.session.timeEnd || '')">08:40 - 10:20</span>
+
+                              <div class="flex items-center gap-1">
+                                <!-- Live Badge if Ongoing -->
+                                <template x-if="isSesiOngoing(item.session)">
+                                  <span class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
+                                  </span>
+                                </template>
+
+                                <!-- Tag Badge -->
+                                <template x-if="!isSesiOngoing(item.session)">
+                                  <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]"
+                                    :class="item.session.eventKind === 'REPLACEMENT'
+                                      ? 'bg-[#FEF3C7] text-[#92400E]'
+                                      : (sesiType(item.session) === 'Praktikum'
+                                        ? 'bg-[#EDE9FE] text-[#5B21B6]'
+                                        : 'bg-[#DBEAFE] text-[#1E40AF]')"
+                                    x-text="sesiType(item.session)">-</span>
+                                </template>
+                              </div>
+                            </div>
+
                             <!-- Badge Khusus Mata Kuliah Anda -->
                             <template x-if="isMatkulSaya(item.session)">
-                              <span class="bg-[#2563EB] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-[4px]">
-                                Mata Kuliah Anda
-                              </span>
+                              <div class="w-fit">
+                                <span class="bg-[#2563EB] text-white text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-[4px]">
+                                  Mata Kuliah Anda
+                                </span>
+                              </div>
+                            </template>
+
+                            <!-- Judul Mata Kuliah -->
+                            <h3 class="text-[13px]/[17px] font-bold leading-snug line-clamp-2 mt-0.5"
+                              :class="isSesiOngoing(item.session)
+                                ? 'text-[#14532D]'
+                                : (isMatkulSaya(item.session)
+                                  ? 'text-[#1E3A8A]'
+                                  : (item.session.eventKind === 'REPLACEMENT'
+                                    ? 'text-[#78350F]'
+                                    : (sesiType(item.session) === 'Praktikum' ? 'text-[#4C1D95]' : 'text-[#0F172A]')))"
+                              x-text="cleanMatkul(item.session.matkul)">-</h3>
+
+                            <!-- Ruangan & Dosen -->
+                            <div class="flex flex-col gap-[3px] w-full text-[11px]/[15px] pt-1.5 border-t"
+                              :class="isSesiOngoing(item.session)
+                                ? 'border-[#BBF7D0]'
+                                : (isMatkulSaya(item.session)
+                                  ? 'border-[#BFDBFE]'
+                                  : (item.session.eventKind === 'REPLACEMENT'
+                                    ? 'border-[#FDE68A]'
+                                    : (sesiType(item.session) === 'Praktikum' ? 'border-[#E9D5FF]' : 'border-[#DBEAFE]')))">
+                              <!-- Ruangan -->
+                              <div class="flex items-center gap-1.5 text-left truncate font-medium"
+                                :class="isSesiOngoing(item.session)
+                                  ? 'text-[#166534]'
+                                  : (isMatkulSaya(item.session)
+                                    ? 'text-[#1E40AF]'
+                                    : (item.session.eventKind === 'REPLACEMENT'
+                                      ? 'text-[#92400E]'
+                                      : (sesiType(item.session) === 'Praktikum' ? 'text-[#6D28D9]' : 'text-[#334155]')))">
+                                <svg viewBox="0 0 14 14" class="w-[12px] h-[12px] shrink-0 fill-current opacity-70" aria-hidden="true">
+                                  <path d="M7 1.75a3.5 3.5 0 0 0-3.5 3.5c0 2.625 3.5 7 3.5 7s3.5-4.375 3.5-7a3.5 3.5 0 0 0-3.5-3.5zm0 4.667a1.167 1.167 0 1 1 0-2.334 1.167 1.167 0 0 1 0 2.334z"/>
+                                </svg>
+                                <span class="truncate" x-text="cleanRuang(item.session.ruang)" :title="cleanRuang(item.session.ruang)"></span>
+                              </div>
+
+                              <!-- Dosen Pengampu -->
+                              <template x-if="item.session.dosen">
+                                <div class="flex items-center gap-1.5 text-left truncate font-normal"
+                                  :class="isSesiOngoing(item.session)
+                                    ? 'text-[#15803D]'
+                                    : (isMatkulSaya(item.session)
+                                      ? 'text-[#2563EB]'
+                                      : (item.session.eventKind === 'REPLACEMENT'
+                                        ? 'text-[#B45309]'
+                                        : (sesiType(item.session) === 'Praktikum' ? 'text-[#7C3AED]' : 'text-[#64748B]')))">
+                                  <svg viewBox="0 0 14 14" class="w-[12px] h-[12px] shrink-0 fill-current opacity-70" aria-hidden="true">
+                                    <path d="M7 7a2.625 2.625 0 1 0 0-5.25A2.625 2.625 0 0 0 7 7zm0 1.167c-2.333 0-5.25 1.166-5.25 3.5v.583h10.5v-.583c0-2.334-2.917-3.5-5.25-3.5z"/>
+                                  </svg>
+                                  <span class="truncate" x-text="item.session.dosen" :title="item.session.dosen"></span>
+                                </div>
+                              </template>
+                            </div>
+
+                            <!-- Catatan Asal Kuliah Pengganti -->
+                            <template x-if="item.session.eventKind === 'REPLACEMENT'">
+                              <p class="text-[10px] italic text-[#B45309] truncate"
+                                x-text="'Pengganti sesi ' + (item.session.originDateNote || item.session.originDate || 'sebelumnya')"></p>
+                            </template>
+
+                            <!-- Tombol Aksi Cepat jika milik PJ -->
+                            <template x-if="isMatkulSaya(item.session)">
+                              <button type="button" @click.stop="bukaModalPengganti({ session: item.session, day: d })"
+                                class="mt-1 text-[11px] font-semibold text-[#1D4ED8] hover:underline flex items-center gap-1">
+                                <span>Ajukan Pengganti</span>
+                                <span>&rarr;</span>
+                              </button>
                             </template>
                           </div>
-
-                          <!-- Judul Mata Kuliah -->
-                          <h3 class="text-[13px] font-bold leading-snug line-clamp-2"
-                            :class="isSesiOngoing(item.session) ? 'text-[#14532D]' : (item.session.eventKind === 'REPLACEMENT' ? 'text-[#78350F]' : 'text-[#1D1B3A]')"
-                            x-text="item.session.matkul">-</h3>
-
-                          <!-- Ruangan & Dosen -->
-                          <p class="text-[11px] line-clamp-1"
-                            :class="isSesiOngoing(item.session) ? 'text-[#166534]' : (item.session.eventKind === 'REPLACEMENT' ? 'text-[#92400E]' : 'text-[#667085]')">
-                            <span x-text="item.session.ruang ? 'Ruang ' + item.session.ruang : 'Tanpa ruangan'"></span>
-                            <span x-show="item.session.dosen" x-text="' · ' + item.session.dosen"></span>
-                          </p>
-
-                          <!-- Catatan Asal Kuliah Pengganti -->
-                          <template x-if="item.session.eventKind === 'REPLACEMENT'">
-                            <p class="text-[10px] italic text-[#B45309]"
-                              x-text="'Pengganti sesi ' + (item.session.originDateNote || item.session.originDate || 'sebelumnya')"></p>
-                          </template>
-
-                          <!-- Tombol Aksi Cepat jika milik PJ -->
-                          <template x-if="isMatkulSaya(item.session)">
-                            <button type="button" @click.stop="bukaModalPengganti({ session: item.session, day: d })"
-                              class="mt-1 text-[11px] font-semibold text-[#1D4ED8] hover:underline flex items-center gap-1">
-                              <span>Ajukan Pengganti</span>
-                              <span>→</span>
-                            </button>
-                          </template>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-              </template>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
           </template>

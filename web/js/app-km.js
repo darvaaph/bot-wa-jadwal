@@ -568,7 +568,7 @@ function kmApp() {
     get weekLabel() {
       const fmt = (d) => d.getDate() + ' ' + d.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
       const days = this.weekDays;
-      return `${fmt(days[0].full)} – ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+      return `${fmt(days[0].full)} - ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
     },
 
     get weekRangeLabel() {
@@ -582,10 +582,10 @@ function kmApp() {
       const sMonth = sunday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
       const sYear = sunday.getFullYear();
       if (monday.getMonth() === sunday.getMonth()) {
-        return `${mDay} – ${sDay} ${sMonth} ${sYear}`;
+        return `${mDay} - ${sDay} ${sMonth} ${sYear}`;
       }
       const mMonth = monday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
-      return `${mDay} ${mMonth} – ${sDay} ${sMonth} ${sYear}`;
+      return `${mDay} ${mMonth} - ${sDay} ${sMonth} ${sYear}`;
     },
 
     get pekanLabel() {
@@ -620,6 +620,46 @@ function kmApp() {
 
     isToday(dayName) { return dayName === this.todayName; },
 
+    cleanMatkul(matkul) {
+      if (!matkul) return '';
+      return String(matkul).replace(/\s*\((?:Teori|Praktikum|Praktik|Pengganti)\)/gi, '').trim();
+    },
+
+    cleanRuang(ruang) {
+      if (!ruang) return 'Tanpa ruang';
+      return String(ruang).replace(/–/g, '-').trim();
+    },
+
+    formatSemesterLabel(s) {
+      if (!s) return 'Semester Ganjil 2026/2027 (Aktif)';
+      const termRaw = String(s.term || '').toLowerCase();
+      let termLabel = 'Semester';
+      if (termRaw.includes('ganjil')) {
+        termLabel = 'Semester Ganjil';
+      } else if (termRaw.includes('genap')) {
+        termLabel = 'Semester Genap';
+      } else if (s.term) {
+        termLabel = 'Semester ' + s.term;
+      }
+      const year = s.academic_year || '';
+      const statusRaw = String(s.status || '').toLowerCase();
+      let statusLabel = '';
+      if (statusRaw === 'active' || statusRaw === 'aktif') {
+        statusLabel = 'Aktif';
+      } else if (statusRaw === 'inactive') {
+        statusLabel = 'Tidak Aktif';
+      } else if (statusRaw === 'archived' || statusRaw === 'arsip') {
+        statusLabel = 'Arsip';
+      } else if (statusRaw) {
+        statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+      }
+      const parts = [];
+      if (termLabel) parts.push(termLabel);
+      if (year) parts.push(year);
+      const main = parts.join(' ');
+      return statusLabel ? `${main} (${statusLabel})` : main;
+    },
+
     slotKind(matkul, eventKind) {
       if (String(eventKind || '').toUpperCase() === 'REPLACEMENT') return 'Pengganti';
       const s = String(matkul || '').toLowerCase();
@@ -629,7 +669,7 @@ function kmApp() {
 
     slotRange(entry, slotHH) {
       if (entry && entry.timeStart) {
-        return entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+        return entry.timeEnd ? `${entry.timeStart}-${entry.timeEnd}` : entry.timeStart;
       }
       return slotHH + '.00';
     },
@@ -764,6 +804,7 @@ function kmApp() {
         const dayEndMins = 17 * 60; // Batas akhir jam kuliah reguler 17:00
 
         if (sessions.length === 0) {
+          const isFri = dayName === 'Jumat';
           slots.push({
             id: `${dayName}-full`,
             dayName,
@@ -771,11 +812,12 @@ function kmApp() {
             headerText,
             startTime: '07:00',
             endTime: '17:00',
-            timeRange: '07:00 – 17:00 WIB',
+            timeRange: '07:00 - 17:00 WIB',
             durationMins: 600,
             durationText: '10 Jam Penuh',
             isLong: true,
-            isRecommended: true,
+            isRecommended: !isFri,
+            isFridayPrayer: isFri,
             description: 'Bebas perkuliahan sepanjang hari (hari libur/tanpa jadwal)'
           });
         } else {
@@ -808,6 +850,8 @@ function kmApp() {
                 ? `Jeda sebelum kuliah pengganti ${cleanMatkul}`
                 : `Jeda sebelum sesi ${cleanMatkul}`;
 
+              const isFriPrayer = dayName === 'Jumat' && currEnd < 13 * 60 && nextStart > (11 * 60 + 30);
+
               slots.push({
                 id: `${dayName}-gap-${i}`,
                 dayName,
@@ -815,11 +859,12 @@ function kmApp() {
                 headerText,
                 startTime: startStr,
                 endTime: endStr,
-                timeRange: `${startStr} – ${endStr} WIB`,
+                timeRange: `${startStr} - ${endStr} WIB`,
                 durationMins: gap,
                 durationText: durText,
                 isLong: gap >= 360,
-                isRecommended: gap >= 360,
+                isRecommended: gap >= 360 && !isFriPrayer,
+                isFridayPrayer: isFriPrayer,
                 description: desc
               });
             }
@@ -844,10 +889,12 @@ function kmApp() {
                 durText = `${hrs} Jam ${mns} Menit`;
               }
 
+              const isFriPrayer = dayName === 'Jumat' && lastEndMins < 13 * 60 && dayEndMins > (11 * 60 + 30);
+
               let desc = '';
               if (lastEndMins <= 11 * 60 + 40 && gap >= 300) {
                 if (dayName === 'Jumat') {
-                  desc = 'Bebas perkuliahan setelah praktikum pagi (ideal untuk kuliah pengganti)';
+                  desc = 'Bebas perkuliahan setelah praktikum pagi (perhatikan waktu Sholat Jumat)';
                 } else {
                   desc = 'Bebas perkuliahan siang hingga sore';
                 }
@@ -862,11 +909,12 @@ function kmApp() {
                 headerText,
                 startTime: startStr,
                 endTime: endStr,
-                timeRange: `${startStr} – ${endStr} WIB`,
+                timeRange: `${startStr} - ${endStr} WIB`,
                 durationMins: gap,
                 durationText: durText,
                 isLong: gap >= 360,
-                isRecommended: gap >= 360,
+                isRecommended: gap >= 360 && !isFriPrayer,
+                isFridayPrayer: isFriPrayer,
                 description: desc
               });
             }
@@ -1337,7 +1385,7 @@ function kmApp() {
     get simulasiRuangCheckText() {
       const rm = this.selectedRoomName || 'Ruang D204';
       const tgl = this.simulasiDatePill || 'Rabu';
-      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
       return `${rm} tersedia ${tgl} ${jam}. Tidak ada kelas lain.`;
     },
 
@@ -1348,7 +1396,7 @@ function kmApp() {
 
     get simulasiKelasCheckText() {
       const cls = this.selectedClass || 'D4-TI 1A';
-      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
       return `${cls} kosong pada ${jam}. Bebas bentrok.`;
     },
 
@@ -4275,12 +4323,12 @@ function kmApp() {
       if (!slug) return;
       const hhmm = (v) => /^\d{2}:\d{2}$/.test(String(v || '')) && Number(String(v).slice(0, 2)) <= 23 && Number(String(v).slice(3)) <= 59;
       if (!hhmm(this.pengaturan.pagi) || !hhmm(this.pengaturan.sore)) {
-        this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00–23:59).';
+        this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00-23:59).';
         return;
       }
       const menit = Number(this.pengaturan.gantiMenit);
       if (!Number.isInteger(menit) || menit < 0 || menit > 1440) {
-        this.pengaturanFormError = 'Pengingat pengganti harus 0–1440 menit.';
+        this.pengaturanFormError = 'Pengingat pengganti harus 0-1440 menit.';
         return;
       }
       this.pengaturanFormError = '';

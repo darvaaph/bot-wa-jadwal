@@ -945,6 +945,16 @@ function portalApp() {
       }));
     },
 
+    cleanMatkul(matkul) {
+      if (!matkul) return '';
+      return String(matkul).replace(/\s*\((?:Teori|Praktikum|Praktik|Pengganti)\)/gi, '').trim();
+    },
+
+    cleanRuang(ruang) {
+      if (!ruang) return 'Tanpa ruang';
+      return String(ruang).replace(/-/g, '-').trim();
+    },
+
     fmtAsalPengganti(isoDate, reason) {
       if (isoDate) {
         try {

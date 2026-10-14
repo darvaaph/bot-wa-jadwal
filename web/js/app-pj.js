@@ -624,6 +624,16 @@ function pjApp() {
       return false;
     },
 
+    cleanMatkul(matkul) {
+      if (!matkul) return '';
+      return String(matkul).replace(/\s*\((?:Teori|Praktikum|Praktik|Pengganti)\)/gi, '').trim();
+    },
+
+    cleanRuang(ruang) {
+      if (!ruang) return 'Tanpa ruang';
+      return String(ruang).replace(/-/g, '-').trim();
+    },
+
     sesiType(s) {
       if (!s) return 'Teori';
       if (s.eventKind === 'REPLACEMENT') return 'Pengganti';

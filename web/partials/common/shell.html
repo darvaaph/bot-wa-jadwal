@@ -1,4 +1,4 @@
-<div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer"></div>
+<div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer" x-init="initTheme()"></div>
 
 <!-- Layar Pembuka / Loading Curtain (Option A: Clean Reveal) -->
 <div x-show="dashboardLoading && view !== '__error'"
@@ -506,9 +506,11 @@
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <span class="text-[#0F172A] font-bold truncate" x-text="view === 'materi' ? 'Materi Perkuliahan' : ((navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda')"></span>
             </nav>
-            <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
-              <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
-              <span class="text-[11px] text-[#065F46] font-bold whitespace-nowrap">Bot Terhubung</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
+                <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
+                <span class="text-[11px] text-[#065F46] font-bold whitespace-nowrap">Bot Terhubung</span>
+              </div>
             </div>
           </div>
         </div>

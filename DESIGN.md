@@ -6,7 +6,7 @@ Dokumen ini adalah sumber nilai visual untuk Portal Kelas, Ketua Murid, PJ Mata 
 
 Antarmuka harus terasa langsung dan tenang, dengan informasi kelas dan semester lebih menonjol daripada hiasan. Bahasa antarmuka adalah Bahasa Indonesia. Asterisk yang sudah ada tetap menjadi penanda identitas; jangan membuat identitas atau ilustrasi baru tanpa kebutuhan produk yang jelas.
 
-Palet terkunci: primer `#3965FB`, hover `#2f54d6`, primer muda `#E9EAFF`, tinta `#1F1F1F`, garis pemisah `#EEEEEE`, garis kartu `#D7DDE7`, garis kontrol `#CBD5E1`, teks sekunder `#667085`, bahaya `#FF6C48`, kanvas dashboard `#F2F5FA`, dan sukses `#E1FFB7`. Ilustrasi yang sudah ada memakai `#9AB7FD`, `#C9F5E9`, `#FDE5A8`, `#E5D5FF`, dan `#7192F8`. Warna pendukung yang ditemukan di UI lama dicatat sebagai token kompatibilitas agar migrasi tidak mengubah tampilan diam-diam.
+Palet terkunci: primer `#3965FB`, hover `#2f54d6`, primer muda `#E9EAFF`, tinta `#1F1F1F`, garis pemisah `#EEEEEE`, garis kartu `#D7DDE7`, garis kontrol `#CBD5E1`, teks sekunder `#667085`, bahaya `#FF6C48`, kanvas dashboard `#F2F5FA`, dan sukses `#E1FFB7`. Ilustrasi yang sudah ada memakai `#9AB7FD`, `#C9F5E9`, `#FDE5A8`, `#E5D5FF`, dan `#7192F8`. Untuk mode gelap (Asterisk OLED Black), kanvas memakai `#000000` (pitch black 0-nits), permukaan `#0E0E12`, permukaan interaktif `#17171C`, garis pemisah netral `#222226`, dan teks `#FFFFFF` / `#A1A1AA`. Warna pendukung yang ditemukan di UI lama dicatat sebagai token kompatibilitas agar migrasi tidak mengubah tampilan diam-diam.
 
 ## Aturan pemakaian
 

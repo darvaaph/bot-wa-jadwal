@@ -1,0 +1,3 @@
+# AI Context Ignore File for Google Gemini / Antigravity Agent
+# Exclude historical qualitative user interview transcripts from automatic context loading/crawling.
+docs/archive/user-interviews/

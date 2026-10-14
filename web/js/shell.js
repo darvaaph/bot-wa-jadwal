@@ -5,6 +5,8 @@ const AsteriskShell = (() => {
     const root = document.getElementById('app-shell');
     if (!root) throw new Error('Slot shell tidak ditemukan');
     try {
+      document.documentElement.classList.remove('dark');
+
       const response = await fetch(`/partials/common/shell.html?v=${version}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Shell HTTP ${response.status}`);
       const template = await response.text();
@@ -32,6 +34,27 @@ const AsteriskShell = (() => {
       modalProfilAdmin: false,
       modalProfilPJ: false,
       modalProfilKM: false,
+      currentTheme: 'light',
+      isDarkMode: false,
+      initTheme() {
+        document.documentElement.classList.remove('dark');
+        this.currentTheme = 'light';
+        this.isDarkMode = false;
+      },
+      applyTheme(theme, animate = false) {
+        this.currentTheme = 'light';
+        this.isDarkMode = false;
+        document.documentElement.classList.remove('dark');
+      },
+      setTheme(theme) {
+        this.applyTheme('light', false);
+      },
+      cycleTheme() {
+        this.applyTheme('light', false);
+      },
+      themeLabel() {
+        return 'Mode Terang';
+      },
       formatNomorWA(num) {
         if (!num) return '-';
         const clean = String(num).replace(/[^0-9]/g, '');
