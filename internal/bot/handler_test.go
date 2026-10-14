@@ -105,3 +105,21 @@ func TestKanalCommand_StaysReadable(t *testing.T) {
 		t.Fatalf("balasan DM harus memuat JID + jenis: %s", got)
 	}
 }
+
+func TestLinkRestrictedDMMessage(t *testing.T) {
+	withSlug := linkRestrictedDMMessage("d4-ti-2025-a")
+	if !strings.Contains(withSlug, "AKSES TAUTAN DIBATASI") {
+		t.Fatalf("harus memuat judul pembatasan, got: %s", withSlug)
+	}
+	if !strings.Contains(withSlug, "/c/d4-ti-2025-a") {
+		t.Fatalf("harus memuat slug portal kelas, got: %s", withSlug)
+	}
+	if !strings.Contains(withSlug, "Grup WhatsApp resmi") {
+		t.Fatalf("harus menyebutkan alternatif grup resmi, got: %s", withSlug)
+	}
+
+	withoutSlug := linkRestrictedDMMessage("")
+	if !strings.Contains(withoutSlug, "Web Portal Kelas") {
+		t.Fatalf("harus memuat web portal kelas meski tanpa slug, got: %s", withoutSlug)
+	}
+}

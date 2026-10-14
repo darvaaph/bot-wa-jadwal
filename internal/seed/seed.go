@@ -380,6 +380,22 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 		return nil, fmt.Errorf("gagal menyimpan semester aktif: %w", err)
 	}
 
+	// Nonaktifkan pola jadwal dan penawaran lama pada semester ini agar hanya data dari berkas terbaru yang aktif
+	if _, err := tx.Exec(`
+		UPDATE schedule_patterns
+		SET status = 'ARCHIVED'
+		WHERE course_offering_id IN (SELECT id FROM course_offerings WHERE semester_id = ?);
+	`, semesterID); err != nil {
+		return nil, fmt.Errorf("gagal mengarsipkan pola jadwal lama: %w", err)
+	}
+	if _, err := tx.Exec(`
+		UPDATE course_offerings
+		SET status = 'INACTIVE'
+		WHERE semester_id = ?;
+	`, semesterID); err != nil {
+		return nil, fmt.Errorf("gagal menonaktifkan penawaran mata kuliah lama: %w", err)
+	}
+
 	// 4. Impor Master Mata Kuliah (courses) secara idempoten
 	courseIDMap := make(map[string]int64)
 	for code, name := range cfg.MataKuliah {

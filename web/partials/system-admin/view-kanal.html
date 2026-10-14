@@ -1,84 +1,530 @@
 <!-- partials/system-admin/view-kanal.html - System Admin: Kanal WhatsApp -->
-<section x-show="view === 'kanal'" x-cloak>
-  <div class="ui-card p-6 md:p-10 shadow-sm">
-    <h1 class="font-display text-[28px] md:text-[32px] font-bold text-ink">Kanal WhatsApp</h1>
-    <p class="text-[14px] text-muted mt-1">Tautkan grup WhatsApp ke kelas agar notifikasi terkirim. Tanpa tautan, pesan antrean tetap yatim.</p>
+<section x-show="view === 'kanal'" x-cloak class="min-w-0">
+  <div class="flex flex-col gap-5 md:gap-[22px]">
 
-    <div class="mt-6 p-5 rounded-2xl border border-border bg-slate-50/60">
-      <h2 class="text-[16px] font-bold text-ink">Tautkan grup baru</h2>
-      <p class="text-[12px] text-slate-500 mt-0.5">Minta JID via perintah <span class="font-mono">!kanal</span> di grup, lalu tempel di bawah.</p>
-      <div x-show="kanalFormError" class="mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2"><span class="material-symbols-outlined shrink-0">error</span><span x-text="kanalFormError"></span></div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-        <div>
-          <label for="sa-kanal-jid" class="block text-[12px] font-semibold text-ink mb-1">JID grup *</label>
-          <input id="sa-kanal-jid" type="text" x-model="kanalForm.jid" placeholder="12036...@g.us" class="ui-field text-[13px] font-mono w-full" />
+    <!-- Header Kanal WhatsApp -->
+    <div class="box-border w-full h-fit shrink-0 flex flex-col sm:flex-row gap-4 sm:gap-[20px] justify-between items-start sm:items-center">
+      <div class="box-border flex-1 h-fit flex flex-col gap-[6px] justify-start items-start min-w-0">
+        <h1 class="text-[26px] sm:text-[30px] font-bold text-[#1D1B3A] tracking-tight whitespace-nowrap">
+          Kanal WhatsApp
+        </h1>
+        <p class="text-[14px] text-[#667085] font-normal text-left">
+          Kelola dan pantau tautan grup WhatsApp untuk pengiriman jadwal kuliah dan pengingat tugas harian.
+        </p>
+      </div>
+      <button type="button"
+              @click="loadKanal()"
+              :disabled="kanalLoading"
+              aria-label="Perbarui daftar kanal WhatsApp"
+              class="box-border w-fit shrink-0 h-[44px] flex flex-row gap-[8px] px-4 justify-start items-center bg-white border border-[#D7DDE7] rounded-[10px] hover:bg-slate-50 transition-colors cursor-pointer min-h-[44px] disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+        <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB"
+             class="shrink-0" :class="kanalLoading ? 'animate-spin' : ''"
+             aria-hidden="true" focusable="false">
+          <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
+        </svg>
+        <span class="text-[13px] text-[#1D1B3A] font-semibold whitespace-nowrap">
+          Perbarui kanal
+        </span>
+      </button>
+    </div>
+
+    <!-- Panduan Singkat Penautan -->
+    <div class="w-full bg-[#EEF2FF] border border-[#C7D7FE] rounded-[12px] p-4 flex flex-col sm:flex-row gap-3 items-start">
+      <div class="w-8 h-8 rounded-[8px] bg-white border border-[#C7D7FE] flex items-center justify-center shrink-0 text-[#3965FB] shadow-xs">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0 text-[13px] text-[#344054] leading-relaxed">
+        <p class="font-semibold text-[#1D1B3A] text-[13px]">Cara Menautkan Grup WhatsApp:</p>
+        <ol class="list-decimal ml-4 mt-1 space-y-0.5 text-[12px] text-[#475467]">
+          <li>Masuk ke grup WhatsApp kelas, kirim perintah <span class="font-mono font-semibold text-[#1D1B3A] bg-white px-1.5 py-0.5 rounded border border-[#C7D7FE]">!kanal</span> untuk melihat JID grup (format <span class="font-mono">120363...@g.us</span>).</li>
+          <li>Salin nilai JID tersebut dan tempelkan pada formulir di bawah ini, lalu pilih kelas tujuan.</li>
+          <li>Setelah ditautkan, bot WhatsApp otomatis mengirim jadwal mingguan dan pengingat tugas aktif ke grup tersebut.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Card: Formulir Tautkan Grup Baru -->
+    <div class="bg-white border border-[#D7DDE7] rounded-[12px] p-5 sm:p-6 shadow-xs">
+      <div class="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEE]">
+        <div class="w-7 h-7 rounded-[7px] bg-[#EEF2FF] text-[#3965FB] flex items-center justify-center shrink-0">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
         </div>
         <div>
-          <label for="sa-kanal-kelas" class="block text-[12px] font-semibold text-ink mb-1">Kelas *</label>
-          <select id="sa-kanal-kelas" x-model="kanalForm.kelas" class="ui-field text-[13px] w-full">
-            <option value="">-- Pilih kelas --</option>
-            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama">-</option></template>
-          </select>
-        </div>
-        <div>
-          <label for="sa-kanal-nama" class="block text-[12px] font-semibold text-ink mb-1">Nama tampilan</label>
-          <input id="sa-kanal-nama" type="text" x-model="kanalForm.nama" placeholder="Grup Kelas A" class="ui-field text-[14px] w-full" />
+          <h2 class="text-[15px] font-bold text-[#1D1B3A]">Tautkan Grup Baru</h2>
+          <p class="text-[12px] text-[#667085]">Hubungkan saluran WhatsApp kelas baru ke bot</p>
         </div>
       </div>
-      <button type="button" @click="tautkanKanal()" :disabled="kanalSaving" class="ui-button ui-button--primary mt-3 text-[14px] font-semibold">Tautkan kanal</button>
+
+      <!-- Pesan Galat Formulir -->
+      <div x-show="kanalFormError"
+           x-cloak
+           class="mt-4 p-3.5 rounded-[10px] bg-[#FEF3F2] border border-[#FECDCA] text-[13px] text-[#B42318] flex items-center gap-2.5"
+           role="alert">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" class="shrink-0 text-[#D92D20]" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M10 6v5M10 14h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="flex-1" x-text="kanalFormError"></span>
+      </div>
+
+      <!-- Input Fields -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <!-- Input JID Grup -->
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-kanal-jid" class="block text-[13px] font-semibold text-[#1D1B3A]">
+            JID Grup WhatsApp <span class="text-[#D92D20]">*</span>
+          </label>
+          <input id="sa-kanal-jid"
+                 type="text"
+                 x-model="kanalForm.jid"
+                 placeholder="120363041234567890@g.us"
+                 aria-required="true"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] font-mono placeholder-[#98A2B3] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all min-h-[44px]" />
+          <span class="text-[11px] text-[#667085]">Dapatkan via perintah !kanal di WhatsApp</span>
+        </div>
+
+        <!-- Dropdown Kelas Tujuan -->
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-kanal-kelas" class="block text-[13px] font-semibold text-[#1D1B3A]">
+            Kelas Tujuan <span class="text-[#D92D20]">*</span>
+          </label>
+          <select id="sa-kanal-kelas"
+                  x-model="kanalForm.kelas"
+                  aria-required="true"
+                  class="w-full h-[44px] px-3 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all min-h-[44px] cursor-pointer">
+            <option value="">-- Pilih kelas tujuan --</option>
+            <template x-for="k in kelasList" :key="k.slug">
+              <option :value="k.slug" x-text="(k.nama || k.slug) + (k.prodi ? ' (' + k.prodi + ' ' + (k.angkatan || '') + ')' : '')"></option>
+            </template>
+          </select>
+          <span class="text-[11px] text-[#667085]">Kelas akademik penerima notifikasi</span>
+        </div>
+
+        <!-- Input Nama Tampilan -->
+        <div class="flex flex-col gap-1.5">
+          <label for="sa-kanal-nama" class="block text-[13px] font-semibold text-[#1D1B3A]">
+            Nama Tampilan <span class="text-[11px] font-normal text-[#667085]">(Opsional)</span>
+          </label>
+          <input id="sa-kanal-nama"
+                 type="text"
+                 x-model="kanalForm.nama"
+                 placeholder="Contoh: Grup TI 1A Angkatan 2024"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all min-h-[44px]" />
+          <span class="text-[11px] text-[#667085]">Nama pengenal internal di dashboard</span>
+        </div>
+      </div>
+
+      <!-- Tombol Aksi Tautkan -->
+      <div class="mt-4 pt-3 flex justify-end">
+        <button type="button"
+                @click="tautkanKanal()"
+                :disabled="kanalSaving"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-[44px] px-6 rounded-[10px] bg-[#3965FB] hover:bg-[#2F54D8] text-white text-[13px] font-semibold transition-colors disabled:opacity-60 cursor-pointer min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <svg x-show="kanalSaving" class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg x-show="!kanalSaving" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span x-text="kanalSaving ? 'Menautkan...' : 'Tautkan Kanal'">Tautkan Kanal</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Filter -->
-    <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <select x-model="kanalKelas" @change="loadKanal()" aria-label="Filter kelas kanal" class="ui-field text-[13px] sm:col-span-2">
-        <option value="">Semua kelas</option>
-        <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama">-</option></template>
-      </select>
-      <button type="button" @click="resetKanalFilter(); loadKanal()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border hover:bg-slate-50 text-[13px] font-medium min-h-[44px]">Reset</button>
+    <!-- Filter & Pencarian Bar -->
+    <div class="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div class="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center flex-1">
+        <!-- Dropdown Filter Kelas -->
+        <div class="w-full sm:w-[260px]">
+          <select x-model="kanalKelas"
+                  @change="loadKanal()"
+                  aria-label="Filter berdasarkan kelas"
+                  class="w-full h-[44px] px-3 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all min-h-[44px] cursor-pointer">
+            <option value="">Semua kelas</option>
+            <template x-for="k in kelasList" :key="k.slug">
+              <option :value="k.slug" x-text="(k.nama || k.slug) + (k.prodi ? ' (' + k.prodi + ')' : '')"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Input Pencarian Kanal -->
+        <div class="relative flex-1 bg-white border border-[#D7DDE7] rounded-[10px] h-[44px] flex items-center px-3.5 gap-2.5 focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
+            <path d="M5.56445 8.8833q-1.39795 0-2.37207-0.9707-0.9707-0.9707-0.9707-2.37207 0-1.39795 0.9707-2.36866 0.97412-0.97412 2.37207-0.97412 1.39795 0 2.36866 0.97412 0.97412 0.9707 0.97412 2.36866 0 0.6084-0.21534 1.1792-0.21533 0.56738-0.56396 0.9707l3.44531 3.44531q0.08203 0.08203 0.08545 0.20166 0.00684 0.11963-0.08545 0.21192-0.09229 0.09229-0.20849 0.09228-0.11279 0-0.20508-0.09228l-3.44531-3.44532q-0.4375 0.37256-1.00831 0.57764-0.56738 0.20166-1.1416 0.20166z m0-0.58105q1.16211 0 1.9585-0.79981 0.7998-0.7998 0.7998-1.96191 0-1.15869-0.7998-1.9585-0.79639-0.7998-1.9585-0.7998-1.16211 0-1.96191 0.7998-0.79639 0.7998-0.79639 1.9585 0 1.16211 0.79639 1.96191 0.7998 0.7998 1.96191 0.79981z"/>
+          </svg>
+          <input type="text"
+                 x-model="kanalSearch"
+                 placeholder="Cari nama grup, JID, atau kelas..."
+                 aria-label="Cari nama grup, JID, atau kelas"
+                 class="w-full bg-transparent border-none p-0 text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:outline-none focus:ring-0" />
+          <button type="button"
+                  x-show="kanalSearch"
+                  @click="kanalSearch = ''"
+                  title="Hapus pencarian"
+                  aria-label="Hapus kata kunci pencarian"
+                  class="text-slate-400 hover:text-slate-600 p-1 min-w-[28px] min-h-[28px] flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <path d="M7 7.7l-2.6 2.6q-.15.15-.35.15t-.35-.15q-.15-.15-.15-.35t.15-.35L6.3 7 3.7 4.4q-.15-.15-.15-.35t.15-.35q.15-.15.35-.15t.35.15L7 6.3l2.6-2.6q.15-.15.35-.15t.35.15q.15.15.15.35t-.15.35L7.7 7l2.6 2.6q.15.15.15.35t-.15.35q-.15.15-.35.15t-.35-.15L7 7.7z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tombol Reset Filter -->
+        <button type="button"
+                @click="resetKanalFilter(); loadKanal()"
+                aria-label="Reset filter dan pencarian"
+                class="h-[44px] px-4 rounded-[10px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] transition-colors cursor-pointer min-h-[44px] flex items-center justify-center shrink-0">
+          Reset
+        </button>
+      </div>
+
+      <!-- Ringkasan Jumlah Kanal -->
+      <div class="text-[12px] text-[#667085] font-medium self-end sm:self-center shrink-0">
+        Menampilkan <span class="font-bold text-[#1D1B3A]" x-text="filteredKanalList().length"></span> dari <span class="font-bold text-[#1D1B3A]" x-text="kanalList.length"></span> kanal
+      </div>
     </div>
 
-    <div x-show="kanalLoading" class="p-12 text-center text-slate-500">
-      <div class="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-      <p class="mt-3 text-[14px]">Memuat kanal...</p>
+    <!-- State: Loading -->
+    <div x-show="kanalLoading"
+         x-cloak
+         class="p-12 text-center bg-white border border-[#D7DDE7] rounded-[12px] shadow-xs">
+      <div class="inline-block w-8 h-8 border-3 border-[#3965FB]/20 border-t-[#3965FB] rounded-full animate-spin"></div>
+      <p class="mt-3 text-[14px] text-[#667085] font-medium">Memuat daftar kanal WhatsApp...</p>
     </div>
-    <div x-show="kanalError" class="mt-6 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex gap-2">
-      <span class="material-symbols-outlined shrink-0">error</span><span x-text="kanalError">-</span>
-      <button type="button" @click="loadKanal()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
+
+    <!-- State: Error -->
+    <div x-show="kanalError"
+         x-cloak
+         class="p-4 rounded-[12px] bg-[#FEF3F2] border border-[#FECDCA] text-[13px] text-[#B42318] flex items-center justify-between gap-3 shadow-xs"
+         role="alert">
+      <div class="flex items-center gap-2.5">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" class="shrink-0 text-[#D92D20]" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M10 6v5M10 14h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span x-text="kanalError"></span>
+      </div>
+      <button type="button"
+              @click="loadKanal()"
+              class="h-[36px] px-3.5 rounded-[8px] bg-white border border-[#FECDCA] text-[#B42318] hover:bg-red-50 text-[12px] font-semibold transition-colors cursor-pointer shrink-0 min-h-[36px]">
+        Coba Lagi
+      </button>
     </div>
-    <div x-show="!kanalLoading && !kanalError && kanalList.length === 0" class="ui-empty p-12 text-center text-slate-500 mt-6 border border-dashed border-border rounded-2xl">
-      <p class="text-[15px] font-semibold text-ink">Belum ada kanal</p>
-      <p class="text-[13px] mt-0.5">Tautkan grup pertama di atas.</p>
+
+    <!-- State: Kosong -->
+    <div x-show="!kanalLoading && !kanalError && filteredKanalList().length === 0"
+         x-cloak
+         class="p-12 text-center bg-white border border-dashed border-[#D7DDE7] rounded-[12px]">
+      <div class="w-12 h-12 rounded-full bg-[#F6F7FB] border border-[#D7DDE7] flex items-center justify-center mx-auto text-[#667085]">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 7H7C5.34315 7 4 8.34315 4 10V17C4 18.6569 5.34315 20 7 20H17C18.6569 20 20 18.6569 20 17V10C20 8.34315 18.6569 7 17 7Z"/>
+          <path d="M12 3V7M1 11V16M23 11V16M9 16H15"/>
+          <circle cx="8" cy="12" r="1" fill="currentColor"/>
+          <circle cx="16" cy="12" r="1" fill="currentColor"/>
+        </svg>
+      </div>
+      <p class="text-[15px] font-semibold text-[#1D1B3A] mt-3">Belum Ada Kanal WhatsApp</p>
+      <p class="text-[13px] text-[#667085] mt-1" x-text="kanalSearch || kanalKelas ? 'Tidak ada kanal yang cocok dengan kriteria pencarian.' : 'Tautkan grup WhatsApp pertama menggunakan formulir di atas.'"></p>
     </div>
-    <div x-show="!kanalLoading && kanalList.length > 0" class="mt-6 divide-y divide-border border-t border-b border-border">
-      <template x-for="k in kanalList" :key="k.id">
-        <div class="py-4">
-          <div class="flex flex-col md:flex-row md:items-center gap-2">
-            <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-ink truncate" x-text="k.display_name || k.jid">-</p>
-              <p class="text-[12px] text-slate-500 font-mono truncate" x-text="k.jid">-</p>
-              <p class="text-[11px] text-slate-400 mt-0.5" x-text="(k.class_slug || ('kelas #' + k.class_id)) + ' · sejak ' + fmtWaktuID(k.created_at)">-</p>
+
+    <!-- Tampilan Desktop: Tabel Kanal -->
+    <div x-show="!kanalLoading && !kanalError && filteredKanalList().length > 0"
+         x-cloak
+         class="hidden md:block bg-white border border-[#D7DDE7] rounded-[12px] shadow-xs overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-[#F6F7FB] border-b border-[#D7DDE7] text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+              <th scope="col" class="py-3 px-4">Nama & JID Grup</th>
+              <th scope="col" class="py-3 px-4">Kelas Tujuan</th>
+              <th scope="col" class="py-3 px-4">Status</th>
+              <th scope="col" class="py-3 px-4">Ditautkan Pada</th>
+              <th scope="col" class="py-3 px-4 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#EEEEEE] text-[13px]">
+            <template x-for="k in filteredKanalList()" :key="k.id">
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <!-- Kolom Nama & JID -->
+                <td class="py-3.5 px-4 min-w-[240px]">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-[8px] bg-[#EEF2FF] border border-[#C7D7FE] flex items-center justify-center shrink-0 text-[#3965FB]">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                      </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold text-[#1D1B3A] text-[13px] truncate" x-text="k.display_name || 'Grup WhatsApp'"></p>
+                      <p class="font-mono text-[11px] text-[#667085] truncate" x-text="k.jid"></p>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Kolom Kelas Tujuan -->
+                <td class="py-3.5 px-4 min-w-[140px]">
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[12px] font-semibold bg-[#F6F7FB] border border-[#D7DDE7] text-[#1D1B3A]"
+                        x-text="k.class_code || k.class_slug || ('ID ' + k.class_id)"></span>
+                </td>
+
+                <!-- Kolom Status -->
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border"
+                        :class="String(k.status).toUpperCase() === 'ACTIVE'
+                          ? 'bg-[#ECFDF5] text-[#027A48] border-[#A6F4C5]'
+                          : 'bg-[#FEF3F2] text-[#B42318] border-[#FECDCA]'">
+                    <span class="w-1.5 h-1.5 rounded-full"
+                          :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-[#12B76A]' : 'bg-[#F04438]'"></span>
+                    <span x-text="labelStatusKanal(k.status)"></span>
+                  </span>
+                </td>
+
+                <!-- Kolom Tanggal -->
+                <td class="py-3.5 px-4 text-[12px] text-[#667085] whitespace-nowrap" x-text="fmtWaktuID(k.created_at)"></td>
+
+                <!-- Kolom Aksi -->
+                <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div class="inline-flex items-center gap-2 justify-end">
+                    <!-- Tombol Uji Kirim Pesan -->
+                    <button type="button"
+                            x-show="String(k.status).toUpperCase() === 'ACTIVE'"
+                            @click="bukaUjiKanal(k)"
+                            title="Kirim pesan uji ke grup ini"
+                            aria-label="Kirim pesan uji ke grup ini"
+                            class="h-[36px] px-3 rounded-[8px] bg-white border border-[#D7DDE7] hover:bg-slate-50 text-[12px] font-medium text-[#1D1B3A] transition-colors cursor-pointer inline-flex items-center gap-1.5 min-h-[36px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                      </svg>
+                      <span>Uji Pesan</span>
+                    </button>
+
+                    <!-- Tombol Lepas Tautan -->
+                    <button type="button"
+                            x-show="String(k.status).toUpperCase() === 'ACTIVE'"
+                            @click="mulaiLepasKanal(k)"
+                            title="Lepas tautan grup ini"
+                            aria-label="Lepas tautan grup ini"
+                            class="h-[36px] px-3 rounded-[8px] bg-white border border-[#FECDCA] text-[#B42318] hover:bg-[#FEF3F2] text-[12px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5 min-h-[36px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D92D20]">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/>
+                      </svg>
+                      <span>Lepas</span>
+                    </button>
+
+                    <!-- Label Dilepas -->
+                    <span x-show="String(k.status).toUpperCase() !== 'ACTIVE'"
+                          class="text-[12px] text-[#98A2B3] italic">
+                      Nonaktif
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tampilan Mobile: Kartu Kanal -->
+    <div x-show="!kanalLoading && !kanalError && filteredKanalList().length > 0"
+         x-cloak
+         class="md:hidden flex flex-col gap-3">
+      <template x-for="k in filteredKanalList()" :key="k.id">
+        <div class="bg-white border border-[#D7DDE7] rounded-[12px] p-4 shadow-xs flex flex-col gap-3">
+          <!-- Baris 1: Nama & Status Badge -->
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-[#1D1B3A] text-[14px] truncate" x-text="k.display_name || 'Grup WhatsApp'"></p>
+              <p class="font-mono text-[11px] text-[#667085] truncate mt-0.5" x-text="k.jid"></p>
             </div>
-            <span class="ui-badge w-fit"
-              :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'ui-badge--success' : ''">
-              <span class="material-symbols-outlined text-[14px]" x-text="String(k.status).toUpperCase() === 'ACTIVE' ? 'check_circle' : 'block'">-</span>
-              <span x-text="labelStatusKanal(k.status)">-</span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border shrink-0"
+                  :class="String(k.status).toUpperCase() === 'ACTIVE'
+                    ? 'bg-[#ECFDF5] text-[#027A48] border-[#A6F4C5]'
+                    : 'bg-[#FEF3F2] text-[#B42318] border-[#FECDCA]'">
+              <span class="w-1.5 h-1.5 rounded-full"
+                    :class="String(k.status).toUpperCase() === 'ACTIVE' ? 'bg-[#12B76A]' : 'bg-[#F04438]'"></span>
+              <span x-text="labelStatusKanal(k.status)"></span>
             </span>
-            <div class="flex gap-2" x-show="String(k.status).toUpperCase() === 'ACTIVE'">
-              <button type="button" @click="mulaiLepasKanal(k)" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-semibold min-h-[44px]">Lepas</button>
-            </div>
           </div>
-          <div x-show="kanalLepas && kanalLepas.id === k.id" class="mt-3 p-4 rounded-xl bg-slate-50 border border-border">
-            <p class="text-[13px] font-semibold" x-text="'Lepas ' + kanalLepas.nama">-</p>
-            <p class="text-[12px] text-red-700 mt-1">Pesan PENDING kanal ini tetap yatim. Tercatat di Audit Global.</p>
-            <label :for="'sa-kanal-alasan-' + k.id" class="block text-[13px] font-medium mt-2 mb-1">Alasan pelepasan <span class="text-red-600">*</span></label>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input aria-label="Alasan pelepasan" :id="'sa-kanal-alasan-' + k.id" type="text" x-model="kanalAlasan" placeholder="Contoh: Grup bubar" class="ui-field flex-1 text-[14px]" />
-              <button type="button" @click="jalankanLepasKanal()" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi</button>
-              <button type="button" @click="kanalLepas = null" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-border text-[13px] min-h-[44px]">Batal</button>
-            </div>
+
+          <!-- Baris 2: Kelas & Waktu -->
+          <div class="flex items-center justify-between text-[12px] text-[#667085] pt-2 border-t border-[#EEEEEE]">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold bg-[#F6F7FB] border border-[#D7DDE7] text-[#1D1B3A]"
+                  x-text="k.class_code || k.class_slug || ('ID ' + k.class_id)"></span>
+            <span x-text="fmtWaktuID(k.created_at)"></span>
+          </div>
+
+          <!-- Baris 3: Tombol Aksi (Mobile Min 44px) -->
+          <div x-show="String(k.status).toUpperCase() === 'ACTIVE'"
+               class="grid grid-cols-2 gap-2 pt-1">
+            <button type="button"
+                    @click="bukaUjiKanal(k)"
+                    class="h-[44px] px-3 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+              <span>Uji Pesan</span>
+            </button>
+            <button type="button"
+                    @click="mulaiLepasKanal(k)"
+                    class="h-[44px] px-3 rounded-[10px] bg-white border border-[#FECDCA] text-[#B42318] hover:bg-[#FEF3F2] text-[13px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/>
+              </svg>
+              <span>Lepas Tautan</span>
+            </button>
           </div>
         </div>
       </template>
     </div>
+
+    <!-- Modal Konfirmasi: Lepas Kanal WhatsApp -->
+    <div x-show="kanalLepas"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+           @click="kanalLepas = null"></div>
+      <div class="relative max-w-md w-full p-6 shadow-2xl bg-white rounded-[16px] border border-[#D7DDE7] z-10"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="modal-lepas-judul"
+           aria-describedby="modal-lepas-deskripsi">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-[#FEF3F2] border border-[#FECDCA] flex items-center justify-center text-[#B42318] shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modal-lepas-judul" class="text-[16px] font-bold text-[#1D1B3A]">Lepas Kanal WhatsApp?</h3>
+            <p class="text-[12px] text-[#667085] mt-0.5">Pemutusan pengiriman pesan ke grup</p>
+          </div>
+        </div>
+
+        <p id="modal-lepas-deskripsi" class="text-[13px] text-[#475467] mt-3 leading-relaxed">
+          Anda akan melepas tautan untuk <span class="font-semibold text-[#1D1B3A]" x-text="kanalLepas ? kanalLepas.nama : ''"></span>. Pesan yang berstatus PENDING untuk grup ini tidak akan dikirimkan dan tindakan ini dicatat dalam Audit Sistem.
+        </p>
+
+        <div class="mt-4">
+          <label for="sa-kanal-alasan" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">
+            Alasan Pelepasan <span class="text-[#D92D20]">*</span>
+          </label>
+          <input id="sa-kanal-alasan"
+                 type="text"
+                 x-model="kanalAlasan"
+                 placeholder="Contoh: Pergantian grup kelas semester baru"
+                 class="w-full h-[44px] px-3.5 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all min-h-[44px]" />
+        </div>
+
+        <div class="flex gap-2.5 mt-5">
+          <button type="button"
+                  @click="jalankanLepasKanal()"
+                  class="h-[44px] px-4 rounded-[10px] bg-[#D92D20] hover:bg-[#B42318] text-white flex-1 text-[13px] font-semibold min-h-[44px] transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D92D20]">
+            Lepas Sekarang
+          </button>
+          <button type="button"
+                  @click="kanalLepas = null"
+                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] min-h-[44px] transition-colors cursor-pointer">
+            Batal
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Dialog: Uji Kirim Pesan ke Kanal -->
+    <div x-show="modalUjiKanal"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+           @click="tutupUjiKanal()"></div>
+      <div class="relative max-w-md w-full p-6 shadow-2xl bg-white rounded-[16px] border border-[#D7DDE7] z-10"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="modal-uji-judul"
+           aria-describedby="modal-uji-deskripsi">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-[#EEF2FF] border border-[#C7D7FE] flex items-center justify-center text-[#3965FB] shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modal-uji-judul" class="text-[16px] font-bold text-[#1D1B3A]">Kirim Pesan Uji</h3>
+            <p class="text-[12px] text-[#667085] mt-0.5">Uji coba pengiriman pesan bot WhatsApp</p>
+          </div>
+        </div>
+
+        <p id="modal-uji-deskripsi" class="text-[13px] text-[#475467] mt-3 leading-relaxed">
+          Kirimkan pesan langsung ke JID grup WhatsApp untuk memastikan bot berhasil terhubung.
+        </p>
+
+        <!-- Peringatan Bot Offline jika status offline -->
+        <div x-show="!botOnline"
+             class="mt-3 p-3 rounded-[10px] bg-[#FEF3C7] border border-[#FCD34D] text-[12px] text-[#92400E] flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="shrink-0" aria-hidden="true">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <span>Bot WhatsApp saat ini sedang luring (offline). Pengiriman langsung memerlukan bot aktif.</span>
+        </div>
+
+        <!-- JID Tujuan (Readonly) -->
+        <div class="mt-4">
+          <label for="modal-uji-to" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">JID Tujuan</label>
+          <input id="modal-uji-to"
+                 type="text"
+                 x-model="ujiPesanTo"
+                 readonly
+                 class="w-full h-[40px] px-3 rounded-[8px] bg-[#F6F7FB] border border-[#D7DDE7] text-[12px] text-[#667085] font-mono cursor-not-allowed min-h-[40px]" />
+        </div>
+
+        <!-- Teks Pesan -->
+        <div class="mt-3">
+          <label for="modal-uji-text" class="block text-[12px] font-semibold text-[#1D1B3A] mb-1">
+            Teks Pesan <span class="text-[#D92D20]">*</span>
+          </label>
+          <textarea id="modal-uji-text"
+                    x-model="ujiPesanText"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="Tulis pesan uji..."
+                    class="w-full p-3 rounded-[10px] bg-white border border-[#D7DDE7] text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:border-[#3965FB] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 transition-all"></textarea>
+          <span class="block text-right text-[11px] text-[#667085] mt-1" x-text="(ujiPesanText ? ujiPesanText.length : 0) + '/500'"></span>
+        </div>
+
+        <!-- Pesan Galat / Sukses -->
+        <div x-show="ujiPesanError" class="mt-3 p-3 rounded-[10px] bg-[#FEF3F2] border border-[#FECDCA] text-[12px] text-[#B42318]" x-text="ujiPesanError"></div>
+        <div x-show="ujiPesanHasil" class="mt-3 p-3 rounded-[10px] bg-[#ECFDF5] border border-[#A6F4C5] text-[12px] text-[#027A48]">Pesan uji berhasil dikirim ke grup!</div>
+
+        <!-- Tombol Aksi Modal -->
+        <div class="flex gap-2.5 mt-5">
+          <button type="button"
+                  @click="kirimUjiPesan()"
+                  :disabled="ujiPesanLoading"
+                  class="h-[44px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-[#2F54D8] text-white flex-1 text-[13px] font-semibold min-h-[44px] transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+            <svg x-show="ujiPesanLoading" class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span x-text="ujiPesanLoading ? 'Mengirim...' : 'Kirim Pesan Uji'">Kirim Pesan Uji</span>
+          </button>
+          <button type="button"
+                  @click="tutupUjiKanal()"
+                  class="h-[44px] px-5 rounded-[10px] border border-[#D7DDE7] bg-white hover:bg-slate-50 text-[13px] font-medium text-[#1D1B3A] min-h-[44px] transition-colors cursor-pointer">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>

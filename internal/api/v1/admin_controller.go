@@ -1371,7 +1371,7 @@ type TestBotMessageRequest struct {
 	Text string `json:"text"`
 }
 
-// TestBotMessage menangani POST /api/v1/admin/bot/test-message (khusus System Admin).
+// TestBotMessage menangani POST /api/v1/admin/bot/test-message (System Admin & KM untuk kelasnya).
 // Mengirim teks diagnostik HANYA ke kanal WhatsApp terdaftar (anti-spam) saat bot
 // terhubung. Penyambungan ulang/QR tidak diekspos web: Connect() memblokir
 // menunggu QR dan watchdog sudah auto-reconnect; QR tetap di terminal server.
@@ -1381,8 +1381,8 @@ func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request)
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
 		return
 	}
-	if u.ActiveRole != "SYSTEM_ADMIN" {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin yang berwenang menguji kirim pesan")
+	if u.ActiveRole != "SYSTEM_ADMIN" && u.ActiveRole != "KM" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya System Admin atau KM yang berwenang menguji kirim pesan")
 		return
 	}
 
@@ -1403,10 +1403,17 @@ func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request)
 	}
 
 	var channelID int64
+	var channelClassID int64
 	var channelName sql.NullString
-	if err := c.db.QueryRow(`SELECT id, display_name FROM whatsapp_channels WHERE jid = ?;`, to).Scan(&channelID, &channelName); err != nil {
+	if err := c.db.QueryRow(`SELECT id, class_id, display_name FROM whatsapp_channels WHERE jid = ?;`, to).Scan(&channelID, &channelClassID, &channelName); err != nil {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kanal WhatsApp tidak terdaftar")
 		return
+	}
+	if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid || u.ActiveClassID.Int64 != channelClassID {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Kanal tidak terhubung dengan kelas Anda")
+			return
+		}
 	}
 
 	// Klien mati → 503 sebelum kuota rate-limit tersentuh.
@@ -1416,7 +1423,7 @@ func (c *AdminController) TestBotMessage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	subject := fmt.Sprintf("admin:%d", u.UserID)
+	subject := fmt.Sprintf("%s:%d", strings.ToLower(u.ActiveRole), u.UserID)
 	var trustedProxies []string
 	if c.secManager != nil {
 		trustedProxies = c.secManager.TrustedProxyCIDRs()

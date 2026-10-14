@@ -399,15 +399,22 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	var sb strings.Builder
 	sb.WriteString("*JADWAL KULIAH MAHASISWA*\n")
-	sb.WriteString("Politeknik Negeri Cilacap (PNC)\n")
+	sb.WriteString("Jurusan Teknik Komputer dan Informatika - POLBAN\n")
 	sb.WriteString("──────────\n")
 	sb.WriteString("⚠️ *STATUS: KELAS BELUM DIATUR*\n")
 	sb.WriteString("Chat ini belum memilih kelas perkuliahan aktif.\n\n")
 
-	sb.WriteString("🚀 *LANGKAH AWAL (ONBOARDING):*\n")
-	sb.WriteString("1. Ketik `!daftarkelas` ➔ Melihat 19 pilihan kelas D3 & D4 (dikelompokkan per semester)\n")
-	sb.WriteString("2. Ketik `!setkelas [nama_kelas]` ➔ Mengaktifkan kelas untuk chat ini\n")
-	sb.WriteString("   _Contoh: `!setkelas D4-TI-SMT3-A` atau `!setkelas smt 3 a`_\n\n")
+	if isGroup {
+		sb.WriteString("🚀 *LANGKAH PENAUTAN GRUP:*\n")
+		sb.WriteString("1. Ketik `!kanal` ➔ Salin ID JID grup ini\n")
+		sb.WriteString("2. Buka Dashboard Web (Admin/KM) ➔ menu *Kanal WhatsApp*\n")
+		sb.WriteString("3. Tempel ID grup pada kelas yang sesuai lalu simpan\n\n")
+	} else {
+		sb.WriteString("🚀 *LANGKAH AWAL (ONBOARDING):*\n")
+		sb.WriteString("1. Ketik `!daftarkelas` ➔ Melihat 19 pilihan kelas D3 & D4 (dikelompokkan per semester)\n")
+		sb.WriteString("2. Ketik `!setkelas [nama_kelas]` ➔ Mengaktifkan kelas untuk chat pribadi ini\n")
+		sb.WriteString("   _Contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`_\n\n")
+	}
 
 	sb.WriteString("──────────\n")
 	sb.WriteString("📋 *DAFTAR FITUR & PERINTAH (Setelah Kelas Aktif):*\n")
@@ -562,13 +569,15 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 	}
 
 	sb.WriteString("──────────\n")
-	sb.WriteString("💡 *Cara Memilih / Mengatur Kelas:*\n")
-	sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
-	sb.WriteString("Contoh: `!setkelas D4-TI-SMT3-A`\n")
-	sb.WriteString("_Tips: Anda juga dapat mengetik santai seperti `!setkelas smt 3 a` atau `!setkelas d4 3 a`._\n\n")
 	if isGroup {
-		sb.WriteString("⚠️ _Catatan: Di grup WhatsApp, hanya Admin Grup yang berhak menyetel kelas._")
+		sb.WriteString("🔒 *Pengaturan Kelas Grup WhatsApp:*\n")
+		sb.WriteString("Pengaturan kelas grup dilakukan oleh Admin / KM melalui Dashboard Web (menu *Kanal WhatsApp*).\n")
+		sb.WriteString("Ketik `!kanal` untuk menyalin ID JID grup ini saat menautkannya di Dashboard.")
 	} else {
+		sb.WriteString("💡 *Cara Memilih / Mengatur Kelas:*\n")
+		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
+		sb.WriteString("Contoh: `!setkelas D4-TI-2025-A`\n")
+		sb.WriteString("_Tips: Anda juga dapat mengetik santai seperti `!setkelas 2a` atau `!setkelas d4 2a`._\n\n")
 		sb.WriteString("💡 _Catatan: Di chat pribadi (DM), Anda bebas menyetel kelas sesuai kebutuhan Anda._")
 	}
 

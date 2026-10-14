@@ -372,3 +372,39 @@ func TestV1BotService_HandleScheduleCommand(t *testing.T) {
 		t.Errorf("HandleScheduleCommand !next gagal: %v, res: %s", err, res)
 	}
 }
+
+func TestFormatClassDisplayName(t *testing.T) {
+	label := formatClassDisplayName("D4-TI-2025-A", "D4 Teknik Informatika", 2025, "A", "2026/2027")
+	expected := "D4 TEKNIK INFORMATIKA 2A (Angkatan 2025)"
+	if label != expected {
+		t.Errorf("formatClassDisplayName gagal: got %q, want %q", label, expected)
+	}
+
+	labelD3 := formatClassDisplayName("D3-TI-2024-C", "D3 Teknik Informatika", 2024, "C", "2026/2027")
+	expectedD3 := "D3 TEKNIK INFORMATIKA 3C (Angkatan 2024)"
+	if labelD3 != expectedD3 {
+		t.Errorf("formatClassDisplayName D3 gagal: got %q, want %q", labelD3, expectedD3)
+	}
+}
+
+func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
+	svc := setupTestV1DB(t)
+	ctx := context.Background()
+
+	mondayDate := time.Date(2025, 1, 6, 9, 0, 0, 0, time.UTC)
+	resp, err := svc.GetSchedule(ctx, 1, mondayDate)
+	if err != nil {
+		t.Fatalf("GetSchedule gagal: %v", err)
+	}
+
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬"}
+	for _, emoji := range slopEmojis {
+		if strings.Contains(resp, emoji) {
+			t.Errorf("Output GetSchedule masih memuat emoji AI-slop %s: %s", emoji, resp)
+		}
+	}
+
+	if !strings.Contains(resp, "- Waktu:") || !strings.Contains(resp, "- Ruang:") {
+		t.Errorf("Output GetSchedule harus memuat format bullet strip (-): %s", resp)
+	}
+}

@@ -40,9 +40,24 @@ var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", 
 // Fungsi murni agar isi balasan dapat diuji tanpa klien WhatsApp.
 func kanalReplyText(chatJID string, isGroup bool) string {
 	if isGroup {
-		return fmt.Sprintf("📡 *ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) ➔ menu *Pengaturan Kelas*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
+		return fmt.Sprintf("📡 *ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) ➔ menu *Kanal WhatsApp*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
 	}
-	return fmt.Sprintf("📡 *ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2024-A`).", chatJID)
+	return fmt.Sprintf("📡 *ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`).", chatJID)
+}
+
+// linkRestrictedDMMessage menyusun teks pemberitahuan pembatasan akses tautan di chat pribadi.
+func linkRestrictedDMMessage(slug string) string {
+	portalURL := util.PublicBaseURL() + "/"
+	if slug != "" {
+		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
+	}
+	var sb strings.Builder
+	sb.WriteString("*AKSES TAUTAN DIBATASI*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("Untuk keamanan dan privasi perkuliahan (Google Meet, Zoom, atau Google Drive), daftar tautan kelas hanya dapat diakses melalui:\n")
+	sb.WriteString("- Grup WhatsApp resmi kelas yang terdaftar\n")
+	sb.WriteString(fmt.Sprintf("- Web Portal Kelas: %s", portalURL))
+	return sb.String()
 }
 
 func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {
@@ -324,6 +339,23 @@ func HandleIncomingMessage(
 
 	// 6. Handler Khusus Perintah Tautan Penting Kelas (!link, !tautan, !drive, !gdrive, !zoom, !gmeet, !meet)
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "drive", "gdrive", "zoom", "gmeet", "meet") {
+		if activeClassID == "" && chatSettingsManager != nil {
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding link")
+			return
+		}
+
+		// Keamanan Tautan: Di chat pribadi (DM), akses tautan dibatasi dan dialihkan ke Web Portal / Grup Resmi.
+		if !v.Info.IsGroup {
+			slug := ""
+			if v1Class != nil {
+				slug = v1Class.Slug
+			} else if activeClassID != "" {
+				slug = strings.ToLower(activeClassID)
+			}
+			reply(linkRestrictedDMMessage(slug), "🔒", 600*time.Millisecond, "tautan dibatasi di DM")
+			return
+		}
+
 		if v1Class != nil && v1Service != nil {
 			resp, err := v1Service.GetLinks(context.Background(), v1Class.ID)
 			if err != nil {

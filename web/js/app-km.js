@@ -4617,6 +4617,48 @@ function kmApp() {
       await this.konfirmasiLepasKanal();
     },
 
+    bukaUjiKanal(k) {
+      this.ujiPesanTo = (k && k.jid) || '';
+      const namaKelas = this.kmClassName ? this.kmClassName() : (this.selectedClass || 'kelas');
+      const label = (k && k.display_name) || namaKelas;
+      this.ujiPesanText = `Halo! Ini pesan uji koneksi bot WhatsApp Asterisk untuk ${label}.`;
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.modalUjiKanal = true;
+    },
+
+    tutupUjiKanal() {
+      this.modalUjiKanal = false;
+      this.ujiPesanTo = '';
+      this.ujiPesanText = '';
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+    },
+
+    async kirimUjiPesan() {
+      const to = (this.ujiPesanTo || '').trim();
+      const text = (this.ujiPesanText || '').trim();
+      if (!to || !text) {
+        this.ujiPesanError = 'Isi JID grup tujuan dan teks pesan.';
+        return;
+      }
+      if (text.length > 500) {
+        this.ujiPesanError = 'Teks maksimal 500 karakter.';
+        return;
+      }
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.ujiPesanLoading = true;
+      try {
+        this.ujiPesanHasil = await API.testBotMessage(to, text);
+        this.showToast('Pesan uji berhasil dikirim ke grup WhatsApp.');
+      } catch (err) {
+        this.ujiPesanError = err.message || 'Gagal mengirim pesan uji.';
+      } finally {
+        this.ujiPesanLoading = false;
+      }
+    },
+
     // ---- Kanal WhatsApp kelas (KM menautkan grupnya sendiri) ----
     kanalList: [],
     kanalLoading: false,
@@ -4629,6 +4671,13 @@ function kmApp() {
     modalLepasKanalOpen: false,
     kanalLepasSaving: false,
     kanalLepasError: '',
+    gantiKanalTerbuka: false,
+    modalUjiKanal: false,
+    ujiPesanTo: '',
+    ujiPesanText: '',
+    ujiPesanLoading: false,
+    ujiPesanError: '',
+    ujiPesanHasil: null,
 
     // ---- Usulan koreksi master (KM mengusulkan, System Admin memutuskan) ----
     usulanList: [],

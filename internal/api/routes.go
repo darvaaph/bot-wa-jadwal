@@ -129,7 +129,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/support/enter", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleEnterSupport)))
 	mux.HandleFunc("POST /api/v1/admin/support/exit", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleExitSupport)))
 	mux.HandleFunc("GET /api/v1/admin/support/active", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetActiveSupport)))
-	mux.HandleFunc("POST /api/v1/admin/bot/test-message", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleTestBotMessage)))
+	mux.HandleFunc("POST /api/v1/admin/bot/test-message", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleTestBotMessage)))
 	mux.HandleFunc("POST /api/v1/master/proposals", s.RequireAuth(s.RequireRole("KM")(s.handleCreateProposal)))
 	mux.HandleFunc("GET /api/v1/master/proposals", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetProposals)))
 	mux.HandleFunc("POST /api/v1/master/proposals/{id}/approve", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleApproveProposal)))

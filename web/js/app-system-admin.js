@@ -28,6 +28,7 @@ function systemAdminApp() {
       ] },
       { title: 'DATA & SISTEM', items: [
         { id: 'antrean', label: 'Antrean WhatsApp', icon: 'sa-plane', img: '/assets/icons/message-queue.svg' },
+        { id: 'kanal', label: 'Kanal WhatsApp', icon: 'sa-bot', img: '/assets/icons/bot.svg' },
         { id: 'backup', label: 'Cadangan & Audit', icon: 'sa-history', img: '/assets/icons/backup.svg', active: ['backup','audit','pembaruan'] }
       ] }
     ],
@@ -328,6 +329,8 @@ function systemAdminApp() {
     kanalLoading: false,
     kanalError: '',
     kanalKelas: '',
+    kanalSearch: '',
+    modalUjiKanal: false,
     kanalForm: { jid: '', kelas: '', nama: '' },
     kanalFormError: '',
     kanalSaving: false,
@@ -641,6 +644,7 @@ function systemAdminApp() {
         pengguna: 'Pengguna & Peran',
         'master-matkul': 'Mata Kuliah', 'master-ruangan': 'Ruangan', 'master-dosen': 'Dosen',
         antrean: 'Antrean WhatsApp',
+        kanal: 'Kanal WhatsApp',
         backup: 'Cadangan & Audit', audit: 'Cadangan & Audit', pembaruan: 'Cadangan & Audit'
       };
       return map[this.view] || this.saTitle(this.view);
@@ -753,7 +757,7 @@ function systemAdminApp() {
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap', 'pengguna', 'antrean', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap', 'pengguna', 'antrean', 'kanal', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -777,7 +781,7 @@ function systemAdminApp() {
         return;
       }
 
-      await AsteriskShell.mount('sa', ['dashboard','kelas','jadwal','undang','dukungan','antrean','backup','pengguna','ruangan','matkul','dosen']);
+      await AsteriskShell.mount('sa', ['dashboard','kelas','jadwal','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','dosen']);
       await this.loadPartials([
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
@@ -785,6 +789,7 @@ function systemAdminApp() {
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-antrean', '/partials/system-admin/view-antrean.html'],
+        ['sa-kanal', '/partials/system-admin/view-kanal.html'],
         ['sa-backup', '/partials/system-admin/view-backup.html'],
         ['sa-pengguna', '/partials/system-admin/view-pengguna.html'],
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
@@ -928,6 +933,37 @@ function systemAdminApp() {
 
     resetKanalFilter() {
       this.kanalKelas = '';
+      this.kanalSearch = '';
+    },
+
+    filteredKanalList() {
+      const q = String(this.kanalSearch || '').toLowerCase().trim();
+      let list = this.kanalList || [];
+      if (q) {
+        list = list.filter(k =>
+          (k.display_name && k.display_name.toLowerCase().includes(q)) ||
+          (k.jid && k.jid.toLowerCase().includes(q)) ||
+          (k.class_slug && k.class_slug.toLowerCase().includes(q)) ||
+          (k.class_code && k.class_code.toLowerCase().includes(q))
+        );
+      }
+      return list;
+    },
+
+    bukaUjiKanal(k) {
+      this.ujiPesanTo = k.jid || '';
+      this.ujiPesanText = `Halo! Ini pesan uji koneksi bot WhatsApp Asterisk untuk ${k.display_name || k.class_code || 'grup kelas'}.`;
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.modalUjiKanal = true;
+    },
+
+    tutupUjiKanal() {
+      this.modalUjiKanal = false;
+      this.ujiPesanTo = '';
+      this.ujiPesanText = '';
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
     },
 
     labelStatusKanal(st) {
@@ -957,7 +993,8 @@ function systemAdminApp() {
     },
 
     mulaiLepasKanal(k) {
-      this.kanalLepas = { id: k.id, nama: (k.display_name || k.jid) + ' · ' + (k.class_slug || '') };
+      const labelKelas = k.class_code || k.class_slug || ('kelas #' + k.class_id);
+      this.kanalLepas = { id: k.id, nama: (k.display_name || k.jid) + ' (' + labelKelas + ')' };
       this.kanalAlasan = '';
     },
 
@@ -970,7 +1007,7 @@ function systemAdminApp() {
       }
       try {
         await API.revokeChannel(k.id, this.kanalAlasan.trim());
-        this.showToast(`Kanal ${k.nama} dilepas. Pesan PENDING-nya tetap yatim.`);
+        this.showToast(`Kanal ${k.nama} berhasil dilepas.`);
         this.kanalLepas = null;
         await this.loadKanal();
       } catch (err) {
@@ -4129,6 +4166,9 @@ function systemAdminApp() {
         if (!this.notifTab) this.notifTab = 'menunggu';
         this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
         this.loadAntrean();
+      }
+      if (v === 'kanal') {
+        this.loadKanal();
       }
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();
