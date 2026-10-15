@@ -149,7 +149,7 @@
     </div>
 
     <!-- Kalender Mingguan Kelas (Responsive: Flat on Mobile Canvas, Card Panel on Desktop) -->
-    <div class="mt-4 p-0 sm:p-5 md:p-[20px] bg-transparent sm:bg-white border-0 sm:border border-[#E2E8F0] rounded-none sm:rounded-[16px] shadow-none sm:shadow-xs">
+    <div class="mt-4 p-0 sm:p-5 md:p-[20px] bg-transparent sm:bg-white [outline:none] sm:[outline:1px_solid_#E2E8F0] sm:[outline-offset:-0.5px] rounded-none sm:rounded-[16px] shadow-none sm:[box-shadow:0px_4px_16px_#0F172A0A]">
       <!-- Header Kalender Mingguan -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 sm:pb-3 border-b-0 sm:border-b border-slate-100">
         <div>
@@ -215,40 +215,36 @@
 
       <!-- ============ TAMPILAN 1A: TAMPILAN HARIAN MOBILE (Hanya di Layar Mobile < 768px Saat Mode Kalender) ============ -->
       <div x-show="!scheduleLoading && !scheduleError && schedViewMode === 'calendar'" class="block md:hidden mt-3 space-y-3">
-        <!-- Chip Carousel Hari (Senin - Sabtu) -->
-        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x" role="tablist" aria-label="Pilih hari perkuliahan">
+        <!-- Chip Carousel Hari (Persis Gaya Halaman User) -->
+        <div class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar scroll-smooth touch-pan-x" role="tablist" aria-label="Pilih hari perkuliahan">
           <template x-for="d in weekDays" :key="'mob-chip-' + d.name">
             <button
               type="button"
               @click="selectedMobileDay = d.name"
               role="tab"
               :aria-selected="activeMobileDay === d.name"
-              :class="activeMobileDay === d.name
-                ? 'bg-[#3965FB] text-white shadow-xs font-bold border-[#3965FB]'
-                : (isToday(d.name)
-                  ? 'bg-blue-50 text-[#1D4ED8] font-bold border-blue-200'
-                  : 'bg-white text-slate-700 font-medium border-slate-200 hover:bg-slate-50')"
-              class="flex-1 min-w-[50px] sm:min-w-[60px] py-2 px-1 rounded-xl border text-[12px] flex flex-col items-center justify-center shrink-0 min-h-[44px] transition cursor-pointer"
+              class="box-border flex-1 h-[44px] min-w-[52px] flex justify-center items-center rounded-xl relative transition-all"
+              :class="activeMobileDay === d.name ? 'bg-blue-600 text-white shadow-2xs font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium'"
             >
-              <span class="text-[11px] leading-tight" x-text="d.name.slice(0, 3)">Sen</span>
-              <div class="flex items-center gap-1 mt-0.5">
-                <span class="text-[13px] sm:text-[14px] font-mono font-bold leading-tight" x-text="d.dateNum">14</span>
-                <span x-show="isToday(d.name)" class="w-1.5 h-1.5 rounded-full" :class="activeMobileDay === d.name ? 'bg-white' : 'bg-[#3965FB]'"></span>
-              </div>
+              <span class="text-[11px] font-semibold whitespace-nowrap" x-text="d.name.slice(0, 3) + ' ' + d.dateNum">Sen 14</span>
+              <template x-if="isToday(d.name)">
+                <div class="box-border w-[6px] h-[6px] absolute right-[6px] top-[5px] rounded-full"
+                     :class="activeMobileDay === d.name ? 'bg-white' : 'bg-blue-600'"></div>
+              </template>
             </button>
           </template>
         </div>
 
         <!-- Header Hari Terpilih -->
-        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <span class="text-[13px] font-bold text-slate-900" x-text="activeMobileDay">Senin</span>
-            <span class="text-[12px] text-slate-500 font-medium" x-text="' · ' + ((weekDays.find(d => d.name === activeMobileDay)?.dateNum || '') + ' ' + (weekDays.find(d => d.name === activeMobileDay)?.full.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' }) || ''))"></span>
+        <div class="flex items-center justify-between mt-3 mb-1 px-0.5">
+          <div class="flex items-center gap-2">
+            <h3 class="text-[14px] font-bold text-[#0F172A]">
+              <span x-text="activeMobileDay">Senin</span>
+              <span class="text-[12px] font-normal text-slate-500" x-text="' · ' + ((weekDays.find(d => d.name === activeMobileDay)?.dateNum || '') + ' ' + (weekDays.find(d => d.name === activeMobileDay)?.full.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' }) || ''))"></span>
+            </h3>
+            <span x-show="isToday(activeMobileDay)" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">Hari Ini</span>
           </div>
-          <span class="text-[11px] font-bold px-2 py-0.5 rounded-md"
-            :class="isToday(activeMobileDay) ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200/80 text-slate-700'"
-            x-text="isToday(activeMobileDay) ? 'Hari Ini' : daySessionCountLabel(activeMobileDay)">
-          </span>
+          <span class="text-[12px] font-medium text-slate-500" x-text="daySessionCountLabel(activeMobileDay)"></span>
         </div>
 
         <!-- Daftar Kartu Sesi untuk Hari Terpilih -->
@@ -309,70 +305,90 @@
                     </div>
                   </template>
 
-                  <!-- Sesi Reguler (Soft-Tint Blocks) -->
+                  <!-- Sesi Reguler (Persis Gaya Halaman User) -->
                   <template x-if="!item.session.isDraft">
                     <div
                       @click="bukaDetailSesi(item.session, weekDays.find(d => d.name === activeMobileDay))"
-                      class="p-4 rounded-[16px] bg-white hover:bg-[#F8FAFC] border shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition text-left cursor-pointer space-y-2.5"
+                      class="w-full text-left p-4 bg-white hover:bg-[#F8FAFC] border rounded-[16px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all flex flex-col gap-2.5 cursor-pointer"
                       :class="isSesiOngoing(item.session)
-                        ? 'bg-[#F0FDF4] border-[#86EFAC] ring-2 ring-[#22C55E]/20'
+                        ? 'border-[#86EFAC] ring-2 ring-[#22C55E]/20 bg-[#F0FDF4]'
                         : (isMatkulSaya(item.session)
                           ? 'border-[#3B82F6] ring-1 ring-blue-500/20'
                           : (item.session.eventKind === 'REPLACEMENT'
-                            ? 'bg-[#FFFBEB] border-[#FDE68A]'
+                            ? 'border-[#FDE68A] bg-[#FFFBEB]'
                             : 'border-[#E2E8F0]'))"
                     >
                       <!-- Baris Waktu & Badge -->
-                      <div class="flex items-center justify-between gap-2 flex-wrap">
+                      <div class="flex items-center justify-between gap-2 w-full flex-wrap">
                         <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="font-mono text-[11px] font-bold"
+                          <span class="font-mono text-[12px] font-bold"
                             :class="isSesiOngoing(item.session)
                               ? 'text-[#15803D]'
                               : (isMatkulSaya(item.session)
                                 ? 'text-[#1D4ED8]'
                                 : (item.session.eventKind === 'REPLACEMENT'
                                   ? 'text-[#92400E]'
-                                  : (sesiType(item.session) === 'Praktikum' ? 'text-[#6D28D9]' : 'text-[#1D4ED8]')))"
-                            x-text="(item.session.timeStart || '') + ' - ' + (item.session.timeEnd || '') + ' WIB'"></span>
-                          <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]"
-                            :class="item.session.eventKind === 'REPLACEMENT'
-                              ? 'bg-[#FEF3C7] text-[#92400E]'
-                              : (sesiType(item.session) === 'Praktikum'
-                                ? 'bg-[#EDE9FE] text-[#5B21B6]'
-                                : 'bg-[#DBEAFE] text-[#1E40AF]')"
-                            x-text="sesiType(item.session)">-</span>
+                                  : (sesiType(item.session) === 'Praktikum' ? 'text-[#6D28D9]' : 'text-[#2563EB]')))"
+                            x-text="(item.session.timeStart || '') + ' – ' + (item.session.timeEnd || '') + ' WIB'"></span>
+                          <template x-if="isSesiOngoing(item.session)">
+                            <span class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
+                              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
+                            </span>
+                          </template>
                         </div>
-                        <div class="flex items-center gap-1">
-                          <span x-show="isSesiOngoing(item.session)" class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
-                            <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
-                          </span>
-                          <span x-show="isMatkulSaya(item.session)" class="bg-[#2563EB] text-white text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-[4px]">
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-[6px] border"
+                            :class="item.session.eventKind === 'REPLACEMENT'
+                              ? 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]'
+                              : (sesiType(item.session) === 'Praktikum'
+                                ? 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE]'
+                                : 'bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]')"
+                            x-text="item.session.eventKind === 'REPLACEMENT' ? 'KULIAH PENGGANTI' : sesiType(item.session).toUpperCase()">-</span>
+                          <span x-show="isMatkulSaya(item.session)" class="bg-[#2563EB] text-white text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-[6px]">
                             Mata Kuliah Anda
                           </span>
                         </div>
                       </div>
 
-                      <!-- Judul & Lokasi -->
-                      <div>
-                        <h3 class="text-[14px] font-bold leading-snug"
-                          :class="isSesiOngoing(item.session)
-                            ? 'text-[#14532D]'
-                            : (isMatkulSaya(item.session)
-                              ? 'text-[#1E3A8A]'
-                              : (item.session.eventKind === 'REPLACEMENT'
-                                ? 'text-[#78350F]'
-                                : (sesiType(item.session) === 'Praktikum' ? 'text-[#4C1D95]' : 'text-[#0F172A]')))"
-                          x-text="cleanMatkul(item.session.matkul)">-</h3>
-                        <p class="text-[12px] mt-0.5"
-                          :class="isSesiOngoing(item.session) ? 'text-[#166534]' : (item.session.eventKind === 'REPLACEMENT' ? 'text-[#92400E]' : 'text-[#64748B]')">
-                          <span class="font-medium" x-text="cleanRuang(item.session.ruang)"></span>
-                          <span x-show="item.session.dosen" x-text="' · Dosen: ' + item.session.dosen"></span>
-                        </p>
+                      <!-- Judul Mata Kuliah -->
+                      <h3 class="text-[15px] font-bold text-[#0F172A] leading-snug"
+                        :class="isSesiOngoing(item.session)
+                          ? 'text-[#14532D]'
+                          : (isMatkulSaya(item.session)
+                            ? 'text-[#1E3A8A]'
+                            : (item.session.eventKind === 'REPLACEMENT'
+                              ? 'text-[#78350F]'
+                              : (sesiType(item.session) === 'Praktikum' ? 'text-[#4C1D95]' : 'text-[#0F172A]')))"
+                        x-text="cleanMatkul(item.session.matkul)">-</h3>
+
+                      <!-- Detail Lokasi dan Dosen (dengan Ikon SVG seperti Halaman User) -->
+                      <div class="flex flex-col gap-1.5 text-[12px] text-[#64748B] pt-2 border-t border-slate-100">
+                        <div class="flex items-center gap-1.5 font-medium">
+                          <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                            <path d="M7 1.75a3.5 3.5 0 0 0-3.5 3.5c0 2.625 3.5 7 3.5 7s3.5-4.375 3.5-7a3.5 3.5 0 0 0-3.5-3.5zm0 4.667a1.167 1.167 0 1 1 0-2.334 1.167 1.167 0 0 1 0 2.334z"/>
+                          </svg>
+                          <span x-text="'Ruang: ' + cleanRuang(item.session.ruang)"></span>
+                        </div>
+                        <div x-show="item.session.dosen" class="flex items-center gap-1.5 text-slate-500">
+                          <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                            <path d="M7 7a2.625 2.625 0 1 0 0-5.25A2.625 2.625 0 0 0 7 7zm0 1.167c-2.333 0-5.25 1.166-5.25 3.5v.583h10.5v-.583c0-2.334-2.917-3.5-5.25-3.5z"/>
+                          </svg>
+                          <span class="truncate" x-text="'Dosen: ' + item.session.dosen"></span>
+                        </div>
+                        <p x-show="item.session.eventKind === 'REPLACEMENT' && item.session.originNote" class="italic text-[#B45309] text-[11px]" x-text="'Catatan: ' + item.session.originNote"></p>
                       </div>
 
-                      <!-- Tombol Aksi jika Matkul Saya -->
-                      <div x-show="isMatkulSaya(item.session)" class="pt-2 border-t border-blue-200/60 flex items-center justify-between">
-                        <span class="text-[11px] text-[#2563EB] font-medium">Sentuh untuk lihat detail</span>
+                      <!-- Footer Metadata & Aksi -->
+                      <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start mt-1">
+                        <div class="box-border w-full h-[1px] shrink-0 bg-slate-200/60"></div>
+                        <div class="text-[11px] leading-[15px] box-border w-full text-slate-500 font-medium text-left flex items-center justify-between">
+                          <span x-text="isMatkulSaya(item.session) ? 'Mata Kuliah Binaan Anda' : 'Sesi Perkuliahan Kelas'"></span>
+                          <span class="font-semibold text-blue-600 inline-flex items-center gap-0.5">Detail Sesi &rarr;</span>
+                        </div>
+                      </div>
+
+                      <!-- Tombol Aksi Tambahan jika Matkul Saya -->
+                      <div x-show="isMatkulSaya(item.session)" class="pt-2 border-t border-blue-100 flex items-center justify-end">
                         <button
                           type="button"
                           @click.stop="bukaModalPengganti({ session: item.session, day: weekDays.find(d => d.name === activeMobileDay) })"
@@ -381,12 +397,6 @@
                           <span>Ajukan Pengganti</span>
                           <span>&rarr;</span>
                         </button>
-                      </div>
-
-                      <!-- Petunjuk Sentuh jika Sesi Kelas Reguler -->
-                      <div x-show="!isMatkulSaya(item.session)" class="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-[#64748B]">
-                        <span>Ketuk untuk rincian sesi</span>
-                        <span class="font-bold text-slate-700">Detail &rarr;</span>
                       </div>
                     </div>
                   </template>
