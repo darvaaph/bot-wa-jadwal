@@ -167,8 +167,8 @@
         <button type="button" @click="loadSchedule()" class="text-[#3965FB] underline font-semibold ml-2">Coba lagi</button>
       </div>
 
-      <!-- Card Top Bar: Title on Left, Legend on Right (Persis Mahasiswa Portal) -->
-      <div class="box-border w-full min-h-[32px] shrink-0 flex flex-row gap-[12px] justify-between items-center pb-0 sm:pb-3 border-b-0 sm:border-b border-[#F1F5F9]">
+      <!-- Card Top Bar: Title on Left, Legend on Right (Persis Mahasiswa Portal, Khusus Desktop) -->
+      <div class="box-border w-full min-h-[32px] shrink-0 hidden sm:flex flex-row gap-[12px] justify-between items-center pb-3 border-b border-[#F1F5F9]">
         <div class="text-[16px] text-[#1D1B3A] font-display font-bold text-left whitespace-nowrap"
              x-text="calendarViewMode === 'calendar' ? 'Jadwal Pekan Ini' : 'Daftar Terurut Sesi Pekan Ini'">
           Jadwal Pekan Ini
@@ -191,8 +191,10 @@
         </div>
       </div>
 
-      <!-- DESKTOP VIEW: 5-Column Weekly Board (SCR-SCHED-001 · Kalender - Konsep 3: Soft-Tint Blocks) -->
-      <div x-show="calendarViewMode === 'calendar'" class="hidden md:grid md:grid-cols-5 gap-[12px] w-full items-stretch mt-2">
+      <!-- DESKTOP VIEW: Dynamic 5 or 6 Column Weekly Board (SCR-SCHED-001 · Kalender - Konsep 3: Soft-Tint Blocks) -->
+      <div x-show="calendarViewMode === 'calendar'"
+           class="hidden md:grid gap-[12px] w-full items-stretch mt-2"
+           :class="hasSaturdaySessions() ? 'md:grid-cols-6' : 'md:grid-cols-5'">
         <template x-for="d in weekDays" :key="'col-' + d.name">
           <!-- Column Container: Single cohesive track, no split header/body box -->
           <div class="box-border flex flex-col h-full rounded-[14px] p-2.5 transition-all"
@@ -322,6 +324,17 @@
                     <div class="text-[11px]/[15px] italic text-[#B45309] truncate">
                       <span x-text="s.originNote"></span>
                     </div>
+                  </template>
+
+                  <!-- Tombol Zoom / Daring jika ada -->
+                  <template x-if="s.link">
+                    <a :href="s.link" target="_blank" rel="noopener noreferrer" @click.stop
+                       class="mt-1 w-full flex items-center justify-center gap-1.5 py-1 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[6px] text-[10px] font-semibold transition-colors shadow-2xs">
+                      <svg viewBox="0 0 14 14" class="w-3 h-3 fill-current" aria-hidden="true">
+                        <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
+                      </svg>
+                      <span>Zoom Kelas</span>
+                    </a>
                   </template>
                 </button>
               </template>
@@ -557,6 +570,17 @@
                 </div>
                 <p x-show="s.originNote" class="italic text-[#B45309] text-[11px]" x-text="'Catatan: ' + s.originNote"></p>
               </div>
+
+              <!-- Tombol Gabung Zoom jika ada link -->
+              <template x-if="s.link">
+                <a :href="s.link" target="_blank" rel="noopener noreferrer" @click.stop
+                   class="box-border w-full h-[40px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-center items-center bg-blue-600 hover:bg-blue-700 text-white rounded-[10px] transition-colors mt-1 shadow-2xs">
+                  <svg viewBox="0 0 14 14" class="w-[14px] h-[14px] shrink-0" fill="currentColor">
+                    <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
+                  </svg>
+                  <span class="text-[12px] font-bold whitespace-nowrap">Gabung Kuliah Daring Zoom</span>
+                </a>
+              </template>
 
               <!-- Footer Metadata & Aksi -->
               <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start mt-1">
@@ -1115,205 +1139,239 @@
   </div>
 </div>
 
-  <!-- ============ MODAL DETAIL SESI KULIAH (SCR-SCHED-004) ============ -->
+  <!-- ============ MODAL DETAIL SESI KULIAH (SCR-SCHED-004 · ADAPTIF BOTTOM SHEET) ============ -->
   <div x-show="modalSesiOpen"
        x-cloak
-       class="fixed inset-0 z-50 overflow-y-auto"
+       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
        role="dialog"
        aria-modal="true"
        aria-labelledby="modal-sesi-title"
        @keydown.escape.window="tutupModalDetailSesi()">
     
-    <!-- Backdrop Blur -->
-    <div class="fixed inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity"
+    <!-- Backdrop Blur dengan Transisi Fade Halus -->
+    <div x-show="modalSesiOpen"
+         x-transition:enter="transition-opacity ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
          @click="tutupModalDetailSesi()"
          aria-hidden="true"></div>
 
-    <!-- Modal Box Container -->
-    <div class="min-h-full flex items-center justify-center p-4">
-      <div class="relative w-full max-w-[520px] bg-white rounded-[16px] border border-[#D7DDE7] shadow-[0px_20px_48px_#0F172A40] p-6 flex flex-col gap-4 text-left my-auto transition-all"
-           @click.stop>
-        
-        <template x-if="modalSesiData">
-          <div class="space-y-4">
-            <!-- Header Modal: Badges & Tombol Tutup -->
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <!-- Badge Jenis Sesi -->
-                  <template x-if="modalSesiData.isReplacement || slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Pengganti'">
-                    <span class="px-[9px] py-[3px] bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D] rounded-[6px] text-[11px] font-bold tracking-wide uppercase leading-none">
-                      PENGGANTI
-                    </span>
-                  </template>
-                  <template x-if="!modalSesiData.isReplacement && slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Praktikum'">
-                    <span class="px-[9px] py-[3px] bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE] rounded-[6px] text-[11px] font-semibold tracking-wide uppercase leading-none">
-                      PRAKTIKUM
-                    </span>
-                  </template>
-                  <template x-if="!modalSesiData.isReplacement && slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Teori'">
-                    <span class="px-[9px] py-[3px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] rounded-[6px] text-[11px] font-semibold tracking-wide uppercase leading-none">
-                      TEORI
-                    </span>
-                  </template>
+    <!-- Modal Box Container (Bottom Sheet di Mobile, Centered Box di Desktop) -->
+    <div x-show="modalSesiOpen"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="translate-y-full sm:translate-y-4 sm:scale-95 opacity-0 sm:opacity-0"
+         x-transition:enter-end="translate-y-0 sm:scale-100 opacity-100 sm:opacity-100"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="translate-y-0 sm:scale-100 opacity-100 sm:opacity-100"
+         x-transition:leave-end="translate-y-full sm:translate-y-4 sm:scale-95 opacity-0 sm:opacity-0"
+         class="relative w-full max-w-[540px] bg-white rounded-t-[24px] sm:rounded-[20px] border border-slate-200 shadow-2xl p-5 sm:p-6 flex flex-col gap-4 text-left z-10 max-h-[92vh] sm:max-h-[85vh] overflow-y-auto"
+         @click.stop>
+      
+      <!-- Mobile Drag Handle -->
+      <div class="sm:hidden w-full flex justify-center -mt-2 pb-1 select-none">
+        <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+      </div>
 
-                  <!-- Badge SKS -->
-                  <span class="px-[9px] py-[3px] bg-[#F1F5F9] text-[#475467] rounded-[6px] text-[11px] font-bold leading-none"
-                        x-text="getSesiSKS(modalSesiData)">
-                    2 SKS
+      <template x-if="modalSesiData">
+        <div class="space-y-4">
+          <!-- Header Modal: Badges & Tombol Tutup -->
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <!-- Badge Jenis Sesi -->
+                <template x-if="modalSesiData.isReplacement || slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Pengganti'">
+                  <span class="px-[9px] py-[3px] bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D] rounded-[6px] text-[11px] font-bold tracking-wide uppercase leading-none">
+                    PENGGANTI
                   </span>
-                </div>
-
-                <!-- Judul Mata Kuliah -->
-                <h3 id="modal-sesi-title" class="font-heading text-[20px] font-bold text-[#1D1B3A] mt-2 leading-snug"
-                    x-text="modalSesiData.matkul + (modalSesiData.isReplacement && !modalSesiData.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
-                  Pemrograman Berorientasi Objek
-                </h3>
-
-                <!-- Kode Mata Kuliah & Kelas -->
-                <p class="font-mono text-[12px] font-medium text-[#667085] mt-0.5"
-                   x-text="(getSesiCourseCode(modalSesiData) ? 'Kode: ' + getSesiCourseCode(modalSesiData) + ' · ' : '') + 'Kelas ' + (selectedClass || 'D4-TI 1A')">
-                  Kode: 25IF1101 · Kelas D4-TI 1A
-                </p>
-              </div>
-
-              <!-- Tombol Tutup X -->
-              <button type="button"
-                      @click="tutupModalDetailSesi()"
-                      aria-label="Tutup dialog rincian sesi"
-                      class="w-[32px] h-[32px] shrink-0 rounded-[8px] flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
-                <span class="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <!-- Card Rincian Jadwal, Dosen, dan Ruangan -->
-            <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] p-4 flex flex-col gap-3.5">
-              
-              <!-- 1. Jadwal Kuliah -->
-              <div class="flex flex-col gap-1.5">
-                <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
-                  JADWAL KULIAH
-                </div>
-                <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1">
-                  <!-- Hari & Tanggal -->
-                  <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-[16px] text-[#667085]">calendar_today</span>
-                    <span class="text-[13px] font-bold text-[#1D1B3A]" x-text="getSesiDate(modalSesiData)">
-                      Senin, 5 Oktober 2026
-                    </span>
-                  </div>
-
-                  <!-- Waktu -->
-                  <div class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-[16px] text-[#3965FB]">schedule</span>
-                    <span class="text-[13px] font-mono font-bold text-[#3965FB]"
-                          x-text="(modalSesiData.timeStart || '') + ' - ' + (modalSesiData.timeEnd || '') + ' WIB'">
-                      08:40 - 10:20 WIB
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Status Live Badge -->
-                <div class="mt-0.5">
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[11px] font-bold leading-none"
-                        :class="getSesiLiveStatus(modalSesiData).class"
-                        x-text="getSesiLiveStatus(modalSesiData).label">
-                    ● Sedang Berlangsung Saat Ini
-                  </span>
-                </div>
-
-                <!-- Catatan Kuliah Pengganti (jika ada) -->
-                <template x-if="(modalSesiData.isReplacement || slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Pengganti') && modalSesiData.originNote">
-                  <div class="mt-1 text-[11px] italic text-[#B45309] bg-[#FEF3C7]/60 p-2 rounded-[8px] border border-[#FDE68A]">
-                    <span class="font-bold not-italic">Catatan: </span><span x-text="modalSesiData.originNote"></span>
-                  </div>
                 </template>
-              </div>
-
-              <!-- 2. Dosen Pengampu -->
-              <div class="flex flex-col gap-1 pt-2 border-t border-[#EEF2F6]">
-                <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
-                  DOSEN PENGAMPU
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-[16px] text-[#667085]">person</span>
-                  <span class="text-[13px] font-semibold text-[#1D1B3A]"
-                        x-text="modalSesiData.dosen || 'Dosen belum ditentukan'">
-                    Bpk. M. Ridwan, M.T.
+                <template x-if="!modalSesiData.isReplacement && slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Praktikum'">
+                  <span class="px-[9px] py-[3px] bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE] rounded-[6px] text-[11px] font-semibold tracking-wide uppercase leading-none">
+                    PRAKTIKUM
                   </span>
-                </div>
-                <p class="text-[11px] text-[#667085]"
-                   x-text="modalSesiData.dosen ? 'Pengampu resmi perkuliahan aktif' : 'Belum ada dosen yang ditugaskan untuk sesi ini'">
-                </p>
-              </div>
-
-              <!-- 3. Lokasi Ruangan -->
-              <div class="flex flex-col gap-1 pt-2 border-t border-[#EEF2F6]">
-                <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
-                  LOKASI RUANGAN
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-[16px] text-[#667085]">meeting_room</span>
-                  <span class="text-[13px] font-semibold text-[#1D1B3A]"
-                        x-text="modalSesiData.ruang ? modalSesiData.ruang + (getSesiRoomDetails(modalSesiData).building ? ' · ' + getSesiRoomDetails(modalSesiData).building : '') : 'Belum dialokasikan ruangan'">
-                    Ruang D102 · Gedung D Lantai 1
+                </template>
+                <template x-if="!modalSesiData.isReplacement && slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Teori'">
+                  <span class="px-[9px] py-[3px] bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] rounded-[6px] text-[11px] font-semibold tracking-wide uppercase leading-none">
+                    TEORI
                   </span>
-                </div>
-                <p class="text-[11px] text-[#667085]"
-                   x-text="modalSesiData.ruang ? ((getSesiRoomDetails(modalSesiData).capacity ? 'Kapasitas ' + getSesiRoomDetails(modalSesiData).capacity + ' · ' : '') + 'Tipe: ' + (getSesiRoomDetails(modalSesiData).roomType || 'Ruang Kelas')) : 'Hubungi pengelola untuk penugasan ruang'">
-                </p>
-              </div>
+                </template>
 
-            </div>
-
-            <!-- Card Status Pengingat Bot WhatsApp -->
-            <div class="w-full bg-[#F1F5F9] border border-[#E2E8F0] rounded-[12px] p-3 flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2.5 text-[#334155] text-[12px] leading-snug">
-                <span class="material-symbols-outlined text-[18px] text-[#16A34A] shrink-0">sensors</span>
-                <span x-text="'Pengingat otomatis bot dijadwalkan setiap ' + (modalSesiData.hari || 'hari sesi') + ' pukul 06:30 WIB.'">
-                  Pengingat otomatis bot dijadwalkan setiap Senin pukul 06:30 WIB.
+                <!-- Badge SKS -->
+                <span class="px-[9px] py-[3px] bg-[#F1F5F9] text-[#475467] rounded-[6px] text-[11px] font-bold leading-none"
+                      x-text="getSesiSKS(modalSesiData)">
+                  2 SKS
                 </span>
               </div>
-              <span class="px-2.5 py-0.5 rounded-[12px] text-[10px] font-bold leading-tight shrink-0"
-                    :class="botOnline ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-slate-200 text-slate-600'"
-                    x-text="botOnline ? 'Aktif' : 'Nonaktif'">
-                Aktif
-              </span>
+
+              <!-- Judul Mata Kuliah -->
+              <h3 id="modal-sesi-title" class="font-heading text-[18px] sm:text-[20px] font-bold text-[#1D1B3A] mt-2 leading-snug"
+                  x-text="modalSesiData.matkul + (modalSesiData.isReplacement && !modalSesiData.matkul.includes('(Pengganti)') ? ' (Kuliah Pengganti)' : '')">
+                Pemrograman Berorientasi Objek
+              </h3>
+
+              <!-- Kode Mata Kuliah & Kelas -->
+              <p class="font-mono text-[12px] font-medium text-[#667085] mt-0.5"
+                 x-text="(getSesiCourseCode(modalSesiData) ? 'Kode: ' + getSesiCourseCode(modalSesiData) + ' · ' : '') + 'Kelas ' + (selectedClass || 'D4-TI 1A')">
+                Kode: 25IF1101 · Kelas D4-TI 1A
+              </p>
             </div>
 
-            <!-- Footer Modal: Aksi Cepat Sesi -->
-            <div class="w-full pt-3 border-t border-[#F1F5F9] flex flex-col sm:flex-row items-center justify-between gap-2.5">
-              <!-- Tombol Tutup -->
-              <button type="button"
-                      @click="tutupModalDetailSesi()"
-                      class="w-full sm:w-auto h-[44px] px-4 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
-                Tutup
-              </button>
+            <!-- Tombol Tutup X -->
+            <button type="button"
+                    @click="tutupModalDetailSesi()"
+                    aria-label="Tutup dialog rincian sesi"
+                    class="w-[32px] h-[32px] shrink-0 rounded-[8px] flex items-center justify-center text-[#667085] hover:text-[#1D1B3A] hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
 
-              <!-- Tombol Aksi Operasional -->
-              <div class="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
-                <!-- Pindah Ruangan -->
-                <button type="button"
-                        @click="pindahRuanganDariModal()"
-                        class="w-full sm:w-auto h-[44px] px-3.5 bg-white border border-[#CBD5E1] hover:bg-slate-50 hover:border-[#94A3B8] rounded-[12px] text-[12px] font-semibold text-[#1D1B3A] flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
-                  <span class="material-symbols-outlined text-[16px] text-[#64748B]">meeting_room</span>
-                  <span>Pindah Ruangan</span>
-                </button>
-
-                <!-- Ajukan Kuliah Pengganti -->
-                <button type="button"
-                        @click="ajukanPenggantiDariModal()"
-                        class="w-full sm:w-auto h-[44px] px-3.5 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-[12px] font-semibold text-white flex items-center justify-center gap-1.5 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer">
-                  <span class="material-symbols-outlined text-[16px]">event_repeat</span>
-                  <span>Ajukan Kuliah Pengganti</span>
-                </button>
+          <!-- Banner Tautan Kuliah Daring jika ada -->
+          <template x-if="modalSesiData.link">
+            <div class="w-full bg-blue-50 border border-blue-200 rounded-[12px] p-3 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 text-blue-900 text-[12px] font-medium min-w-0">
+                <svg viewBox="0 0 14 14" class="w-4 h-4 fill-[#2563EB] shrink-0" aria-hidden="true">
+                  <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
+                </svg>
+                <span class="truncate">Tautan Kuliah Daring Zoom</span>
               </div>
+              <a :href="modalSesiData.link" target="_blank" rel="noopener noreferrer"
+                 class="h-[32px] px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[8px] text-[11px] font-semibold flex items-center gap-1 shrink-0 transition-colors shadow-2xs">
+                <span>Buka Link</span>
+                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+              </a>
+            </div>
+          </template>
+
+          <!-- Card Rincian Jadwal, Dosen, dan Ruangan -->
+          <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] p-4 flex flex-col gap-3.5">
+            
+            <!-- 1. Jadwal Kuliah -->
+            <div class="flex flex-col gap-1.5">
+              <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
+                JADWAL KULIAH
+              </div>
+              <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1">
+                <!-- Hari & Tanggal -->
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-[#667085]">calendar_today</span>
+                  <span class="text-[13px] font-bold text-[#1D1B3A]" x-text="getSesiDate(modalSesiData)">
+                    Senin, 5 Oktober 2026
+                  </span>
+                </div>
+
+                <!-- Waktu -->
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-[#3965FB]">schedule</span>
+                  <span class="text-[13px] font-mono font-bold text-[#3965FB]"
+                        x-text="(modalSesiData.timeStart || '') + ' - ' + (modalSesiData.timeEnd || '') + ' WIB'">
+                    08:40 - 10:20 WIB
+                  </span>
+                </div>
+              </div>
+
+              <!-- Status Live Badge -->
+              <div class="mt-0.5">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[11px] font-bold leading-none"
+                      :class="getSesiLiveStatus(modalSesiData).class"
+                      x-text="getSesiLiveStatus(modalSesiData).label">
+                  ● Sedang Berlangsung Saat Ini
+                </span>
+              </div>
+
+              <!-- Catatan Kuliah Pengganti (jika ada) -->
+              <template x-if="(modalSesiData.isReplacement || slotKind(modalSesiData.matkul, modalSesiData.eventKind) === 'Pengganti') && modalSesiData.originNote">
+                <div class="mt-1 text-[11px] italic text-[#B45309] bg-[#FEF3C7]/60 p-2 rounded-[8px] border border-[#FDE68A]">
+                  <span class="font-bold not-italic">Catatan: </span><span x-text="modalSesiData.originNote"></span>
+                </div>
+              </template>
+            </div>
+
+            <!-- 2. Dosen Pengampu -->
+            <div class="flex flex-col gap-1 pt-2 border-t border-[#EEF2F6]">
+              <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
+                DOSEN PENGAMPU
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-[#667085]">person</span>
+                <span class="text-[13px] font-semibold text-[#1D1B3A]"
+                      x-text="modalSesiData.dosen || 'Dosen belum ditentukan'">
+                  Bpk. M. Ridwan, M.T.
+                </span>
+              </div>
+              <p class="text-[11px] text-[#667085]"
+                 x-text="modalSesiData.dosen ? 'Pengampu resmi perkuliahan aktif' : 'Belum ada dosen yang ditugaskan untuk sesi ini'">
+              </p>
+            </div>
+
+            <!-- 3. Lokasi Ruangan -->
+            <div class="flex flex-col gap-1 pt-2 border-t border-[#EEF2F6]">
+              <div class="text-[11px] font-semibold text-[#667085] tracking-[0.8px] uppercase">
+                LOKASI RUANGAN
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-[#667085]">meeting_room</span>
+                <span class="text-[13px] font-semibold text-[#1D1B3A]"
+                      x-text="modalSesiData.ruang ? modalSesiData.ruang + (getSesiRoomDetails(modalSesiData).building ? ' · ' + getSesiRoomDetails(modalSesiData).building : '') : 'Belum dialokasikan ruangan'">
+                  Ruang D102 · Gedung D Lantai 1
+                </span>
+              </div>
+              <p class="text-[11px] text-[#667085]"
+                 x-text="modalSesiData.ruang ? ((getSesiRoomDetails(modalSesiData).capacity ? 'Kapasitas ' + getSesiRoomDetails(modalSesiData).capacity + ' · ' : '') + 'Tipe: ' + (getSesiRoomDetails(modalSesiData).roomType || 'Ruang Kelas')) : 'Hubungi pengelola untuk penugasan ruang'">
+              </p>
             </div>
 
           </div>
-        </template>
 
-      </div>
+          <!-- Card Status Pengingat Bot WhatsApp -->
+          <div class="w-full bg-[#F1F5F9] border border-[#E2E8F0] rounded-[12px] p-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 text-[#334155] text-[12px] leading-snug">
+              <span class="material-symbols-outlined text-[18px] text-[#16A34A] shrink-0">sensors</span>
+              <span x-text="'Pengingat otomatis bot dijadwalkan setiap ' + (modalSesiData.hari || 'hari sesi') + ' pukul 06:30 WIB.'">
+                Pengingat otomatis bot dijadwalkan setiap Senin pukul 06:30 WIB.
+              </span>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-[12px] text-[10px] font-bold leading-tight shrink-0"
+                  :class="botOnline ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-slate-200 text-slate-600'"
+                  x-text="botOnline ? 'Aktif' : 'Nonaktif'">
+              Aktif
+            </span>
+          </div>
+
+          <!-- Footer Modal: Aksi Cepat Sesi -->
+          <div class="w-full pt-3 border-t border-[#F1F5F9] flex flex-col-reverse sm:flex-row items-center justify-between gap-2.5">
+            <!-- Tombol Tutup -->
+            <button type="button"
+                    @click="tutupModalDetailSesi()"
+                    class="w-full sm:w-auto h-[44px] px-4 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+              Tutup
+            </button>
+
+            <!-- Tombol Aksi Operasional -->
+            <div class="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-2">
+              <!-- Pindah Ruangan -->
+              <button type="button"
+                      @click="pindahRuanganDariModal()"
+                      class="w-full sm:w-auto h-[44px] px-3.5 bg-white border border-[#CBD5E1] hover:bg-slate-50 hover:border-[#94A3B8] rounded-[12px] text-[12px] font-semibold text-[#1D1B3A] flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 cursor-pointer">
+                <span class="material-symbols-outlined text-[16px] text-[#64748B]">meeting_room</span>
+                <span>Pindah Ruangan</span>
+              </button>
+
+              <!-- Ajukan Kuliah Pengganti -->
+              <button type="button"
+                      @click="ajukanPenggantiDariModal()"
+                      class="w-full sm:w-auto h-[44px] px-3.5 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-[12px] font-semibold text-white flex items-center justify-center gap-1.5 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40 cursor-pointer">
+                <span class="material-symbols-outlined text-[16px]">event_repeat</span>
+                <span>Ajukan Kuliah Pengganti</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </template>
+
     </div>
   </div>
 

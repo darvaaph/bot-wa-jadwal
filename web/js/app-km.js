@@ -549,8 +549,15 @@ function kmApp() {
       return Array.from(new Set(this.fullSchedule.map(s => s.ruang).filter(Boolean)));
     },
 
+    hasSaturdaySessions() {
+      return (this.fullSchedule || []).some(s => s.hari === 'Sabtu');
+    },
+
     get weekDays() {
       const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+      if (this.hasSaturdaySessions()) {
+        names.push('Sabtu');
+      }
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
       const dow = (now.getDay() + 6) % 7;
       const monday = new Date(now);
@@ -565,6 +572,7 @@ function kmApp() {
 
     get currentScheduleDay() {
       if (this.activeScheduleDay) return this.activeScheduleDay;
+      if (this.todayName === 'Sabtu' && this.hasSaturdaySessions()) return 'Sabtu';
       return ['Sabtu', 'Minggu'].includes(this.todayName) ? 'Senin' : this.todayName;
     },
 
@@ -576,7 +584,9 @@ function kmApp() {
     get weekLabel() {
       const fmt = (d) => d.getDate() + ' ' + d.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
       const days = this.weekDays;
-      return `${fmt(days[0].full)} - ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+      if (!days || days.length === 0) return '-';
+      const lastDay = days[days.length - 1] || days[0];
+      return `${fmt(days[0].full)} - ${fmt(lastDay.full)} ${lastDay.full.getFullYear()}`;
     },
 
     get weekRangeLabel() {
