@@ -1017,9 +1017,16 @@ function portalApp() {
 
     normalisasiEfektif(items, hariLabel) {
       return (items || []).map((it, i) => {
-        let act = String(it.activity_type || '').toUpperCase();
+        let act = String(it.activity_type || '').trim().toUpperCase();
         const matkulTitle = it.offering || it.title || 'Mata Kuliah';
         const roomName = it.room || '';
+        // Backend mengirim TEORI/PRAKTIKUM/PRAKTIK/KULIAH, sedangkan template memeriksa
+        // PRACTICE/THEORY. Samakan dulu agar badge dan warna kartu konsisten.
+        if (act === 'PRAKTIKUM' || act === 'PRAKTIK' || act === 'LAB') {
+          act = 'PRACTICE';
+        } else if (act === 'TEORI' || act === 'KULIAH') {
+          act = 'THEORY';
+        }
         if (!act || act === 'THEORY') {
           const mLower = matkulTitle.toLowerCase();
           const rLower = roomName.toLowerCase();

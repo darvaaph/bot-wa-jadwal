@@ -735,7 +735,7 @@ function pjApp() {
       if (s.eventKind === 'REPLACEMENT') return 'Pengganti';
       const m = String(s.matkul || '').toLowerCase();
       const act = String(s.activityType || '').toLowerCase();
-      if (m.includes('praktikum') || m.includes('praktik') || act.includes('practic')) return 'Praktikum';
+      if (m.includes('praktikum') || m.includes('praktik') || act.includes('practic') || act.includes('praktik')) return 'Praktikum';
       return 'Teori';
     },
 
