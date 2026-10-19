@@ -129,15 +129,16 @@ func (c *ScheduleController) GetTeachingEventDetail(w http.ResponseWriter, r *ht
 		return
 	}
 
-	var roomID sql.NullInt64
+	var roomID, originPatternID sql.NullInt64
 	var id, offeringID int64
 	var startsAt, endsAt common.DBTimestamp
-	var kind, offering, room, reason, lifecycle, meetingLink string
+	var kind, offering, room, reason, lifecycle, meetingLink, originDate string
 	var version int
 	err = c.db.QueryRowContext(r.Context(), `
 		SELECT te.id, te.event_kind, co.id, co.display_name, te.starts_at, te.ends_at,
 		       te.room_id, COALESCE(r.code, ''), COALESCE(te.reason, ''),
-		       te.lifecycle_status, te.version, COALESCE(te.meeting_link, '')
+		       te.lifecycle_status, te.version, COALESCE(te.meeting_link, ''),
+		       te.origin_schedule_pattern_id, COALESCE(te.origin_occurrence_date, '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo
 		  ON teo.teaching_event_id = te.id AND teo.participation_role = 'OWNER'
@@ -146,6 +147,7 @@ func (c *ScheduleController) GetTeachingEventDetail(w http.ResponseWriter, r *ht
 		WHERE te.id = ?`, eventID).Scan(
 		&id, &kind, &offeringID, &offering, &startsAt, &endsAt, &roomID,
 		&room, &reason, &lifecycle, &version, &meetingLink,
+		&originPatternID, &originDate,
 	)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat detail kejadian jadwal")
@@ -156,19 +158,25 @@ func (c *ScheduleController) GetTeachingEventDetail(w http.ResponseWriter, r *ht
 	if roomID.Valid {
 		roomValue = roomID.Int64
 	}
+	var originPatternValue any
+	if originPatternID.Valid {
+		originPatternValue = originPatternID.Int64
+	}
 	event := map[string]any{
-		"id":               id,
-		"event_kind":       kind,
-		"offering_id":      offeringID,
-		"offering":         offering,
-		"starts_at":        startsAt.RFC3339(),
-		"ends_at":          endsAt.RFC3339(),
-		"room_id":          roomValue,
-		"room":             room,
-		"reason":           reason,
-		"lifecycle_status": lifecycle,
-		"version":          version,
-		"meeting_link":     meetingLink,
+		"id":                     id,
+		"event_kind":             kind,
+		"offering_id":            offeringID,
+		"offering":               offering,
+		"starts_at":              startsAt.RFC3339(),
+		"ends_at":                endsAt.RFC3339(),
+		"room_id":                roomValue,
+		"room":                   room,
+		"reason":                 reason,
+		"lifecycle_status":       lifecycle,
+		"version":                version,
+		"meeting_link":           meetingLink,
+		"origin_pattern_id":      originPatternValue,
+		"origin_occurrence_date": originDate,
 	}
 
 	participations := []map[string]any{}
@@ -285,6 +293,12 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 	offeringParam := r.URL.Query().Get("offering_id")
 	dayParam := r.URL.Query().Get("day")
 
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.Local
+	}
+	today := time.Now().In(loc).Format("2006-01-02")
+
 	query := `
 		SELECT sp.id, sp.course_offering_id, co.display_name, sp.room_id, COALESCE(r.code, ''),
 		       COALESCE(r.name, ''), COALESCE(r.building, ''), COALESCE(r.capacity, 0),
@@ -298,13 +312,23 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 		LEFT JOIN courses c ON co.course_id = c.id
 		LEFT JOIN rooms r ON sp.room_id = r.id
 		WHERE sp.status = 'ACTIVE'
+		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+		  AND sem.status IN ('ACTIVE', 'DRAFT')
 	`
-	var args []any
+	args := []any{today}
 	scopeParam := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
-	if u.ActiveRole == "PJ" && scopeParam != "class" && u.ActiveCourseOfferingID.Valid {
+	if u.ActiveRole == "PJ" && scopeParam != "class" {
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
+			return
+		}
 		query += " AND sp.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if (u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class")) && u.ActiveClassID.Valid {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak aktif")
+			return
+		}
 		query += " AND sem.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	}
@@ -591,8 +615,18 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Owner offering tidak ditemukan atau tidak aktif")
 		return
 	}
-	startDate := startsAt.Format("2006-01-02")
-	endDate := endsAt.Format("2006-01-02")
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.Local
+	}
+	if len(semesterStarts) >= 10 {
+		semesterStarts = semesterStarts[:10]
+	}
+	if len(semesterEnds) >= 10 {
+		semesterEnds = semesterEnds[:10]
+	}
+	startDate := startsAt.In(loc).Format("2006-01-02")
+	endDate := endsAt.In(loc).Format("2006-01-02")
 	if startDate < semesterStarts || endDate > semesterEnds {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Waktu kejadian harus berada dalam rentang semester owner")
 		return
@@ -608,6 +642,14 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if req.OriginPatternID != nil {
+		var patOfferingID int64
+		if err := c.db.QueryRow(`SELECT course_offering_id FROM schedule_patterns WHERE id = ?`, *req.OriginPatternID).Scan(&patOfferingID); err == nil && patOfferingID != req.OwnerOfferingID {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "origin_pattern_id tidak sesuai dengan mata kuliah owner")
+			return
+		}
+	}
+
 	tx, err := c.db.Begin()
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
@@ -620,6 +662,8 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 	if req.MeetingLink != nil && strings.TrimSpace(*req.MeetingLink) != "" {
 		eventLink = strings.TrimSpace(*req.MeetingLink)
 	}
+	startsAtStr := startsAt.UTC().Format(time.RFC3339)
+	endsAtStr := endsAt.UTC().Format(time.RFC3339)
 	err = tx.QueryRow(`
 		INSERT INTO teaching_events (
 			origin_schedule_pattern_id, origin_occurrence_date, event_kind,
@@ -627,7 +671,7 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, 'DRAFT', 1, ?)
 		RETURNING id;
-	`, req.OriginPatternID, req.OriginDate, kind, startsAt, endsAt, req.RoomID, req.Reason, eventLink).Scan(&eventID)
+	`, req.OriginPatternID, req.OriginDate, kind, startsAtStr, endsAtStr, req.RoomID, req.Reason, eventLink).Scan(&eventID)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan teaching event: %v", err))
@@ -651,7 +695,7 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 			INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
 			SELECT ?, co.id, 'PARTICIPANT', 'PENDING'
 			FROM course_offerings co JOIN semesters sem ON sem.id = co.semester_id
-			WHERE co.id = ? AND co.status = 'ACTIVE' AND ? >= sem.starts_on AND ? <= sem.ends_on;
+			WHERE co.id = ? AND co.status = 'ACTIVE' AND ? >= substr(sem.starts_on, 1, 10) AND ? <= substr(sem.ends_on, 1, 10);
 		`, eventID, participantID, startDate, endDate)
 		if insertErr != nil {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Participant offering tidak valid")
@@ -711,14 +755,19 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 
 	query := `
 		SELECT te.id, te.event_kind, co.id, co.display_name, te.starts_at, te.ends_at,
-		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.lifecycle_status, te.version,
-		       COALESCE(te.meeting_link, '')
+		       te.room_id, COALESCE(r.code, ''), COALESCE(r.name, ''), COALESCE(r.building, ''), COALESCE(r.capacity, 0),
+		       COALESCE(te.reason, ''), te.lifecycle_status, te.version,
+		       COALESCE(te.meeting_link, ''), te.origin_schedule_pattern_id, COALESCE(te.origin_occurrence_date, ''),
+		       COALESCE(c.code, ''), COALESCE(co.activity_type, ''),
+		       COALESCE((SELECT GROUP_CONCAT(l.full_name, ', ') FROM offering_lecturers ol JOIN lecturers l ON ol.lecturer_id = l.id WHERE ol.course_offering_id = co.id AND ol.superseded_at IS NULL), ''),
+		       COALESCE((SELECT u_pj.display_name FROM role_assignments ra JOIN users u_pj ON ra.user_id = u_pj.id WHERE ra.course_offering_id = co.id AND ra.role = 'PJ' AND ra.status = 'ACTIVE' LIMIT 1), '')
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
+		LEFT JOIN courses c ON co.course_id = c.id
 		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE 1=1
+		WHERE sem.status IN ('ACTIVE', 'DRAFT')
 	`
 	var args []any
 
@@ -761,23 +810,48 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 	var events []map[string]any
 	for rows.Next() {
 		var id, offID int64
-		var kind, offDisplay, roomCode, reason, lifeStatus, meetingLink string
+		var roomID, originPatternID sql.NullInt64
+		var kind, offDisplay, roomCode, roomName, roomBuilding, reason, lifeStatus, meetingLink, originDate, courseCode, activityType, lecturerNames, pjName string
+		var roomCapacity int
 		var startsAt, endsAt common.DBTimestamp
 		var version int
 
-		if err := rows.Scan(&id, &kind, &offID, &offDisplay, &startsAt, &endsAt, &roomCode, &reason, &lifeStatus, &version, &meetingLink); err == nil {
+		if err := rows.Scan(
+			&id, &kind, &offID, &offDisplay, &startsAt, &endsAt,
+			&roomID, &roomCode, &roomName, &roomBuilding, &roomCapacity,
+			&reason, &lifeStatus, &version, &meetingLink, &originPatternID, &originDate,
+			&courseCode, &activityType, &lecturerNames, &pjName,
+		); err == nil {
+			var roomVal any
+			if roomID.Valid {
+				roomVal = roomID.Int64
+			}
+			var originPatVal any
+			if originPatternID.Valid {
+				originPatVal = originPatternID.Int64
+			}
 			events = append(events, map[string]any{
-				"id":               id,
-				"event_kind":       kind,
-				"offering_id":      offID,
-				"offering":         offDisplay,
-				"starts_at":        startsAt.RFC3339(),
-				"ends_at":          endsAt.RFC3339(),
-				"room":             roomCode,
-				"reason":           reason,
-				"lifecycle_status": lifeStatus,
-				"version":          version,
-				"meeting_link":     meetingLink,
+				"id":                     id,
+				"event_kind":             kind,
+				"offering_id":            offID,
+				"offering":               offDisplay,
+				"course_code":            courseCode,
+				"activity_type":          activityType,
+				"starts_at":              startsAt.RFC3339(),
+				"ends_at":                endsAt.RFC3339(),
+				"room_id":                roomVal,
+				"room":                   roomCode,
+				"room_name":              roomName,
+				"room_building":          roomBuilding,
+				"room_capacity":          roomCapacity,
+				"reason":                 reason,
+				"lifecycle_status":       lifeStatus,
+				"version":                version,
+				"meeting_link":           meetingLink,
+				"origin_pattern_id":      originPatVal,
+				"origin_occurrence_date": originDate,
+				"lecturer":               lecturerNames,
+				"pj_name":                pjName,
 			})
 		}
 	}
@@ -1575,7 +1649,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 
 // PreviewTeachingEvent menangani POST /api/v1/teaching-events/{id}/preview
 func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http.Request) {
-	_, ok := common.GetAuthContext(r)
+	u, ok := common.GetAuthContext(r)
 	if !ok {
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
 		return
@@ -1617,6 +1691,16 @@ func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kejadian jadwal")
+		return
+	}
+
+	allowed, authErr := c.canReadTeachingEvent(r.Context(), u, eventID)
+	if authErr != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi cakupan kejadian jadwal")
+		return
+	}
+	if !allowed {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Akses pratinjau kejadian jadwal ditolak")
 		return
 	}
 
@@ -1962,8 +2046,12 @@ func (c *ScheduleController) DeletePattern(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.Local
+	}
 	// Hapus (set effective_until = kemarin) — soft delete, riwayat tetap untuk audit
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := time.Now().In(loc).AddDate(0, 0, -1).Format("2006-01-02")
 	_, err = c.db.Exec(`
 		UPDATE schedule_patterns
 		SET effective_until = ?, updated_at = CURRENT_TIMESTAMP

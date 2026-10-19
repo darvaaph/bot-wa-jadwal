@@ -101,10 +101,18 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	var args []any
 
 	// Filter cakupan peran
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid {
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
+			return
+		}
 		query += " AND t.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" && u.ActiveClassID.Valid {
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			return
+		}
 		query += " AND sem.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	}
@@ -120,17 +128,17 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	// Filter berdasarkan Tab
 	switch tab {
 	case "draf":
-		query += " AND t.publication_status = 'DRAFT' AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'DRAFT' AND t.archived_at IS NULL"
 	case "review":
-		query += " AND t.publication_status = 'PUBLISHED' AND t.review_state = 'NOT_REVIEWED' AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'PUBLISHED' AND t.review_state = 'NOT_REVIEWED' AND t.archived_at IS NULL"
 	case "selesai":
-		query += " AND t.completed_at IS NOT NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.completed_at IS NOT NULL AND t.archived_at IS NULL"
 	case "terlewat":
-		query += " AND t.publication_status = 'PUBLISHED' AND t.deadline_at < datetime('now') AND t.completed_at IS NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND datetime(t.deadline_at) < datetime('now') AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
 	case "arsip":
 		query += " AND t.archived_at IS NOT NULL"
 	default: // "aktif"
-		query += " AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
 	}
 
 	query += " ORDER BY t.deadline_at ASC;"
@@ -375,10 +383,14 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 			sub = *req.SubmissionText
 		}
 
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+		if loc == nil {
+			loc = time.Local
+		}
 		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
 			"course":         offName,
 			"title":          req.Title,
-			"deadline":       deadlineTime.Format("02 Jan 2006 15:04 WIB"),
+			"deadline":       deadlineTime.In(loc).Format("02 Jan 2006 15:04 WIB"),
 			"instructions":   req.Instructions,
 			"submission_url": sub,
 		}, u.UserID)
@@ -933,10 +945,14 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 			sub = subText
 		}
 
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+		if loc == nil {
+			loc = time.Local
+		}
 		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
 			"course":         offName,
 			"title":          title,
-			"deadline":       deadlineAt.Time.Format("02 Jan 2006 15:04 WIB"),
+			"deadline":       deadlineAt.Time.In(loc).Format("02 Jan 2006 15:04 WIB"),
 			"instructions":   instr,
 			"submission_url": sub,
 		}, u.UserID)

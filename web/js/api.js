@@ -189,7 +189,7 @@ const BotApi = {
       is_done: !!item.completed_at,
       is_completed: !!item.completed_at,
       is_archived: !!item.archived_at,
-      creator_name: 'PJ Mata Kuliah'
+      creator_name: item.creator_name || 'PJ Mata Kuliah'
     };
   },
 
@@ -364,8 +364,10 @@ const BotApi = {
       throw err;
     }
     if (res.status === 409) {
-      const err = new Error('Versi data sudah berubah, muat ulang sebelum menyimpan.');
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || 'Versi data sudah berubah, muat ulang sebelum menyimpan.');
       err.code = 'VERSION_CONFLICT';
+      err.payload = (json && json.data) || json || { conflict: true };
       throw err;
     }
     if (!res.ok) {
@@ -1400,7 +1402,7 @@ const BotApi = {
 
   async getPortalCourses(slug, semesterId) {
     const qs = semesterId ? '?semester_id=' + encodeURIComponent(semesterId) : '';
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/courses' + qs, { credentials: 'same-origin', headers: authHeaders() });
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/courses' + qs, { credentials: 'same-origin', headers: this.portalHeaders(slug) });
     const json = await res.json().catch(() => null);
     if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Mata kuliah gagal dimuat.');
     return json.data || [];
@@ -1465,12 +1467,16 @@ const BotApi = {
         instructions: item.instructions,
         deadline: item.deadline_at,
         deadline_at: item.deadline_at,
+        task_type: item.task_type || '',
+        submission_text: item.submission_text || '',
+        submission_url: item.submission_url || '',
         submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
         status: 'PUBLISHED',
         publication_status: 'PUBLISHED',
         review_status: 'APPROVED',
         review_state: 'APPROVED',
-        is_completed: false,
+        completed_at: item.completed_at || null,
+        is_completed: Boolean(item.is_completed || item.completed_at),
         creator_name: 'PJ Mata Kuliah'
       };
     });

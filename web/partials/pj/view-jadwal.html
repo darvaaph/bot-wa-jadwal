@@ -1824,9 +1824,9 @@
                 <span class="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider block">Kontak Petugas TU</span>
                 <div class="text-[12px] text-[#1E293B] font-medium mt-0.5" x-text="selectedUsulanDetail.tuContact"></div>
               </div>
-              <div x-show="selectedUsulanDetail.tuNote" class="pt-3 border-t border-[#BFDBFE]/70">
+              <div x-show="selectedUsulanDetail.reason || selectedUsulanDetail.tuNote" class="pt-3 border-t border-[#BFDBFE]/70">
                 <span class="text-[10px] font-bold text-[#1E3A8A] uppercase tracking-wider block">Catatan Pengajuan</span>
-                <p class="text-[12px] text-[#334155] italic mt-0.5" x-text="selectedUsulanDetail.reason"></p>
+                <p class="text-[12px] text-[#334155] italic mt-0.5" x-text="selectedUsulanDetail.reason || selectedUsulanDetail.tuNote"></p>
               </div>
             </div>
           </div>

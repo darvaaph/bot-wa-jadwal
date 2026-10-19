@@ -140,7 +140,6 @@ function pjApp() {
     get antrean() { return []; },
     get notifGagal() { return 0; },
     get attentionCount() { return 0; },
-    get activeSemesterLabel() { return ''; },
 
     isActive(item) { const a = item.active || [item.id]; return a.includes(this.view); },
 
@@ -700,15 +699,26 @@ function pjApp() {
     },
 
     get pekanNum() {
+      const days = this.weekDays;
+      const sem = (this.semesterList || []).find(s => String(s.status || '').toUpperCase() === 'ACTIVE') || (this.semesterData && this.semesterData.active);
+      if (sem && sem.starts_on && days && days.length) {
+        const start = new Date(sem.starts_on + 'T00:00:00+07:00');
+        if (!Number.isNaN(start.getTime())) {
+          const diffDays = Math.floor((days[0].full.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const weekNum = Math.floor(diffDays / 7) + 1;
+          if (weekNum >= 1 && weekNum <= 24) return weekNum;
+        }
+      }
       return Math.max(1, 6 + this.weekOffset);
     },
 
     activeSemesterLabel() {
-      if (this.semesterData && this.semesterData.active) {
-        const s = this.semesterData.active;
-        return `${s.term === 'ODD' ? 'Semester Ganjil' : 'Semester Genap'} ${s.academic_year || ''} (Aktif)`;
+      const s = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE') || (this.semesterData && this.semesterData.active);
+      if (s) {
+        const termStr = s.term === 'ODD' ? 'Ganjil' : (s.term === 'EVEN' ? 'Genap' : (s.term || ''));
+        return `Semester ${termStr} ${s.academic_year || ''} (Aktif)`.replace(/\s+/g, ' ').trim();
       }
-      return 'Semester Ganjil 2026/2027 (Aktif)';
+      return 'Semester Aktif';
     },
 
     isMatkulSaya(s) {
@@ -850,7 +860,7 @@ function pjApp() {
       return cells;
     },
 
-    isToday(dayName) { return dayName === this.todayName; },
+    isToday(dayName) { return this.weekOffset === 0 && dayName === this.todayName; },
 
     slotKind(matkul) {
       const s = String(matkul || '').toLowerCase();
@@ -870,10 +880,28 @@ function pjApp() {
       const dayObj = (this.weekDays || []).find(d => d.name === dayName);
       const activeDateStr = dayObj ? dayObj.dateStr : null;
       const q = (this.schedSearch || '').toLowerCase().trim();
-      return (this.fullSchedule || [])
+      const all = this.fullSchedule || [];
+      const isHolidayDay = activeDateStr && all.some(e => !e.isDraft && String(e.eventKind || '').toUpperCase() === 'HOLIDAY' && e.dateStr === activeDateStr);
+      const overriddenPatternIds = new Set();
+      if (activeDateStr) {
+        all.forEach(e => {
+          if (e.isDraft) return;
+          const kind = String(e.eventKind || '').toUpperCase();
+          if ((kind === 'REPLACEMENT' || kind === 'SESSION_CANCELLED') && e.originPatternId && e.originDate === activeDateStr) {
+            overriddenPatternIds.add(String(e.originPatternId));
+          }
+        });
+      }
+      return all
         .filter(s => {
           if (s.hari !== dayName) return false;
-          if (s.dateStr && activeDateStr && s.dateStr !== activeDateStr) return false;
+          const kind = String(s.eventKind || '').toUpperCase();
+          if (kind === 'SESSION_CANCELLED' || kind === 'HOLIDAY') return false;
+          if (s.dateStr) {
+            return !activeDateStr || s.dateStr === activeDateStr;
+          }
+          if (isHolidayDay) return false;
+          if (s.patternId && overriddenPatternIds.has(String(s.patternId))) return false;
           return true;
         })
         .filter(s => {
@@ -1073,7 +1101,7 @@ function pjApp() {
       }).map(e => {
         const start = new Date(e.starts_at);
         const end = new Date(e.ends_at);
-        const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+        const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).replace('.', ':');
         
         let dayName = '-';
         let dateStr = '-';
@@ -1180,6 +1208,11 @@ function pjApp() {
 
     get polaRooms() {
       const map = new Map();
+      (this.masterRoomsList || []).forEach(r => {
+        if (r && r.id && !map.has(String(r.id))) {
+          map.set(String(r.id), { id: String(r.id), code: r.code || r.name || ('Ruang ' + r.id) });
+        }
+      });
       (this.patternsList || []).forEach(p => {
         if (p.room_id && !map.has(String(p.room_id))) {
           map.set(String(p.room_id), { id: String(p.room_id), code: p.room || p.room_code || ('Ruang ' + p.room_id) });
@@ -1197,10 +1230,10 @@ function pjApp() {
     get pjAvailableOriginSessions() {
       const list = [];
       const patterns = this.scopePatterns || [];
-      const days = this.weekDays || [];
+      const days = this.allWeekDaysWithSaturday || this.weekDays || [];
       for (const p of patterns) {
         const dow = Number(p.day_of_week);
-        if (dow >= 1 && dow <= 5 && days[dow - 1]) {
+        if (dow >= 1 && dow <= 6 && days[dow - 1]) {
           const d = days[dow - 1];
           const start = (p.start_time || '').slice(0, 5);
           const end = (p.end_time || '').slice(0, 5);
@@ -1754,6 +1787,7 @@ function pjApp() {
         this.showToast('Jadwal tetap ditambahkan.');
         this.polaPreview = null;
         this.patternsList = await API.getPatterns();
+        await this.loadSchedule();
         this.jadwalSub = 'daftar';
       } catch (e) { this.polaFormError = e.message || 'Gagal menerbitkan jadwal.'; }
       finally { this.polaPreviewLoading = false; }
@@ -1826,7 +1860,7 @@ function pjApp() {
 
         const start = new Date(ev.starts_at);
         const end = new Date(ev.ends_at);
-        const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+        const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).replace('.', ':');
         
         let dayName = '-';
         let dateFull = '-';
@@ -1937,14 +1971,14 @@ function pjApp() {
       if (session.roomCapacity && Number(session.roomCapacity) > 0) {
         roomSubtext = `Kapasitas: ${session.roomCapacity} Kursi`;
       } else {
-        roomSubtext = 'Kapasitas: 40 Kursi';
+        roomSubtext = 'Kapasitas standar kelas';
       }
 
-      if (isMine && (session.eventKind === 'REPLACEMENT' || String(session.matkul || '').toLowerCase().includes('basis data'))) {
-        roomSubtext += ' · Terkonfirmasi TU';
+      if (isMine && session.eventKind === 'REPLACEMENT') {
+        roomSubtext += ' · Sesi Pengganti';
       }
 
-      const dosenText = session.dosen || 'Bpk. M. Ridwan, M.Kom';
+      const dosenText = session.dosen || 'Dosen Pengampu';
 
       // Status Pertemuan
       const pekanNumber = this.pekanNum || 6;
@@ -1959,13 +1993,13 @@ function pjApp() {
       }
 
       // Subtitle Kode & Semester
-      const semRaw = (typeof this.activeSemesterLabel === 'function' ? this.activeSemesterLabel() : this.activeSemesterLabel) || 'Semester Ganjil 2026/2027';
+      const semRaw = (typeof this.activeSemesterLabel === 'function' ? this.activeSemesterLabel() : this.activeSemesterLabel) || 'Semester Aktif';
       const cleanSem = String(semRaw).replace(/\s*\(Aktif\)/i, '').trim();
-      const code = session.courseCode || (isMine ? '25IF1101' : '25IF1102');
+      const code = session.courseCode || '-';
       const subtitleText = `Kode: ${code} · ${cleanSem}`;
 
       // Nama PJ untuk matkul lain
-      const pjName = session.pjName || (isMine ? (this.userName || 'Anda') : 'Dimas Anggara');
+      const pjName = session.pjName || (isMine ? ((this.currentUser && this.currentUser.display_name) || 'Anda') : 'PJ Mata Kuliah');
 
       this.selectedSessionDetail = {
         session,
@@ -1983,7 +2017,7 @@ function pjApp() {
         dosenText,
         statusText,
         pjName,
-        meetingLink: session.meetingLink || ''
+        meetingLink: session.meetingLink || session.link || ''
       };
       this.showDetailSesiModal = true;
     },
@@ -2165,6 +2199,7 @@ function pjApp() {
         try {
           await API.patchPattern(this.draftEvent.id, this.rakitPayloadPermanen());
           this.patternsList = await API.getPatterns();
+          await this.loadSchedule();
           this.showToast('Jadwal tetap baru berlaku sesuai tanggal pilihan.');
           this.jadwalSub = 'daftar';
         } catch (e) { this.showToast(e.message || 'Gagal menerbitkan perubahan permanen.'); }
@@ -2176,7 +2211,7 @@ function pjApp() {
       try {
         await API.publishTeachingEvent(this.draftEvent.id, (this.ubahForm.conflictReason || '').trim() || null, this.draftEvent.version || 1);
         this.showToast('Perubahan jadwal terbit.');
-        await this.loadEvents();
+        await Promise.all([this.loadEvents(), this.loadSchedule()]);
         const found = (this.eventsList || []).find(e => String(e.id) === String(this.draftEvent.id));
         this.selectedEvent = found || null;
         this.loadDelivery('TEACHING_EVENT', this.draftEvent.id);
@@ -2312,6 +2347,7 @@ function pjApp() {
       await this.loadPJDashboard();
       this.loadClasses().catch(() => {});
       this.loadOfferings().catch(() => {});
+      this.loadDirectoryRooms().catch(() => {});
       this.loadSchedule().catch(() => {});
       this.loadTasks().catch(() => {});
       this.loadPatterns().catch(() => {});
@@ -2730,12 +2766,13 @@ function pjApp() {
         ]);
         const seen = new Set();
         const list = [];
+        const pad = n => String(n).padStart(2, '0');
         (rawPatterns || []).forEach((s, i) => {
           const matchedOff = (this.offeringList || []).find(o => String(o.id) === String(s.course_offering_id));
           const entry = {
             id: `pattern-${s.id || i}`,
             patternId: s.id,
-            offeringId: s.course_offering_id,
+            offeringId: s.course_offering_id || s.offering_id || '',
             hari: this.polaHariName(s.day_of_week),
             jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
             matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
@@ -2748,7 +2785,7 @@ function pjApp() {
             timeStart: String(s.start_time || '').slice(0, 5),
             timeEnd: String(s.end_time || '').slice(0, 5),
             activityType: s.activity_type || (matchedOff && matchedOff.activity_type) || '',
-            meetingLink: s.meeting_link || '',
+            meetingLink: s.meeting_link || s.meeting_url || s.online_url || '',
             pjName: s.pj_name || ''
           };
           const key = `${entry.hari}|${entry.timeStart}|${entry.matkul}|${entry.ruang || ''}`;
@@ -2759,24 +2796,34 @@ function pjApp() {
         (rawEvents || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED').forEach((e, i) => {
           const start = new Date(e.starts_at), end = new Date(e.ends_at);
           if (Number.isNaN(start.getTime())) return;
+          const wibStart = new Date(start.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+          const dateStr = `${wibStart.getFullYear()}-${pad(wibStart.getMonth() + 1)}-${pad(wibStart.getDate())}`;
           const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
-          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-          const dateStr = start.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).replace('.', ':');
           let originDateNote = '';
           if (e.origin_occurrence_date) {
             try {
-              const od = new Date(e.origin_occurrence_date);
+              const od = new Date(e.origin_occurrence_date + 'T00:00:00+07:00');
               originDateNote = od.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
             } catch (err) { originDateNote = e.origin_occurrence_date; }
           }
           list.push({
             id: `event-${e.id || i}`,
-            offeringId: e.offering_id,
+            offeringId: e.owner_offering_id || e.offering_id || '',
+            originPatternId: e.origin_pattern_id || null,
+            originDate: e.origin_occurrence_date || '',
             hari,
             jam: `${hm(start)} - ${hm(end)}`,
             matkul: e.offering || 'Mata Kuliah',
-            dosen: '',
+            courseCode: e.course_code || '',
+            activityType: e.activity_type || '',
+            dosen: e.lecturer || e.dosen || '',
             ruang: e.room || '',
+            roomName: e.room_name || '',
+            roomBuilding: e.room_building || '',
+            roomCapacity: e.room_capacity || null,
+            pjName: e.pj_name || '',
+            meetingLink: e.online_url || e.meeting_url || e.link || '',
             timeStart: hm(start),
             timeEnd: hm(end),
             eventKind: e.event_kind,
@@ -2793,18 +2840,28 @@ function pjApp() {
         myDraftEvents.forEach((e, i) => {
           const start = new Date(e.starts_at), end = new Date(e.ends_at);
           if (Number.isNaN(start.getTime())) return;
+          const wibStart = new Date(start.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+          const dateStr = `${wibStart.getFullYear()}-${pad(wibStart.getMonth() + 1)}-${pad(wibStart.getDate())}`;
           const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
-          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
-          const dateStr = start.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).replace('.', ':');
           list.push({
             id: `draft-event-${e.id || i}`,
             rawEvent: e,
-            offeringId: e.offering_id,
+            offeringId: e.owner_offering_id || e.offering_id || '',
+            originPatternId: e.origin_pattern_id || null,
+            originDate: e.origin_occurrence_date || '',
             hari,
             jam: `${hm(start)} - ${hm(end)}`,
             matkul: e.offering || this.offeringName() || this.pjMatkul || 'Mata Kuliah',
-            dosen: '',
+            courseCode: e.course_code || '',
+            activityType: e.activity_type || '',
+            dosen: e.lecturer || e.dosen || '',
             ruang: e.room || '',
+            roomName: e.room_name || '',
+            roomBuilding: e.room_building || '',
+            roomCapacity: e.room_capacity || null,
+            pjName: e.pj_name || '',
+            meetingLink: e.online_url || e.meeting_url || e.link || '',
             timeStart: hm(start),
             timeEnd: hm(end),
             eventKind: 'REPLACEMENT',
@@ -2853,7 +2910,7 @@ function pjApp() {
                    submission_text: t.submission_text, submission_url: t.submission_url,
                    publication_status: t.publication_status, review_state: t.review_state,
                    version: t.version, completed_at: t.completed_at, archived_at: t.archived_at,
-                   created_at: t.created_at || null,
+                   created_at: t.created_at || null, published_at: t.published_at || null, creator_name: t.creator_name || '',
                    offering_id: t.offering_id,
                    urgency: u.level, countdown: u.badge };
         });
@@ -3044,6 +3101,7 @@ function pjApp() {
           review_state: info.review_state || info.review_status || 'NOT_REVIEWED',
           version: info.version || 0,
           completed_at: info.completed_at || null, archived_at: info.archived_at || null,
+          created_at: info.created_at || '', published_at: info.published_at || '', creator_name: info.creator_name || '',
           offering_id: info.offering_id || info.course_offering_id || '',
           urgency: u.level, countdown: u.badge
         };
@@ -3138,7 +3196,7 @@ function pjApp() {
         await this.bukaDetailTugas(this.editTugasId);
       } catch (e) {
         if (e.code === 'VERSION_CONFLICT') {
-          this.tugasConflict = (e.payload && (e.payload.current_data || e.payload.data)) || null;
+          this.tugasConflict = (e.payload && (e.payload.current_data || e.payload.data)) || { conflict: true };
         } else {
           this.tugasError = e.message || 'Gagal menyimpan perubahan.';
         }
@@ -3319,16 +3377,6 @@ function pjApp() {
     },
 
     // Materi — lingkup offering penugasan PJ.
-    get materiTampil() {
-      const list = (this.materiList || []).slice();
-      const terbaru = this.materiSort !== 'terlama';
-      return list.sort((a, b) => {
-        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return terbaru ? (tb - ta) : (ta - tb);
-      });
-    },
-
     materiTipeLabel(t) {
       const s = String(t || '').toUpperCase();
       if (s === 'DOCUMENT') return 'Dokumen';
@@ -3465,7 +3513,7 @@ function pjApp() {
 
     materiKeteranganText(m) {
       const parts = [];
-      parts.push(this.pjMatkul || 'Basis Data');
+      parts.push(this.pjMatkul || 'Mata Kuliah');
       if (m.description) {
         parts.push(m.description);
       } else if (m.url && m.url.includes('drive.google.com')) {
@@ -3477,7 +3525,7 @@ function pjApp() {
       } else if (m.material_type === 'MEETING') {
         parts.push('Tautan Google Drive');
       }
-      const authorName = (this.meCache && this.meCache.name) ? this.meCache.name : 'Farhan Pratama';
+      const authorName = (m && m.uploader_name) || (this.currentUser && this.currentUser.display_name) || (this.meCache && this.meCache.user && this.meCache.user.display_name) || 'PJ Mata Kuliah';
       parts.push('Oleh ' + authorName + ' (PJ)');
       return parts.join(' · ');
     },

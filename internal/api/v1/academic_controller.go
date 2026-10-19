@@ -1324,6 +1324,11 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
+	u, ok := common.GetAuthContext(r)
+	if !ok {
+		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
+		return
+	}
 
 	classSlug := r.URL.Query().Get("class_slug")
 	offeringParam := r.URL.Query().Get("offering_id")
@@ -1338,6 +1343,26 @@ func (c *AcademicController) GetMaterials(w http.ResponseWriter, r *http.Request
 		WHERE m.status = 'ACTIVE' AND m.deleted_at IS NULL
 	`
 	var args []any
+
+	if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			return
+		}
+		query += " AND m.class_id = ?"
+		args = append(args, u.ActiveClassID.Int64)
+	} else if u.ActiveRole == "PJ" {
+		if u.ActiveCourseOfferingID.Valid {
+			query += " AND m.course_offering_id = ?"
+			args = append(args, u.ActiveCourseOfferingID.Int64)
+		} else if u.ActiveClassID.Valid {
+			query += " AND m.class_id = ?"
+			args = append(args, u.ActiveClassID.Int64)
+		} else {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
+			return
+		}
+	}
 
 	if classSlug != "" {
 		query += " AND c.slug = ?"
@@ -1702,13 +1727,27 @@ func (c *AcademicController) GetRoomCandidates(w http.ResponseWriter, r *http.Re
 	// BE-006: definisi overlap sama [start,end): te.starts_at < endsAt AND te.ends_at > startsAt.
 	// Kandidat mengecualikan ruangan yang dipakai event PUBLISHED maupun pola
 	// reguler efektif pada tanggal candidate.
-	dateStr := startsAt.Format("2006-01-02")
-	dow := int(startsAt.Weekday())
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	if loc == nil {
+		loc = time.Local
+	}
+	if u, ok := common.GetAuthContext(r); ok && u.ActiveClassID.Valid {
+		var tz string
+		if err := c.db.QueryRowContext(r.Context(), `SELECT timezone FROM class_settings WHERE class_id = ?`, u.ActiveClassID.Int64).Scan(&tz); err == nil && tz != "" {
+			if l, err := time.LoadLocation(tz); err == nil {
+				loc = l
+			}
+		}
+	}
+	startsAtLocal := startsAt.In(loc)
+	endsAtLocal := endsAt.In(loc)
+	dateStr := startsAtLocal.Format("2006-01-02")
+	dow := int(startsAtLocal.Weekday())
 	if dow == 0 {
 		dow = 7
 	}
-	startHM := startsAt.Format("15:04")
-	endHM := endsAt.Format("15:04")
+	startHM := startsAtLocal.Format("15:04")
+	endHM := endsAtLocal.Format("15:04")
 	// Cari ruangan yang TIDAK sedang digunakan oleh event PUBLISHED pada rentang waktu tersebut
 	query := `
 		SELECT r.id, r.code, r.name, r.capacity, r.room_type
@@ -1720,18 +1759,22 @@ func (c *AcademicController) GetRoomCandidates(w http.ResponseWriter, r *http.Re
 		      WHERE te.room_id IS NOT NULL
 		        AND te.lifecycle_status = 'PUBLISHED'
 		        AND te.id != ?
-		        AND te.starts_at < ? AND te.ends_at > ?
+		        AND datetime(te.starts_at) < datetime(?) AND datetime(te.ends_at) > datetime(?)
 		  )
 		  AND r.id NOT IN (
 		      SELECT sp.room_id FROM schedule_patterns sp
-		      WHERE sp.room_id IS NOT NULL AND sp.status='ACTIVE' AND sp.day_of_week=?
-		        AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+		      JOIN course_offerings co ON sp.course_offering_id = co.id
+		      JOIN semesters sem ON co.semester_id = sem.id
+		      WHERE sp.room_id IS NOT NULL AND sp.status = 'ACTIVE' AND sem.status = 'ACTIVE'
+		        AND sp.day_of_week = ?
+		        AND (sp.effective_from IS NULL OR sp.effective_from <= ?)
+		        AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
 		        AND sp.start_time < ? AND sp.end_time > ?
 		  )
 		ORDER BY r.code;
 	`
 
-	rows, err := c.db.Query(query, excludeEventID, endsAt.Format(time.RFC3339), startsAt.Format(time.RFC3339),
+	rows, err := c.db.Query(query, excludeEventID, endsAt.UTC().Format(time.RFC3339), startsAt.UTC().Format(time.RFC3339),
 		dow, dateStr, dateStr, endHM, startHM)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal mencari kandidat ruangan: %v", err))

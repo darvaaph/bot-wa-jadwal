@@ -235,7 +235,7 @@ function portalApp() {
     },
 
     get activeTasksCount() {
-      return (this.tasks || []).length || 2;
+      return (this.tasks || []).length;
     },
 
     get hasSaturdayClass() {
@@ -470,7 +470,7 @@ function portalApp() {
     },
 
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
-    deadlineBadge(iso) { return API.deadlineBadge(iso); },
+    deadlineBadge(iso, completedAt) { return API.deadlineBadge(iso, completedAt); },
 
     fmtDeadlineDetailed(iso) {
       if (!iso) return '-';
@@ -636,6 +636,7 @@ function portalApp() {
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
+          this.searchMateriQuery = '';
           await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
           this.dashboardLoading = false;
           return;
@@ -705,6 +706,7 @@ function portalApp() {
 
         await this.ensureDashboardPartials();
         this.updateClock();
+        this.searchMateriQuery = '';
         await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
@@ -761,6 +763,7 @@ function portalApp() {
           this.loadSchedule();
           this.loadJadwalEfektif();
           this.loadTugasPortal();
+          this.searchMateriQuery = '';
           this.loadMateri();
           this.loadPerubahan();
           this.loadSemester();
@@ -959,7 +962,10 @@ function portalApp() {
       if (v === 'courses') this.loadCourses();
       if (v === 'arsip') this.loadSemester();
       if (v === 'perubahan') this.loadPerubahan();
-      if (v === 'materi') this.loadMateri();
+      if (v === 'materi') {
+        this.searchMateriQuery = '';
+        this.loadMateri();
+      }
       window.scrollTo({ top: 0 });
     },
 
@@ -1341,10 +1347,7 @@ function portalApp() {
     },
 
     hubungiPJ(s) {
-      const name = (s && s.pj) || 'PJ Kelas';
-      const matkul = (s && s.matkul) || '';
-      const msg = encodeURIComponent(`Halo ${name}, saya ingin bertanya mengenai perkuliahan ${matkul}.`);
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
+      this.chatWhatsAppPJ(s);
     },
 
     getTugasTerkait(matkul) {
@@ -1399,7 +1402,7 @@ function portalApp() {
 
     getKodeMatkul(s) {
       if (!s) return 'TI2104';
-      if (s.kode) return s.kode;
+      if (s.code || s.kode) return s.code || s.kode;
       const m = String(s.matkul || '').toLowerCase();
       if (m.includes('aljabar')) return 'TI2104';
       if (m.includes('web')) return 'TI2105';
@@ -1454,7 +1457,7 @@ function portalApp() {
 
     async loadSchedule() {
       try {
-        const raw = await API.getSchedule(this.selectedClass, 'all');
+        const raw = await API.fetchLegacySchedule(this.selectedClass);
         this.fullSchedule = (raw || []).map((s, i) => {
           const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
           return {
@@ -1547,13 +1550,16 @@ function portalApp() {
         }
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
-          const u = this.deadlineBadge(deadline);
+          const u = this.deadlineBadge(deadline, t.completed_at || t.is_completed);
           return {
             id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
             title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
             instructions: t.instructions || '',
+            task_type: t.task_type || '',
             submission_text: t.submission_text || '',
             submission_url: t.submission_url || '',
+            completed_at: t.completed_at || null,
+            is_completed: !!t.is_completed,
             deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
             urgency: u.level, countdown: u.badge
           };
@@ -1588,7 +1594,7 @@ function portalApp() {
         const d = await API.getPortalTaskDetail(this.selectedClassSlug, t.id);
         const info = (d && (d.task || d)) || null;
         if (!info) throw { code: 'NOT_FOUND' };
-        const u = this.deadlineBadge(info.deadline_at);
+        const u = this.deadlineBadge(info.deadline_at, info.completed_at || info.is_completed);
         this.detailTugas = {
           id: info.id, matkul: info.offering || '', title: info.title || '',
           instructions: info.instructions || '',
@@ -1596,7 +1602,9 @@ function portalApp() {
           deadline_at: info.deadline_at,
           task_type: info.task_type || '',
           submission_text: info.submission_text || '', submission_url: info.submission_url || '',
-          version: info.version || '', is_completed: !!info.is_completed,
+          version: info.version || '',
+          completed_at: info.completed_at || null,
+          is_completed: !!info.is_completed,
           urgency: u.level, countdown: u.badge
         };
         this.detailMateri = (d && d.materials) || [];
@@ -1636,29 +1644,31 @@ function portalApp() {
         { key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount },
       ];
 
-      const courseDefs = [
-        { key: 'Sistem Basis Data', label: 'Sistem Basis Data', shortLabel: 'Basis Data' },
-        { key: 'Pemrograman Berorientasi Objek', label: 'Pemrograman Berorientasi Objek', shortLabel: 'PBO' },
-        { key: 'Matematika Diskrit', label: 'Matematika Diskrit', shortLabel: 'Matdis' },
-        { key: 'Arsitektur Komputer', label: 'Arsitektur Komputer', shortLabel: 'Arsitektur' },
-      ];
+      const foundKeys = new Set();
+      const dynamicCourses = [];
 
-      const foundKeys = new Set(courseDefs.map(c => c.key.toLowerCase()));
-
-      courseDefs.forEach(c => {
-        const count = all.filter(m => (m.course_name || '').trim().toLowerCase() === c.key.toLowerCase()).length;
-        list.push({ ...c, count });
+      (this.courses || []).forEach(c => {
+        const name = (c.course_name || c.name || '').trim();
+        if (name) dynamicCourses.push(name);
+      });
+      Object.values(this.jadwalPekan || {}).flat().forEach(s => {
+        const name = this.cleanMatkul(s.matkul || '');
+        if (name) dynamicCourses.push(name);
+      });
+      all.forEach(m => {
+        const name = (m.course_name || '').trim();
+        if (name) dynamicCourses.push(name);
       });
 
-      all.forEach(m => {
-        const cName = (m.course_name || '').trim();
-        if (cName && !foundKeys.has(cName.toLowerCase()) && !cName.toLowerCase().includes('umum')) {
-          foundKeys.add(cName.toLowerCase());
-          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === cName.toLowerCase()).length;
+      dynamicCourses.forEach(cName => {
+        const lower = cName.toLowerCase();
+        if (cName && !foundKeys.has(lower) && !lower.includes('umum') && !lower.includes('silabus') && !lower.includes('rps')) {
+          foundKeys.add(lower);
+          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === lower).length;
           list.push({
             key: cName,
             label: cName,
-            shortLabel: cName.length > 12 ? cName.split(' ')[0] : cName,
+            shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
             count,
           });
         }

@@ -1204,7 +1204,7 @@
               Draf Diajukan (Versi 1)
             </div>
             <div class="text-[11px] text-[#64748B]">
-              <span x-text="(profile && profile.name) || 'Farhan Pratama'">Farhan Pratama</span> (PJ)
+              <span x-text="(tugasDetail && tugasDetail.creator_name) || (currentUser && currentUser.display_name) || 'PJ Mata Kuliah'">PJ Mata Kuliah</span> (PJ)
             </div>
             <div class="text-[11px] text-[#94A3B8]" x-text="formatSubmittedTime(tugasDetail && (tugasDetail.created_at || tugasDetail.published_at))">Kemarin, 16:30 WIB</div>
           </div>

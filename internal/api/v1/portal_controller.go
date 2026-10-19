@@ -643,6 +643,10 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 	var nextEvent any
 
 	for _, item := range scheduleItems {
+		kind, _ := item["kind"].(string)
+		if kind == "DIBATALKAN" || kind == "LIBUR" {
+			continue
+		}
 		start := item["starts_at"].(string)
 		end := item["ends_at"].(string)
 
@@ -669,6 +673,7 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		WHERE sem.class_id = ? AND sem.status = 'ACTIVE'
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
+		  AND t.archived_at IS NULL
 		  AND t.completed_at IS NULL
 		ORDER BY t.deadline_at ASC
 		LIMIT 3;
@@ -814,13 +819,15 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 
 	query := `
 		SELECT t.id, co.display_name, t.title, t.instructions, t.deadline_at,
-		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version
+		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version,
+		       COALESCE(t.task_type, ''), t.completed_at
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE sem.class_id = ? AND sem.id = ?
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
+		  AND t.archived_at IS NULL
 	`
 	args := []any{classID, semesterID}
 
@@ -883,11 +890,15 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 	var tasks []map[string]any
 	for rows.Next() {
 		var id int64
-		var offeringName, title, instructions, subText, subURL string
-		var deadlineAt common.DBTimestamp
+		var offeringName, title, instructions, subText, subURL, taskType string
+		var deadlineAt, completedAt common.DBTimestamp
 		var version int
 
-		if err := rows.Scan(&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version); err == nil {
+		if err := rows.Scan(&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version, &taskType, &completedAt); err == nil {
+			var compVal any
+			if completedAt.Valid {
+				compVal = completedAt.RFC3339()
+			}
 			tasks = append(tasks, map[string]any{
 				"id":              id,
 				"offering":        offeringName,
@@ -897,6 +908,9 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 				"submission_text": subText,
 				"submission_url":  subURL,
 				"version":         version,
+				"task_type":       taskType,
+				"completed_at":    compVal,
+				"is_completed":    completedAt.Valid,
 			})
 		}
 	}
@@ -955,7 +969,7 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE t.id = ? AND sem.class_id = ? AND sem.id = ?
-		  AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL;
+		  AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL AND t.archived_at IS NULL;
 	`, taskID, classID, semesterID).Scan(
 		&id, &offeringID, &offeringName, &title, &instructions, &deadlineAt,
 		&taskType, &subText, &subURL, &version, &completedAt,
@@ -1043,7 +1057,8 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 		SELECT te.id, te.event_kind, co.display_name, te.starts_at, te.ends_at,
 		       COALESCE(r.code, ''), COALESCE(te.reason, ''), te.published_at
 		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
+		  AND (teo.participation_role = 'OWNER' OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		LEFT JOIN rooms r ON te.room_id = r.id
@@ -1057,11 +1072,11 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "since harus berformat RFC3339")
 			return
 		}
-		query += " AND te.published_at >= ?"
+		query += " AND datetime(te.published_at) >= datetime(?)"
 		args = append(args, since)
 	}
 
-	query += " ORDER BY te.published_at DESC LIMIT 50;"
+	query += " ORDER BY datetime(te.published_at) DESC, te.id DESC LIMIT 50;"
 
 	rows, err := c.db.Query(query, args...)
 	if err != nil {
@@ -1296,6 +1311,47 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
 	dayEnd := dayStart.AddDate(0, 0, 1)
 
+	suppressedPatternIDs := map[int64]bool{}
+	suppressedOfferingIDs := map[int64]bool{}
+	if supRows, err := c.db.Query(`
+		SELECT te.event_kind, te.origin_schedule_pattern_id, COALESCE(te.origin_occurrence_date, ''),
+		       teo.course_offering_id, te.starts_at
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
+		  AND (teo.participation_role = 'OWNER' OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
+		JOIN course_offerings co ON teo.course_offering_id = co.id
+		JOIN semesters sem ON co.semester_id = sem.id
+		WHERE sem.class_id = ?
+		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
+		  AND te.lifecycle_status = 'PUBLISHED'
+		  AND (
+		      substr(COALESCE(te.origin_occurrence_date, ''), 1, 10) = ?
+		      OR (datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?))
+		  );
+	`, classID, semesterID, semesterID, dateStr, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339)); err == nil {
+		for supRows.Next() {
+			var evKind, origDate, startsAtRaw string
+			var origPatID sql.NullInt64
+			var offID int64
+			if err := supRows.Scan(&evKind, &origPatID, &origDate, &offID, &startsAtRaw); err == nil {
+				origDatePrefix := ""
+				if len(origDate) >= 10 {
+					origDatePrefix = origDate[:10]
+				}
+				if (evKind == "REPLACEMENT" || evKind == "SESSION_CANCELLED") && origPatID.Valid && origDatePrefix == dateStr {
+					suppressedPatternIDs[origPatID.Int64] = true
+				} else if evKind == "HOLIDAY" || (evKind == "SESSION_CANCELLED" && origDatePrefix == "") {
+					if origPatID.Valid {
+						suppressedPatternIDs[origPatID.Int64] = true
+					} else {
+						suppressedOfferingIDs[offID] = true
+					}
+				}
+			}
+		}
+		supRows.Close()
+	}
+
 	patternRows, err := c.db.Query(`
 		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
 		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until,
@@ -1326,6 +1382,9 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		var effFrom, effUntil sql.NullString
 
 		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink, &courseCode); err == nil {
+			if suppressedPatternIDs[patternID] || suppressedOfferingIDs[offID] {
+				continue
+			}
 			lecturers := c.getOfferingLecturers(offID)
 			pj, pjQueryPhone := c.getOfferingPJ(offID)
 			items = append(items, map[string]any{
@@ -1355,7 +1414,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, ''),
 		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, ''), c.code
 		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
+		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
+		  AND (teo.participation_role = 'OWNER' OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
 		JOIN course_offerings co ON teo.course_offering_id = co.id
 		JOIN courses c ON co.course_id = c.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -1370,15 +1430,17 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 		defer eventRows.Close()
 		for eventRows.Next() {
 			var eventID, offID int64
-			var eventKind, offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink string
+			var eventKind, offDisplay, courseName, actType, startTimeRaw, endTimeRaw, roomCode, meetingLink string
 			var originPatID sql.NullInt64
 			var originOccDate, reason, courseCode string
 
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason, &courseCode); err == nil {
-				if t, err := time.Parse(time.RFC3339Nano, startTime); err == nil {
+			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTimeRaw, &endTimeRaw, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason, &courseCode); err == nil {
+				startTime := startTimeRaw
+				endTime := endTimeRaw
+				if t, err := common.ParseTime(startTimeRaw); err == nil {
 					startTime = t.In(targetDate.Location()).Format("15:04")
 				}
-				if t, err := time.Parse(time.RFC3339Nano, endTime); err == nil {
+				if t, err := common.ParseTime(endTimeRaw); err == nil {
 					endTime = t.In(targetDate.Location()).Format("15:04")
 				}
 				kindMap := map[string]string{

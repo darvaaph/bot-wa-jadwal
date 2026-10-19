@@ -810,7 +810,7 @@
             <div x-show="ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
               <label for="form-ubah-origin" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Sesi yang Digantikan *</label>
               <div class="relative">
-                <select id="form-ubah-origin" x-model="ubahForm.originPatternId"
+                <select id="form-ubah-origin" x-model="ubahForm.originPatternId" @change="pilihPolaAsal()"
                         aria-label="Sesi yang Digantikan"
                         class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]">
                   <option value="">Pilih Sesi Semula</option>
@@ -821,10 +821,26 @@
                 <span class="material-symbols-outlined text-[18px] text-[#98A2B3] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
               </div>
             </div>
+
+            <div x-show="ubahForm.kind === 'REPLACEMENT' || ubahForm.kind === 'SESSION_CANCELLED'">
+              <label for="form-ubah-origin-date" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Tanggal Sesi Semula *</label>
+              <input id="form-ubah-origin-date" type="date" x-model="ubahForm.originDate"
+                     aria-label="Tanggal Sesi Semula"
+                     class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] px-3.5 text-[13px] font-mono text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+            </div>
           </div>
         </div>
 
-        <!-- 3. Waktu Pelaksanaan Sesi Pengganti / Baru (Kondisional) -->
+        <!-- 3. Waktu Pelaksanaan Sesi Pengganti / Baru / Libur (Kondisional) -->
+        <div x-show="ubahForm.kind === 'HOLIDAY'" class="flex flex-col gap-2.5 pt-1">
+          <h2 class="text-[15px] font-semibold text-[#1D1B3A]">Waktu Libur Akademik</h2>
+          <div>
+            <label for="form-ubah-holiday-date" class="block text-[13px] font-semibold text-[#1D1B3A] mb-1.5">Tanggal Libur *</label>
+            <input id="form-ubah-holiday-date" type="date" x-model="ubahForm.date"
+                   class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] px-3.5 text-[13px] font-mono text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]" />
+          </div>
+        </div>
+
         <div x-show="ubahForm.kind !== 'SESSION_CANCELLED' && ubahForm.kind !== 'HOLIDAY'" class="flex flex-col gap-2.5 pt-1">
           <h2 class="text-[15px] font-semibold text-[#1D1B3A]" x-text="ubahForm.kind === 'REPLACEMENT' ? 'Waktu Pelaksanaan Sesi Pengganti' : 'Waktu Pelaksanaan Sesi Baru'"></h2>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
