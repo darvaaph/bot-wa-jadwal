@@ -375,3 +375,37 @@ func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 		}
 	}
 }
+
+func TestBE014_DevelopmentOriginsDevTunnelAndLAN(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	s.SetSecurityOptions(SecurityOptions{
+		Env:         "development",
+		AuthHashKey: "0123456789abcdef0123456789abcdef",
+	})
+
+	allowedDevOrigins := []string{
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
+		"http://192.168.1.50:8080",
+		"http://10.0.0.15:8080",
+		"https://transmit-farmers-set-pills.trycloudflare.com",
+		"https://my-app.loca.lt",
+		"https://test.ngrok-free.app",
+		"https://test.devtunnels.ms",
+	}
+
+	for _, origin := range allowedDevOrigins {
+		t.Run(origin, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+			req.AddCookie(&http.Cookie{Name: "bv1", Value: "session-token-test"})
+			req.Header.Set("Origin", origin)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+
+			// Tidak boleh ditolak 403 CSRF origin
+			if w.Code == http.StatusForbidden && strings.Contains(w.Body.String(), "Origin tidak diizinkan") {
+				t.Fatalf("origin development %s ditolak CSRF: %s", origin, w.Body.String())
+			}
+		})
+	}
+}

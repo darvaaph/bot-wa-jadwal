@@ -40,9 +40,10 @@ type PatchTaskRequest struct {
 
 // ReviewTaskRequest adalah payload keputusan review KM
 type ReviewTaskRequest struct {
-	Decision    string  `json:"decision"` // APPROVED, CHANGES_REQUESTED, REVOKED
-	Note        *string `json:"note,omitempty"`
-	TaskVersion int     `json:"task_version"`
+	Decision          string  `json:"decision"` // APPROVED, CHANGES_REQUESTED, REVOKED
+	Note              *string `json:"note,omitempty"`
+	TaskVersion       int     `json:"task_version"`
+	BroadcastWhatsApp *bool   `json:"broadcast_whatsapp,omitempty"`
 }
 
 // TaskStateRequest adalah payload untuk mengubah status tugas
@@ -367,14 +368,15 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if publicationStatus == "PUBLISHED" && reviewState == "APPROVED" {
-		var offName string
+		var offName, classSlug string
 		var classID int64
 		_ = c.db.QueryRow(`
-			SELECT co.display_name, sem.class_id
+			SELECT co.display_name, sem.class_id, c.slug
 			FROM course_offerings co
 			JOIN semesters sem ON co.semester_id = sem.id
+			JOIN classes c ON sem.class_id = c.id
 			WHERE co.id = ?;
-		`, req.OfferingID).Scan(&offName, &classID)
+		`, req.OfferingID).Scan(&offName, &classID, &classSlug)
 
 		sub := ""
 		if req.SubmissionURL != nil && *req.SubmissionURL != "" {
@@ -393,6 +395,7 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 			"deadline":       deadlineTime.In(loc).Format("02 Jan 2006 15:04 WIB"),
 			"instructions":   req.Instructions,
 			"submission_url": sub,
+			"class_slug":     classSlug,
 		}, u.UserID)
 	}
 
@@ -927,35 +930,43 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if decision == "APPROVED" {
-		var offName, title, instr, subURL, subText string
-		var deadlineAt common.DBTimestamp
-		var classID int64
-		_ = c.db.QueryRow(`
-			SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
-			       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
-			       sem.class_id
-			FROM tasks t
-			JOIN course_offerings co ON t.course_offering_id = co.id
-			JOIN semesters sem ON co.semester_id = sem.id
-			WHERE t.id = ?;
-		`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID)
-
-		sub := subURL
-		if sub == "" {
-			sub = subText
+		shouldBroadcast := true
+		if req.BroadcastWhatsApp != nil {
+			shouldBroadcast = *req.BroadcastWhatsApp
 		}
+		if shouldBroadcast {
+			var offName, title, instr, subURL, subText, classSlug string
+			var deadlineAt common.DBTimestamp
+			var classID int64
+			_ = c.db.QueryRow(`
+				SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
+				       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
+				       sem.class_id, c.slug
+				FROM tasks t
+				JOIN course_offerings co ON t.course_offering_id = co.id
+				JOIN semesters sem ON co.semester_id = sem.id
+				JOIN classes c ON sem.class_id = c.id
+				WHERE t.id = ?;
+			`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID, &classSlug)
 
-		loc, _ := time.LoadLocation("Asia/Jakarta")
-		if loc == nil {
-			loc = time.Local
+			sub := subURL
+			if sub == "" {
+				sub = subText
+			}
+
+			loc, _ := time.LoadLocation("Asia/Jakarta")
+			if loc == nil {
+				loc = time.Local
+			}
+			common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
+				"course":         offName,
+				"title":          title,
+				"deadline":       deadlineAt.Time.In(loc).Format("02 Jan 2006 15:04 WIB"),
+				"instructions":   instr,
+				"submission_url": sub,
+				"class_slug":     classSlug,
+			}, u.UserID)
 		}
-		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
-			"course":         offName,
-			"title":          title,
-			"deadline":       deadlineAt.Time.In(loc).Format("02 Jan 2006 15:04 WIB"),
-			"instructions":   instr,
-			"submission_url": sub,
-		}, u.UserID)
 	}
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{

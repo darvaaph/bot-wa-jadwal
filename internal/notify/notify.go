@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"bot-jadwal/internal/util"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -119,9 +120,12 @@ func replacementKey(eventID int64) string { return fmt.Sprintf("replacement-remi
 
 // BuildDailyText composes the morning schedule summary.
 func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string, link string) (string, error) {
-	loc, semID, classCode, err := s.classContext(ctx, classID)
+	loc, semID, classCode, classSlug, err := s.classContext(ctx, classID)
 	if err != nil {
 		return "", err
+	}
+	if link == "" && classSlug != "" {
+		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
 	}
 	if s.dailyTextBuilder != nil {
 		day, err := time.ParseInLocation("2006-01-02", date, loc)
@@ -174,70 +178,169 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 	return sb.String(), nil
 }
 
-// BuildTaskText composes the afternoon task reminder.
-func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string) (string, error) {
-	_, _, classCode, err := s.classContext(ctx, classID)
+func taskUrgencyStatus(deadline time.Time, now time.Time) string {
+	if deadline.IsZero() {
+		return "Aktif"
+	}
+	diff := deadline.Sub(now)
+	if diff < 0 {
+		return "Terlewat"
+	}
+	if deadline.Year() == now.Year() && deadline.YearDay() == now.YearDay() {
+		hours := int(diff.Hours())
+		mins := int(diff.Minutes()) % 60
+		if hours > 0 {
+			return fmt.Sprintf("Hari ini (Sisa ~%d jam)", hours)
+		}
+		if mins > 0 {
+			return fmt.Sprintf("Hari ini (Sisa ~%d menit)", mins)
+		}
+		return "Hari ini"
+	}
+	tomorrow := now.Add(24 * time.Hour)
+	if deadline.Year() == tomorrow.Year() && deadline.YearDay() == tomorrow.YearDay() {
+		return "Besok (H-1)"
+	}
+	days := int(diff.Hours() / 24)
+	if days <= 0 {
+		days = 1
+	}
+	return fmt.Sprintf("%d hari lagi (H-%d)", days, days)
+}
+
+// BuildTaskText composes the afternoon task reminder formatted for clear mobile readability without decorative emojis.
+func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string, optNow ...time.Time) (string, error) {
+	loc, _, classCode, classSlug, err := s.classContext(ctx, classID)
 	if err != nil {
 		return "", err
 	}
-	_ = classCode
-	rows, err := s.db.QueryContext(ctx, `SELECT c.name, t.title, t.deadline_at FROM tasks t
+
+	refNow := time.Now()
+	if len(optNow) > 0 && !optNow[0].IsZero() {
+		refNow = optNow[0]
+	}
+	nowLocal := refNow.In(loc)
+
+	rows, err := s.db.QueryContext(ctx, `SELECT c.name, COALESCE(co.activity_type, ''), t.title, COALESCE(t.task_type, ''), COALESCE(t.submission_text, ''), t.deadline_at 
+		FROM tasks t
 		JOIN course_offerings co ON co.id = t.course_offering_id
-		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
+		JOIN courses c ON c.id = co.course_id 
+		JOIN semesters sem ON sem.id = co.semester_id
 		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL
 		AND t.archived_at IS NULL AND t.completed_at IS NULL
-		ORDER BY t.deadline_at ASC LIMIT 10`, classID)
+		ORDER BY t.deadline_at ASC LIMIT 15`, classID)
 	if err != nil {
 		return "", err
 	}
 	defer rows.Close()
-	var sb strings.Builder
-	sb.WriteString("*PENGINGAT TUGAS*\n")
-	now := time.Now().UTC()
-	i := 0
-	overdue := 0
+
+	type taskItem struct {
+		courseName     string
+		activityType   string
+		title          string
+		taskType       string
+		submissionText string
+		deadlineFmt    string
+		status         string
+	}
+	var activeTasks []taskItem
+
 	for rows.Next() {
-		var course, title, deadline string
-		if err := rows.Scan(&course, &title, &deadline); err != nil {
+		var course, actType, title, tType, subText, rawDeadline string
+		if err := rows.Scan(&course, &actType, &title, &tType, &subText, &rawDeadline); err != nil {
 			return "", err
 		}
-		i++
-		status := "Aktif"
-		if dl, err := time.Parse(time.RFC3339Nano, deadline); err == nil && now.After(dl) {
-			status = "Terlewat"
-			overdue++
-		} else if dl, err := time.Parse(time.RFC3339, deadline); err == nil && now.After(dl) {
-			status = "Terlewat"
-			overdue++
+		dl := util.ParseFlexibleTime(rawDeadline, loc)
+		if dl.IsZero() {
+			continue
 		}
-		fmt.Fprintf(&sb, "\n%d. *%s* | %s\n   Deadline: %s (%s)", i, course, title, deadline, status)
+		dlLocal := dl.In(loc)
+		if nowLocal.After(dlLocal) {
+			// Opsi B: Hanya tugas mendatang, abaikan tugas yang sudah terlewat
+			continue
+		}
+		statusText := taskUrgencyStatus(dlLocal, nowLocal)
+
+		hari := util.GetHariIndonesia(dlLocal)
+		bulan := util.GetBulanIndonesia(dlLocal)
+		deadlineFmt := fmt.Sprintf("%s, %02d %s %d, %02d:%02d WIB", hari, dlLocal.Day(), bulan, dlLocal.Year(), dlLocal.Hour(), dlLocal.Minute())
+
+		item := taskItem{
+			courseName:     course,
+			activityType:   actType,
+			title:          title,
+			taskType:       tType,
+			submissionText: subText,
+			deadlineFmt:    deadlineFmt,
+			status:         statusText,
+		}
+
+		activeTasks = append(activeTasks, item)
+		if len(activeTasks) >= 15 {
+			break
+		}
 	}
-	if i == 0 {
+
+	if len(activeTasks) == 0 {
 		return "", nil
 	}
-	if link != "" {
-		fmt.Fprintf(&sb, "\n\nLihat detail:\n%s", link)
+
+	var sb strings.Builder
+	sb.WriteString("*PENGINGAT TUGAS KULIAH*\n")
+	if classCode != "" {
+		sb.WriteString(fmt.Sprintf("Kelas: %s\n", classCode))
 	}
+	sb.WriteString("────────────────────\n")
+
+	for i, t := range activeTasks {
+		actSuffix := ""
+		uAct := strings.ToUpper(t.activityType)
+		if uAct == "PRACTICE" || uAct == "PRAKTIKUM" || uAct == "LAB" {
+			actSuffix = " (Praktikum)"
+		} else if uAct == "THEORY" || uAct == "TEORI" || uAct == "KULIAH" {
+			actSuffix = " (Teori)"
+		}
+
+		sb.WriteString(fmt.Sprintf("\n%d. *%s%s*\n", i+1, t.courseName, actSuffix))
+		sb.WriteString(fmt.Sprintf("   - Tugas: %s\n", t.title))
+		sb.WriteString(fmt.Sprintf("   - Tenggat: %s\n", t.deadlineFmt))
+		sb.WriteString(fmt.Sprintf("   - Status: %s\n", t.status))
+		if t.taskType != "" {
+			sb.WriteString(fmt.Sprintf("   - Jenis: Tugas %s\n", t.taskType))
+		}
+		if t.submissionText != "" {
+			sb.WriteString(fmt.Sprintf("   - Pengumpulan: %s\n", t.submissionText))
+		}
+	}
+
+	if link == "" && classSlug != "" {
+		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
+	}
+	if link != "" {
+		sb.WriteString("\n────────────────────\n")
+		sb.WriteString(fmt.Sprintf("Portal Mahasiswa:\n%s", link))
+	}
+
 	return sb.String(), nil
 }
 
-func (s *Service) classContext(ctx context.Context, classID int64) (*time.Location, int64, string, error) {
-	var code, tz string
+func (s *Service) classContext(ctx context.Context, classID int64) (*time.Location, int64, string, string, error) {
+	var code, slug, tz string
 	var semID int64
-	err := s.db.QueryRowContext(ctx, `SELECT c.code, COALESCE(cs.timezone,'Asia/Jakarta') FROM classes c
-		LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.id = ?`, classID).Scan(&code, &tz)
+	err := s.db.QueryRowContext(ctx, `SELECT c.code, c.slug, COALESCE(cs.timezone,'Asia/Jakarta') FROM classes c
+		LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.id = ?`, classID).Scan(&code, &slug, &tz)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, 0, "", ErrNotFound
+		return nil, 0, "", "", ErrNotFound
 	}
 	if err != nil {
-		return nil, 0, "", err
+		return nil, 0, "", "", err
 	}
 	_ = s.db.QueryRowContext(ctx, `SELECT id FROM semesters WHERE class_id = ? AND status='ACTIVE' LIMIT 1`, classID).Scan(&semID)
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
-	return loc, semID, code, nil
+	return loc, semID, code, slug, nil
 }
 
 func reminderWindowOpen(local time.Time, hm string) bool {
@@ -309,7 +412,7 @@ func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, 
 		}
 		date := local.Format("2006-01-02")
 		chID, _, _ := s.ChannelForClass(ctx, classID)
-		text, err := s.BuildTaskText(ctx, classID, "")
+		text, err := s.BuildTaskText(ctx, classID, "", now)
 		if err != nil || text == "" {
 			continue
 		}

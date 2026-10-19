@@ -1439,3 +1439,92 @@
 
   </div>
 </div>
+
+<!-- Modal Konfirmasi Setujui & Terbitkan Tugas (KM) -->
+<div x-show="modalSetujui.open"
+     x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0F172A80] backdrop-blur-[2px]"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-setujui-title"
+     @keydown.escape.window="tutupModalSetujui()">
+
+  <!-- Backdrop click dismiss -->
+  <div class="absolute inset-0" @click="tutupModalSetujui()"></div>
+
+  <!-- Modal Card (Mobile Reflow & Antislop Safe) -->
+  <div class="relative w-full max-w-[480px] bg-white rounded-[16px] p-5 sm:p-6 shadow-[0px_18px_44px_#0F172A4D] border border-[#D7DDE7] space-y-4 animate-scaleUp z-10"
+       @click.stop>
+
+    <!-- Header Dialog -->
+    <div class="w-full flex items-start gap-3.5">
+      <div class="w-11 h-11 rounded-[12px] bg-[#ECFDF5] border border-[#A7F3D0] flex items-center justify-center shrink-0 text-[#059669]">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-5.5 h-5.5" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h2 id="modal-setujui-title" class="text-[17px] font-bold text-[#1D1B3A] font-display">
+          Setujui &amp; Terbitkan Tugas?
+        </h2>
+        <p class="text-[13px] text-[#64748B] mt-1 leading-relaxed">
+          Tugas akan diverifikasi dan berstatus resmi terbit untuk seluruh mahasiswa di Portal Kelas.
+        </p>
+      </div>
+    </div>
+
+    <!-- Informasi Tugas yang Dipilih -->
+    <div class="w-full p-3.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[10px] space-y-1">
+      <span class="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider block" x-text="modalSetujui.task ? (modalSetujui.task.matkul || modalSetujui.task.offering || modalSetujui.task.course_display_name || 'Mata Kuliah') : ''">-</span>
+      <p class="text-[13px] font-semibold text-[#1D1B3A] line-clamp-2"
+         x-text="modalSetujui.task ? (modalSetujui.task.title || modalSetujui.task.deskripsi || '-') : '-'">
+        Judul Tugas
+      </p>
+    </div>
+
+    <!-- Checkbox Siaran WhatsApp (Antislop Tap Target & High Contrast) -->
+    <div class="p-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+      <label class="flex items-start gap-3 cursor-pointer select-none min-h-[44px] py-1">
+        <input type="checkbox"
+               x-model="modalSetujui.broadcastWA"
+               :disabled="modalSetujui.isSubmitting"
+               class="w-5 h-5 rounded border-[#CBD5E1] text-[#059669] focus:ring-[#059669] shrink-0 mt-0.5 cursor-pointer">
+        <div class="flex-1 min-w-0">
+          <span class="text-[13px] font-bold text-[#1D1B3A] block">Siarkan pemberitahuan ke grup WhatsApp kelas</span>
+          <span class="text-[11px] text-[#64748B] leading-relaxed block mt-0.5">
+            Bot WhatsApp akan mengirimkan ringkasan tugas baru beserta link portal ke grup kelas resmi.
+          </span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Alert Error jika ada -->
+    <div x-show="modalSetujui.error" x-cloak class="p-3 rounded-[10px] bg-red-50 border border-red-200 text-[12px] text-red-700 flex items-start gap-2">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-red-600 shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="flex-1" x-text="modalSetujui.error"></span>
+    </div>
+
+    <!-- Tombol Aksi (Min Touch Target 44px) -->
+    <div class="w-full pt-3 border-t border-[#F2F4F7] flex items-center justify-end gap-2.5">
+      <button type="button"
+              @click="tutupModalSetujui()"
+              :disabled="modalSetujui.isSubmitting"
+              class="h-[44px] px-4 rounded-[10px] bg-white border border-[#CBD5E1] text-[13px] font-semibold text-[#1D1B3A] hover:bg-slate-50 transition-colors min-h-[44px] disabled:opacity-50 cursor-pointer">
+        Batal
+      </button>
+      <button type="button"
+              @click="kirimSetujuiModal()"
+              :disabled="modalSetujui.isSubmitting"
+              class="h-[44px] px-5 rounded-[10px] bg-[#059669] hover:bg-[#047857] text-[13px] font-semibold text-white shadow-sm transition-colors min-h-[44px] disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2 cursor-pointer">
+        <template x-if="modalSetujui.isSubmitting">
+          <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+        </template>
+        <span x-text="modalSetujui.isSubmitting ? 'Menerbitkan...' : 'Ya, Setujui & Terbitkan'">Ya, Setujui &amp; Terbitkan</span>
+      </button>
+    </div>
+
+  </div>
+</div>

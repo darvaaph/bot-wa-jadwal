@@ -2990,22 +2990,78 @@ function kmApp() {
     // Pemeriksaan KM — via POST /api/v1/tasks/{id}/reviews (terikat versi).
     reviewConflict: null,
 
-    async setujuiTugas(id) {
-      this.reviewConflict = null;
+    // SCR-TASK-SETUJUI: Method Dialog Konfirmasi Setujui & Terbitkan (KM)
+    modalSetujui: {
+      open: false,
+      task: null,
+      broadcastWA: true,
+      isSubmitting: false,
+      error: ''
+    },
+
+    bukaModalSetujui(task) {
+      if (!task) return;
+      this.modalSetujui = {
+        open: true,
+        task: task,
+        broadcastWA: true,
+        isSubmitting: false,
+        error: ''
+      };
+    },
+
+    tutupModalSetujui() {
+      if (this.modalSetujui.isSubmitting) return;
+      this.modalSetujui.open = false;
+      this.modalSetujui.task = null;
+      this.modalSetujui.error = '';
+    },
+
+    async kirimSetujuiModal() {
+      const task = this.modalSetujui.task;
+      if (!task) return;
+      this.modalSetujui.isSubmitting = true;
+      this.modalSetujui.error = '';
       try {
-        const detail = await API.getTaskDetail(id).catch(() => null);
-        const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
-        await API.reviewTask(id, { decision: 'APPROVED', task_version: version });
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.reviewTask(task.id, {
+          decision: 'APPROVED',
+          task_version: version,
+          broadcast_whatsapp: this.modalSetujui.broadcastWA
+        });
+        this.modalSetujui.open = false;
+        this.modalSetujui.task = null;
         await this.loadTasks();
-        this.showToast('Tugas disetujui.');
+        this.showToast('Tugas disetujui & diterbitkan.');
+        if (this.tugasDetail && this.tugasDetail.id === task.id) {
+          await this.bukaDetailTugas(task.id);
+        }
       } catch (err) {
         if (err.code === 'VERSION_CONFLICT') {
-          this.reviewConflict = { id: id };
-          this.showToast('Versi tugas berubah. Muat versi terbaru sebelum memutuskan.');
+          this.modalSetujui.error = 'Versi tugas telah berubah. Muat ulang untuk melihat data terbaru.';
           await this.loadTasks();
         } else {
-          this.showToast(err.message || 'Gagal menyimpan persetujuan.');
+          this.modalSetujui.error = err.message || 'Gagal menyetujui tugas.';
         }
+      } finally {
+        this.modalSetujui.isSubmitting = false;
+      }
+    },
+
+    async setujuiTugas(id) {
+      this.reviewConflict = null;
+      const t = (this.tasks || []).find(item => item.id == id);
+      if (t) {
+        this.bukaModalSetujui(t);
+        return;
+      }
+      try {
+        const detail = await API.getTaskDetail(id).catch(() => null);
+        const taskObj = (detail && (detail.task || detail)) || { id: id };
+        this.bukaModalSetujui(taskObj);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal memuat tugas untuk disetujui.');
       }
     },
     async kirimReview(id) {
@@ -3132,6 +3188,10 @@ function kmApp() {
     async putuskanDetail(decision) {
       const d = this.tugasDetail;
       if (!d) return;
+      if (decision === 'APPROVED') {
+        this.bukaModalSetujui(d);
+        return;
+      }
       if ((decision === 'CHANGES_REQUESTED' || decision === 'REVOKED') && !(this.reviewNote || '').trim()) {
         this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return;
       }

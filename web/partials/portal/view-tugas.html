@@ -91,7 +91,14 @@
 
             <!-- Teks Judul & Metadata (Strictly Left-Aligned) -->
             <div class="min-w-0 flex-1 text-left">
-              <span class="inline-block text-[11px] font-bold tracking-wider uppercase text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded-[6px] mb-1.5 w-fit" x-text="t.matkul">Mata Kuliah</span>
+              <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
+                <span class="inline-block text-[11px] font-bold tracking-wider uppercase text-[#1D4ED8] bg-[#EFF6FF] px-2 py-0.5 rounded-[6px] w-fit" x-text="t.matkul">Mata Kuliah</span>
+                <span x-show="String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED'"
+                  class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/90 px-2 py-0.5 rounded-[6px] w-fit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 text-amber-600 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span>Menunggu Validasi KM</span>
+                </span>
+              </div>
               <h3 class="text-[15px] sm:text-[16px] font-bold text-[#1D1B3A] group-hover:text-[#2563EB] transition-colors leading-snug line-clamp-1 break-words [overflow-wrap:anywhere]" x-text="t.title || t.deskripsi">Judul Tugas</h3>
               
               <!-- Info Baris Bawah: Tenggat & Metode Pengumpulan -->
@@ -192,12 +199,36 @@
                 <span>Selesai</span>
               </span>
             </template>
+
+            <!-- Status Validasi KM -->
+            <template x-if="String(detailTugas.review_state || '').toUpperCase() === 'NOT_REVIEWED'">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] text-[11px] font-semibold bg-amber-50 border border-amber-300 text-amber-800">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-amber-600 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Menunggu Validasi KM</span>
+              </span>
+            </template>
+            <template x-if="String(detailTugas.review_state || '').toUpperCase() === 'APPROVED'">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] text-[11px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-emerald-600 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Terverifikasi KM</span>
+              </span>
+            </template>
           </div>
 
           <!-- Judul Tugas -->
           <h1 class="text-[20px] sm:text-[24px] font-bold text-[#1D1B3A] tracking-tight leading-snug break-words [overflow-wrap:anywhere]" x-text="detailTugas.title || detailTugas.deskripsi">
             Judul Tugas Kuliah
           </h1>
+
+          <!-- Banner Pemberitahuan Status Verifikasi KM (Mobile Reflow Safe) -->
+          <div x-show="String(detailTugas.review_state || '').toUpperCase() === 'NOT_REVIEWED'"
+            class="p-3 sm:p-3.5 rounded-[12px] bg-amber-50 border border-amber-200 text-[12px] text-amber-900 leading-relaxed flex items-start gap-2.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div class="min-w-0 flex-1 text-left">
+              <p class="font-bold text-amber-950">Tugas Belum Divalidasi Ketua Murid</p>
+              <p class="text-[11px] sm:text-[12px] text-amber-800 mt-0.5">Tugas ini dimasukkan oleh Penanggung Jawab (PJ) dan sedang menunggu verifikasi Ketua Murid. Informasi tugas sudah dapat dipelajari, namun rincian sewaktu-waktu dapat disesuaikan kembali.</p>
+            </div>
+          </div>
 
           <!-- Divider Halus -->
           <div class="w-full h-[1px] bg-[#F1F5F9]"></div>

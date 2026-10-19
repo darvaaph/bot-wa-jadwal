@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -165,6 +166,16 @@ func (sm *SecurityManager) IsOriginAllowed(origin string) bool {
 	if u, err := url.Parse(norm); err == nil {
 		h := strings.ToLower(u.Hostname())
 		if h == "localhost" || h == "127.0.0.1" || h == "::1" {
+			return true
+		}
+		if ip := net.ParseIP(h); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
+			return true
+		}
+		if strings.HasSuffix(h, ".trycloudflare.com") ||
+			strings.HasSuffix(h, ".loca.lt") ||
+			strings.HasSuffix(h, ".ngrok-free.app") ||
+			strings.HasSuffix(h, ".ngrok.io") ||
+			strings.HasSuffix(h, ".devtunnels.ms") {
 			return true
 		}
 	}

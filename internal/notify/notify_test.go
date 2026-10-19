@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -171,9 +172,21 @@ func TestNotify_Schedulers(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("tasks dengan tugas aktif: n=%d err=%v", n, err)
 	}
-	taskText, err := svc.BuildTaskText(ctx, 1, "")
+	taskText, err := svc.BuildTaskText(ctx, 1, "", afternoon)
 	if err != nil || taskText == "" {
 		t.Fatalf("build tasks: %v", err)
+	}
+	if !strings.Contains(taskText, "PENGINGAT TUGAS KULIAH") {
+		t.Errorf("expected header, got: %s", taskText)
+	}
+	if !strings.Contains(taskText, "- Tugas: Tugas 1") {
+		t.Errorf("expected task title with bullet strip, got: %s", taskText)
+	}
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️", "🚨", "⌛", "👥", "📤"}
+	for _, emoji := range slopEmojis {
+		if strings.Contains(taskText, emoji) {
+			t.Errorf("taskText masih memuat emoji: %s in text: %s", emoji, taskText)
+		}
 	}
 }
 

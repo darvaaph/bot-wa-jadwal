@@ -27,11 +27,15 @@ go run ./cmd/bot -session storage/sesi_dev.db
 *Scan QR code di terminal dengan nomor WhatsApp testing.*
 
 ### 3. Berbagi Akses Lokal ke Teman (Cloudflare Tunnel)
-Jika ingin membagikan tampilan lokal ke teman tanpa deploy:
+Jika ingin membagikan portal web lokal ke teman tanpa deploy:
 ```powershell
+# Di terminal 1: Nyalakan tunnel Cloudflare
 cloudflared tunnel --url http://localhost:8080
+
+# Di terminal 2: Jalankan bot dengan URL tunnel agar tautan di WhatsApp otomatis menyesuaikan
+go run ./cmd/bot -session storage/sesi_dev.db -public-url https://xxxx.trycloudflare.com
 ```
-*Salin tautan `https://xxxx.trycloudflare.com` dari terminal dan bagikan ke teman.*
+*Ganti `https://xxxx.trycloudflare.com` dengan URL acak yang muncul di terminal Cloudflare.*
 
 ### 4. Build & Testing
 ```powershell

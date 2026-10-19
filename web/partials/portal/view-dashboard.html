@@ -202,6 +202,11 @@
                 <div class="text-[10px] lg:text-[11px]/[15px] text-[#64748B] font-medium truncate"
                      x-text="(t.matkul || 'Matkul') + (t.submission_url ? ' · Tautan Kumpul' : ' · Kumpul: LMS')">
                 </div>
+                <template x-if="String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED'">
+                  <span class="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[4px] w-fit">
+                    Menunggu Validasi KM
+                  </span>
+                </template>
               </div>
               <div :class="t.urgency === 'mendesak' ? 'bg-[#FFF1F2] border-[#FECDD3] text-[#9F1239]' : (t.urgency === 'mendekati' ? 'bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]' : 'bg-[#EFF6FF] border-[#BFDBFE] text-[#1D4ED8]')"
                    class="shrink-0 px-[8px] py-[4px] border rounded-[6px] text-[10px] font-bold whitespace-nowrap"

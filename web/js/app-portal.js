@@ -1560,6 +1560,7 @@ function portalApp() {
             submission_url: t.submission_url || '',
             completed_at: t.completed_at || null,
             is_completed: !!t.is_completed,
+            review_state: t.review_state || 'NOT_REVIEWED',
             deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
             urgency: u.level, countdown: u.badge
           };
@@ -1605,6 +1606,7 @@ function portalApp() {
           version: info.version || '',
           completed_at: info.completed_at || null,
           is_completed: !!info.is_completed,
+          review_state: info.review_state || 'NOT_REVIEWED',
           urgency: u.level, countdown: u.badge
         };
         this.detailMateri = (d && d.materials) || [];

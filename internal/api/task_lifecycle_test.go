@@ -82,3 +82,47 @@ func TestBE008_StateChangeConflictHasData(t *testing.T) {
 		t.Fatalf("conflict wajib memuat current_data: %s", w.Body.String())
 	}
 }
+
+func TestReviewTask_BroadcastWhatsAppFlag(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Review dengan broadcast_whatsapp = false
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/reviews",
+		strings.NewReader(`{"decision":"APPROVED","task_version":1,"broadcast_whatsapp":false}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var count int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM notification_messages WHERE entity_type = 'TASK' AND entity_id = 1;`).Scan(&count)
+	if count != 0 {
+		t.Errorf("expected 0 notifications when broadcast_whatsapp=false, got %d", count)
+	}
+
+	// Insert task baru versi 1 untuk ditinjau dengan broadcast_whatsapp = true
+	_, err := db.Exec(`
+		INSERT INTO tasks (id, course_offering_id, title, instructions, deadline_at, submission_url, publication_status, published_at, review_state, created_by_user_id, version)
+		VALUES (200, 1, 'Tugas WA Broadcast', 'Cek grup WA', '2026-10-25T23:59:59Z', 'https://example.com', 'PUBLISHED', '2026-10-20T10:00:00Z', 'NOT_REVIEWED', 1, 1);
+	`)
+	if err != nil {
+		t.Fatalf("setup task 200 failed: %v", err)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/tasks/200/reviews",
+		strings.NewReader(`{"decision":"APPROVED","task_version":1,"broadcast_whatsapp":true}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	_ = db.QueryRow(`SELECT COUNT(*) FROM notification_messages WHERE entity_type = 'TASK' AND entity_id = 200;`).Scan(&count)
+	if count != 1 {
+		t.Errorf("expected 1 notification when broadcast_whatsapp=true, got %d", count)
+	}
+}

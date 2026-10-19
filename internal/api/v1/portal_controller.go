@@ -666,7 +666,8 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 
 	var nearestTasks []map[string]any
 	taskRows, err := c.db.Query(`
-		SELECT t.id, co.display_name, t.title, t.deadline_at, t.submission_url
+		SELECT t.id, co.display_name, t.title, t.deadline_at, t.submission_url,
+		       COALESCE(t.review_state, 'NOT_REVIEWED')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -683,16 +684,17 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		defer taskRows.Close()
 		for taskRows.Next() {
 			var tID int64
-			var offering, title string
+			var offering, title, reviewState string
 			var deadlineAt common.DBTimestamp
 			var subURL sql.NullString
-			if err := taskRows.Scan(&tID, &offering, &title, &deadlineAt, &subURL); err == nil {
+			if err := taskRows.Scan(&tID, &offering, &title, &deadlineAt, &subURL, &reviewState); err == nil {
 				nearestTasks = append(nearestTasks, map[string]any{
 					"id":             tID,
 					"offering":       offering,
 					"title":          title,
 					"deadline_at":    deadlineAt.RFC3339(),
 					"submission_url": subURL.String,
+					"review_state":   reviewState,
 				})
 			}
 		}
@@ -820,7 +822,7 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT t.id, co.display_name, t.title, t.instructions, t.deadline_at,
 		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version,
-		       COALESCE(t.task_type, ''), t.completed_at
+		       COALESCE(t.task_type, ''), t.completed_at, COALESCE(t.review_state, 'NOT_REVIEWED')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -890,11 +892,11 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 	var tasks []map[string]any
 	for rows.Next() {
 		var id int64
-		var offeringName, title, instructions, subText, subURL, taskType string
+		var offeringName, title, instructions, subText, subURL, taskType, reviewState string
 		var deadlineAt, completedAt common.DBTimestamp
 		var version int
 
-		if err := rows.Scan(&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version, &taskType, &completedAt); err == nil {
+		if err := rows.Scan(&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version, &taskType, &completedAt, &reviewState); err == nil {
 			var compVal any
 			if completedAt.Valid {
 				compVal = completedAt.RFC3339()
@@ -911,6 +913,7 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 				"task_type":       taskType,
 				"completed_at":    compVal,
 				"is_completed":    completedAt.Valid,
+				"review_state":    reviewState,
 			})
 		}
 	}
@@ -960,11 +963,13 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		subURL       sql.NullString
 		version      int
 		completedAt  common.DBTimestamp
+		reviewState  string
 	)
 
 	err = c.db.QueryRow(`
 		SELECT t.id, co.id, co.display_name, t.title, t.instructions, t.deadline_at,
-		       t.task_type, t.submission_text, t.submission_url, t.version, t.completed_at
+		       t.task_type, t.submission_text, t.submission_url, t.version, t.completed_at,
+		       COALESCE(t.review_state, 'NOT_REVIEWED')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -972,7 +977,7 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 		  AND t.publication_status = 'PUBLISHED' AND t.deleted_at IS NULL AND t.archived_at IS NULL;
 	`, taskID, classID, semesterID).Scan(
 		&id, &offeringID, &offeringName, &title, &instructions, &deadlineAt,
-		&taskType, &subText, &subURL, &version, &completedAt,
+		&taskType, &subText, &subURL, &version, &completedAt, &reviewState,
 	)
 
 	if err == sql.ErrNoRows {
@@ -1021,6 +1026,7 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 			"submission_url":  subURL.String,
 			"version":         version,
 			"is_completed":    completedAt.Valid,
+			"review_state":    reviewState,
 		},
 		"materials": materials,
 	})

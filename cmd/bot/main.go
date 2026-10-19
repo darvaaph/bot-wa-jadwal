@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,9 +27,15 @@ func main() {
 	webOnly := flag.Bool("web-only", false, "Hanya jalankan Web Dashboard & REST API tanpa koneksi WhatsApp")
 	sessionPath := flag.String("session", "", "Path file SQLite sesi WhatsApp (default: storage/sesi_bot.db)")
 	port := flag.String("port", "", "Port HTTP server (contoh: 8080 atau :8080)")
+	publicURL := flag.String("public-url", "", "URL publik kanonikal untuk port forwarding / tunnel (contoh: https://xxxx.trycloudflare.com)")
 	flag.Parse()
 
 	fmt.Println("🚀 [Boot] Memulai Bot WhatsApp Jadwal Kuliah & Web API Server...")
+
+	if *publicURL != "" {
+		pURL := strings.TrimRight(strings.TrimSpace(*publicURL), "/")
+		_ = os.Setenv("BOT_JADWAL_PUBLIC_BASE_URL", pURL)
+	}
 
 	cfg := config.LoadConfig()
 	// BE-013: validasi security sebelum server menerima traffic.
@@ -46,6 +53,9 @@ func main() {
 			p = ":" + p
 		}
 		cfg.APIPort = p
+	}
+	if cfg.PublicBaseURL != "" {
+		fmt.Printf("🌐 [Public URL] URL publik disetel ke: %s\n", cfg.PublicBaseURL)
 	}
 
 	if err := cfg.EnsureStorageAndMigrate(); err != nil {
