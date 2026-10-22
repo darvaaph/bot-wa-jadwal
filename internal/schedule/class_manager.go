@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ClassManager struct {
@@ -199,6 +201,28 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 				cm.aliases[fmt.Sprintf("TINGKAT 2 KELAS %s", kelasPart)] = norm
 			}
 		}
+
+		// Alias angkatan / cohort permanen (misal: D4-TI-2025-A -> D4-TI-SMT3-A)
+		if semInt, err := strconv.Atoi(semester); err == nil && semInt > 0 {
+			academicStartYear := time.Now().Year()
+			if time.Now().Month() < time.September {
+				academicStartYear--
+			}
+			cohortYear := academicStartYear - ((semInt - 1) / 2)
+			if subProdi != "" {
+				cm.aliases[fmt.Sprintf("%s-%s-%d-%s", prodi, subProdi, cohortYear, kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("%s-%s-%d%s", prodi, subProdi, cohortYear, kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("%s%s%d%s", prodi, subProdi, cohortYear, kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("%s %s %d %s", prodi, subProdi, cohortYear, kelasPart)] = norm
+			}
+			cm.aliases[fmt.Sprintf("%s-%d-%s", prodi, cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s-%d%s", prodi, cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s %d %s", prodi, cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s %d%s", prodi, cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%d-%s", cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%d%s", cohortYear, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%d %s", cohortYear, kelasPart)] = norm
+		}
 	}
 }
 
@@ -261,6 +285,19 @@ func (cm *ClassManager) resolveInternal(input string) string {
 	var semDigit string
 	for _, f := range fields {
 		fTrimmed := strings.TrimPrefix(f, "SMT")
+		if len(fTrimmed) == 4 {
+			if yr, err := strconv.Atoi(fTrimmed); err == nil && yr >= 2000 && yr <= 2099 {
+				academicStartYear := time.Now().Year()
+				if time.Now().Month() < time.September {
+					academicStartYear--
+				}
+				s := (academicStartYear - yr) * 2 + 1
+				if s >= 1 && s <= 8 {
+					semDigit = strconv.Itoa(s)
+					break
+				}
+			}
+		}
 		if len(fTrimmed) >= 1 && (fTrimmed[0] >= '1' && fTrimmed[0] <= '8') {
 			semDigit = string(fTrimmed[0])
 			break

@@ -363,6 +363,11 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 		if time.Now().Month() < time.September {
 			academicStartYear--
 		}
+		var dbAcademicYear string
+		_ = r.db.QueryRowContext(ctx, `SELECT SUBSTR(academic_year, 1, 4) FROM semesters WHERE status = 'ACTIVE' ORDER BY starts_on DESC LIMIT 1`).Scan(&dbAcademicYear)
+		if parsedAY, err := strconv.Atoi(dbAcademicYear); err == nil && parsedAY > 2000 {
+			academicStartYear = parsedAY
+		}
 		cohort = academicStartYear - ((semester - 1) / 2)
 		label = match[3]
 		program = level + " Teknik Informatika"
@@ -379,6 +384,36 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 				program = parts[0] + " Teknik Informatika"
 			}
 		}
+	}
+
+	prodiPattern := "%"
+	if strings.Contains(program, "D3") {
+		prodiPattern = "%D3%"
+	} else if strings.Contains(program, "D4") {
+		prodiPattern = "%D4%"
+	}
+
+	err = r.db.QueryRowContext(ctx, `
+		SELECT id, code, slug, study_program, cohort_year, group_label, status, created_at, updated_at
+		FROM classes
+		WHERE (study_program LIKE ? OR code LIKE ?)
+		  AND cohort_year = ?
+		  AND UPPER(group_label) = UPPER(?)
+		LIMIT 1;
+	`, prodiPattern, prodiPattern, cohort, label).Scan(&id, &actualCode, &slug, &studyProgram, &cohortYear, &groupLabel, &status, &createdAt, &updatedAt)
+	if err == nil {
+		c := &Class{
+			ID:           id,
+			Code:         actualCode,
+			Slug:         slug,
+			StudyProgram: studyProgram,
+			CohortYear:   cohortYear,
+			GroupLabel:   groupLabel,
+			Status:       status,
+		}
+		c.CreatedAt, _ = parseTime(createdAt)
+		c.UpdatedAt, _ = parseTime(updatedAt)
+		return c, nil
 	}
 
 	query := `

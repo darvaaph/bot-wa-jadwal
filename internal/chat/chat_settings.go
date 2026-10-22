@@ -262,7 +262,7 @@ func (csm *ChatSettingsManager) SetClassContext(ctx context.Context, scopeJID st
 	}
 
 	csm.mu.Lock()
-	csm.cache[scopeJID] = classID
+	csm.cache[scopeJID] = cls.Code
 	csm.mu.Unlock()
 
 	return nil
@@ -632,7 +632,8 @@ func (csm *ChatSettingsManager) HandleCommand(
 		}
 
 		if err := csm.SetClass(chatJID, canonicalClass); err != nil {
-			return fmt.Sprintf("⚠️ Gagal menyimpan pengaturan kelas: %v", err)
+			fmt.Printf("⚠️ [SetClass Error] gagal menyimpan pengaturan kelas chat %s (%s): %v\n", chatJID, canonicalClass, err)
+			return "⚠️ Terjadi kendala saat menyimpan pengaturan kelas. Silakan coba beberapa saat lagi atau hubungi administrator jika masalah berlanjut."
 		}
 
 		_, sem, ting, letter := schedule.ParseClassMetadata(cfg.Kampus, cfg.FilePath)

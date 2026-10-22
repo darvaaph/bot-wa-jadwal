@@ -300,7 +300,8 @@ func HandleIncomingMessage(
 				}
 				resp, err := v1Service.CompleteTask(context.Background(), v1Class.ID, taskID)
 				if err != nil {
-					reply(fmt.Sprintf("⚠️ Terjadi kesalahan: %v", err), "⚠️", 600*time.Millisecond, "tugas selesai v1")
+					fmt.Printf("⚠️ [CompleteTask Error] gagal menyelesaikan tugas %d untuk kelas %d: %v\n", taskID, v1Class.ID, err)
+					reply("⚠️ Tugas tidak ditemukan atau gagal diperbarui. Pastikan nomor ID tugas sudah benar.", "⚠️", 600*time.Millisecond, "tugas selesai v1")
 					return
 				}
 				reply(resp, "✅", 600*time.Millisecond, "tugas selesai v1")
@@ -310,7 +311,8 @@ func HandleIncomingMessage(
 			// Tampilkan daftar tugas aktif dari v1 database
 			resp, err := v1Service.GetTasks(context.Background(), v1Class.ID)
 			if err != nil {
-				reply(fmt.Sprintf("⚠️ Terjadi kesalahan memuat tugas: %v", err), "⚠️", 600*time.Millisecond, "daftar tugas v1")
+				fmt.Printf("⚠️ [GetTasks Error] gagal memuat tugas untuk kelas %d: %v\n", v1Class.ID, err)
+				reply("⚠️ Terjadi kendala saat memuat daftar tugas. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar tugas v1")
 				return
 			}
 			reply(resp, "📝", 600*time.Millisecond, "daftar tugas v1")
@@ -359,7 +361,8 @@ func HandleIncomingMessage(
 		if v1Class != nil && v1Service != nil {
 			resp, err := v1Service.GetLinks(context.Background(), v1Class.ID)
 			if err != nil {
-				reply(fmt.Sprintf("⚠️ Terjadi kesalahan memuat tautan: %v", err), "⚠️", 600*time.Millisecond, "daftar tautan v1")
+				fmt.Printf("⚠️ [GetLinks Error] gagal memuat tautan untuk kelas %d: %v\n", v1Class.ID, err)
+				reply("⚠️ Terjadi kendala saat memuat tautan kelas. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar tautan v1")
 				return
 			}
 			reply(resp, "🔗", 600*time.Millisecond, "daftar tautan v1")

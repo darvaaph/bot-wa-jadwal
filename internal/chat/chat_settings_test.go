@@ -345,3 +345,55 @@ func TestChatSettings_NoteSeenChat(t *testing.T) {
 		t.Errorf("Refresh failed: %v", err)
 	}
 }
+
+func TestChatSettings_HandleCommand_WithPreexistingCohortClass(t *testing.T) {
+	db, err := database.InitDB(":memory:")
+	if err != nil {
+		t.Fatalf("Gagal init DB: %v", err)
+	}
+	defer db.Close()
+
+	// Seed kelas v1 target persis seperti di storage/bot_v1.db
+	_, err = db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (14, 'D4-TI-2025-A', 'd4-ti-2025-a', 'D4 Teknik Informatika', 2025, 'A', 'ACTIVE');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (14, 14, '2026/2027', 'GANJIL', '2026-09-01', '2027-01-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+	`)
+	if err != nil {
+		t.Fatalf("Gagal seed data awal: %v", err)
+	}
+
+	csm, err := NewChatSettingsManager(db)
+	if err != nil {
+		t.Fatalf("Gagal init CSM: %v", err)
+	}
+
+	classMgr, err := schedule.NewClassManager("data/jadwal", "jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal init schedule.ClassManager: %v", err)
+	}
+
+	userJID := "628999888777@s.whatsapp.net"
+
+	// Uji 1: User mengetik format santai "!setkelas smt 3 a"
+	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
+	if strings.Contains(dmResp, "UNIQUE constraint failed") || strings.Contains(dmResp, "Gagal menyimpan") || strings.Contains(dmResp, "Terjadi kendala") {
+		t.Fatalf("!setkelas smt 3 a tidak boleh gagal dengan error: %s", dmResp)
+	}
+	if !strings.Contains(dmResp, "BERHASIL DIATUR") {
+		t.Errorf("Harus berhasil diatur, got: %s", dmResp)
+	}
+	if gotClass := csm.GetClass(userJID); gotClass != "D4-TI-2025-A" {
+		t.Errorf("Konteks kelas di cache harus terhubung ke kode target D4-TI-2025-A, got: %s", gotClass)
+	}
+
+	// Uji 2: User mengetik format kode permanen "!setkelas D4-TI-2025-A"
+	dmResp2 := csm.HandleCommand(userJID, false, userJID, false, "!setkelas D4-TI-2025-A", classMgr)
+	if strings.Contains(dmResp2, "Tidak Ditemukan") || strings.Contains(dmResp2, "Gagal menyimpan") || strings.Contains(dmResp2, "Terjadi kendala") {
+		t.Fatalf("!setkelas D4-TI-2025-A harus dikenali dan berhasil: %s", dmResp2)
+	}
+	if !strings.Contains(dmResp2, "BERHASIL DIATUR") {
+		t.Errorf("Harus berhasil diatur, got: %s", dmResp2)
+	}
+}
