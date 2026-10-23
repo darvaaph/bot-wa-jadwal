@@ -3331,13 +3331,13 @@ function systemAdminApp() {
     unduhTemplateJsonDosen() {
       const template = [
         {
-          "code": "AD",
-          "name": "Dr. Ade Chandra Nugraha, S.Si., M.T.",
+          "code": "DS1",
+          "name": "Dr. Dosen Pengampu, M.T.",
           "status": "ACTIVE"
         },
         {
-          "code": "BW",
-          "name": "Bambang Wisnuadhi, S.Si., M.T.",
+          "code": "DS2",
+          "name": "Dosen Pendamping, S.Kom., M.Kom.",
           "status": "ACTIVE"
         }
       ];
@@ -5052,21 +5052,21 @@ function systemAdminApp() {
           { code: "25TI1102", name: "Komputasi Kognitif" }
         ],
         lecturers: [
-          { code: "AB", full_name: "Akhmad Bakhrun, S.Kom, M.T." },
-          { code: "AD", full_name: "Dr. Ade Chandra Nugraha, S.Si., M.T." }
+          { code: "DS1", full_name: "Dr. Dosen Pengampu, M.T." },
+          { code: "DS2", full_name: "Dosen Pendamping, S.Kom., M.Kom." }
         ],
         offerings: [
           {
             course_code: "25TI1101",
             activity_type: "TEORI",
             display_name: "Dasar-Dasar Pemrograman (Teori)",
-            lecturer_codes: ["AB"]
+            lecturer_codes: ["DS1"]
           },
           {
             course_code: "25TI1102",
             activity_type: "TEORI",
             display_name: "Komputasi Kognitif (Teori)",
-            lecturer_codes: ["AD"]
+            lecturer_codes: ["DS2"]
           }
         ],
         schedule_patterns: [

@@ -72,15 +72,27 @@ func NewClassManager(dirPath string, fallbackSingleFile string) (*ClassManager, 
 		return nil, fmt.Errorf("tidak ditemukan file konfigurasi jadwal (*.json) di direktori '%s'", dirPath)
 	}
 
-	// Tentukan defaultClass: utamakan "D4-TI-SMT3-A" atau "3A", jika tidak ada gunakan kelas pertama secara alfabetis
-	if _, ok := cm.classes["D4-TI-SMT3-A"]; ok {
-		cm.defaultClass = "D4-TI-SMT3-A"
-	} else if _, ok := cm.classes["3A"]; ok {
-		cm.defaultClass = "3A"
-	} else {
-		keys := cm.ListClasses()
-		if len(keys) > 0 {
-			cm.defaultClass = keys[0]
+	// Tentukan defaultClass: utamakan env BOT_JADWAL_DEFAULT_CLASS, lalu "D4-TI-SMT3-A" atau "3A", jika tidak ada gunakan kelas pertama secara alfabetis
+	preferredDefault := strings.TrimSpace(os.Getenv("BOT_JADWAL_DEFAULT_CLASS"))
+	if preferredDefault != "" {
+		if norm := NormalizeClassID(preferredDefault); norm != "" {
+			if _, ok := cm.classes[norm]; ok {
+				cm.defaultClass = norm
+			} else if canon, ok := cm.aliases[norm]; ok {
+				cm.defaultClass = canon
+			}
+		}
+	}
+	if cm.defaultClass == "" {
+		if _, ok := cm.classes["D4-TI-SMT3-A"]; ok {
+			cm.defaultClass = "D4-TI-SMT3-A"
+		} else if _, ok := cm.classes["3A"]; ok {
+			cm.defaultClass = "3A"
+		} else {
+			keys := cm.ListClasses()
+			if len(keys) > 0 {
+				cm.defaultClass = keys[0]
+			}
 		}
 	}
 

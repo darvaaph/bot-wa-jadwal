@@ -289,7 +289,12 @@ func PublicBaseURL() string {
 	if base := strings.TrimRight(strings.TrimSpace(os.Getenv("BOT_JADWAL_PUBLIC_BASE_URL")), "/"); base != "" {
 		return base
 	}
-	return "http://localhost:8080"
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8080"
+	}
+	port = strings.TrimPrefix(port, ":")
+	return "http://localhost:" + port
 }
 
 // Contains memeriksa apakah suatu string terdapat dalam slice (case-insensitive)

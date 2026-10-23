@@ -197,7 +197,12 @@ const AsteriskShell = (() => {
         const c = (this.classList || []).find(x => (x.slug || x) === this.selectedClass || (x.code || '') === this.selectedClass);
         if (c && c.name) return c.name;
         if (c && c.program && c.cohort && c.group) {
-          const prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
+          let prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
+          if (/sikc|kota cerdas/i.test(c.program)) prodi = 'D4-SIKC';
+          else if (c.code && c.code.includes('-')) {
+            const p = c.code.split('-');
+            if (p.length >= 2) prodi = `${p[0].toUpperCase()}-${p[1].toUpperCase()}`;
+          }
           const cohort = parseInt(c.cohort, 10);
           const currentYear = new Date().getFullYear();
           const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
@@ -240,6 +245,9 @@ const AsteriskShell = (() => {
         }
         if (/D3.*Teknik Informatika\s*([0-9][A-Za-z])/i.test(full)) {
           return full.replace(/.*Teknik Informatika\s*/i, 'D3-TI ');
+        }
+        if (/D4.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*([0-9][A-Za-z])/i.test(full)) {
+          return full.replace(/.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*/i, 'D4-SIKC ');
         }
         return full;
       },

@@ -162,9 +162,9 @@ func seedDemoUsers(db *sql.DB) error {
 
 	// 3. Pastikan role assignment KM dan PJ ada
 	var classID, semesterID int64
-	err = db.QueryRow(`SELECT id FROM classes WHERE slug = 'd4-ti-2024-a' LIMIT 1;`).Scan(&classID)
+	err = db.QueryRow(`SELECT id FROM classes WHERE status = 'ACTIVE' ORDER BY id ASC LIMIT 1;`).Scan(&classID)
 	if err != nil {
-		// Fallback ke kelas apa pun yang tersedia jika slug demo spesifik tidak ditemukan
+		// Fallback ke kelas apa pun yang tersedia
 		err = db.QueryRow(`SELECT id FROM classes ORDER BY id ASC LIMIT 1;`).Scan(&classID)
 	}
 	if err != nil {

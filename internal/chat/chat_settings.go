@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -407,7 +408,11 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	var sb strings.Builder
 	sb.WriteString("*JADWAL KULIAH MAHASISWA*\n")
-	sb.WriteString("Jurusan Teknik Komputer dan Informatika - POLBAN\n")
+	campusTitle := strings.TrimSpace(os.Getenv("BOT_JADWAL_CAMPUS_NAME"))
+	if campusTitle == "" {
+		campusTitle = "Sistem Informasi Perkuliahan Terpadu"
+	}
+	sb.WriteString(campusTitle + "\n")
 	sb.WriteString("──────────\n")
 	sb.WriteString("*STATUS: KELAS BELUM DIATUR*\n")
 	sb.WriteString("Chat ini belum memilih kelas perkuliahan aktif.\n\n")
