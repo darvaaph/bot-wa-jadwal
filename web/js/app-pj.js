@@ -3189,7 +3189,7 @@ function pjApp() {
         await API.updateTask(this.editTugasId, payload);
         await this.loadTasks();
         if (wantPublish) {
-          this.showToast('Tugas berhasil diajukan ke Ketua Murid untuk ditinjau!');
+          this.showToast('Perubahan tugas berhasil disimpan & diterbitkan.');
         } else {
           this.showToast('Perubahan draf berhasil disimpan.');
         }
@@ -3240,7 +3240,7 @@ function pjApp() {
           save_as: 'published'
         });
         await this.loadTasks();
-        this.showToast('Tugas berhasil diajukan ke Ketua Murid untuk ditinjau!');
+        this.showToast('Tugas berhasil diterbitkan dan masuk antrean review KM.');
         await this.bukaDetailTugas(d.id);
       } catch (e) {
         if (e.code === 'VERSION_CONFLICT') {

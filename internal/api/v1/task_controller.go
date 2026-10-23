@@ -871,12 +871,11 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	newVersion := currentVersion + 1
 	res, err := tx.Exec(`
 		UPDATE tasks
-		SET publication_status = ?, review_state = ?, reviewed_version = ?, version = ?, updated_at = CURRENT_TIMESTAMP
+		SET publication_status = ?, review_state = ?, reviewed_version = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND version = ?;
-	`, newPubStatus, decision, newVersion, newVersion, taskID, currentVersion)
+	`, newPubStatus, decision, currentVersion, taskID, currentVersion)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status tugas")
 		return
@@ -895,7 +894,7 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`
 		INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 		VALUES (?, ?, ?, ?, ?, ?);
-	`, taskID, u.UserID, u.ActiveAssignmentID, newVersion, decision, req.Note)
+	`, taskID, u.UserID, u.ActiveAssignmentID, currentVersion, decision, req.Note)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan catatan review")
 		return
@@ -973,7 +972,7 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		"task_id":            taskID,
 		"publication_status": newPubStatus,
 		"review_state":       decision,
-		"version":            newVersion,
+		"version":            currentVersion,
 	})
 }
 
