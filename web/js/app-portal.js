@@ -1126,15 +1126,7 @@ function portalApp() {
         `👤 PJ Matkul: ${s.pj || 'Belum ditugaskan'}` +
         (s.link ? `\n🔗 Link Zoom: ${s.link}` : '') +
         (s.kind === 'PENGGANTI' ? `\n⚠️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}` : '');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          this.showToast('Informasi sesi berhasil disalin ke clipboard!');
-        }).catch(() => {
-          this.showToast('Gagal menyalin informasi sesi.');
-        });
-      } else {
-        this.showToast('Informasi sesi berhasil disalin.');
-      }
+      this.copyText(text, 'Informasi sesi berhasil disalin ke clipboard!');
     },
 
     async prevWeek() {
@@ -1335,15 +1327,7 @@ function portalApp() {
         (s.pj ? `👤 PJ: ${s.pj}\n` : '') +
         (s.kind === 'PENGGANTI' ? `ℹ️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}\n` : '') +
         (s.link ? `🔗 Link: ${s.link}\n` : '');
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(teks).then(() => {
-          this.showToast('Ringkasan sesi berhasil disalin ke papan klip!');
-        }).catch(() => {
-          this.showToast('Ringkasan sesi disalin.');
-        });
-      } else {
-        this.showToast('Ringkasan sesi disalin.');
-      }
+      this.copyText(teks, 'Ringkasan sesi berhasil disalin ke papan klip!');
     },
 
     hubungiPJ(s) {
@@ -1973,15 +1957,7 @@ function portalApp() {
         this.showToast('Tautan belum tersedia.');
         return;
       }
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => {
-          this.showToast('Tautan berkas berhasil disalin!');
-        }).catch(() => {
-          this.showToast('Tautan berkas berhasil disalin!');
-        });
-      } else {
-        this.showToast('Tautan berkas berhasil disalin!');
-      }
+      this.copyText(url, 'Tautan berkas berhasil disalin!');
     },
 
     bukaTautanLangsung(url) {
@@ -2074,6 +2050,54 @@ function portalApp() {
       this.toast.message = msg;
       this.toast.show = true;
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
+    },
+
+    copyText(text, okMsg) {
+      const clean = String(text || '').trim();
+      if (!clean) return;
+      const done = () => this.showToast(okMsg || 'Tersalin ke clipboard.');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(clean).then(done).catch(() => {
+          if (this.fallbackCopyText(clean)) {
+            done();
+          } else {
+            this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+          }
+        });
+        return;
+      }
+      if (this.fallbackCopyText(clean)) {
+        done();
+      } else {
+        this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+      }
+    },
+
+    fallbackCopyText(text) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.width = '2em';
+        ta.style.height = '2em';
+        ta.style.padding = '0';
+        ta.style.border = 'none';
+        ta.style.outline = 'none';
+        ta.style.boxShadow = 'none';
+        ta.style.background = 'transparent';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
     }
   };
 }

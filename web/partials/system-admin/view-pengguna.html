@@ -524,13 +524,28 @@
           <p class="text-[11px] text-[#667085] mt-1">Gunakan nomor aktif WhatsApp untuk proses aktivasi akun.</p>
         </div>
 
-        <div x-show="modalUndangResult" class="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] text-[12px] text-[#166534]">
-          <p class="font-bold flex items-center gap-1.5">
-            <svg class="w-4 h-4 text-[#166534]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            Tautan undangan berhasil dibuat!
-          </p>
-          <p class="mt-1 text-[#15803D]">Berlaku 7 hari sekali pakai. Tautan otomatis tersalin ke clipboard.</p>
-          <button type="button" @click="copyText(modalUndangResult.link, 'Tautan undangan disalin ke clipboard.')" class="mt-2.5 h-9 px-3 rounded-lg bg-white border border-[#86EFAC] text-[11px] font-semibold text-[#15803D] hover:bg-green-50 transition-colors cursor-pointer">Salin ulang tautan</button>
+        <div x-show="modalUndangResult" class="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] text-[12px] text-[#166534] space-y-2.5">
+          <div>
+            <p class="font-bold flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-[#166534]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Tautan undangan berhasil dibuat!
+            </p>
+            <p class="mt-0.5 text-[#15803D]">Berlaku 7 hari sekali pakai.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="text" readonly :value="modalUndangResult ? modalUndangResult.link : ''" class="h-9 flex-1 rounded-lg border border-[#86EFAC] bg-white px-2.5 font-mono text-[11px] text-[#166534] select-all focus:outline-none" @click="$event.target.select()" />
+            <button type="button" @click="copyText(modalUndangResult.link, 'Tautan undangan disalin ke clipboard.')" class="h-9 px-3 rounded-lg bg-white border border-[#86EFAC] text-[11px] font-semibold text-[#15803D] hover:bg-green-50 transition-colors cursor-pointer shrink-0">Salin ulang tautan</button>
+          </div>
+
+          <div class="pt-0.5 flex items-center gap-2">
+            <a :href="'https://wa.me/' + (modalUndangNomor || '').replace(/\D/g, '').replace(/^0/, '62') + '?text=' + encodeURIComponent('Halo! Ini tautan undangan aktivasi akun Anda: ' + (modalUndangResult ? modalUndangResult.link : ''))"
+              target="_blank" rel="noopener noreferrer"
+              class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white text-[11px] font-semibold transition-colors cursor-pointer">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.586-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.275.072.376-.044c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.392-12.416c-5.514 0-10 4.486-10 10 0 1.761.458 3.418 1.258 4.865l-1.297 4.747 4.871-1.277c1.402.766 3.003 1.199 4.707 1.199 5.514 0 10-4.486 10-10s-4.486-10-10-10z"/></svg>
+              Kirim via WhatsApp
+            </a>
+          </div>
         </div>
       </div>
 
