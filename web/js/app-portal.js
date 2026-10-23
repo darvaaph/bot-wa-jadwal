@@ -841,20 +841,30 @@ function portalApp() {
 
     get flatClassGroups() {
       const q = this.classQuery.trim().toLowerCase();
-      const groups = [
-        {
-          title: 'D4 Teknik Informatika',
-          prodi: 'D4',
-          badge: 'Sarjana Terapan',
-          items: this.classList.filter(c => this.parseClass(c).prodi === 'D4')
-        },
-        {
-          title: 'D3 Teknik Informatika',
-          prodi: 'D3',
-          badge: 'Diploma Tiga',
-          items: this.classList.filter(c => this.parseClass(c).prodi === 'D3')
+      const prodis = this.availableProdis;
+      const groups = prodis.map(pr => {
+        let title = pr;
+        let badge = 'Program Studi';
+        if (pr === 'D4') {
+          title = 'D4 Teknik Informatika';
+          badge = 'Sarjana Terapan';
+        } else if (pr === 'D3') {
+          title = 'D3 Teknik Informatika';
+          badge = 'Diploma Tiga';
+        } else if (pr === 'S1') {
+          title = 'S1 Sarjana';
+          badge = 'Sarjana';
+        } else if (pr === 'S2') {
+          title = 'S2 Magister Terapan';
+          badge = 'Pascasarjana';
         }
-      ];
+        return {
+          title,
+          prodi: pr,
+          badge,
+          items: this.classList.filter(c => this.parseClass(c).prodi === pr)
+        };
+      });
 
       return groups.map(g => {
         if (this.classFilterProdi !== 'ALL' && g.prodi !== this.classFilterProdi) {

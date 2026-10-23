@@ -219,7 +219,7 @@ function systemAdminApp() {
     ruangList: [],
     ruangLoading: false,
     ruangError: '',
-    ruangForm: { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' },
+    ruangForm: { kode: '', nama: '', gedung: 'Gedung Utama', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' },
     ruangFormError: '',
     ruangFormLoading: false,
     ruangQ: '',
@@ -2102,11 +2102,12 @@ function systemAdminApp() {
     daftarGedungRuang() {
       const list = this.ruangList || [];
       const set = new Set();
-      set.add('Gedung D');
-      set.add('Gedung H');
       list.forEach(r => {
         if (r.building && r.building.trim()) set.add(r.building.trim());
       });
+      if (set.size === 0) {
+        set.add('Gedung Utama');
+      }
       return Array.from(set).sort();
     },
 
@@ -2215,7 +2216,8 @@ function systemAdminApp() {
     },
 
     bukaModalTambahRuang() {
-      this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
+      const defGedung = this.daftarGedungRuang()[0] || 'Gedung Utama';
+      this.ruangForm = { kode: '', nama: '', gedung: defGedung, tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
       this.ruangFormError = '';
       this.ruangFormLoading = false;
       this.modalTambahRuang = true;
@@ -2446,7 +2448,8 @@ function systemAdminApp() {
         if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
 
         await API.createMasterRoom(payload);
-        this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
+        const defGedung = this.daftarGedungRuang()[0] || 'Gedung Utama';
+        this.ruangForm = { kode: '', nama: '', gedung: defGedung, tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
         await this.loadRuang();
         this.modalTambahRuang = false;
         this.showToast('Ruangan baru berhasil ditambahkan.');
@@ -2468,7 +2471,7 @@ function systemAdminApp() {
         id: r.id,
         kode: r.code,
         nama: r.name || '',
-        gedung: isKnown ? buildingVal : (buildingVal ? '__custom__' : (knownBuildings[0] || 'Gedung D')),
+        gedung: isKnown ? buildingVal : (buildingVal ? '__custom__' : (knownBuildings[0] || 'Gedung Utama')),
         gedungKustom: isKnown ? '' : buildingVal,
         tipe: r.room_type || 'Laboratorium',
         kapasitas: (cap === null || cap === undefined || cap === '') ? '' : String(cap),

@@ -128,11 +128,16 @@ func formatClassDisplayName(code, studyProgram string, cohortYear int, groupLabe
 			return code
 		}
 	} else {
-		if !strings.HasPrefix(prodi, "D4") && !strings.HasPrefix(prodi, "D3") {
-			if strings.HasPrefix(code, "D4") {
-				prodi = "D4 " + prodi
-			} else if strings.HasPrefix(code, "D3") {
-				prodi = "D3 " + prodi
+		hasLevelPrefix := strings.HasPrefix(prodi, "D4") || strings.HasPrefix(prodi, "D3") ||
+			strings.HasPrefix(prodi, "D2") || strings.HasPrefix(prodi, "D1") ||
+			strings.HasPrefix(prodi, "S1") || strings.HasPrefix(prodi, "S2")
+		if !hasLevelPrefix {
+			parts := strings.Split(code, "-")
+			if len(parts) > 0 {
+				codePrefix := strings.ToUpper(parts[0])
+				if strings.HasPrefix(codePrefix, "D") || strings.HasPrefix(codePrefix, "S") {
+					prodi = codePrefix + " " + prodi
+				}
 			}
 		}
 	}

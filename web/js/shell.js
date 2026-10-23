@@ -249,6 +249,13 @@ const AsteriskShell = (() => {
         if (/D4.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*([0-9][A-Za-z])/i.test(full)) {
           return full.replace(/.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*/i, 'D4-SIKC ');
         }
+        const m = full.match(/^(D[1-4]|S[1-2])\s+(.+?)\s+([0-9][A-Za-z])$/i);
+        if (m) {
+          const level = m[1].toUpperCase();
+          const prodiWords = m[2].trim().split(/\s+/);
+          const initials = prodiWords.map(w => w[0]).join('').toUpperCase();
+          return `${level}-${initials} ${m[3].toUpperCase()}`;
+        }
         return full;
       },
       kmCrumb() {

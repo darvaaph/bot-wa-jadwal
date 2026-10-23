@@ -1079,7 +1079,7 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 	for id, nama := range j.Dosen {
 		if strings.ToLower(id) == keyword || strings.Contains(strings.ToLower(nama), keyword) {
 			var sb strings.Builder
-			sb.WriteString("*INFO DOSEN JTK*\n")
+			sb.WriteString("*INFO DOSEN*\n")
 			sb.WriteString("──────────\n")
 			sb.WriteString(fmt.Sprintf("- Nama : %s\n", nama))
 			sb.WriteString(fmt.Sprintf("- Kode : %s\n\n", id))

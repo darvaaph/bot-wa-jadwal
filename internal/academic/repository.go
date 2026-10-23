@@ -380,8 +380,15 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 			if parsedCohort, err := strconv.Atoi(parts[len(parts)-2]); err == nil {
 				cohort = parsedCohort
 			}
-			if parts[0] == "D3" || parts[0] == "D4" {
-				program = parts[0] + " Teknik Informatika"
+			level := parts[0]
+			prodiPart := parts[1]
+			switch strings.ToUpper(prodiPart) {
+			case "TI":
+				program = level + " Teknik Informatika"
+			case "SIKC":
+				program = level + " Sistem Informasi Kota Cerdas"
+			default:
+				program = level + " " + prodiPart
 			}
 		}
 	}
