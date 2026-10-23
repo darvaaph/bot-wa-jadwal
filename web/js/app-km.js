@@ -609,7 +609,7 @@ function kmApp() {
     },
 
     get pekanLabel() {
-      let weekNum = 6 + this.weekOffset;
+      let weekNum = Math.max(1, 1 + this.weekOffset);
       const activeSem = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE')
         || (this.semesterOptions || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE')
         || this.semesterAktif;

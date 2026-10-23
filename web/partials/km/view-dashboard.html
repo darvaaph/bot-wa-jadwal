@@ -273,11 +273,11 @@
                 </button>
                 <p class="text-[12px] text-[#667085] truncate" x-text="t.matkul">-</p>
                 <div class="flex items-center justify-between mt-1">
-                  <span class="font-mono text-[11px] font-semibold text-[#1D1B3A]" x-text="fmtDeadlineShort(t.deadline_at)">Besok, 23:59 WIB</span>
+                  <span class="font-mono text-[11px] font-semibold text-[#1D1B3A]" x-text="fmtDeadlineShort(t.deadline_at)">—</span>
                   <!-- Badge Sisa Waktu -->
                   <span class="px-2 py-0.5 rounded-[10px] text-[11px] font-semibold whitespace-nowrap"
                         :class="t.countdown === 'Terlewat' ? 'bg-[#FEE2E2] text-[#991B1B]' : (t.urgency === 'mendesak' ? 'bg-[#FEF3C7] text-[#B45309]' : 'bg-[#F1F5F9] text-[#475467]')"
-                        x-text="deadlineRelative(t.deadline_at)">Sisa 28 jam</span>
+                        x-text="deadlineRelative(t.deadline_at)">—</span>
                 </div>
               </div>
             </template>

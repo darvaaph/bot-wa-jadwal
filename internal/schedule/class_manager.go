@@ -167,14 +167,25 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 		cm.aliases[fmt.Sprintf("%s %s %s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s %s%s", prodi, semester, kelasPart)] = norm
 
-		// Alias tingkat 2 dipetakan ke semester 3 jika prodi dicantumkan (contoh: D4 2A -> D4-TI-SMT3-A)
-		if semester == "3" {
-			if subProdi != "" {
-				cm.aliases[fmt.Sprintf("%s-%s-2%s", prodi, subProdi, kelasPart)] = norm
+		// Alias tingkat (tingkat = (semester+1)/2) dipetakan ke semester
+		if semInt, err := strconv.Atoi(semester); err == nil && semInt > 0 {
+			tingkat := (semInt + 1) / 2
+			// Alias eksplisit dengan kata kunci tingkat selalu aman didaftarkan
+			cm.aliases[fmt.Sprintf("%s TINGKAT %d %s", prodi, tingkat, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s TKT %d %s", prodi, tingkat, kelasPart)] = norm
+			cm.aliases[fmt.Sprintf("%s-TINGKAT-%d-%s", prodi, tingkat, kelasPart)] = norm
+
+			// Alias singkat tingkat (contoh: D4 2A -> D4-TI-SMT3-A)
+			// Hanya didaftarkan jika angka tingkat berbeda dari semester dan tingkat != 3
+			// agar tidak menimpa alias semester 3 (misal: "d4 3a" tetap merujuk ke SMT3, bukan SMT5)
+			if tingkat != semInt && tingkat != 3 {
+				if subProdi != "" {
+					cm.aliases[fmt.Sprintf("%s-%s-%d%s", prodi, subProdi, tingkat, kelasPart)] = norm
+				}
+				cm.aliases[fmt.Sprintf("%s-%d%s", prodi, tingkat, kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("%s %d %s", prodi, tingkat, kelasPart)] = norm
+				cm.aliases[fmt.Sprintf("%s %d%s", prodi, tingkat, kelasPart)] = norm
 			}
-			cm.aliases[fmt.Sprintf("%s-2%s", prodi, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%s 2 %s", prodi, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%s 2%s", prodi, kelasPart)] = norm
 		}
 
 		// Alias angkatan / cohort permanen (misal: D4-TI-2025-A -> D4-TI-SMT3-A)

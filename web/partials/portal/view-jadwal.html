@@ -283,7 +283,7 @@
               </div>
               <span class="text-[11px] font-normal leading-tight"
                     :class="d === todayName && weekOffset === 0 ? 'text-[#2563EB] font-medium' : 'text-[#64748B]'"
-                    x-text="tanggalPekanFormatted[d]">5 Okt</span>
+                    x-text="tanggalPekanFormatted[d]">—</span>
             </div>
             <span class="text-[11px] font-medium"
                   :class="d === todayName && weekOffset === 0 ? 'text-[#2563EB]' : 'text-[#94A3B8]'"
@@ -919,11 +919,11 @@
                 <div class="flex flex-col">
                   <div class="text-[14px] font-bold text-[#0F172A]"
                     x-text="detailSesi.ruang ? 'Ruang ' + detailSesi.ruang : (detailSesi.link ? 'Kuliah Daring' : '—')">
-                    Lab Komputer 3
+                    —
                   </div>
                   <div class="text-[11px] font-medium text-[#64748B]"
-                    x-text="detailSesi.ruang ? 'Gedung ' + detailSesi.ruang.charAt(0) + ' Lt. 2' : (detailSesi.link ? 'Tautan Zoom Tersedia' : 'Kampus Polban')">
-                    Gedung D Lt. 2
+                    x-text="detailSesi.ruang ? ('Gedung ' + detailSesi.ruang.charAt(0)) : (detailSesi.link ? 'Tautan Zoom Tersedia' : 'Kampus Polban')">
+                    —
                   </div>
                 </div>
               </div>
@@ -937,11 +937,11 @@
               <div class="w-full flex items-center gap-2.5">
                 <div
                   class="w-[38px] h-[38px] rounded-full bg-[#E2E8F0] flex items-center justify-center font-bold text-[#475569] text-[12px] shrink-0"
-                  x-text="getInitials(detailSesi.dosen)">
-                  MR
+                  x-text="getInitials(detailSesi.dosen || 'Dosen')">
+                  —
                 </div>
                 <div class="flex flex-col">
-                  <div class="text-[13px] font-bold text-[#0F172A]" x-text="detailSesi.dosen || '—'">M. Rizal, M.T.</div>
+                  <div class="text-[13px] font-bold text-[#0F172A]" x-text="detailSesi.dosen || '—'">—</div>
                   <div class="text-[11px] font-medium text-[#64748B]">Dosen Pengampu</div>
                 </div>
               </div>
@@ -951,12 +951,12 @@
                 <div class="flex items-center gap-2.5">
                   <div
                     class="w-[38px] h-[38px] rounded-full bg-[#E2E8F0] flex items-center justify-center font-bold text-[#475569] text-[12px] shrink-0"
-                    x-text="getInitials(detailSesi.pj || 'Ahmad Fauzi')">
-                    AF
+                    x-text="getInitials(detailSesi.pj || 'PJ')">
+                    PJ
                   </div>
                   <div class="flex flex-col">
                     <div class="text-[13px] font-bold text-[#0F172A]"
-                      x-text="detailSesi.pj || 'Ahmad Fauzi'">Ahmad Fauzi</div>
+                      x-text="detailSesi.pj || 'Belum ditugaskan'">Belum ditugaskan</div>
                     <div class="text-[11px] font-medium text-[#64748B]">PJ Mahasiswa</div>
                   </div>
                 </div>
@@ -1135,11 +1135,11 @@
                       </div>
                       <div class="text-[11px] text-[#92400E] font-medium whitespace-nowrap"
                         x-text="formatWaktuPublikasi(ch.published_at)">
-                        4 Okt, 14:20 WIB oleh KM
+                        —
                       </div>
                     </div>
                     <div class="text-[16px] text-[#0F172A] font-heading font-bold" x-text="ch.offering">
-                      Aljabar Linier
+                      —
                     </div>
                     <div class="flex items-start gap-1.5 text-[12px] font-semibold text-[#334155]">
                       <svg viewBox="0 0 14 14" class="w-4 h-4 text-[#92400E] shrink-0 mt-0.5" fill="currentColor">
@@ -1179,7 +1179,7 @@
                       </div>
                     </div>
                     <div class="text-[15px] text-[#334155] font-heading font-bold" x-text="ch.offering">
-                      Matematika Diskrit
+                      —
                     </div>
                     <div class="text-[12px] text-[#64748B] font-medium" x-text="formatWaktuEfektif(ch)">
                       -
@@ -1187,7 +1187,7 @@
                     <div
                       class="w-full p-2.5 bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] text-[12px] leading-[17px] text-[#475569] font-medium"
                       x-text="'Alasan: ' + (ch.reason || 'Sesi perkuliahan ditiadakan oleh pengampu.')">
-                      Alasan: Dosen berhalangan hadir. Materi dipelajari mandiri via LMS.
+                      Alasan: -
                     </div>
                   </div>
                 </template>

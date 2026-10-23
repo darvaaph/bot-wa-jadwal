@@ -126,7 +126,7 @@
             <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
               :class="urgencyStyle(t.deadline_at).bg + ' ' + urgencyStyle(t.deadline_at).text">
               <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(t.deadline_at).dot"></span>
-              <span x-text="deadlineRelative(t.deadline_at) || t.countdown">Besok</span>
+              <span x-text="deadlineRelative(t.deadline_at) || t.countdown">—</span>
             </div>
             <div class="w-8 h-8 rounded-lg bg-slate-50 group-hover:bg-blue-50 flex items-center justify-center text-slate-400 group-hover:text-[#2563EB] transition-colors shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 group-hover:translate-x-0.5 transition-transform"><polyline points="9 18 15 12 9 6"/></svg>
@@ -276,7 +276,7 @@
             <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
               :class="urgencyStyle(detailTugas.deadline_at).bg + ' ' + urgencyStyle(detailTugas.deadline_at).text">
               <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(detailTugas.deadline_at).dot"></span>
-              <span x-text="deadlineRelative(detailTugas.deadline_at) || detailTugas.countdown">Besok</span>
+              <span x-text="deadlineRelative(detailTugas.deadline_at) || detailTugas.countdown">—</span>
             </div>
           </div>
 

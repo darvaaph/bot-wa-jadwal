@@ -100,11 +100,23 @@ func ParseClassMetadata(kampusStr, filePath string) (prodi string, semester int,
 	parts := strings.Split(baseNoExt, "-")
 	if len(parts) >= 3 {
 		p := strings.ToUpper(parts[0])
-		if p == "D4" {
-			prodi = "D4 Teknik Informatika"
-		} else if p == "D3" {
-			prodi = "D3 Teknik Informatika"
+		prodiCode := ""
+		if len(parts) >= 2 {
+			prodiCode = strings.ToUpper(parts[1])
 		}
+		prodiName := "Teknik Informatika"
+		if prodiCode == "SIKC" {
+			prodiName = "Sistem Informasi Kota Cerdas"
+		} else if prodiCode != "" && !strings.HasPrefix(prodiCode, "SMT") {
+			prodiName = prodiCode
+		}
+
+		if p == "D4" || p == "D3" {
+			prodi = p + " " + prodiName
+		} else if p != "" {
+			prodi = p + " " + prodiName
+		}
+
 		for _, part := range parts {
 			partUpper := strings.ToUpper(part)
 			if strings.HasPrefix(partUpper, "SMT") {
@@ -119,10 +131,14 @@ func ParseClassMetadata(kampusStr, filePath string) (prodi string, semester int,
 
 	if prodi == "" {
 		upperK := strings.ToUpper(kampusStr)
+		prodiName := "Teknik Informatika"
+		if strings.Contains(upperK, "SIKC") {
+			prodiName = "Sistem Informasi Kota Cerdas"
+		}
 		if strings.Contains(upperK, "D4") {
-			prodi = "D4 Teknik Informatika"
+			prodi = "D4 " + prodiName
 		} else if strings.Contains(upperK, "D3") {
-			prodi = "D3 Teknik Informatika"
+			prodi = "D3 " + prodiName
 		}
 	}
 

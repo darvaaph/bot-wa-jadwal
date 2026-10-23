@@ -201,11 +201,11 @@
         </svg>
       </div>
       <p class="text-[17px] font-bold text-[#1D1B3A]">Belum Ada Master Ruangan</p>
-      <p class="text-[13px] text-[#667085] max-w-md mx-auto mt-1">Database ruangan kuliah masih kosong. Anda dapat menyinkronkan 18 ruangan dari berkas jadwal kurikulum POLBAN secara otomatis atau menambahkannya manual.</p>
+      <p class="text-[13px] text-[#667085] max-w-md mx-auto mt-1">Database ruangan kuliah masih kosong. Anda dapat menyinkronkan data ruangan dari berkas jadwal kurikulum secara otomatis atau menambahkannya manual.</p>
       <div class="flex flex-wrap items-center justify-center gap-3 mt-5">
         <button type="button" @click="bukaModalImportRuang()" class="h-[44px] px-4 rounded-[10px] bg-[#3965FB] hover:bg-[#2d52d9] text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors min-h-[44px]">
           <svg width="18" height="18" viewBox="0 0 14 14" fill="#FFFFFF" class="shrink-0" aria-hidden="true" focusable="false"><path d="M3.20947 7.05127q0 0.71094 0.2666 1.38428 0.27002 0.66992 0.84424 1.2373l0.59473 0.59473 0-1.47315q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12305 0 0.20507 0.08545 0.08545 0.08203 0.08545 0.20507l0 2.02002q0 0.19824-0.13671 0.33496-0.1333 0.13672-0.33497 0.13672l-2.0166 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.21191 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l1.51416 0-0.61523-0.6084q-0.68018-0.65967-0.98096-1.44922-0.30078-0.78955-0.30078-1.59277 0-1.26807 0.65283-2.3208 0.65625-1.05615 1.76026-1.63037 0.11279-0.06152 0.23925-0.02735 0.12646 0.03418 0.16407 0.15381 0.04102 0.10938-0.00684 0.22559-0.04443 0.11621-0.16064 0.17773-0.94678 0.50244-1.50733 1.41504-0.55713 0.90918-0.55713 2.00635z m7.58106-0.10254q0-0.71094-0.27002-1.38086-0.2666-0.67334-0.84082-1.24072l-0.59473-0.59473 0 1.47315q0 0.12305-0.08545 0.20849-0.08203 0.08203-0.20508 0.08203-0.12305 0-0.20849-0.08203-0.08203-0.08545-0.08203-0.20849l0-2.02002q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l2.0166 0q0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20849 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20849 0.08203l-1.51416 0 0.61523 0.6084q0.66992 0.6665 0.97412 1.45264 0.30762 0.78271 0.30762 1.58935 0 1.26807-0.64941 2.31738-0.64941 1.04932-1.75342 1.62354-0.11279 0.06152-0.23926 0.03418-0.12305-0.03076-0.16406-0.15039-0.0376-0.10938 0.00683-0.22559 0.04785-0.11963 0.15039-0.17773 0.94678-0.50244 1.50391-1.41162 0.56055-0.9126 0.56055-2.00977z"/></svg>
-          <span>Sinkronkan dari Jadwal (18 Ruangan)</span>
+          <span>Sinkronkan dari Berkas Jadwal Kurikulum</span>
         </button>
         <button type="button" @click="bukaModalTambahRuang()" class="h-[44px] px-4 rounded-[10px] border border-[#D7DDE7] hover:bg-slate-50 text-[13px] font-semibold text-[#1D1B3A] min-h-[44px]">
           <span>+ Tambah Manual</span>
@@ -714,11 +714,11 @@
               <span class="text-[14px] font-bold text-[#1D1B3A]">Ekstrak Ruangan dari Jadwal POLBAN</span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#E9EAFF] text-[#3965FB] shrink-0">
-              18 Ruangan Resmi
+              Ruangan Resmi Terdeteksi
             </span>
           </div>
           <p class="text-[12px] text-[#667085] leading-[17px]">
-            Memindai 19 berkas jadwal kurikulum POLBAN untuk mendeteksi 18 ruangan perkuliahan di Gedung D dan Gedung H.
+            Memindai berkas jadwal kurikulum untuk mendeteksi ruangan perkuliahan di seluruh gedung.
           </p>
           <div class="pt-1">
             <button
@@ -749,11 +749,11 @@
               <span class="text-[14px] font-bold text-[#1D1B3A]">Sinkronkan Seluruh Master Kampus</span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#E1FFB7] text-[#1A4D00] shrink-0">
-              106 Master Data
+              Semua Master Data
             </span>
           </div>
           <p class="text-[12px] text-[#667085] leading-[17px]">
-            Sinkronisasi terpadu sekaligus: 41 Mata Kuliah, 18 Ruangan, dan 47 Dosen dalam satu kali klik.
+            Sinkronisasi terpadu sekaligus: Mata Kuliah, Ruangan, dan Dosen dalam satu kali klik.
           </p>
           <div class="pt-1">
             <button

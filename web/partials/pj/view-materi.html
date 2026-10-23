@@ -433,13 +433,13 @@
                     <a :href="m.url" target="_blank" rel="noopener noreferrer"
                        class="text-[13px] leading-[18px] text-[#0F172A] hover:text-[#2563EB] font-semibold text-left line-clamp-2 sm:line-clamp-1 hover:underline break-words"
                        x-text="m.title">
-                      Slide Normalisasi Database
+                      —
                     </a>
                   </template>
                   <template x-if="!m.url">
                     <div class="text-[13px] leading-[18px] text-[#0F172A] font-semibold text-left line-clamp-2 sm:line-clamp-1 break-words"
                          x-text="m.title">
-                      Slide Normalisasi Database
+                      —
                     </div>
                   </template>
                   <!-- Format badge on mobile inline with title for quick scan -->
@@ -476,7 +476,7 @@
               <!-- Tanggal Berkas (Desktop) -->
               <div class="hidden sm:block text-[11px] leading-normal box-border text-[#64748B] font-medium text-left whitespace-nowrap"
                    x-text="fmtTanggalSingkat(m.created_at)">
-                06 Okt
+                —
               </div>
 
               <!-- Tombol Aksi Row: min-h-[44px] on mobile for WCAG touch target -->

@@ -709,7 +709,7 @@ function pjApp() {
           if (weekNum >= 1 && weekNum <= 24) return weekNum;
         }
       }
-      return Math.max(1, 6 + this.weekOffset);
+      return Math.max(1, 1 + this.weekOffset);
     },
 
     activeSemesterLabel() {

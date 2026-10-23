@@ -980,7 +980,7 @@
         </h2>
       </div>
       <div class="text-[12px] text-[#9F1239] font-medium sm:text-right">
-        <span x-text="((latestReviewKM() && latestReviewKM().waktu) || 'Kemarin') + ' · Pada Versi ' + ((latestReviewKM() && latestReviewKM().version) || editTugasVersion || 1)">Kemarin, 19:40 WIB · Pada Versi 1</span>
+        <span x-text="((latestReviewKM() && latestReviewKM().waktu) || 'Sebelumnya') + ' · Pada Versi ' + ((latestReviewKM() && latestReviewKM().version) || editTugasVersion || 1)">—</span>
       </div>
     </div>
     <div class="p-3.5 rounded-xl bg-white border border-[#FECDD3]">
@@ -1206,7 +1206,7 @@
             <div class="text-[11px] text-[#64748B]">
               <span x-text="(tugasDetail && tugasDetail.creator_name) || (currentUser && currentUser.display_name) || 'PJ Mata Kuliah'">PJ Mata Kuliah</span> (PJ)
             </div>
-            <div class="text-[11px] text-[#94A3B8]" x-text="formatSubmittedTime(tugasDetail && (tugasDetail.created_at || tugasDetail.published_at))">Kemarin, 16:30 WIB</div>
+            <div class="text-[11px] text-[#94A3B8]" x-text="formatSubmittedTime(tugasDetail && (tugasDetail.created_at || tugasDetail.published_at))">—</div>
           </div>
         </div>
       </div>

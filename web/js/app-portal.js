@@ -179,7 +179,7 @@ function portalApp() {
           }
         }
       } catch (e) { }
-      return 6; // fallback sesuai Figma: Pekan Ke-6
+      return 1; // fallback sebelum semester aktif dimuat
     },
 
     get pekanAktifNum() {

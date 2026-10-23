@@ -496,18 +496,21 @@ func (c *AuthController) GetMe(w http.ResponseWriter, r *http.Request) {
 		}
 		var className string
 		if u.ActiveClassID.Valid && u.ActiveClassID.Int64 > 0 {
-			var prog, grp string
+			var prog, grp, code string
 			var cohort int
-			if err := c.db.QueryRow(`SELECT study_program, cohort_year, group_label FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&prog, &cohort, &grp); err == nil {
+			if err := c.db.QueryRow(`SELECT study_program, cohort_year, group_label, code FROM classes WHERE id = ?;`, u.ActiveClassID.Int64).Scan(&prog, &cohort, &grp, &code); err == nil {
 				tingkat := 1
 				if cohort > 0 {
-					t := 2026 - cohort + 1
+					t := time.Now().Year() - cohort + 1
 					if t > 0 && t <= 4 {
 						tingkat = t
 					}
 				}
 				prodiShort := "D4-TI"
-				if strings.Contains(strings.ToLower(prog), "d3") {
+				codeParts := strings.Split(code, "-")
+				if len(codeParts) >= 2 && (strings.HasPrefix(codeParts[0], "D") || strings.HasPrefix(codeParts[0], "S")) {
+					prodiShort = codeParts[0] + "-" + codeParts[1]
+				} else if strings.Contains(strings.ToLower(prog), "d3") {
 					prodiShort = "D3-TI"
 				}
 				className = fmt.Sprintf("%s %d%s", prodiShort, tingkat, grp)

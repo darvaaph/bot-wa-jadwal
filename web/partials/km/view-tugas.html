@@ -225,12 +225,12 @@
                   <path d="M7.29053 6.88037l0-2.50537q0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508l0 2.55322q0 0.08887 0.03076 0.17432 0.03418 0.08203 0.10938 0.16064l2.07129 2.07129q0.08203 0.08203 0.19824 0.08887 0.11963 0.00342 0.21533-0.08887 0.09229-0.0957 0.09229-0.20849 0-0.11279-0.09229-0.20508l-2.04394-2.04053z m-0.28711 5.36963q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.93799 0 3.30176-1.36377 1.36377-1.36377 1.36377-3.30176 0-1.93799-1.36377-3.30176-1.36377-1.36377-3.30176-1.36377-1.93799 0-3.30176 1.36377-1.36377 1.36377-1.36377 3.30176 0 1.93799 1.36377 3.30176 1.36377 1.36377 3.30176 1.36377z"/>
                 </svg>
                 <span class="font-bold text-[#1D1B3A] font-mono" x-text="fmtDeadlineDetailed(t.deadline_at || t.deadline)">
-                  Jumat, 16 Oktober 2026 · 23:59 WIB
+                  —
                 </span>
                 <span class="px-2.5 py-1 rounded-[9px] text-[11px] font-semibold"
                   :class="urgencyStyle(t.deadline_at || t.deadline).bg + ' ' + urgencyStyle(t.deadline_at || t.deadline).text"
                   x-text="deadlineRelative(t.deadline_at || t.deadline)">
-                  Sisa 3 hari
+                  —
                 </span>
               </div>
 
@@ -356,7 +356,7 @@
                 <div class="min-w-0 sm:w-[180px] text-left">
                   <div class="text-[10px] sm:text-[11px] text-[#64748B] font-semibold tracking-wider uppercase">TENGGAT</div>
                   <div class="text-[12px] font-bold text-[#1D1B3A] font-mono mt-0.5 truncate" x-text="fmtDeadlineDetailed(t.deadline_at || t.deadline)">
-                    Besok, 8 Okt · 23:59 WIB
+                    —
                   </div>
                 </div>
 
@@ -365,7 +365,7 @@
                   <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
                     :class="urgencyStyle(t.deadline_at || t.deadline).bg + ' ' + urgencyStyle(t.deadline_at || t.deadline).text">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(t.deadline_at || t.deadline).dot"></span>
-                    <span x-text="deadlineRelative(t.deadline_at || t.deadline)">Sisa 2 hari</span>
+                    <span x-text="deadlineRelative(t.deadline_at || t.deadline)">—</span>
                   </div>
 
                   <!-- Tombol Buka Detail Tugas (Desktop) -->
@@ -1060,13 +1060,13 @@
                 <div class="px-2.5 py-1 rounded-[12px] text-[11px] font-semibold flex items-center gap-1.5 shrink-0"
                   :class="urgencyStyle(tugasDetail.deadline_at).bg + ' ' + urgencyStyle(tugasDetail.deadline_at).text">
                   <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="urgencyStyle(tugasDetail.deadline_at).dot"></span>
-                  <span x-text="deadlineRelative(tugasDetail.deadline_at)">Sisa 2 hari</span>
+                  <span x-text="deadlineRelative(tugasDetail.deadline_at)">—</span>
                 </div>
               </div>
 
               <!-- Nilai Tenggat Lengkap -->
               <div class="text-[15px] font-bold text-[#1D1B3A] font-mono" x-text="fmtDeadlineDetailed(tugasDetail.deadline_at) || tugasDetail.deadline">
-                Jumat, 16 Okt · 23:59 WIB
+                —
               </div>
 
               <!-- Tempat Pengumpulan & Link CTA -->
