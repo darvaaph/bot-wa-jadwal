@@ -281,8 +281,15 @@ func DashboardRedirectNotice(entity string) string {
 	sb.WriteString("──────────\n")
 	sb.WriteString("Penambahan, perubahan, dan pembatalan " + entity + " kini dilakukan sepenuhnya melalui Web Dashboard Pengelola demi keamanan dan validitas data.\n")
 	sb.WriteString("\n👉 Kelola di sini:\n")
-	sb.WriteString("http://localhost:8080/login.html (atau domain portal Anda)")
+	sb.WriteString(PublicBaseURL() + "/login.html")
 	return sb.String()
+}
+
+func PublicBaseURL() string {
+	if base := strings.TrimRight(strings.TrimSpace(os.Getenv("BOT_JADWAL_PUBLIC_BASE_URL")), "/"); base != "" {
+		return base
+	}
+	return "http://localhost:8080"
 }
 
 // Contains memeriksa apakah suatu string terdapat dalam slice (case-insensitive)

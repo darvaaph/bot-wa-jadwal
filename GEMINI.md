@@ -10,3 +10,6 @@ For UI, copy, people, mobile layout, or code comments work, read `antislop.md` (
 - Code comments: `skills/antislop-code/SKILL.md`
 Before starting, ask the user when antislop applies: during the work, or after it is done.
 <!-- antislop:end -->
+
+## AI Context Boundaries
+Berkas transkrip riset di `docs/archive/user-interviews/` adalah dokumentasi historis statis. Seluruh kebutuhan pengguna sudah dirangkum di `docs/product/USER_REQUIREMENTS.md`. Jangan membaca atau memuat berkas-berkas transkrip tersebut ke dalam context window AI kecuali pengguna secara eksplisit meminta analisis transkrip wawancara tertentu.

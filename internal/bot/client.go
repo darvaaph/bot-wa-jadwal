@@ -39,7 +39,13 @@ func NewBotClient(sessionDBPath string) (*BotClient, error) {
 	}
 
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)", sessionDBPath)
+	dsn := sessionDBPath
+	if sessionDBPath != ":memory:" && !strings.HasPrefix(sessionDBPath, "file:") {
+		// busy_timeout 10000ms mencegah 'database is locked (SQLITE_BUSY)' saat banyak goroutine WhatsApp
+		// menulis identitas, mapping LID, push name, dan sesi secara bersamaan.
+		// journal_mode(WAL) memungkinkan pembaca dan penulis bekerja paralel tanpa blocking.
+		dsn = fmt.Sprintf("file:%s?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)", sessionDBPath)
+	}
 
 	container, err := sqlstore.New(context.Background(), "sqlite", dsn, dbLog)
 	if err != nil {

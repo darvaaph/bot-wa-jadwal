@@ -305,7 +305,7 @@
                     <svg width="17" height="17" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
                       <path d="M7.00342 12.25q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q0.85449 0 1.64404-0.29737 0.79297-0.30078 1.43897-0.87158l-6.57959-6.57959q-0.55713 0.646-0.86475 1.43897-0.3042 0.78955-0.3042 1.64404 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z m3.49658-1.58252q0.5708-0.646 0.86817-1.43555 0.30078-0.79297 0.30078-1.64746 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-0.85791 0-1.6543 0.29395-0.79297 0.29395-1.42871 0.875l6.57959 6.57959z"/>
                     </svg>
-                    <span class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif] whitespace-nowrap"
+                    <span class="text-[12px] font-normal text-[#1D1B3A] whitespace-nowrap"
                           x-text="String(m.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Nonaktifkan mata kuliah' : 'Aktifkan mata kuliah'">
                       Nonaktifkan mata kuliah
                     </span>
@@ -322,7 +322,7 @@
                     <svg width="17" height="17" viewBox="0 0 14 14" fill="#667085" class="shrink-0 pointer-events-none" aria-hidden="true" focusable="false">
                       <path d="M6.97607 11.66553q-1.67822 0-2.9497-1.02881-1.26807-1.03223-1.59961-2.64551-0.0376-0.12988 0.02392-0.23926 0.06494-0.10938 0.19483-0.12646 0.12646-0.01709 0.21875 0.05469 0.0957 0.07178 0.1333 0.20507 0.31787 1.39111 1.42871 2.29688 1.11084 0.90234 2.5498 0.90234 1.70898 0 2.89502-1.18945 1.18945-1.18945 1.18946-2.89502 0-1.70557-1.18946-2.89502-1.18604-1.18945-2.89502-1.18945-0.90234 0-1.69873 0.38281-0.79639 0.38281-1.4082 1.05273l1.15527 0q0.12646 0 0.2085 0.08545 0.08545 0.08545 0.08545 0.2085 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.2085 0.08203l-1.65771 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-1.65772q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08203 0.08203 0.08203 0.20849l0 1.10059q0.67676-0.7417 1.58594-1.15528 0.90918-0.41699 1.91406-0.41699 0.97412 0 1.82178 0.36573 0.84766 0.3623 1.47998 0.99804 0.63574 0.63574 1.00147 1.4834 0.36572 0.84766 0.36572 1.81836 0 0.9707-0.36572 1.81836-0.36572 0.84766-1.00147 1.4834-0.63232 0.63574-1.47998 1.00146-0.84766 0.3623-1.82178 0.36231z m0.32813-4.78516l1.75 1.75q0.08203 0.08203 0.08545 0.20166 0.00684 0.11621-0.08545 0.2085-0.0957 0.0957-0.2085 0.0957-0.11279 0-0.20508-0.0957l-1.78076-1.77735q-0.0752-0.07861-0.10937-0.16064-0.03076-0.08545-0.03076-0.17432l0-2.55322q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.2085l0 2.50537z"/>
                     </svg>
-                    <span class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif] whitespace-nowrap">
+                    <span class="text-[12px] font-normal text-[#1D1B3A] whitespace-nowrap">
                       Lihat riwayat audit
                     </span>
                   </button>
@@ -396,8 +396,9 @@
           <span class="hidden sm:inline">Sebelumnya</span>
         </button>
 
+        <span class="sm:hidden px-2 text-[12px] text-[#475467]" x-text="matkulPage + ' dari ' + totalHalamanMatkul()"></span>
         <template x-for="(p, pIdx) in halamanArrayMatkul()" :key="pIdx">
-          <div>
+          <div class="hidden sm:block">
             <template x-if="p === '...'">
               <span class="px-2 py-1 text-[12px] text-[#667085]">...</span>
             </template>
@@ -443,10 +444,10 @@
       <!-- Header Dialog Tambah -->
       <div class="flex items-center justify-between p-[20px_24px] sm:p-[24px_28px] border-b border-[#EEEEEE]">
         <div class="flex flex-col gap-[5px]">
-          <h3 id="modal-tambah-matkul-title" class="text-[20px] sm:text-[22px] font-bold text-[#1D1B3A] font-[Inter,system-ui,sans-serif] leading-tight">
+          <h3 id="modal-tambah-matkul-title" class="text-[20px] sm:text-[22px] font-bold text-[#1D1B3A] font-heading leading-tight">
             Tambah Mata Kuliah
           </h3>
-          <p class="text-[13px] text-[#667085] leading-normal font-[Geist,system-ui,sans-serif]">
+          <p class="text-[13px] text-[#667085] leading-normal">
             Masukkan mata kuliah baru ke katalog induk kampus.
           </p>
         </div>
@@ -473,7 +474,7 @@
         <div class="p-[20px_24px] sm:p-[24px_28px] flex flex-col gap-[18px]">
           <!-- Field Kode mata kuliah -->
           <div class="flex flex-col gap-[8px]">
-            <label for="sa-matkul-input-kode" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+            <label for="sa-matkul-input-kode" class="text-[12px] font-normal text-[#1D1B3A]">
               Kode mata kuliah <span class="text-red-500">*</span>
             </label>
             <input id="sa-matkul-input-kode"
@@ -488,7 +489,7 @@
 
           <!-- Field Nama mata kuliah -->
           <div class="flex flex-col gap-[8px]">
-            <label for="sa-matkul-input-nama" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+            <label for="sa-matkul-input-nama" class="text-[12px] font-normal text-[#1D1B3A]">
               Nama mata kuliah <span class="text-red-500">*</span>
             </label>
             <input id="sa-matkul-input-nama"
@@ -505,7 +506,7 @@
             <svg width="18" height="18" viewBox="0 0 14 14" fill="#3965FB" class="w-[18px] h-[18px] shrink-0" aria-hidden="true">
               <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
             </svg>
-            <span class="text-[12px] text-[#1D1B3A] font-normal font-[Geist,system-ui,sans-serif]">Kode tidak dapat diubah setelah disimpan.</span>
+            <span class="text-[12px] text-[#1D1B3A] font-normal">Kode tidak dapat diubah setelah disimpan.</span>
           </div>
         </div>
 
@@ -553,7 +554,7 @@
       <!-- Header Modal -->
       <div class="w-full flex flex-col gap-1">
         <div class="w-full flex flex-row justify-between items-center">
-          <h3 id="modal-import-matkul-title" class="text-[18px] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap">
+          <h3 id="modal-import-matkul-title" class="text-[18px] text-[#1D1B3A] font-heading font-bold text-left whitespace-nowrap">
             Impor / Sinkron Mata Kuliah
           </h3>
           <button type="button"
@@ -565,7 +566,7 @@
             </svg>
           </button>
         </div>
-        <p class="text-[13px]/[18px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+        <p class="text-[13px]/[18px] w-full text-[#667085] font-normal text-left">
           Perbarui katalog mata kuliah dari berkas eksternal atau sinkronkan langsung dari server.
         </p>
       </div>
@@ -612,10 +613,10 @@
             </svg>
           </div>
           <div class="flex-1 h-fit flex flex-col gap-[5px] justify-start items-start">
-            <div class="text-[14px]/[18px] w-full text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-bold text-left">
+            <div class="text-[14px]/[18px] w-full text-[#1D1B3A] font-bold text-left">
               19 Berkas Kurikulum POLBAN Tersedia di Server
             </div>
-            <div class="text-[12px]/[17px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+            <div class="text-[12px]/[17px] w-full text-[#667085] font-normal text-left">
               Sistem akan memindai folder <code class="font-mono text-[11px] bg-slate-200/70 px-1 py-0.5 rounded text-[#1D1B3A]">data/jadwal/*.json</code> dan mengekstrak seluruh 41 mata kuliah resmi secara otomatis tanpa perlu mengunggah berkas.
             </div>
           </div>
@@ -625,19 +626,19 @@
         <div class="w-full h-fit shrink-0 flex flex-col gap-[6px] px-[8px] py-[2px] justify-start items-start">
           <div class="w-full h-fit shrink-0 flex flex-row gap-[9px] justify-start items-center">
             <div class="w-[5px] shrink-0 h-[5px] bg-[#667085] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+            <div class="text-[12px] text-[#667085] font-normal text-left">
               Menambahkan mata kuliah baru otomatis sebagai status Aktif.
             </div>
           </div>
           <div class="w-full h-fit shrink-0 flex flex-row gap-[9px] justify-start items-center">
             <div class="w-[5px] shrink-0 h-[5px] bg-[#667085] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+            <div class="text-[12px] text-[#667085] font-normal text-left">
               Memperbarui nama resmi tanpa membuat kode duplikat.
             </div>
           </div>
           <div class="w-full h-fit shrink-0 flex flex-row gap-[9px] justify-start items-center">
             <div class="w-[5px] shrink-0 h-[5px] bg-[#667085] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+            <div class="text-[12px] text-[#667085] font-normal text-left">
               Seluruh riwayat sinkronisasi otomatis tercatat di Audit Trail.
             </div>
           </div>
@@ -645,25 +646,25 @@
 
         <!-- Jaminan Integritas Data · sinkronisasi -->
         <div class="w-full h-fit shrink-0 flex flex-col gap-[5px] p-[12px] justify-start items-start bg-[#F0FDF4] border border-[#BBF7D0] rounded-[12px]">
-          <div class="text-[12px] text-[#166534] font-[Geist,system-ui,sans-serif] font-bold text-left whitespace-nowrap">
+          <div class="text-[12px] text-[#166534] font-bold text-left whitespace-nowrap">
             🛡️ Jaminan Integritas Data
           </div>
           <div class="w-full h-fit shrink-0 flex flex-col gap-[2px] justify-start items-start">
             <div class="w-full h-fit shrink-0 flex flex-row gap-[7px] justify-start items-start">
               <span class="text-[11px] text-[#15803D] font-normal">•</span>
-              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-[Geist,system-ui,sans-serif] font-normal text-left">
+              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-normal text-left">
                 Data manual yang Anda buat tidak akan terhapus saat sinkronisasi.
               </span>
             </div>
             <div class="w-full h-fit shrink-0 flex flex-row gap-[7px] justify-start items-start">
               <span class="text-[11px] text-[#15803D] font-normal">•</span>
-              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-[Geist,system-ui,sans-serif] font-normal text-left">
+              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-normal text-left">
                 Status mata kuliah yang telah dinonaktifkan tidak akan tertimpa.
               </span>
             </div>
             <div class="w-full h-fit shrink-0 flex flex-row gap-[7px] justify-start items-start">
               <span class="text-[11px] text-[#15803D] font-normal">•</span>
-              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-[Geist,system-ui,sans-serif] font-normal text-left">
+              <span class="text-[11px]/[15px] flex-1 text-[#15803D] font-normal text-left">
                 Tidak ada risiko data ganda (idempoten).
               </span>
             </div>
@@ -737,14 +738,14 @@
           </svg>
 
           <!-- Instruksi unggah -->
-          <div class="text-[13px] w-full text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-medium text-center">
+          <div class="text-[13px] w-full text-[#1D1B3A] font-medium text-center">
             Pilih berkas CSV atau JSON kurikulum atau seret ke sini
           </div>
 
           <!-- Tombol Pilih Berkas -->
           <label for="sa-import-matkul-file" class="cursor-pointer">
             <div class="box-border w-fit h-[32px] shrink-0 flex flex-row gap-0 px-3 justify-center items-center bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] hover:bg-slate-50 transition-colors">
-              <span class="text-[12px] text-[#1D1B3A] font-[Geist,system-ui,sans-serif] font-semibold text-left whitespace-nowrap">
+              <span class="text-[12px] text-[#1D1B3A] font-semibold text-left whitespace-nowrap">
                 Pilih Berkas
               </span>
             </div>
@@ -766,7 +767,7 @@
 
         <!-- Format kolom & Unduh Template -->
         <div class="box-border w-full h-fit shrink-0 flex flex-row flex-wrap gap-2 px-1 justify-between items-center">
-          <div class="text-[11px] text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+          <div class="text-[11px] text-[#667085] font-normal text-left">
             Format kolom: kode, nama_matkul, status
           </div>
           <button type="button"
@@ -786,7 +787,7 @@
           <svg class="box-border w-[18px] shrink-0 h-[18px]" viewBox="0 0 14 14" fill="#1E40AF">
             <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z"/>
           </svg>
-          <div class="text-[12px]/[17px] flex-1 text-[#1E40AF] font-[Geist,system-ui,sans-serif] font-normal text-left">
+          <div class="text-[12px]/[17px] flex-1 text-[#1E40AF] font-normal text-left">
             Baris baru dan kode yang sudah ada akan ditampilkan dalam pratinjau sebelum disimpan permanen.
           </div>
         </div>
@@ -860,7 +861,7 @@
       <!-- Header Ubah Mata Kuliah -->
       <div class="w-full flex flex-col gap-1">
         <div class="w-full flex flex-row justify-between items-center">
-          <h3 id="modal-ubah-matkul-title" class="text-[17px] font-bold text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+          <h3 id="modal-ubah-matkul-title" class="text-[17px] font-bold text-[#1D1B3A] font-heading">
             Ubah Mata Kuliah
           </h3>
           <button type="button"
@@ -872,7 +873,7 @@
             </svg>
           </button>
         </div>
-        <p class="text-[12px] text-[#667085] font-[Geist,system-ui,sans-serif] leading-[17px]">
+        <p class="text-[12px] text-[#667085] leading-[17px]">
           Perbarui nama resmi mata kuliah. Kode mata kuliah bersifat permanen.
         </p>
       </div>
@@ -890,7 +891,7 @@
         
         <!-- Kode mata kuliah terkunci -->
         <div class="w-full flex flex-col gap-[6px]">
-          <label class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+          <label class="text-[12px] font-normal text-[#1D1B3A]">
             Kode mata kuliah
           </label>
           <div class="w-full h-[44px] px-3 bg-[#F1F5F9] border border-[#E2E8F0] rounded-[12px] flex items-center justify-between">
@@ -899,14 +900,14 @@
               <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0z m0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m3.14111-2.04053q0.36914 0 0.62207-0.25293 0.25293-0.25293 0.25293-0.62207 0-0.36914-0.25293-0.62207-0.25293-0.25293-0.62207-0.25293-0.36914 0-0.62207 0.25293-0.25293 0.25293-0.25293 0.62207 0 0.36914 0.25293 0.62207 0.25293 0.25293 0.62207 0.25293z m-1.75-4.375l3.5 0 0-1.16553q0-0.73145-0.5127-1.24072-0.50928-0.50928-1.2373-0.50928-0.72803 0-1.24072 0.50928-0.50928 0.50928-0.50928 1.24072l0 1.16553z m-1.75 6.41553q0 0 0-0.09912 0-0.10254 0-0.25977l0-5.11328q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.10254 0 0.09912 0 0.25635l0 5.11328q0 0.15723 0 0.25977 0 0.09912 0 0.09912z"/>
             </svg>
           </div>
-          <p class="text-[11px] text-[#667085] font-[Geist,system-ui,sans-serif]">
+          <p class="text-[11px] text-[#667085]">
             Kode tidak dapat diubah untuk menjaga integritas riwayat jadwal.
           </p>
         </div>
 
         <!-- Nama mata kuliah dapat diedit -->
         <div class="w-full flex flex-col gap-[7px]">
-          <label for="sa-matkul-edit-nama-input" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+          <label for="sa-matkul-edit-nama-input" class="text-[12px] font-normal text-[#1D1B3A]">
             Nama mata kuliah <span class="text-red-500">*</span>
           </label>
           <input id="sa-matkul-edit-nama-input"
@@ -920,7 +921,7 @@
 
         <!-- Status mata kuliah -->
         <div class="w-full flex flex-col gap-[7px]">
-          <label for="sa-matkul-edit-status-input" class="text-[12px] font-normal text-[#1D1B3A] font-[Geist,system-ui,sans-serif]">
+          <label for="sa-matkul-edit-status-input" class="text-[12px] font-normal text-[#1D1B3A]">
             Status mata kuliah <span class="text-red-500">*</span>
           </label>
           <div class="relative w-full">
@@ -1003,10 +1004,10 @@
 
         <!-- Judul dan Penjelasan Status -->
         <div class="w-full flex flex-col gap-[9px] justify-start items-start">
-          <h3 id="modal-ubah-status-title" class="text-[22px] font-bold text-[#1D1B3A] font-[Inter,system-ui,sans-serif] text-left">
+          <h3 id="modal-ubah-status-title" class="text-[22px] font-bold text-[#1D1B3A] font-heading text-left">
             Ubah Status Mata Kuliah?
           </h3>
-          <p class="text-[13px]/[20px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+          <p class="text-[13px]/[20px] w-full text-[#667085] font-normal text-left">
             <template x-if="matkulStatusConfirm && matkulStatusConfirm.ke === 'INACTIVE'">
               <span>
                 Mengubah status <span class="font-mono font-bold text-[#1D1B3A]" x-text="matkulStatusConfirm.kode"></span> menjadi <strong class="text-[#B42318]">NONAKTIF</strong>. Mata kuliah nonaktif tidak dapat dipilih untuk penawaran jadwal baru.
@@ -1088,11 +1089,11 @@
            class="w-full h-fit shrink-0 flex flex-col gap-[5px] pt-[12px] justify-start items-start">
         <h3 id="modal-tolak-usulan-title"
             data-pencil-name="Judul tolak"
-            class="text-[17px] font-bold text-[#1D1B3A] font-[Geist,Inter,system-ui,sans-serif] text-left leading-normal">
+            class="text-[17px] font-bold text-[#1D1B3A] font-heading text-left leading-normal">
           Tolak Usulan Mata Kuliah?
         </h3>
         <p data-pencil-name="Detail usulan"
-           class="text-[13px]/[19px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+           class="text-[13px]/[19px] w-full text-[#667085] font-normal text-left">
           Usulan mata kuliah “<span class="font-semibold text-[#1D1B3A]" x-text="namaUsulanMatkul(usulanDitolakTarget)"></span>” yang diajukan oleh <span class="font-semibold text-[#1D1B3A]" x-text="usulanDitolakTarget ? (usulanDitolakTarget.class_slug ? 'KM ' + usulanDitolakTarget.class_slug : (usulanDitolakTarget.proposed_by || 'Ketua Murid')) : 'Ketua Murid'"></span> akan ditolak.
         </p>
       </div>
@@ -1102,7 +1103,7 @@
            class="w-full h-fit shrink-0 flex flex-col gap-[7px] pt-[18px] justify-start items-start">
         <label for="usulan-alasan-tolak-input"
                data-pencil-name="Label alasan"
-               class="text-[11px] text-[#667085] font-[Geist,Inter,system-ui,sans-serif] font-bold tracking-[0.4px] text-left uppercase">
+               class="text-[11px] text-[#667085] font-bold tracking-[0.4px] text-left uppercase">
           ALASAN PENOLAKAN (WAJIB UNTUK KM) *
         </label>
         <div data-pencil-name="Textarea alasan · wajib diisi"
@@ -1112,10 +1113,10 @@
                     :disabled="usulanRejectLoading"
                     rows="3"
                     placeholder="Tuliskan alasan penolakan agar Ketua Murid memahaminya (contoh: Mata kuliah ini ekuivalen dengan 25IF3101 di kurikulum baru)..."
-                    class="w-full h-[96px] text-[12px]/[17px] p-[12px] text-[#1D1B3A] placeholder-[#667085] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626] resize-none transition-colors disabled:bg-slate-50 disabled:opacity-70 font-[Geist,system-ui,sans-serif]"></textarea>
+                    class="w-full h-[96px] text-[12px]/[17px] p-[12px] text-[#1D1B3A] placeholder-[#667085] bg-white border border-[#CBD5E1] rounded-[12px] focus:outline-none focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626] resize-none transition-colors disabled:bg-slate-50 disabled:opacity-70"></textarea>
         </div>
         <p data-pencil-name="Bantuan notifikasi"
-           class="text-[11px]/[15px] w-full text-[#667085] font-[Geist,system-ui,sans-serif] font-normal text-left">
+           class="text-[11px]/[15px] w-full text-[#667085] font-normal text-left">
           Catatan penolakan ini akan dikirimkan otomatis ke notifikasi Ketua Murid.
         </p>
       </div>
@@ -1136,7 +1137,7 @@
                   :disabled="usulanRejectLoading"
                   class="w-fit h-[42px] px-[16px] flex items-center justify-center rounded-[12px] hover:bg-slate-100 text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer disabled:opacity-60">
             <span data-pencil-name="Label batal"
-                  class="text-[13px] font-[Geist,system-ui,sans-serif] font-medium whitespace-nowrap">
+                  class="text-[13px] font-medium whitespace-nowrap">
               Batal
             </span>
           </button>
@@ -1151,7 +1152,7 @@
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <span data-pencil-name="Label tolak"
-                  class="text-[13px] font-[Geist,system-ui,sans-serif] font-normal whitespace-nowrap text-white"
+                  class="text-[13px] font-normal whitespace-nowrap text-white"
                   x-text="usulanRejectLoading ? 'Menolak...' : 'Tolak Usulan'">
               Tolak Usulan
             </span>

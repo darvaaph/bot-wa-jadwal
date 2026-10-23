@@ -18,7 +18,7 @@ function systemAdminApp() {
     navSections: [
       { title: 'UTAMA', items: [
         { id: 'dashboard', label: 'Ringkasan Sistem', icon: 'sa-grid', img: '/assets/icons/home.svg' },
-        { id: 'kelas', label: 'Kelas & Semester', icon: 'sa-cap', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','undang','undang-siap'] },
+        { id: 'kelas', label: 'Kelas & Semester', icon: 'sa-cap', img: '/assets/icons/classes.svg', active: ['kelas','buat','detail','jadwal','undang','undang-siap'] },
         { id: 'pengguna', label: 'Pengguna & Peran', icon: 'sa-users', img: '/assets/icons/people.svg' }
       ] },
       { title: 'DATA AKADEMIK', items: [
@@ -28,6 +28,7 @@ function systemAdminApp() {
       ] },
       { title: 'DATA & SISTEM', items: [
         { id: 'antrean', label: 'Antrean WhatsApp', icon: 'sa-plane', img: '/assets/icons/message-queue.svg' },
+        { id: 'kanal', label: 'Kanal WhatsApp', icon: 'sa-bot', img: '/assets/icons/bot.svg' },
         { id: 'backup', label: 'Cadangan & Audit', icon: 'sa-history', img: '/assets/icons/backup.svg', active: ['backup','audit','pembaruan'] }
       ] }
     ],
@@ -58,6 +59,7 @@ function systemAdminApp() {
     kelasLoading: false,
     kelasFilter: { prodi: '', angkatan: '', rombel: '', status: '' },
     lingkupKelas: '',
+    lingkupDropdownOpen: false,
     kelasMenu: null,
     kelasFilterLanjutan: false,
     kelasSemesterMap: {},
@@ -296,6 +298,10 @@ function systemAdminApp() {
     importDosenError: '',
     importDosenSuccess: '',
     syncAllLoading: false,
+    modalSyncMasterConfirm: false,
+    masterLastSyncedAt: null,
+    masterSyncCooldown: false,
+    masterSyncSuccessState: false,
 
     usulanList: [],
     usulanLoading: false,
@@ -323,6 +329,8 @@ function systemAdminApp() {
     kanalLoading: false,
     kanalError: '',
     kanalKelas: '',
+    kanalSearch: '',
+    modalUjiKanal: false,
     kanalForm: { jid: '', kelas: '', nama: '' },
     kanalFormError: '',
     kanalSaving: false,
@@ -486,6 +494,17 @@ function systemAdminApp() {
       return target ? target.nama : 'Seluruh Kampus';
     },
 
+    toggleLingkupDropdown() {
+      this.lingkupDropdownOpen = !this.lingkupDropdownOpen;
+    },
+
+    pilihLingkup(slug) {
+      this.lingkupKelas = slug || '';
+      this.lingkupDropdownOpen = false;
+      this.onLingkupChange();
+      if (this.drawer) this.shellCloseDrawer();
+    },
+
     onLingkupChange() {
       const slug = (this.lingkupKelas || '').trim();
       if (!slug) {
@@ -625,6 +644,7 @@ function systemAdminApp() {
         pengguna: 'Pengguna & Peran',
         'master-matkul': 'Mata Kuliah', 'master-ruangan': 'Ruangan', 'master-dosen': 'Dosen',
         antrean: 'Antrean WhatsApp',
+        kanal: 'Kanal WhatsApp',
         backup: 'Cadangan & Audit', audit: 'Cadangan & Audit', pembaruan: 'Cadangan & Audit'
       };
       return map[this.view] || this.saTitle(this.view);
@@ -732,11 +752,12 @@ function systemAdminApp() {
     },
 
     toggleSidebar() {
+      this.lingkupDropdownOpen = false;
       this.sidebarCollapsed = !this.sidebarCollapsed;
       try { localStorage.setItem('asterisk:sidebar:collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
     },
 
-    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap', 'pengguna', 'antrean', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
+    knownViews: ['dashboard', 'kelas', 'buat', 'detail', 'jadwal', 'undang', 'undang-siap', 'pengguna', 'antrean', 'kanal', 'audit', 'pembaruan', 'master-ruangan', 'master-matkul', 'master-dosen', 'backup'],
 
     showPageError(status) {
       this.pageState = { status: status };
@@ -747,6 +768,10 @@ function systemAdminApp() {
 
     async initSystemAdmin() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
+      try {
+        const savedSync = localStorage.getItem('asterisk:master:last_synced');
+        if (savedSync) this.masterLastSyncedAt = savedSync;
+      } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       const authResult = await this.checkAuth();
@@ -756,7 +781,7 @@ function systemAdminApp() {
         return;
       }
 
-      await AsteriskShell.mount('sa', ['dashboard','kelas','jadwal','undang','dukungan','antrean','backup','pengguna','ruangan','matkul','dosen']);
+      await AsteriskShell.mount('sa', ['dashboard','kelas','jadwal','undang','dukungan','antrean','kanal','backup','pengguna','ruangan','matkul','dosen']);
       await this.loadPartials([
         ['sa-dashboard', '/partials/system-admin/view-dashboard.html'],
         ['sa-kelas', '/partials/system-admin/view-kelas.html'],
@@ -764,6 +789,7 @@ function systemAdminApp() {
         ['sa-undang', '/partials/system-admin/view-undang.html'],
         ['sa-dukungan', '/partials/system-admin/view-dukungan.html'],
         ['sa-antrean', '/partials/system-admin/view-antrean.html'],
+        ['sa-kanal', '/partials/system-admin/view-kanal.html'],
         ['sa-backup', '/partials/system-admin/view-backup.html'],
         ['sa-pengguna', '/partials/system-admin/view-pengguna.html'],
         ['sa-ruangan', '/partials/system-admin/view-master-ruangan.html'],
@@ -802,8 +828,6 @@ function systemAdminApp() {
 
     async checkAuth() {
       try {
-        const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
-        if (!token) return false;
         const me = await API.getMe();
         if (me && me.user) {
           const role = me.active_assignment && me.active_assignment.role;
@@ -849,7 +873,7 @@ function systemAdminApp() {
     redirectToLogin() {
       if (this.sessionRedirecting) return;
       this.sessionRedirecting = true;
-      API.setAuthToken(null);
+      API.clearStoredAuthToken();
       this.currentUser = null;
       window.location.replace('/login.html?role=sa');
     },
@@ -909,6 +933,37 @@ function systemAdminApp() {
 
     resetKanalFilter() {
       this.kanalKelas = '';
+      this.kanalSearch = '';
+    },
+
+    filteredKanalList() {
+      const q = String(this.kanalSearch || '').toLowerCase().trim();
+      let list = this.kanalList || [];
+      if (q) {
+        list = list.filter(k =>
+          (k.display_name && k.display_name.toLowerCase().includes(q)) ||
+          (k.jid && k.jid.toLowerCase().includes(q)) ||
+          (k.class_slug && k.class_slug.toLowerCase().includes(q)) ||
+          (k.class_code && k.class_code.toLowerCase().includes(q))
+        );
+      }
+      return list;
+    },
+
+    bukaUjiKanal(k) {
+      this.ujiPesanTo = k.jid || '';
+      this.ujiPesanText = `Halo! Ini pesan uji koneksi bot WhatsApp Asterisk untuk ${k.display_name || k.class_code || 'grup kelas'}.`;
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.modalUjiKanal = true;
+    },
+
+    tutupUjiKanal() {
+      this.modalUjiKanal = false;
+      this.ujiPesanTo = '';
+      this.ujiPesanText = '';
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
     },
 
     labelStatusKanal(st) {
@@ -938,7 +993,8 @@ function systemAdminApp() {
     },
 
     mulaiLepasKanal(k) {
-      this.kanalLepas = { id: k.id, nama: (k.display_name || k.jid) + ' · ' + (k.class_slug || '') };
+      const labelKelas = k.class_code || k.class_slug || ('kelas #' + k.class_id);
+      this.kanalLepas = { id: k.id, nama: (k.display_name || k.jid) + ' (' + labelKelas + ')' };
       this.kanalAlasan = '';
     },
 
@@ -951,7 +1007,7 @@ function systemAdminApp() {
       }
       try {
         await API.revokeChannel(k.id, this.kanalAlasan.trim());
-        this.showToast(`Kanal ${k.nama} dilepas. Pesan PENDING-nya tetap yatim.`);
+        this.showToast(`Kanal ${k.nama} berhasil dilepas.`);
         this.kanalLepas = null;
         await this.loadKanal();
       } catch (err) {
@@ -2339,6 +2395,9 @@ function systemAdminApp() {
         const msg = res.message || `Berhasil menyinkronkan seluruh ${res.total_synced || 106} master data kampus.`;
         this.importRuangSuccess = msg;
         this.showToast(msg);
+        const nowIso = new Date().toISOString();
+        this.masterLastSyncedAt = nowIso;
+        try { localStorage.setItem('asterisk:master:last_synced', nowIso); } catch (e) {}
       } catch (err) {
         this.importRuangError = err.message || 'Gagal menyinkronkan master data kampus.';
       } finally {
@@ -3341,16 +3400,57 @@ function systemAdminApp() {
       }
     },
 
+    bukaModalSyncMaster() {
+      if (this.syncAllLoading || this.masterSyncCooldown) return;
+      this.modalSyncMasterConfirm = true;
+    },
+
+    tutupModalSyncMaster() {
+      if (this.syncAllLoading) return;
+      this.modalSyncMasterConfirm = false;
+    },
+
+    formatWaktuTerakhirSync() {
+      if (!this.masterLastSyncedAt) return '';
+      try {
+        const d = new Date(this.masterLastSyncedAt);
+        if (isNaN(d.getTime())) return '';
+        const now = new Date();
+        const diffMs = now.getTime() - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 60) return 'Baru saja';
+        const diffMnt = Math.floor(diffSec / 60);
+        if (diffMnt < 60) return diffMnt + ' menit lalu';
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const isToday = d.toDateString() === now.toDateString();
+        return isToday ? 'Hari ini, pukul ' + hh + ':' + mm : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) + ', pukul ' + hh + ':' + mm;
+      } catch (e) {
+        return '';
+      }
+    },
+
     async sinkronSemuaMaster() {
+      if (this.syncAllLoading || this.masterSyncCooldown) return;
       this.syncAllLoading = true;
       this.importError = '';
       this.importSuccess = '';
       try {
         const res = await API.syncMasterAllJadwal();
         await Promise.all([this.loadMatkul(), this.loadRuang(), this.loadDosen()]);
-        const msg = res.message || `Berhasil menyinkronkan ${res.total_synced || 0} master data kampus.`;
+        const msg = res.message || `Berhasil menyinkronkan seluruh master data kampus.`;
         this.importSuccess = msg;
         this.showToast(msg);
+        const nowIso = new Date().toISOString();
+        this.masterLastSyncedAt = nowIso;
+        try { localStorage.setItem('asterisk:master:last_synced', nowIso); } catch (e) {}
+        this.modalSyncMasterConfirm = false;
+        this.masterSyncSuccessState = true;
+        this.masterSyncCooldown = true;
+        setTimeout(() => {
+          this.masterSyncSuccessState = false;
+          this.masterSyncCooldown = false;
+        }, 8000);
       } catch (err) {
         this.importError = err.message || 'Gagal menyinkronkan master data kampus.';
         this.showToast(this.importError);
@@ -4066,6 +4166,9 @@ function systemAdminApp() {
         if (!this.notifTab) this.notifTab = 'menunggu';
         this.notifFilter = this.notifTab === 'gagal' ? 'FAILED' : (this.notifTab === 'riwayat' ? 'SENT' : 'PENDING');
         this.loadAntrean();
+      }
+      if (v === 'kanal') {
+        this.loadKanal();
       }
       if (v === 'backup') { this.backupHasil = null; this.restoreHasil = null; this.loadBackupList(); this.loadBackupRequests(); }
       if (v === 'audit') this.loadAudit();

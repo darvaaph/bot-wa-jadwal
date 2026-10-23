@@ -18,6 +18,13 @@ function portalApp() {
     contextAssignments: [],
     contextSwitching: false,
     meCache: null,
+    currentUser: null,
+    botConnected: false,
+    pjMatkul: '',
+    pjNavIcon() { return ''; },
+    resetPasswordForm: { old_password: '', password: '', confirm: '', showOld: false, showNew: false, showConfirm: false },
+    resetPasswordError: '',
+    resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
 
@@ -26,24 +33,25 @@ function portalApp() {
     navSections: [
       {
         title: '', items: [
-          { id: 'dashboard', label: 'Beranda', icon: 'home' },
+          { id: 'dashboard', label: 'Beranda', icon: 'space_dashboard' },
           { id: 'jadwal', label: 'Jadwal Kuliah', icon: 'calendar_month' },
           { id: 'tugas', label: 'Tugas', icon: 'assignment', active: ['tugas', 'detail-tugas'] },
-          { id: 'materi', label: 'Materi', icon: 'folder' }
+          { id: 'materi', label: 'Materi', icon: 'menu_book' }
         ]
       }
     ],
 
     portalNavIcon(item) {
-      const key = item && item.icon;
-      const open = '<svg width="19" height="19" viewBox="0 0 14 14" fill="currentColor" class="w-[19px] h-[19px] shrink-0" aria-hidden="true" focusable="false">';
+      const icon = item && item.icon;
       const paths = {
-        'home': '<path d="M3.5 11.08447l2.15332 0 0-2.96338q0-0.19824 0.1333-0.33496 0.13672-0.13672 0.33838-0.13672l1.75 0q0.20166 0 0.33496 0.13672 0.13672 0.13672 0.13672 0.33496l0 2.96338 2.15332 0 0-5.07226q0-0.08887-0.04102-0.16065-0.0376-0.0752-0.10595-0.12988l-3.14112-2.36865q-0.08887-0.07861-0.21191-0.07862-0.12305 0-0.21191 0.07862l-3.14112 2.36865q-0.06836 0.05469-0.10937 0.12988-0.0376 0.07178-0.0376 0.16065l0 5.07226z m-0.58447 0l0-5.07226q0-0.22217 0.09912-0.42041 0.10254-0.20166 0.28027-0.33155l3.14112-2.3789q0.24609-0.18799 0.56054-0.18799 0.31787 0 0.56738 0.18799l3.14112 2.3789q0.17773 0.12988 0.27685 0.33155 0.10254 0.19824 0.10254 0.42041l0 5.07226q0 0.23242-0.17431 0.40674-0.17432 0.17432-0.41016 0.17432l-2.26611 0q-0.20166 0-0.33838-0.1333-0.1333-0.13672-0.1333-0.33838l0-2.95996-1.52442 0 0 2.95996q0 0.20166-0.13672 0.33838-0.1333 0.1333-0.33496 0.1333l-2.26611 0q-0.23584 0-0.41016-0.17432-0.17432-0.17432-0.17431-0.40674z"/>',
-        'calendar_month': '<path d="M3.27441 12.25q-0.3999 0-0.66992-0.27002-0.27002-0.27002-0.27002-0.67334l0-7.44775q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.66992-0.27002l1.03223 0 0-0.98438q0-0.13672 0.08887-0.22558 0.08887-0.08887 0.22558-0.08887 0.13672 0 0.22559 0.08887 0.08887 0.08887 0.08887 0.22558l0 0.98438 4.17334 0 0-1.0083q0-0.12305 0.08203-0.20508 0.08545-0.08545 0.20849-0.08545 0.12646 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20508l0 1.0083 1.03223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 7.44775q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.66992 0.27002l-7.45118 0z m0-0.58447l7.45118 0q0.1333 0 0.24609-0.10938 0.11279-0.11279 0.11279-0.24951l0-5.11328-8.16894 0 0 5.11328q0 0.13672 0.11279 0.24951 0.11279 0.10938 0.24609 0.10938z m-0.35888-6.05664l8.16894 0 0-1.75q0-0.1333-0.11279-0.2461-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.2461l0 1.75z m0 0l0-1.75q0-0.1333 0-0.2461 0-0.11279 0-0.11279 0 0 0 0.11279 0 0.11279 0 0.2461l0 1.75z m4.08447 2.64892q-0.18115 0-0.31445-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.1333-0.1333 0.31445-0.1333 0.18115 0 0.31445 0.1333 0.1333 0.1333 0.1333 0.31445 0 0.18115-0.1333 0.31787-0.1333 0.1333-0.31445 0.1333z m-2.33447 0q-0.18115 0-0.31446-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.1333-0.1333 0.31446-0.1333 0.18115 0 0.31445 0.1333 0.13672 0.1333 0.1333 0.31445 0 0.18115-0.13672 0.31787-0.1333 0.1333-0.31445 0.1333z m4.66894 0q-0.18115 0-0.31787-0.1333-0.1333-0.13672-0.1333-0.31787 0-0.18115 0.1333-0.31445 0.13672-0.1333 0.31787-0.1333 0.18115 0 0.31446 0.1333 0.1333 0.1333 0.1333 0.31445 0 0.18115-0.1333 0.31787-0.1333 0.1333-0.31446 0.1333z m-2.33447 2.24219q-0.18115 0-0.31445-0.1333-0.1333-0.1333-0.31445-0.1333-0.18115 0-0.31446 0.1333-0.1333 0.13672-0.31445 0.13672 0.18115 0 0.31445 0.13672 0.1333 0.1333 0.31446 0 0.18115-0.1333 0.31445-0.1333 0.31445-0.1333z m-2.33447 0q-0.18115 0-0.31446-0.1333-0.1333-0.1333-0.31445 0-0.18115 0.1333-0.31446 0.1333-0.13672 0.31446-0.13672 0.18115 0 0.31445 0.13672 0.13672 0.1333 0.13672 0.31446 0 0.18115-0.13672 0.31445-0.1333 0.1333-0.31445 0.1333z m4.66894 0q-0.18115 0-0.31787-0.1333-0.1333-0.1333-0.31445 0-0.18115 0.1333-0.31446 0.13672-0.13672 0.31787-0.13672 0.18115 0 0.31446 0.1333 0.1333 0.1333 0.31446 0 0.18115-0.1333 0.31445-0.1333 0.1333-0.31446 0.1333z"/>',
-        'assignment': '<path d="M3.27441 11.66553q-0.38623 0-0.66308-0.27686-0.27686-0.27686-0.27686-0.66308l0-7.45118q0-0.38623 0.27686-0.66308 0.27686-0.27686 0.66308-0.27686l2.74121 0q-0.07861-0.44775 0.21534-0.80664 0.29395-0.3623 0.77588-0.3623 0.47852 0 0.77246 0.3623 0.29395 0.35889 0.20507 0.80664l2.74122 0q0.38623 0 0.66308 0.27686 0.27686 0.27686 0.66308 0.66308l0 7.45118q0 0.38623-0.27686 0.66308-0.27686 0.27686-0.66308 0.27686l-7.45118 0z m0-0.58106l7.45118 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-7.45118q0-0.1333-0.11279-0.24609-0.11279-0.11279-0.24609-0.11279l-7.45118 0q-0.1333 0-0.24609 0.11279-0.11279 0.11279-0.11279 0.24609l0 7.45118q0 0.1333 0.11279 0.24609 0.11279 0.11279 0.24609 0.11279z m1.39112-1.59277l2.91894 0q0.12305 0 0.20508-0.08545 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20507-0.08203-0.08545-0.20508-0.08545l-2.91894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20507 0 0.12646 0.08203 0.21192 0.08545 0.08203 0.2085 0.08203z m0-2.20117l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12305-0.08545-0.20508-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20508 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-2.19776l4.66894 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.20849 0-0.12646-0.08545-0.2085-0.08203-0.08545-0.20508-0.08545l-4.66894 0q-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.2085 0 0.12305 0.08203 0.20849 0.08545 0.08203 0.2085 0.08203z m2.33447-2.50195q0.18799 0 0.31104-0.12305 0.12646-0.12305 0.12646-0.31445 0-0.18799-0.12646-0.31103-0.12305-0.12646-0.31104-0.12647-0.18799 0-0.31445 0.12647-0.12305 0.12305-0.12305 0.31103 0 0.19141 0.12305 0.31445 0.12646 0.12305 0.31445 0.12305z m-4.08447 8.49365q0 0 0-0.11279 0-0.11279 0-0.24609l0-7.45118q0-0.1333 0-0.24609 0-0.11279 0-0.11279 0 0 0 0.11279 0 0.11279 0 0.24609l0 7.45118q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>',
-        'folder': '<path d="M2.69336 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l2.51221 0q0.18799 0 0.36572 0.07861 0.17773 0.0752 0.3042 0.20166l0.88867 0.88867 4.54248 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.66992l0 5.1167q0 0.40332-0.27002 0.67334-0.27002 0.27002-0.67334 0.27002l-8.61328 0z m0-0.58447l8.61328 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.1167q0-0.15723-0.10254-0.25634-0.09912-0.10254-0.25635-0.10254l-4.77832 0-1.06299-1.06299q-0.05811-0.05811-0.11963-0.07861-0.06152-0.02393-0.12988-0.02393l-2.52246 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 6.28222q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m-0.35889 0q0 0 0-0.09912 0-0.10254 0-0.25977l0-6.28222q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.02393 0 0.02051 0 0.07861l0 1.06299q0 0 0 0.10254 0 0.09912 0 0.25634l0 5.1167q0 0.15723 0 0.25977 0 0.09912 0 0.09912z"/>'
+        'space_dashboard': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l8.08008 0q0.55371 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55371-0.38965 0.94336-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32959l3.45557 0 0-8.08008-3.45557 0 0 8.08008z m4.62451 0l3.45557 0 0-4.04004-3.45557 0 0 4.04004z m0-5.20557l3.45557 0 0-2.87451-3.45557 0 0 2.87451z"/></svg>',
+        'assignment': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55029 0-0.93994-0.38965-0.38965-0.38965-0.38965-0.93994l0-8.08008q0-0.55029 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l2.33447 0q0.21191-0.52979 0.67334-0.84766 0.46484-0.31787 1.03223-0.31787 0.56738 0 1.02881 0.31787 0.46484 0.31787 0.67676 0.84766l2.33447 0q0.55029 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55029-0.38965 0.93994-0.38965 0.38965-0.93994 0.38965l-8.08008 0z m0-1.32959l8.08008 0 0-8.08008-8.08008 0 0 8.08008z m1.75-1.16553l2.86426 0q0.24609 0 0.41357-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24609-0.16748-0.41358-0.16748-0.16748-0.41357-0.16748l-2.86426 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41358 0 0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29004l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41699 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0-0.24951 0.16748 0.41699 0.16748 0.16748 0.41699 0.16748z m0-2.29345l4.58008 0q0.24951 0 0.41699-0.16748 0.16748-0.16748 0.16748-0.41358 0-0.24951-0.16748-0.41699-0.16748-0.16748-0.41699-0.16748l-4.58008 0q-0.24951 0-0.41699 0.16748-0.16748 0.16748-0.16748 0.41699 0 0.24609 0.16748 0.41358 0.16748 0.16748 0.41699 0.16748z m2.29004-2.78565q0.20166 0 0.33154-0.12988 0.1333-0.1333 0.1333-0.33496 0-0.20166-0.1333-0.33155-0.12988-0.1333-0.33154-0.1333-0.20166 0-0.33496 0.1333-0.12988 0.12988-0.12988 0.33155 0 0.20166 0.12988 0.33496 0.1333 0.12988 0.33496 0.12988z m-4.04004 8.53467l0-8.08008 0 8.08008z"/></svg>',
+        'calendar_month': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32617l8.08008 0 0-5.79004-8.08008 0 0 5.79004z m0-6.95898l8.08008 0 0-1.12451-8.08008 0 0 1.12451z m0 0l0-1.12451 0 1.12451z m4.04004 3.52734q-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408 0-0.25977 0.17432-0.43408 0.17773-0.17773 0.4375-0.17773 0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43408 0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432z m-2.33447 0q-0.25977 0-0.43408-0.17432-0.17432-0.17432-0.17432-0.43408 0-0.25977 0.17432-0.43408 0.17432-0.17773 0.43408-0.17773 0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.43408-0.17432 0.17774-0.43408 0.17773z m4.66894 0q-0.25635 0-0.43408-0.17432-0.17773-0.17773-0.17773-0.43408 0-0.25635 0.17773-0.43067 0.17773-0.17773 0.43408-0.17773 0.25635 0 0.43067 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17432 0.43408-0.17432 0.17774-0.43408 0.17773z m-2.33447 2.33447q-0.25977 0-0.4375-0.17773-0.17432-0.17773-0.17432-0.43408 0-0.25635 0.17432-0.43067 0.17773-0.17773 0.4375-0.17773 0.25977 0 0.43408 0.17432 0.17773 0.17773 0.17774 0.43408 0 0.25635-0.17774 0.43408-0.17432 0.17774-0.43408 0.17773z m-2.33447 0q-0.25977 0-0.43408-0.17773-0.17432-0.17773-0.17432-0.43408 0-0.25635 0.17432-0.43067 0.17432-0.17773 0.43408-0.17773 0.25977 0 0.43408 0.17773 0.17773 0.17773 0.17773 0.43408 0 0.25977-0.17773 0.43408-0.17432 0.17774-0.43408 0.17773z m4.66894 0q-0.25635 0-0.43408-0.17773-0.17773-0.17773-0.17773-0.43408 0-0.25635 0.17773-0.43067 0.17773-0.17773 0.43408-0.17773 0.25635 0 0.43067 0.17773 0.17773 0.17773 0.17773 0.43408 0 0.25977-0.17432 0.43408-0.17432 0.17774-0.43408 0.17773z"/></svg>',
+        'menu_book': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z m1.15528-6.36767q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.03418 0.56055 0.09229 0.1333 0.03076 0.22558 0.15039 0.0957 0.11621 0.09571 0.26318 0 0.24609-0.16065 0.3623-0.16064 0.11279-0.40673 0.05469-0.2085-0.04102-0.43067-0.06152-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.06836-0.69726 0.18799-0.26318 0.09912-0.43408-0.01709-0.1709-0.11621-0.1709-0.38281z m0 3.20947q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.22217 0.42725-0.0752 0.89551-0.07519 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.03076 0.22558 0.14697 0.0957 0.11621 0.09571 0.26318 0 0.24951-0.16065 0.36573-0.16064 0.11279-0.40673 0.05468-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02392-0.37939 0-0.7417 0.06494-0.3623 0.06494-0.69726 0.18115-0.26318 0.10254-0.43408-0.00683-0.1709-0.11279-0.1709-0.37598z m0-1.60303q0-0.12988 0.09228-0.26318 0.09229-0.13672 0.2085-0.18115 0.42383-0.14355 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.02734 0.22558 0.14697 0.0957 0.11621 0.09571 0.26319 0 0.24951-0.16065 0.36572-0.16064 0.11279-0.40673 0.05469-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.07178-0.69726 0.18799-0.26318 0.10254-0.43408-0.01368-0.1709-0.11963-0.1709-0.38281z"/></svg>',
+        'home': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M2.95996 12.36963q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.94336l0-8.08008q0-0.55371 0.38623-0.93994 0.38965-0.38965 0.94336-0.38965l8.08008 0q0.55371 0 0.93994 0.38965 0.38965 0.38965 0.38965 0.93994l0 8.08008q0 0.55371-0.38965 0.94336-0.38623 0.38623-0.93994 0.38623l-8.08008 0z m0-1.32959l3.45557 0 0-8.08008-3.45557 0 0 8.08008z m4.62451 0l3.45557 0 0-4.04004-3.45557 0 0 4.04004z m0-5.20557l3.45557 0 0-2.87451-3.45557 0 0 2.87451z"/></svg>',
+        'folder': '<svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false"><path d="M3.79053 9.46094q0.68701 0 1.33642 0.15381 0.64941 0.15381 1.28858 0.46142l0-5.7456q-0.59814-0.35205-1.26807-0.52637-0.66992-0.17432-1.35693-0.17432-0.52295 0-1.04248 0.10254-0.51611 0.09912-0.99805 0.3042l0 5.77637q0.50928-0.17432 1.01172-0.26319 0.50586-0.08887 1.02881-0.08886z m3.79394 0.61523q0.63916-0.30762 1.28858-0.46142 0.64941-0.15381 1.33642-0.15381 0.52295 0 1.02539 0.08886 0.50586 0.08887 1.01514 0.26319l0-5.77637q-0.48193-0.20508-1.00146-0.3042-0.51611-0.10254-1.03907-0.10254-0.68701 0-1.35693 0.17432-0.66992 0.17432-1.26807 0.52637l0 5.7456z m-0.57422 1.53125q-0.2085 0-0.3999-0.05127-0.19141-0.05127-0.35547-0.14355-0.56738-0.33154-1.18945-0.50586-0.62207-0.17432-1.2749-0.17432-0.59814 0-1.1792 0.16406-0.57764 0.16065-1.11084 0.44776-0.35547 0.18457-0.69043-0.01709-0.33496-0.20166-0.33496-0.59131l0-7.02393q0-0.2085 0.09912-0.39306 0.09912-0.18457 0.29736-0.27686 0.68018-0.34863 1.41162-0.51611 0.73145-0.1709 1.49707-0.1709 0.85449 0 1.66455 0.21875 0.81348 0.21875 1.55518 0.6665 0.74512-0.44434 1.55518-0.66308 0.81006-0.22217 1.66455-0.22217 0.76563 0 1.49707 0.1709 0.73145 0.16748 1.41162 0.51611 0.19824 0.09229 0.29736 0.27686 0.09912 0.18457 0.09912 0.39306l0 7.07862q0 0.37256-0.33496 0.55713-0.33154 0.18457-0.69043-0.00342-0.5332-0.28711-1.11426-0.44776-0.57764-0.16406-1.17578-0.16406-0.64941 0-1.26465 0.17774-0.61523 0.17432-1.17578 0.50244-0.16406 0.09229-0.35888 0.14355-0.19141 0.05127-0.39991 0.05127z m1.15528-6.36767q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.03418 0.56055 0.09229 0.1333 0.03076 0.22558 0.15039 0.0957 0.11621 0.09571 0.26318 0 0.24609-0.16065 0.3623-0.16064 0.11279-0.40673 0.05469-0.2085-0.04102-0.43067-0.06152-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.06836-0.69726 0.18799-0.26318 0.09912-0.43408-0.01709-0.1709-0.11621-0.1709-0.38281z m0 3.20947q0-0.12646 0.09228-0.25977 0.09229-0.13672 0.2085-0.18115 0.42383-0.14697 0.84765-0.22217 0.42725-0.0752 0.89551-0.07519 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.03076 0.22558 0.14697 0.0957 0.11621 0.09571 0.26318 0 0.24951-0.16065 0.36573-0.16064 0.11279-0.40673 0.05468-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02392-0.37939 0-0.7417 0.06494-0.3623 0.06494-0.69726 0.18115-0.26318 0.10254-0.43408-0.00683-0.1709-0.11279-0.1709-0.37598z m0-1.60303q0-0.12988 0.09228-0.26318 0.09229-0.13672 0.2085-0.18115 0.42383-0.14355 0.84765-0.21875 0.42725-0.0752 0.89551-0.0752 0.29053 0 0.57422 0.0376 0.28369 0.0376 0.56055 0.0957 0.1333 0.02734 0.22558 0.14697 0.0957 0.11621 0.09571 0.26319 0 0.24951-0.16065 0.36572-0.16064 0.11279-0.40673 0.05469-0.2085-0.04443-0.43067-0.06494-0.22217-0.02393-0.45801-0.02393-0.37939 0-0.7417 0.07178-0.3623 0.07178-0.69726 0.18799-0.26318 0.10254-0.43408-0.01368-0.1709-0.11963-0.1709-0.38281z"/></svg>'
       };
-      return open + (paths[key] || '') + '</svg>';
+      return paths[icon] || paths['space_dashboard'] || '';
     },
 
     todayName: 'Senin',
@@ -66,10 +74,22 @@ function portalApp() {
     jadwalPekan: { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] },
     weekOffset: 0,
     modeTampilan: 'kalender',
+    listDayFilter: 'all',
+    schedSearch: '',
     mobileJadwalMode: 'per_hari',
     detailModalOpen: false,
     detailSesi: null,
+    sheetSesiOffsetY: 0,
+    sheetSesiDragging: false,
+    sheetSesiClosing: false,
+    sheetSesiResetting: false,
+    sheetSesiStartY: 0,
     modalRiwayatOpen: false,
+    sheetRiwayatOffsetY: 0,
+    sheetRiwayatDragging: false,
+    sheetRiwayatClosing: false,
+    sheetRiwayatResetting: false,
+    sheetRiwayatStartY: 0,
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
@@ -82,10 +102,18 @@ function portalApp() {
     tugasError: '',
     materiList: [],
     materiLoading: false,
+    materiError: '',
     filterMateriMatkul: 'SEMUA',
+    filterMateriSesi: 'SEMUA',
+    searchMateriQuery: '',
     sortMateri: 'terbaru',
     detailMateriModalOpen: false,
     selectedMateri: null,
+    sheetMateriOffsetY: 0,
+    sheetMateriDragging: false,
+    sheetMateriClosing: false,
+    sheetMateriResetting: false,
+    sheetMateriStartY: 0,
     courses: [], coursesLoading: false, coursesError: '', selectedCourse: null,
     semesterList: [],
     semesterLoading: false,
@@ -207,7 +235,7 @@ function portalApp() {
     },
 
     get activeTasksCount() {
-      return (this.tasks || []).length || 2;
+      return (this.tasks || []).length;
     },
 
     get hasSaturdayClass() {
@@ -233,9 +261,73 @@ function portalApp() {
       }
     },
 
+    portalDaySessions(d) {
+      const list = this.jadwalPekan[d] || [];
+      const q = (this.schedSearch || '').toLowerCase().trim();
+      if (!q) return list;
+      return list.filter(s => {
+        const hay = [s.matkul, s.dosen, s.ruang].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    },
+
+    allSessionsCount() {
+      return this.pekanHariListAgenda.reduce((acc, d) => acc + this.portalDaySessions(d).length, 0);
+    },
+
+    listDaysToShow() {
+      const days = this.pekanHariListAgenda;
+      if (this.listDayFilter === 'all') {
+        const active = days.filter(d => this.portalDaySessions(d).length > 0);
+        return active.length > 0 ? active : days;
+      }
+      return days.filter(d => d === this.listDayFilter);
+    },
+
+    portalSesiType(s) {
+      if (!s) return 'TEORI';
+      if (s.kind === 'PENGGANTI') return 'PENGGANTI';
+      const m = String(s.matkul || '').toLowerCase();
+      const r = String(s.ruang || '').toLowerCase();
+      const act = String(s.activityType || '').toUpperCase();
+      if (act === 'PRACTICE' || act === 'PRAKTIKUM' || act === 'LAB' || m.includes('praktik') || r.includes('lab')) return 'PRAKTIKUM';
+      return 'TEORI';
+    },
+
+    portalSesiBadgeClass(s) {
+      const type = this.portalSesiType(s);
+      if (type === 'PENGGANTI') {
+        return 'bg-amber-50 text-amber-800 border-amber-200/80';
+      }
+      if (type === 'PRAKTIKUM') {
+        return 'bg-purple-50 text-purple-700 border-purple-200/80';
+      }
+      return 'bg-blue-50 text-blue-700 border-blue-200/80';
+    },
+
     get jadwalEfektifHariIni() {
       return (this.jadwalCacheHariIni || []).slice().sort((a, b) =>
         String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+    },
+
+    get currentSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.jadwalEfektifHariIni || []).find(s => {
+        if (!s.timeStart || !s.timeEnd) return false;
+        return nowHM >= s.timeStart && nowHM <= s.timeEnd;
+      }) || null;
+    },
+
+    get nextSession() {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const pad = n => String(n).padStart(2, '0');
+      const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      return (this.jadwalEfektifHariIni || [])
+        .filter(s => s.timeStart && s.timeStart > nowHM)
+        .slice()
+        .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')))[0] || null;
     },
 
     get withUrgency() {
@@ -378,7 +470,76 @@ function portalApp() {
     },
 
     fmtDeadlineID(iso) { return API.fmtDeadlineID(iso); },
-    deadlineBadge(iso) { return API.deadlineBadge(iso); },
+    deadlineBadge(iso, completedAt) { return API.deadlineBadge(iso, completedAt); },
+
+    fmtDeadlineDetailed(iso) {
+      if (!iso) return '-';
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dayName = days[d.getDay()];
+        const day = d.getDate();
+        const m = months[d.getMonth()];
+        const y = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${dayName}, ${day} ${m} ${y} · ${hh}:${mm} WIB`;
+      } catch (e) {
+        return iso;
+      }
+    },
+
+    deadlineRelative(iso) {
+      if (!iso) return '-';
+      try {
+        const target = new Date(iso).getTime();
+        const now = Date.now();
+        const diffMs = target - now;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMs < 0) {
+          const absHours = Math.abs(diffHours);
+          if (absHours < 24) return `Terlewat ${absHours} jam`;
+          const absDays = Math.abs(diffDays);
+          return `Terlewat ${absDays} hari`;
+        }
+        if (diffHours < 1) {
+          const diffMinutes = Math.floor(diffMs / (1000 * 60));
+          return `Sisa ${Math.max(1, diffMinutes)} menit`;
+        }
+        if (diffHours < 24) return `Sisa ${diffHours} jam`;
+        if (diffDays === 1) return 'Besok';
+        return `Sisa ${diffDays} hari`;
+      } catch (e) {
+        return '-';
+      }
+    },
+
+    urgencyStyle(iso) {
+      if (!iso) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+      try {
+        const target = new Date(iso).getTime();
+        const now = Date.now();
+        const diffMs = target - now;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+        if (diffMs < 0) {
+          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+        }
+        if (diffHours <= 24) {
+          return { bg: 'bg-[#FEF2F2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' };
+        }
+        if (diffHours <= 72) {
+          return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#F59E0B]' };
+        }
+        return { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', dot: 'bg-[#16A34A]' };
+      } catch (e) {
+        return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+      }
+    },
 
     dashboardPartialsLoaded: false,
 
@@ -475,6 +636,7 @@ function portalApp() {
           this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
+          this.searchMateriQuery = '';
           await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
           this.dashboardLoading = false;
           return;
@@ -499,6 +661,7 @@ function portalApp() {
         return;
       } finally {
         this.checkingAccess = false;
+        this.dashboardLoading = false;
       }
     },
 
@@ -543,6 +706,7 @@ function portalApp() {
 
         await this.ensureDashboardPartials();
         this.updateClock();
+        this.searchMateriQuery = '';
         await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
@@ -554,6 +718,7 @@ function portalApp() {
         this.showToast(this.pinError);
       } finally {
         this.loadingPin = false;
+        this.dashboardLoading = false;
       }
     },
 
@@ -598,6 +763,7 @@ function portalApp() {
           this.loadSchedule();
           this.loadJadwalEfektif();
           this.loadTugasPortal();
+          this.searchMateriQuery = '';
           this.loadMateri();
           this.loadPerubahan();
           this.loadSemester();
@@ -631,7 +797,7 @@ function portalApp() {
     },
 
     get selectedClassFormatted() {
-      if (!this.selectedClass) return 'D4-TI 1A';
+      if (!this.selectedClass) return 'kelas ini';
       const raw = String(this.selectedClass).trim();
       const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
       if (mYear) {
@@ -652,7 +818,7 @@ function portalApp() {
     },
 
     get selectedClassMeta() {
-      if (!this.selectedClass) return { prodi: 'D4', smt: '3', abjad: 'A', label: 'D4-TI 1A' };
+      if (!this.selectedClass) return { prodi: '', smt: '', abjad: '', label: 'Kelas belum dipilih' };
       const p = this.parseClass(this.selectedClass);
       const prodiName = p.prodi === 'D4' ? 'D4 Teknik Informatika' : (p.prodi === 'D3' ? 'D3 Teknik Informatika' : p.prodi);
       return {
@@ -796,7 +962,10 @@ function portalApp() {
       if (v === 'courses') this.loadCourses();
       if (v === 'arsip') this.loadSemester();
       if (v === 'perubahan') this.loadPerubahan();
-      if (v === 'materi') this.loadMateri();
+      if (v === 'materi') {
+        this.searchMateriQuery = '';
+        this.loadMateri();
+      }
       window.scrollTo({ top: 0 });
     },
 
@@ -853,23 +1022,54 @@ function portalApp() {
     },
 
     normalisasiEfektif(items, hariLabel) {
-      return (items || []).map((it, i) => ({
-        id: it.id || `ef-${i}`,
-        hari: hariLabel || '',
-        kind: it.kind || 'REGULER',
-        activityType: String(it.activity_type || 'THEORY').toUpperCase(),
-        matkul: it.offering || it.title || 'Mata Kuliah',
-        code: it.code || '',
-        dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
-        ruang: it.room || '',
-        link: it.meeting_link || '',
-        timeStart: (it.starts_at || '').slice(0, 5),
-        timeEnd: (it.ends_at || '').slice(0, 5),
-        pj: it.pj || '',
-        pjPhone: it.pj_phone || '',
-        originDate: it.origin_occurrence_date || '',
-        reason: it.reason || ''
-      }));
+      return (items || []).map((it, i) => {
+        let act = String(it.activity_type || '').trim().toUpperCase();
+        const matkulTitle = it.offering || it.title || 'Mata Kuliah';
+        const roomName = it.room || '';
+        // Backend mengirim TEORI/PRAKTIKUM/PRAKTIK/KULIAH, sedangkan template memeriksa
+        // PRACTICE/THEORY. Samakan dulu agar badge dan warna kartu konsisten.
+        if (act === 'PRAKTIKUM' || act === 'PRAKTIK' || act === 'LAB') {
+          act = 'PRACTICE';
+        } else if (act === 'TEORI' || act === 'KULIAH') {
+          act = 'THEORY';
+        }
+        if (!act || act === 'THEORY') {
+          const mLower = matkulTitle.toLowerCase();
+          const rLower = roomName.toLowerCase();
+          if (mLower.includes('praktik') || rLower.includes('lab')) {
+            act = 'PRACTICE';
+          } else {
+            act = act || 'THEORY';
+          }
+        }
+        return {
+          id: it.id || `ef-${i}`,
+          hari: hariLabel || '',
+          kind: it.kind || 'REGULER',
+          activityType: act,
+          matkul: matkulTitle,
+          code: it.code || '',
+          dosen: Array.isArray(it.lecturers) ? it.lecturers.join(', ') : (it.lecturers || ''),
+          ruang: roomName,
+          link: it.meeting_link || '',
+          timeStart: (it.starts_at || '').slice(0, 5),
+          timeEnd: (it.ends_at || '').slice(0, 5),
+          pj: it.pj || '',
+          pjPhone: it.pj_phone || '',
+          originDate: it.origin_occurrence_date || '',
+          reason: it.reason || ''
+        };
+      });
+    },
+
+    cleanMatkul(matkul) {
+      if (!matkul) return '';
+      return String(matkul).replace(/\s*\((?:Teori|Praktikum|Praktik|Pengganti)\)/gi, '').trim();
+    },
+
+    cleanRuang(ruang) {
+      if (!ruang) return 'Tanpa ruang';
+      return String(ruang).replace(/-/g, '-').trim();
     },
 
     fmtAsalPengganti(isoDate, reason) {
@@ -966,18 +1166,103 @@ function portalApp() {
       }
     },
 
+    get sheetSesiTransform() {
+      if (this.sheetSesiDragging && this.sheetSesiOffsetY > 0) {
+        return `transform: translateY(${this.sheetSesiOffsetY}px); transition: none;`;
+      }
+      if (this.sheetSesiClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetSesiResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
+    },
+
     bukaDetailSesi(s) {
       if (!s) return;
       this.detailSesi = s;
+      this.sheetSesiOffsetY = 0;
+      this.sheetSesiDragging = false;
+      this.sheetSesiClosing = false;
+      this.sheetSesiResetting = false;
       this.detailModalOpen = true;
     },
 
     tutupDetailSesi() {
       this.detailModalOpen = false;
-      this.detailSesi = null;
+      this.sheetSesiDragging = false;
+      setTimeout(() => {
+        if (!this.detailModalOpen) {
+          this.detailSesi = null;
+          this.sheetSesiClosing = false;
+          this.sheetSesiOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onSesiPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetSesiStartY = e.clientY;
+      this.sheetSesiDragging = true;
+      this.sheetSesiClosing = false;
+      this.sheetSesiResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onSesiPointerMove(e) {
+      if (!this.sheetSesiDragging) return;
+      const delta = e.clientY - this.sheetSesiStartY;
+      if (delta > 0) {
+        this.sheetSesiOffsetY = delta;
+      } else {
+        this.sheetSesiOffsetY = 0;
+      }
+    },
+
+    onSesiPointerUp(e) {
+      if (!this.sheetSesiDragging) return;
+      this.sheetSesiDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetSesiOffsetY > 75) {
+        this.sheetSesiClosing = true;
+        this.tutupDetailSesi();
+      } else {
+        this.sheetSesiResetting = true;
+        this.sheetSesiOffsetY = 0;
+        setTimeout(() => {
+          this.sheetSesiResetting = false;
+        }, 220);
+      }
+    },
+
+    get sheetRiwayatTransform() {
+      if (this.sheetRiwayatDragging && this.sheetRiwayatOffsetY > 0) {
+        return `transform: translateY(${this.sheetRiwayatOffsetY}px); transition: none;`;
+      }
+      if (this.sheetRiwayatClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetRiwayatResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
     },
 
     bukaRiwayatPerubahan() {
+      this.sheetRiwayatOffsetY = 0;
+      this.sheetRiwayatDragging = false;
+      this.sheetRiwayatClosing = false;
+      this.sheetRiwayatResetting = false;
       this.modalRiwayatOpen = true;
       if (!this.perubahanList || this.perubahanList.length === 0) {
         this.loadPerubahan();
@@ -986,6 +1271,57 @@ function portalApp() {
 
     tutupRiwayatPerubahan() {
       this.modalRiwayatOpen = false;
+      this.sheetRiwayatDragging = false;
+      setTimeout(() => {
+        if (!this.modalRiwayatOpen) {
+          this.sheetRiwayatClosing = false;
+          this.sheetRiwayatOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onRiwayatPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetRiwayatStartY = e.clientY;
+      this.sheetRiwayatDragging = true;
+      this.sheetRiwayatClosing = false;
+      this.sheetRiwayatResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onRiwayatPointerMove(e) {
+      if (!this.sheetRiwayatDragging) return;
+      const delta = e.clientY - this.sheetRiwayatStartY;
+      if (delta > 0) {
+        this.sheetRiwayatOffsetY = delta;
+      } else {
+        this.sheetRiwayatOffsetY = 0;
+      }
+    },
+
+    onRiwayatPointerUp(e) {
+      if (!this.sheetRiwayatDragging) return;
+      this.sheetRiwayatDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetRiwayatOffsetY > 75) {
+        this.sheetRiwayatClosing = true;
+        this.tutupRiwayatPerubahan();
+      } else {
+        this.sheetRiwayatResetting = true;
+        this.sheetRiwayatOffsetY = 0;
+        setTimeout(() => {
+          this.sheetRiwayatResetting = false;
+        }, 220);
+      }
     },
 
     salinRingkasanSesi(s) {
@@ -1011,10 +1347,7 @@ function portalApp() {
     },
 
     hubungiPJ(s) {
-      const name = (s && s.pj) || 'PJ Kelas';
-      const matkul = (s && s.matkul) || '';
-      const msg = encodeURIComponent(`Halo ${name}, saya ingin bertanya mengenai perkuliahan ${matkul}.`);
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
+      this.chatWhatsAppPJ(s);
     },
 
     getTugasTerkait(matkul) {
@@ -1069,7 +1402,7 @@ function portalApp() {
 
     getKodeMatkul(s) {
       if (!s) return 'TI2104';
-      if (s.kode) return s.kode;
+      if (s.code || s.kode) return s.code || s.kode;
       const m = String(s.matkul || '').toLowerCase();
       if (m.includes('aljabar')) return 'TI2104';
       if (m.includes('web')) return 'TI2105';
@@ -1124,7 +1457,7 @@ function portalApp() {
 
     async loadSchedule() {
       try {
-        const raw = await API.getSchedule(this.selectedClass, 'all');
+        const raw = await API.fetchLegacySchedule(this.selectedClass);
         this.fullSchedule = (raw || []).map((s, i) => {
           const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
           return {
@@ -1160,12 +1493,17 @@ function portalApp() {
           if (!useLegacyFallback && res && Array.isArray(res.items)) {
             newPekan[d] = this.normalisasiEfektif(res.items, d);
           } else {
-            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => ({
-              id: s.id, hari: s.hari, kind: 'REGULER', activityType: 'THEORY',
-              matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
-              timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
-              link: '', pj: '', originDate: '', reason: ''
-            }));
+            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => {
+              const mLower = String(s.matkul || '').toLowerCase();
+              const rLower = String(s.ruang || '').toLowerCase();
+              const isPrak = mLower.includes('praktik') || rLower.includes('lab');
+              return {
+                id: s.id, hari: s.hari, kind: 'REGULER', activityType: isPrak ? 'PRACTICE' : 'THEORY',
+                matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
+                timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
+                link: '', pj: '', originDate: '', reason: ''
+              };
+            });
           }
         });
         this.jadwalPekan = newPekan;
@@ -1212,11 +1550,17 @@ function portalApp() {
         }
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
-          const u = this.deadlineBadge(deadline);
+          const u = this.deadlineBadge(deadline, t.completed_at || t.is_completed);
           return {
             id: t.id, matkul: t.matkul || t.offering || 'Mata Kuliah',
             title: t.title || '', deskripsi: t.deskripsi || t.instructions || t.title || '',
             instructions: t.instructions || '',
+            task_type: t.task_type || '',
+            submission_text: t.submission_text || '',
+            submission_url: t.submission_url || '',
+            completed_at: t.completed_at || null,
+            is_completed: !!t.is_completed,
+            review_state: t.review_state || 'NOT_REVIEWED',
             deadline: this.fmtDeadlineID(deadline), deadline_at: deadline,
             urgency: u.level, countdown: u.badge
           };
@@ -1251,14 +1595,18 @@ function portalApp() {
         const d = await API.getPortalTaskDetail(this.selectedClassSlug, t.id);
         const info = (d && (d.task || d)) || null;
         if (!info) throw { code: 'NOT_FOUND' };
-        const u = this.deadlineBadge(info.deadline_at);
+        const u = this.deadlineBadge(info.deadline_at, info.completed_at || info.is_completed);
         this.detailTugas = {
           id: info.id, matkul: info.offering || '', title: info.title || '',
           instructions: info.instructions || '',
           deadline: this.fmtDeadlineID(info.deadline_at),
+          deadline_at: info.deadline_at,
           task_type: info.task_type || '',
           submission_text: info.submission_text || '', submission_url: info.submission_url || '',
-          version: info.version || '', is_completed: !!info.is_completed,
+          version: info.version || '',
+          completed_at: info.completed_at || null,
+          is_completed: !!info.is_completed,
+          review_state: info.review_state || 'NOT_REVIEWED',
           urgency: u.level, countdown: u.badge
         };
         this.detailMateri = (d && d.materials) || [];
@@ -1270,317 +1618,15 @@ function portalApp() {
       }
     },
 
-    get defaultSampleMateri() {
-      return [
-        // 7 berkas - Sistem Basis Data
-        {
-          id: 101,
-          title: 'Slide Normalisasi Database: 1NF hingga BCNF',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/18k9aZ-Normalisasi-BCNF-Rev.pdf',
-          description: 'Slide materi pertemuan ke-4 mengenai aturan pembentukan 1NF, 2NF, 3NF hingga Boyce-Codd Normal Form (BCNF). Mohon pelajari contoh dekomposisi tabel sebelum praktikum pekan depan.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '06 Okt',
-        },
-        {
-          id: 102,
-          title: 'Rekaman Kuliah Sesi Pengganti: DDL & DML SQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1B9c8x-Rekaman-Kuliah-SQL-DDL-DML',
-          description: 'Rekaman kuliah sesi pengganti daring mata kuliah Sistem Basis Data untuk materi Data Definition Language (DDL) dan Data Manipulation Language (DML).',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '03 Okt',
-        },
-        {
-          id: 103,
-          title: 'Slide Pemodelan Konseptual: Entity Relationship Diagram (ERD)',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1C4d2e-ERD-Konseptual.pdf',
-          description: 'Materi representasi model data ERD: entitas kuat, entitas lemah, kardinalitas relasi, dan mapping ERD ke skema relasional.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '28 Sep',
-        },
-        {
-          id: 104,
-          title: 'Modul Praktikum 02: Manajemen Tabel & Constraint SQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1D5f6g-Praktikum-SQL-Constraint.pdf',
-          description: 'Panduan praktikum laboratorium basis data sintaks CREATE TABLE, ALTER TABLE, PRIMARY KEY, FOREIGN KEY, dan CHECK constraint.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '24 Sep',
-        },
-        {
-          id: 105,
-          title: 'Kumpulan Kueri Contoh: Join & Subquery PostgreSQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/sbd-queries-join-subquery',
-          description: 'Kumpulan skrip SQL demonstrasi inner join, left join, full outer join, dan korelasi subquery untuk latihan mandiri.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '20 Sep',
-        },
-        {
-          id: 106,
-          title: 'Slide Pengenalan Relational DBMS & Arsitektur PostgreSQL',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1E6g7h-Intro-RDBMS-Postgres.pdf',
-          description: 'Konsep dasar ACID, storage engine, dan arsitektur client-server sistem manajemen basis data relasional.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '15 Sep',
-        },
-        {
-          id: 107,
-          title: 'Latihan Mandiri: Normalisasi Kasus Transaksi Penjualan',
-          course_name: 'Sistem Basis Data',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1F7h8i-Latihan-Normalisasi-Transaksi.pdf',
-          description: 'Studi kasus faktur belanja supermarket untuk didekomposisi dari unnormalized form (UNF) hingga 3NF.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '12 Sep',
-        },
-
-        // 6 berkas - Pemrograman Berorientasi Objek
-        {
-          id: 201,
-          title: 'Starter Repository: Template Proyek Java OOP',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/oop-java-starter-template',
-          description: 'Starter repository untuk proyek pemrograman berorientasi objek menggunakan Java. Sudah dilengkapi modul Gradle dan template boilerplate.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '28 Sep',
-        },
-        {
-          id: 202,
-          title: 'Slide Inheritance & Polymorphism dalam Java',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1G8i9j-Java-Inheritance-Poly.pdf',
-          description: 'Konsep pewarisan kelas, method overriding, overloading, dynamic method dispatch, dan interface implementation.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '26 Sep',
-        },
-        {
-          id: 203,
-          title: 'Rekaman Sesi Lab: Implementasi Abstract Class & Interface',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1H9j0k-Lab-Abstract-Interface',
-          description: 'Demonstrasi live coding pembuatan hierarki objek, antarmuka kontrak, dan sistem pembayaran elektronik.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '22 Sep',
-        },
-        {
-          id: 204,
-          title: 'Slide Encapsulation & Access Modifiers',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1I0k1l-Encapsulation-Access.pdf',
-          description: 'Prinsip information hiding, penggunaan private, protected, public, serta pembuatan getter-setter yang konsisten.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '18 Sep',
-        },
-        {
-          id: 205,
-          title: 'Modul Praktikum Java Collections Framework',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1J1l2m-Java-Collections-Guide.pdf',
-          description: 'Panduan penggunaan List (ArrayList, LinkedList), Set (HashSet), dan Map (HashMap) dalam aplikasi Java.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '14 Sep',
-        },
-        {
-          id: 206,
-          title: 'Slide Pengenalan Objek, Kelas, & Siklus Hidup Instansiasi',
-          course_name: 'Pemrograman Berorientasi Objek',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1K2m3n-Java-Class-Object-Lifecycle.pdf',
-          description: 'Dasar paradigma berorientasi objek: cetak biru kelas, instansiasi memori heap/stack, dan alokasi objek.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '08 Sep',
-        },
-
-        // 5 berkas - Matematika Diskrit
-        {
-          id: 301,
-          title: 'Slide Graf & Pohon Rentang Minimum (MST)',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1L3n4o-Graf-Spanning-Tree.pdf',
-          description: 'Teori graf dasar, matriks ketetanggaan, dan algoritma penentuan MST (Kruskal dan Prim).',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '02 Okt',
-        },
-        {
-          id: 302,
-          title: 'Modul Latihan Relasi Ekivalensi & Poset',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1M4o5p-Relasi-Poset-Latihan.pdf',
-          description: 'Sifat-sifat relasi biner, relasi kesetaraan, partisi himpunan, dan diagram Hasse untuk partially ordered set.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '27 Sep',
-        },
-        {
-          id: 303,
-          title: 'Slide Logika Proposisional & Inferensi Deduktif',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1N5p6q-Logika-Proposisi.pdf',
-          description: 'Tabel kebenaran, hukum aljabar proposisi, bentuk normal konjungtif (CNF), dan kaidah inferensi valid.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '21 Sep',
-        },
-        {
-          id: 304,
-          title: 'Rekaman Kuliah: Teknik Pembuktian & Induksi Matematika',
-          course_name: 'Matematika Diskrit',
-          material_type: 'MEETING',
-          url: 'https://drive.google.com/file/d/1O6q7r-Rekaman-Induksi-Matematika',
-          description: 'Penjelasan pembuktian langsung, kontraposisi, kontradiksi, dan langkah basis serta langkah induktif.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '16 Sep',
-        },
-        {
-          id: 305,
-          title: 'Slide Kombinatorika & Prinsip Sarang Burung Merpati',
-          course_name: 'Matematika Diskrit',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1P7r8s-Kombinatorika-Pigeonhole.pdf',
-          description: 'Kaidah perkalian, permutasi, kombinasi, dan aplikasi Pigeonhole Principle dalam komputasi.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '10 Sep',
-        },
-
-        // 4 berkas - Arsitektur Komputer
-        {
-          id: 401,
-          title: 'Slide Arsitektur Instruction Set & Datapath MIPS',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1Q8s9t-MIPS-Datapath.pdf',
-          description: 'Format instruksi MIPS 32-bit (R/I/J type), alur data prosesor single-cycle, dan sinyal kendali ALU.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '01 Okt',
-        },
-        {
-          id: 402,
-          title: 'Simulator MIPS MARS & Kumpulan Skrip Contoh',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/mars-mips-sample-code',
-          description: 'Panduan instalasi MARS simulator dan contoh implementasi aritmatika biner dalam bahasa assembly.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '25 Sep',
-        },
-        {
-          id: 403,
-          title: 'Slide Hirarki Memori & Manajemen Cache',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1R9t0u-Memory-Hierarchy-Cache.pdf',
-          description: 'Prinsip lokalitas waktu dan ruang, pemetaan cache direct vs associative, serta kebijakan write-through/back.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '19 Sep',
-        },
-        {
-          id: 404,
-          title: 'Slide Arsitektur Von Neumann & Siklus Instruksi',
-          course_name: 'Arsitektur Komputer',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1S0u1v-Von-Neumann-Cycle.pdf',
-          description: 'Komponen dasar von Neumann: register CPU, bus sistem, dan siklus fetch-decode-execute.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '11 Sep',
-        },
-
-        // 2 berkas - Umum Kelas (Silabus & RPS)
-        {
-          id: 501,
-          title: 'Silabus Perkuliahan & Kontrak Belajar D4-TI 1A',
-          course_name: 'Umum Kelas (Silabus & RPS)',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1T1v2w-Silabus-Kontrak-Kuliah.pdf',
-          description: 'Dokumen rujukan kurikulum, aturan presensi, bobot evaluasi nilai, dan tata tertib perkuliahan semester ganjil.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '05 Sep',
-        },
-        {
-          id: 502,
-          title: 'Rencana Pembelajaran Semester (RPS) Terpadu Kurikulum 2024',
-          course_name: 'Umum Kelas (Silabus & RPS)',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1U2w3x-RPS-Terpadu-Kurikulum.pdf',
-          description: 'Rincian capaian pembelajaran mata kuliah (CPMK) seluruh mata kuliah wajib D4 Teknik Informatika tingkat 1.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '03 Sep',
-        },
-
-        // 4 berkas pelengkap lainnya
-        {
-          id: 601,
-          title: 'Slide Modul Aljabar Linear: Eliminasi Gauss-Jordan & Matriks Invers',
-          course_name: 'Aljabar Linear',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1V3x4y-Alin-Gauss-Jordan.pdf',
-          description: 'Operasi baris elementer, eliminasi Gauss-Jordan, determinan, dan pencarian matriks balikan.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '29 Sep',
-        },
-        {
-          id: 602,
-          title: 'Repositori Praktikum Aljabar Linear dengan NumPy',
-          course_name: 'Aljabar Linear',
-          material_type: 'REPOSITORY',
-          url: 'https://github.com/d4ti-polban/alin-numpy-labs',
-          description: 'Kumpulan notebook praktikum komputasi vektor dan operasi matriks menggunakan pustaka Python NumPy.',
-          uploader_name: 'Farhan Pratama (PJ)',
-          date_display: '23 Sep',
-        },
-        {
-          id: 603,
-          title: 'Slide Technical Writing & Standar Penulisan Laporan',
-          course_name: 'Bahasa Inggris',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1W4y5z-English-Tech-Writing.pdf',
-          description: 'Pedoman penulisan laporan teknis praktikum, gaya sitasi IEEE, dan terminologi teknologi informasi formal.',
-          uploader_name: 'Dosen Pengampu',
-          date_display: '17 Sep',
-        },
-        {
-          id: 604,
-          title: 'Panduan Etika Akademik & Keselamatan Kerja Lab Komputer',
-          course_name: 'Etika Profesi',
-          material_type: 'DOCUMENT',
-          url: 'https://drive.google.com/file/d/1X5z6a-K3-Etika-Lab.pdf',
-          description: 'Prosedur operasional baku penggunaan laboratorium komputer, hak cipta software, dan pencegahan plagiarisme kode.',
-          uploader_name: 'Pengurus Kelas',
-          date_display: '07 Sep',
-        },
-      ];
-    },
-
     async loadMateri() {
       this.materiLoading = true;
       this.materiError = '';
       try {
-        const dbItems = await API.getPortalMaterials(this.selectedClassSlug).catch(() => []);
-        if (dbItems && dbItems.length > 0) {
-          const sample = this.defaultSampleMateri;
-          const titles = new Set(dbItems.map(d => (d.title || '').toLowerCase().trim()));
-          const filteredSample = sample.filter(s => !titles.has((s.title || '').toLowerCase().trim()));
-          this.materiList = [...dbItems, ...filteredSample];
-        } else {
-          this.materiList = [...this.defaultSampleMateri];
-        }
+        const items = await API.getPortalMaterials(this.selectedClassSlug);
+        this.materiList = Array.isArray(items) ? items : [];
       } catch (e) {
-        this.materiList = [...this.defaultSampleMateri];
+        this.materiList = [];
+        this.materiError = 'Materi gagal dimuat. Coba lagi.';
       } finally {
         this.materiLoading = false;
       }
@@ -1600,29 +1646,31 @@ function portalApp() {
         { key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount },
       ];
 
-      const courseDefs = [
-        { key: 'Sistem Basis Data', label: 'Sistem Basis Data', shortLabel: 'Basis Data' },
-        { key: 'Pemrograman Berorientasi Objek', label: 'Pemrograman Berorientasi Objek', shortLabel: 'PBO' },
-        { key: 'Matematika Diskrit', label: 'Matematika Diskrit', shortLabel: 'Matdis' },
-        { key: 'Arsitektur Komputer', label: 'Arsitektur Komputer', shortLabel: 'Arsitektur' },
-      ];
+      const foundKeys = new Set();
+      const dynamicCourses = [];
 
-      const foundKeys = new Set(courseDefs.map(c => c.key.toLowerCase()));
-
-      courseDefs.forEach(c => {
-        const count = all.filter(m => (m.course_name || '').trim().toLowerCase() === c.key.toLowerCase()).length;
-        list.push({ ...c, count });
+      (this.courses || []).forEach(c => {
+        const name = (c.course_name || c.name || '').trim();
+        if (name) dynamicCourses.push(name);
+      });
+      Object.values(this.jadwalPekan || {}).flat().forEach(s => {
+        const name = this.cleanMatkul(s.matkul || '');
+        if (name) dynamicCourses.push(name);
+      });
+      all.forEach(m => {
+        const name = (m.course_name || '').trim();
+        if (name) dynamicCourses.push(name);
       });
 
-      all.forEach(m => {
-        const cName = (m.course_name || '').trim();
-        if (cName && !foundKeys.has(cName.toLowerCase()) && !cName.toLowerCase().includes('umum')) {
-          foundKeys.add(cName.toLowerCase());
-          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === cName.toLowerCase()).length;
+      dynamicCourses.forEach(cName => {
+        const lower = cName.toLowerCase();
+        if (cName && !foundKeys.has(lower) && !lower.includes('umum') && !lower.includes('silabus') && !lower.includes('rps')) {
+          foundKeys.add(lower);
+          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === lower).length;
           list.push({
             key: cName,
             label: cName,
-            shortLabel: cName.length > 12 ? cName.split(' ')[0] : cName,
+            shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
             count,
           });
         }
@@ -1644,6 +1692,22 @@ function portalApp() {
         list = list.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
       }
 
+      const q = (this.searchMateriQuery || '').trim().toLowerCase();
+      if (q) {
+        list = list.filter(m => {
+          const title = (m.title || '').toLowerCase();
+          const course = (m.course_name || '').toLowerCase();
+          const desc = (m.description || '').toLowerCase();
+          return title.includes(q) || course.includes(q) || desc.includes(q);
+        });
+      }
+
+      if (this.filterMateriSesi === 'TEORI') {
+        list = list.filter(m => this.getMateriActivity(m) === 'Teori');
+      } else if (this.filterMateriSesi === 'PRAKTIKUM') {
+        list = list.filter(m => this.getMateriActivity(m) === 'Praktikum');
+      }
+
       if (this.sortMateri === 'terlama') {
         list.sort((a, b) => (a.id || 0) - (b.id || 0));
       } else {
@@ -1653,15 +1717,112 @@ function portalApp() {
       return list;
     },
 
+    get materiSesiCounts() {
+      const all = this.materiList || [];
+      const filter = this.filterMateriMatkul;
+      let scoped = all;
+      if (filter === 'UMUM') {
+        scoped = scoped.filter(m => {
+          const c = (m.course_name || '').toLowerCase();
+          return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
+        });
+      } else if (filter && filter !== 'SEMUA') {
+        scoped = scoped.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
+      }
+      const q = (this.searchMateriQuery || '').trim().toLowerCase();
+      if (q) {
+        scoped = scoped.filter(m => {
+          const title = (m.title || '').toLowerCase();
+          const course = (m.course_name || '').toLowerCase();
+          const desc = (m.description || '').toLowerCase();
+          return title.includes(q) || course.includes(q) || desc.includes(q);
+        });
+      }
+
+      const total = scoped.length;
+      const teori = scoped.filter(m => this.getMateriActivity(m) === 'Teori').length;
+      const praktikum = scoped.filter(m => this.getMateriActivity(m) === 'Praktikum').length;
+      return { total, teori, praktikum };
+    },
+
     get currentMateriHeading() {
       const count = this.filteredMateriList.length;
+      const q = (this.searchMateriQuery || '').trim();
+      if (q) {
+        return `Hasil Pencarian "${q}" (${count} Berkas)`;
+      }
+      const sesiSuffix = this.filterMateriSesi === 'PRAKTIKUM' ? ' · Praktikum' : (this.filterMateriSesi === 'TEORI' ? ' · Teori' : '');
       if (this.filterMateriMatkul === 'SEMUA') {
-        return `Semua Berkas Materi (${count} Berkas)`;
+        return `Semua Berkas Materi${sesiSuffix} (${count} Berkas)`;
       }
       if (this.filterMateriMatkul === 'UMUM') {
         return `Umum Kelas (Silabus & RPS) (${count} Berkas)`;
       }
-      return `${this.filterMateriMatkul} (${count} Berkas)`;
+      return `${this.filterMateriMatkul}${sesiSuffix} (${count} Berkas)`;
+    },
+
+    getMateriActivity(m) {
+      if (!m) return 'Teori';
+      const cName = (m.course_name || '').toLowerCase();
+      if (cName.includes('umum') || cName.includes('silabus') || cName.includes('rps')) {
+        return 'Umum';
+      }
+      const act = String(m.activity_type || '').toUpperCase();
+      if (act === 'PRACTICE' || act === 'PRAKTIKUM' || act === 'LAB') return 'Praktikum';
+      if (act === 'THEORY' || act === 'TEORI') return 'Teori';
+      if (act === 'GENERAL' || act === 'UMUM') return 'Umum';
+
+      // Fallback deteksi cerdas berdasarkan judul dan deskripsi
+      const text = `${m.title || ''} ${m.description || ''}`.toLowerCase();
+      if (
+        text.includes('praktikum') ||
+        text.includes('modul lab') ||
+        text.includes('sesi lab') ||
+        text.includes('jobsheet') ||
+        text.includes('starter') ||
+        text.includes('assembly') ||
+        text.includes('lab komputer')
+      ) {
+        return 'Praktikum';
+      }
+      return 'Teori';
+    },
+
+    getMateriActivityTheme(m) {
+      const act = this.getMateriActivity(m);
+      if (act === 'Praktikum') {
+        return 'bg-purple-50 text-purple-700 border border-purple-200';
+      }
+      if (act === 'Umum') {
+        return 'bg-slate-100 text-slate-600 border border-slate-200';
+      }
+      return 'bg-blue-50 text-blue-700 border border-blue-200';
+    },
+
+    getMateriIconTheme(m) {
+      const type = this.getMateriType(m);
+      if (type === 'Video') {
+        return {
+          bg: 'bg-purple-50 text-purple-600 border-purple-200',
+          badge: 'bg-purple-50 text-purple-700',
+        };
+      }
+      if (type === 'Repositori') {
+        return {
+          bg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+          badge: 'bg-emerald-50 text-emerald-700',
+        };
+      }
+      if (type === 'Dokumen') {
+        return {
+          bg: 'bg-rose-50 text-rose-600 border-rose-200',
+          badge: 'bg-rose-50 text-rose-700',
+        };
+      }
+      return {
+        bg: 'bg-blue-50 text-blue-600 border-blue-200',
+        badge: 'bg-blue-50 text-blue-700',
+      };
     },
 
     getMateriType(m) {
@@ -1688,12 +1849,12 @@ function portalApp() {
 
       let format = 'PDF';
       if (m.url && !m.url.includes('.pdf') && !m.url.includes('drive')) format = 'Dokumen';
-      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ (Farhan)';
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
       return `${course} · ${format} · ${uploader}`;
     },
 
     getMateriDate(m) {
-      if (!m) return '06 Okt';
+      if (!m) return '-';
       if (m.date_display) return m.date_display;
       if (m.created_at) {
         try {
@@ -1705,22 +1866,23 @@ function portalApp() {
           }
         } catch (e) { }
       }
-      return '06 Okt';
+      return '-';
     },
 
     getMateriModalMeta(m) {
       if (!m) return '';
       const type = this.getMateriType(m);
+      const act = this.getMateriActivity(m);
       let format = 'Dokumen PDF';
       if (type === 'Video') format = 'Tautan Video (Google Drive)';
       else if (type === 'Repositori') format = 'Repositori Kode (GitHub)';
 
-      const uploader = m.uploader_name || 'Farhan Pratama (PJ)';
-      return `Format: ${format} · Diunggah oleh ${uploader}`;
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
+      return `Format: ${format} · Sesi: ${act} · ${uploader}`;
     },
 
     cleanUrlDisplay(url) {
-      if (!url) return 'drive.google.com/...';
+      if (!url) return '-';
       let clean = url.replace(/^https?:\/\//i, '');
       if (clean.length > 42) {
         clean = clean.substring(0, 39) + '...';
@@ -1728,14 +1890,82 @@ function portalApp() {
       return clean;
     },
 
+    get sheetMateriTransform() {
+      if (this.sheetMateriDragging && this.sheetMateriOffsetY > 0) {
+        return `transform: translateY(${this.sheetMateriOffsetY}px); transition: none;`;
+      }
+      if (this.sheetMateriClosing) {
+        return 'transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      if (this.sheetMateriResetting) {
+        return 'transform: translateY(0px); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);';
+      }
+      return '';
+    },
+
     bukaDetailMateri(m) {
       this.selectedMateri = m;
+      this.sheetMateriOffsetY = 0;
+      this.sheetMateriDragging = false;
+      this.sheetMateriClosing = false;
+      this.sheetMateriResetting = false;
       this.detailMateriModalOpen = true;
     },
 
     tutupDetailMateri() {
       this.detailMateriModalOpen = false;
-      this.selectedMateri = null;
+      this.sheetMateriDragging = false;
+      setTimeout(() => {
+        if (!this.detailMateriModalOpen) {
+          this.selectedMateri = null;
+          this.sheetMateriClosing = false;
+          this.sheetMateriOffsetY = 0;
+        }
+      }, 250);
+    },
+
+    onMateriPointerDown(e) {
+      if (window.innerWidth >= 768) return;
+      if (e.target.closest('button, a, input, [role="button"]')) return;
+      this.sheetMateriStartY = e.clientY;
+      this.sheetMateriDragging = true;
+      this.sheetMateriClosing = false;
+      this.sheetMateriResetting = false;
+      try {
+        if (e.target && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+    },
+
+    onMateriPointerMove(e) {
+      if (!this.sheetMateriDragging) return;
+      const delta = e.clientY - this.sheetMateriStartY;
+      if (delta > 0) {
+        this.sheetMateriOffsetY = delta;
+      } else {
+        this.sheetMateriOffsetY = 0;
+      }
+    },
+
+    onMateriPointerUp(e) {
+      if (!this.sheetMateriDragging) return;
+      this.sheetMateriDragging = false;
+      try {
+        if (e.target && e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
+      if (this.sheetMateriOffsetY > 75) {
+        this.sheetMateriClosing = true;
+        this.tutupDetailMateri();
+      } else {
+        this.sheetMateriResetting = true;
+        this.sheetMateriOffsetY = 0;
+        setTimeout(() => {
+          this.sheetMateriResetting = false;
+        }, 220);
+      }
     },
 
     salinTautanMateri(url) {

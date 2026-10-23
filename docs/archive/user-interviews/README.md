@@ -1,5 +1,9 @@
 # Dokumentasi Hasil Riset Pengguna: Bot Jadwal v2.0 & Web Dashboard Admin
 
+> [!NOTE]
+> **Arsip Dokumentasi Historis (September 2026)**  
+> Berkas-berkas di dalam direktori ini disimpan sebagai dokumentasi statis riset awal produk. Seluruh kebutuhan pengguna telah disintesis dan dipetakan ke dalam `docs/product/USER_REQUIREMENTS.md`. Berkas ini tidak digunakan sebagai konteks aktif pengembangan oleh agen AI.
+
 Dokumen ini merupakan ringkasan eksekutif, indeks data, dan sintesis temuan dari 11 sesi wawancara pengguna (*user interviews*) yang dilakukan terhadap Pengurus Kelas (Ketua Murid / KM) dan Penanggung Jawab Mata Kuliah (PJ Matkul) untuk pengembangan sistem **Bot Jadwal v2.0** dan **Web Admin Dashboard**.
 
 ---

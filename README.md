@@ -1,267 +1,112 @@
-# 🤖 Bot WhatsApp Jadwal Kuliah & Web Admin Dashboard v3.0
+# Bot WhatsApp Jadwal Kuliah & Web Dashboard
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![Frontend](https://img.shields.io/badge/Frontend-Tailwind_CDN_%2B_Alpine.js-38B2AC?style=flat&logo=tailwindcss)](https://tailwindcss.com)
+[![Frontend](https://img.shields.io/badge/Frontend-Tailwind_%2B_Alpine.js-38B2AC?style=flat&logo=tailwindcss)](https://tailwindcss.com)
 [![Database](https://img.shields.io/badge/Database-SQLite_WAL-003B57?style=flat&logo=sqlite)](https://sqlite.org)
 [![Library](https://img.shields.io/badge/WhatsApp-whatsmeow-25D366?style=flat&logo=whatsapp)](https://github.com/tulir/whatsmeow)
-[![Server](https://img.shields.io/badge/Cloud-Microsoft_Azure-0078D4?style=flat&logo=microsoftazure)](https://azure.microsoft.com)
 
-Asisten perkuliahan cerdas berbasis **Bot WhatsApp Multi-Device** dan **Web Admin Dashboard Responsif** yang disematkan langsung ke dalam satu biner Go (*single binary embedded* via `embed.FS`). 
-
-Sistem ini membantu mahasiswa dan pengurus kelas memantau jadwal perkuliahan harian, melacak tenggat waktu tugas (*deadline tracker*), mengelola tautan kuliah daring, mengakomodasi jadwal kuliah pengganti (*schedule overrides*), serta mengirimkan broadcast pengingat pagi otomatis setiap hari kuliah pukul **06:00 WIB**.
+Aplikasi bot WhatsApp dan web dashboard terpadu dalam satu biner Go (`embed.FS`). Digunakan untuk mengelola jadwal kuliah, tenggat tugas, repositori materi, dan pengingat otomatis kelas.
 
 ---
 
-## 📚 Pusat Navigasi Dokumentasi Tim (`docs/` & `.agent/`)
+## Cara Menjalankan
 
-Seluruh acuan kerja, arsitektur, dan panduan operasional tim telah didokumentasikan secara rapi dan modular:
+Pastikan Go 1.22+ sudah terpasang.
 
-| Dokumen | Deskripsi & Target Pembaca |
-| :--- | :--- |
-| 🚀 [**docs/TEAM_ONBOARDING.md**](docs/TEAM_ONBOARDING.md) | **Panduan Onboarding & Kickoff Meeting Tim** *(Wajib untuk seluruh tim baru: visi v3.0, roadmap sprint, dan panduan PM).* |
-| 📋 [**docs/PRD.md**](docs/PRD.md) | **Ruang Lingkup Produk** *(Tujuan, epic, prioritas rilis, dan ukuran keberhasilan).* |
-| 🧭 [**docs/product/PRODUCT_DEFINITION.md**](docs/product/PRODUCT_DEFINITION.md) | **Arah dan Keputusan Produk** *(Sumber keputusan alur, akses, peran, dan aturan utama).* |
-| ✅ [**docs/product/FUNCTIONAL_REQUIREMENTS.md**](docs/product/FUNCTIONAL_REQUIREMENTS.md) | **Kebutuhan Fungsional Kanonis** *(Satu-satunya sumber ID FR dan acceptance criteria).* |
-| 🗂️ [**docs/product/INFORMATION_ARCHITECTURE.md**](docs/product/INFORMATION_ARCHITECTURE.md) | **Struktur Informasi** *(Peta halaman, navigasi, konteks, dan state).* |
-| 🔗 [**docs/product/TRACEABILITY.md**](docs/product/TRACEABILITY.md) | **Matriks Ketertelusuran** *(Pemetaan UR, FR, BR, user flow, dan entitas).* |
-| 🤝 [**docs/CONTRIBUTING.md**](docs/CONTRIBUTING.md) | **Panduan Standar Kontribusi & Git Flow** *(Aturan branching, Conventional Commits, dan ceklis Pull Request).* |
-| 🧱 [**docs/product/DATA_MODEL.md**](docs/product/DATA_MODEL.md) | **Model Data Target** *(Entitas, constraint, migrasi, dan kepemilikan data).* |
-| 🕸️ [**docs/product/ERD.md**](docs/product/ERD.md) | **ERD Mermaid** *(Visualisasi model data per domain).* |
-| ☁️ [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | **Panduan Server Azure & DevOps Runbook** *(Operasional server Linux Azure VM, service systemd, SOP deploy 6-langkah, dan emergency rollback).* |
-| 🔐 [**docs/CONFIG_AND_SECURITY.md**](docs/CONFIG_AND_SECURITY.md) | **Panduan Konfigurasi & Keamanan Produksi** *(Referensi env var, rate limit ADR-0009, CORS, CSRF, HSTS, CSP, dan rotasi secret).* |
-| 📖 [**docs/PANDUAN_PENGGUNAAN.md**](docs/PANDUAN_PENGGUNAAN.md) | **Panduan Lengkap Perintah Bot & Dashboard** *(Cheat sheet perintah WhatsApp, format tanggal alami, dan otorisasi admin grup).* |
-| 📦 [**docs/RELEASE_NOTES_v3.0.0.md**](docs/RELEASE_NOTES_v3.0.0.md) | **Catatan Rilis Resmi v3.0.0** *(Daftar fitur baru, perbaikan keamanan, perubahan schema, dan panduan upgrade).* |
-| 🤖 [**.agent/skills/vibe-coding-guide/**](.agent/skills/vibe-coding-guide/SKILL.md) | **Guardrails Vibe Coding AI** *(Aturan anti-bloat: dilarang npm, Go single binary, dan protokol tutor edukasi).* |
-| 🌿 [**.agent/skills/git-team-flow/**](.agent/skills/git-team-flow/SKILL.md) | **Panduan Kolaborasi Git Tim** *(Penamaan branch per tiket, etika commit, dan larangan auto-commit liar oleh AI).* |
-
----
-
-## 👥 Alur Kerja Tim & Metodologi (Scrumban)
-
-Proyek ini dikembangkan secara kolaboratif oleh 8 pengembang mahasiswa menggunakan metodologi **Scrumban (Hybrid Agile-Kanban)** melalui **GitHub Projects** dan **Milestones**.
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                      PROJECT MANAGER / TECH LEAD                       │
-│             (Koordinasi Sprint, Pull Request Review, DevOps)           │
-└──────┬────────────────────┬────────────────────┬───────────────────┬───┘
-       │                    │                    │                   │
-       ▼                    ▼                    ▼                   ▼
-    🎨 UI/UX             💻 FRONTEND          ⚙️ BACKEND          🧪 QA TESTER
-    (2 Orang)            (2 Orang)            (2 Orang)           (2 Orang)
-```
-
-### 1. Papan Kanban GitHub Projects
-Seluruh aktivitas tugas dipantau melalui kartu digital (tiket) di papan Kanban:
-- `Todo`: Tiket yang siap dikerjakan pada sprint aktif.
-- `In Progress`: Tiket yang sedang dikerjakan secara aktif oleh penanggung jawab (*Assignee*).
-- `In Review`: Kodingan atau desain telah selesai dan sedang diperiksa oleh Project Manager.
-- `Done`: Pull Request berhasil di-merge ke branch `main` atau desain/dokumen telah disetujui.
-
-### 2. Tiga Siklus Sprint (Roadmap 6 Minggu)
-1. **Sprint 1 (Minggu 1 – 2): Fondasi & Desain Inti**
-   - *UI/UX:* Moodboard, Design Tokens, Wireframe, dan Mockup Hi-Fi Halaman Ringkasan & Jadwal di Figma.
-   - *Backend:* Endpoint REST API `/api/tasks` dan `/api/schedule` di Go + unit test 100% lulus.
-   - *Frontend:* Shell dashboard responsif, navigasi tab Alpine.js, dan tabel jadwal (data mock).
-   - *QA Tester:* Perancangan dokumen Master Test Cases di Google Spreadsheet (Tab Bot & Tab Web).
-2. **Sprint 2 (Minggu 3 – 4): Integrasi Sistem & WhatsApp Gateway**
-   - *Frontend & Backend:* Menyambungkan tombol-tombol web ke REST API Go nyata (tersimpan di SQLite).
-   - *UI/UX & Frontend:* Antarmuka telemetri status bot dan pemindai QR Code di dashboard.
-   - *QA Tester:* Eksekusi uji fungsional di sandbox WhatsApp dan pengetesan form di HP fisik.
-3. **Sprint 3 (Minggu 5 – 6): UAT, Hardening, & Deployment Azure**
-   - *Seluruh Tim:* Penyelesaian seluruh catatan bug (Zero Blocker Bugs).
-   - *QA & PM:* End-to-End User Acceptance Test (UAT) dan simulasi disaster recovery.
-   - *DevOps / PM:* Deployment biner Go ke server Linux Azure VM via `systemd` dan rilis resmi ke kelas.
-
----
-
-## 💻 Panduan Menjalankan Aplikasi di Komputer Lokal
-
-Untuk menjaga keamanan server produksi di Azure, **gunakan perintah eksekusi yang sesuai dengan peran Anda**:
-
-```text
-                  ┌─────────────────────────────────────────────────────────┐
-                  │                ALUR PENGEMBANGAN LOKAL                  │
-                  └─────────────────────────────────────────────────────────┘
-                                               │
-                        ┌──────────────────────┴──────────────────────┐
-                        ▼                                             ▼
-             [OPSI 1: Mode Web-Only]                      [OPSI 2: Mode Sesi-Dev]
-           Untuk: Frontend & UI/UX                      Untuk: Backend & QA Tester
-      ---------------------------------            ------------------------------------
-      go run ./cmd/bot -web-only                   go run ./cmd/bot -session storage/sesi_dev.db
-      ---------------------------------            ------------------------------------
-      • Web aktif di localhost:8080                • Web aktif di localhost:8080
-      • Database lokal tugas.db aktif              • Database lokal tugas.db aktif
-      • WhatsApp MATI TOTAL                        • WhatsApp aktif pakai nomor testing pribadi
-      • Bebas scan QR, sangat cepat                • Muncul QR code dev di terminal
-```
-
-### 1. Opsi 1: `go run ./cmd/bot -web-only` *(Khusus Frontend & UI/UX)*
-- Menjalankan **Web Dashboard & REST API lokal** di `http://localhost:8080`.
-- **Fitur WhatsApp dimatikan total** (tidak ada scan QR code).
-- Server Azure produksi terlindungi dan laptop tidak memerlukan koneksi WhatsApp.
-
-### 2. Opsi 2: `go run ./cmd/bot -session storage/sesi_dev.db` *(Khusus Backend & QA)*
-- Menjalankan bot WhatsApp dengan **file sesi dev terpisah** (`storage/sesi_dev.db`).
-- Terminal akan memunculkan QR Code untuk di-scan menggunakan **nomor WhatsApp testing cadangan** di grup pengujian sandbox.
-- **Dilarang keras menyentuh `storage/sesi_bot.db`** agar tidak berebut koneksi dengan server Azure!
-
-### 3. Menjalankan Pengujian Unit (Wajib Sebelum Pull Request)
-Sebelum membuka PR, developer wajib memastikan seluruh unit test lulus:
-```bash
-go test -v ./...
-```
-
-### 4. Provisioning Login Pengurus
-
-Server membutuhkan secret lokal minimal 32 byte untuk hashing metadata percobaan login. Jangan commit nilainya.
-
+### 1. Mode Web & API Saja (Frontend / UI)
+Menjalankan dashboard dan REST API di `http://localhost:8080` tanpa WhatsApp:
 ```powershell
-$env:BOT_JADWAL_AUTH_HASH_KEY = "ganti-dengan-secret-acak-minimal-32-byte"
-$env:BOT_JADWAL_ADMIN_PASSWORD = "kata-sandi-admin-minimal-12-karakter"
-go run ./cmd/provision-admin -identity "admin@example.test" -display-name "System Admin"
-Remove-Item Env:BOT_JADWAL_ADMIN_PASSWORD
 go run ./cmd/bot -web-only
 ```
 
-Provisioning hanya dapat membuat System Admin pertama. Untuk deployment HTTPS, set `BOT_JADWAL_SECURE_COOKIES=true`; password admin hanya dibaca dari environment agar tidak tersimpan dalam riwayat command line.
+### 2. Mode Bot WhatsApp Penuh (Backend / Testing)
+Menjalankan web dan bot WhatsApp dengan sesi uji coba terisolasi:
+```powershell
+go run ./cmd/bot -session storage/sesi_dev.db
+```
+*Scan QR code di terminal dengan nomor WhatsApp testing.*
 
----
+### 3. Berbagi Akses Lokal ke Teman (Cloudflare Tunnel)
+Jika ingin membagikan portal web lokal ke teman tanpa deploy:
+```powershell
+# Di terminal 1: Nyalakan tunnel Cloudflare
+cloudflared tunnel --url http://localhost:8080
 
-## 🛠️ Toolkit Resmi Tim (100% Gratis & Ringan)
+# Di terminal 2: Jalankan bot dengan URL tunnel agar tautan di WhatsApp otomatis menyesuaikan
+go run ./cmd/bot -session storage/sesi_dev.db -public-url https://xxxx.trycloudflare.com
+```
+*Ganti `https://xxxx.trycloudflare.com` dengan URL acak yang muncul di terminal Cloudflare.*
 
-| Divisi | Toolkit Utama | Fungsi di Proyek Ini |
-| :--- | :--- | :--- |
-| 🎨 **UI/UX Designer** | **Figma** + Plugin *Heroicons/Lucide* & *Contrast Checker* | Merancang wireframe, mockup Hi-Fi, dan design tokens. |
-| 💻 **Frontend Dev** | **Code Editor** + **Chrome DevTools (F12)** + **Figma** | Mengoding di `web/`, cek responsive 390px mobile, dan inspeksi token desain. |
-| ⚙️ **Backend Dev** | **Go Toolchain** + **Insomnia** + **DB Browser for SQLite** | Membuat endpoint API, uji request via Insomnia, dan verifikasi tabel database. |
-| 🧪 **QA Tester** | **Google Spreadsheet** + **DB Browser** + **WhatsApp Sandbox** | Menyusun master test cases (Tab 1 & 2), verifikasi database, dan uji skenario. |
-| 👑 **Project Manager** | **GitHub Projects** + **Terminal SSH Azure** | Manajemen papan Kanban, code review PR, dan deployment rilis. |
+### 4. Build & Testing
+```powershell
+# Uji coba unit test
+go test -v ./...
 
----
+# Periksa kesalahan kode
+go vet ./...
 
-## 🛡️ Aturan Emas Arsitektur (Hard Guardrails)
+# Kompilasi aplikasi menjadi binary tunggal
+go build -o bin/bot ./cmd/bot
+```
 
-Seluruh pengembang wajib mematuhi batasan teknis berikut:
-
-1. **Zero-Build Frontend (Dilarang Menginstal NPM / Node.js):**
-   - JANGAN PERNAH menjalankan `npm init`, `npm install`, atau memasukkan `package.json` dan `node_modules`.
-   - Stack frontend murni **HTML5 + Tailwind CSS (CDN) + Alpine.js (CDN)** di folder `web/` agar tersemat langsung ke biner Go via `embed.FS`.
-2. **Modular Go Backend:**
-   - Gunakan perutean standar Go v1.22+ (`http.ServeMux`).
-   - Pisahkan handler API di `internal/api/`: `tasks_handler.go`, `schedule_handler.go`, `bot_handler.go`.
-3. **Keamanan Database SQLite:**
-   - Database aplikasi berada di `storage/tugas.db` dengan mode WAL (`PRAGMA journal_mode=WAL`).
-   - **Wajib gunakan Prepared Statement (`?`)** pada setiap query SQL untuk mencegah celah **SQL Injection**.
-4. **Etika Git & Anti-Konflik:**
-   - **Dilarang push langsung ke branch `main`!**
-   - Buat branch fitur per tiket: `feat/<kode-tiket>-<deskripsi>` (contoh: `feat/be-1-tasks-api`).
-   - Gunakan format pesan commit standar (*Conventional Commits*): `feat: ...`, `fix: ...`, `docs: ...`.
-   - AI Agent dilarang melakukan auto-commit mandiri; seluruh commit dijalankan sendiri oleh developer.
-
----
-
-## 📂 Struktur Direktori Proyek
-
-```text
-bot-jadwal/
-├── cmd/
-│   ├── bot/
-│   │   └── main.go          # Titik masuk utama aplikasi (CLI flags, bot WA, & REST API server)
-│   └── seed/
-│       └── main.go          # CLI data seeder resmi (impor kurikulum & akun pengurus demo)
-├── web/                     # Antarmuka Web Admin Dashboard (Single Binary Embedded)
-│   ├── embed.go             # Go embed.FS pengemas aset web ke dalam biner tunggal
-│   ├── index.html           # Halaman utama SPA Dashboard
-│   ├── css/style.css        # Styling custom pendukung
-│   └── js/                  # api.js (REST client) & app-*.js (state reaktif Alpine.js per peran)
-├── internal/
-│   ├── academic/            # Domain akademik: semester lifecycle, PJ offering, rooms, & kurikulum
-│   ├── api/                 # Lapisan HTTP REST API server
-│   │   ├── common/          # Standard response helpers, context accessor, & DB time parsers
-│   │   ├── legacy/          # Endpoint kompatibilitas v0 (/api/classes, /api/schedule, dll)
-│   │   ├── middleware/      # Security headers, auth Bearer RBAC, & rate limiter
-│   │   └── v1/              # Sub-controller domain v1 (auth, portal, task, schedule, academic, admin)
-│   ├── auth/                # Service autentikasi, JWT/Bearer token, & RBAC wewenang
-│   ├── bot/                 # whatsmeow client & message dispatcher
-│   ├── chat/                # ChatSettingsManager & GroupAdminResolver
-│   ├── config/              # Konfigurasi aplikasi & manajemen path storage
-│   ├── database/            # Inisialisasi SQLite connection pool WAL mode & migrasi skema
-│   ├── link/                # LinkManager SQLite tautan perkuliahan
-│   ├── outbox/              # Broadcast outbox queue & pengiriman pesan terjadwal
-│   ├── reminder/            # Cron broadcast pagi otomatis (06:00 WIB)
-│   ├── schedule/            # ScheduleEngine, ClassManager, & OverrideManager
-│   ├── system/              # Telemetri sistem, health check, & audit logging
-│   ├── task/                # TaskManager SQLite & kalkulasi deadline
-│   └── util/                # Helper waktu WIB, parser tanggal alami, & path resolver
-├── data/
-│   ├── jadwal/              # Berkas master JSON kurikulum per kelas (19 kelas)
-│   └── migration_manifest.json # Manifest mapping kelas pilot & migrasi data kurikulum
-├── storage/                 # Direktori runtime terisolasi (di-ignore oleh git)
-│   ├── bot_v1.db            # Database SQLite utama v3.0 (tasks, users, audit, rate limit)
-│   ├── tugas.db             # Database SQLite tugas/link legacy compatibility
-│   ├── sesi_bot.db          # Database sesi login WhatsMeow produksi (Azure VM)
-│   └── reminder_groups.json # Data preferensi broadcast pengingat
-├── docs/                    # Dokumentasi lengkap sistem & tim
-│   ├── TEAM_ONBOARDING.md   # Panduan kickoff meeting tim pengembang
-│   ├── PRD.md               # Ruang lingkup dan prioritas produk
-│   ├── CONTRIBUTING.md      # Panduan kontribusi, git workflow, dan DoD
-│   ├── product/             # Dokumen produk kanonis, data model, dan ERD
-│   ├── DEPLOYMENT.md        # Panduan operasional server Azure & DevOps
-│   ├── PANDUAN_PENGGUNAAN.md# Panduan lengkap fitur bot untuk pengguna
-│   └── api/                 # Spesifikasi API v1, QA card, dan panduan testing
-├── .agent/                  # Custom Agent Skills untuk bimbingan tim & AI
-│   └── skills/
-│       ├── vibe-coding-guide/  # Panduan guardrails arsitektur & edukasi konsep
-│       ├── git-team-flow/      # Panduan alur Git, branch, dan PR
-│       └── ticket-creator/     # Standar pembuatan tiket backlog
-├── .github/                 # Template kolaborasi GitHub
-│   ├── pull_request_template.md # Template standar Pull Request
-│   └── ISSUE_TEMPLATE/      # Template Bug Report & Feature Request
-└── README.md                # Dokumentasi utama proyek
+### 5. Akun Admin Lokal (Opsional)
+Untuk membuat akun System Admin lokal pertama kali:
+```powershell
+$env:BOT_JADWAL_AUTH_HASH_KEY = "kunci-acak-minimal-32-byte-disini"
+$env:BOT_JADWAL_ADMIN_PASSWORD = "password-minimal-12-karakter"
+go run ./cmd/provision-admin -identity "admin@example.test" -display-name "System Admin"
 ```
 
 ---
 
-## 📱 Ringkasan Perintah Chat Bot (Cheat Sheet)
+## Aturan Pengembangan
 
-*(Gunakan prefix `!`, `/`, atau `#` di grup WhatsApp. Di chat pribadi bisa diketik langsung).*
-
-### 1. Jadwal Perkuliahan
-* `!jadwal` / `!jadwal hari ini` ➔ Menampilkan jadwal kuliah hari ini.
-* `!jadwal besok` ➔ Menampilkan jadwal kuliah besok.
-* `!jadwal sekarang` ➔ Menampilkan mata kuliah yang sedang berlangsung saat ini.
-* `!jadwal senin` s/d `!jadwal jumat` ➔ Menampilkan jadwal pada hari tertentu.
-* `!seminggu` ➔ Menampilkan jadwal lengkap Senin sampai Jumat.
-* `!dosen [nama/kode]` ➔ Mencari jadwal berdasarkan inisial atau nama dosen.
-* `!ruang [nama]` ➔ Mencari jadwal berdasarkan nama ruangan/lab.
-
-### 2. Manajemen Tugas & Deadline Tracker
-* `!tugas` ➔ Menampilkan daftar tugas aktif beserta hitung mundur (*countdown*).
-* `!tugas tambah <Nama Tugas> | <Matkul> | <Deadline>` ➔ Menambah tugas baru *(Khusus Admin Grup / Ketua Kelas)*.  
-  *Contoh:* `!tugas tambah Laporan Praktikum | Basis Data | Jumat 23:59`
-* `!tugas selesai <ID>` ➔ Menandai tugas sebagai selesai.
-* `!tugas hapus <ID>` ➔ Menghapus tugas dari sistem.
-
-### 3. Tautan Penting Kelas (!link)
-* `!link` / `!tautan` ➔ Menampilkan seluruh link penting (Drive, Zoom/Meet, Portal).
-* `!drive` ➔ Menampilkan link penyimpanan materi Google Drive kelas.
-* `!zoom` / `!meet` ➔ Menampilkan link perkuliahan daring aktif.
-
-### 4. Pengingat Pagi & Pengaturan Kelas
-* `!reminder on` / `!reminder off` ➔ Mengaktifkan / mematikan broadcast jadwal pagi (**06:00 WIB**).
-* `!daftarkelas` ➔ Menampilkan 19 pilihan kelas yang tersedia.
-* `!setkelas <KODE_KELAS>` ➔ Mengatur kelas untuk grup tersebut *(Contoh: `!setkelas D4-TI-1A`)*.
+1. **Frontend Tanpa Build Step (No NPM / Node.js)**
+   Frontend murni HTML5 dengan Tailwind dan Alpine.js vendored di `web/`. Jangan menambahkan `package.json` atau folder `node_modules`.
+2. **Database SQLite WAL**
+   Data disimpan di `storage/` dengan mode WAL. Selalu gunakan prepared statement (`?`) untuk query SQL.
+3. **Alur Kerja Git**
+   - Jangan push langsung ke branch `main`.
+   - Buat branch fitur per tiket: `feat/nama-fitur` atau `fix/nama-bug`.
+   - Gunakan format Conventional Commits (`feat:`, `fix:`, `docs:`).
 
 ---
 
-## 🔐 Konfigurasi Keamanan & Environment Variables (v3.0)
+## Perintah Bot WhatsApp
 
-Aplikasi mengadopsi kontrol keamanan terpusat untuk deployment produksi:
-- `BOT_JADWAL_ENV`: Mode lingkungan (`development`, `test`, atau `production`).
-- `BOT_JADWAL_AUTH_HASH_KEY`: Kunci HMAC minimal 32 byte untuk hashing subjek dan pembatas laju (rate limiting).
-- `BOT_JADWAL_SECURE_COOKIES`: Memastikan cookie autentikasi `bv1` bertanda `Secure` (wajib `true` pada produksi).
-- `BOT_JADWAL_ALLOWED_ORIGINS`: Daftar origin CORS terpercaya (exact scheme, host, dan port).
-- `BOT_JADWAL_TRUSTED_PROXY_CIDRS`: Daftar CIDR reverse proxy yang dipercaya untuk header `X-Forwarded-For`.
-- `BOT_JADWAL_PUBLIC_BASE_URL`: URL kanonis aplikasi HTTPS.
+Gunakan awalan `!`, `/`, atau `#` di grup WhatsApp (atau ketik langsung di chat pribadi):
+
+| Kategori | Perintah | Fungsi |
+| :--- | :--- | :--- |
+| **Jadwal** | `!jadwal` / `!jadwal besok` | Jadwal kuliah hari ini atau besok |
+| | `!jadwal sekarang` | Mata kuliah yang sedang berlangsung |
+| | `!jadwal senin` - `jumat` | Jadwal pada hari tertentu |
+| | `!seminggu` | Jadwal lengkap Senin sampai Jumat |
+| | `!dosen [nama]` / `!ruang [kode]` | Cari jadwal berdasarkan dosen atau ruangan |
+| **Tugas** | `!tugas` | Daftar tugas aktif beserta hitung mundur tenggat |
+| **Tautan** | `!link` / `!drive` / `!zoom` | Tautan perkuliahan, Google Drive, dan kelas daring |
+| **Kelas** | `!daftarkelas` | Daftar kelas yang tersedia |
+
+---
+
+## Struktur Direktori
+
+```text
+├── cmd/bot/              # Entry point utama aplikasi (main.go)
+├── internal/             # Domain logic (api, bot, schedule, task, database)
+├── web/                  # Dashboard frontend (HTML, CSS, JS, partials)
+├── data/jadwal/          # Data kurikulum kelas (.json)
+├── storage/              # Database runtime (.db) & sesi WA (di-ignore git)
+├── docs/                 # Dokumentasi produk, arsitektur, dan operasional
+└── .agent/               # Panduan tim dan skill AI
+```
+
+---
+
+## Navigasi Dokumentasi Tim
+
+- 🧭 [Arah dan Definisi Produk](docs/product/PRODUCT_DEFINITION.md)
+- ✅ [Kebutuhan Fungsional](docs/product/FUNCTIONAL_REQUIREMENTS.md)
+- 🧱 [Model Data & ERD](docs/product/DATA_MODEL.md)
+- ☁️ [Panduan Kesiapan Produksi](docs/ops/PRODUCTION_READINESS.md)
+- 🚀 [Panduan Deployment Server Linux](docs/ops/DEPLOYMENT_GUIDE.md)

@@ -94,6 +94,41 @@ func TestOutbox_ReconcileOnChannelActivate(t *testing.T) {
 	}
 }
 
+func TestOutbox_ReconcileRevokedChannel(t *testing.T) {
+	svc, ctx := newOutboxDB(t)
+	oldID, err := svc.EnsureChannel(ctx, 1, "120363old@g.us", "Lama")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := svc.Enqueue(ctx, 1, oldID, "DAILY_SUMMARY", "CLASS", 1, "revoke-test", "jadwal", "", time.Now().UTC(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `UPDATE whatsapp_channels SET status='REVOKED' WHERE id=?`, oldID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ReconcilePendingChannels(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	var chID, sched *string
+	if err := svc.db.QueryRowContext(ctx, `SELECT CAST(whatsapp_channel_id AS TEXT), scheduled_at FROM notification_messages WHERE idempotency_key='revoke-test'`).Scan(&chID, &sched); err != nil {
+		t.Fatal(err)
+	}
+	if chID != nil || sched != nil {
+		t.Fatalf("kanal lama masih terpasang: ch=%v sched=%v", chID, sched)
+	}
+	newID, err := svc.EnsureChannel(ctx, 1, "120363new@g.us", "Baru")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotID int64
+	if err := svc.db.QueryRowContext(ctx, `SELECT whatsapp_channel_id FROM notification_messages WHERE idempotency_key='revoke-test'`).Scan(&gotID); err != nil {
+		t.Fatal(err)
+	}
+	if gotID != newID {
+		t.Fatalf("kanal baru=%d ingin %d", gotID, newID)
+	}
+}
+
 func TestOutbox_ConcurrentClaimSingleWinner(t *testing.T) {
 	svc, ctx := newOutboxDB(t)
 	if _, err := svc.EnsureChannel(ctx, 1, "120363@test3@g.us", "Grup C"); err != nil {

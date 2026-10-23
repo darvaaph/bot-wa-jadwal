@@ -15,6 +15,7 @@ import (
 	v1 "bot-jadwal/internal/api/v1"
 	"bot-jadwal/internal/auth"
 	"bot-jadwal/internal/bot"
+	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
@@ -194,6 +195,24 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		Uptime:    time.Since(startTime).Round(time.Second).String(),
 	}
 	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// handleReady reports whether the database and, in bot mode, WhatsApp can serve traffic.
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	if s.v1DB == nil || s.v1DB.PingContext(r.Context()) != nil {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unready", "reason": "database_v1"})
+		return
+	}
+	version, err := database.CurrentSchemaVersion(r.Context(), s.v1DB)
+	if err != nil || version < database.LatestSchemaVersion {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unready", "reason": "schema_v1"})
+		return
+	}
+	if s.botClient != nil && s.botClient.Status() != "connected" {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unready", "reason": "whatsapp"})
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 // handleStatus mengembalikan telemetri bot dan sistem kelas dengan shim deprecation header

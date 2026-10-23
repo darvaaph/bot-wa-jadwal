@@ -60,6 +60,14 @@ func (s *Server) handleCompleteV1Task(w http.ResponseWriter, r *http.Request) {
 	v1.NewTaskController(s.v1DB).CompleteTask(w, r)
 }
 
+func (s *Server) handleUncompleteV1Task(w http.ResponseWriter, r *http.Request) {
+	if s.taskController != nil {
+		s.taskController.UncompleteTask(w, r)
+		return
+	}
+	v1.NewTaskController(s.v1DB).UncompleteTask(w, r)
+}
+
 func (s *Server) handleArchiveV1Task(w http.ResponseWriter, r *http.Request) {
 	if s.taskController != nil {
 		s.taskController.ArchiveTask(w, r)

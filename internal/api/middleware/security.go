@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -167,6 +168,16 @@ func (sm *SecurityManager) IsOriginAllowed(origin string) bool {
 		if h == "localhost" || h == "127.0.0.1" || h == "::1" {
 			return true
 		}
+		if ip := net.ParseIP(h); ip != nil && (ip.IsLoopback() || ip.IsPrivate()) {
+			return true
+		}
+		if strings.HasSuffix(h, ".trycloudflare.com") ||
+			strings.HasSuffix(h, ".loca.lt") ||
+			strings.HasSuffix(h, ".ngrok-free.app") ||
+			strings.HasSuffix(h, ".ngrok.io") ||
+			strings.HasSuffix(h, ".devtunnels.ms") {
+			return true
+		}
 	}
 	return false
 }
@@ -227,7 +238,7 @@ func (sm *SecurityManager) CORS(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';")
 
 		if sm.IsProduction() && sm.IsRequestHTTPS(r) {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")

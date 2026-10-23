@@ -6,9 +6,6 @@ import (
 	v1 "bot-jadwal/internal/api/v1"
 )
 
-type createPortalSessionRequest = v1.CreatePortalSessionRequest
-type rotatePortalCodeRequest = v1.RotatePortalCodeRequest
-
 func (s *Server) handleCreatePortalSession(w http.ResponseWriter, r *http.Request) {
 	if s.portalController != nil {
 		s.portalController.CreateSession(w, r)

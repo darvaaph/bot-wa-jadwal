@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,23 +129,77 @@ func TestNotify_Schedulers(t *testing.T) {
 	if err != nil || n != 1 {
 		t.Fatalf("daily: n=%d err=%v", n, err)
 	}
+	var scheduled string
+	if err := svc.db.QueryRow(`SELECT scheduled_at FROM notification_messages WHERE idempotency_key='daily:1:2026-10-06'`).Scan(&scheduled); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, scheduled)
+	if err != nil || !parsed.Equal(morning) {
+		t.Fatalf("waktu pengingat pagi=%q, ingin %s (UTC): %v", scheduled, morning, err)
+	}
 	n, _ = svc.EnsureDailySummaries(ctx, morning)
 	if n != 0 {
 		t.Fatalf("daily idempoten: n=%d", n)
 	}
 	// 17:00 WIB = 10:00 UTC.
 	afternoon := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
+	// Tanpa tugas aktif, pengingat sore harus senyap (Opsi B: n == 0).
 	n, err = svc.EnsureTaskReminders(ctx, afternoon)
-	if err != nil || n != 1 {
-		t.Fatalf("tasks: n=%d err=%v", n, err)
+	if err != nil || n != 0 {
+		t.Fatalf("tasks tanpa tugas harus senyap: n=%d err=%v", n, err)
 	}
 	text, err := svc.BuildDailyText(ctx, 1, "2026-10-06", "")
 	if err != nil || text == "" {
 		t.Fatalf("build daily: %v", err)
 	}
-	taskText, err := svc.BuildTaskText(ctx, 1, "")
+
+	// Masukkan 1 tugas aktif untuk menguji pengingat saat ada tugas.
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO users (id, identity_key, display_name, password_hash) VALUES (1, '+6281111111111', 'User 1', 'hash')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (1, 1, 1, 'TEORI', 'Pemrograman (Teori)')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.db.ExecContext(ctx, `INSERT INTO tasks (course_offering_id, title, instructions, submission_text, deadline_at, publication_status, published_at, created_by_user_id) VALUES (1, 'Tugas 1', 'Kerjakan soal 1-5', 'Kirim via email', '2026-10-10T23:59:00Z', 'PUBLISHED', '2026-10-06T08:00:00Z', 1)`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Dengan tugas aktif, pengingat sore mengantrekan 1 pesan.
+	n, err = svc.EnsureTaskReminders(ctx, afternoon)
+	if err != nil || n != 1 {
+		t.Fatalf("tasks dengan tugas aktif: n=%d err=%v", n, err)
+	}
+	taskText, err := svc.BuildTaskText(ctx, 1, "", afternoon)
 	if err != nil || taskText == "" {
 		t.Fatalf("build tasks: %v", err)
+	}
+	if !strings.Contains(taskText, "PENGINGAT TUGAS KULIAH") {
+		t.Errorf("expected header, got: %s", taskText)
+	}
+	if !strings.Contains(taskText, "- Tugas: Tugas 1") {
+		t.Errorf("expected task title with bullet strip, got: %s", taskText)
+	}
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️", "🚨", "⌛", "👥", "📤"}
+	for _, emoji := range slopEmojis {
+		if strings.Contains(taskText, emoji) {
+			t.Errorf("taskText masih memuat emoji: %s in text: %s", emoji, taskText)
+		}
+	}
+}
+
+func TestNotify_MorningReminderCatchesUpAfterRestart(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	late := time.Date(2026, 10, 5, 23, 20, 0, 0, time.UTC)
+	n, err := svc.EnsureDailySummaries(ctx, late)
+	if err != nil || n != 1 {
+		t.Fatalf("20 menit terlambat: n=%d err=%v", n, err)
+	}
+	n, err = svc.EnsureDailySummaries(ctx, late.Add(10*time.Minute))
+	if err != nil || n != 0 {
+		t.Fatalf("harus idempoten: n=%d err=%v", n, err)
 	}
 }
 

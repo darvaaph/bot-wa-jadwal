@@ -36,19 +36,19 @@ func TestHandleIncomingMessage_RateLimiter(t *testing.T) {
 	}
 
 	nonCmd := makeMsg("MSG-1", "halo semuanya")
-	HandleIncomingMessage(nil, nonCmd, nil, nil, nil, nil, nil, nil)
+	HandleIncomingMessage(nil, nonCmd, nil, nil, nil, nil, nil)
 	if testLimiter.Remaining(senderJID.User) != 0 {
 		t.Errorf("Expected non-command message in group to NOT trigger rate limiter")
 	}
 
 	cmd1 := makeMsg("MSG-2", "!jadwal")
-	HandleIncomingMessage(nil, cmd1, nil, nil, nil, nil, nil, nil)
+	HandleIncomingMessage(nil, cmd1, nil, nil, nil, nil, nil)
 	if rem := testLimiter.Remaining(senderJID.User); rem <= 0 {
 		t.Errorf("Expected command message to register cooldown, got %v", rem)
 	}
 
 	cmd2 := makeMsg("MSG-3", "!tugas")
-	HandleIncomingMessage(nil, cmd2, nil, nil, nil, nil, nil, nil)
+	HandleIncomingMessage(nil, cmd2, nil, nil, nil, nil, nil)
 	if testLimiter.Allow(senderJID.User) {
 		t.Errorf("Expected immediate subsequent command to be blocked by rate limiter")
 	}
@@ -82,7 +82,7 @@ func TestHandleIncomingMessage_WithV1Cutover(t *testing.T) {
 		}
 	}()
 
-	HandleIncomingMessage(nil, msg, nil, nil, nil, nil, nil, nil, nil)
+	HandleIncomingMessage(nil, msg, nil, nil, nil, nil, nil, nil)
 }
 
 func TestKanalCommand_StaysReadable(t *testing.T) {
@@ -103,5 +103,23 @@ func TestKanalCommand_StaysReadable(t *testing.T) {
 	got = kanalReplyText("62812@s.whatsapp.net", false)
 	if !strings.Contains(got, "62812@s.whatsapp.net") || !strings.Contains(got, "pribadi") {
 		t.Fatalf("balasan DM harus memuat JID + jenis: %s", got)
+	}
+}
+
+func TestLinkRestrictedDMMessage(t *testing.T) {
+	withSlug := linkRestrictedDMMessage("d4-ti-2025-a")
+	if !strings.Contains(withSlug, "AKSES TAUTAN DIBATASI") {
+		t.Fatalf("harus memuat judul pembatasan, got: %s", withSlug)
+	}
+	if !strings.Contains(withSlug, "/c/d4-ti-2025-a") {
+		t.Fatalf("harus memuat slug portal kelas, got: %s", withSlug)
+	}
+	if !strings.Contains(withSlug, "Grup WhatsApp resmi") {
+		t.Fatalf("harus menyebutkan alternatif grup resmi, got: %s", withSlug)
+	}
+
+	withoutSlug := linkRestrictedDMMessage("")
+	if !strings.Contains(withoutSlug, "Web Portal Kelas") {
+		t.Fatalf("harus memuat web portal kelas meski tanpa slug, got: %s", withoutSlug)
 	}
 }

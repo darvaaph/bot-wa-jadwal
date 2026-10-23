@@ -122,6 +122,29 @@ func TestNotificationWorker_ProcessPending_Delivered(t *testing.T) {
 	}
 }
 
+func TestNotificationWorker_RequeuesCrashedDelivery(t *testing.T) {
+	db, err := database.InitDB(filepath.Join(t.TempDir(), "worker_recovery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO classes (id,code,slug,study_program,cohort_year,group_label) VALUES (1,'TI-A','ti-a','TI',2024,'A');
+		INSERT INTO whatsapp_channels (id,class_id,jid,channel_type,display_name,status) VALUES (1,1,'120363001234567890@g.us','GROUP','A','ACTIVE');
+		INSERT INTO notification_messages (id,class_id,whatsapp_channel_id,event_type,entity_type,entity_id,idempotency_key,payload_json,status,scheduled_at,updated_at)
+		VALUES (1,1,1,'DAILY_SUMMARY','CLASS',1,'recovery-test','{"text":"Jadwal hari ini"}','PROCESSING',datetime('now','-20 minutes'),datetime('now','-20 minutes'))`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := &mockWhatsAppSender{connected: true}
+	n, err := NewNotificationWorker(db, mock).ProcessPending(context.Background())
+	if err != nil || n != 1 {
+		t.Fatalf("recovery: n=%d err=%v", n, err)
+	}
+	if got := mock.sentMessage.GetConversation(); got != "Jadwal hari ini" {
+		t.Fatalf("pesan recovery=%q", got)
+	}
+}
+
 func TestNotificationWorker_RejectsMessageWithoutChannel(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "worker_test2.db")
 	db, err := database.InitDB(dbPath)
@@ -217,10 +240,22 @@ func TestFormatNotificationText(t *testing.T) {
 		{"SCHEDULE_REVOKED", `{"course":"Jaringan Komputer","reason":"Dosen hadir jadwal normal"}`, "PEMBATALAN KULIAH PENGGANTI"},
 	}
 
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️"}
 	for _, tc := range tests {
 		text := FormatNotificationText(tc.eventType, tc.payloadJSON)
 		if !strings.Contains(text, tc.contains) {
 			t.Errorf("FormatNotificationText(%s) expected to contain %q, got: %s", tc.eventType, tc.contains, text)
+		}
+		for _, emoji := range slopEmojis {
+			if strings.Contains(text, emoji) {
+				t.Errorf("FormatNotificationText(%s) masih memuat emoji AI-slop %s: %s", tc.eventType, emoji, text)
+			}
+		}
+		if !strings.Contains(text, "- ") {
+			t.Errorf("FormatNotificationText(%s) harus memuat bullet strip (-): %s", tc.eventType, text)
+		}
+		if !strings.Contains(text, "http") {
+			t.Errorf("FormatNotificationText(%s) harus memuat link portal mahasiswa: %s", tc.eventType, text)
 		}
 	}
 }

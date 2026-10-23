@@ -40,9 +40,10 @@ type PatchTaskRequest struct {
 
 // ReviewTaskRequest adalah payload keputusan review KM
 type ReviewTaskRequest struct {
-	Decision    string  `json:"decision"` // APPROVED, CHANGES_REQUESTED, REVOKED
-	Note        *string `json:"note,omitempty"`
-	TaskVersion int     `json:"task_version"`
+	Decision          string  `json:"decision"` // APPROVED, CHANGES_REQUESTED, REVOKED
+	Note              *string `json:"note,omitempty"`
+	TaskVersion       int     `json:"task_version"`
+	BroadcastWhatsApp *bool   `json:"broadcast_whatsapp,omitempty"`
 }
 
 // TaskStateRequest adalah payload untuk mengubah status tugas
@@ -68,6 +69,7 @@ func (c *TaskController) RegisterRoutes(mux *http.ServeMux, auth *middleware.Aut
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ReviewTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CompleteTask)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.UncompleteTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.ArchiveTask)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.RestoreTask)))
 }
@@ -100,10 +102,18 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	var args []any
 
 	// Filter cakupan peran
-	if u.ActiveRole == "PJ" && u.ActiveCourseOfferingID.Valid {
+	if u.ActiveRole == "PJ" {
+		if !u.ActiveCourseOfferingID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks offering PJ tidak aktif")
+			return
+		}
 		query += " AND t.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" && u.ActiveClassID.Valid {
+	} else if u.ActiveRole == "KM" {
+		if !u.ActiveClassID.Valid {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
+			return
+		}
 		query += " AND sem.class_id = ?"
 		args = append(args, u.ActiveClassID.Int64)
 	}
@@ -119,17 +129,17 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	// Filter berdasarkan Tab
 	switch tab {
 	case "draf":
-		query += " AND t.publication_status = 'DRAFT' AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'DRAFT' AND t.archived_at IS NULL"
 	case "review":
-		query += " AND t.publication_status = 'PUBLISHED' AND t.review_state = 'NOT_REVIEWED' AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'PUBLISHED' AND t.review_state = 'NOT_REVIEWED' AND t.archived_at IS NULL"
 	case "selesai":
-		query += " AND t.completed_at IS NOT NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.completed_at IS NOT NULL AND t.archived_at IS NULL"
 	case "terlewat":
-		query += " AND t.publication_status = 'PUBLISHED' AND t.deadline_at < datetime('now') AND t.completed_at IS NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND datetime(t.deadline_at) < datetime('now') AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
 	case "arsip":
 		query += " AND t.archived_at IS NOT NULL"
 	default: // "aktif"
-		query += " AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
+		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'PUBLISHED' AND t.completed_at IS NULL AND t.archived_at IS NULL"
 	}
 
 	query += " ORDER BY t.deadline_at ASC;"
@@ -358,14 +368,15 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if publicationStatus == "PUBLISHED" && reviewState == "APPROVED" {
-		var offName string
+		var offName, classSlug string
 		var classID int64
 		_ = c.db.QueryRow(`
-			SELECT co.display_name, sem.class_id
+			SELECT co.display_name, sem.class_id, c.slug
 			FROM course_offerings co
 			JOIN semesters sem ON co.semester_id = sem.id
+			JOIN classes c ON sem.class_id = c.id
 			WHERE co.id = ?;
-		`, req.OfferingID).Scan(&offName, &classID)
+		`, req.OfferingID).Scan(&offName, &classID, &classSlug)
 
 		sub := ""
 		if req.SubmissionURL != nil && *req.SubmissionURL != "" {
@@ -374,12 +385,17 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 			sub = *req.SubmissionText
 		}
 
+		loc, _ := time.LoadLocation("Asia/Jakarta")
+		if loc == nil {
+			loc = time.Local
+		}
 		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
 			"course":         offName,
 			"title":          req.Title,
-			"deadline":       deadlineTime.Format("02 Jan 2006 15:04 WIB"),
+			"deadline":       deadlineTime.In(loc).Format("02 Jan 2006 15:04 WIB"),
 			"instructions":   req.Instructions,
 			"submission_url": sub,
+			"class_slug":     classSlug,
 		}, u.UserID)
 	}
 
@@ -855,12 +871,11 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	newVersion := currentVersion + 1
 	res, err := tx.Exec(`
 		UPDATE tasks
-		SET publication_status = ?, review_state = ?, reviewed_version = ?, version = ?, updated_at = CURRENT_TIMESTAMP
+		SET publication_status = ?, review_state = ?, reviewed_version = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND version = ?;
-	`, newPubStatus, decision, newVersion, newVersion, taskID, currentVersion)
+	`, newPubStatus, decision, currentVersion, taskID, currentVersion)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memperbarui status tugas")
 		return
@@ -879,7 +894,7 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`
 		INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 		VALUES (?, ?, ?, ?, ?, ?);
-	`, taskID, u.UserID, u.ActiveAssignmentID, newVersion, decision, req.Note)
+	`, taskID, u.UserID, u.ActiveAssignmentID, currentVersion, decision, req.Note)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan catatan review")
 		return
@@ -914,44 +929,61 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if decision == "APPROVED" {
-		var offName, title, instr, subURL, subText string
-		var deadlineAt common.DBTimestamp
-		var classID int64
-		_ = c.db.QueryRow(`
-			SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
-			       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
-			       sem.class_id
-			FROM tasks t
-			JOIN course_offerings co ON t.course_offering_id = co.id
-			JOIN semesters sem ON co.semester_id = sem.id
-			WHERE t.id = ?;
-		`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID)
-
-		sub := subURL
-		if sub == "" {
-			sub = subText
+		shouldBroadcast := true
+		if req.BroadcastWhatsApp != nil {
+			shouldBroadcast = *req.BroadcastWhatsApp
 		}
+		if shouldBroadcast {
+			var offName, title, instr, subURL, subText, classSlug string
+			var deadlineAt common.DBTimestamp
+			var classID int64
+			_ = c.db.QueryRow(`
+				SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
+				       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
+				       sem.class_id, c.slug
+				FROM tasks t
+				JOIN course_offerings co ON t.course_offering_id = co.id
+				JOIN semesters sem ON co.semester_id = sem.id
+				JOIN classes c ON sem.class_id = c.id
+				WHERE t.id = ?;
+			`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID, &classSlug)
 
-		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
-			"course":         offName,
-			"title":          title,
-			"deadline":       deadlineAt.Time.Format("02 Jan 2006 15:04 WIB"),
-			"instructions":   instr,
-			"submission_url": sub,
-		}, u.UserID)
+			sub := subURL
+			if sub == "" {
+				sub = subText
+			}
+
+			loc, _ := time.LoadLocation("Asia/Jakarta")
+			if loc == nil {
+				loc = time.Local
+			}
+			common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
+				"course":         offName,
+				"title":          title,
+				"deadline":       deadlineAt.Time.In(loc).Format("02 Jan 2006 15:04 WIB"),
+				"instructions":   instr,
+				"submission_url": sub,
+				"class_slug":     classSlug,
+			}, u.UserID)
+		}
 	}
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
 		"task_id":            taskID,
 		"publication_status": newPubStatus,
 		"review_state":       decision,
-		"version":            newVersion,
+		"version":            currentVersion,
 	})
 }
 
 // CompleteTask menangani POST /api/v1/tasks/{id}/complete
 func (c *TaskController) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	c.handleTaskStateChange(w, r, "complete")
+}
+
+// UncompleteTask menangani POST /api/v1/tasks/{id}/uncomplete
+func (c *TaskController) UncompleteTask(w http.ResponseWriter, r *http.Request) {
+	c.handleTaskStateChange(w, r, "uncomplete")
 }
 
 // ArchiveTask menangani POST /api/v1/tasks/{id}/archive
@@ -1038,6 +1070,9 @@ func (c *TaskController) handleTaskStateChange(w http.ResponseWriter, r *http.Re
 	if action == "complete" {
 		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "COMPLETE_TASK"
+	} else if action == "uncomplete" {
+		updateQuery = "UPDATE tasks SET completed_at = NULL, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		auditAction = "UNCOMPLETE_TASK"
 	} else if action == "archive" {
 		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "ARCHIVE_TASK"

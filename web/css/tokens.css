@@ -49,6 +49,39 @@
   --leading-heading: 1.25;
 }
 
+/* Palet Dark Mode: Asterisk OLED Black (True Pitch Black & Sleek Neutral Zinc) */
+html.dark, .dark {
+  --primary: #3965FB;
+  --primary-hover: #5A80FF;
+  --primary-soft: rgba(57, 101, 251, 0.16);
+  --primary-faint: rgba(57, 101, 251, 0.10);
+  --ink: #FFFFFF;
+  --deep-ink: #FFFFFF;
+  --muted: #A1A1AA;
+  --border: #222226;
+  --border-card: #2A2A30;
+  --border-control: #33333A;
+  --surface: #0E0E12;
+  --surface-subtle: #17171C;
+  --canvas: #000000;
+  --canvas-blue: #08080C;
+  --danger: #EF4444;
+  --danger-strong: #F87171;
+  --success: #166534;
+  --success-border: #22C55E;
+  --warning-soft: #451A03;
+  --illustration-blue: #1E293B;
+  --illustration-mint: #064E3B;
+  --illustration-gold: #78350F;
+  --illustration-lilac: #1E1B4B;
+  --illustration-royal: #1E3A8A;
+  --text: var(--ink);
+  --focus: #5A80FF;
+  --disabled: #71717A;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / .6);
+  --shadow-card: 0 8px 24px rgb(0 0 0 / .8);
+}
+
 /* Kelas warna semantik dipakai oleh HTML dan string kelas Alpine/JS. */
 .accent-primary { accent-color: var(--primary); }
 .bg-canvas { background-color: var(--canvas); }

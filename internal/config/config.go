@@ -115,11 +115,22 @@ func (c *Config) Validate() error {
 	if len(c.AllowedOrigins) == 0 {
 		return fmt.Errorf("BOT_JADWAL_ALLOWED_ORIGINS wajib eksplisit pada production")
 	}
-	if c.PublicBaseURL != "" {
-		u, err := url.Parse(c.PublicBaseURL)
-		if err != nil || !strings.EqualFold(u.Scheme, "https") || u.Host == "" {
-			return fmt.Errorf("BOT_JADWAL_PUBLIC_BASE_URL wajib HTTPS pada production")
+	if c.PublicBaseURL == "" {
+		return fmt.Errorf("BOT_JADWAL_PUBLIC_BASE_URL wajib diisi pada production")
+	}
+	u, err := url.Parse(c.PublicBaseURL)
+	if err != nil || !strings.EqualFold(u.Scheme, "https") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("BOT_JADWAL_PUBLIC_BASE_URL wajib berupa origin HTTPS pada production")
+	}
+	matchedOrigin := false
+	for _, origin := range c.AllowedOrigins {
+		if strings.EqualFold(strings.TrimSuffix(origin, "/"), c.PublicBaseURL) {
+			matchedOrigin = true
+			break
 		}
+	}
+	if !matchedOrigin {
+		return fmt.Errorf("BOT_JADWAL_PUBLIC_BASE_URL harus tercantum di BOT_JADWAL_ALLOWED_ORIGINS")
 	}
 	return nil
 }

@@ -4,8 +4,38 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+
+	"bot-jadwal/internal/database"
 )
+
+func TestAPIServer_ReadyRequiresV1Database(t *testing.T) {
+	server := NewServer(":8080", nil, nil, nil)
+	req := httptest.NewRequest("GET", "/api/ready", nil)
+	rr := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("tanpa DB: status=%d", rr.Code)
+	}
+
+	db, err := database.InitDB(filepath.Join(t.TempDir(), "ready.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server = NewServer(":8080", nil, nil, nil, db)
+	rr = httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("DB siap: status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	_ = db.Close()
+	rr = httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("DB tutup: status=%d", rr.Code)
+	}
+}
 
 func TestAPIServer_Health(t *testing.T) {
 	server := NewServer(":8080", nil, nil, nil)
@@ -112,10 +142,12 @@ func TestAPIServer_WebStatic(t *testing.T) {
 		t.Errorf("Expected status 200 for /c/kelas-coba (portal index.html), got %d", rrPortal.Code)
 	}
 
-	reqJS := httptest.NewRequest("GET", "/js/vendor/tailwindcss.play.js", nil)
+	reqJS := httptest.NewRequest("GET", "/js/vendor/alpine.cdn.min.js", nil)
 	rrJS := httptest.NewRecorder()
 	server.httpServer.Handler.ServeHTTP(rrJS, reqJS)
-	t.Logf("tailwindcss.play.js Status: %d, Content-Type: %q", rrJS.Code, rrJS.Header().Get("Content-Type"))
+	if rrJS.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for vendored Alpine, got %d", rrJS.Code)
+	}
 
 	reqCSS := httptest.NewRequest("GET", "/css/style.css", nil)
 	rrCSS := httptest.NewRecorder()

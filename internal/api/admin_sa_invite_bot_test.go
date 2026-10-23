@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -107,15 +108,35 @@ func TestV1Bot_TestMessageValidation(t *testing.T) {
 	defer db.Close()
 	adminToken := helperLogin(t, s, "+6281111111111", "password123")
 
-	// 1. Tanpa token 401; KM 403
+	// 1. Tanpa token 401; PJ 403
 	w := helperDo(t, s, "POST", "/api/v1/admin/bot/test-message", "", map[string]string{"to": "x@g.us", "text": "halo"})
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("tanpa token expected 401, got %d", w.Code)
 	}
-	kmToken := helperLogin(t, s, "+6281234567890", "password123")
-	w = helperDo(t, s, "POST", "/api/v1/admin/bot/test-message", kmToken, map[string]string{"to": "x@g.us", "text": "halo"})
+	pjToken := helperLogin(t, s, "+6281298765432", "password123")
+	w = helperDo(t, s, "POST", "/api/v1/admin/bot/test-message", pjToken, map[string]string{"to": "x@g.us", "text": "halo"})
 	if w.Code != http.StatusForbidden {
-		t.Fatalf("KM expected 403, got %d", w.Code)
+		t.Fatalf("PJ expected 403, got %d", w.Code)
+	}
+
+	// KM ke kanal kelas lain -> 403
+	_, err := db.Exec(`INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (2, 'D4-TI-2024-B', 'd4-ti-2024-b', 'D4 Teknik Informatika', 2024, 'B', 'ACTIVE');
+		INSERT INTO whatsapp_channels (id, class_id, jid, channel_type, display_name, status)
+		VALUES (2, 2, '120363000000000002@g.us', 'GROUP', 'Kelas Lain', 'ACTIVE');`)
+	if err != nil {
+		t.Fatalf("insert class 2 channel failed: %v", err)
+	}
+	kmToken := helperLogin(t, s, "+6281234567890", "password123")
+	w = helperDo(t, s, "POST", "/api/v1/admin/bot/test-message", kmToken, map[string]string{"to": "120363000000000002@g.us", "text": "halo"})
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("KM kanal kelas lain expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// KM ke kanal kelas sendiri lolos otorisasi -> 503 karena bot client belum jalan di test env
+	w = helperDo(t, s, "POST", "/api/v1/admin/bot/test-message", kmToken, map[string]string{"to": "120363000000000001@g.us", "text": "halo"})
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("KM kanal kelas sendiri expected 503, got %d: %s", w.Code, w.Body.String())
 	}
 
 	// 2. Payload invalid -> 422 (tujuan, teks kosong, teks >500)
@@ -191,5 +212,23 @@ func TestV1Bot_TestMessageSend(t *testing.T) {
 	ctrlDown.TestBotMessage(w, req)
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("tak terhubung expected 503, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 3. KM kirim ke kanal kelas sendiri -> 200 OK
+	newKMReq := func(payload map[string]string) (*httptest.ResponseRecorder, *http.Request) {
+		t.Helper()
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest("POST", "/api/v1/admin/bot/test-message", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		activeClassID := int64(1)
+		req = common.WithAuthContext(req, &common.UserContext{
+			UserID: 1, ActiveRole: "KM", ActiveAssignmentID: 1, ActiveClassID: sql.NullInt64{Int64: activeClassID, Valid: true},
+		})
+		return httptest.NewRecorder(), req
+	}
+	wKM, reqKM := newKMReq(map[string]string{"to": "120363000000000001@g.us", "text": "uji KM"})
+	ctrl.TestBotMessage(wKM, reqKM)
+	if wKM.Code != http.StatusOK {
+		t.Fatalf("KM kirim expected 200, got %d: %s", wKM.Code, wKM.Body.String())
 	}
 }

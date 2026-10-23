@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
 	"bot-jadwal/internal/api/legacy"
@@ -17,14 +16,6 @@ func (s *Server) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	legacy.NewHandler(s.classManager, s.taskManager, s.v1DB).HandleGetTasks(w, r)
-}
-
-func (s *Server) getLegacyTaskViewFromV1(ctx context.Context, classQuery string) ([]TaskResponseItem, error) {
-	h := s.legacyHandler
-	if h == nil {
-		h = legacy.NewHandler(s.classManager, s.taskManager, s.v1DB)
-	}
-	return h.GetLegacyTaskViewFromV1(ctx, classQuery)
 }
 
 // handleCreateTask menangani POST /api/tasks - menyimpan catatan tugas baru (Legacy Shim)

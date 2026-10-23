@@ -70,3 +70,18 @@ func TestLoadConfig_AuthSettings(t *testing.T) {
 		t.Fatal("secure cookies seharusnya aktif")
 	}
 }
+
+func TestConfig_ProductionRequiresPublicHTTPSURL(t *testing.T) {
+	cfg := &Config{Env: "production", AuthHashKey: "0123456789abcdef0123456789abcdef", SecureCookies: true, AllowedOrigins: []string{"https://jadwal.example.test"}}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("public URL kosong harus ditolak")
+	}
+	cfg.PublicBaseURL = "http://jadwal.example.test"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("public URL HTTP harus ditolak")
+	}
+	cfg.PublicBaseURL = "https://jadwal.example.test"
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("URL HTTPS valid ditolak: %v", err)
+	}
+}

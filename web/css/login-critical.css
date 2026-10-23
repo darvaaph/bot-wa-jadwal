@@ -1,0 +1,87 @@
+/* Critical CSS untuk stabilitas layout seketika (mencegah FOUC & SVG raksasa) */
+    [x-cloak] { display: none !important; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: #F8FAFC;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      padding: 1rem;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      background-color: #FFFFFF;
+      border-radius: 20px;
+      border: 1px solid #F1F5F9;
+      box-shadow: 0px 14px 32px rgba(29, 27, 58, 0.08);
+      padding: 36px 32px;
+    }
+    @media (max-width: 640px) {
+      .login-card { padding: 24px 20px; }
+    }
+    html.dark body {
+      background-color: #000000 !important;
+      color: #FFFFFF !important;
+    }
+    html.dark .login-card {
+      background-color: #0E0E12 !important;
+      border-color: #222228 !important;
+      box-shadow: 0px 14px 32px rgba(0, 0, 0, 0.8) !important;
+    }
+    html.dark .skeleton-box {
+      background-color: #1E1E24 !important;
+    }
+    html.dark .skeleton-box-light {
+      background-color: #141418 !important;
+    }
+    .login-logo {
+      height: 33px !important;
+      width: auto !important;
+      max-width: 140px;
+      display: block;
+      margin: 0 auto;
+    }
+    .login-icon-sm {
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px !important;
+      min-height: 18px !important;
+      max-width: 18px !important;
+      max-height: 18px !important;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .login-icon-md {
+      width: 20px !important;
+      height: 20px !important;
+      min-width: 20px !important;
+      min-height: 20px !important;
+      max-width: 20px !important;
+      max-height: 20px !important;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .skeleton-box {
+      background-color: #E2E8F0;
+      animation: skeletonPulse 1.8s ease-in-out infinite;
+    }
+    .skeleton-box-light {
+      background-color: #F1F5F9;
+      animation: skeletonPulse 1.8s ease-in-out infinite;
+    }

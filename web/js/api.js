@@ -9,25 +9,14 @@ function readCookie(name) {
   return '';
 }
 
-function getAuthToken() {
-  if (typeof localStorage === 'undefined') return '';
-  return localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-}
-
-function setAuthToken(token) {
+function clearStoredAuthToken() {
   if (typeof localStorage === 'undefined') return;
-  if (token) {
-    localStorage.setItem('access_token', token);
-  } else {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('token');
-  }
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('token');
 }
 
 function authHeaders(extra) {
   const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
-  const token = getAuthToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
   const csrf = readCookie('bot_jadwal_csrf');
   if (csrf) headers['X-CSRF-Token'] = csrf;
   return headers;
@@ -95,11 +84,31 @@ const DateUtil = {
       if (completed) return { level: 'aman', badge: 'Selesai' };
       const d = new Date(iso);
       if (isNaN(d)) return { level: 'aman', badge: 'Aktif' };
-      const diffH = (d - new Date()) / 3600000;
-      if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-      if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-      if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
-      return { level: 'aman', badge: 'Aktif' };
+      const now = new Date();
+      const diffMs = d - now;
+      const diffH = diffMs / 3600000;
+      if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+
+      const isToday = d.getFullYear() === now.getFullYear() &&
+                      d.getMonth() === now.getMonth() &&
+                      d.getDate() === now.getDate();
+      if (isToday) {
+        const hours = Math.floor(diffH);
+        if (hours > 0) return { level: 'mendesak', badge: `Hari ini (~${hours} jam)` };
+        const mins = Math.max(1, Math.floor(diffMs / 60000));
+        return { level: 'mendesak', badge: `Hari ini (~${mins} menit)` };
+      }
+
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const isTomorrow = d.getFullYear() === tomorrow.getFullYear() &&
+                         d.getMonth() === tomorrow.getMonth() &&
+                         d.getDate() === tomorrow.getDate();
+      if (isTomorrow) return { level: 'mendekati', badge: 'Besok (H-1)' };
+
+      const days = Math.ceil(diffH / 24);
+      if (days <= 3) return { level: 'mendekati', badge: `Sisa ${days} hari` };
+      return { level: 'aman', badge: `${days} hari lagi` };
     } catch (e) {
       return { level: 'aman', badge: 'Aktif' };
     }
@@ -180,7 +189,7 @@ const BotApi = {
       is_done: !!item.completed_at,
       is_completed: !!item.completed_at,
       is_archived: !!item.archived_at,
-      creator_name: 'PJ Mata Kuliah'
+      creator_name: item.creator_name || 'PJ Mata Kuliah'
     };
   },
 
@@ -299,6 +308,34 @@ const BotApi = {
     return true;
   },
 
+  async uncompleteTask(taskId, version) {
+    let v = version;
+    if (!v) {
+      const d = await this.getTaskDetail(taskId).catch(() => null);
+      v = d && (d.version || (d.task && d.task.version));
+    }
+    const res = await fetch('/api/v1/tasks/' + taskId + '/uncomplete', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: mutationHeaders(),
+      body: JSON.stringify({ version: v || 0 })
+    });
+    if (res.status === 401) {
+      const err = new Error('Sesi berakhir atau belum masuk.');
+      err.code = 'UNAUTHORIZED';
+      throw err;
+    }
+    if (res.status === 409) {
+      throw this.versionConflictErr('Versi tugas telah berubah. Muat ulang sebelum mengubah status.');
+    }
+    if (!res.ok) {
+      const err = new Error('Gagal mengembalikan status tugas di server.');
+      err.code = 'SAVE_FAILED';
+      throw err;
+    }
+    return true;
+  },
+
   async getTaskDetail(taskId) {
     const res = await fetch('/api/v1/tasks/' + taskId, {
       headers: authHeaders(),
@@ -327,8 +364,10 @@ const BotApi = {
       throw err;
     }
     if (res.status === 409) {
-      const err = new Error('Versi data sudah berubah, muat ulang sebelum menyimpan.');
+      const json = await res.json().catch(() => null);
+      const err = new Error((json && json.error && json.error.message) || 'Versi data sudah berubah, muat ulang sebelum menyimpan.');
       err.code = 'VERSION_CONFLICT';
+      err.payload = (json && json.data) || json || { conflict: true };
       throw err;
     }
     if (!res.ok) {
@@ -1363,26 +1402,22 @@ const BotApi = {
 
   async getPortalCourses(slug, semesterId) {
     const qs = semesterId ? '?semester_id=' + encodeURIComponent(semesterId) : '';
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/courses' + qs, { credentials: 'same-origin', headers: authHeaders() });
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/courses' + qs, { credentials: 'same-origin', headers: this.portalHeaders(slug) });
     const json = await res.json().catch(() => null);
     if (!res.ok) throw new Error((json && json.error && json.error.message) || 'Mata kuliah gagal dimuat.');
     return json.data || [];
   },
 
   async getPortalMaterials(slug, semesterId) {
-    try {
-      const qs = new URLSearchParams();
-      if (semesterId) qs.set('semester_id', String(semesterId));
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials' + (qs.toString() ? '?' + qs.toString() : ''), {
-        credentials: 'same-origin',
-        headers: this.portalHeaders(slug)
-      });
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.data || [];
-    } catch (e) {
-      return [];
-    }
+    const qs = new URLSearchParams();
+    if (semesterId) qs.set('semester_id', String(semesterId));
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/materials' + (qs.toString() ? '?' + qs.toString() : ''), {
+      credentials: 'same-origin',
+      headers: this.portalHeaders(slug)
+    });
+    if (!res.ok) throw new Error('Materi gagal dimuat.');
+    const json = await res.json();
+    return json.data || [];
   },
 
   async getPortalTasks(slug, group, semesterId) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
@@ -1432,12 +1467,16 @@ const BotApi = {
         instructions: item.instructions,
         deadline: item.deadline_at,
         deadline_at: item.deadline_at,
+        task_type: item.task_type || '',
+        submission_text: item.submission_text || '',
+        submission_url: item.submission_url || '',
         submission_target: item.submission_text || item.submission_url || 'LMS Kampus',
         status: 'PUBLISHED',
         publication_status: 'PUBLISHED',
         review_status: 'APPROVED',
         review_state: 'APPROVED',
-        is_completed: false,
+        completed_at: item.completed_at || null,
+        is_completed: Boolean(item.is_completed || item.completed_at),
         creator_name: 'PJ Mata Kuliah'
       };
     });
@@ -1491,9 +1530,7 @@ const BotApi = {
       err.payload = json && json.data ? json.data : null;
       throw err;
     }
-    if (json && json.data && json.data.token) {
-      setAuthToken(json.data.token);
-    }
+    clearStoredAuthToken();
     return json.data;
   },
 
@@ -1538,9 +1575,7 @@ const BotApi = {
       err.code = 'SWITCH_FAILED';
       throw err;
     }
-    if (json && json.data && json.data.token) {
-      setAuthToken(json.data.token);
-    }
+    clearStoredAuthToken();
     return json.data;
   },
 
@@ -1554,7 +1589,7 @@ const BotApi = {
     } catch (e) {
       // Session cleanup is best-effort; local state is cleared regardless.
     }
-    setAuthToken(null);
+    clearStoredAuthToken();
   },
 
   async acceptInvitation(token, password, displayName) {
@@ -1940,8 +1975,7 @@ const BotApi = {
     return json.data;
   },
 
-  getAuthToken: getAuthToken,
-  setAuthToken: setAuthToken
+  clearStoredAuthToken: clearStoredAuthToken
 };
 
 // Ekspor global untuk komponen Alpine.js (app-portal.js, app-km.js, app-pj.js, app-login.js, app-system-admin.js)

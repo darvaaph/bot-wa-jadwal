@@ -116,12 +116,13 @@ textarea.ui-field { min-height: 7rem; resize: vertical; }
 .ui-dialog::backdrop { background: rgb(15 23 42 / .52); }
 .ui-drawer { width: 18rem; max-width: 85vw; height: 100dvh; overflow-y: auto; background: var(--surface); box-shadow: 0 25px 50px rgb(0 0 0 / .25); }
 .ui-toast { max-width: calc(100vw - 2rem); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--deep-ink); color: white; box-shadow: var(--shadow-card); font-size: var(--type-sm); }
-.font-jbmono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+.font-jbmono { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important; font-variant-numeric: tabular-nums; }
 
 .ui-empty { max-width: 30rem; margin-inline: auto; padding: var(--space-8) var(--space-4); text-align: center; color: var(--muted); }
-.ui-skeleton { border-radius: var(--radius-md); background: var(--disabled); animation: ui-skeleton-pulse 1.6s ease-in-out infinite; }
+.ui-skeleton { border-radius: var(--radius-md); background: #E2E8F0; animation: ui-skeleton-pulse 1.6s ease-in-out infinite; }
 @keyframes ui-skeleton-pulse { 50% { opacity: .55; } }
 .ui-form-error { display: block; margin-top: var(--space-1); padding-left: var(--space-2); border-left: 3px solid var(--danger); color: var(--text); font-size: var(--type-xs); font-weight: 600; }
+.app-loading-curtain { position: fixed; inset: 0; z-index: 9999; background: var(--canvas); display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; }
 
 /* SVG dijadikan mask agar ikon navigasi mengikuti currentColor. */
 .ui-icon { display: inline-block; width: 1.25rem; height: 1.25rem; flex: none; background: currentColor; -webkit-mask: var(--ui-icon) center / contain no-repeat; mask: var(--ui-icon) center / contain no-repeat; }
@@ -180,3 +181,75 @@ textarea.ui-field { min-height: 7rem; resize: vertical; }
   background: rgb(100 116 139 / .45);
 }
 .scroll-slim::-webkit-scrollbar-thumb:hover { background: rgb(100 116 139 / .65); }
+
+/* Select native: iOS Safari mengabaikan tinggi dan padding select bawaan, jadi tampil
+   kecil dan sempit. Pakai appearance none + chevron sendiri. Select yang sudah memakai
+   appearance-none (chevron overlay sendiri) tidak disentuh. */
+select:not(.appearance-none):not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem 1rem;
+  text-overflow: ellipsis;
+}
+
+/* Di layar sentuh: target 44px dan font 16px agar iOS tidak zoom otomatis saat fokus. */
+@media (max-width: 767px) {
+  select:not(.appearance-none):not([multiple]):not([size]) {
+    min-height: 44px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+}
+
+/* Utilitas Background & Card Elevasi (Fallback Tailwind Pre-compiled) */
+.bg-\[\#FFFFFF\] {
+  background-color: #FFFFFF !important;
+}
+
+@media (min-width: 640px) {
+  .sm\:bg-white {
+    background-color: #FFFFFF !important;
+  }
+  .sm\:\[outline\:1px_solid_\#E2E8F0\] {
+    outline: 1px solid #E2E8F0 !important;
+  }
+  .sm\:\[outline-offset\:-0\.5px\] {
+    outline-offset: -0.5px !important;
+  }
+  .sm\:rounded-\[16px\] {
+    border-radius: 16px !important;
+  }
+  .sm\:\[box-shadow\:0px_4px_16px_\#0F172A0A\] {
+    box-shadow: 0px 4px 16px rgba(15, 23, 42, 0.04) !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .md\:bg-white {
+    background-color: #FFFFFF !important;
+  }
+  .md\:\[outline\:1px_solid_\#E2E8F0\] {
+    outline: 1px solid #E2E8F0 !important;
+  }
+  .md\:\[outline-offset\:-0\.5px\] {
+    outline-offset: -0.5px !important;
+  }
+  .md\:\[box-shadow\:0px_4px_16px_\#0F172A0A\] {
+    box-shadow: 0px 4px 16px rgba(15, 23, 42, 0.04) !important;
+  }
+}
+
+/* Sembunyikan default clear/cancel button pada input search agar tidak bentrok dengan tombol silang custom */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+

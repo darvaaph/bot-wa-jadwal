@@ -89,3 +89,31 @@ func TestChatSettings_TargetTablesSeparationAndBackfill(t *testing.T) {
 		t.Errorf("DM masih ada setelah delete")
 	}
 }
+
+func TestChatSettings_DashboardChannelChangesVisibleImmediately(t *testing.T) {
+	db, err := database.InitDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mgr, err := NewChatSettingsManager(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label) VALUES (1,'D4-TI-2024-A','d4-ti-2024-a','TI',2024,'A')`); err != nil {
+		t.Fatal(err)
+	}
+	jid := "120363dashboard@g.us"
+	if _, err := db.Exec(`INSERT INTO whatsapp_channels (class_id,jid,channel_type,display_name,status) VALUES (1,?,'GROUP','Kelas A','ACTIVE')`, jid); err != nil {
+		t.Fatal(err)
+	}
+	if got := mgr.GetClass(jid); got != "D4-TI-2024-A" {
+		t.Fatalf("link dashboard tidak terlihat: %q", got)
+	}
+	if _, err := db.Exec(`UPDATE whatsapp_channels SET status='REVOKED' WHERE jid=?`, jid); err != nil {
+		t.Fatal(err)
+	}
+	if got := mgr.GetClass(jid); got != "" {
+		t.Fatalf("channel revoked masih dipakai: %q", got)
+	}
+}

@@ -1,16 +1,63 @@
 <!-- partials/portal/view-dashboard.html — Portal Beranda Mahasiswa (Figma SCR-USER-DASH-001) -->
 <section x-show="view === 'dashboard'" x-cloak class="w-full flex flex-col gap-[20px]">
 
-  <!-- Sambutan Mahasiswa -->
-  <div data-pencil-name="Sambutan mahasiswa" class="w-full flex flex-col gap-[5px] text-left">
-    <div data-pencil-name="Penanda portal" class="text-[10px] text-[#475569] font-bold tracking-[0.8px] uppercase">
-      PORTAL AKADEMIK KELAS
+  <!-- Hero Spotlight Mahasiswa: Status Akademik Real-Time (Clean & Full-Width) -->
+  <div class="rounded-[16px] bg-[#1D1B3A] p-5 lg:p-7 shadow-[0px_8px_24px_rgba(15,23,42,0.08)] text-left flex flex-col justify-between gap-5" role="region" aria-label="Sorotan status perkuliahan mahasiswa">
+    <div class="flex flex-col gap-3">
+      <!-- Live Status Badge & Pekan Kuliah -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <template x-if="currentSession">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#E1FFB7] text-[#166534]">
+            <span class="w-2 h-2 rounded-full bg-[#166534] animate-pulse"></span>
+            <span>SEDANG BERLANGSUNG</span>
+          </span>
+        </template>
+        <template x-if="!currentSession && nextSession">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-[#DBEAFE] text-[#1E40AF]">
+            <span>KULIAH BERIKUTNYA</span>
+          </span>
+        </template>
+        <template x-if="!currentSession && !nextSession && jadwalEfektifHariIni.length > 0">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+            <span>SEMUA KULIAH HARI INI SELESAI</span>
+          </span>
+        </template>
+        <template x-if="jadwalEfektifHariIni.length === 0">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold bg-white/15 text-[#C7C6D8]">
+            <span>TIDAK ADA KULIAH HARI INI</span>
+          </span>
+        </template>
+        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 text-[#C7C6D8]" x-text="'Pekan Ke-' + (pekanNum || 1)"></span>
+        <span class="text-[12px] font-mono text-[#A5B4FC] font-semibold" x-text="(currentSession || nextSession) ? (((currentSession || nextSession).timeStart || '') + ' - ' + ((currentSession || nextSession).timeEnd || '') + ' WIB') : todayFull"></span>
+      </div>
+
+      <!-- Matkul Title -->
+      <div>
+        <h1 class="text-[22px] lg:text-[26px] font-bold text-white leading-tight font-display"
+            x-text="(currentSession || nextSession) ? ((currentSession || nextSession).matkul || (currentSession || nextSession).title) : (jadwalEfektifHariIni.length > 0 ? 'Semua Kuliah Hari Ini Selesai' : 'Tidak Ada Jadwal Kuliah Hari Ini')">
+        </h1>
+      </div>
+
+      <!-- Subtitle / Lokasi & Dosen / Status Agenda -->
+      <p class="text-[13px] text-[#C7C6D8] leading-relaxed max-w-3xl">
+        <template x-if="currentSession || nextSession">
+          <span>
+            <span class="text-white font-medium" x-text="'Ruang ' + ((currentSession || nextSession).ruang || '—')"></span>
+            <span x-show="(currentSession || nextSession).dosen" x-text="' · Dosen: ' + (currentSession || nextSession).dosen"></span>
+          </span>
+        </template>
+        <template x-if="!currentSession && !nextSession">
+          <span>Agenda perkuliahan hari ini telah usai. Gunakan waktu untuk istirahat atau menyelesaikan tugas kuliah.</span>
+        </template>
+      </p>
     </div>
-    <h1 data-pencil-name="Judul sambutan" class="text-[22px]/[27px] lg:text-[26px]/[32px] text-[#0F172A] font-bold font-display">
-      Halo, Mahasiswa <span x-text="selectedClass || 'D4-TI 1A'"></span>
-    </h1>
-    <div data-pencil-name="Tanggal dan pekan" class="text-[12px]/[17px] text-[#64748B] font-medium">
-      <span x-text="todayFull"></span> · <span class="hidden lg:inline">Pekan Perkuliahan Ke-</span><span class="lg:hidden">Pekan Ke-</span><span x-text="pekanNum">6</span>
+
+    <!-- Tombol Sesi Daring jika ada tautan Zoom/Meet -->
+    <div x-show="(currentSession || nextSession) && ((currentSession || nextSession).link || (currentSession || nextSession).meeting_link)" class="pt-4 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
+      <a :href="(currentSession || nextSession)?.link || (currentSession || nextSession)?.meeting_link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[12px] font-bold transition shadow-xs">
+        <svg class="w-4 h-4 fill-white" viewBox="0 0 14 14"><path d="M2.97363 11.08447q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.67334l0-6.28222q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l6.28223 0q0.40332 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 2.71386 1.36719-1.36377q0.11279-0.11279 0.25976-0.05468 0.14697 0.05469 0.14698 0.21191l0 3.26758q0 0.15723-0.14698 0.21533-0.14697 0.05469-0.25976-0.0581l-1.36719-1.36377 0 2.71386q0 0.40332-0.27002 0.67334-0.2666 0.27002-0.66992 0.27002l-6.28223 0z"/></svg>
+        <span>Gabung Kelas Daring</span>
+      </a>
     </div>
   </div>
 
@@ -155,6 +202,11 @@
                 <div class="text-[10px] lg:text-[11px]/[15px] text-[#64748B] font-medium truncate"
                      x-text="(t.matkul || 'Matkul') + (t.submission_url ? ' · Tautan Kumpul' : ' · Kumpul: LMS')">
                 </div>
+                <template x-if="String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED'">
+                  <span class="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[4px] w-fit">
+                    Menunggu Validasi KM
+                  </span>
+                </template>
               </div>
               <div :class="t.urgency === 'mendesak' ? 'bg-[#FFF1F2] border-[#FECDD3] text-[#9F1239]' : (t.urgency === 'mendekati' ? 'bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]' : 'bg-[#EFF6FF] border-[#BFDBFE] text-[#1D4ED8]')"
                    class="shrink-0 px-[8px] py-[4px] border rounded-[6px] text-[10px] font-bold whitespace-nowrap"

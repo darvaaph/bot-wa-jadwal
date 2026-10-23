@@ -190,6 +190,49 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 	}
 }
 
+func TestV1BotService_ResolveDailyItems_RespectsEffectiveDates(t *testing.T) {
+	svc := setupTestV1DB(t)
+	if _, err := svc.db.Exec(`UPDATE schedule_patterns SET effective_from='2025-01-06', effective_until='2025-01-13' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		date  string
+		count int
+	}{{"2024-12-30", 0}, {"2025-01-06", 1}, {"2025-01-13", 1}, {"2025-01-20", 0}} {
+		day, _ := time.Parse("2006-01-02", tc.date)
+		_, _, _, _, items, err := svc.ResolveDailyItems(context.Background(), 1, day)
+		if err != nil || len(items) != tc.count {
+			t.Errorf("date=%s items=%d want=%d err=%v", tc.date, len(items), tc.count, err)
+		}
+	}
+}
+
+func TestV1BotService_ResolveDailyItems_UsesClassDayForUTCEvent(t *testing.T) {
+	svc := setupTestV1DB(t)
+	_, err := svc.db.Exec(`INSERT INTO teaching_events (event_kind,starts_at,ends_at,lifecycle_status,published_by_user_id,published_at)
+		VALUES ('EXTRA','2025-01-05T18:00:00Z','2025-01-05T19:00:00Z','PUBLISHED',1,CURRENT_TIMESTAMP);
+		INSERT INTO teaching_event_offerings (teaching_event_id,course_offering_id,participation_role,participation_status)
+		VALUES (1,1,'OWNER','ACCEPTED')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	day := time.Date(2025, 1, 6, 0, 0, 0, 0, loc)
+	_, _, _, _, items, err := svc.ResolveDailyItems(context.Background(), 1, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, item := range items {
+		if item.Status == "EXTRA" && item.StartTime == "01:00" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("acara 01:00 WIB tidak ada: %+v", items)
+	}
+}
+
 func TestV1BotService_GetWeeklySchedule(t *testing.T) {
 	svc := setupTestV1DB(t)
 	ctx := context.Background()
@@ -327,5 +370,71 @@ func TestV1BotService_HandleScheduleCommand(t *testing.T) {
 	res, err = svc.HandleScheduleCommand(ctx, 1, "!next", refNow)
 	if err != nil || !strings.Contains(res, "SEDANG BERLANGSUNG") {
 		t.Errorf("HandleScheduleCommand !next gagal: %v, res: %s", err, res)
+	}
+}
+
+func TestFormatClassDisplayName(t *testing.T) {
+	label := formatClassDisplayName("D4-TI-2025-A", "D4 Teknik Informatika", 2025, "A", "2026/2027")
+	expected := "D4 TEKNIK INFORMATIKA 2A (Angkatan 2025)"
+	if label != expected {
+		t.Errorf("formatClassDisplayName gagal: got %q, want %q", label, expected)
+	}
+
+	labelD3 := formatClassDisplayName("D3-TI-2024-C", "D3 Teknik Informatika", 2024, "C", "2026/2027")
+	expectedD3 := "D3 TEKNIK INFORMATIKA 3C (Angkatan 2024)"
+	if labelD3 != expectedD3 {
+		t.Errorf("formatClassDisplayName D3 gagal: got %q, want %q", labelD3, expectedD3)
+	}
+}
+
+func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
+	svc := setupTestV1DB(t)
+	ctx := context.Background()
+
+	mondayDate := time.Date(2025, 1, 6, 9, 0, 0, 0, time.UTC)
+	resp, err := svc.GetSchedule(ctx, 1, mondayDate)
+	if err != nil {
+		t.Fatalf("GetSchedule gagal: %v", err)
+	}
+
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍"}
+	for _, emoji := range slopEmojis {
+		if strings.Contains(resp, emoji) {
+			t.Errorf("Output GetSchedule masih memuat emoji AI-slop %s: %s", emoji, resp)
+		}
+	}
+
+	if !strings.Contains(resp, "- Waktu:") || !strings.Contains(resp, "- Ruang:") {
+		t.Errorf("Output GetSchedule harus memuat format bullet strip (-): %s", resp)
+	}
+
+	// Verifikasi GetTasks bebas emoji dekoratif dan menggunakan strip
+	dl := time.Now().Add(48 * time.Hour).Format(time.RFC3339)
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Algoritma AntiSlop', 'Buat laporan praktikum', ?,
+		          'Kumpul di Portal', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dl)
+	if err != nil {
+		t.Fatalf("Insert task gagal: %v", err)
+	}
+
+	respTasks, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks gagal: %v", err)
+	}
+
+	for _, emoji := range slopEmojis {
+		if strings.Contains(respTasks, emoji) {
+			t.Errorf("Output GetTasks masih memuat emoji AI-slop %s: %s", emoji, respTasks)
+		}
+	}
+
+	if !strings.Contains(respTasks, "- ID Tugas:") || !strings.Contains(respTasks, "- Tenggat :") {
+		t.Errorf("Output GetTasks harus memuat format bullet strip (-): %s", respTasks)
 	}
 }

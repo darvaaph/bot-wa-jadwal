@@ -1,20 +1,50 @@
-<div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer"></div>
+<div id="{{prefix}}-banner" class="app-support-banner" :inert="drawer" x-init="initTheme()"></div>
+
+<!-- Layar Pembuka / Loading Curtain (Option A: Clean Reveal) -->
+<div x-show="dashboardLoading && view !== '__error'"
+     x-cloak
+     x-transition:leave="transition ease-out duration-300"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0 pointer-events-none"
+     class="app-loading-curtain"
+     role="status"
+     aria-label="Menyiapkan ruang kerja">
+  <!-- Brand Icon Box dengan Animasi Pulse Halus -->
+  <div class="box-border w-[52px] h-[52px] flex items-center justify-center bg-[#3965FB] rounded-[15px] shadow-sm animate-pulse">
+    <svg width="28" height="30" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+      <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+      <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+      <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+    </svg>
+  </div>
+  <div class="mt-4 flex flex-col items-center gap-1.5">
+    <span class="text-[17px] font-extrabold tracking-[0.8px] text-[#1D1B3A] font-heading">ASTERISK</span>
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-[#3965FB] animate-ping" aria-hidden="true"></span>
+      <span class="text-[12px] font-medium text-[#667085]">Menyiapkan ruang kerja...</span>
+    </div>
+  </div>
+</div>
 
 <aside class="app-sidebar hidden md:flex flex-col fixed left-0 top-0 h-screen bg-white border-r border-[#EEEEEE] py-5 z-40 overflow-y-auto scroll-slim transition-[width,padding] duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'w-[76px] px-3 sidebar-collapsed' : 'w-[248px] px-4'" aria-label="Navigasi utama">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] shrink-0" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex flex-row justify-center items-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
-        <div class="sidebar-label min-w-0 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-extrabold tracking-[1.1px] text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
-          <span class="block text-[11px] font-semibold text-[#667085] leading-tight">System Admin</span>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+          <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight uppercase tracking-wider">System Admin</span>
         </div>
       </button>
-      <div class="sidebar-section shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="sidebar-section relative shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="(dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : '') + (lingkupDropdownOpen ? ' z-30' : ' z-10')" @click.outside="lingkupDropdownOpen = false">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -25,17 +55,58 @@
           </div>
         </template>
         <template x-if="!dukunganAktif">
-        <label class="relative flex items-center gap-2 min-h-[36px] cursor-pointer">
-          <span class="text-[16px] leading-none shrink-0" aria-hidden="true">🏢</span>
-          <span class="sr-only">Lingkup kerja</span>
-          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB] rounded-lg">
-            <option value="">Seluruh Kampus</option>
-            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
-          </svg>
-        </label>
+          <div class="w-full">
+            <button type="button"
+                    @click="toggleLingkupDropdown()"
+                    :aria-expanded="String(lingkupDropdownOpen)"
+                    aria-haspopup="listbox"
+                    aria-label="Pilih lingkup kerja"
+                    class="w-full flex items-center gap-2 min-h-[34px] -mx-1 px-1.5 py-1 rounded-[8px] hover:bg-white/80 transition-colors text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+              <svg class="w-4 h-4 text-[#3965FB] shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M1 14.5a.5.5 0 00.5.5h13a.5.5 0 000-1h-1v-11a.5.5 0 00-.5-.5H3a.5.5 0 00-.5.5v11h-1a.5.5 0 00-.5.5zM3.5 3h9v11h-9V3zm2 2a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm-4 4a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9z"/>
+              </svg>
+              <span class="min-w-0 flex-1 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="lingkupLabel()">Seluruh Kampus</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200" :class="lingkupDropdownOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+                <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
+              </svg>
+            </button>
+
+            <!-- Menu Popover Dropdown -->
+            <div x-show="lingkupDropdownOpen"
+                 x-cloak
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-1"
+                 role="listbox"
+                 aria-label="Pilihan lingkup kerja"
+                 style="background-color: #FFFFFF;"
+                 class="absolute left-0 right-0 top-full mt-2 z-50 bg-[#FFFFFF] border border-[#D7DDE7] rounded-[10px] shadow-xl py-1 max-h-[220px] overflow-y-auto scroll-slim">
+              <button type="button"
+                      role="option"
+                      :aria-selected="String(!lingkupKelas)"
+                      @click="pilihLingkup('')"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                      :class="!lingkupKelas ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                <span class="truncate">Seluruh Kampus</span>
+                <span x-show="!lingkupKelas" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+              </button>
+              <div class="h-px bg-[#EEEEEE] my-1"></div>
+              <template x-for="k in kelasList" :key="k.slug">
+                <button type="button"
+                        role="option"
+                        :aria-selected="String(lingkupKelas === k.slug)"
+                        @click="pilihLingkup(k.slug)"
+                        class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                        :class="lingkupKelas === k.slug ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="k.nama"></span>
+                  <span x-show="lingkupKelas === k.slug" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </template>
       </div>
       <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px] shrink-0">
@@ -80,28 +151,30 @@
   </template>
   <template x-if="shellRoleKey === 'km'">
     <div class="contents">
-      <div class="flex items-center w-full min-h-[44px] shrink-0" :class="sidebarCollapsed ? 'justify-center' : 'gap-3 px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"/>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
         <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
-          <span class="block text-[11px] font-semibold text-[#3965FB] leading-tight">Ketua Murid</span>
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
+            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
+          </div>
         </div>
-      </div>
-      <div class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
+      </button>
+      <div x-show="contextAssignments && contextAssignments.length > 1" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
         <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <template x-if="contextAssignments && contextAssignments.length > 1">
-            <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
-              <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-            </select>
-          </template>
-          <template x-if="!contextAssignments || contextAssignments.length <= 1">
-            <div class="w-full min-w-0 pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="kmClassName()"></div>
-          </template>
+          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+          </select>
           <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
             <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
           </svg>
@@ -160,28 +233,27 @@
   </template>
   <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0 transition-colors" :class="sidebarCollapsed ? 'justify-center' : 'justify-start gap-[10px] px-1'">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
           </svg>
         </div>
-        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[3px] text-left">
-          <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight truncate">Bot Jadwal</span>
-          <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+          <span class="inline-flex items-center px-1.5 py-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[5px] text-[10px] font-bold text-[#1D4ED8] w-fit leading-tight">Mahasiswa</span>
         </div>
       </button>
 
-      <div x-show="!sidebarCollapsed" class="sidebar-section mt-4 box-border w-full h-fit shrink-0 flex flex-col gap-[5px] p-[12px_14px] justify-start items-start bg-[#F8FAFC] border border-[#D7DDE7] rounded-[12px]">
-        <span class="text-[10px] font-bold text-[#64748B] font-[Montserrat,system-ui,sans-serif] tracking-[0.5px] uppercase">KELAS AKTIF</span>
-        <span class="text-[12px]/[16px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] truncate w-full" x-text="selectedClassMeta?.label || selectedClass || 'Kelas belum dipilih'"></span>
-      </div>
-
-      <nav aria-label="Navigasi portal mahasiswa" class="mt-4 flex flex-col gap-1 text-[12px] shrink-0 w-full">
+      <nav aria-label="Navigasi portal mahasiswa" class="mt-4 flex flex-col gap-1 text-[14px] shrink-0 w-full">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
-          <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="(shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold ' : 'text-[#475569] hover:bg-slate-50 font-semibold ') + (sidebarCollapsed ? 'justify-center' : 'gap-[12px] px-[12px]')" class="flex items-center w-full h-[44px] rounded-[10px] text-left transition-colors font-[Montserrat,system-ui,sans-serif]">
-            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-[19px] h-[19px]" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
-            <span x-show="!sidebarCollapsed" class="sidebar-label text-[12px] leading-tight" x-text="item.label"></span>
+          <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="(shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold ' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium ') + (sidebarCollapsed ? 'justify-center' : 'gap-3 px-3')" class="flex items-center w-full h-[44px] rounded-[10px] text-left transition-colors">
+            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
+            <span x-show="!sidebarCollapsed" class="sidebar-label text-[14px] leading-tight" x-text="item.label"></span>
           </button>
         </template>
       </nav>
@@ -194,10 +266,10 @@
                   aria-label="Ganti kelas portal"
                   class="flex items-center text-left rounded-xl hover:bg-slate-50 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
-            <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
+            <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight truncate group-hover:text-[#1D4ED8] transition-colors">Mahasiswa Kelas</span>
-              <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClassFormatted || 'Kelas'"></span>
+              <span class="block text-[11px] font-bold text-[#0F172A] leading-tight truncate group-hover:text-[#1D4ED8] transition-colors">Mahasiswa Kelas</span>
+              <span class="block text-[10px] font-medium text-[#64748B] leading-tight truncate" x-text="selectedClassFormatted || 'Kelas'"></span>
             </div>
             <svg x-show="!sidebarCollapsed" width="19" height="19" viewBox="0 0 14 14" fill="#64748B" class="w-[19px] h-[19px] shrink-0 text-[#64748B] group-hover:text-[#1D4ED8] transition-colors" aria-hidden="true" focusable="false">
               <path d="M9.96338 7.29053l-6.75391 0q-0.12646 0-0.21191-0.08203-0.08203-0.08545-0.08203-0.2085 0-0.12305 0.08203-0.20508 0.08545-0.08545 0.21191-0.08545l6.75391 0-3.17188-3.17187q-0.08545-0.08545-0.09228-0.20166-0.00342-0.11621 0.0957-0.21192 0.0957-0.0957 0.20508-0.0957 0.10938-0.00342 0.20508 0.0957l3.54785 3.54785q0.0752 0.0752 0.10596 0.15381 0.03418 0.07861 0.03418 0.17432 0 0.0957-0.03418 0.17432-0.03076 0.07861-0.10596 0.1538l-3.54785 3.54786q-0.08203 0.08203-0.19824 0.08886-0.11621 0.00684-0.21192-0.08886-0.09912-0.0957-0.09912-0.20508 0-0.11279 0.09912-0.2085l3.16846-3.17187z"/>
@@ -209,29 +281,31 @@
   </template>
   <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
-      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center min-w-[44px] min-h-[44px] rounded-xl hover:bg-slate-50 shrink-0" :class="sidebarCollapsed ? 'justify-center self-start' : 'justify-start w-full px-1'">
-        <span class="flex items-center gap-3 min-w-0">
-          <span class="w-[42px] h-[42px] shrink-0 rounded-[12px] bg-[#3965FB] flex items-center justify-center">
-            <img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" />
-          </span>
-          <span x-show="!sidebarCollapsed" class="sidebar-label text-left min-w-0 flex flex-col gap-[2px]">
-            <span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span>
-            <span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit bg-[#EFF6FF] text-[#1D4ED8]">PJ Matkul</span>
-          </span>
-        </span>
+      <button type="button" @click="toggleSidebar()" :aria-expanded="String(!sidebarCollapsed)" :aria-label="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" :title="sidebarCollapsed ? 'Lebarkan navigasi' : 'Ciutkan navigasi'" class="flex items-center w-full rounded-2xl text-left min-h-[44px] hover:bg-slate-50 transition-colors cursor-pointer shrink-0" :class="sidebarCollapsed ? 'justify-center p-1' : 'gap-3 p-1'">
+        <!-- Kotak Icon Bintang Asterisk -->
+        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px] shadow-xs">
+          <svg width="22" height="24" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+            <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+            <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+            <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+          </svg>
+        </div>
+        <!-- Brand & Role Label (Hanya tampil saat terbuka) -->
+        <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
+          <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
+            <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="pjClassName()" x-text="pjClassName() ? ('· ' + pjClassName()) : ''"></span>
+          </div>
+        </div>
       </button>
-      <div x-show="!sidebarCollapsed" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
+      <div x-show="!sidebarCollapsed && contextAssignments && contextAssignments.length > 1" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
         <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <template x-if="contextAssignments && contextAssignments.length > 1">
-            <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
-              <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-            </select>
-          </template>
-          <template x-if="!contextAssignments || contextAssignments.length <= 1">
-            <div class="w-full min-w-0 pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="dashboardData?.class?.label || selectedClass || 'Kelas belum tersedia'"></div>
-          </template>
-          <svg x-show="contextAssignments && contextAssignments.length > 1" width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
+          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+          </select>
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
             <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
           </svg>
         </label>
@@ -279,11 +353,15 @@
       <template x-if="shellRoleKey === 'sa'">
         <div class="contents">
           <div class="md:hidden flex items-center gap-2.5 min-w-0">
-            <span class="flex items-center justify-center w-[38px] h-[38px] rounded-[10px] bg-[#3965FB] text-white shrink-0" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false"><path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z"/></svg>
-            </span>
+            <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+              <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+              </svg>
+            </div>
             <span class="min-w-0">
-              <span class="block text-[14px] font-extrabold tracking-wider text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
+              <span class="block text-[14px] font-bold text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
               <span class="block text-[10px] font-semibold text-[#667085] leading-tight truncate">System Admin</span>
             </span>
           </div>
@@ -325,13 +403,15 @@
         <div class="contents">
           <!-- Mobile brand -->
           <div class="md:hidden flex items-center gap-2.5 min-w-0">
-            <span class="flex items-center justify-center w-[38px] h-[38px] rounded-[10px] bg-[#3965FB] text-white shrink-0" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 14 14" fill="#FFFFFF" class="w-5 h-5 shrink-0" aria-hidden="true" focusable="false">
-                <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z"/>
+            <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+              <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
               </svg>
-            </span>
+            </div>
             <span class="min-w-0">
-              <span class="block text-[14px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
+              <span class="block text-[14px] font-bold text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
               <span class="block text-[10px] font-semibold text-[#3965FB] leading-tight truncate">Ketua Murid</span>
             </span>
           </div>
@@ -401,27 +481,36 @@
           <!-- Mobile top bar -->
           <div class="md:hidden flex items-center justify-between w-full">
             <div class="flex items-center gap-[8px] min-w-0">
-              <span class="text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight whitespace-nowrap">Bot Jadwal</span>
-              <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClassFormatted || 'Kelas'"></button>
+              <div class="w-[28px] h-[28px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[8px] shadow-xs">
+                <svg width="15" height="16" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true">
+                  <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+                  <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+                  <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+                </svg>
+              </div>
+              <span class="text-[14px] font-bold text-[#0F172A] font-heading leading-tight whitespace-nowrap">ASTERISK</span>
+              <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClassFormatted || 'Kelas'"></button>
             </div>
             <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
               <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
-              <span class="text-[9px] text-[#065F46] font-bold font-[Montserrat,system-ui,sans-serif] whitespace-nowrap">Terhubung</span>
+              <span class="text-[9px] text-[#065F46] font-bold whitespace-nowrap">Terhubung</span>
             </div>
           </div>
 
           <!-- Desktop top bar -->
           <div class="hidden md:flex items-center justify-between w-full">
-            <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px] font-[Montserrat,system-ui,sans-serif]">
+            <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px]">
               <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Portal</button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClassFormatted || 'Kelas'"></button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <span class="text-[#0F172A] font-bold truncate" x-text="view === 'materi' ? 'Materi Perkuliahan' : ((navSections[0]?.items?.find(item => item.id === view)?.label) || 'Beranda')"></span>
             </nav>
-            <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
-              <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
-              <span class="text-[11px] text-[#065F46] font-bold font-[Montserrat,system-ui,sans-serif] whitespace-nowrap">Bot Terhubung</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="flex items-center gap-[6px] px-[10px] py-[6px] bg-[#ECFDF5] border border-[#A7F3D0] rounded-full shrink-0">
+                <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
+                <span class="text-[11px] text-[#065F46] font-bold whitespace-nowrap">Bot Terhubung</span>
+              </div>
             </div>
           </div>
         </div>
@@ -438,8 +527,8 @@
             <svg width="24" height="24" viewBox="0 0 14 14" fill="currentColor" class="w-6 h-6 shrink-0 transition-transform duration-[280ms] ease-[cubic-bezier(0.4,0,0.2,1)]" :class="sidebarCollapsed ? 'rotate-180' : ''" aria-hidden="true" focusable="false"><path d="M2.29004 10.61963q-0.28027 0-0.47168-0.19141-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.1914l6.31299 0q0.28027 0 0.46826 0.19482 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z m8.69189-1.06983l-2.07129-2.08496q-0.19482-0.19824-0.19482-0.46484 0-0.2666 0.19482-0.46484l2.06788-2.08496q0.18457-0.18799 0.46484-0.18799 0.28027 0 0.46826 0.18799 0.18115 0.18457 0.18115 0.46142 0.00342 0.27344-0.17773 0.45801l-1.61328 1.63037 1.61328 1.63379q0.18115 0.18457 0.17773 0.46142 0 0.27344-0.18457 0.45801-0.18457 0.18457-0.46826 0.18457-0.27685 0-0.46143-0.18799z m-8.69189-1.88671q-0.28027 0-0.47168-0.19141-0.18799-0.19141-0.18799-0.47168 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l4.59033 0q0.28027 0 0.46826 0.19141 0.19141 0.19141 0.19141 0.47168 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-4.59033 0z m0-2.95655q-0.28027 0-0.47168-0.1914-0.18799-0.19482-0.18799-0.4751 0-0.28027 0.18799-0.46826 0.19141-0.19141 0.47168-0.19141l6.31299 0q0.28027 0 0.46826 0.19483 0.19141 0.19141 0.19141 0.47167 0 0.28027-0.19141 0.47168-0.18799 0.18799-0.46826 0.18799l-6.31299 0z"/></svg>
           </button>
 
-          <!-- Breadcrumb PJ Dinamis Sesuai Figma -->
-          <nav aria-label="Breadcrumb" class="flex-1 min-w-0 flex items-center gap-2 text-[13px] overflow-hidden">
+          <!-- Breadcrumb PJ Dinamis Sesuai Figma (Desktop: Breadcrumbs lengkap, Mobile: Judul Halaman & Tombol Kembali) -->
+          <nav aria-label="Breadcrumb" class="hidden md:flex flex-1 min-w-0 items-center gap-2 text-[13px] overflow-hidden">
             <template x-for="(crumb, idx) in pjBreadcrumbs()" :key="idx">
               <div class="flex items-center gap-2 min-w-0 shrink-0">
                 <span x-show="idx > 0" class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
@@ -449,6 +538,27 @@
               </div>
             </template>
           </nav>
+          <div class="md:hidden flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden">
+            <!-- Tombol Kembali Subview Tugas -->
+            <template x-if="['tambah', 'detail-tugas', 'ubah-tugas', 'preview', 'konfirmasi', 'terbit'].includes(view)">
+              <button type="button" @click="view = 'tugas'" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 shrink-0 cursor-pointer" aria-label="Kembali ke Tugas">
+                <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M5.896 7l2.478 2.478q0.082 0.082 0.085 0.202 0.007 0.116-0.085 0.208-0.096 0.096-0.208 0.096t-0.205-0.096L5.401 7.328q-0.075-0.075-0.106-0.154-0.03-0.078-0.03-0.174t0.03-0.174q0.031-0.079 0.106-0.154l2.56-2.56q0.082-0.082 0.198-0.089 0.12-0.007 0.215 0.089 0.092 0.092 0.092 0.205t-0.092 0.205L5.896 7z"/></svg>
+              </button>
+            </template>
+            <!-- Tombol Kembali Subview Jadwal -->
+            <template x-if="['pindah', 'perubahan'].includes(view)">
+              <button type="button" @click="view = 'jadwal'" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 shrink-0 cursor-pointer" aria-label="Kembali ke Jadwal">
+                <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M5.896 7l2.478 2.478q0.082 0.082 0.085 0.202 0.007 0.116-0.085 0.208-0.096 0.096-0.208 0.096t-0.205-0.096L5.401 7.328q-0.075-0.075-0.106-0.154-0.03-0.078-0.03-0.174t0.03-0.174q0.031-0.079 0.106-0.154l2.56-2.56q0.082-0.082 0.198-0.089 0.12-0.007 0.215 0.089 0.092 0.092 0.092 0.205t-0.092 0.205L5.896 7z"/></svg>
+              </button>
+            </template>
+            <!-- Tombol Kembali Halaman Sekunder PJ ke Dashboard -->
+            <template x-if="['semester', 'audit', 'status', 'akun'].includes(view)">
+              <button type="button" @click="view = 'dashboard'" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 shrink-0 cursor-pointer" aria-label="Kembali ke Dashboard">
+                <svg width="20" height="20" viewBox="0 0 14 14" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M5.896 7l2.478 2.478q0.082 0.082 0.085 0.202 0.007 0.116-0.085 0.208-0.096 0.096-0.208 0.096t-0.205-0.096L5.401 7.328q-0.075-0.075-0.106-0.154-0.03-0.078-0.03-0.174t0.03-0.174q0.031-0.079 0.106-0.154l2.56-2.56q0.082-0.082 0.198-0.089 0.12-0.007 0.215 0.089 0.092 0.092 0.092 0.205t-0.092 0.205L5.896 7z"/></svg>
+              </button>
+            </template>
+            <span class="text-[14px] font-bold text-[#0F172A] truncate" x-text="pjMobileTitle()"></span>
+          </div>
 
           <button type="button" @click="checkBot()" :title="botOnline ? 'WhatsApp terhubung. Klik untuk periksa ulang.' : 'WhatsApp terputus. Klik untuk periksa ulang.'" class="hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold shrink-0 min-h-[30px] transition-colors" :class="botOnline ? 'bg-[#E1FFB7] text-[#166534]' : 'bg-red-100 text-red-800'">
             <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-[15px] h-[15px] shrink-0" aria-hidden="true" focusable="false"><path d="M6.17285 7.92627l-1.16211-1.16211q-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.458 0.18115-0.18115 0.18115-0.18116 0.45801 0.00342 0.27686 0.18457 0.45801l1.60645 1.60644q0.20166 0.19824 0.46826 0.19824 0.2666 0 0.46826-0.19824l3.24366-3.24365q0.18115-0.18115 0.18115-0.45459 0-0.27686-0.18115-0.45801-0.18115-0.18115-0.45801-0.18115-0.27686 0-0.45801 0.18115l-2.7959 2.7959z m0.82715 5.02441q-1.2373 0-2.32422-0.46826-1.0835-0.46826-1.88672-1.27148-0.80322-0.80322-1.27148-1.88672-0.46826-1.08691-0.46826-2.32422 0-1.2373 0.46826-2.3208 0.46826-1.08691 1.27148-1.89014 0.80322-0.80322 1.88672-1.27148 1.08691-0.46826 2.32422-0.46826 1.2373 0 2.3208 0.46826 1.08691 0.46826 1.89014 1.27148 0.80322 0.80322 1.27148 1.89014 0.46826 1.0835 0.46826 2.3208 0 1.2373-0.46826 2.32422-0.46826 1.0835-1.27148 1.88672-0.80322 0.80322-1.89014 1.27148-1.0835 0.46826-2.3208 0.46826z m0-1.32617q1.94141 0 3.28125-1.33984 1.34326-1.34326 1.34326-3.28467 0-1.94141-1.34326-3.28125-1.33984-1.34326-3.28125-1.34326-1.94141 0-3.28467 1.34326-1.33984 1.33984-1.33984 3.28125 0 1.94141 1.33984 3.28467 1.34326 1.33984 3.28467 1.33984z"/></svg>
@@ -456,22 +566,26 @@
           </button>
 
           <!-- Notifikasi -->
-          <button type="button" @click="shellGo({id: shellBellTarget()})" aria-label="Buka notifikasi" class="relative min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:bg-slate-50 shrink-0 text-[#667085] hover:text-[#1D1B3A] transition-colors">
+          <button type="button" @click="shellGo({id: shellBellTarget()})" aria-label="Buka notifikasi" class="relative min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:bg-slate-50 shrink-0 text-[#667085] hover:text-[#1D1B3A] transition-colors cursor-pointer">
             <svg width="23" height="23" viewBox="0 0 14 14" fill="currentColor" class="w-[23px] h-[23px] shrink-0" aria-hidden="true" focusable="false"><path d="M2.87793 11.20068q-0.28027 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483l0.46143 0 0-3.96484q0-1.25439 0.74853-2.23877 0.74854-0.98438 1.9585-1.28858l0-0.37939q0-0.39648 0.27685-0.67334 0.28027-0.28027 0.67676-0.28027 0.39648 0 0.67334 0.28027 0.28027 0.27686 0.28027 0.67334l0 0.37939q1.21338 0.3042 1.9585 1.28858 0.74854 0.98096 0.74854 2.23877l0 3.96484 0.46142 0q0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826 0 0.28027-0.19141 0.47168-0.19141 0.19141-0.47168 0.1914l-8.24414 0z m4.12549 1.79102q-0.49902 0-0.85449-0.35547-0.35547-0.35547-0.35547-0.85107l2.4165 0q0 0.49902-0.35547 0.85449-0.35547 0.35205-0.85107 0.35205z m-2.33789-3.11719l4.66894 0 0-3.96484q0-0.96045-0.68701-1.64746-0.68359-0.68701-1.64746-0.68701-0.96387 0-1.65088 0.68701-0.68359 0.68359-0.68359 1.64746l0 3.96484z"/></svg>
             <span x-show="shellAttentionCount() > 0" class="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-ink text-[10px] font-bold flex items-center justify-center" x-text="shellAttentionCount() > 9 ? '9+' : shellAttentionCount()"></span>
+          </button>
+
+          <!-- Profil Akun PJ (Mobile: min-h 44px tap target) -->
+          <button type="button" @click="bukaModalProfilPJ()" aria-label="Buka profil PJ" class="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 cursor-pointer">
+            <span class="w-[36px] h-[36px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[12px] font-bold flex items-center justify-center hover:ring-2 hover:ring-[#3965FB]/30 transition-all" x-text="pjInitials()">PJ</span>
           </button>
         </div>
       </template>
     </div>
   </header>
-  <main id="main-content" tabindex="-1" class="flex-1 w-full min-w-0 max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-24 md:pb-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+  <main id="main-content" tabindex="-1" class="flex-1 w-full min-w-0 max-w-[1280px] mx-auto px-4 md:px-8 py-6 pb-32 md:pb-10 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
     <div x-show="view === '__error' && pageState" x-cloak class="ui-empty max-w-[480px]" role="alert">
       <div class="w-28 h-28 mx-auto rounded-full bg-primary-soft flex items-center justify-center text-primary text-[32px] font-bold" x-text="pageState?.status === 'offline' ? '↯' : pageState?.status"></div>
       <h1 class="mt-6 text-[24px] font-bold text-ink" x-text="pageState?.status === 'offline' ? 'Koneksi terputus' : pageState?.status === '404' ? 'Halaman tidak ditemukan' : 'Ada gangguan server'"></h1>
       <p class="mt-2 text-muted" x-text="pageState?.status === 'offline' ? 'Periksa jaringan internet Anda, lalu coba memuat ulang.' : pageState?.status === '404' ? 'Tautan mungkin sudah berubah.' : 'Data belum berhasil dimuat. Coba lagi beberapa saat.'"></p>
       <button type="button" @click="pageState?.status === '404' ? go('dashboard') : location.reload()" class="ui-button ui-button--primary mt-8" x-text="pageState?.status === '404' ? 'Kembali ke Ringkasan' : 'Coba lagi'"></button>
     </div>
-    <div x-show="dashboardLoading && view !== '__error'" x-cloak role="status" aria-label="Memuat ringkasan"><span class="sr-only">Memuat ringkasan</span><div class="ui-skeleton h-8 w-2/3"></div><div class="ui-skeleton h-4 w-1/3 mt-3"></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6" aria-hidden="true"><div class="ui-skeleton h-[120px]"></div><div class="ui-skeleton h-[120px]"></div><div class="ui-skeleton h-[120px]"></div></div></div>
     {{viewSlots}}
   </main>
 </div>
@@ -480,19 +594,23 @@
 <aside x-show="drawer" x-cloak x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" @keydown="shellTrapDrawer($event)" class="app-mobile-drawer ui-drawer scroll-slim fixed left-0 top-0 z-50 md:hidden flex flex-col px-4 py-5" role="dialog" aria-modal="true" :aria-label="'Menu ' + shellIdentity().label">
   <template x-if="shellRoleKey === 'sa'">
     <div class="contents">
-      <div class="flex items-center gap-3 px-1">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex flex-row justify-center items-center bg-[#3965FB] rounded-[12px]">
-          <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
-          </svg>
-        </div>
-        <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-extrabold tracking-[1.1px] text-[#1D1B3A] leading-tight truncate">ASTERISK</span>
-          <span class="block text-[11px] font-semibold text-[#667085] leading-tight">System Admin</span>
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight uppercase tracking-wider">System Admin</span>
+          </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="shrink-0 min-h-[76px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : ''">
+      <div class="relative shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[7px] p-[12px] bg-[#F6F7FB] [outline:1px_solid_#D7DDE7] [outline-offset:-0.5px] rounded-[12px]" :class="(dukunganAktif ? 'bg-[#FEF3C7] [outline:1px_solid_#FCD34D]' : '') + (lingkupDropdownOpen ? ' z-30' : ' z-10')" @click.outside="lingkupDropdownOpen = false">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">LINGKUP KERJA</p>
         <template x-if="dukunganAktif">
           <div class="flex items-center gap-2 min-h-[36px]" title="Lingkup dikunci selama Mode Dukungan">
@@ -503,17 +621,58 @@
           </div>
         </template>
         <template x-if="!dukunganAktif">
-        <label class="relative flex items-center gap-2 min-h-[36px] cursor-pointer">
-          <span class="text-[16px] leading-none shrink-0" aria-hidden="true">🏢</span>
-          <span class="sr-only">Lingkup kerja</span>
-          <select x-model="lingkupKelas" @change="onLingkupChange()" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-            <option value="">Seluruh Kampus</option>
-            <template x-for="k in kelasList" :key="k.slug"><option :value="k.slug" x-text="k.nama"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
-          </svg>
-        </label>
+          <div class="w-full">
+            <button type="button"
+                    @click="toggleLingkupDropdown()"
+                    :aria-expanded="String(lingkupDropdownOpen)"
+                    aria-haspopup="listbox"
+                    aria-label="Pilih lingkup kerja"
+                    class="w-full flex items-center gap-2 min-h-[34px] -mx-1 px-1.5 py-1 rounded-[8px] hover:bg-white/80 transition-colors text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+              <svg class="w-4 h-4 text-[#3965FB] shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M1 14.5a.5.5 0 00.5.5h13a.5.5 0 000-1h-1v-11a.5.5 0 00-.5-.5H3a.5.5 0 00-.5.5v11h-1a.5.5 0 00-.5.5zM3.5 3h9v11h-9V3zm2 2a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V5zm-4 4a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9zm4 0a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5V9z"/>
+              </svg>
+              <span class="min-w-0 flex-1 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="lingkupLabel()">Seluruh Kampus</span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200" :class="lingkupDropdownOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+                <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
+              </svg>
+            </button>
+
+            <!-- Menu Popover Dropdown -->
+            <div x-show="lingkupDropdownOpen"
+                 x-cloak
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-1"
+                 role="listbox"
+                 aria-label="Pilihan lingkup kerja"
+                 style="background-color: #FFFFFF;"
+                 class="absolute left-0 right-0 top-full mt-2 z-50 bg-[#FFFFFF] border border-[#D7DDE7] rounded-[10px] shadow-xl py-1 max-h-[220px] overflow-y-auto scroll-slim">
+              <button type="button"
+                      role="option"
+                      :aria-selected="String(!lingkupKelas)"
+                      @click="pilihLingkup('')"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                      :class="!lingkupKelas ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                <span class="truncate">Seluruh Kampus</span>
+                <span x-show="!lingkupKelas" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+              </button>
+              <div class="h-px bg-[#EEEEEE] my-1"></div>
+              <template x-for="k in kelasList" :key="k.slug">
+                <button type="button"
+                        role="option"
+                        :aria-selected="String(lingkupKelas === k.slug)"
+                        @click="pilihLingkup(k.slug)"
+                        class="w-full flex items-center justify-between px-3 py-2 text-left text-[13px] transition-colors cursor-pointer"
+                        :class="lingkupKelas === k.slug ? 'bg-[#EEF2FF] text-[#3965FB] font-semibold' : 'text-[#1D1B3A] hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="k.nama"></span>
+                  <span x-show="lingkupKelas === k.slug" class="text-[#3965FB] shrink-0 text-[12px] font-bold" aria-hidden="true">✓</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </template>
       </div>
       <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px] shrink-0">
@@ -557,29 +716,31 @@
   </template>
   <template x-if="shellRoleKey === 'km'">
     <div class="contents">
-      <div class="flex items-center gap-3 px-1">
-        <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-          <svg width="22" height="22" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[22px] h-[22px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.19483 0.47168 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"/>
-          </svg>
-        </div>
-        <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-          <span class="block text-[17px] font-bold text-[#1D1B3A] leading-tight truncate">Bot Jadwal</span>
-          <span class="block text-[11px] font-semibold text-[#3965FB] leading-tight">Ketua Murid</span>
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
+              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
+            </div>
+          </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
+      <div x-show="contextAssignments && contextAssignments.length > 1" class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
         <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <template x-if="contextAssignments && contextAssignments.length > 1">
-            <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-              <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-            </select>
-          </template>
-          <template x-if="!contextAssignments || contextAssignments.length <= 1">
-            <div class="w-full min-w-0 pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="kmClassName()"></div>
-          </template>
+          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
+            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+          </select>
           <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
             <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
           </svg>
@@ -628,37 +789,35 @@
   <template x-if="shellRoleKey === 'portal'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
-        <div class="flex items-center gap-[10px]">
-          <div class="box-border w-[42px] h-[42px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[12px]">
-            <svg width="25" height="25" viewBox="0 0 14 14" fill="#FFFFFF" class="w-[25px] h-[25px] shrink-0" aria-hidden="true" focusable="false">
-              <path d="M7 12.36963q-0.28027 0-0.47168-0.19141-0.19141-0.19482-0.19141-0.47168l0-3.11377-2.20117 2.20801q-0.19824 0.20166-0.47168 0.20166-0.27002-0.00342-0.47168-0.20508-0.19824-0.19824-0.19824-0.46826 0-0.27002 0.19824-0.46826l2.20459-2.19434-3.10351 0q-0.27686 0-0.47168-0.1914-0.19141-0.19141-0.19141-0.47168 0-0.28027 0.19141-0.47168 0.19482-0.19141 0.47168-0.19141l3.11377 0-2.20801-2.20117q-0.19824-0.19482-0.19824-0.46484 0-0.27344 0.19824-0.47168 0.19482-0.20166 0.46826-0.20166 0.27344-0.00342 0.47168 0.19824l2.19775 2.20459 0-3.11035q0-0.27686 0.19141-0.46826 0.19141-0.19482 0.47168-0.19483 0.28027 0 0.47168 0.19483 0.19141 0.19141 0.19141 0.46826l0 3.10351 2.19091-2.19775q0.19824-0.20166 0.47168-0.20166 0.27344 0 0.47168 0.20166 0.20166 0.19824 0.20166 0.47168 0 0.27344-0.20166 0.47168l-2.20459 2.19775 3.11377 0q0.27685 0 0.46826 0.19141 0.19482 0.19141 0.47168 0.19141 0 0.28027-0.19483 0.47168-0.19141 0.19141-0.46826 0.1914l-3.10693 0 2.20117 2.19434q0.20166 0.19824 0.20166 0.46826 0 0.27002-0.20166 0.46826-0.19824 0.20166-0.47168 0.20166-0.27002 0-0.46826-0.20166l-2.19775-2.20117 0 3.11035q0 0.27685-0.19141 0.47168-0.19141 0.19141-0.47168 0.19141z" fill="#FFFFFF"></path>
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
             </svg>
           </div>
-          <div class="flex flex-col gap-[3px]">
-            <span class="block text-[14px] font-bold text-[#0F172A] font-[Poppins,system-ui,sans-serif] leading-tight">Bot Jadwal</span>
-            <span class="inline-flex items-center px-[7px] py-[2px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] font-[Montserrat,system-ui,sans-serif] w-fit leading-tight">Mahasiswa</span>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[5px] text-[10px] font-bold text-[#1D4ED8] w-fit leading-tight">Mahasiswa</span>
           </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="mt-4 box-border w-full h-fit shrink-0 flex flex-col gap-[5px] p-[12px_14px] justify-start items-start bg-[#F8FAFC] border border-[#D7DDE7] rounded-[12px]">
-        <span class="text-[10px] font-bold text-[#64748B] font-[Montserrat,system-ui,sans-serif] tracking-[0.5px] uppercase">KELAS AKTIF</span>
-        <span class="text-[12px]/[16px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] truncate w-full" x-text="selectedClassMeta?.label || selectedClass || 'Kelas belum dipilih'"></span>
-      </div>
-      <nav aria-label="Navigasi mobile portal" class="mt-4 flex flex-col gap-1 text-[12px]">
+      <nav aria-label="Navigasi mobile portal" class="mt-4 flex flex-col gap-1 text-[14px]">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
-          <button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-bold' : 'text-[#475569] hover:bg-slate-50 font-semibold'" class="flex items-center gap-[12px] px-[12px] h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors font-[Montserrat,system-ui,sans-serif]">
-            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-[19px] h-[19px]" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
-            <span class="flex-1 text-left text-[12px]" x-text="item.label"></span>
+          <button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium'" class="flex items-center gap-3 px-3 h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors">
+            <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
+            <span class="flex-1 text-left text-[14px]" x-text="item.label"></span>
           </button>
         </template>
       </nav>
       <div class="mt-auto pt-3 px-1 border-t border-[#E2E8F0]">
         <button type="button" @click="classModalOpen = true; shellCloseDrawer()" class="flex items-center gap-[10px] w-full p-2 rounded-xl hover:bg-slate-50 transition-colors text-left">
-          <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold font-[Montserrat,system-ui,sans-serif] flex items-center justify-center shrink-0">MH</div>
+          <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold flex items-center justify-center shrink-0">MH</div>
           <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-            <span class="block text-[11px] font-bold text-[#0F172A] font-[Montserrat,system-ui,sans-serif] leading-tight">Mahasiswa Kelas</span>
-            <span class="block text-[10px] font-medium text-[#64748B] font-[Montserrat,system-ui,sans-serif] leading-tight truncate" x-text="selectedClass || 'Kelas'"></span>
+            <span class="block text-[11px] font-bold text-[#0F172A] leading-tight">Mahasiswa Kelas</span>
+            <span class="block text-[10px] font-medium text-[#64748B] leading-tight truncate" x-text="selectedClassFormatted || 'Kelas'"></span>
           </div>
           <span class="text-[11px] font-bold text-[#1D4ED8]">Ganti</span>
         </button>
@@ -668,29 +827,31 @@
   <template x-if="shellRoleKey === 'pj'">
     <div class="contents">
       <div class="flex items-center justify-between px-1">
-        <span class="flex items-center gap-3">
-          <span class="w-[42px] h-[42px] rounded-[12px] bg-[#3965FB] flex items-center justify-center">
-            <img src="/assets/icons/km-asterisk.svg" alt="" width="25" height="25" class="h-[25px] w-[25px]" />
-          </span>
-          <span class="flex flex-col gap-[2px]">
-            <span class="block text-[17px] font-bold leading-tight text-[#1D1B3A]">Bot Jadwal</span>
-            <span class="inline-block px-2 py-0.5 rounded-[6px] text-[11px] font-bold w-fit bg-[#EFF6FF] text-[#1D4ED8]">PJ Matkul</span>
-          </span>
-        </span>
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="box-border w-[40px] h-[40px] shrink-0 flex items-center justify-center bg-[#3965FB] rounded-[11px] shadow-xs">
+            <svg width="21" height="23" viewBox="0 0 53 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0" aria-hidden="true" focusable="false">
+              <rect x="21" width="10" height="57" fill="#FFFFFF"/>
+              <rect x="5.66364" y="48.5243" width="10" height="57" transform="rotate(-124.497 5.66364 48.5243)" fill="#FFFFFF"/>
+              <rect x="50.1887" y="42.4932" width="10" height="57" transform="rotate(129.809 50.1887 42.4932)" fill="#FFFFFF"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex flex-col gap-[2px]">
+            <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] w-fit leading-tight shrink-0">PJ Matkul</span>
+              <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="pjClassName()" x-text="pjClassName() ? ('· ' + pjClassName()) : ''"></span>
+            </div>
+          </div>
+        </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
-       </div>
-      <div class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
+      </div>
+      <div x-show="contextAssignments && contextAssignments.length > 1" class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
         <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
         <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <template x-if="contextAssignments && contextAssignments.length > 1">
-            <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-              <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-            </select>
-          </template>
-          <template x-if="!contextAssignments || contextAssignments.length <= 1">
-            <div class="w-full min-w-0 pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate" x-text="dashboardData?.class?.label || selectedClass || 'Kelas belum tersedia'"></div>
-          </template>
-          <svg x-show="contextAssignments && contextAssignments.length > 1" width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
+          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
+            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+          </select>
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
             <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
           </svg>
         </label>
@@ -718,11 +879,24 @@
 
 <nav aria-label="Navigasi bawah" :inert="drawer || (shellRoleKey === 'sa' && (modalLogout || modalProfilAdmin)) || (shellRoleKey === 'pj' && (modalLogout || modalProfilPJ)) || (shellRoleKey === 'km' && (modalLogout || modalProfilKM))" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
   <div class="grid grid-cols-4 h-[68px]">
-    <template x-for="item in shellBottomNav()" :key="item.id"><button type="button" @click="shellGo(item, $event)" :aria-current="shellBottomIsActive(item) ? 'page' : null" :aria-label="item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover' : 'text-muted'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center"><span class="px-3 py-1 rounded-full" :class="shellRoleKey === 'sa' ? '' : (shellBottomIsActive(item) ? 'bg-primary-soft' : '')"><span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span><span x-show="shellRoleKey === 'km'" x-html="kmIcon(item.id, shellBottomIsActive(item))" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span><span x-show="shellRoleKey !== 'sa' && shellRoleKey !== 'km'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span></span><span class="text-[11px] font-semibold truncate max-w-full px-1" x-text="item.label"></span></button></template>
+    <template x-for="item in shellBottomNav()" :key="item.id">
+      <button type="button" @click="shellGo(item, $event)" :aria-current="item.id !== '__more' && shellBottomIsActive(item) ? 'page' : null" :aria-expanded="item.id === '__more' ? String(drawer) : null" :aria-label="item.ariaLabel || item.label" :class="shellBottomIsActive(item) ? 'text-primary-hover font-bold' : 'text-muted font-medium'" class="min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-1 text-center relative transition-colors">
+        <span class="px-3 py-1 rounded-full relative flex items-center justify-center" :class="shellBottomIsActive(item) ? 'bg-primary-soft text-primary' : ''">
+          <span x-show="shellRoleKey === 'sa'" x-html="saTabIcon(item)" aria-hidden="true"></span>
+          <span x-show="shellRoleKey === 'km'" x-html="kmIcon(item.id, shellBottomIsActive(item))" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span>
+          <span x-show="shellRoleKey === 'pj'" x-html="pjNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span>
+          <span x-show="shellRoleKey !== 'sa' && shellRoleKey !== 'km' && shellRoleKey !== 'pj'" class="material-symbols-outlined text-[20px]" aria-hidden="true" x-text="item.icon"></span>
+          <template x-if="shellRoleKey === 'pj' && item.id === 'tugas' && pjReviewCount() > 0">
+            <span class="absolute -top-1 -right-1 min-w-[17px] h-[17px] rounded-full bg-[#FEF3C7] text-[#92400E] text-[10px] font-bold flex items-center justify-center px-1 border border-[#FCD34D]" x-text="pjReviewCount()"></span>
+          </template>
+        </span>
+        <span class="text-[11px] truncate max-w-full px-1" x-text="item.label"></span>
+      </button>
+    </template>
   </div>
 </nav>
 
-<div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
+<div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-28 md:bottom-6 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
 
 <!-- Dialog Profil Administrator (SCR-ADM-PROFILE-MODAL) -->
 <div x-show="shellRoleKey === 'sa' && modalProfilAdmin"
@@ -823,7 +997,7 @@
   <div class="fixed inset-0" @click="tutupModalProfilPJ()" aria-hidden="true"></div>
 
   <!-- Dialog Box (460px) -->
-  <div class="relative w-full max-w-[460px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+  <div class="relative w-full max-w-[460px] max-h-[90vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
        @click.stop>
     <!-- Header Profil -->
     <div class="w-full flex items-start justify-between pb-3 border-b border-[#F2F4F7]">
@@ -873,6 +1047,20 @@
         <span class="text-[#667085]">Status Bot WA</span>
         <span :class="botOnline ? 'text-[#15803D]' : 'text-[#667085]'" class="font-medium" x-text="botOnline ? 'Aktif' : 'Standby'">Standby</span>
       </div>
+    </div>
+
+    <!-- Pindah Ruang Kerja Cepat (Hanya tampil jika Multi-Assignment) -->
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="w-full p-3 bg-blue-50/70 border border-blue-200 rounded-[12px]">
+      <label for="modal-pj-context-select" class="block text-[11px] font-bold text-blue-900 uppercase tracking-wider">Pindah Ruang Kerja</label>
+      <select id="modal-pj-context-select"
+              :value="meCache?.active_assignment?.id || ''"
+              @change="switchContextById($event.target.value); tutupModalProfilPJ()"
+              :disabled="contextSwitching"
+              class="mt-1.5 w-full min-h-[44px] h-10 px-3 rounded-lg border border-blue-300 bg-white text-slate-900 text-[12px] font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer">
+        <template x-for="a in contextAssignments || []" :key="a.id">
+          <option :value="a.id" x-text="contextLabel(a)"></option>
+        </template>
+      </select>
     </div>
 
     <!-- Info Footer -->
@@ -991,7 +1179,7 @@
   <div class="fixed inset-0" @click="tutupModalLogout()" aria-hidden="true"></div>
 
   <!-- Dialog Box (400px) -->
-  <div class="relative w-full max-w-[400px] bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
+  <div class="relative w-full max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#FFFFFF] rounded-[16px] shadow-[0px_20px_48px_rgba(16,24,40,0.25)] flex flex-col p-[24px] gap-[16px] border border-[#E4E7EC] z-10"
        @click.stop>
     <!-- Tombol Tutup (X) -->
     <button type="button"

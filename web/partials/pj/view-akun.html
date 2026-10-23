@@ -1,24 +1,65 @@
 <!-- partials/pj/view-akun.html — PJ Akun + pindah peran ke KM (role switcher) -->
 <section x-show="view === 'akun'" x-cloak>
-  <h1 class="font-display text-[26px] md:text-[30px] font-bold">Akun</h1>
-  <p class="text-[14px] text-slate-500 mt-1">Profil dan peran pengelola.</p>
-  <div class="ui-card mt-5 p-5 max-w-xl">
-    <div class="flex items-center gap-3">
-      <span class="w-12 h-12 rounded-full bg-primary-soft text-primary-hover font-bold flex items-center justify-center">PJ</span>
-      <div>
-        <p class="font-semibold">PJ Mata Kuliah</p>
-        <p class="text-[12px] text-slate-500"><span x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</span> · Kelas <span class="font-mono" x-text="selectedClass">-</span></p>
+  <div class="mb-4">
+    <h1 class="font-display text-[22px] sm:text-[26px] md:text-[30px] font-bold text-slate-900 tracking-tight">Pengaturan Akun</h1>
+    <p class="text-[13px] sm:text-[14px] text-slate-500 mt-1">Profil penugasan dan preferensi ruang kerja PJ.</p>
+  </div>
+
+  <div class="p-5 sm:p-6 rounded-2xl border border-slate-200 bg-white shadow-xs max-w-xl space-y-5">
+    <!-- Profil PJ Card -->
+    <div class="flex items-center gap-3.5">
+      <div class="w-13 h-13 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 font-bold flex items-center justify-center text-[16px] shrink-0"
+           x-text="pjInitials ? pjInitials() : 'PJ'">
+        PJ
+      </div>
+      <div class="min-w-0">
+        <p class="font-bold text-[16px] text-slate-900" x-text="currentUser?.display_name || 'PJ Mata Kuliah'">PJ Mata Kuliah</p>
+        <p class="text-[12px] sm:text-[13px] text-slate-500 mt-0.5">
+          <span class="font-medium text-slate-700" x-text="pjMatkul || 'Mata kuliah belum dipilih'">-</span>
+          <span>· Kelas</span>
+          <span class="font-mono font-semibold text-slate-800" x-text="selectedClass || 'D4-TI 1A'">-</span>
+        </p>
       </div>
     </div>
-    <div x-show="contextAssignments.length > 1" class="mt-4 p-4 rounded-xl bg-primary-soft/50 border border-illustration-blue">
-      <label for="pj-context-select" class="text-[13px] font-semibold">Pindah ruang kerja</label>
-      <p class="text-[12px] text-slate-500 mt-0.5">Pilih penugasan aktif agar izin dan data mengikuti konteks yang benar.</p>
-      <select id="pj-context-select" :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="ui-field mt-2 w-full text-[14px] disabled:opacity-60">
-        <template x-for="a in contextAssignments" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
+
+    <!-- Pindah Ruang Kerja (Jika Memiliki Multi-Assignment) -->
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="p-4 rounded-xl bg-blue-50/70 border border-blue-200">
+      <label for="pj-context-select" class="block text-[13px] font-bold text-blue-900">Pindah Ruang Kerja</label>
+      <p class="text-[12px] text-blue-700 mt-0.5">Pilih penugasan aktif agar izin dan data tugas mengikuti mata kuliah yang sesuai.</p>
+      <select id="pj-context-select"
+              :value="meCache && meCache.active_assignment ? meCache.active_assignment.id : ''"
+              @change="switchContextById($event.target.value)"
+              :disabled="contextSwitching"
+              class="mt-2.5 w-full min-h-[44px] h-11 px-3.5 rounded-xl border border-blue-300 bg-white text-slate-900 text-[13px] font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-60 cursor-pointer">
+        <template x-for="a in contextAssignments" :key="a.id">
+          <option :value="a.id" x-text="contextLabel(a)"></option>
+        </template>
       </select>
     </div>
-    <div class="flex flex-wrap gap-2 mt-4">
-      <button type="button" @click="logout()" class="ui-button ui-button--ghost h-11 px-4 rounded-xl border border-red-200 text-red-700 text-[13px] font-medium hover:bg-red-50 min-h-[44px]">Keluar</button>
+
+    <!-- Info Kelas Aktif -->
+    <div class="pt-4 border-t border-slate-100 flex flex-col gap-2 text-[12px] text-slate-500">
+      <div class="flex justify-between items-center py-1">
+        <span>Peran Aktif</span>
+        <span class="font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">Penanggung Jawab (PJ)</span>
+      </div>
+      <div class="flex justify-between items-center py-1">
+        <span>Semester Aktif</span>
+        <span class="font-semibold text-slate-700" x-text="semesterStatus || 'Aktif'">Aktif</span>
+      </div>
+      <div x-show="!contextAssignments || contextAssignments.length <= 1" class="flex justify-between items-center py-1">
+        <span>Status Penugasan</span>
+        <span class="font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">Penugasan Tunggal</span>
+      </div>
+    </div>
+
+    <!-- Aksi Keluar -->
+    <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+      <button type="button" @click="logout()"
+              class="w-full sm:w-auto min-h-[44px] h-11 px-5 rounded-xl border border-rose-200 bg-white text-rose-700 text-[13px] font-bold hover:bg-rose-50 hover:border-rose-300 transition-colors cursor-pointer flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">logout</span>
+        <span>Keluar dari Akun</span>
+      </button>
     </div>
   </div>
 </section>

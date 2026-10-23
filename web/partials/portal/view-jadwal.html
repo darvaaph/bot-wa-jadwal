@@ -1,6 +1,5 @@
 <!-- partials/portal/view-jadwal.html — Portal Jadwal Mahasiswa (Redesain Figma Desktop & Mobile 390) -->
-<section x-show="view === 'jadwal'" x-cloak
-  class="w-full flex flex-col gap-[20px] p-[20px_16px_36px_16px] md:p-[30px_32px_36px_32px]">
+<section x-show="view === 'jadwal'" x-cloak class="w-full flex flex-col gap-[20px]">
 
   <!-- Judul dan konteks jadwal -->
   <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[5px] justify-start items-start">
@@ -8,7 +7,7 @@
       Jadwal Perkuliahan
     </h1>
     <p
-      class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-sans font-medium text-left">
+      class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
       Jadwal efektif kelas <span class="font-semibold text-[#334155]"
         x-text="selectedClassFormatted || 'D4-TI 1A'">D4-TI 1A</span> pekan ini, termasuk kuliah pengganti resmi.
     </p>
@@ -16,14 +15,14 @@
 
   <!-- Navigasi Pekan dan Legenda Portal (DESKTOP) -->
   <div
-    class="box-border w-full h-[60px] shrink-0 [box-shadow:0px_3px_12px_#0F172A08] hidden md:flex flex-row p-[10px_16px] justify-between items-center bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
+    class="box-border w-full h-[60px] shrink-0 [box-shadow:0px_3px_12px_#0F172A08] hidden md:flex flex-row p-[10px_16px] justify-between items-center bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
     <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[12px] justify-start items-center">
       <!-- Kontrol Stepper Pekan -->
       <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] justify-start items-center">
         <div
-          class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-0 justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[10px] overflow-hidden">
+          class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-0 justify-start items-center bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[10px] overflow-hidden">
           <button type="button" @click="prevWeek()" title="Minggu Sebelumnya"
-            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row justify-center items-center bg-[#FFFFFF] hover:bg-slate-50 transition-colors">
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row justify-center items-center bg-white hover:bg-slate-50 transition-colors">
             <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
               <path
                 d="M5.896 7l2.478 2.478a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L5.4 7.33a.47.47 0 0 1 0-.66l2.56-2.56a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L5.896 7z"
@@ -38,14 +37,14 @@
             </div>
             <div
               class="box-border w-fit shrink-0 h-fit flex flex-row px-[8px] py-[4px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
-              <span class="text-[11px] text-[#475467] font-sans font-semibold whitespace-nowrap"
+              <span class="text-[11px] text-[#475467] font-semibold whitespace-nowrap"
                 x-text="'Pekan ' + pekanAktifNum">
                 Pekan 6
               </span>
             </div>
           </div>
           <button type="button" @click="nextWeek()" title="Minggu Berikutnya"
-            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row justify-center items-center bg-[#FFFFFF] hover:bg-slate-50 transition-colors">
+            class="box-border w-[40px] shrink-0 h-[40px] flex flex-row justify-center items-center bg-white hover:bg-slate-50 transition-colors">
             <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
               <path
                 d="M7.755 7L5.277 4.522a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l2.56 2.56a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L7.755 7z"
@@ -54,24 +53,24 @@
           </button>
         </div>
         <button type="button" @click="mingguIni()"
-          class="box-border w-fit shrink-0 h-[40px] flex flex-row px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[8px] transition-colors">
-          <span class="text-[12px] text-[#1D1B3A] font-sans font-semibold whitespace-nowrap">Minggu Ini</span>
+          class="box-border w-fit shrink-0 h-[40px] flex flex-row px-[12px] justify-start items-center bg-white hover:bg-slate-50 [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[8px] transition-colors">
+          <span class="text-[12px] text-[#1D1B3A] font-semibold whitespace-nowrap">Minggu Ini</span>
         </button>
       </div>
 
       <!-- Riwayat Perubahan -->
       <button type="button" @click="bukaRiwayatPerubahan()"
-        class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[6px] px-[12px] justify-start items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[8px] transition-colors"
+        class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[6px] px-[12px] justify-start items-center bg-white hover:bg-slate-50 [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[8px] transition-colors"
         title="Riwayat Perubahan Jadwal">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
-          <path
-            d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z"
-            fill="#475569" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-slate-600">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l4 2" />
         </svg>
-        <span class="text-[11px] text-[#334155] font-sans font-bold whitespace-nowrap">Riwayat Perubahan</span>
+        <span class="text-[11px] text-[#334155] font-bold whitespace-nowrap">Riwayat Perubahan</span>
         <div
           class="box-border w-fit shrink-0 h-fit flex flex-row px-[6px] py-[3px] justify-start items-center bg-[#FEF3C7] rounded-[10px]">
-          <span class="text-[10px] text-[#92400E] font-sans font-bold whitespace-nowrap"
+          <span class="text-[10px] text-[#92400E] font-bold whitespace-nowrap"
             x-text="perubahanList.length || 0">0</span>
         </div>
       </button>
@@ -81,110 +80,128 @@
     <div
       class="box-border w-fit shrink-0 h-[40px] flex flex-row gap-[2px] p-[4px] justify-start items-center bg-[#F1F5F9] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]">
       <button type="button" @click="modeTampilan = 'kalender'"
-        :class="modeTampilan === 'kalender' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#3965FB]' : 'bg-[#F1F5F9] text-[#667085] hover:text-[#334155]'"
+        :class="modeTampilan === 'kalender' ? 'bg-white [box-shadow:0px_1px_3px_#0F172A12] text-[#3965FB]' : 'bg-[#F1F5F9] text-[#667085] hover:text-[#334155]'"
         class="box-border w-fit shrink-0 h-[32px] flex flex-row gap-[6px] px-[12px] justify-start items-center rounded-[8px] transition-all">
         <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M2.693 11.084a.94.94 0 0 1-.943-.943V3.859c0-.52.423-.943.943-.943h8.613c.52 0 .943.423.943.943v6.282c0 .52-.423.943-.943.943H2.693zm4.597-.584h1.897v-7H7.29v7zm-2.478 0h1.897v-7H4.812v7zm-2.12 0h1.535v-7H2.693a.36.36 0 0 0-.36.36v6.28c0 .2.16.36.36.36zm7.08 0h1.534a.36.36 0 0 0 .36-.36v-6.28a.36.36 0 0 0-.36-.36h-1.535v7z" />
         </svg>
-        <span class="text-[12px] font-sans font-bold whitespace-nowrap">Kalender</span>
+        <span class="text-[12px] font-bold whitespace-nowrap">Kalender</span>
       </button>
       <button type="button" @click="modeTampilan = 'daftar'"
-        :class="modeTampilan === 'daftar' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#3965FB]' : 'bg-[#F1F5F9] text-[#667085] hover:text-[#334155]'"
+        :class="modeTampilan === 'daftar' ? 'bg-white [box-shadow:0px_1px_3px_#0F172A12] text-[#3965FB]' : 'bg-[#F1F5F9] text-[#667085] hover:text-[#334155]'"
         class="box-border w-fit shrink-0 h-[32px] flex flex-row gap-[6px] px-[12px] justify-start items-center rounded-[8px] transition-all">
         <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M4.758 5.318a.29.29 0 0 1-.294-.297.29.29 0 0 1 .294-.29h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.297H4.758zm0 1.972a.29.29 0 0 1-.294-.293.29.29 0 0 1 .294-.291h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.294H4.758zm0 1.976a.29.29 0 0 1-.294-.291.29.29 0 0 1 .294-.294h6.617a.29.29 0 0 1 .29.294.29.29 0 0 1-.29.291H4.758zM2.693 5.385a.36.36 0 0 1-.36-.369.36.36 0 0 1 .36-.349.36.36 0 0 1 .358.35.36.36 0 0 1-.358.368zm0 1.965a.36.36 0 0 1-.36-.352.36.36 0 0 1 .36-.369.36.36 0 0 1 .358.37.36.36 0 0 1-.358.351zm0 1.986a.36.36 0 0 1-.36-.376.36.36 0 0 1 .36-.345.36.36 0 0 1 .358.345.36.36 0 0 1-.358.376z" />
         </svg>
-        <span class="text-[12px] font-sans font-medium whitespace-nowrap">Daftar</span>
+        <span class="text-[12px] font-medium whitespace-nowrap">Daftar</span>
       </button>
     </div>
   </div>
 
   <!-- Navigasi Pekan dan Hari (MOBILE) -->
-  <div class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[10px] justify-start items-start">
-    <div class="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center">
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row items-center">
-        <button type="button" @click="prevWeek()" title="Pekan Sebelumnya"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center text-slate-600 active:bg-slate-100 rounded-lg">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
+  <div class="box-border w-full h-fit shrink-0 flex md:hidden flex-col gap-[12px] justify-start items-start">
+    <div class="box-border w-full h-fit shrink-0 flex flex-row justify-between items-center gap-2">
+      <!-- Stepper Pekan Terpadu (Fitts's Law >= 44px) -->
+      <div class="inline-flex items-center bg-white border border-slate-200/90 rounded-xl shadow-2xs overflow-hidden h-[44px]">
+        <button type="button" @click="prevWeek()" title="Pekan Sebelumnya" aria-label="Pekan Sebelumnya"
+          class="w-[44px] h-[44px] flex justify-center items-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+          <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
             <path
               d="M5.896 7l2.478 2.478a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L5.4 7.33a.47.47 0 0 1 0-.66l2.56-2.56a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L5.896 7z" />
           </svg>
         </button>
-        <div class="text-[12px] text-[#1E293B] font-sans font-bold whitespace-nowrap" x-text="rentangPekanSingkatLabel">
+        <div class="px-2.5 text-[12px] text-slate-800 font-bold whitespace-nowrap border-x border-slate-100" x-text="rentangPekanSingkatLabel">
           5 - 11 Okt (Pekan 6)
         </div>
-        <button type="button" @click="nextWeek()" title="Pekan Berikutnya"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center text-slate-600 active:bg-slate-100 rounded-lg">
-          <svg viewBox="0 0 14 14" class="w-[20px] h-[20px] shrink-0" fill="currentColor">
+        <button type="button" @click="nextWeek()" title="Pekan Berikutnya" aria-label="Pekan Berikutnya"
+          class="w-[44px] h-[44px] flex justify-center items-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors">
+          <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
             <path
               d="M7.755 7L5.277 4.522a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l2.56 2.56a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L7.755 7z" />
           </svg>
         </button>
       </div>
 
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[8px] items-center">
+      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-2 items-center">
         <button type="button" @click="mingguIni()"
-          class="box-border w-fit shrink-0 h-[44px] px-[5px] flex items-center text-[12px] text-[#2563EB] font-sans font-bold">
-          Hari Ini
+          class="h-[44px] px-3 flex items-center text-[12px] text-blue-600 font-bold bg-white border border-slate-200/90 rounded-xl hover:bg-blue-50/50 active:bg-blue-50 shadow-2xs transition-colors">
+          Pekan Ini
         </button>
         <button type="button" @click="bukaRiwayatPerubahan()"
-          class="box-border w-[44px] shrink-0 h-[44px] flex justify-center items-center" title="Riwayat Perubahan">
-          <div
-            class="box-border w-[36px] shrink-0 h-[36px] flex justify-center items-center bg-[#F1F5F9] rounded-full relative">
-            <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0 text-slate-600" fill="currentColor">
-              <path
-                d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
-            </svg>
-            <template x-if="perubahanList && perubahanList.length > 0">
-              <div
-                class="box-border w-[10px] h-[10px] absolute right-[-1px] top-[-1px] bg-[#F59E0B] border-2 border-white rounded-full">
-              </div>
-            </template>
-          </div>
+          class="relative w-[44px] h-[44px] flex justify-center items-center rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 transition-all border border-slate-200/90 shadow-2xs"
+          title="Riwayat Perubahan Jadwal"
+          aria-label="Riwayat Perubahan Jadwal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] shrink-0 text-slate-700">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M12 7v5l4 2" />
+          </svg>
+          <template x-if="perubahanList && perubahanList.length > 0">
+            <span
+              class="box-border w-[9px] h-[9px] absolute -top-0.5 -right-0.5 bg-amber-500 border-2 border-white rounded-full">
+            </span>
+          </template>
         </button>
       </div>
     </div>
 
-    <!-- Pengalih Mode Jadwal Mobile (Per Hari vs Semua Pekan) -->
+    <!-- Pengalih Mode Jadwal Mobile (Harian vs Mingguan) -->
     <div data-pencil-name="Pengalih mode jadwal mobile"
-      class="box-border w-full h-[52px] shrink-0 flex flex-row gap-[4px] p-[4px] justify-start items-center bg-[#F1F5F9] rounded-[10px]">
+      class="box-border w-full h-[48px] shrink-0 flex flex-row gap-[4px] p-[4px] justify-start items-center bg-slate-100 rounded-xl border border-slate-200/80">
       <button type="button" @click="mobileJadwalMode = 'per_hari'"
-        :class="mobileJadwalMode === 'per_hari' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#2563EB] font-bold' : 'bg-[#F1F5F9] text-[#64748B] font-medium hover:text-[#334155]'"
-        class="box-border flex-1 h-[44px] flex flex-row gap-[5px] justify-center items-center rounded-[8px] transition-all">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
+        :class="mobileJadwalMode === 'per_hari' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
+        class="flex-1 h-[40px] flex flex-row gap-1.5 justify-center items-center rounded-lg transition-all">
+        <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M3.274 9.334q-.39 0-.666-.273-.274-.277-.274-.67V5.61q0-.393.274-.667.277-.276.666-.276h7.452q.39 0 .663.276.277.274.277.667v2.782q0 .393-.277.67-.273.273-.663.273H3.274zm0-.584h7.452q.157 0 .256-.1.103-.1.103-.26V5.61q0-.157-.103-.256-.1-.103-.256-.103H3.274q-.157 0-.26.103-.1.1-.1.256v2.782q0 .157.1.26.1.1.26.1zm-.663-5.476q-.113 0-.195-.082-.082-.085-.082-.208 0-.123.082-.205.085-.085.208-.085h8.764q.113 0 .195.085.082.082.082.205 0 .123-.085.208-.082.082-.205.082H2.611zm0 8.032q-.113 0-.195-.082-.082-.085-.082-.208 0-.123.082-.205.085-.085.208-.085h8.764q.113 0 .195.085.082.082.082.205 0 .123-.085.208-.082.082-.205.082H2.611z" />
         </svg>
-        <span class="text-[12px] font-sans whitespace-nowrap">Per Hari</span>
+        <span class="text-[12px] whitespace-nowrap">Harian</span>
       </button>
       <button type="button" @click="mobileJadwalMode = 'semua_pekan'"
-        :class="mobileJadwalMode === 'semua_pekan' ? 'bg-[#FFFFFF] [box-shadow:0px_1px_3px_#0F172A12] text-[#2563EB] font-bold' : 'bg-[#F1F5F9] text-[#64748B] font-medium hover:text-[#334155]'"
-        class="box-border flex-1 h-[44px] flex flex-row gap-[5px] justify-center items-center rounded-[8px] transition-all">
-        <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
+        :class="mobileJadwalMode === 'semua_pekan' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
+        class="flex-1 h-[40px] flex flex-row gap-1.5 justify-center items-center rounded-lg transition-all">
+        <svg viewBox="0 0 14 14" class="w-[15px] h-[15px] shrink-0" fill="currentColor">
           <path
             d="M4.758 5.318a.29.29 0 0 1-.294-.297.29.29 0 0 1 .294-.29h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.297H4.758zm0 1.972a.29.29 0 0 1-.294-.293.29.29 0 0 1 .294-.291h6.617a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.294H4.758zm0 1.976a.29.29 0 0 1-.294-.291.29.29 0 0 1 .294-.294h6.617a.29.29 0 0 1 .29.294.29.29 0 0 1-.29.291H4.758zM2.693 5.385a.36.36 0 0 1-.36-.369.36.36 0 0 1 .36-.349.36.36 0 0 1 .358.35.36.36 0 0 1-.358.368zm0 1.965a.36.36 0 0 1-.36-.352.36.36 0 0 1 .36-.369.36.36 0 0 1 .358.37.36.36 0 0 1-.358.351zm0 1.986a.36.36 0 0 1-.36-.376.36.36 0 0 1 .36-.345.36.36 0 0 1 .358.345.36.36 0 0 1-.358.376z" />
         </svg>
-        <span class="text-[12px] font-sans whitespace-nowrap">Semua Pekan (Daftar)</span>
+        <span class="text-[12px] whitespace-nowrap">Mingguan</span>
       </button>
     </div>
 
     <!-- Strip Tanggal Satu Baris (Mobile - hanya tampil saat mode per_hari) -->
     <div x-show="mobileJadwalMode === 'per_hari'"
-      class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar">
+      class="box-border w-auto h-[44px] shrink-0 flex flex-row gap-[5px] justify-start items-center overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
       <template x-for="d in pekanHariListMobile" :key="d">
         <button type="button" @click="pilihHari(d)"
-          :class="hari === d ? 'bg-[#2563EB] text-white [box-shadow:0px_2px_4px_#0F172A14]' : 'bg-[#F1F5F9] text-[#334155]'"
-          class="box-border flex-1 h-[44px] min-w-[52px] flex justify-center items-center rounded-[12px] relative transition-all">
-          <span class="text-[10px] font-sans font-bold whitespace-nowrap"
+          :class="hari === d ? 'bg-blue-600 text-white shadow-2xs font-bold' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+          class="box-border flex-1 h-[44px] min-w-[52px] flex justify-center items-center rounded-xl relative transition-all">
+          <span class="text-[11px] font-semibold whitespace-nowrap"
             x-text="d.slice(0, 3) + ' ' + (tanggalPekan[d] ? tanggalPekan[d].slice(8, 10) : '')">Sen 5</span>
           <!-- Indikator ada sesi pengganti khusus Sabtu -->
           <template x-if="d === 'Sabtu' && hasSaturdayClass">
             <div
-              class="box-border w-[7px] h-[7px] absolute right-[6px] top-[4px] bg-[#D97706] rounded-full border border-white">
+              class="box-border w-[7px] h-[7px] absolute right-[6px] top-[4px] bg-amber-500 rounded-full border border-white">
             </div>
           </template>
+        </button>
+      </template>
+    </div>
+
+    <!-- Strip Filter Hari Cepat (Mobile - tampil saat mode semua_pekan / Mingguan) -->
+    <div x-show="mobileJadwalMode === 'semua_pekan'"
+      class="box-border w-full h-[40px] shrink-0 flex flex-row gap-1.5 justify-start items-center overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
+      <button type="button" @click="listDayFilter = 'all'"
+        :class="listDayFilter === 'all' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 font-medium border border-slate-200/80 hover:bg-slate-200'"
+        class="h-[36px] px-3.5 flex items-center justify-center rounded-xl text-[11px] whitespace-nowrap shrink-0 transition-colors">
+        Semua Hari
+      </button>
+      <template x-for="d in pekanHariListAgenda" :key="'mob-filter-' + d">
+        <button type="button" @click="listDayFilter = (listDayFilter === d ? 'all' : d)"
+          :class="listDayFilter === d ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'bg-slate-100 text-slate-700 font-medium border border-slate-200/80 hover:bg-slate-200'"
+          class="h-[36px] px-3 flex items-center justify-center rounded-xl text-[11px] whitespace-nowrap shrink-0 transition-colors">
+          <span x-text="d.slice(0, 3) + ' (' + portalDaySessions(d).length + ')'">Sen (2)</span>
         </button>
       </template>
     </div>
@@ -217,7 +234,7 @@
 
   <!-- PAPAN JADWAL MINGGUAN (DESKTOP) -->
   <div x-show="!jadwalLoading && !jadwalError"
-    class="box-border w-full [box-shadow:0px_4px_16px_#0F172A0A] hidden md:flex flex-col gap-[12px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+    class="box-border w-full [box-shadow:0px_4px_16px_#0F172A0A] hidden md:flex flex-col gap-[12px] p-[20px] justify-start items-start bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
 
     <!-- Header Kalender Mingguan -->
     <div x-show="modeTampilan === 'kalender'"
@@ -225,131 +242,174 @@
       <div class="text-[16px] text-[#1D1B3A] font-display font-bold text-left whitespace-nowrap">
         Jadwal Pekan Ini
       </div>
-      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[9px] justify-start items-center">
+      <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[12px] justify-start items-center">
         <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-          <div class="box-border w-[4px] shrink-0 h-[14px] bg-[#3965FB] rounded-[2px]"></div>
-          <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Teori</div>
+          <div class="w-2 h-2 bg-[#3965FB] rounded-full shrink-0"></div>
+          <div class="text-[12px] text-[#667085] font-medium text-left whitespace-nowrap">Teori</div>
         </div>
         <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-          <div class="box-border w-[4px] shrink-0 h-[14px] bg-[#7C3AED] rounded-[2px]"></div>
-          <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Praktikum</div>
+          <div class="w-2 h-2 bg-[#7C3AED] rounded-full shrink-0"></div>
+          <div class="text-[12px] text-[#667085] font-medium text-left whitespace-nowrap">Praktikum</div>
         </div>
         <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-          <div class="box-border w-[4px] shrink-0 h-[14px] bg-[#F59E0B] rounded-[2px]"></div>
-          <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Kuliah Pengganti
-          </div>
+          <div class="w-2 h-2 bg-[#F59E0B] rounded-full shrink-0"></div>
+          <div class="text-[12px] text-[#667085] font-medium text-left whitespace-nowrap">Kuliah Pengganti</div>
         </div>
       </div>
     </div>
 
-    <!-- Tampilan Kalender (Grid 5 Kolom: Senin s/d Jumat) -->
+    <!-- Tampilan Kalender (Grid 5 Kolom: Senin s/d Jumat - Konsep 3: Soft-Tint Blocks) -->
     <div x-show="modeTampilan === 'kalender'"
-      class="box-border w-full flex flex-row gap-[12px] justify-start items-start">
+      class="box-border w-full flex flex-row gap-[12px] justify-start items-stretch">
       <template x-for="d in pekanHariListDesktop" :key="d">
-        <div class="box-border flex-1 h-full flex flex-col gap-0 justify-start items-start">
-          <!-- Header Hari -->
-          <div
-            :class="d === todayName && weekOffset === 0 ? 'bg-[#2563EB] [outline:1px_solid_#2563EB] text-white' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] text-[#1D1B3A]'"
-            class="box-border w-full h-[63px] shrink-0 flex flex-row px-[11px] justify-between items-center [outline-offset:-0.5px] rounded-[12px_12px_0px_0px]">
-            <div class="box-border w-fit shrink-0 h-fit flex flex-col gap-[2px] justify-start items-start">
-              <div class="text-[13px] font-sans font-bold text-left whitespace-nowrap"
-                :class="d === todayName && weekOffset === 0 ? 'text-[#FFFFFF]' : 'text-[#1D1B3A]'" x-text="d">
-                Senin
+        <!-- Column Container: Single cohesive track, no split header/body box -->
+        <div class="box-border flex-1 h-full min-w-0 flex flex-col rounded-[14px] p-2.5 transition-all"
+             :class="d === todayName && weekOffset === 0
+                     ? 'bg-[#EFF6FF]/60 ring-1 ring-[#3965FB]/30'
+                     : 'bg-[#F8FAFC] border border-[#E2E8F0]/80'">
+          <!-- Header Hari: Integrated, clean typography with subtle bottom divider -->
+          <div class="box-border w-full pb-2.5 px-0.5 flex justify-between items-center border-b transition-colors"
+               :class="d === todayName && weekOffset === 0 ? 'border-[#BFDBFE]' : 'border-[#E2E8F0]'">
+            <div class="box-border flex flex-col gap-0.5">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[13px] font-bold leading-tight"
+                      :class="d === todayName && weekOffset === 0 ? 'text-[#1D4ED8]' : 'text-[#0F172A]'"
+                      x-text="d">Senin</span>
+                <template x-if="d === todayName && weekOffset === 0">
+                  <span class="px-1.5 py-0.5 bg-[#3965FB] text-white text-[9px] font-extrabold uppercase rounded-[4px] tracking-wide leading-none">
+                    HARI INI
+                  </span>
+                </template>
               </div>
-              <div class="text-[11px] font-sans font-normal text-left whitespace-nowrap"
-                :class="d === todayName && weekOffset === 0 ? 'text-[#DBEAFE]' : 'text-[#667085]'"
-                x-text="tanggalPekanFormatted[d]">
-                5 Okt
-              </div>
+              <span class="text-[11px] font-normal leading-tight"
+                    :class="d === todayName && weekOffset === 0 ? 'text-[#2563EB] font-medium' : 'text-[#64748B]'"
+                    x-text="tanggalPekanFormatted[d]">5 Okt</span>
             </div>
-            <div class="box-border w-fit shrink-0 h-fit flex flex-col gap-[3px] justify-start items-end">
-              <template x-if="d === todayName && weekOffset === 0">
-                <div
-                  class="box-border w-fit h-fit shrink-0 flex flex-row px-[6px] py-[3px] justify-start items-center bg-[#FFFFFF] rounded-[5px]">
-                  <span class="text-[9px] text-[#3965FB] font-sans font-extrabold whitespace-nowrap">HARI INI</span>
-                </div>
-              </template>
-              <div class="text-[10px] md:text-[11px] font-sans font-semibold text-left whitespace-nowrap"
-                :class="d === todayName && weekOffset === 0 ? 'text-[#DBEAFE]' : 'text-[#98A2B3]'"
-                x-text="(jadwalPekan[d] || []).length + ' Sesi'">
-                0 Sesi
-              </div>
-            </div>
+            <span class="text-[11px] font-medium"
+                  :class="d === todayName && weekOffset === 0 ? 'text-[#2563EB]' : 'text-[#94A3B8]'"
+                  x-text="(jadwalPekan[d] || []).length + ' Sesi'">0 Sesi</span>
           </div>
 
           <!-- Area Sesi Hari -->
-          <div
-            :class="d === todayName && weekOffset === 0 ? 'bg-[#F8FAFC] [outline:1px_solid_#BFDBFE]' : 'bg-[#F8FAFC] [outline:1px_solid_#E2E8F0]'"
-            class="box-border w-full min-h-[400px] flex flex-col gap-[9px] p-[9px] justify-start items-start [outline-offset:-0.5px] rounded-[0px_0px_12px_12px]">
+          <div class="box-border w-full flex-1 flex flex-col gap-2 pt-2.5 min-h-[400px]">
             <template x-for="s in (jadwalPekan[d] || [])" :key="s.id">
               <div @click="bukaDetailSesi(s)"
-                :class="isSesiOngoing(s, d)
-                        ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                        : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
-                class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px] justify-start items-start [outline-offset:-0.5px] rounded-[9px] transition-all hover:shadow-md cursor-pointer group">
-                <!-- Baris Atas: Jam & Live Badge -->
+                   class="box-border w-full h-fit shrink-0 flex flex-col gap-1.5 p-3 rounded-[10px] text-left transition-all group cursor-pointer focus:outline-none hover:shadow-xs"
+                   :class="isSesiOngoing(s, d)
+                           ? 'bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#86EFAC] ring-2 ring-[#22C55E]/20'
+                           : (s.kind === 'PENGGANTI'
+                              ? 'bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FDE68A]'
+                              : (s.activityType === 'PRACTICE'
+                                 ? 'bg-[#FAF5FF] hover:bg-[#F3E8FF] border border-[#DDD6FE]'
+                                 : 'bg-[#F0F7FF] hover:bg-[#E0F2FE] border border-[#BFDBFE]'))">
+                <!-- Baris Atas: Jam & Live/Type Badge (Tanpa pill ganda) -->
                 <div class="flex items-center justify-between gap-1 w-full flex-wrap">
-                  <!-- Jam Sesi -->
-                  <div
-                    class="box-border w-fit h-fit shrink-0 flex flex-row px-[6px] py-[3px] justify-start items-center rounded-[6px]"
-                    :class="isSesiOngoing(s, d)
-                            ? 'bg-[#DCFCE7] [outline:1px_solid_#BBF7D0] [outline-offset:-0.5px]'
-                            : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px]'">
-                    <span class="text-[10px] font-mono font-bold whitespace-nowrap"
-                      :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : 'text-[#1D4ED8]'"
-                      x-text="s.timeStart + ' – ' + s.timeEnd">08:40 – 10:20</span>
-                  </div>
+                  <span class="font-mono text-[11px] font-bold leading-none tracking-tight"
+                        :class="isSesiOngoing(s, d)
+                                ? 'text-[#15803D]'
+                                : (s.kind === 'PENGGANTI'
+                                   ? 'text-[#92400E]'
+                                   : (s.activityType === 'PRACTICE' ? 'text-[#6D28D9]' : 'text-[#1D4ED8]'))"
+                        x-text="s.timeStart + ' - ' + s.timeEnd">08:40 - 10:20</span>
 
-                  <!-- Live Badge if Ongoing -->
-                  <template x-if="isSesiOngoing(s, d)">
-                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
-                    </span>
-                  </template>
+                  <div class="flex items-center gap-1">
+                    <!-- Live Badge if Ongoing -->
+                    <template x-if="isSesiOngoing(s, d)">
+                      <span class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
+                      </span>
+                    </template>
+
+                    <!-- Type Badge -->
+                    <template x-if="!isSesiOngoing(s, d)">
+                      <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[4px]"
+                            :class="s.kind === 'PENGGANTI'
+                                    ? 'bg-[#FEF3C7] text-[#92400E]'
+                                    : (s.activityType === 'PRACTICE'
+                                       ? 'bg-[#EDE9FE] text-[#5B21B6]'
+                                       : 'bg-[#DBEAFE] text-[#1E40AF]')"
+                            x-text="s.kind === 'PENGGANTI' ? 'Pengganti' : (s.activityType === 'PRACTICE' ? 'Praktikum' : 'Teori')">
+                        Teori
+                      </span>
+                    </template>
+                  </div>
                 </div>
-                <!-- Badge Jenis -->
-                <div
-                  class="box-border w-fit h-fit shrink-0 flex flex-row px-[7px] py-[3px] justify-start items-center rounded-[6px]"
-                  :class="s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] text-[#92400E]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
-                  <span class="text-[10px] font-sans font-semibold whitespace-nowrap"
-                    x-text="s.kind === 'PENGGANTI' ? 'Pengganti' : (s.activityType === 'PRACTICE' ? 'Praktikum' : 'Teori')">Teori</span>
-                </div>
+
                 <!-- Mata Kuliah -->
-                <div
-                  class="text-[13px] leading-[17px] box-border w-full font-sans font-bold text-left group-hover:text-[#2563EB] transition-colors"
-                  :class="isSesiOngoing(s, d) ? 'text-[#14532D]' : (s.kind === 'PENGGANTI' ? 'text-[#78350F]' : 'text-[#1D1B3A]')" x-text="s.matkul">
+                <div class="text-[13px]/[17px] box-border w-full font-bold text-left line-clamp-2 mt-0.5"
+                     :class="isSesiOngoing(s, d)
+                             ? 'text-[#14532D]'
+                             : (s.kind === 'PENGGANTI'
+                                ? 'text-[#78350F]'
+                                : (s.activityType === 'PRACTICE' ? 'text-[#4C1D95]' : 'text-[#0F172A]'))"
+                     x-text="cleanMatkul(s.matkul)">
                   Mata Kuliah
                 </div>
-                <!-- Lokasi dan Dosen -->
-                <div class="text-[11px] leading-[15px] box-border w-full font-sans font-normal text-left"
-                  :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#667085]')"
-                  x-text="(s.ruang ? s.ruang + ' · ' : '') + s.dosen">
-                  Ruang · Dosen
+
+                <!-- Ruangan & Dosen -->
+                <div class="flex flex-col gap-[3px] w-full text-[11px]/[15px] pt-1.5 border-t"
+                     :class="isSesiOngoing(s, d)
+                             ? 'border-[#BBF7D0]'
+                             : (s.kind === 'PENGGANTI'
+                                ? 'border-[#FDE68A]'
+                                : (s.activityType === 'PRACTICE' ? 'border-[#E9D5FF]' : 'border-[#DBEAFE]'))">
+                  <!-- Ruangan -->
+                  <div class="flex items-center gap-1.5 text-left truncate font-medium"
+                       :class="isSesiOngoing(s, d)
+                               ? 'text-[#166534]'
+                               : (s.kind === 'PENGGANTI'
+                                  ? 'text-[#92400E]'
+                                  : (s.activityType === 'PRACTICE' ? 'text-[#6D28D9]' : 'text-[#334155]'))">
+                    <svg viewBox="0 0 14 14" class="w-[12px] h-[12px] shrink-0 fill-current opacity-70" aria-hidden="true">
+                      <path d="M7 1.75a3.5 3.5 0 0 0-3.5 3.5c0 2.625 3.5 7 3.5 7s3.5-4.375 3.5-7a3.5 3.5 0 0 0-3.5-3.5zm0 4.667a1.167 1.167 0 1 1 0-2.334 1.167 1.167 0 0 1 0 2.334z"/>
+                    </svg>
+                    <span class="truncate" x-text="cleanRuang(s.ruang)" :title="cleanRuang(s.ruang)"></span>
+                  </div>
+
+                  <!-- Dosen Pengampu -->
+                  <template x-if="s.dosen">
+                    <div class="flex items-center gap-1.5 text-left truncate font-normal"
+                         :class="isSesiOngoing(s, d)
+                                 ? 'text-[#15803D]'
+                                 : (s.kind === 'PENGGANTI'
+                                    ? 'text-[#B45309]'
+                                    : (s.activityType === 'PRACTICE' ? 'text-[#7C3AED]' : 'text-[#64748B]'))">
+                      <svg viewBox="0 0 14 14" class="w-[12px] h-[12px] shrink-0 fill-current opacity-70" aria-hidden="true">
+                        <path d="M7 7a2.625 2.625 0 1 0 0-5.25A2.625 2.625 0 0 0 7 7zm0 1.167c-2.333 0-5.25 1.166-5.25 3.5v.583h10.5v-.583c0-2.334-2.917-3.5-5.25-3.5z"/>
+                      </svg>
+                      <span class="truncate" x-text="s.dosen" :title="s.dosen"></span>
+                    </div>
+                  </template>
                 </div>
-                <!-- Khusus Kuliah Pengganti -->
+
+                <!-- Catatan Kuliah Pengganti -->
                 <template x-if="s.kind === 'PENGGANTI'">
-                  <div class="text-[10px] box-border w-full text-[#B45309] font-sans font-medium italic text-left"
-                    x-text="fmtAsalPengganti(s.originDate, s.reason)">
-                    Pengganti sesi
+                  <div class="text-[10px] italic text-[#B45309] truncate"
+                       x-text="fmtAsalPengganti(s.originDate, s.reason)">
                   </div>
                 </template>
+
                 <!-- Tombol Zoom / Daring jika ada -->
                 <template x-if="s.link">
                   <a :href="s.link" target="_blank" rel="noopener noreferrer" @click.stop
-                    class="mt-1 w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[11px] font-medium transition-colors">
-                    <svg viewBox="0 0 14 14" class="w-3.5 h-3.5" fill="currentColor">
-                      <path
-                        d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
+                     class="mt-1 w-full flex items-center justify-center gap-1.5 py-1 px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-[6px] text-[10px] font-semibold transition-colors shadow-2xs">
+                    <svg viewBox="0 0 14 14" class="w-3 h-3 fill-current" aria-hidden="true">
+                      <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
                     </svg>
                     <span>Zoom Kelas</span>
                   </a>
                 </template>
               </div>
             </template>
+
             <!-- Placeholder saat tidak ada sesi di hari ini -->
             <template x-if="(jadwalPekan[d] || []).length === 0">
-              <div class="w-full py-16 flex flex-col items-center justify-center text-center">
-                <span class="text-[11px] font-medium text-slate-400">Tidak ada sesi</span>
+              <div class="my-auto py-10 w-full text-center flex flex-col items-center justify-center text-slate-400">
+                <svg viewBox="0 0 14 14" class="w-6 h-6 text-slate-300 mb-1.5 fill-current" aria-hidden="true">
+                  <path d="M2.95996 12.95068q-0.55371 0-0.94336-0.38623-0.38623-0.38965-0.38623-0.93994l0-8.08349q0-0.55029 0.38623-0.93653 0.38965-0.38965 0.94336-0.38965l0.54004 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 4.50488 0 0-0.54345q0-0.26318 0.18115-0.44092 0.18115-0.18115 0.44434-0.18115 0.26318 0 0.44092 0.18115 0.18115 0.17773 0.18115 0.44092l0 0.54345 0.54004 0q0.55371 0 0.93994 0.38965 0.38965 0.38623 0.38965 0.93653l0 8.08349q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93994 0.38623l-8.08008 0z"/>
+                </svg>
+                <span class="text-[12px] font-medium text-slate-600">Hari Bebas Kuliah</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Tidak ada sesi terjadwal</span>
               </div>
             </template>
           </div>
@@ -357,125 +417,119 @@
       </template>
     </div>
 
-    <!-- Tampilan Daftar / Agenda Mingguan (DESKTOP - SCR-USER-SCHED-001B) -->
-    <div x-show="modeTampilan === 'daftar'" class="box-border w-full flex flex-col gap-[18px]">
-
-      <!-- Kepala agenda dan legenda daftar -->
-      <div
-        class="box-border w-full h-[50px] shrink-0 flex flex-row gap-[12px] justify-between items-center border-b border-[#F1F5F9] pb-3">
-        <div class="box-border w-fit shrink-0 h-fit flex flex-col gap-[4px] justify-start items-start">
-          <div class="text-[18px] text-[#0F172A] font-display font-bold text-left whitespace-nowrap">
-            Jadwal Pekan Ini
-          </div>
-          <div class="text-[11px] text-[#64748B] font-sans font-medium text-left whitespace-nowrap">
-            Daftar urutan sesi perkuliahan dari Senin hingga Jumat
-          </div>
+    <!-- Tampilan Daftar / Agenda Mingguan (DESKTOP - SCR-USER-SCHED-001B - SAMA SEPERTI ADMIN) -->
+    <div x-show="modeTampilan === 'daftar'" class="box-border w-full flex flex-col gap-4">
+      <!-- Toolbar: Filter Hari & Pencarian untuk Mode Daftar (Sama seperti Admin) -->
+      <div class="flex flex-col md:flex-row gap-3 md:items-center justify-between pb-1">
+        <!-- Tabs Filter Hari -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar" role="tablist" aria-label="Filter hari daftar">
+          <button type="button" role="tab" :aria-selected="listDayFilter === 'all'" @click="listDayFilter = 'all'"
+            class="box-border w-fit shrink-0 h-[36px] px-3.5 flex flex-row items-center justify-center rounded-[10px] text-[12px] font-semibold whitespace-nowrap transition-colors min-h-[36px] cursor-pointer"
+            :class="listDayFilter === 'all' ? 'bg-[#3965FB] text-white shadow-sm' : 'bg-white text-[#667085] hover:text-[#1D1B3A] border border-[#E2E8F0] hover:bg-slate-50'">
+            Semua Hari (<span x-text="allSessionsCount()">-</span>)
+          </button>
+          <template x-for="d in pekanHariListAgenda" :key="'tab-filter-' + d">
+            <button type="button" role="tab" :aria-selected="listDayFilter === d" @click="listDayFilter = (listDayFilter === d ? 'all' : d)"
+              class="box-border w-fit shrink-0 h-[36px] px-3.5 flex flex-row items-center justify-center rounded-[10px] text-[12px] font-semibold whitespace-nowrap transition-colors min-h-[36px] cursor-pointer"
+              :class="listDayFilter === d ? 'bg-[#3965FB] text-white shadow-sm' : 'bg-white text-[#667085] hover:text-[#1D1B3A] border border-[#E2E8F0] hover:bg-slate-50'"
+              x-text="d + ' (' + portalDaySessions(d).length + ')'">
+              -
+            </button>
+          </template>
         </div>
-        <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[9px] justify-start items-center">
-          <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-            <div class="box-border w-[8px] shrink-0 h-[8px] bg-[#2563EB] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Teori</div>
-          </div>
-          <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-            <div class="box-border w-[8px] shrink-0 h-[8px] bg-[#7C3AED] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Praktikum</div>
-          </div>
-          <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-            <div class="box-border w-[8px] shrink-0 h-[8px] bg-[#F59E0B] rounded-full"></div>
-            <div class="text-[12px] text-[#667085] font-sans font-medium text-left whitespace-nowrap">Kuliah Pengganti
-            </div>
-          </div>
+
+        <!-- Right Toolbar Controls: Search Input -->
+        <div class="relative w-full sm:w-[220px] md:w-[260px] shrink-0">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#667085]">
+            <svg class="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="search" x-model="schedSearch" placeholder="Cari matkul, dosen, ruangan..." class="w-full pl-9 pr-3 h-[36px] text-[12px] bg-white border border-[#E2E8F0] rounded-[10px] text-[#1D1B3A] placeholder-[#667085] focus:outline-none focus:border-[#3965FB] focus:ring-1 focus:ring-[#3965FB] transition-colors" />
         </div>
       </div>
 
-      <!-- Loop Grup Hari (pekanHariListAgenda) -->
-      <template x-for="d in pekanHariListAgenda" :key="'agenda-d-' + d">
-        <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[8px] justify-start items-start">
-          <!-- Kepala Hari -->
-          <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
-            <div class="text-[13px] text-[#0F172A] font-sans font-bold text-left whitespace-nowrap"
-              x-text="formatTanggalLengkap(d)">
-              Senin, 5 Oktober 2026
-            </div>
-            <template x-if="d === todayName && weekOffset === 0">
-              <div
-                class="box-border w-fit shrink-0 h-fit flex flex-row p-[3px_8px] justify-start items-center bg-[#2563EB] rounded-[10px]">
-                <span class="text-[9px] text-[#FFFFFF] font-sans font-bold whitespace-nowrap">HARI INI</span>
-              </div>
-            </template>
-            <div class="box-border flex-1 h-[1px]"></div>
-            <div class="text-[11px] text-[#64748B] font-sans font-medium text-left whitespace-nowrap"
-              x-text="(jadwalPekan[d] || []).length + ' Sesi Perkuliahan'">
-              3 Sesi Perkuliahan
-            </div>
-          </div>
-
-          <!-- Daftar Sesi di Hari Ini -->
-          <div
-            class="box-border w-full h-fit shrink-0 flex flex-col gap-0 justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] overflow-hidden divide-y divide-[#F1F5F9]">
-            <template x-for="s in (jadwalPekan[d] || [])" :key="'desk-list-' + s.id">
-              <div @click="bukaDetailSesi(s)"
-                :class="isSesiOngoing(s, d)
-                        ? 'bg-[#F0FDF4] hover:bg-[#DCFCE7]/60 border-l-4 border-l-[#22C55E]'
-                        : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] hover:bg-[#FEF3C7]/60 border-l-4 border-l-[#F59E0B]' : 'bg-[#FFFFFF] hover:bg-slate-50/80')"
-                class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] p-[10px_14px] justify-start items-center cursor-pointer transition-colors group">
-                <!-- Jam Sesi -->
-                <div class="text-[11px] w-[154px] shrink-0 font-mono font-bold text-left whitespace-nowrap"
-                  :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#475569]')"
-                  x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
-                  08:40 – 10:20 WIB
-                </div>
-                <!-- Badge Jenis -->
-                <div
-                  class="box-border w-[130px] shrink-0 h-[24px] flex flex-row justify-center items-center gap-1 rounded-[6px]"
-                  :class="isSesiOngoing(s, d)
-                          ? 'bg-[#DCFCE7] [outline:1px_solid_#BBF7D0] text-[#15803D]'
-                          : (s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] [outline:1px_solid_#FDE68A] text-[#92400E]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] [outline:1px_solid_#DDD6FE] text-[#6D28D9]' : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] text-[#1D4ED8]'))">
-                  <template x-if="isSesiOngoing(s, d)">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
-                  </template>
-                  <span class="text-[9px] font-sans font-bold whitespace-nowrap"
-                    x-text="isSesiOngoing(s, d) ? 'BERLANGSUNG' : (s.kind === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">TEORI</span>
-                </div>
-                <!-- Detail Matkul & Dosen -->
-                <div class="box-border flex-1 h-fit flex flex-col gap-[3px] justify-start items-start min-w-0 pr-2">
-                  <div
-                    class="text-[12px] leading-[16px] box-border w-full font-sans font-bold text-left truncate transition-colors"
-                    :class="isSesiOngoing(s, d) ? 'text-[#14532D]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E] group-hover:text-[#B45309]' : 'text-[#0F172A] group-hover:text-[#2563EB]')"
-                    x-text="s.matkul">
-                    Pemrograman Berorientasi Objek
-                  </div>
-                  <div class="text-[11px] box-border font-sans font-medium text-left truncate"
-                    :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#B45309]' : 'text-[#64748B]')"
-                    x-text="'Dosen: ' + (s.dosen || '—') + (s.kind === 'PENGGANTI' ? ' · ' + fmtAsalPengganti(s.originDate, s.reason) : '')">
-                    Dosen: Bpk. M. Ridwan, M.Kom
-                  </div>
-                </div>
-                <!-- Ruang Kuliah -->
-                <div class="text-[11px] w-[130px] shrink-0 font-sans font-medium text-right truncate"
-                  :class="isSesiOngoing(s, d) ? 'text-[#166534]' : (s.kind === 'PENGGANTI' ? 'text-[#92400E]' : 'text-[#475569]')"
-                  x-text="s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')">
-                  Ruang D102
-                </div>
-                <!-- Chevron Aksi -->
-                <div class="box-border w-[32px] shrink-0 h-[32px] flex justify-center items-center transition-colors"
-                  :class="s.kind === 'PENGGANTI' ? 'text-[#D97706] group-hover:text-[#B45309]' : 'text-[#94A3B8] group-hover:text-[#2563EB]'">
-                  <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
-                    <path
-                      d="M7.755 7L5.277 4.522a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l2.56 2.56a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L7.755 7z" />
-                  </svg>
-                </div>
-              </div>
-            </template>
-            <!-- Saat hari ini tidak ada sesi -->
-            <template x-if="(jadwalPekan[d] || []).length === 0">
-              <div class="w-full py-4 px-4 text-center text-[12px] text-slate-400 font-sans italic">
-                Tidak ada sesi perkuliahan pada hari ini.
-              </div>
-            </template>
-          </div>
+      <!-- Empty State jika tidak ada perkuliahan pada filter aktif -->
+      <div x-show="listDaysToShow().length === 0" class="p-8 rounded-[16px] border border-dashed border-[#CBD5E1] bg-white text-center">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
-      </template>
+        <p class="text-[15px] font-bold text-[#1D1B3A]" x-text="schedSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada sesi perkuliahan'">-</p>
+        <p class="text-[13px] text-[#667085] mt-1 max-w-md mx-auto" x-text="schedSearch ? 'Coba gunakan kata kunci pencarian lain atau pilih tab hari yang berbeda.' : 'Tidak ada jadwal perkuliahan pada pekan ini.'">-</p>
+      </div>
+
+      <!-- Day Group Cards (Sama persis seperti Admin) -->
+      <div class="space-y-4">
+        <template x-for="d in listDaysToShow()" :key="'list-day-' + d">
+          <div class="box-border w-full h-fit shrink-0 shadow-sm flex flex-col p-4 sm:p-5 bg-white border border-[#EEEEEE] rounded-[16px]"
+            :class="d === todayName && weekOffset === 0 ? 'ring-2 ring-[#3965FB]/20 border-[#3965FB]' : 'border-[#EEEEEE]'">
+            <!-- Header Hari -->
+            <div class="flex items-center gap-2.5 flex-wrap pb-3 border-b border-[#F1F5F9]">
+              <svg class="w-[18px] h-[18px] shrink-0 text-[#3965FB]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <h2 class="font-heading text-[16px] font-bold text-[#1D1B3A]" x-text="formatTanggalLengkap(d)">-</h2>
+              <span class="box-border w-fit shrink-0 h-fit px-2.5 py-0.5 rounded-[6px] bg-[#F1F5F9] text-[11px] font-medium text-[#667085]" x-text="portalDaySessions(d).length + ' Sesi Perkuliahan'">-</span>
+              <template x-if="d === todayName && weekOffset === 0">
+                <span class="px-2 py-0.5 rounded-[5px] bg-[#3965FB] text-white text-[10px] font-extrabold uppercase tracking-wide">Hari Ini</span>
+              </template>
+            </div>
+
+            <!-- Pesan jika hari kosong pada filter aktif -->
+            <template x-if="portalDaySessions(d).length === 0">
+              <div class="py-6 text-center text-[13px] text-[#94A3B8]">
+                <span x-text="'Tidak ada sesi perkuliahan pada hari ' + d + '.'"></span>
+              </div>
+            </template>
+
+            <!-- Session Rows (Divide-y persis seperti admin) -->
+            <div class="divide-y divide-[#F1F5F9]">
+              <template x-for="s in portalDaySessions(d)" :key="'lst-row-' + s.id">
+                <div class="py-3.5 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 cursor-pointer group hover:bg-slate-50/50 -mx-4 sm:-mx-5 px-4 sm:px-5 transition-colors"
+                  :class="isSesiOngoing(s, d) ? 'bg-[#F0FDF4] border-l-4 border-l-[#22C55E]' : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB]/50 border-l-4 border-l-[#F59E0B]' : '')"
+                  @click="bukaDetailSesi(s)">
+                  <!-- Waktu Pelaksanaan -->
+                  <p class="font-mono text-[13px] font-bold w-full sm:w-[175px] shrink-0"
+                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : 'text-[#3965FB]'"
+                    x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">-</p>
+
+                  <!-- Jenis Sesi Tag -->
+                  <div class="w-[92px] shrink-0">
+                    <span class="inline-flex px-2 py-0.5 rounded-[6px] text-[10px] font-bold uppercase tracking-wider"
+                      :class="portalSesiType(s) === 'PRAKTIKUM' ? 'bg-[#FEF3C7] text-[#92400E]' : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] text-[#B45309]' : 'bg-[#EFF6FF] text-[#3965FB]')"
+                      x-text="portalSesiType(s)">
+                      -
+                    </span>
+                  </div>
+
+                  <!-- Detail Mata Kuliah & Dosen / Ruangan -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p class="text-[15px] font-bold text-[#1D1B3A] leading-snug truncate"
+                        :class="isSesiOngoing(s, d) ? 'text-[#14532D]' : (s.kind === 'PENGGANTI' ? 'text-[#78350F]' : 'text-[#1D1B3A]')"
+                        x-text="s.matkul">-</p>
+                      <template x-if="isSesiOngoing(s, d)">
+                        <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0] shrink-0">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>BERLANGSUNG
+                        </span>
+                      </template>
+                    </div>
+                    <p class="text-[12px] text-[#667085] mt-0.5 truncate"
+                      :class="isSesiOngoing(s, d) ? 'text-[#166534]' : 'text-[#667085]'">
+                      <span x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang ? (s.ruang.startsWith('Ruang') || s.ruang.startsWith('Lab') ? s.ruang : 'Ruang ' + s.ruang) : (s.link ? 'Kuliah Daring' : 'Tanpa ruangan'))"></span>
+                      <span x-show="s.kind === 'PENGGANTI'" class="italic text-[#B45309]" x-text="' • ' + fmtAsalPengganti(s.originDate, s.reason)"></span>
+                    </p>
+                  </div>
+
+                  <!-- Tombol Aksi -->
+                  <div class="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                    <button type="button" @click.stop="bukaDetailSesi(s)"
+                      class="box-border w-fit shrink-0 h-[32px] px-3.5 flex flex-row items-center justify-center bg-white border border-[#CBD5E1] rounded-[8px] text-[11px] font-medium text-[#1D1B3A] hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs">
+                      Detail
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 
@@ -490,71 +544,75 @@
         <div class="w-full flex flex-col gap-[12px]">
           <template x-for="s in jadwalHari" :key="'mob-' + s.id">
             <div @click="bukaDetailSesi(s)"
-              :class="isSesiOngoing(s)
-                      ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                      : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
-              class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_5px_#0F172A08] flex flex-col gap-[8px] p-[16px] justify-start items-start [outline-offset:-0.5px] rounded-[16px] active:bg-slate-50 cursor-pointer transition-colors">
+                 class="w-full text-left p-4 bg-white hover:bg-[#F8FAFC] border rounded-[16px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all flex flex-col gap-2.5 cursor-pointer"
+                 :class="isSesiOngoing(s)
+                         ? 'border-[#86EFAC] ring-2 ring-[#22C55E]/20 bg-[#F0FDF4]'
+                         : (portalSesiType(s) === 'PENGGANTI'
+                            ? 'border-[#FDE68A] bg-[#FFFBEB]'
+                            : 'border-[#E2E8F0]')">
               <!-- Waktu dan jenis sesi -->
-              <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-between items-center">
-                <div class="flex items-center gap-2">
-                  <div class="text-[12px] font-mono font-bold text-left whitespace-nowrap"
-                    :class="isSesiOngoing(s) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
-                    x-text="s.timeStart + ' - ' + s.timeEnd + ' WIB'">
-                    08:40 - 10:20 WIB
-                  </div>
-                  <!-- Live Badge if Ongoing -->
+              <div class="flex items-center justify-between gap-2 w-full flex-wrap">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-mono text-[12px] font-bold"
+                        :class="isSesiOngoing(s)
+                                ? 'text-[#15803D]'
+                                : (portalSesiType(s) === 'PENGGANTI'
+                                   ? 'text-[#92400E]'
+                                   : 'text-[#2563EB]')"
+                        x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
+                    08:40 – 10:20 WIB
+                  </span>
                   <template x-if="isSesiOngoing(s)">
-                    <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 border border-[#BBF7D0]">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>Berlangsung
+                    <span class="bg-[#22C55E] text-white font-bold text-[9px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1 shadow-2xs">
+                      <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>Live
                     </span>
                   </template>
                 </div>
-                <div class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] justify-start items-center">
-                  <div
-                    class="box-border w-fit shrink-0 h-fit flex flex-row px-[8px] py-[4px] justify-start items-center rounded-[6px]"
-                    :class="s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] [outline:1px_solid_#FDE68A] text-[#92400E]' : (s.link && s.activityType === 'THEORY' ? 'bg-[#F5F3FF] [outline:1px_solid_#DDD6FE] text-[#6D28D9]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] [outline:1px_solid_#DDD6FE] text-[#6D28D9]' : 'bg-[#EFF6FF] [outline:1px_solid_#BFDBFE] text-[#1D4ED8]'))">
-                    <span class="text-[10px] font-sans font-bold whitespace-nowrap"
-                      x-text="s.kind === 'PENGGANTI' ? 'PENGGANTI' : (s.link && s.activityType === 'THEORY' ? 'TEORI HYBRID' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">TEORI</span>
-                  </div>
-                  <svg viewBox="0 0 14 14" class="w-[17px] h-[17px] shrink-0 text-[#94A3B8]" fill="currentColor">
-                    <path
-                      d="M7.755 7L5.277 4.522a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l2.56 2.56a.47.47 0 0 1 0 .66l-2.56 2.56a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L7.755 7z" />
-                  </svg>
-                </div>
+                <span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-[6px] border"
+                      :class="portalSesiBadgeClass(s)"
+                      x-text="portalSesiType(s) === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI · HYBRID' : portalSesiType(s))">
+                  TEORI
+                </span>
               </div>
 
               <!-- Nama Mata Kuliah -->
-              <div class="text-[16px] leading-[21px] box-border w-full text-[#0F172A] font-sans font-bold text-left"
-                x-text="s.matkul">
+              <h3 class="text-[15px] font-bold text-[#0F172A] leading-snug"
+                  x-text="cleanMatkul(s.matkul)">
                 Mata Kuliah
-              </div>
+              </h3>
 
               <!-- Detail lokasi dan dosen -->
-              <div class="text-[12px] leading-[18px] box-border w-full text-[#475569] font-sans font-medium text-left"
-                x-text="(s.ruang ? s.ruang + ' · ' : '') + (s.dosen ? 'Dosen: ' + s.dosen : '') + (s.link ? ' · Daring & Luring' : '')">
-                Ruang · Dosen
+              <div class="flex flex-col gap-1.5 text-[12px] text-[#64748B] pt-2 border-t border-slate-100">
+                <div class="flex items-center gap-1.5 font-medium">
+                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                    <path d="M7 1.75a3.5 3.5 0 0 0-3.5 3.5c0 2.625 3.5 7 3.5 7s3.5-4.375 3.5-7a3.5 3.5 0 0 0-3.5-3.5zm0 4.667a1.167 1.167 0 1 1 0-2.334 1.167 1.167 0 0 1 0 2.334z"/>
+                  </svg>
+                  <span x-text="'Ruang: ' + cleanRuang(s.ruang)"></span>
+                </div>
+                <div x-show="s.dosen" class="flex items-center gap-1.5 text-slate-500">
+                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0 fill-slate-400" aria-hidden="true">
+                    <path d="M7 7a2.625 2.625 0 1 0 0-5.25A2.625 2.625 0 0 0 7 7zm0 1.167c-2.333 0-5.25 1.166-5.25 3.5v.583h10.5v-.583c0-2.334-2.917-3.5-5.25-3.5z"/>
+                  </svg>
+                  <span class="truncate" x-text="'Dosen: ' + s.dosen"></span>
+                </div>
+                <p x-show="portalSesiType(s) === 'PENGGANTI'" class="italic text-[#B45309] text-[11px]" x-text="fmtAsalPengganti(s.originDate, s.reason)"></p>
               </div>
 
               <!-- Tombol Gabung Zoom jika ada link -->
               <template x-if="s.link">
                 <a :href="s.link" target="_blank" rel="noopener noreferrer" @click.stop
-                  class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-center items-center bg-[#2563EB] active:bg-[#1D4ED8] text-white rounded-[12px] transition-colors mt-1">
-                  <svg viewBox="0 0 14 14" class="w-[16px] h-[16px] shrink-0" fill="currentColor">
-                    <path
-                      d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
-                  </svg>
-                  <span class="text-[12px] font-sans font-bold whitespace-nowrap">Gabung Kuliah Daring Zoom</span>
+                   class="box-border w-full h-[40px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-center items-center bg-blue-600 hover:bg-blue-700 text-white rounded-[10px] transition-colors mt-1 shadow-2xs">
                   <svg viewBox="0 0 14 14" class="w-[14px] h-[14px] shrink-0" fill="currentColor">
-                    <path
-                      d="M3.274 11.666a.94.94 0 0 1-.943-.943V3.272c0-.52.423-.943.943-.943h2.984a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.274a.36.36 0 0 0-.36.363v7.451c0 .2.16.36.36.36h7.451a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.973c0 .52-.423.943-.94.943H3.274zm7.81-8.336L5.885 8.525a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.195-5.199H8.46a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h2.734c.48 0 .81.33.81.81v2.734a.29.29 0 0 1-.29.29.29.29 0 0 1-.29-.29V3.33z" />
+                    <path d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
                   </svg>
+                  <span class="text-[12px] font-bold whitespace-nowrap">Gabung Kuliah Daring Zoom</span>
                 </a>
               </template>
 
               <!-- Metadata footer pemisah (PJ Matkul & Pekan) -->
               <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start mt-1">
-                <div class="box-border w-full h-[1px] shrink-0 bg-[#F1F5F9]"></div>
-                <div class="text-[11px] leading-[15px] box-border w-full text-[#64748B] font-sans font-medium text-left"
+                <div class="box-border w-full h-[1px] shrink-0 bg-slate-200/60"></div>
+                <div class="text-[11px] leading-[15px] box-border w-full text-slate-500 font-medium text-left"
                   x-text="(s.pj ? 'PJ Matkul: ' + s.pj + ' · ' : '') + 'Sesi Reguler Pekan Ke-' + pekanAktifNum">
                   Sesi Reguler Pekan Ke-6
                 </div>
@@ -567,7 +625,7 @@
       <!-- Empty State Mobile (SCR-USER-SCHED-EMPTY · Mobile 390 · Tampilan tanpa jadwal) -->
       <template x-if="jadwalEfektif.length === 0">
         <div
-          class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_7px_#0F172A08] flex flex-col gap-0 p-[28px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
+          class="box-border w-full h-fit shrink-0 [box-shadow:0px_2px_7px_#0F172A08] flex flex-col gap-0 p-[28px] justify-start items-center bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
           <div
             class="box-border w-full h-fit shrink-0 flex flex-col gap-[10px] p-[10px_0px_0px_0px] justify-start items-center text-center">
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
@@ -576,10 +634,10 @@
                   d="M3.274 12.25a.94.94 0 0 1-.94-.94V3.86a.94.94 0 0 1 .94-.94h1.032V1.936a.31.31 0 0 1 .62 0V2.92h4.173V1.936a.31.31 0 0 1 .62 0V2.92h1.032c.52 0 .94.42.94.94v7.45a.94.94 0 0 1-.94.94H3.274zm0-.585h7.45a.36.36 0 0 0 .36-.36V6.192H2.915V11.3a.36.36 0 0 0 .36.36z" />
               </svg>
             </div>
-            <div class="text-[18px] leading-[23px] box-border w-full text-[#0F172A] font-sans font-bold text-center">
+            <div class="text-[18px] leading-[23px] box-border w-full text-[#0F172A] font-bold text-center">
               Tidak Ada Jadwal Kuliah
             </div>
-            <div class="text-[13px] leading-[20px] box-border w-full text-[#64748B] font-sans font-normal text-center">
+            <div class="text-[13px] leading-[20px] box-border w-full text-[#64748B] font-normal text-center">
               Tidak ada sesi kelas yang dijadwalkan untuk hari <span class="font-semibold text-slate-700"
                 x-text="tanggalHariTerpilihFormat">Sabtu</span>. Waktu luang dapat digunakan untuk istirahat atau
               menyelesaikan tugas mandiri.
@@ -591,7 +649,7 @@
             <!-- Aksi 1: Lihat Jadwal Besok -->
             <button type="button" @click="lihatJadwalBesok()"
               class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[8px] justify-center items-center bg-[#2563EB] active:bg-[#1D4ED8] rounded-[10px] transition-colors">
-              <span class="text-[13px] text-[#FFFFFF] font-sans font-bold whitespace-nowrap">Lihat Jadwal Besok</span>
+              <span class="text-[13px] text-[#FFFFFF] font-bold whitespace-nowrap">Lihat Jadwal Besok</span>
               <svg viewBox="0 0 14 14" class="w-[18px] h-[18px] shrink-0" fill="currentColor">
                 <path
                   d="M9.963 7.29H3.21a.29.29 0 0 1-.29-.29.29.29 0 0 1 .29-.29h6.753L6.79 3.538a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l3.548 3.548a.47.47 0 0 1 0 .66L7.2 10.884a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l3.173-3.184z"
@@ -601,11 +659,11 @@
 
             <!-- Aksi 2: Periksa Tugas Aktif -->
             <button type="button" @click="go('tugas')"
-              class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[8px] justify-center items-center bg-[#FFFFFF] hover:bg-slate-50 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[10px] transition-colors">
-              <span class="text-[13px] text-[#334155] font-sans font-bold whitespace-nowrap">Periksa Tugas Aktif</span>
+              class="box-border w-full h-[44px] shrink-0 flex flex-row gap-[8px] justify-center items-center bg-white hover:bg-slate-50 [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[10px] transition-colors">
+              <span class="text-[13px] text-[#334155] font-bold whitespace-nowrap">Periksa Tugas Aktif</span>
               <div
                 class="box-border w-[22px] shrink-0 h-[22px] flex flex-row justify-center items-center bg-[#FEF3C7] rounded-[6px]">
-                <span class="text-[11px] text-[#92400E] font-sans font-bold whitespace-nowrap"
+                <span class="text-[11px] text-[#92400E] font-bold whitespace-nowrap"
                   x-text="activeTasksCount">2</span>
               </div>
             </button>
@@ -617,23 +675,23 @@
     <!-- 2. MODE SEMUA PEKAN (DAFTAR VERTIKAL LENGKAP - SCR-USER-SCHED-001B Mobile 390) -->
     <div x-show="mobileJadwalMode === 'semua_pekan'"
       class="box-border w-full h-fit shrink-0 flex flex-col gap-[16px] justify-start items-start">
-      <template x-for="d in pekanHariListAgenda" :key="'mob-pekan-' + d">
+      <template x-for="d in listDaysToShow()" :key="'mob-pekan-' + d">
         <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[10px] justify-start items-start">
           <!-- Pembatas Hari -->
           <div
-            class="box-border w-full h-[38px] shrink-0 flex flex-row gap-[6px] px-[12px] justify-start items-center bg-[#F1F5F9] rounded-[8px]">
-            <div class="text-[11px] box-border text-[#334155] font-sans font-bold text-left whitespace-nowrap"
+            class="box-border w-full h-[40px] shrink-0 flex flex-row gap-[8px] px-3.5 justify-start items-center bg-slate-100/90 border border-slate-200/80 rounded-xl">
+            <div class="text-[12px] box-border text-slate-800 font-bold text-left whitespace-nowrap"
               x-text="formatTanggalLengkap(d)">
               Senin, 5 Oktober 2026
             </div>
             <template x-if="d === todayName && weekOffset === 0">
               <div
-                class="box-border w-fit shrink-0 h-fit flex flex-row px-[5px] py-[3px] justify-start items-start bg-[#DBEAFE] rounded-[6px]">
-                <span class="text-[9px] text-[#1D4ED8] font-sans font-bold whitespace-nowrap">Hari Ini</span>
+                class="box-border w-fit shrink-0 h-fit flex flex-row px-2 py-0.5 justify-start items-start bg-blue-100 text-blue-700 rounded-md border border-blue-200/80">
+                <span class="text-[10px] font-bold whitespace-nowrap">Hari Ini</span>
               </div>
             </template>
             <div class="box-border flex-1 h-[1px]"></div>
-            <div class="text-[10px] text-[#64748B] font-sans font-bold text-left whitespace-nowrap"
+            <div class="text-[11px] text-slate-500 font-bold text-left whitespace-nowrap"
               x-text="(jadwalPekan[d] || []).length + ' Sesi'">
               3 Sesi
             </div>
@@ -643,14 +701,14 @@
           <template x-for="s in (jadwalPekan[d] || [])" :key="'mob-all-' + s.id">
             <div @click="bukaDetailSesi(s)"
               :class="isSesiOngoing(s, d)
-                      ? 'bg-[#F0FDF4] [outline:2px_solid_#22C55E] ring-2 ring-[#22C55E]/30 shadow-md'
-                      : (s.kind === 'PENGGANTI' ? 'bg-[#FFFBEB] [outline:1px_solid_#FDE68A]' : 'bg-[#FFFFFF] [outline:1px_solid_#E2E8F0]')"
-              class="box-border w-full h-fit shrink-0 flex flex-col gap-[6px] p-[10px_12px] justify-start items-start [outline-offset:-0.5px] rounded-[12px] active:bg-slate-50 transition-colors cursor-pointer">
+                      ? 'border-[#86EFAC] ring-2 ring-[#22C55E]/20 bg-[#F0FDF4]'
+                      : (portalSesiType(s) === 'PENGGANTI' ? 'border-[#FDE68A] bg-[#FFFBEB]' : 'border-[#E2E8F0] bg-white')"
+              class="w-full text-left p-3.5 bg-white hover:bg-[#F8FAFC] border rounded-[14px] shadow-[0px_4px_16px_rgba(15,23,42,0.04)] hover:shadow-xs transition-all flex flex-col gap-2 cursor-pointer">
               <!-- Waktu dan jenis -->
               <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
                 <div class="flex items-center gap-1.5">
                   <div class="text-[11px] box-border font-mono font-bold text-left whitespace-nowrap"
-                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (s.kind === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
+                    :class="isSesiOngoing(s, d) ? 'text-[#15803D]' : (portalSesiType(s) === 'PENGGANTI' ? 'text-[#D97706]' : 'text-[#2563EB]')"
                     x-text="s.timeStart + ' – ' + s.timeEnd + ' WIB'">
                     08:40 – 10:20 WIB
                   </div>
@@ -663,23 +721,24 @@
                 <div class="box-border flex-1 h-[1px]"></div>
                 <!-- Badge Jenis -->
                 <div
-                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[7px] py-[4px] justify-start items-start rounded-[5px]"
-                  :class="s.kind === 'PENGGANTI' ? 'bg-[#FEF3C7] text-[#92400E]' : (s.link && s.activityType === 'THEORY' ? 'bg-[#EFF6FF] text-[#1D4ED8]' : (s.activityType === 'PRACTICE' ? 'bg-[#F5F3FF] text-[#6D28D9]' : 'bg-[#EFF6FF] text-[#1D4ED8]'))">
-                  <span class="text-[9px] font-sans font-bold whitespace-nowrap"
-                    x-text="s.kind === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && s.activityType === 'THEORY' ? 'TEORI · HYBRID' : (s.activityType === 'PRACTICE' ? 'PRAKTIKUM' : 'TEORI'))">TEORI</span>
+                  class="box-border w-fit shrink-0 h-fit flex flex-row px-2 py-1 justify-start items-start rounded-md border"
+                  :class="portalSesiBadgeClass(s)">
+                  <span class="text-[9px] font-bold whitespace-nowrap"
+                    x-text="portalSesiType(s) === 'PENGGANTI' ? 'KULIAH PENGGANTI' : (s.link && portalSesiType(s) === 'TEORI' ? 'TEORI · HYBRID' : portalSesiType(s))">TEORI</span>
                 </div>
               </div>
 
               <!-- Rincian dan akses -->
-              <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[4px] justify-start items-center">
-                <div class="box-border flex-1 h-fit flex flex-col gap-[2px] justify-start items-start min-w-0 pr-1">
-                  <div class="text-[13px] box-border w-full text-[#0F172A] font-sans font-bold text-left truncate"
+              <div class="box-border w-full h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center">
+                <div class="box-border flex-1 h-fit flex flex-col gap-[3px] justify-start items-start min-w-0 pr-1">
+                  <div class="text-[13px] box-border w-full text-[#0F172A] font-bold text-left truncate"
                     x-text="s.matkul">
                     Mata Kuliah
                   </div>
-                  <div class="text-[11px] box-border text-[#64748B] font-sans font-medium text-left truncate"
-                    x-text="s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')">
-                    Ruang D105
+                  <div class="text-[11px] box-border text-[#64748B] font-medium text-left truncate flex items-center gap-1.5 flex-wrap">
+                    <span x-text="s.ruang ? 'Ruang ' + cleanRuang(s.ruang) : (s.link ? 'Kuliah Daring' : '—')">Ruang D105</span>
+                    <span x-show="s.dosen" class="text-slate-300">·</span>
+                    <span x-show="s.dosen" class="text-slate-600 truncate max-w-[200px]" x-text="s.dosen"></span>
                   </div>
                 </div>
                 <!-- Area sentuh detail chevron -->
@@ -708,7 +767,7 @@
           <!-- Placeholder jika hari itu kosong di mode semua pekan -->
           <template x-if="(jadwalPekan[d] || []).length === 0">
             <div
-              class="w-full py-3 px-3 bg-white border border-dashed border-slate-200 rounded-[12px] text-center text-[11px] text-slate-400 font-sans italic">
+              class="w-full py-3 px-3 bg-white border border-dashed border-slate-200 rounded-[12px] text-center text-[11px] text-slate-400 italic">
               Tidak ada sesi perkuliahan pada hari ini.
             </div>
           </template>
@@ -719,226 +778,68 @@
 
   <!-- MODAL / BOTTOM SHEET DETAIL SESI PERKULIAHAN (SCR-USER-SCHED-DETAIL, SCR-USER-SCHED-002, SCR-USER-SCHED-004, SCR-USER-SCHED-004M) -->
   <div x-show="detailModalOpen" x-cloak
-    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
     @keydown.escape.window="tutupDetailSesi()">
 
-    <div
-      class="bg-white rounded-t-[28px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left"
+    <!-- Backdrop Hitam Transparan Blur dengan Animasi Fade Halus -->
+    <div x-show="detailModalOpen"
+      x-transition:enter="transition-opacity ease-out duration-300"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition-opacity ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+      @click="tutupDetailSesi()"
+      aria-hidden="true"></div>
+
+    <!-- Sheet Modal Konten dengan Animasi Slide-Up & Drag to Dismiss -->
+    <div x-show="detailModalOpen"
+      x-transition:enter="transition ease-out duration-300 transform"
+      x-transition:enter-start="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      x-transition:enter-end="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave="transition ease-in duration-200 transform"
+      x-transition:leave-start="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave-end="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      :style="sheetSesiTransform"
+      class="relative bg-white rounded-t-[28px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[90vh] md:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left z-10 will-change-transform"
       @click.outside="tutupDetailSesi()">
 
       <!-- Drag handle (Mobile) -->
-      <div class="md:hidden w-full h-[22px] shrink-0 flex justify-center items-center pt-2">
+      <div class="md:hidden w-full h-[32px] shrink-0 flex justify-center items-center pt-2 cursor-grab active:cursor-grabbing select-none touch-none"
+        @pointerdown="onSesiPointerDown($event)"
+        @pointermove="onSesiPointerMove($event)"
+        @pointerup="onSesiPointerUp($event)"
+        @pointercancel="onSesiPointerUp($event)">
         <div class="w-[48px] h-[5px] bg-[#CBD5E1] rounded-full"></div>
       </div>
 
-      <!-- KONTEN A: KHUSUS KULIAH PENGGANTI (SCR-USER-SCHED-004M & SCR-USER-SCHED-004) -->
-      <template x-if="detailSesi && detailSesi.kind === 'PENGGANTI'">
-        <div class="flex-1 flex flex-col overflow-hidden">
-          <!-- Scrollable area -->
-          <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5">
-            <!-- Header Kategori & Tutup -->
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div
-                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[9px] py-[5px] justify-start items-center bg-[#FEF3C7] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[7px]">
-                  <span class="text-[11px] font-sans font-bold text-[#92400E] whitespace-nowrap">Kuliah Pengganti</span>
-                </div>
-                <template x-if="isSesiOngoing(detailSesi)">
-                  <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-2 py-0.5 rounded-[6px] flex items-center gap-1 border border-[#BBF7D0]">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>SEDANG BERLANGSUNG
-                  </span>
-                </template>
-              </div>
-              <button type="button" @click="tutupDetailSesi()"
-                class="w-[36px] h-[36px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors">
-                <svg viewBox="0 0 14 14" class="w-[18px] h-[18px]" fill="currentColor">
-                  <path
-                    d="M7 7.414l-3.06 3.06a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L6.59 7 3.53 3.94a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0L7 6.59l3.06-3.06a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L7.41 7l3.06 3.06a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L7 7.414z" />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Judul & Metadata Matkul -->
-            <div class="flex flex-col gap-1">
-              <h2 class="text-[20px] font-sans font-bold text-[#0F172A] leading-snug" x-text="detailSesi.matkul">Aljabar
-                Linier</h2>
-              <div class="text-[12px] font-sans font-medium text-[#64748B]"
-                x-text="'Kode: ' + getKodeMatkul(detailSesi) + ' • ' + (detailSesi.sks ? detailSesi.sks + ' SKS • ' : '3 SKS • ') + (semesterLabel || 'Semester Ganjil 2026/2027')">
-                Kode: TI2104 • 3 SKS • Semester Ganjil 2026/2027
-              </div>
-            </div>
-
-            <!-- Banner Kuliah Pengganti Resmi -->
-            <div
-              class="w-full flex items-start gap-2.5 p-3 bg-[#FFFBEB] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[16px]">
-              <svg viewBox="0 0 14 14" class="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" fill="currentColor">
-                <path
-                  d="M6.388 9.44l2.263-2.263a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L6.707 9.94a.47.47 0 0 1-.66 0L4.92 8.813a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l1.058 1.037zm-3.114 2.81a.94.94 0 0 1-.94-.943V3.86a.94.94 0 0 1 .94-.943h1.032V1.933a.29.29 0 0 1 .58 0v.984h4.173v-.984a.29.29 0 0 1 .58 0v.984h1.032c.52 0 .943.424.943.944v7.447c0 .52-.423.943-.943.943H3.274zm0-.584h7.45a.36.36 0 0 0 .36-.36V6.195H2.915v5.113c0 .2.16.36.36.36z" />
-              </svg>
-              <div class="text-[12px] leading-[17px] text-[#78350F] font-sans font-medium">
-                <span class="font-bold">Kuliah Pengganti Resmi:</span>
-                <span
-                  x-text="(detailSesi.reason || fmtAsalPengganti(detailSesi.originDate, detailSesi.reason)) + '. Diterbitkan oleh KM.'"></span>
-              </div>
-            </div>
-
-            <!-- Waktu dan Tempat Dua Kolom -->
-            <div
-              class="w-full flex flex-row gap-3 p-3.5 bg-[#F8FAFC] [outline:1px_solid_#F1F5F9] [outline-offset:-0.5px] rounded-[12px]">
-              <!-- Kolom Waktu -->
-              <div class="flex-1 flex flex-col gap-1">
-                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
-                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0" fill="currentColor">
-                    <path
-                      d="M7 11.666a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4zm0-.584a4.1 4.1 0 1 0 0-8.2 4.1 4.1 0 0 0 0 8.2zm.29-4.786l2.044 2.04a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L6.85 6.67a.38.38 0 0 1-.14-.26V3.856a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
-                  </svg>
-                  <span>Waktu</span>
-                </div>
-                <div class="text-[11px] font-sans font-bold text-[#334155]"
-                  x-text="detailSesi.hari + ', ' + (tanggalPekanFormatted[detailSesi.hari] || '')">
-                  Rabu, 7 Oktober 2026
-                </div>
-                <div class="text-[11px] font-mono font-bold text-[#1E293B]"
-                  x-text="detailSesi.timeStart + ' – ' + detailSesi.timeEnd + ' WIB'">
-                  13:30 – 15:10 WIB
-                </div>
-              </div>
-              <!-- Kolom Tempat -->
-              <div class="flex-1 flex flex-col gap-1">
-                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
-                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5 shrink-0" fill="currentColor">
-                    <path
-                      d="M7 11.478c1.644-1.433 2.598-2.913 2.598-2.56 0-1.6-1.015-2.643-2.54-2.643-1.527 0-2.542 1.043-2.542 2.643 0 1.08.954 2.56 2.484 2.56zm0 .512a.47.47 0 0 1-.253-.147c-.622-.57-1.261-1.271-1.261-1.456 0-1.85 1.203-3.052 2.936-3.052 1.73 0 2.933 1.202 2.933 3.052 0 .745-.335 1.524-.848 1.538-.64.697-1.261 1.268-1.261 1.268a.47.47 0 0 1-.246-.203zM7 6.843a.94.94 0 1 0 0-1.88.94.94 0 0 0 0 1.88z" />
-                  </svg>
-                  <span>Tempat</span>
-                </div>
-                <div class="text-[11px] font-sans font-bold text-[#334155]"
-                  x-text="detailSesi.ruang ? 'Ruang ' + detailSesi.ruang : (detailSesi.link ? 'Kuliah Daring' : '—')">
-                  Ruang D204
-                </div>
-                <div class="text-[11px] font-sans font-medium text-[#64748B]"
-                  x-text="detailSesi.ruang ? 'Gedung ' + detailSesi.ruang.charAt(0) + ' Lt. 2' : (detailSesi.link ? 'Zoom Cloud Meetings' : '')">
-                  Gedung D Lt. 2
-                </div>
-              </div>
-            </div>
-
-            <!-- Pengampu dan PJ Kelas -->
-            <div class="w-full flex flex-col gap-2.5">
-              <!-- Dosen Pengampu -->
-              <div class="w-full flex items-center gap-2.5">
-                <div
-                  class="w-[38px] h-[38px] rounded-full bg-[#E2E8F0] flex items-center justify-center font-bold text-[#475569] text-[12px] shrink-0"
-                  x-text="getInitials(detailSesi.dosen)">
-                  HE
-                </div>
-                <div class="flex flex-col">
-                  <div class="text-[13px] font-sans font-bold text-[#0F172A]" x-text="detailSesi.dosen || '—'">Bpk.
-                    Hendra, M.Kom.</div>
-                  <div class="text-[11px] font-sans font-medium text-[#64748B]">Dosen Pengampu</div>
-                </div>
-              </div>
-              <!-- PJ Kelas & Tombol WA -->
-              <div class="w-full flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                  <div
-                    class="w-[38px] h-[38px] rounded-full bg-[#E2E8F0] flex items-center justify-center font-bold text-[#475569] text-[12px] shrink-0"
-                    x-text="getInitials(detailSesi.pj || 'Ahmad Fauzi')">
-                    AF
-                  </div>
-                  <div class="flex flex-col">
-                    <div class="text-[13px] font-sans font-bold text-[#0F172A]" x-text="detailSesi.pj || 'Ahmad Fauzi'">
-                      Ahmad Fauzi</div>
-                    <div class="text-[11px] font-sans font-medium text-[#64748B]">PJ Matkul</div>
-                  </div>
-                </div>
-                <button type="button" @click="hubungiPJ(detailSesi)"
-                  class="box-border w-fit shrink-0 h-[38px] px-3 flex items-center gap-1.5 bg-[#ECFDF5] [outline:1px_solid_#6EE7B7] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#d1fae5] transition-colors cursor-pointer">
-                  <svg viewBox="0 0 14 14" class="w-4 h-4 text-[#065F46] shrink-0" fill="currentColor">
-                    <path
-                      d="M3.544 9.916l-.994.994a.5.5 0 0 1-.8-.332V2.693c0-.403.27-.673.673-.673h8.613c.4 0 .673.27.673.673v6.282c0 .4-.27.67-.673.67H3.544zm-.25-.581h8.012c.137 0 .246-.113.246-.246V2.797a.25.25 0 0 0-.246-.246H2.943a.25.25 0 0 0-.246.246v7.598l.597-.597zm1.75-2.04h3.5a.29.29 0 0 0 0-.58h-3.5a.29.29 0 0 0 0 .58zm0-1.75h5.83a.29.29 0 0 0 0-.58h-5.83a.29.29 0 0 0 0 .58z" />
-                  </svg>
-                  <span class="text-[11px] text-[#065F46] font-sans font-bold whitespace-nowrap">Chat WhatsApp PJ</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Tugas Terkait Sesi -->
-            <div class="w-full flex flex-col gap-2 pt-1">
-              <div class="text-[11px] font-sans font-bold text-[#64748B] tracking-[1px]">TUGAS TERKAIT</div>
-              <template x-for="t in getTugasTerkait(detailSesi.matkul)" :key="'rel-task-' + t.id">
-                <div
-                  class="w-full flex items-center justify-between p-2.5 bg-[#F8FAFC] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[10px]">
-                  <div class="flex flex-col gap-0.5">
-                    <div class="text-[12px] font-sans font-bold text-[#0F172A]" x-text="t.title || t.matkul">Tugas
-                      Matriks & Transformasi</div>
-                    <div class="text-[11px] font-sans font-medium text-[#64748B]" x-text="t.deadline || 'Pekan ini'">
-                      Jumat, 23:59 WIB</div>
-                  </div>
-                  <div class="px-2 py-1 bg-[#FEF3C7] rounded-[6px] text-[10px] text-[#92400E] font-sans font-bold"
-                    x-text="t.countdown || 'Segera'">
-                    Segera
-                  </div>
-                </div>
-              </template>
-              <template x-if="getTugasTerkait(detailSesi.matkul).length === 0">
-                <div class="text-[11px] text-slate-400 font-sans italic py-1">Tidak ada tugas aktif untuk mata kuliah
-                  ini.</div>
-              </template>
-            </div>
-          </div>
-        </div>
-      </template>
-
-          <!-- Fixed Action Bar Bawah -->
-          <div class="p-3.5 md:p-4 bg-white border-t border-[#E2E8F0] flex items-center justify-between gap-2 shrink-0">
-            <a href="#" @click.prevent="tutupDetailSesi(); go('materi');"
-              class="text-[12px] font-semibold text-[#2563EB] hover:underline flex items-center gap-1 whitespace-nowrap">
-              <span>Lihat Silabus Matkul Ini</span>
-              <span aria-hidden="true">→</span>
-            </a>
-            <div class="flex items-center gap-2">
-              <template x-if="detailSesi.link">
-                <a :href="detailSesi.link" target="_blank" rel="noopener noreferrer"
-                  class="h-[38px] px-3 flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[10px] text-[12px] font-bold transition-colors">
-                  <svg viewBox="0 0 14 14" class="w-3.5 h-3.5" fill="currentColor">
-                    <path
-                      d="M2.974 11.084a.94.94 0 0 1-.944-.943V3.86a.94.94 0 0 1 .944-.944h6.282c.52 0 .943.424.943.944v2.714l1.367-1.364a.2.2 0 0 1 .33.157v3.268a.2.2 0 0 1-.33.157l-1.367-1.364v2.714c0 .52-.423.943-.943.943H2.974z" />
-                  </svg>
-                  <span>Zoom</span>
-                </a>
-              </template>
-              <button type="button" @click="tutupDetailSesi()"
-                class="h-[38px] px-4 flex items-center justify-center bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#334155] rounded-[10px] text-[12px] font-semibold transition-colors">
-                Tutup
-              </button>
-              <button type="button" @click="salinRingkasanSesi(detailSesi)"
-                class="h-[38px] px-4 flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[10px] text-[12px] font-bold transition-colors shadow-sm">
-                <svg viewBox="0 0 14 14" class="w-3.5 h-3.5" fill="currentColor">
-                  <path
-                    d="M5.318 9.916a.94.94 0 0 1-.943-.94V2.694c0-.52.423-.943.943-.943h4.532c.52 0 .943.423.943.943v6.282c0 .52-.423.94-.943.94H5.318zm0-.581h4.532a.36.36 0 0 0 .36-.36V2.694a.36.36 0 0 0-.36-.36H5.318a.36.36 0 0 0-.36.36v6.281c0 .2.16.36.36.36zm-1.75 2.331a.94.94 0 0 1-.943-.943V4.147a.29.29 0 0 1 .58 0v6.576c0 .2.16.36.36.36h4.823a.29.29 0 0 1 0 .58H3.568z" />
-                </svg>
-                <span>Salin Info Sesi</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- KONTEN B: SESI PRAKTIKUM / TEORI REGULER (SCR-USER-SCHED-DETAIL & SCR-USER-SCHED-002) -->
-      <template x-if="detailSesi && detailSesi.kind !== 'PENGGANTI'">
+      <!-- KONTEN MODAL DETAIL SESI (KULIAH PENGGANTI MAUPUN REGULER) -->
+      <template x-if="detailSesi">
         <div class="flex-1 flex flex-col overflow-hidden">
           <!-- Scrollable area -->
           <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-3.5">
             <!-- Header Badge & Tutup -->
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between select-none md:select-text touch-none cursor-grab active:cursor-grabbing"
+              @pointerdown="onSesiPointerDown($event)"
+              @pointermove="onSesiPointerMove($event)"
+              @pointerup="onSesiPointerUp($event)"
+              @pointercancel="onSesiPointerUp($event)">
               <div class="flex items-center gap-2">
-                <div
-                  class="box-border w-fit shrink-0 h-fit flex flex-row px-[10px] py-[6px] justify-start items-center rounded-[7px]"
-                  :class="detailSesi.activityType === 'PRACTICE' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
-                  <span class="text-[12px] font-sans font-bold whitespace-nowrap"
-                    x-text="detailSesi.activityType === 'PRACTICE' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
-                </div>
+                <template x-if="detailSesi.kind === 'PENGGANTI'">
+                  <div
+                    class="box-border w-fit shrink-0 h-fit flex flex-row px-[9px] py-[5px] justify-start items-center bg-[#FEF3C7] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[7px]">
+                    <span class="text-[11px] font-bold text-[#92400E] whitespace-nowrap">Kuliah Pengganti</span>
+                  </div>
+                </template>
+                <template x-if="detailSesi.kind !== 'PENGGANTI'">
+                  <div
+                    class="box-border w-fit shrink-0 h-fit flex flex-row px-[10px] py-[6px] justify-start items-center rounded-[7px]"
+                    :class="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'bg-[#E9EAFF] text-[#334DB5]' : (detailSesi.link ? 'bg-[#EFF6FF] text-[#1D4ED8]' : 'bg-[#EFF6FF] text-[#1D4ED8]')">
+                    <span class="text-[12px] font-bold whitespace-nowrap"
+                      x-text="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'Praktikum' : (detailSesi.link ? 'Teori · Hybrid' : 'Teori')">Praktikum</span>
+                  </div>
+                </template>
                 <template x-if="isSesiOngoing(detailSesi)">
                   <span class="bg-[#DCFCE7] text-[#15803D] font-bold text-[10px] px-2 py-0.5 rounded-[6px] flex items-center gap-1 border border-[#BBF7D0]">
                     <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>SEDANG BERLANGSUNG
@@ -946,7 +847,8 @@
                 </template>
               </div>
               <button type="button" @click="tutupDetailSesi()"
-                class="w-[36px] h-[36px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors">
+                class="w-[36px] h-[36px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors"
+                title="Tutup dialog">
                 <svg viewBox="0 0 14 14" class="w-[18px] h-[18px]" fill="currentColor">
                   <path
                     d="M7 7.414l-3.06 3.06a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41L6.59 7 3.53 3.94a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0L7 6.59l3.06-3.06a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L7.41 7l3.06 3.06a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0L7 7.414z" />
@@ -956,13 +858,29 @@
 
             <!-- Identitas Matkul & Pertemuan -->
             <div class="flex flex-col gap-1">
-              <h2 class="text-[18px] md:text-[20px] font-sans font-bold text-[#0F172A] leading-snug"
-                x-text="detailSesi.matkul">Praktikum Pemrograman Web</h2>
-              <div class="text-[12px] font-sans font-medium text-[#64748B]"
+              <h2 class="text-[18px] md:text-[20px] font-heading font-bold text-[#0F172A] leading-snug"
+                x-text="detailSesi.matkul">Mata Kuliah</h2>
+              <div class="text-[12px] font-medium text-[#64748B]"
                 x-text="'Kode: ' + getKodeMatkul(detailSesi) + ' • ' + (detailSesi.sks ? detailSesi.sks + ' SKS • ' : '3 SKS • ') + (selectedClassFormatted || 'D4-TI 1A') + ' • Pertemuan ' + pekanAktifNum">
                 Kode: TI2105 • 3 SKS • D4-TI 1A • Pertemuan 6
               </div>
             </div>
+
+            <!-- Banner Kuliah Pengganti Resmi (Jika jenis PENGGANTI) -->
+            <template x-if="detailSesi.kind === 'PENGGANTI'">
+              <div
+                class="w-full flex items-start gap-2.5 p-3 bg-[#FFFBEB] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[16px]">
+                <svg viewBox="0 0 14 14" class="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" fill="currentColor">
+                  <path
+                    d="M6.388 9.44l2.263-2.263a.29.29 0 0 1 .41 0 .29.29 0 0 1 0 .41L6.707 9.94a.47.47 0 0 1-.66 0L4.92 8.813a.29.29 0 0 1 0-.41.29.29 0 0 1 .41 0l1.058 1.037zm-3.114 2.81a.94.94 0 0 1-.94-.943V3.86a.94.94 0 0 1 .94-.943h1.032V1.933a.29.29 0 0 1 .58 0v.984h4.173v-.984a.29.29 0 0 1 .58 0v.984h1.032c.52 0 .943.424.943.944v7.447c0 .52-.423.943-.943.943H3.274zm0-.584h7.45a.36.36 0 0 0 .36-.36V6.195H2.915v5.113c0 .2.16.36.36.36z" />
+                </svg>
+                <div class="text-[12px] leading-[17px] text-[#78350F] font-medium">
+                  <span class="font-bold">Kuliah Pengganti Resmi:</span>
+                  <span
+                    x-text="(detailSesi.reason || fmtAsalPengganti(detailSesi.originDate, detailSesi.reason)) + '. Diterbitkan oleh KM.'"></span>
+                </div>
+              </div>
+            </template>
 
             <div class="w-full h-[1px] bg-[#E2E8F0]"></div>
 
@@ -978,9 +896,9 @@
                   </svg>
                 </div>
                 <div class="flex flex-col">
-                  <div class="text-[14px] font-sans font-bold text-[#0F172A]"
+                  <div class="text-[14px] font-mono font-bold text-[#0F172A]"
                     x-text="detailSesi.timeStart + ' – ' + detailSesi.timeEnd + ' WIB'">09:40 – 12:10 WIB</div>
-                  <div class="text-[11px] font-sans font-semibold text-[#166534]"
+                  <div class="text-[11px] font-semibold text-[#166534]"
                     x-text="detailSesi.hari === todayName && weekOffset === 0 ? 'Hari ini • ' + (getStatusWaktu(detailSesi) || 'Sedang berlangsung') : detailSesi.hari + ', ' + (tanggalPekanFormatted[detailSesi.hari] || '')">
                     Hari ini · Sedang berlangsung
                   </div>
@@ -999,11 +917,11 @@
                   </svg>
                 </div>
                 <div class="flex flex-col">
-                  <div class="text-[14px] font-sans font-bold text-[#0F172A]"
+                  <div class="text-[14px] font-bold text-[#0F172A]"
                     x-text="detailSesi.ruang ? 'Ruang ' + detailSesi.ruang : (detailSesi.link ? 'Kuliah Daring' : '—')">
                     Lab Komputer 3
                   </div>
-                  <div class="text-[11px] font-sans font-medium text-[#64748B]"
+                  <div class="text-[11px] font-medium text-[#64748B]"
                     x-text="detailSesi.ruang ? 'Gedung ' + detailSesi.ruang.charAt(0) + ' Lt. 2' : (detailSesi.link ? 'Tautan Zoom Tersedia' : 'Kampus Polban')">
                     Gedung D Lt. 2
                   </div>
@@ -1013,7 +931,7 @@
 
             <!-- Pengampu dan Bantuan -->
             <div class="w-full flex flex-col gap-2.5">
-              <div class="text-[13px] font-sans font-bold text-[#475569]">Pengampu & bantuan</div>
+              <div class="text-[13px] font-bold text-[#475569]">Pengampu &amp; bantuan</div>
 
               <!-- Dosen Pengampu -->
               <div class="w-full flex items-center gap-2.5">
@@ -1023,9 +941,8 @@
                   MR
                 </div>
                 <div class="flex flex-col">
-                  <div class="text-[13px] font-sans font-bold text-[#0F172A]" x-text="detailSesi.dosen || '—'">M. Rizal,
-                    M.T.</div>
-                  <div class="text-[11px] font-sans font-medium text-[#64748B]">Dosen Pengampu</div>
+                  <div class="text-[13px] font-bold text-[#0F172A]" x-text="detailSesi.dosen || '—'">M. Rizal, M.T.</div>
+                  <div class="text-[11px] font-medium text-[#64748B]">Dosen Pengampu</div>
                 </div>
               </div>
 
@@ -1034,13 +951,13 @@
                 <div class="flex items-center gap-2.5">
                   <div
                     class="w-[38px] h-[38px] rounded-full bg-[#E2E8F0] flex items-center justify-center font-bold text-[#475569] text-[12px] shrink-0"
-                    x-text="getInitials(detailSesi.pj || 'Rifqi')">
-                    RI
+                    x-text="getInitials(detailSesi.pj || 'Ahmad Fauzi')">
+                    AF
                   </div>
                   <div class="flex flex-col">
-                    <div class="text-[13px] font-sans font-bold text-[#0F172A]"
-                      x-text="detailSesi.pj || 'Rifqi (PJ Praktikum)'">Rifqi (PJ Praktikum)</div>
-                    <div class="text-[11px] font-sans font-medium text-[#64748B]">PJ Mahasiswa</div>
+                    <div class="text-[13px] font-bold text-[#0F172A]"
+                      x-text="detailSesi.pj || 'Ahmad Fauzi'">Ahmad Fauzi</div>
+                    <div class="text-[11px] font-medium text-[#64748B]">PJ Mahasiswa</div>
                   </div>
                 </div>
                 <button type="button" @click="hubungiPJ(detailSesi)"
@@ -1049,43 +966,40 @@
                     <path
                       d="M3.544 9.916l-.994.994a.5.5 0 0 1-.8-.332V2.693c0-.403.27-.673.673-.673h8.613c.4 0 .673.27.673.673v6.282c0 .4-.27.67-.673.67H3.544zm-.25-.581h8.012c.137 0 .246-.113.246-.246V2.797a.25.25 0 0 0-.246-.246H2.943a.25.25 0 0 0-.246.246v7.598l.597-.597zm1.75-2.04h3.5a.29.29 0 0 0 0-.58h-3.5a.29.29 0 0 0 0 .58zm0-1.75h5.83a.29.29 0 0 0 0-.58h-5.83a.29.29 0 0 0 0 .58z" />
                   </svg>
-                  <span class="text-[11px] text-[#065F46] font-sans font-bold whitespace-nowrap">Chat WhatsApp PJ</span>
+                  <span class="text-[11px] text-[#065F46] font-bold whitespace-nowrap">Chat WhatsApp PJ</span>
                 </button>
               </div>
             </div>
 
             <!-- Tombol Buka Modul Praktikum / Materi -->
             <button type="button" @click="tutupDetailSesi(); go('materi');"
-              class="box-border w-full h-[48px] md:h-[50px] shrink-0 flex items-center justify-center gap-2 bg-[#3965FB] hover:bg-[#2563EB] text-white rounded-[12px] font-sans font-bold text-[13px] md:text-[14px] transition-colors cursor-pointer shadow-sm">
+              class="box-border w-full h-[48px] md:h-[50px] shrink-0 flex items-center justify-center gap-2 bg-[#3965FB] hover:bg-[#2563EB] text-white rounded-[12px] font-bold text-[13px] md:text-[14px] transition-colors cursor-pointer shadow-sm">
               <svg viewBox="0 0 14 14" class="w-4 h-4" fill="currentColor">
                 <path
                   d="M3.79 9.355c.766 0 1.487.178 2.432.571V4.2c-.632-.45-1.394-.676-2.158-.676-.523 0-.92.065-1.313.232a.29.29 0 0 0-.176.269v5.26c0 .157.113.229.246.017.321-.11.738-.174 1.259-.174zm3.5.748c.71-.396 1.432-.57 2.198-.57.523 0 .94.065 1.345.174a.29.29 0 0 0 .34-.23v-5.26a.29.29 0 0 0-.188-.28c-.482-.17-.878-.232-1.4-.232-.765 0-1.527.226-2.295.676v5.725z" />
               </svg>
               <span
-                x-text="detailSesi.activityType === 'PRACTICE' ? 'Buka Modul Praktikum' : 'Buka Materi Perkuliahan'">Buka
-                Modul Praktikum</span>
+                x-text="portalSesiType(detailSesi) === 'PRAKTIKUM' ? 'Buka Modul Praktikum' : 'Buka Materi Perkuliahan'">Buka
+                Materi Perkuliahan</span>
             </button>
 
             <!-- Tugas Terkait Sesi -->
             <div class="w-full flex flex-col gap-2 pt-1">
-              <div class="text-[13px] font-sans font-bold text-[#475569]">Tugas terkait</div>
-              <template x-for="t in getTugasTerkait(detailSesi.matkul)" :key="'rel-reg-' + t.id">
+              <div class="text-[13px] font-bold text-[#475569]">Tugas terkait</div>
+              <template x-for="t in getTugasTerkait(detailSesi.matkul)" :key="'rel-sesi-' + t.id">
                 <div class="w-full flex items-center justify-between p-3 bg-[#F8FAFC] rounded-[12px]">
                   <div class="flex flex-col gap-0.5">
-                    <div class="text-[13px] font-sans font-bold text-[#0F172A]" x-text="t.title || t.matkul">Tugas 1:
-                      CRUD Laravel</div>
-                    <div class="text-[11px] font-sans font-medium text-[#64748B]" x-text="t.deadline || 'Pekan ini'">
-                      Kamis, 8 Okt</div>
+                    <div class="text-[13px] font-bold text-[#0F172A]" x-text="t.title || t.matkul">Tugas</div>
+                    <div class="text-[11px] font-medium text-[#64748B]" x-text="t.deadline || 'Pekan ini'">Pekan ini</div>
                   </div>
-                  <div class="px-2 py-1 bg-[#FEF3C7] rounded-[6px] text-[10px] text-[#92400E] font-sans font-bold"
+                  <div class="px-2 py-1 bg-[#FEF3C7] rounded-[6px] text-[10px] text-[#92400E] font-bold"
                     x-text="t.countdown || 'Segera'">
                     Segera
                   </div>
                 </div>
               </template>
               <template x-if="getTugasTerkait(detailSesi.matkul).length === 0">
-                <div class="text-[11px] text-slate-400 font-sans italic py-1">Tidak ada tugas aktif terkait sesi ini.
-                </div>
+                <div class="text-[11px] text-slate-400 italic py-1">Tidak ada tugas aktif terkait sesi ini.</div>
               </template>
             </div>
           </div>
@@ -1123,34 +1037,63 @@
             </div>
           </div>
         </div>
-      </div>
+      </template>
 
     </div>
   </div>
 
   <!-- MODAL / BOTTOM SHEET RIWAYAT PERUBAHAN (SCR-USER-SCHED-003 & SCR-USER-SCHED-003M) -->
   <div x-show="modalRiwayatOpen" x-cloak
-    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
     @keydown.escape.window="tutupRiwayatPerubahan()">
 
-    <div
-      class="bg-white rounded-t-[24px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left"
+    <!-- Backdrop Hitam Transparan Blur dengan Animasi Fade Halus -->
+    <div x-show="modalRiwayatOpen"
+      x-transition:enter="transition-opacity ease-out duration-300"
+      x-transition:enter-start="opacity-0"
+      x-transition:enter-end="opacity-100"
+      x-transition:leave="transition-opacity ease-in duration-200"
+      x-transition:leave-start="opacity-100"
+      x-transition:leave-end="opacity-0"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+      @click="tutupRiwayatPerubahan()"
+      aria-hidden="true"></div>
+
+    <!-- Sheet Modal Konten dengan Animasi Slide-Up & Drag to Dismiss -->
+    <div x-show="modalRiwayatOpen"
+      x-transition:enter="transition ease-out duration-300 transform"
+      x-transition:enter-start="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      x-transition:enter-end="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave="transition ease-in duration-200 transform"
+      x-transition:leave-start="translate-y-0 md:scale-100 opacity-100 md:opacity-100"
+      x-transition:leave-end="translate-y-full md:translate-y-4 md:scale-95 opacity-0 md:opacity-0"
+      :style="sheetRiwayatTransform"
+      class="relative bg-white rounded-t-[24px] md:rounded-[24px] border border-slate-200/80 w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden text-left z-10 will-change-transform"
       @click.outside="tutupRiwayatPerubahan()">
 
       <!-- Drag handle (Mobile) -->
-      <div class="md:hidden w-full h-[24px] shrink-0 flex justify-center items-center pt-2">
+      <div class="md:hidden w-full h-[32px] shrink-0 flex justify-center items-center pt-2 cursor-grab active:cursor-grabbing select-none touch-none"
+        @pointerdown="onRiwayatPointerDown($event)"
+        @pointermove="onRiwayatPointerMove($event)"
+        @pointerup="onRiwayatPointerUp($event)"
+        @pointercancel="onRiwayatPointerUp($event)">
         <div class="w-[48px] h-[5px] bg-[#CBD5E1] rounded-full"></div>
       </div>
 
       <!-- Header Riwayat Perubahan -->
-      <div class="p-4 md:p-5 border-b border-[#F1F5F9] flex flex-col gap-1 shrink-0">
+      <div class="p-4 md:p-5 border-b border-[#F1F5F9] flex flex-col gap-1 shrink-0 select-none md:select-text touch-none cursor-grab active:cursor-grabbing"
+        @pointerdown="onRiwayatPointerDown($event)"
+        @pointermove="onRiwayatPointerMove($event)"
+        @pointerup="onRiwayatPointerUp($event)"
+        @pointercancel="onRiwayatPointerUp($event)">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-slate-700 shrink-0" viewBox="0 0 14 14" fill="currentColor">
-              <path
-                d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
+            <svg class="w-5 h-5 text-slate-700 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l4 2" />
             </svg>
-            <h2 class="text-[18px] font-sans font-bold text-[#0F172A] leading-tight">Riwayat Perubahan</h2>
+            <h2 class="text-[18px] font-heading font-bold text-[#0F172A] leading-tight">Riwayat Perubahan</h2>
           </div>
           <button type="button" @click="tutupRiwayatPerubahan()"
             class="w-[32px] h-[32px] flex items-center justify-center rounded-full bg-[#F1F5F9] text-slate-500 hover:text-slate-800 transition-colors">
@@ -1160,7 +1103,7 @@
             </svg>
           </button>
         </div>
-        <p class="text-[12px] font-sans font-medium text-[#64748B]">Log pengumuman resmi kuliah pengganti & jadwal pekan
+        <p class="text-[12px] font-medium text-[#64748B]">Log pengumuman resmi kuliah pengganti & jadwal pekan
           ini</p>
       </div>
 
@@ -1187,18 +1130,18 @@
                     class="w-full flex flex-col gap-2 p-3.5 bg-[#FFFBEB] [outline:1px_solid_#FDE68A] [outline-offset:-0.5px] rounded-[16px]">
                     <div class="flex items-center justify-between">
                       <div
-                        class="px-2.5 py-1 bg-[#FEF3C7] rounded-[12px] text-[10px] text-[#92400E] font-sans font-bold whitespace-nowrap">
+                        class="px-2.5 py-1 bg-[#FEF3C7] rounded-[12px] text-[10px] text-[#92400E] font-bold whitespace-nowrap">
                         Kuliah Pengganti
                       </div>
-                      <div class="text-[11px] text-[#92400E] font-sans font-medium whitespace-nowrap"
+                      <div class="text-[11px] text-[#92400E] font-medium whitespace-nowrap"
                         x-text="formatWaktuPublikasi(ch.published_at)">
                         4 Okt, 14:20 WIB oleh KM
                       </div>
                     </div>
-                    <div class="text-[16px] text-[#0F172A] font-sans font-bold" x-text="ch.offering">
+                    <div class="text-[16px] text-[#0F172A] font-heading font-bold" x-text="ch.offering">
                       Aljabar Linier
                     </div>
-                    <div class="flex items-start gap-1.5 text-[12px] font-sans font-semibold text-[#334155]">
+                    <div class="flex items-start gap-1.5 text-[12px] font-semibold text-[#334155]">
                       <svg viewBox="0 0 14 14" class="w-4 h-4 text-[#92400E] shrink-0 mt-0.5" fill="currentColor">
                         <path
                           d="M8.682 10.5a.87.87 0 1 1 0-1.74.87.87 0 0 1 0 1.74zm-5.408 1.75a.94.94 0 0 1-.94-.943V3.86a.94.94 0 0 1 .94-.943h1.032V1.933a.29.29 0 0 1 .58 0v.984h4.173v-.984a.29.29 0 0 1 .58 0v.984h1.032c.52 0 .943.424.943.944v7.447c0 .52-.423.943-.943.943H3.274zm0-.584h7.45a.36.36 0 0 0 .36-.36V6.195H2.915v5.113c0 .2.16.36.36.36z" />
@@ -1211,7 +1154,7 @@
                         <path
                           d="M7 9.625a.29.29 0 0 1-.29-.29v-2.625a.29.29 0 0 1 .58 0v2.625a.29.29 0 0 1-.29.29zm0-4.04a.36.36 0 1 1 0-.72.36.36 0 0 1 0 .72zM7 11.666a4.7 4.7 0 1 1 0-9.4 4.7 4.7 0 0 1 0 9.4z" />
                       </svg>
-                      <div class="text-[12px] leading-[17px] text-[#475569] font-sans font-medium"
+                      <div class="text-[12px] leading-[17px] text-[#475569] font-medium"
                         x-text="'Alasan: ' + (ch.reason || 'Menggantikan sesi yang berhalangan hadir.')">
                         Alasan: Menggantikan sesi Jumat, 2 Okt 2026 yang berhalangan hadir.
                       </div>
@@ -1226,23 +1169,23 @@
                     class="w-full flex flex-col gap-2 p-3.5 bg-[#F8FAFC] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[16px]">
                     <div class="flex items-center justify-between">
                       <div
-                        class="px-2.5 py-1 bg-[#FFF1F2] [outline:1px_solid_#FECDD3] [outline-offset:-0.5px] rounded-[12px] text-[10px] text-[#BE123C] font-sans font-bold whitespace-nowrap"
+                        class="px-2.5 py-1 bg-[#FFF1F2] [outline:1px_solid_#FECDD3] [outline-offset:-0.5px] rounded-[12px] text-[10px] text-[#BE123C] font-bold whitespace-nowrap"
                         x-text="labelJenisUbah(ch.event_kind)">
                         Ditiadakan
                       </div>
-                      <div class="text-[11px] text-[#64748B] font-sans font-medium whitespace-nowrap"
+                      <div class="text-[11px] text-[#64748B] font-medium whitespace-nowrap"
                         x-text="formatWaktuPublikasi(ch.published_at)">
                         1 Okt 2026 oleh KM
                       </div>
                     </div>
-                    <div class="text-[15px] text-[#334155] font-sans font-bold" x-text="ch.offering">
+                    <div class="text-[15px] text-[#334155] font-heading font-bold" x-text="ch.offering">
                       Matematika Diskrit
                     </div>
-                    <div class="text-[12px] text-[#64748B] font-sans font-medium" x-text="formatWaktuEfektif(ch)">
+                    <div class="text-[12px] text-[#64748B] font-medium" x-text="formatWaktuEfektif(ch)">
                       Jumat, 2 Okt 2026 • 13:00 - 14:40 WIB
                     </div>
                     <div
-                      class="w-full p-2.5 bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] text-[12px] leading-[17px] text-[#475569] font-sans font-medium"
+                      class="w-full p-2.5 bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] text-[12px] leading-[17px] text-[#475569] font-medium"
                       x-text="'Alasan: ' + (ch.reason || 'Sesi perkuliahan ditiadakan oleh pengampu.')">
                       Alasan: Dosen berhalangan hadir. Materi dipelajari mandiri via LMS.
                     </div>
@@ -1257,13 +1200,14 @@
         <template x-if="!perubahanLoading && perubahanList.length === 0">
           <div class="w-full py-12 px-4 flex flex-col items-center justify-center text-center gap-2">
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
-              <svg viewBox="0 0 14 14" class="w-6 h-6" fill="currentColor">
-                <path
-                  d="M6.976 11.666a4.7 4.7 0 0 1-2.95-1.03 4.9 4.9 0 0 1-1.6-2.645.28.28 0 0 1 .218-.363.29.29 0 0 1 .352.26 4.3 4.3 0 0 0 1.43 2.296 4.1 4.1 0 0 0 2.55.902c1.71 0 2.895-1.19 2.895-2.895s-1.186-2.895-2.895-2.895a4.04 4.04 0 0 0-1.7.383 4.1 4.1 0 0 0-1.41 1.053l1.156.002a.29.29 0 0 1 .29.29.29.29 0 0 1-.29.29H3.107a.47.47 0 0 1-.47-.47V4.996a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29l.002 1.101A4.6 4.6 0 0 1 5.13 4.942a4.67 4.67 0 0 1 1.846-.42c1.82 0 3.3 1.48 3.3 3.3s-1.48 3.3-3.3 3.3zm.328-4.785l1.75 1.75a.29.29 0 0 1 0 .41.29.29 0 0 1-.41 0l-1.78-1.777a.38.38 0 0 1-.11-.16.4.4 0 0 1-.03-.174V4.382a.29.29 0 0 1 .29-.29.29.29 0 0 1 .29.29v2.505z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M12 7v5l4 2" />
               </svg>
             </div>
-            <div class="text-[15px] font-sans font-bold text-[#0F172A]">Belum Ada Perubahan Jadwal</div>
-            <p class="text-[12px] font-sans text-[#64748B] max-w-xs">Seluruh sesi perkuliahan pekan ini berjalan sesuai
+            <div class="text-[15px] font-heading font-bold text-[#0F172A]">Belum Ada Perubahan Jadwal</div>
+            <p class="text-[12px] text-[#64748B] max-w-xs">Seluruh sesi perkuliahan pekan ini berjalan sesuai
               jadwal reguler tanpa pengumuman pengganti atau pembatalan.</p>
           </div>
         </template>
@@ -1271,11 +1215,11 @@
 
       <!-- Action Bar Bawah Riwayat -->
       <div class="p-3.5 md:p-4 bg-white border-t border-[#E2E8F0] flex flex-col gap-2 shrink-0">
-        <div class="text-[11px] font-sans font-medium text-[#94A3B8] text-center">
+        <div class="text-[11px] font-medium text-[#94A3B8] text-center">
           Disinkronkan otomatis dari bot WhatsApp kelas
         </div>
         <button type="button" @click="tutupRiwayatPerubahan()"
-          class="w-full h-11 flex items-center justify-center bg-[#F1F5F9] hover:bg-slate-200 text-[#334155] rounded-[12px] text-[14px] font-sans font-bold transition-colors">
+          class="w-full h-11 flex items-center justify-center bg-[#F1F5F9] hover:bg-slate-200 text-[#334155] rounded-[12px] text-[14px] font-bold transition-colors">
           Tutup Riwayat
         </button>
       </div>

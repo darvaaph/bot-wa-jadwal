@@ -164,8 +164,8 @@ func (j *JadwalConfig) FormatClassBanner() string {
 			prodiStr = "Teknik Informatika"
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("🏛️ *Kelas %d%s (Tingkat %d) — %s*\n", tingkat, kelasLetter, tingkat, prodiStr))
-		sb.WriteString(fmt.Sprintf("📌 _Semester %d_\n", semester))
+		sb.WriteString(fmt.Sprintf("*Kelas %d%s (Tingkat %d) — %s*\n", tingkat, kelasLetter, tingkat, prodiStr))
+		sb.WriteString(fmt.Sprintf("_Semester %d_\n", semester))
 		return sb.String()
 	}
 
@@ -173,7 +173,7 @@ func (j *JadwalConfig) FormatClassBanner() string {
 	if kampusStr != "" {
 		clean := strings.TrimSpace(strings.ReplaceAll(kampusStr, "(Transisi)", ""))
 		clean = strings.TrimSpace(strings.ReplaceAll(clean, "  ", " "))
-		return fmt.Sprintf("🏛️ _%s_\n", clean)
+		return fmt.Sprintf("_%s_\n", clean)
 	}
 	return ""
 }
@@ -182,13 +182,13 @@ func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 	banner := j.FormatClassBanner()
 	if len(items) == 0 {
 		if banner != "" {
-			return fmt.Sprintf("❌ *%s*\n%s──────────\nTidak ada jadwal yang ditemukan.", judul, banner)
+			return fmt.Sprintf("*%s*\n%s──────────\nTidak ada jadwal yang ditemukan.", judul, banner)
 		}
-		return fmt.Sprintf("❌ *%s*\n──────────\nTidak ada jadwal yang ditemukan.", judul)
+		return fmt.Sprintf("*%s*\n──────────\nTidak ada jadwal yang ditemukan.", judul)
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📅 *%s*\n", judul))
+	sb.WriteString(fmt.Sprintf("*%s*\n", judul))
 	if banner != "" {
 		sb.WriteString(banner)
 	}
@@ -196,9 +196,9 @@ func (j *JadwalConfig) FormatList(items []JadwalItem, judul string) string {
 
 	for i, item := range items {
 		sb.WriteString(fmt.Sprintf("*%d. %s*\n", i+1, item.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Jam   : %s\n", item.Jam))
-		sb.WriteString(fmt.Sprintf("• Ruang : %s\n", item.Ruang))
-		sb.WriteString(fmt.Sprintf("• Dosen : %s (%s)\n\n", item.Dosen, item.InisialDosen))
+		sb.WriteString(fmt.Sprintf("- Jam   : %s\n", item.Jam))
+		sb.WriteString(fmt.Sprintf("- Ruang : %s\n", item.Ruang))
+		sb.WriteString(fmt.Sprintf("- Dosen : %s (%s)\n\n", item.Dosen, item.InisialDosen))
 	}
 
 	sb.WriteString("──────────\n")
@@ -213,7 +213,7 @@ func (j *JadwalConfig) GetJadwalSeminggu() string {
 	hariList := []string{"Senin", "Selasa", "Rabu", "Kamis", "Jumat"}
 
 	var sb strings.Builder
-	sb.WriteString("📅 *JADWAL SENIN - JUMAT*\n")
+	sb.WriteString("*JADWAL SENIN - JUMAT*\n")
 	if banner := j.FormatClassBanner(); banner != "" {
 		sb.WriteString(banner)
 	}
@@ -227,7 +227,7 @@ func (j *JadwalConfig) GetJadwalSeminggu() string {
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf("📌 *%s*\n", strings.ToUpper(hari)))
+		sb.WriteString(fmt.Sprintf("*%s*\n", strings.ToUpper(hari)))
 		if len(items) == 0 {
 			sb.WriteString("_Tidak ada perkuliahan_\n\n")
 			continue
@@ -235,7 +235,7 @@ func (j *JadwalConfig) GetJadwalSeminggu() string {
 
 		for i, item := range items {
 			sb.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, item.NamaMatkul))
-			sb.WriteString(fmt.Sprintf("   • %s | %s (%s)\n", item.Jam, item.Ruang, item.InisialDosen))
+			sb.WriteString(fmt.Sprintf("   - %s | %s (%s)\n", item.Jam, item.Ruang, item.InisialDosen))
 		}
 		sb.WriteString("\n")
 	}
@@ -251,7 +251,7 @@ func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 
 	hariIndonesia := util.GetHariIndonesia(currentTime)
 	if hariIndonesia == "Sabtu" || hariIndonesia == "Minggu" {
-		return fmt.Sprintf("🏖️ *HARI %s LIBUR*\nTidak ada jadwal perkuliahan hari ini.\n\nKetik `!senin` untuk melihat jadwal awal pekan.", strings.ToUpper(hariIndonesia))
+		return fmt.Sprintf("*HARI %s LIBUR*\nTidak ada jadwal perkuliahan hari ini.\n\nKetik `!senin` untuk melihat jadwal awal pekan.", strings.ToUpper(hariIndonesia))
 	}
 
 	var todayItems []JadwalItem
@@ -262,7 +262,7 @@ func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 	}
 
 	if len(todayItems) == 0 {
-		return fmt.Sprintf("ℹ️ Tidak ada jadwal perkuliahan untuk hari %s.", hariIndonesia)
+		return fmt.Sprintf("Tidak ada jadwal perkuliahan untuk hari %s.", hariIndonesia)
 	}
 
 	var ongoing *JadwalItem
@@ -292,21 +292,21 @@ func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 	var sb strings.Builder
 	if ongoing != nil {
 		sisaMenit := int(ongoingEnd.Sub(currentTime).Minutes())
-		sb.WriteString("📍 *KULIAH SEDANG BERLANGSUNG*\n")
+		sb.WriteString("*KULIAH SEDANG BERLANGSUNG*\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("*%s*\n", ongoing.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Jam   : %s (Selesai ~%d mnt lagi)\n", ongoing.Jam, sisaMenit))
-		sb.WriteString(fmt.Sprintf("• Ruang : %s\n", ongoing.Ruang))
-		sb.WriteString(fmt.Sprintf("• Dosen : %s (%s)\n\n", ongoing.Dosen, ongoing.InisialDosen))
+		sb.WriteString(fmt.Sprintf("- Jam   : %s (Selesai ~%d mnt lagi)\n", ongoing.Jam, sisaMenit))
+		sb.WriteString(fmt.Sprintf("- Ruang : %s\n", ongoing.Ruang))
+		sb.WriteString(fmt.Sprintf("- Dosen : %s (%s)\n\n", ongoing.Dosen, ongoing.InisialDosen))
 
 		if next != nil {
 			selisihMenit := int(nextStart.Sub(currentTime).Minutes())
 			jamFormat := formatDurasi(selisihMenit)
-			sb.WriteString("⏩ *KULIAH BERIKUTNYA:*\n")
-			sb.WriteString(fmt.Sprintf("• %s\n", next.NamaMatkul))
-			sb.WriteString(fmt.Sprintf("• %s (%s lagi) | %s\n", next.Jam, jamFormat, next.Ruang))
+			sb.WriteString("*KULIAH BERIKUTNYA:*\n")
+			sb.WriteString(fmt.Sprintf("- %s\n", next.NamaMatkul))
+			sb.WriteString(fmt.Sprintf("- %s (%s lagi) | %s\n", next.Jam, jamFormat, next.Ruang))
 		} else {
-			sb.WriteString("ℹ️ _Ini adalah mata kuliah terakhir hari ini._\n")
+			sb.WriteString("_Ini adalah mata kuliah terakhir hari ini._\n")
 		}
 		sb.WriteString("──────────")
 		return sb.String()
@@ -315,18 +315,18 @@ func (j *JadwalConfig) GetNextClass(currentTime time.Time) string {
 	if next != nil {
 		selisihMenit := int(nextStart.Sub(currentTime).Minutes())
 		jamFormat := formatDurasi(selisihMenit)
-		sb.WriteString("📍 *KULIAH BERIKUTNYA HARI INI*\n")
+		sb.WriteString("*KULIAH BERIKUTNYA HARI INI*\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString(fmt.Sprintf("*%s*\n", next.NamaMatkul))
-		sb.WriteString(fmt.Sprintf("• Jam   : %s (Mulai %s lagi)\n", next.Jam, jamFormat))
-		sb.WriteString(fmt.Sprintf("• Ruang : %s\n", next.Ruang))
-		sb.WriteString(fmt.Sprintf("• Dosen : %s (%s)\n", next.Dosen, next.InisialDosen))
+		sb.WriteString(fmt.Sprintf("- Jam   : %s (Mulai %s lagi)\n", next.Jam, jamFormat))
+		sb.WriteString(fmt.Sprintf("- Ruang : %s\n", next.Ruang))
+		sb.WriteString(fmt.Sprintf("- Dosen : %s (%s)\n", next.Dosen, next.InisialDosen))
 		sb.WriteString("──────────\n")
 		sb.WriteString("_Ketik !hari ini untuk jadwal lengkap hari ini._")
 		return sb.String()
 	}
 
-	return fmt.Sprintf("✅ *KULIAH HARI INI SELESAI*\nSemua perkuliahan hari %s telah berakhir. Selamat istirahat!\n\nKetik `!besok` untuk melihat jadwal esok hari.", hariIndonesia)
+	return fmt.Sprintf("*KULIAH HARI INI SELESAI*\nSemua perkuliahan hari %s telah berakhir. Selamat istirahat!\n\nKetik `!besok` untuk melihat jadwal esok hari.", hariIndonesia)
 }
 
 func (j *JadwalConfig) GetDaftarMatkul() string {
@@ -373,7 +373,7 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 	sort.Strings(listKode)
 
 	var sb strings.Builder
-	sb.WriteString("📚 *DAFTAR MATA KULIAH*\n")
+	sb.WriteString("*DAFTAR MATA KULIAH*\n")
 	if banner := j.FormatClassBanner(); banner != "" {
 		sb.WriteString(banner)
 	}
@@ -391,9 +391,9 @@ func (j *JadwalConfig) GetDaftarMatkul() string {
 		}
 
 		sb.WriteString(fmt.Sprintf("*%d. %s*\n", i+1, info.Nama))
-		sb.WriteString(fmt.Sprintf("• Kode  : %s\n", info.Kode))
-		sb.WriteString(fmt.Sprintf("• Dosen : %s\n", dosenStr))
-		sb.WriteString(fmt.Sprintf("• Hari  : %s\n\n", hariStr))
+		sb.WriteString(fmt.Sprintf("- Kode  : %s\n", info.Kode))
+		sb.WriteString(fmt.Sprintf("- Dosen : %s\n", dosenStr))
+		sb.WriteString(fmt.Sprintf("- Hari  : %s\n\n", hariStr))
 	}
 
 	sb.WriteString("──────────\n")
@@ -1045,7 +1045,7 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Sertakan nama/kode dosen.\nContoh: `!dosen MR` atau `!dosen Rizqi`"
+		return "Sertakan nama/kode dosen.\nContoh: `!dosen MR` atau `!dosen Rizqi`"
 	}
 
 	var hasil []JadwalItem
@@ -1063,17 +1063,17 @@ func (j *JadwalConfig) SearchDosen(keyword string) string {
 	for id, nama := range j.Dosen {
 		if strings.ToLower(id) == keyword || strings.Contains(strings.ToLower(nama), keyword) {
 			var sb strings.Builder
-			sb.WriteString("👨‍🏫 *INFO DOSEN JTK*\n")
+			sb.WriteString("*INFO DOSEN JTK*\n")
 			sb.WriteString("──────────\n")
-			sb.WriteString(fmt.Sprintf("• Nama : %s\n", nama))
-			sb.WriteString(fmt.Sprintf("• Kode : %s\n\n", id))
-			sb.WriteString("ℹ️ _Tidak ada jadwal mengajar di kelas ini._\n")
+			sb.WriteString(fmt.Sprintf("- Nama : %s\n", nama))
+			sb.WriteString(fmt.Sprintf("- Kode : %s\n\n", id))
+			sb.WriteString("_Tidak ada jadwal mengajar di kelas ini._\n")
 			sb.WriteString("──────────")
 			return sb.String()
 		}
 	}
 
-	return fmt.Sprintf("❌ *DOSEN: \"%s\"*\nData tidak ditemukan di daftar dosen maupun jadwal.", keyword)
+	return fmt.Sprintf("*DOSEN: \"%s\"*\nData tidak ditemukan di daftar dosen maupun jadwal.", keyword)
 }
 
 func (j *JadwalConfig) SearchRuangan(keyword string) string {
@@ -1082,7 +1082,7 @@ func (j *JadwalConfig) SearchRuangan(keyword string) string {
 
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Sertakan nama/kode ruangan.\nContoh: `!ruang Lab` atau `!ruang D105`"
+		return "Sertakan nama/kode ruangan.\nContoh: `!ruang Lab` atau `!ruang D105`"
 	}
 
 	var hasil []JadwalItem
@@ -1101,7 +1101,7 @@ func (j *JadwalConfig) SearchGlobal(keyword string) string {
 
 	keyword = strings.ToLower(strings.TrimSpace(keyword))
 	if keyword == "" {
-		return "⚠️ Sertakan kata kunci pencarian.\nContoh: `!cari basis data`"
+		return "Sertakan kata kunci pencarian.\nContoh: `!cari basis data`"
 	}
 
 	var hasil []JadwalItem
@@ -1317,96 +1317,77 @@ func (j *JadwalConfig) GetMenu() string {
 	sb.WriteString(fmt.Sprintf("%s • _%s_\n", tanggalStr, statusHariIni))
 	sb.WriteString("──────────\n\n")
 
-	sb.WriteString("📌 *Paling Sering Digunakan:*\n")
-	sb.WriteString("• `!jadwal` ➔ Jadwal kuliah terdekat\n")
-	sb.WriteString("• `!next` ➔ Kuliah sedang/berikutnya\n")
-	sb.WriteString("• `!hari ini` ➔ Jadwal hari ini\n")
-	sb.WriteString("• `!besok` ➔ Jadwal besok\n")
-	sb.WriteString("• `!seminggu` ➔ Jadwal Senin - Jumat\n")
-	sb.WriteString("• `!tugas` ➔ Catatan tugas & deadline\n")
-	sb.WriteString("• `!link` ➔ Tautan penting (Drive/Zoom)\n\n")
+	sb.WriteString("*Jadwal Kuliah:*\n")
+	sb.WriteString("- !jadwal        : Jadwal kuliah terdekat\n")
+	sb.WriteString("- !next          : Kuliah sedang/berikutnya\n")
+	sb.WriteString("- !hari ini      : Jadwal hari ini\n")
+	sb.WriteString("- !besok         : Jadwal besok\n")
+	sb.WriteString("- !seminggu      : Jadwal Senin - Jumat\n\n")
 
-	sb.WriteString("🔄 *Jadwal Pengganti (Admin):*\n")
-	sb.WriteString("• `!pindah [matkul] | [waktu]` ➔ Geser jadwal\n")
-	sb.WriteString("• `!kosong [matkul]` ➔ Kelas ditiadakan\n")
-	sb.WriteString("• `!jadwalganti` ➔ Cek perubahan aktif\n\n")
+	sb.WriteString("*Tugas & Tautan:*\n")
+	sb.WriteString("- !tugas           : Catatan tugas & deadline\n")
+	sb.WriteString("- !link / !materi  : Tautan & materi penting kelas (Drive/Zoom)\n\n")
 
-	sb.WriteString("🔍 *Pencarian Cepat:*\n")
-	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
-	sb.WriteString("• `!drive` / `!zoom` ➔ Tautan materi & daring\n")
-	sb.WriteString("• `!dosen [nama]` ➔ Cth: `!dosen MR`\n")
-	sb.WriteString("• `!ruang [kode]` ➔ Cth: `!ruang lab`\n")
-	sb.WriteString("• `!cari [kata]` ➔ Cth: `!cari basis`\n\n")
+	sb.WriteString("*Pencarian Cepat:*\n")
+	sb.WriteString("- !matkul        : Daftar semua mata kuliah\n")
+	sb.WriteString("- !dosen [nama]  : Cari info dosen (cth: !dosen MV)\n")
+	sb.WriteString("- !ruang [kode]  : Cari info ruangan (cth: !ruang lab)\n")
+	sb.WriteString("- !cari [kata]   : Cari jadwal mata kuliah/dosen/ruang\n\n")
 
-	sb.WriteString("⚙️ *Pengaturan & Kelas:*\n")
-	sb.WriteString("• `!kelas` ➔ Daftar pilihan & kelas aktif\n")
-	sb.WriteString("• `!setkelas [nama]` ➔ Pilih kelas (Admin)\n")
-	sb.WriteString("• `!reminder on/off` ➔ Pengingat pagi 06:00\n")
-	sb.WriteString("• `!keyword` ➔ Panduan semua kata kunci\n\n")
+	sb.WriteString("*Pengaturan & Akses:*\n")
+	sb.WriteString("- !portal          : Tautan Dashboard & Portal Web\n")
+	sb.WriteString("- !kanal           : Cek ID JID WhatsApp chat ini\n")
+	sb.WriteString("- !daftarkelas     : Daftar semua kelas aktif\n")
+	sb.WriteString("- !setkelas [nama] : Pilih kelas aktif pribadi (contoh: !setkelas 2a)\n")
+	sb.WriteString("- !keyword         : Panduan semua kata kunci\n\n")
 
 	sb.WriteString("──────────\n")
-	sb.WriteString("_Tips: Di chat pribadi bisa tanpa tanda '!'_")
+	sb.WriteString("Catatan: Penambahan tugas, perubahan jadwal, dan tautan dikelola oleh PJ/KM melalui Dashboard Web.")
 	return sb.String()
 }
 
 func (j *JadwalConfig) GetKeywords() string {
 	var sb strings.Builder
-	sb.WriteString("📖 *DAFTAR LENGKAP KEYWORD*\n")
+	sb.WriteString("*DAFTAR LENGKAP KEYWORD*\n")
 	sb.WriteString("──────────\n\n")
 
-	sb.WriteString("1️⃣ *Jadwal Harian:*\n")
-	sb.WriteString("• `!jadwal` ➔ Jadwal kuliah terdekat berikutnya\n")
-	sb.WriteString("• `!senin` `!selasa` `!rabu` `!kamis` `!jumat`\n")
-	sb.WriteString("• Alias: `!today`, `!now`, `!tomorrow`, `!hari ini`, `!besok`\n\n")
+	sb.WriteString("1. Jadwal Harian:\n")
+	sb.WriteString("- !jadwal        : Jadwal kuliah terdekat berikutnya\n")
+	sb.WriteString("- !senin, !selasa, !rabu, !kamis, !jumat\n")
+	sb.WriteString("- Alias: !today, !now, !tomorrow, !hari ini, !besok\n\n")
 
-	sb.WriteString("2️⃣ *Jadwal Pekanan:*\n")
-	sb.WriteString("• `!seminggu` / `!senin-jumat` / `!semua`\n\n")
+	sb.WriteString("2. Jadwal Pekanan:\n")
+	sb.WriteString("- !seminggu / !senin-jumat / !semua\n\n")
 
-	sb.WriteString("3️⃣ *Kuliah Sedang/Berikutnya:*\n")
-	sb.WriteString("• `!next` / `!sekarang`\n\n")
+	sb.WriteString("3. Kuliah Sedang/Berikutnya:\n")
+	sb.WriteString("- !next / !sekarang\n\n")
 
-	sb.WriteString("4️⃣ *Tugas & Deadline:*\n")
-	sb.WriteString("• `!tugas` ➔ Lihat daftar tugas aktif\n")
-	sb.WriteString("• `!tugas sbd` ➔ Filter tugas per mata kuliah\n")
-	sb.WriteString("• `!tugas riwayat` ➔ Rekam jejak tugas selesai\n")
-	sb.WriteString("• `!tugas tambah SBD | Lapres | Jumat 23:59`\n")
-	sb.WriteString("• `!tugas edit [ID] | Minggu 23:59` ➔ Ubah tenggat\n")
-	sb.WriteString("• `!tugas selesai [ID]` ➔ Selesaikan tugas\n")
-	sb.WriteString("• `!tugas hapus [ID]` ➔ Hapus tugas\n\n")
+	sb.WriteString("4. Tugas & Deadline (Hanya-Baca):\n")
+	sb.WriteString("- !tugas         : Lihat daftar tugas aktif\n")
+	sb.WriteString("- !tugas [matkul]: Filter tugas per mata kuliah\n")
+	sb.WriteString("- !tugas riwayat : Rekam jejak tugas selesai\n")
+	sb.WriteString("  _(Pengelolaan tugas dilakukan melalui Dashboard Web)_\n\n")
 
-	sb.WriteString("5️⃣ *Tautan Penting Kelas:*\n")
-	sb.WriteString("• `!link` / `!tautan` ➔ Semua tautan kelas\n")
-	sb.WriteString("• `!drive` ➔ Shortcut Google Drive & OneDrive\n")
-	sb.WriteString("• `!zoom` / `!gmeet` ➔ Shortcut link kuliah daring\n")
-	sb.WriteString("• `!link cari [kata]` ➔ Cari tautan berdasarkan nama/deskripsi\n")
-	sb.WriteString("• `!link tambah [Judul] | [URL] (| [Catatan])` (Admin)\n")
-	sb.WriteString("• `!link hapus [ID]` (Admin)\n\n")
+	sb.WriteString("5. Tautan Penting Kelas (Hanya-Baca):\n")
+	sb.WriteString("- !link / !tautan: Semua tautan kelas\n")
+	sb.WriteString("- !drive         : Shortcut Google Drive & OneDrive\n")
+	sb.WriteString("- !zoom / !gmeet : Shortcut link kuliah daring\n")
+	sb.WriteString("- !link cari [k] : Cari tautan berdasarkan nama/deskripsi\n")
+	sb.WriteString("  _(Penambahan tautan dilakukan melalui Dashboard Web)_\n\n")
 
-	sb.WriteString("6️⃣ *Jadwal Pengganti (Khusus Admin):*\n")
-	sb.WriteString("• `!libur besok | Hari Kemerdekaan RI` ➔ Libur seharian\n")
-	sb.WriteString("• `!pindah aljabar | besok 13:00 | Lab 312`\n")
-	sb.WriteString("• `!kosong sbd | besok | Dosen dinas luar`\n")
-	sb.WriteString("• `!kuliahganti matdis | sabtu 09:00 | D105`\n")
-	sb.WriteString("• `!jadwalganti` ➔ Cek perubahan jadwal aktif\n")
-	sb.WriteString("• `!batalganti [ID]` ➔ Hapus jadwal pengganti\n\n")
+	sb.WriteString("6. Informasi & Pencarian:\n")
+	sb.WriteString("- !matkul        : Daftar semua mata kuliah\n")
+	sb.WriteString("- !dosen [nama]  : Cari jadwal dosen inisial/nama\n")
+	sb.WriteString("- !ruang [kode]  : Cari jadwal ruangan\n")
+	sb.WriteString("- !cari [kata]   : Pencarian kata kunci global\n\n")
 
-	sb.WriteString("7️⃣ *Pengaturan Kelas (Multi-Tenant):*\n")
-	sb.WriteString("• `!daftarkelas` / `!kelas` ➔ Daftar semua kelas aktif\n")
-	sb.WriteString("• `!setkelas 3A` ➔ Tautkan grup ke kelas tertentu (Admin)\n")
-	sb.WriteString("• `!resetkelas` ➔ Kembalikan ke kelas bawaan default (Admin)\n\n")
-
-	sb.WriteString("8️⃣ *Informasi & Pencarian:*\n")
-	sb.WriteString("• `!matkul` ➔ Daftar semua mata kuliah\n")
-	sb.WriteString("• `!dosen MR` ➔ Cari jadwal dosen inisial/nama\n")
-	sb.WriteString("• `!ruang lab` ➔ Cari jadwal ruangan\n")
-	sb.WriteString("• `!cari basis` ➔ Pencarian kata kunci global\n\n")
-
-	sb.WriteString("9️⃣ *Pengaturan Admin Lainnya:*\n")
-	sb.WriteString("• `!reminder on` / `!reminder off` (grup)\n")
-	sb.WriteString("• `!reminder test` ➔ Simulasi pengingat pagi\n")
-	sb.WriteString("• `!reload` ➔ Segarkan data jadwal.json\n\n")
+	sb.WriteString("7. Pengaturan & Akses Web:\n")
+	sb.WriteString("- !portal        : Akses Portal Mahasiswa & Dashboard Pengelola\n")
+	sb.WriteString("- !kanal         : Tampilkan ID JID WhatsApp chat ini\n")
+	sb.WriteString("- !daftarkelas     : Daftar semua kelas aktif\n")
+	sb.WriteString("- !setkelas [nama] : Tautkan kelas pribadi (contoh: !setkelas 2a)\n\n")
 
 	sb.WriteString("──────────\n")
-	sb.WriteString("_Ketik !menu untuk menu utama ringkas._")
+	sb.WriteString("Ketik !menu untuk menu utama ringkas.")
 	return sb.String()
 }

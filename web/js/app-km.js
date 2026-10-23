@@ -105,6 +105,8 @@ function kmApp() {
     scheduleLoading: false,
     scheduleError: '',
     calendarViewMode: 'calendar',
+    listDayFilter: 'all',
+    schedSearch: '',
     tasks: [],
     offeringList: [],
     offeringLoading: false,
@@ -217,6 +219,14 @@ function kmApp() {
       error: ''
     },
 
+    // Modal Konfirmasi Tandai Selesai (KM)
+    modalSelesai: {
+      open: false,
+      task: null,
+      isSubmitting: false,
+      error: ''
+    },
+
     // Pengaturan kelas (ditulis ke server; berlaku pengiriman berikutnya).
     pengaturan: {
       pagi: '06:00',
@@ -264,6 +274,24 @@ function kmApp() {
         .filter(s => s.timeStart && s.timeStart > nowHM)
         .slice()
         .sort((a, b) => a.timeStart.localeCompare(b.timeStart))[0] || null;
+    },
+
+    get portalUrl() {
+      const slug = this.classSlug || (this.dashboardData && this.dashboardData.class && this.dashboardData.class.slug) || (this.classSettings && this.classSettings.slug) || this.selectedClass || '';
+      if (!slug) return '';
+      return `${window.location.origin}/c/${encodeURIComponent(slug)}`;
+    },
+
+    get portalPath() {
+      const slug = this.classSlug || (this.dashboardData && this.dashboardData.class && this.dashboardData.class.slug) || (this.classSettings && this.classSettings.slug) || this.selectedClass || '';
+      if (!slug) return '';
+      return `/c/${encodeURIComponent(slug)}`;
+    },
+
+    salinPortalUrl() {
+      const url = this.portalUrl;
+      if (!url) return;
+      this.copyText(url, 'Tautan portal mahasiswa disalin ke clipboard.');
     },
 
     isSessionCurrent(s) {
@@ -353,11 +381,11 @@ function kmApp() {
     },
 
     tugasTabTitle() {
-      if (this.tugasTab === 'review') return 'Daftar Perlu Review';
-      if (this.tugasTab === 'draf') return 'Daftar Draf Tugas';
-      if (this.tugasTab === 'selesai_terlewat' || this.tugasTab === 'selesai' || this.tugasTab === 'terlewat') return 'Daftar Tugas Selesai & Terlewat';
-      if (this.tugasTab === 'arsip') return 'Daftar Arsip Tugas';
-      return 'Daftar Tugas Aktif';
+      if (this.tugasTab === 'review') return 'Usulan Menunggu Pemeriksaan';
+      if (this.tugasTab === 'draf') return 'Draf Tugas Belum Terbit';
+      if (this.tugasTab === 'selesai_terlewat' || this.tugasTab === 'selesai' || this.tugasTab === 'terlewat') return 'Riwayat Tugas Selesai & Terlewat';
+      if (this.tugasTab === 'arsip') return 'Arsip Tugas Lampau';
+      return 'Daftar Tugas Aktif Kuliah';
     },
 
     get tugasFilterAktif() { return !!(this.tugasDari || this.tugasSampai || this.tugasRentang || (this.tugasMatkul && this.tugasMatkul !== 'Semua')); },
@@ -521,22 +549,32 @@ function kmApp() {
       return Array.from(new Set(this.fullSchedule.map(s => s.ruang).filter(Boolean)));
     },
 
+    hasSaturdaySessions() {
+      return (this.fullSchedule || []).some(s => s.hari === 'Sabtu');
+    },
+
     get weekDays() {
       const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+      if (this.hasSaturdaySessions()) {
+        names.push('Sabtu');
+      }
       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
       const dow = (now.getDay() + 6) % 7;
       const monday = new Date(now);
       monday.setDate(now.getDate() - dow + this.weekOffset * 7);
+      const pad = num => String(num).padStart(2, '0');
       return names.map((n, i) => {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
         const dateShort = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
-        return { name: n, dateNum: d.getDate(), dateShort, full: d };
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        return { name: n, dateNum: d.getDate(), dateShort, dateStr, full: d };
       });
     },
 
     get currentScheduleDay() {
       if (this.activeScheduleDay) return this.activeScheduleDay;
+      if (this.todayName === 'Sabtu' && this.hasSaturdaySessions()) return 'Sabtu';
       return ['Sabtu', 'Minggu'].includes(this.todayName) ? 'Senin' : this.todayName;
     },
 
@@ -548,7 +586,9 @@ function kmApp() {
     get weekLabel() {
       const fmt = (d) => d.getDate() + ' ' + d.toLocaleString('id-ID', { month: 'short', timeZone: 'Asia/Jakarta' });
       const days = this.weekDays;
-      return `${fmt(days[0].full)} – ${fmt(days[4].full)} ${days[4].full.getFullYear()}`;
+      if (!days || days.length === 0) return '-';
+      const lastDay = days[days.length - 1] || days[0];
+      return `${fmt(days[0].full)} - ${fmt(lastDay.full)} ${lastDay.full.getFullYear()}`;
     },
 
     get weekRangeLabel() {
@@ -562,16 +602,19 @@ function kmApp() {
       const sMonth = sunday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
       const sYear = sunday.getFullYear();
       if (monday.getMonth() === sunday.getMonth()) {
-        return `${mDay} – ${sDay} ${sMonth} ${sYear}`;
+        return `${mDay} - ${sDay} ${sMonth} ${sYear}`;
       }
       const mMonth = monday.toLocaleString('id-ID', { month: 'long', timeZone: 'Asia/Jakarta' });
-      return `${mDay} ${mMonth} – ${sDay} ${sMonth} ${sYear}`;
+      return `${mDay} ${mMonth} - ${sDay} ${sMonth} ${sYear}`;
     },
 
     get pekanLabel() {
       let weekNum = 6 + this.weekOffset;
-      if (this.semesterAktif && this.semesterAktif.starts_on) {
-        const start = new Date(this.semesterAktif.starts_on);
+      const activeSem = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE')
+        || (this.semesterOptions || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE')
+        || this.semesterAktif;
+      if (activeSem && activeSem.starts_on) {
+        const start = new Date(activeSem.starts_on);
         const days = this.weekDays;
         if (days && days.length > 0 && !isNaN(start.getTime())) {
           const diffMs = days[0].full.getTime() - start.getTime();
@@ -598,7 +641,47 @@ function kmApp() {
       return cells;
     },
 
-    isToday(dayName) { return dayName === this.todayName; },
+    isToday(dayName) { return this.weekOffset === 0 && dayName === this.todayName; },
+
+    cleanMatkul(matkul) {
+      if (!matkul) return '';
+      return String(matkul).replace(/\s*\((?:Teori|Praktikum|Praktik|Pengganti)\)/gi, '').trim();
+    },
+
+    cleanRuang(ruang) {
+      if (!ruang) return 'Tanpa ruang';
+      return String(ruang).replace(/–/g, '-').trim();
+    },
+
+    formatSemesterLabel(s) {
+      if (!s) return 'Semester Ganjil 2026/2027 (Aktif)';
+      const termRaw = String(s.term || '').toLowerCase();
+      let termLabel = 'Semester';
+      if (termRaw.includes('ganjil')) {
+        termLabel = 'Semester Ganjil';
+      } else if (termRaw.includes('genap')) {
+        termLabel = 'Semester Genap';
+      } else if (s.term) {
+        termLabel = 'Semester ' + s.term;
+      }
+      const year = s.academic_year || '';
+      const statusRaw = String(s.status || '').toLowerCase();
+      let statusLabel = '';
+      if (statusRaw === 'active' || statusRaw === 'aktif') {
+        statusLabel = 'Aktif';
+      } else if (statusRaw === 'inactive') {
+        statusLabel = 'Tidak Aktif';
+      } else if (statusRaw === 'archived' || statusRaw === 'arsip') {
+        statusLabel = 'Arsip';
+      } else if (statusRaw) {
+        statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+      }
+      const parts = [];
+      if (termLabel) parts.push(termLabel);
+      if (year) parts.push(year);
+      const main = parts.join(' ');
+      return statusLabel ? `${main} (${statusLabel})` : main;
+    },
 
     slotKind(matkul, eventKind) {
       if (String(eventKind || '').toUpperCase() === 'REPLACEMENT') return 'Pengganti';
@@ -609,19 +692,73 @@ function kmApp() {
 
     slotRange(entry, slotHH) {
       if (entry && entry.timeStart) {
-        return entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+        return entry.timeEnd ? `${entry.timeStart}-${entry.timeEnd}` : entry.timeStart;
       }
       return slotHH + '.00';
     },
 
     daySessions(dayName) {
-      const sessions = this.fullSchedule
+      const q = (this.schedSearch || '').toLowerCase().trim();
+      const dayObj = (this.weekDays || []).find(d => d.name === dayName);
+      const activeDateStr = dayObj ? dayObj.dateStr : '';
+      const all = this.fullSchedule || [];
+
+      const suppressedPatternIds = new Set();
+      const suppressedOfferings = new Set();
+      let isFullDayHoliday = false;
+      if (activeDateStr) {
+        all.forEach(item => {
+          if (item.eventId) {
+            const kind = String(item.eventKind || '').toUpperCase();
+            if ((kind === 'REPLACEMENT' || kind === 'SESSION_CANCELLED') && item.originDate === activeDateStr) {
+              if (item.originPatternId) suppressedPatternIds.add(String(item.originPatternId));
+              else if (item.offeringId) suppressedOfferings.add(String(item.offeringId));
+            }
+            if (kind === 'HOLIDAY' && item.dateStr === activeDateStr) {
+              if (item.originPatternId) suppressedPatternIds.add(String(item.originPatternId));
+              else if (item.offeringId) suppressedOfferings.add(String(item.offeringId));
+              else isFullDayHoliday = true;
+            }
+          }
+        });
+      }
+
+      return all
         .filter(s => s.hari === dayName)
-        .filter(s => this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]))
+        .filter(s => {
+          if (s.eventId) {
+            const kind = String(s.eventKind || '').toUpperCase();
+            if (kind === 'SESSION_CANCELLED' || kind === 'HOLIDAY') return false;
+            if (activeDateStr && s.dateStr && s.dateStr !== activeDateStr) return false;
+            return true;
+          }
+          if (isFullDayHoliday) return false;
+          if (s.patternId && suppressedPatternIds.has(String(s.patternId))) return false;
+          if (s.offeringId && suppressedOfferings.has(String(s.offeringId))) return false;
+          return true;
+        })
+        .filter(s => {
+          if (q) {
+            const hay = [s.matkul, s.dosen, s.ruang].filter(Boolean).join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return this.shellMatchesSearch('jadwal', [s.matkul, s.dosen, s.ruang]);
+        })
         .slice()
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
-      if (this.hideEmpty) return sessions;
-      return sessions;
+    },
+
+    allSessionsCount() {
+      const days = this.weekDays || [];
+      return days.reduce((acc, d) => acc + this.daySessions(d.name).length, 0);
+    },
+
+    listDaysToShow() {
+      const allDays = this.weekDays || [];
+      if (this.listDayFilter === 'all') {
+        return allDays.filter(d => this.daySessions(d.name).length > 0);
+      }
+      return allDays.filter(d => d.name === this.listDayFilter);
     },
 
     goPindah(dayName, slotHH, session) {
@@ -705,16 +842,13 @@ function kmApp() {
           timeZone: 'Asia/Jakarta'
         }).toUpperCase();
 
-        // Ambil sesi terurut untuk hari ini
-        const sessions = (this.fullSchedule || [])
-          .filter(s => s.hari === dayName)
-          .slice()
-          .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')));
+        // Ambil sesi efektif terurut untuk hari ini
+        const sessions = this.daySessions(dayName);
 
         const slots = [];
         const toMins = (t) => {
           if (!t) return 0;
-          const [h, m] = t.split(':').map(Number);
+          const [h, m] = String(t).replace('.', ':').split(':').map(Number);
           return (h || 0) * 60 + (m || 0);
         };
         const toTimeStr = (mins) => {
@@ -723,9 +857,11 @@ function kmApp() {
           return `${h}:${m}`;
         };
 
-        const dayEndMins = 17 * 60; // Batas akhir jam kuliah reguler 17:00
+        const dayStartMins = 7 * 60; // Batas awal jam kuliah reguler 07:00
+        const dayEndMins = 17 * 60;  // Batas akhir jam kuliah reguler 17:00
 
         if (sessions.length === 0) {
+          const isFri = dayName === 'Jumat';
           slots.push({
             id: `${dayName}-full`,
             dayName,
@@ -733,14 +869,46 @@ function kmApp() {
             headerText,
             startTime: '07:00',
             endTime: '17:00',
-            timeRange: '07:00 – 17:00 WIB',
+            timeRange: '07:00 - 17:00 WIB',
             durationMins: 600,
             durationText: '10 Jam Penuh',
             isLong: true,
-            isRecommended: true,
+            isRecommended: !isFri,
+            isFridayPrayer: isFri,
             description: 'Bebas perkuliahan sepanjang hari (hari libur/tanpa jadwal)'
           });
         } else {
+          // 0. Cek waktu kosong pagi sebelum sesi pertama (mulai 07:00)
+          const firstSession = sessions[0];
+          const firstStartMins = toMins(firstSession.timeStart);
+          if (firstStartMins > dayStartMins) {
+            const morningGap = firstStartMins - dayStartMins;
+            if (morningGap >= 80) {
+              const startStr = '07:00';
+              const endStr = toTimeStr(firstStartMins);
+              const hrs = Math.floor(morningGap / 60);
+              const mns = morningGap % 60;
+              const durText = mns === 0 ? `${hrs} Jam Penuh` : (hrs === 0 ? `${mns} Menit` : `${hrs} Jam ${mns} Menit`);
+              const cleanFirst = String(firstSession.matkul || '').replace(' (Pengganti)', '');
+              const isFriPrayer = dayName === 'Jumat' && dayStartMins < 13 * 60 && firstStartMins > (11 * 60 + 30);
+              slots.push({
+                id: `${dayName}-before-first`,
+                dayName,
+                dateISO,
+                headerText,
+                startTime: startStr,
+                endTime: endStr,
+                timeRange: `${startStr} - ${endStr} WIB`,
+                durationMins: morningGap,
+                durationText: durText,
+                isLong: morningGap >= 360,
+                isRecommended: morningGap >= 360 && !isFriPrayer,
+                isFridayPrayer: isFriPrayer,
+                description: `Bebas perkuliahan pagi sebelum sesi ${cleanFirst}`
+              });
+            }
+          }
+
           // 1. Cek jeda di antara sesi kuliah
           for (let i = 0; i < sessions.length - 1; i++) {
             const curr = sessions[i];
@@ -770,6 +938,8 @@ function kmApp() {
                 ? `Jeda sebelum kuliah pengganti ${cleanMatkul}`
                 : `Jeda sebelum sesi ${cleanMatkul}`;
 
+              const isFriPrayer = dayName === 'Jumat' && currEnd < 13 * 60 && nextStart > (11 * 60 + 30);
+
               slots.push({
                 id: `${dayName}-gap-${i}`,
                 dayName,
@@ -777,11 +947,12 @@ function kmApp() {
                 headerText,
                 startTime: startStr,
                 endTime: endStr,
-                timeRange: `${startStr} – ${endStr} WIB`,
+                timeRange: `${startStr} - ${endStr} WIB`,
                 durationMins: gap,
                 durationText: durText,
                 isLong: gap >= 360,
-                isRecommended: gap >= 360,
+                isRecommended: gap >= 360 && !isFriPrayer,
+                isFridayPrayer: isFriPrayer,
                 description: desc
               });
             }
@@ -806,10 +977,12 @@ function kmApp() {
                 durText = `${hrs} Jam ${mns} Menit`;
               }
 
+              const isFriPrayer = dayName === 'Jumat' && lastEndMins < 13 * 60 && dayEndMins > (11 * 60 + 30);
+
               let desc = '';
               if (lastEndMins <= 11 * 60 + 40 && gap >= 300) {
                 if (dayName === 'Jumat') {
-                  desc = 'Bebas perkuliahan setelah praktikum pagi (ideal untuk kuliah pengganti)';
+                  desc = 'Bebas perkuliahan setelah praktikum pagi (perhatikan waktu Sholat Jumat)';
                 } else {
                   desc = 'Bebas perkuliahan siang hingga sore';
                 }
@@ -824,11 +997,12 @@ function kmApp() {
                 headerText,
                 startTime: startStr,
                 endTime: endStr,
-                timeRange: `${startStr} – ${endStr} WIB`,
+                timeRange: `${startStr} - ${endStr} WIB`,
                 durationMins: gap,
                 durationText: durText,
                 isLong: gap >= 360,
-                isRecommended: gap >= 360,
+                isRecommended: gap >= 360 && !isFriPrayer,
+                isFridayPrayer: isFriPrayer,
                 description: desc
               });
             }
@@ -877,8 +1051,8 @@ function kmApp() {
       if (!s) return '2 SKS';
       if (s.sks) return `${s.sks} SKS`;
       if (s.timeStart && s.timeEnd) {
-        const [h1, m1] = s.timeStart.split(':').map(Number);
-        const [h2, m2] = s.timeEnd.split(':').map(Number);
+        const [h1, m1] = String(s.timeStart).replace('.', ':').split(':').map(Number);
+        const [h2, m2] = String(s.timeEnd).replace('.', ':').split(':').map(Number);
         if (!isNaN(h1) && !isNaN(h2)) {
           const diffMin = (h2 * 60 + m2) - (h1 * 60 + m1);
           if (diffMin > 0) {
@@ -975,11 +1149,15 @@ function kmApp() {
 
     getSesiRoomDetails(s) {
       if (!s || !s.ruang) return { building: '', capacity: '', roomType: '' };
-      const roomObj = (this.polaRooms || []).find(r => (r.code || r.name) === s.ruang);
+      const masterObj = (this.masterRoomsList || []).find(r => (r.code || r.name) === s.ruang);
+      const roomObj = masterObj || (this.polaRooms || []).find(r => (r.code || r.name) === s.ruang);
+      const building = s.roomBuilding || (roomObj && roomObj.building) || '';
+      const capNum = s.roomCapacity || (roomObj && roomObj.capacity) || 0;
+      const roomType = (roomObj && roomObj.room_type) || '';
       return {
-        building: (roomObj && roomObj.building) ? roomObj.building : '',
-        capacity: (roomObj && roomObj.capacity) ? `${roomObj.capacity} Kursi` : '',
-        roomType: (roomObj && roomObj.room_type) ? roomObj.room_type : ''
+        building,
+        capacity: capNum ? `${capNum} Kursi` : '',
+        roomType
       };
     },
 
@@ -993,11 +1171,12 @@ function kmApp() {
         const d = dayObj.full;
         this.roomSearch.date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       }
-      if (s.timeStart) this.roomSearch.start = s.timeStart.slice(0, 5);
-      if (s.timeEnd) this.roomSearch.end = s.timeEnd.slice(0, 5);
+      if (s.timeStart) this.roomSearch.start = String(s.timeStart).replace('.', ':').slice(0, 5);
+      if (s.timeEnd) this.roomSearch.end = String(s.timeEnd).replace('.', ':').slice(0, 5);
+      this.showRoomChecker = true;
       this.go('ruangan');
       if (this.roomSearch.date && this.roomSearch.start && this.roomSearch.end) {
-        this.cariKandidatRuang().catch(() => {});
+        this.loadRoomCandidates().catch(() => {});
       }
     },
 
@@ -1157,9 +1336,28 @@ function kmApp() {
 
     get polaRooms() {
       const map = new Map();
+      (this.masterRoomsList || []).forEach(r => {
+        if (r && r.id && !map.has(String(r.id))) {
+          map.set(String(r.id), {
+            id: String(r.id),
+            code: r.code || r.name || ('Ruang ' + r.id),
+            name: r.name || '',
+            building: r.building || '',
+            capacity: r.capacity || 0,
+            room_type: r.room_type || ''
+          });
+        }
+      });
       (this.patternsList || []).forEach(p => {
         if (p.room_id && !map.has(String(p.room_id))) {
-          map.set(String(p.room_id), { id: String(p.room_id), code: p.room || p.room_code || ('Ruang ' + p.room_id) });
+          map.set(String(p.room_id), {
+            id: String(p.room_id),
+            code: p.room || p.room_code || ('Ruang ' + p.room_id),
+            name: p.room_name || '',
+            building: p.room_building || '',
+            capacity: p.room_capacity || 0,
+            room_type: ''
+          });
         }
       });
       return Array.from(map.values());
@@ -1248,6 +1446,8 @@ function kmApp() {
     bukaDaftar() { this.jadwalSub = 'daftar'; window.scrollTo({ top: 0 }); },
 
     get activeSemesterLabel() {
+      const activeSem = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE');
+      if (activeSem) return `Semester ${activeSem.term || ''} ${activeSem.academic_year || ''}`.trim();
       if (this.semesterOptions && this.semesterOptions.length) {
         const found = this.semesterOptions.find(s => String(s.id) === String(this.semesterId)) || this.semesterOptions[0];
         if (found) return `${found.academic_year || ''} · ${found.term || ''}`;
@@ -1299,7 +1499,7 @@ function kmApp() {
     get simulasiRuangCheckText() {
       const rm = this.selectedRoomName || 'Ruang D204';
       const tgl = this.simulasiDatePill || 'Rabu';
-      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
       return `${rm} tersedia ${tgl} ${jam}. Tidak ada kelas lain.`;
     },
 
@@ -1310,7 +1510,7 @@ function kmApp() {
 
     get simulasiKelasCheckText() {
       const cls = this.selectedClass || 'D4-TI 1A';
-      const jam = (this.ubahForm.start || '13:00') + ' – ' + (this.ubahForm.end || '15:30');
+      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
       return `${cls} kosong pada ${jam}. Bebas bentrok.`;
     },
 
@@ -1333,17 +1533,27 @@ function kmApp() {
       f.start = (prefill && prefill.start) || (prefill && prefill.session && prefill.session.timeStart) || f.start || '13:00';
       f.end = (prefill && prefill.end) || (prefill && prefill.session && prefill.session.timeEnd) || f.end || '15:30';
       if (prefill && prefill.kind) f.kind = prefill.kind;
+      if (prefill && prefill.originDate) f.originDate = prefill.originDate;
       if (prefill && prefill.session) {
         const s = prefill.session;
         const pat = (this.patternsList || []).find(p =>
+          (s.patternId && String(p.id) === String(s.patternId)) ||
           String(p.display_name || p.course_name || p.offering || '') === String(s.matkul));
         if (pat) {
           f.originPatternId = String(pat.id);
           if (pat.course_offering_id) f.offeringId = String(pat.course_offering_id);
         }
-        if (s.timeStart) f.start = s.timeStart.slice(0, 5);
-        if (s.timeEnd) f.end = s.timeEnd.slice(0, 5);
+        const dayMatch = (this.weekDays || []).find(d => d.name === s.hari);
+        if (dayMatch && dayMatch.dateStr) {
+          f.originDate = dayMatch.dateStr;
+        }
+        if (s.timeStart) f.start = String(s.timeStart).replace('.', ':').slice(0, 5);
+        if (s.timeEnd) f.end = String(s.timeEnd).replace('.', ':').slice(0, 5);
       } else if (prefill && prefill.dayName) {
+        const dayMatch = (this.weekDays || []).find(d => d.name === prefill.dayName);
+        if (dayMatch && dayMatch.dateStr) {
+          f.originDate = dayMatch.dateStr;
+        }
         const hit = this.slotAt(prefill.dayName, prefill.slotHH || '');
         if (hit) {
           const pat = (this.patternsList || []).find(p =>
@@ -1352,8 +1562,8 @@ function kmApp() {
             f.originPatternId = String(pat.id);
             if (pat.course_offering_id) f.offeringId = String(pat.course_offering_id);
           }
-          if (hit.timeStart) f.start = hit.timeStart.slice(0, 5);
-          if (hit.timeEnd) f.end = hit.timeEnd.slice(0, 5);
+          if (hit.timeStart) f.start = String(hit.timeStart).replace('.', ':').slice(0, 5);
+          if (hit.timeEnd) f.end = String(hit.timeEnd).replace('.', ':').slice(0, 5);
         }
       }
       this.ubahFormError = '';
@@ -1387,6 +1597,7 @@ function kmApp() {
         await API.deletePattern(p.id, p.version);
         this.showToast(isDraf ? 'Jadwal draf dihapus.' : 'Jadwal tetap dihapus (tidak aktif mulai hari ini).');
         this.patternsList = await API.getPatterns().catch(() => []);
+        await this.loadSchedule();
       } catch (e) {
         this.showToast(e.message || 'Gagal menghapus jadwal tetap.');
       }
@@ -1437,6 +1648,7 @@ function kmApp() {
         this.showToast('Jadwal tetap ditambahkan.');
         this.polaPreview = null;
         await this.loadPatterns();
+        await this.loadSchedule();
         this.jadwalSub = 'daftar';
       } catch (e) { this.polaFormError = e.message || 'Gagal menerbitkan jadwal.'; }
       finally { this.polaPreviewLoading = false; }
@@ -1499,8 +1711,9 @@ function kmApp() {
       }
       if ((f.kind === 'REPLACEMENT' || f.kind === 'SESSION_CANCELLED') && !f.originPatternId) return 'Pilih jadwal semula untuk kelas pengganti atau sesi yang dibatalkan.';
       if ((f.kind === 'REPLACEMENT' || f.kind === 'SESSION_CANCELLED') && !f.originDate) return 'Isi tanggal kejadian asal.';
-      if (f.kind !== 'SESSION_CANCELLED' && (!f.date || !f.start || !f.end)) return 'Tanggal serta jam mulai dan selesai wajib diisi.';
-      if (f.kind !== 'SESSION_CANCELLED' && this.durasiMenit(f.start, f.end) <= 0) return 'Jam selesai harus setelah jam mulai.';
+      if (f.kind === 'HOLIDAY' && !f.date) return 'Pilih tanggal libur akademik.';
+      if (f.kind !== 'SESSION_CANCELLED' && f.kind !== 'HOLIDAY' && (!f.date || !f.start || !f.end)) return 'Tanggal serta jam mulai dan selesai wajib diisi.';
+      if (f.kind !== 'SESSION_CANCELLED' && f.kind !== 'HOLIDAY' && this.durasiMenit(f.start, f.end) <= 0) return 'Jam selesai harus setelah jam mulai.';
       if (!f.reason || f.reason.trim().length < 5) return 'Keterangan minimal 5 karakter.';
       if (f.scope === 'permanen' && !f.effectiveDate) return 'Isi tanggal mulai berlaku untuk perubahan permanen.';
       return '';
@@ -1525,7 +1738,18 @@ function kmApp() {
 
     pilihPolaAsal() {
       const p = (this.patternsList || []).find(item => String(item.id) === String(this.ubahForm.originPatternId));
-      if (!p || this.ubahForm.scope !== 'permanen') return;
+      if (!p) return;
+      if (p.course_offering_id && !this.ubahForm.offeringId) {
+        this.ubahForm.offeringId = String(p.course_offering_id);
+      }
+      if (!this.ubahForm.originDate) {
+        const dayName = this.polaHariName(p.day_of_week);
+        const dayObj = (this.weekDays || []).find(d => d.name === dayName);
+        if (dayObj && dayObj.dateStr) {
+          this.ubahForm.originDate = dayObj.dateStr;
+        }
+      }
+      if (this.ubahForm.scope !== 'permanen') return;
       this.ubahForm.day = String(p.day_of_week || 1);
       this.ubahForm.start = String(p.start_time || '').slice(0, 5);
       this.ubahForm.end = String(p.end_time || '').slice(0, 5);
@@ -1536,11 +1760,14 @@ function kmApp() {
     rakitPayloadUbah() {
       const f = this.ubahForm;
       const origin = (this.patternsList || []).find(p => String(p.id) === String(f.originPatternId));
-      let dateISO = f.date, startHM = f.start, endHM = f.end;
+      let dateISO = f.date, startHM = f.start || '08:00', endHM = f.end || '17:00';
       if (f.kind === 'SESSION_CANCELLED' && origin) {
         dateISO = f.originDate;
-        startHM = String(origin.start_time || '').slice(0, 5);
-        endHM = String(origin.end_time || '').slice(0, 5);
+        startHM = String(origin.start_time || '').slice(0, 5) || '08:00';
+        endHM = String(origin.end_time || '').slice(0, 5) || '10:00';
+      } else if (f.kind === 'HOLIDAY') {
+        startHM = '08:00';
+        endHM = '17:00';
       }
       const payload = {
         owner_offering_id: Number(f.offeringId),
@@ -1624,6 +1851,7 @@ function kmApp() {
         try {
           await API.patchPattern(this.draftEvent.id, this.rakitPayloadPermanen());
           this.patternsList = await API.getPatterns();
+          await this.loadSchedule();
           this.showToast(this.isDraftSemester() ? 'Jadwal draf diperbarui.' : 'Jadwal tetap baru berlaku sesuai tanggal pilihan.');
           this.jadwalSub = 'daftar';
         } catch (e) { this.showToast(e.message || 'Gagal menerbitkan perubahan permanen.'); }
@@ -1641,6 +1869,7 @@ function kmApp() {
         await API.publishTeachingEvent(this.draftEvent.id, (this.ubahForm.conflictReason || '').trim() || null, this.draftEvent.version || 1);
         this.showToast('Perubahan jadwal terbit.');
         await this.loadEvents();
+        await this.loadSchedule();
         const found = (this.eventsList || []).find(e => String(e.id) === String(this.draftEvent.id));
         this.selectedEvent = found || null;
         this.jadwalSub = 'detail';
@@ -1695,6 +1924,7 @@ function kmApp() {
         await API.revokeTeachingEvent(ev.id, this.revokeReason.trim(), ev.version || 0);
         this.showToast('Publikasi dicabut. Jadwal semula berlaku kembali.');
         await this.loadEvents();
+        await this.loadSchedule();
         const found = (this.eventsList || []).find(e => String(e.id) === String(ev.id));
         this.selectedEvent = found || null;
       } catch (e) {
@@ -1771,11 +2001,6 @@ function kmApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) {}
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
-      const token = API.getAuthToken ? API.getAuthToken() : localStorage.getItem('access_token');
-      if (!token) {
-        window.location.replace('/login.html?role=km');
-        return;
-      }
       try {
         const me = await API.getMe();
         if (!me || !me.user) {
@@ -2114,6 +2339,14 @@ function kmApp() {
       else this.dashboardError = '';
       try {
         this.dashboardData = await API.getKMDashboard();
+        if (this.dashboardData && this.dashboardData.class) {
+          if (this.dashboardData.class.slug) {
+            this.classSlug = this.dashboardData.class.slug;
+          }
+          if (this.dashboardData.class.label || this.dashboardData.class.code) {
+            this.selectedClass = this.dashboardData.class.label || this.dashboardData.class.code;
+          }
+        }
         this.dashboardError = '';
       } catch (err) {
         this.dashboardError = err.status === 401 ? 'Sesi berakhir. Masuk kembali untuk melihat ringkasan.'
@@ -2173,15 +2406,24 @@ function kmApp() {
         const [patterns, events] = await Promise.all([API.getPatterns(), API.getTeachingEvents()]);
         const seen = new Set();
         const list = [];
+        const pad = n => String(n).padStart(2, '0');
         (patterns || []).forEach((s, i) => {
           const entry = {
             id: `pattern-${s.id || i}`,
             patternId: s.id,
+            offeringId: s.offering_id || '',
             hari: this.polaHariName(s.day_of_week),
             jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
             matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',
+            courseCode: s.course_code || '',
+            activityType: s.activity_type || '',
             dosen: s.lecturer || s.dosen || '',
             ruang: s.room || s.room_code || '',
+            roomName: s.room_name || '',
+            roomBuilding: s.room_building || '',
+            roomCapacity: s.room_capacity || 0,
+            pjName: s.pj_name || '',
+            link: s.meeting_url || s.online_url || s.link || '',
             timeStart: String(s.start_time || '').slice(0, 5),
             timeEnd: String(s.end_time || '').slice(0, 5),
             eventKind: 'REGULAR',
@@ -2195,17 +2437,30 @@ function kmApp() {
         (events || []).filter(e => String(e.lifecycle_status || '').toUpperCase() === 'PUBLISHED').forEach((e, i) => {
           const start = new Date(e.starts_at), end = new Date(e.ends_at);
           if (Number.isNaN(start.getTime())) return;
+          const wibStart = new Date(start.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+          const dateStr = `${wibStart.getFullYear()}-${pad(wibStart.getMonth() + 1)}-${pad(wibStart.getDate())}`;
           const hari = start.toLocaleDateString('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' });
-          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' });
+          const hm = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta' }).replace('.', ':');
           const isRep = String(e.event_kind || '').toUpperCase() === 'REPLACEMENT';
           list.push({
             id: `event-${e.id || i}`,
             eventId: e.id,
+            offeringId: e.owner_offering_id || '',
+            dateStr,
+            originPatternId: e.origin_pattern_id || null,
+            originDate: e.origin_occurrence_date || '',
             hari,
             jam: `${hm(start)} - ${hm(end)}`,
             matkul: e.offering || 'Mata Kuliah',
+            courseCode: e.course_code || '',
+            activityType: e.activity_type || '',
             dosen: e.lecturer || e.dosen || '',
             ruang: e.room || '',
+            roomName: e.room_name || '',
+            roomBuilding: e.room_building || '',
+            roomCapacity: e.room_capacity || 0,
+            pjName: e.pj_name || '',
+            link: e.online_url || e.meeting_url || e.link || '',
             timeStart: hm(start),
             timeEnd: hm(end),
             eventKind: e.event_kind,
@@ -2234,6 +2489,7 @@ function kmApp() {
                    submission_text: t.submission_text, submission_url: t.submission_url,
                    publication_status: t.publication_status, review_state: t.review_state,
                    version: t.version, completed_at: t.completed_at, archived_at: t.archived_at,
+                   created_at: t.created_at, published_at: t.published_at, creator_name: t.creator_name,
                    offering_id: t.offering_id,
                    urgency: u.level, countdown: u.badge };
         });
@@ -2410,7 +2666,7 @@ function kmApp() {
       if (!f.judul || f.judul.trim().length < 5) return 'Judul tugas minimal 5 karakter.';
       if (!f.tanggal || !f.jam) return 'Tanggal dan jam deadline wajib diisi.';
       if (!f.deskripsi || f.deskripsi.trim().length < 5) return 'Instruksi tugas minimal 5 karakter.';
-      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Isi tempat pengumpulan (keterangan atau tautan).';
+      if (!((f.kumpul || '').trim() || (f.kumpulUrl || '').trim())) return 'Wajib mengisi tempat pengumpulan: isi keterangan tempat (misal: Ruang Dosen) atau tautan URL online.';
       if (!this.parseDeadlineID(f.tanggal, f.jam)) return 'Format tanggal atau jam tidak dikenali. Pakai YYYY-MM-DD dan HH:MM.';
       return '';
     },
@@ -2527,6 +2783,9 @@ function kmApp() {
           version: info.version || 0,
           completed_at: info.completed_at || (info.is_completed ? true : null),
           archived_at: info.archived_at || (info.is_archived ? true : null),
+          created_at: info.created_at || '',
+          published_at: info.published_at || '',
+          creator_name: info.creator_name || '',
           offering_id: info.offering_id || info.course_offering_id || '',
           urgency: u.level, countdown: u.badge
         };
@@ -2580,7 +2839,7 @@ function kmApp() {
         await this.bukaDetailTugas(this.editTugasId);
       } catch (e) {
         if (e.code === 'VERSION_CONFLICT') {
-          this.tugasConflict = (e.payload && (e.payload.current_data || e.payload.data)) || null;
+          this.tugasConflict = (e.payload && (e.payload.current_data || e.payload.data)) || { conflict: true };
         } else {
           this.tugasError = e.message || 'Gagal menyimpan perubahan.';
         }
@@ -2602,7 +2861,55 @@ function kmApp() {
       }
     },
 
+    bukaModalSelesai(task) {
+      if (!task) return;
+      this.modalSelesai = {
+        open: true,
+        task: task,
+        isSubmitting: false,
+        error: ''
+      };
+    },
+
+    tutupModalSelesai() {
+      if (this.modalSelesai.isSubmitting) return;
+      this.modalSelesai.open = false;
+      this.modalSelesai.task = null;
+      this.modalSelesai.error = '';
+    },
+
+    async konfirmasiSelesai() {
+      const task = this.modalSelesai.task;
+      if (!task) return;
+      this.modalSelesai.isSubmitting = true;
+      this.modalSelesai.error = '';
+      try {
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.completeTask(task.id, version);
+        const taskId = task.id;
+        this.tutupModalSelesai();
+        await this.loadTasks();
+        this.showToast('Tugas berhasil ditandai selesai.');
+        if (this.tugasSub === 'detail') await this.bukaDetailTugas(taskId);
+      } catch (e) {
+        if (e.code === 'VERSION_CONFLICT') {
+          this.modalSelesai.error = 'Versi tugas telah diperbarui oleh pengguna lain. Silakan muat ulang data terbaru.';
+          await this.loadTasks();
+        } else {
+          this.modalSelesai.error = e.message || 'Gagal menandai tugas selesai.';
+        }
+      } finally {
+        this.modalSelesai.isSubmitting = false;
+      }
+    },
+
     async tandaiSelesai(id, version) {
+      const t = (this.tasks || []).find(x => String(x.id) === String(id)) || this.tugasDetail;
+      if (t) {
+        this.bukaModalSelesai(t);
+        return;
+      }
       try {
         await API.completeTask(id, version);
         await this.loadTasks();
@@ -2610,6 +2917,18 @@ function kmApp() {
         if (this.tugasSub === 'detail') await this.bukaDetailTugas(id);
       } catch (e) {
         this.showToast(e.message || 'Gagal menandai selesai.');
+        await this.loadTasks();
+      }
+    },
+
+    async batalkanSelesai(id, version) {
+      try {
+        await API.uncompleteTask(id, version);
+        await this.loadTasks();
+        this.showToast('Status tugas dikembalikan ke aktif.');
+        if (this.tugasSub === 'detail') await this.bukaDetailTugas(id);
+      } catch (e) {
+        this.showToast(e.message || 'Gagal mengembalikan status tugas.');
         await this.loadTasks();
       }
     },
@@ -2671,22 +2990,78 @@ function kmApp() {
     // Pemeriksaan KM — via POST /api/v1/tasks/{id}/reviews (terikat versi).
     reviewConflict: null,
 
-    async setujuiTugas(id) {
-      this.reviewConflict = null;
+    // SCR-TASK-SETUJUI: Method Dialog Konfirmasi Setujui & Terbitkan (KM)
+    modalSetujui: {
+      open: false,
+      task: null,
+      broadcastWA: true,
+      isSubmitting: false,
+      error: ''
+    },
+
+    bukaModalSetujui(task) {
+      if (!task) return;
+      this.modalSetujui = {
+        open: true,
+        task: task,
+        broadcastWA: true,
+        isSubmitting: false,
+        error: ''
+      };
+    },
+
+    tutupModalSetujui() {
+      if (this.modalSetujui.isSubmitting) return;
+      this.modalSetujui.open = false;
+      this.modalSetujui.task = null;
+      this.modalSetujui.error = '';
+    },
+
+    async kirimSetujuiModal() {
+      const task = this.modalSetujui.task;
+      if (!task) return;
+      this.modalSetujui.isSubmitting = true;
+      this.modalSetujui.error = '';
       try {
-        const detail = await API.getTaskDetail(id).catch(() => null);
-        const version = detail && (detail.version || (detail.task && detail.task.version)) || 0;
-        await API.reviewTask(id, { decision: 'APPROVED', task_version: version });
+        const detail = await API.getTaskDetail(task.id).catch(() => null);
+        const version = (detail && (detail.version || (detail.task && detail.task.version))) || task.version || 0;
+        await API.reviewTask(task.id, {
+          decision: 'APPROVED',
+          task_version: version,
+          broadcast_whatsapp: this.modalSetujui.broadcastWA
+        });
+        this.modalSetujui.open = false;
+        this.modalSetujui.task = null;
         await this.loadTasks();
-        this.showToast('Tugas disetujui.');
+        this.showToast('Tugas disetujui & diterbitkan.');
+        if (this.tugasDetail && this.tugasDetail.id === task.id) {
+          await this.bukaDetailTugas(task.id);
+        }
       } catch (err) {
         if (err.code === 'VERSION_CONFLICT') {
-          this.reviewConflict = { id: id };
-          this.showToast('Versi tugas berubah. Muat versi terbaru sebelum memutuskan.');
+          this.modalSetujui.error = 'Versi tugas telah berubah. Muat ulang untuk melihat data terbaru.';
           await this.loadTasks();
         } else {
-          this.showToast(err.message || 'Gagal menyimpan persetujuan.');
+          this.modalSetujui.error = err.message || 'Gagal menyetujui tugas.';
         }
+      } finally {
+        this.modalSetujui.isSubmitting = false;
+      }
+    },
+
+    async setujuiTugas(id) {
+      this.reviewConflict = null;
+      const t = (this.tasks || []).find(item => item.id == id);
+      if (t) {
+        this.bukaModalSetujui(t);
+        return;
+      }
+      try {
+        const detail = await API.getTaskDetail(id).catch(() => null);
+        const taskObj = (detail && (detail.task || detail)) || { id: id };
+        this.bukaModalSetujui(taskObj);
+      } catch (err) {
+        this.showToast(err.message || 'Gagal memuat tugas untuk disetujui.');
       }
     },
     async kirimReview(id) {
@@ -2813,6 +3188,10 @@ function kmApp() {
     async putuskanDetail(decision) {
       const d = this.tugasDetail;
       if (!d) return;
+      if (decision === 'APPROVED') {
+        this.bukaModalSetujui(d);
+        return;
+      }
       if ((decision === 'CHANGES_REQUESTED' || decision === 'REVOKED') && !(this.reviewNote || '').trim()) {
         this.showToast('Catatan wajib untuk koreksi/pembatalan.'); return;
       }
@@ -3303,7 +3682,8 @@ function kmApp() {
     },
 
     get activeSemesterLabel() {
-      const s = (this.semesterList || []).find(x => String(x.status || '').toUpperCase() === 'ACTIVE');
+      const list = (this.semesterList && this.semesterList.length) ? this.semesterList : (this.semesterOptions || []);
+      const s = list.find(x => String(x.status || '').toUpperCase() === 'ACTIVE');
       if (s) return `Semester ${s.term || ''} ${s.academic_year || ''}`.trim();
       if (this.semesterId) return 'Semester aktif dimuat';
       return '';
@@ -3979,6 +4359,110 @@ function kmApp() {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     },
 
+    formatPhone(val) {
+      if (!val) return '-';
+      const clean = String(val).trim();
+      if (clean.startsWith('+62')) {
+        const rest = clean.slice(3);
+        if (rest.length >= 8) {
+          if (rest.length >= 10) {
+            return `+62 ${rest.slice(0, 3)}-${rest.slice(3, 7)}-${rest.slice(7)}`;
+          }
+          return `+62 ${rest.slice(0, 3)}-${rest.slice(3)}`;
+        }
+        return `+62 ${rest}`;
+      } else if (clean.startsWith('08')) {
+        const rest = clean.slice(2);
+        if (rest.length >= 8) {
+          return `08${rest.slice(0, 2)}-${rest.slice(2, 6)}-${rest.slice(6)}`;
+        }
+        return clean;
+      }
+      return clean;
+    },
+
+    pjOfferingDetails(a) {
+      if (!a) return { matkul: 'Mata Kuliah', kind: '', code: '' };
+      let title = a.offering_display || a.course_name || '';
+      let code = a.course_code || '';
+      if (!title && a.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(a.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = code || off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+
+      let kind = '';
+      if (/praktikum/i.test(title)) {
+        kind = 'Praktikum';
+      } else if (/teori/i.test(title)) {
+        kind = 'Teori';
+      }
+
+      if (!code) {
+        const codeMatch = title.match(/\(([0-9]{2}[A-Za-z0-9_-]+)\)/);
+        if (codeMatch) {
+          code = codeMatch[1];
+        }
+      }
+
+      let cleanMatkul = title
+        .replace(/^PJ\s*[-·:]\s*/i, '')
+        .replace(/\s*\((praktikum|teori)\)/gi, '')
+        .replace(/\s*\([0-9]{2}[A-Za-z0-9_-]+\)/g, '')
+        .replace(/\s*\([A-Za-z0-9_-]+\)$/g, '')
+        .trim();
+
+      return {
+        matkul: cleanMatkul || title,
+        kind: kind,
+        code: code
+      };
+    },
+
+    undanganOfferingDetails(u) {
+      if (!u) return { matkul: 'Mata Kuliah', kind: '', code: '' };
+      let title = '';
+      let code = '';
+      if (u.course_offering_id && Array.isArray(this.offeringList)) {
+        const off = this.offeringList.find(o => String(o.id) === String(u.course_offering_id));
+        if (off) {
+          title = off.display_name || off.course_code || '';
+          code = off.course_code || '';
+        }
+      }
+      if (!title) title = 'Mata Kuliah';
+
+      let kind = '';
+      if (/praktikum/i.test(title)) {
+        kind = 'Praktikum';
+      } else if (/teori/i.test(title)) {
+        kind = 'Teori';
+      }
+
+      if (!code) {
+        const codeMatch = title.match(/\(([0-9]{2}[A-Za-z0-9_-]+)\)/);
+        if (codeMatch) {
+          code = codeMatch[1];
+        }
+      }
+
+      let cleanMatkul = title
+        .replace(/^PJ\s*[-·:]\s*/i, '')
+        .replace(/\s*\((praktikum|teori)\)/gi, '')
+        .replace(/\s*\([0-9]{2}[A-Za-z0-9_-]+\)/g, '')
+        .replace(/\s*\([A-Za-z0-9_-]+\)$/g, '')
+        .trim();
+
+      return {
+        matkul: cleanMatkul || title,
+        kind: kind,
+        code: code
+      };
+    },
+
     pjOfferingBadge(a) {
       if (!a) return 'PJ';
       let title = a.offering_display || a.course_name || '';
@@ -4210,6 +4694,7 @@ function kmApp() {
         const s = await API.getClassSettings(slug).catch(() => null);
         this.classSettings = s;
         if (!s) { this.settingsError = 'Pengaturan kelas belum dapat dimuat.'; return; }
+        if (s.slug) this.classSlug = s.slug;
         if (s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
         if (s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
         if (s.replacement_reminder_minutes !== undefined && s.replacement_reminder_minutes !== null) {
@@ -4228,12 +4713,12 @@ function kmApp() {
       if (!slug) return;
       const hhmm = (v) => /^\d{2}:\d{2}$/.test(String(v || '')) && Number(String(v).slice(0, 2)) <= 23 && Number(String(v).slice(3)) <= 59;
       if (!hhmm(this.pengaturan.pagi) || !hhmm(this.pengaturan.sore)) {
-        this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00–23:59).';
+        this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00-23:59).';
         return;
       }
       const menit = Number(this.pengaturan.gantiMenit);
       if (!Number.isInteger(menit) || menit < 0 || menit > 1440) {
-        this.pengaturanFormError = 'Pengingat pengganti harus 0–1440 menit.';
+        this.pengaturanFormError = 'Pengingat pengganti harus 0-1440 menit.';
         return;
       }
       this.pengaturanFormError = '';
@@ -4304,6 +4789,18 @@ function kmApp() {
         this.showToast(mode === 'CODE' ? 'Portal memakai kode kelas.' : 'Portal memakai tautan.');
         await this.loadPengaturanKelas();
       } catch (e) {
+        if (mode === 'CODE' && /rotasi|kode/i.test(String(e.message || ''))) {
+          try {
+            await this.rotasiKodeKelas();
+            await API.setPortalMode(slug, mode, 'Diubah KM');
+            this.showToast('Kode kelas dibuat dan mode portal diubah.');
+            await this.loadPengaturanKelas();
+            return;
+          } catch (e2) {
+            this.showToast(e2.message || 'Gagal mengubah mode portal.');
+            return;
+          }
+        }
         this.showToast(e.message || 'Gagal mengubah mode portal.');
       }
     },
@@ -4527,6 +5024,48 @@ function kmApp() {
       await this.konfirmasiLepasKanal();
     },
 
+    bukaUjiKanal(k) {
+      this.ujiPesanTo = (k && k.jid) || '';
+      const namaKelas = this.kmClassName ? this.kmClassName() : (this.selectedClass || 'kelas');
+      const label = (k && k.display_name) || namaKelas;
+      this.ujiPesanText = `Halo! Ini pesan uji koneksi bot WhatsApp Asterisk untuk ${label}.`;
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.modalUjiKanal = true;
+    },
+
+    tutupUjiKanal() {
+      this.modalUjiKanal = false;
+      this.ujiPesanTo = '';
+      this.ujiPesanText = '';
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+    },
+
+    async kirimUjiPesan() {
+      const to = (this.ujiPesanTo || '').trim();
+      const text = (this.ujiPesanText || '').trim();
+      if (!to || !text) {
+        this.ujiPesanError = 'Isi JID grup tujuan dan teks pesan.';
+        return;
+      }
+      if (text.length > 500) {
+        this.ujiPesanError = 'Teks maksimal 500 karakter.';
+        return;
+      }
+      this.ujiPesanError = '';
+      this.ujiPesanHasil = null;
+      this.ujiPesanLoading = true;
+      try {
+        this.ujiPesanHasil = await API.testBotMessage(to, text);
+        this.showToast('Pesan uji berhasil dikirim ke grup WhatsApp.');
+      } catch (err) {
+        this.ujiPesanError = err.message || 'Gagal mengirim pesan uji.';
+      } finally {
+        this.ujiPesanLoading = false;
+      }
+    },
+
     // ---- Kanal WhatsApp kelas (KM menautkan grupnya sendiri) ----
     kanalList: [],
     kanalLoading: false,
@@ -4539,6 +5078,13 @@ function kmApp() {
     modalLepasKanalOpen: false,
     kanalLepasSaving: false,
     kanalLepasError: '',
+    gantiKanalTerbuka: false,
+    modalUjiKanal: false,
+    ujiPesanTo: '',
+    ujiPesanText: '',
+    ujiPesanLoading: false,
+    ujiPesanError: '',
+    ujiPesanHasil: null,
 
     // ---- Usulan koreksi master (KM mengusulkan, System Admin memutuskan) ----
     usulanList: [],

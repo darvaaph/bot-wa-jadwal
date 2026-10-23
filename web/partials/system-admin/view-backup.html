@@ -138,8 +138,32 @@
         </div>
       </div>
 
+      <div class="md:hidden space-y-3">
+        <p x-show="backupListLoading" role="status" class="py-6 text-center text-[13px] text-[#667085]">Memuat cadangan...</p>
+        <div x-show="backupListError && !backupListLoading" role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-800"><span x-text="backupListError"></span><button type="button" @click="loadBackupList()" class="ml-2 font-semibold underline">Coba lagi</button></div>
+        <p x-show="!backupListLoading && !backupListError && filteredBackupList().length === 0" class="py-6 text-center text-[13px] text-[#667085]">Belum ada berkas cadangan tersimpan.</p>
+        <template x-for="b in paginatedBackupList()" :key="'mobile-backup-' + b.id">
+          <article x-show="!backupListLoading && !backupListError" class="min-w-0 rounded-xl border border-[#E4E7EC] bg-white p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0"><h3 class="font-mono text-[15px] font-bold text-[#1D1B3A]" x-text="'Cadangan #' + b.id"></h3><p class="mt-1 text-[11px] text-[#667085]" x-text="fmtTanggalCadangan(b.created_at) + ' · ' + fmtJamCadangan(b.created_at)"></p></div>
+              <span class="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold" :class="String(b.status || '').toUpperCase() === 'FAILED' ? 'bg-red-100 text-red-800' : (String(b.status || '').toUpperCase() === 'VERIFIED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800')" x-text="(b.status || 'READY').toUpperCase()"></span>
+            </div>
+            <p class="mt-3 break-words text-[13px] font-medium text-[#1D1B3A]" x-text="namaKelasBySlug(b.class_slug, b.class_id)"></p>
+            <p class="mt-1 text-[12px] text-[#667085]" x-text="b.semester_id ? ('Semester #' + b.semester_id) : 'Seluruh semester'"></p>
+            <p class="mt-2 break-words text-[12px] text-[#475467]" x-text="b.reason || 'Pencadangan data akademik'"></p>
+            <p class="mt-1 break-all font-mono text-[11px] text-[#667085]" x-text="fmtChecksum(b.checksum)"></p>
+            <button type="button" @click="bukaModalRestoreBackup(b)" class="mt-3 w-full rounded-lg border border-[#D7DDE7] px-3 text-[12px] font-semibold text-[#2854D6]" x-text="b.restorable ? 'Pratinjau pemulihan' : 'Verifikasi arsip'"></button>
+          </article>
+        </template>
+        <div x-show="!backupListLoading && filteredBackupList().length > 0" class="flex items-center justify-between gap-2 pt-2 text-[12px] text-[#475467]">
+          <button type="button" @click="setBackupPage(backupPage - 1)" :disabled="backupPage === 1" class="rounded-lg border border-[#D7DDE7] px-3 disabled:opacity-40">Sebelumnya</button>
+          <span x-text="backupPage + ' dari ' + backupTotalPages()"></span>
+          <button type="button" @click="setBackupPage(backupPage + 1)" :disabled="backupPage === backupTotalPages()" class="rounded-lg border border-[#D7DDE7] px-3 disabled:opacity-40">Berikutnya</button>
+        </div>
+      </div>
+
       <!-- Tabel Berkas Cadangan -->
-      <div class="w-full overflow-x-auto border border-[#E4E7EC] rounded-[12px]">
+      <div class="hidden md:block w-full overflow-x-auto border border-[#E4E7EC] rounded-[12px]">
         <table class="w-full text-left border-collapse min-w-[850px]">
           <thead>
             <tr class="bg-[#F8FAFC] border-b border-[#E4E7EC] text-[11px] font-semibold text-[#475467] tracking-wider uppercase">
@@ -242,7 +266,7 @@
       </div>
 
       <!-- Paginasi Footer -->
-      <div x-show="!backupListLoading && filteredBackupList().length > 0" class="w-full flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-[#F2F4F7]">
+      <div x-show="!backupListLoading && filteredBackupList().length > 0" class="hidden md:flex w-full flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-[#F2F4F7]">
         <div class="text-[12px] text-[#667085]">
           Menampilkan <span class="font-medium text-[#1D1B3A]" x-text="filteredBackupList().length === 0 ? 0 : ((backupPage - 1) * backupPerPage + 1)"></span>-<span class="font-medium text-[#1D1B3A]" x-text="Math.min(backupPage * backupPerPage, filteredBackupList().length)"></span> dari <span class="font-medium text-[#1D1B3A]" x-text="filteredBackupList().length"></span> berkas cadangan
         </div>

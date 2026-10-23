@@ -12,6 +12,7 @@ import (
 func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Registrasi Route API Scaffolding (Legacy Shim dengan header Deprecation: true)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/ready", s.handleReady)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 
 	// Registrasi Route Jadwal & Kelas Legacy
@@ -89,6 +90,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/tasks/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePatchV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleReviewV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCompleteV1Task)))
+	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleUncompleteV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleArchiveV1Task)))
 	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleRestoreV1Task)))
 
@@ -128,7 +130,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/support/enter", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleEnterSupport)))
 	mux.HandleFunc("POST /api/v1/admin/support/exit", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleExitSupport)))
 	mux.HandleFunc("GET /api/v1/admin/support/active", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleGetActiveSupport)))
-	mux.HandleFunc("POST /api/v1/admin/bot/test-message", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleTestBotMessage)))
+	mux.HandleFunc("POST /api/v1/admin/bot/test-message", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleTestBotMessage)))
 	mux.HandleFunc("POST /api/v1/master/proposals", s.RequireAuth(s.RequireRole("KM")(s.handleCreateProposal)))
 	mux.HandleFunc("GET /api/v1/master/proposals", s.RequireAuth(s.RequireRole("KM", "SYSTEM_ADMIN")(s.handleGetProposals)))
 	mux.HandleFunc("POST /api/v1/master/proposals/{id}/approve", s.RequireAuth(s.RequireRole("SYSTEM_ADMIN")(s.handleApproveProposal)))

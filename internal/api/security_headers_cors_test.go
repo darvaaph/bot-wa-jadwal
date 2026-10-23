@@ -226,6 +226,9 @@ func TestBE014_SecurityHeadersAndHSTS(t *testing.T) {
 	if strings.Contains(csp, "cdn.tailwindcss.com") || strings.Contains(csp, "cdn.jsdelivr.net") {
 		t.Fatalf("CSP tidak boleh lagi memuat host CDN JS: %s", csp)
 	}
+	if strings.Contains(csp, "script-src 'self' 'unsafe-inline'") || !strings.Contains(csp, "style-src-elem 'self'") {
+		t.Fatalf("CSP harus membatasi skrip dan stylesheet ke berkas lokal: %s", csp)
+	}
 
 	// 2. Request HTTPS langsung di production: HSTS wajib aktif
 	reqHTTPS := httptest.NewRequest(http.MethodGet, "/api/health", nil)
@@ -361,11 +364,48 @@ func TestBE014_FrontendHtmlResourcesAllowedByCSP(t *testing.T) {
 		if strings.Contains(body, "cdn.jsdelivr.net") {
 			t.Fatalf("halaman %s masih memuat jsdelivr CDN", page)
 		}
+		if strings.Contains(body, "tailwindcss.play.js") || strings.Contains(body, "<script>") || strings.Contains(body, "<style>") {
+			t.Fatalf("halaman %s masih memuat Tailwind runtime atau skrip/style inline", page)
+		}
 		if strings.Contains(body, "fonts.googleapis.com") && !strings.Contains(csp, "https://fonts.googleapis.com") {
 			t.Fatalf("halaman %s memuat Google Fonts tapi tidak diizinkan oleh CSP", page)
 		}
 		if strings.Contains(body, "fonts.gstatic.com") && !strings.Contains(csp, "https://fonts.gstatic.com") {
 			t.Fatalf("halaman %s memuat gstatic font tapi tidak diizinkan oleh CSP", page)
 		}
+	}
+}
+
+func TestBE014_DevelopmentOriginsDevTunnelAndLAN(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	s.SetSecurityOptions(SecurityOptions{
+		Env:         "development",
+		AuthHashKey: "0123456789abcdef0123456789abcdef",
+	})
+
+	allowedDevOrigins := []string{
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
+		"http://192.168.1.50:8080",
+		"http://10.0.0.15:8080",
+		"https://transmit-farmers-set-pills.trycloudflare.com",
+		"https://my-app.loca.lt",
+		"https://test.ngrok-free.app",
+		"https://test.devtunnels.ms",
+	}
+
+	for _, origin := range allowedDevOrigins {
+		t.Run(origin, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+			req.AddCookie(&http.Cookie{Name: "bv1", Value: "session-token-test"})
+			req.Header.Set("Origin", origin)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, req)
+
+			// Tidak boleh ditolak 403 CSRF origin
+			if w.Code == http.StatusForbidden && strings.Contains(w.Body.String(), "Origin tidak diizinkan") {
+				t.Fatalf("origin development %s ditolak CSRF: %s", origin, w.Body.String())
+			}
+		})
 	}
 }

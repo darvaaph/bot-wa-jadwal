@@ -10,7 +10,6 @@ import (
 
 	"bot-jadwal/internal/chat"
 	"bot-jadwal/internal/link"
-	"bot-jadwal/internal/reminder"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
 	"bot-jadwal/internal/util"
@@ -28,13 +27,6 @@ func SetDefaultCommandLimiter(limiter *RateLimiter) {
 	defaultCommandLimiter = limiter
 }
 
-// DashboardBaseURL adalah basis URL Web Dashboard. Ganti dengan domain
-// produksi saat deploy (contoh: https://jadwal.kelas.ac.id).
-const DashboardBaseURL = "http://localhost:8080"
-
-// PortalBaseURL adalah basis URL Portal Kelas Mahasiswa.
-const PortalBaseURL = "http://localhost:8080"
-
 var tugasMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "selesai", "done", "edit", "update", "mundur", "perpanjang", "ganti"}
 
 var linkMutationWords = []string{"tambah", "add", "hapus", "delete", "rm", "edit", "ubah"}
@@ -47,11 +39,25 @@ var scheduleMutationRoots = []string{"pindah", "ganti", "reschedule", "kosong", 
 // kanalReplyText menyusun teks balasan JID chat untuk perintah !kanal.
 // Fungsi murni agar isi balasan dapat diuji tanpa klien WhatsApp.
 func kanalReplyText(chatJID string, isGroup bool) string {
-	kind := "pribadi"
 	if isGroup {
-		kind = "grup"
+		return fmt.Sprintf("*ID GRUP WHATSAPP (JID)*\n──────────\nID grup ini: `%s`\n\nUntuk menghubungkan grup ini dengan jadwal kuliah:\n1. Salin ID di atas.\n2. Buka Dashboard (KM / Admin) -> menu *Kanal WhatsApp*.\n3. Tempel pada kolom *JID Grup WhatsApp* lalu simpan.", chatJID)
 	}
-	return fmt.Sprintf("📡 *JID CHAT INI*\n──────────\nChat %s ini: `%s`\n\nSalin JID di atas ke form _Tautkan Kanal_ di dashboard System Admin untuk menautkan ke kelas.", kind, chatJID)
+	return fmt.Sprintf("*ID CHAT PRIBADI (JID)*\n──────────\nNomor/ID pribadi Anda: `%s`\n\nUntuk memilih kelas di chat pribadi, Anda cukup mengetik perintah:\n`!setkelas [nama_kelas]` (contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`).", chatJID)
+}
+
+// linkRestrictedDMMessage menyusun teks pemberitahuan pembatasan akses tautan di chat pribadi.
+func linkRestrictedDMMessage(slug string) string {
+	portalURL := util.PublicBaseURL() + "/"
+	if slug != "" {
+		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
+	}
+	var sb strings.Builder
+	sb.WriteString("*AKSES TAUTAN DIBATASI*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString("Untuk keamanan dan privasi perkuliahan (Google Meet, Zoom, atau Google Drive), daftar tautan kelas hanya dapat diakses melalui:\n")
+	sb.WriteString("- Grup WhatsApp resmi kelas yang terdaftar\n")
+	sb.WriteString(fmt.Sprintf("- Web Portal Kelas: %s", portalURL))
+	return sb.String()
 }
 
 func MutationRedirectEntity(msgText string, isGroup bool) (string, bool) {
@@ -101,14 +107,13 @@ func RedirectMessage(entity string) string {
 // PortalMessage menyusun balasan perintah !portal/!web.
 func PortalMessage() string {
 	var sb strings.Builder
-	sb.WriteString("🌐 *PORTAL & DASHBOARD*\n")
+	sb.WriteString("*PORTAL & DASHBOARD*\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString("📖 *Portal Kelas (mahasiswa):*\n")
-	sb.WriteString(PortalBaseURL + "/ (pilih kelas Anda)\n\n")
-	sb.WriteString("🛠️ *Dashboard Pengelola (PJ/KM):*\n")
-	sb.WriteString(DashboardBaseURL + "/login.html\n")
+	sb.WriteString("*Portal Kelas (mahasiswa):*\n")
+	sb.WriteString(util.PublicBaseURL() + "/ (pilih kelas Anda)\n\n")
+	sb.WriteString("*Dashboard Pengelola (PJ/KM):*\n")
+	sb.WriteString(util.PublicBaseURL() + "/login.html\n")
 	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
-	sb.WriteString("_(Ganti localhost:8080 dengan domain portal Anda di produksi.)_")
 	return sb.String()
 }
 
@@ -127,7 +132,6 @@ func HandleIncomingMessage(
 	v *events.Message,
 	classManager *schedule.ClassManager,
 	chatSettingsManager *chat.ChatSettingsManager,
-	reminderManager *reminder.ReminderManager,
 	taskManager *task.TaskManager,
 	overrideManager *schedule.OverrideManager,
 	linkManager *link.LinkManager,
@@ -164,8 +168,6 @@ func HandleIncomingMessage(
 	}
 
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
-
-	lowerMsg := strings.ToLower(msgText)
 
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
 		ReplyWithTyping(
@@ -266,45 +268,7 @@ func HandleIncomingMessage(
 	}
 
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "reminder", "pengingat") {
-		parts := strings.Fields(lowerMsg)
-		subCmd := ""
-		if len(parts) > 1 {
-			subCmd = parts[1]
-		}
-
-		var reminderReply string
-		switch subCmd {
-		case "on", "aktif", "start", "enable":
-			if activeClassID == "" {
-				reminderReply = "⚠️ *PENGINGAT TIDAK DAPAT DIAKTIFKAN*\n──────────\nChat ini belum menentukan kelas perkuliahan.\nSilakan atur kelas terlebih dahulu dengan perintah:\n👉 `!setkelas [nama_kelas]` (Contoh: `!setkelas D4-TI-1A`)\n\nKetik `!daftarkelas` untuk melihat 19 pilihan kelas yang tersedia."
-			} else {
-				chatJID := v.Info.Chat.String()
-				groupName := "Grup Chat"
-				if v.Info.IsGroup {
-					info, err := defaultGroupAdminResolver.GetGroupInfo(context.Background(), client, v.Info.Chat)
-					if err == nil && info != nil && info.Name != "" {
-						groupName = info.Name
-					}
-				}
-				_, reminderReply = reminderManager.AddGroup(chatJID, groupName)
-			}
-
-		case "off", "nonaktif", "stop", "disable", "matikan":
-			chatJID := v.Info.Chat.String()
-			_, reminderReply = reminderManager.RemoveGroup(chatJID)
-
-		case "test", "tes", "try":
-			if activeClassID == "" && chatSettingsManager != nil {
-				reminderReply = chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup)
-			} else {
-				reminderReply = fmt.Sprintf("🧪 *[SIMULASI PENGINGAT PAGI]*\n\n%s", reminder.BuildMorningReminder(v.Info.Chat.String(), activeJadwal, taskManager, time.Now(), linkManager))
-			}
-
-		default:
-			reminderReply = reminderManager.Status(v.Info.Chat.String())
-		}
-
-		reply(reminderReply, "⏰", 600*time.Millisecond, "perintah reminder")
+		reply("⏰ Pengingat kelas diatur melalui Dashboard Pengelola → Pengaturan Pengingat. Tautkan kanal WhatsApp kelas melalui Dashboard System Admin agar pesan terjadwal dapat terkirim.\n"+util.PublicBaseURL()+"/login.html", "⏰", 600*time.Millisecond, "pengaturan reminder")
 		return
 	}
 
@@ -336,7 +300,8 @@ func HandleIncomingMessage(
 				}
 				resp, err := v1Service.CompleteTask(context.Background(), v1Class.ID, taskID)
 				if err != nil {
-					reply(fmt.Sprintf("⚠️ Terjadi kesalahan: %v", err), "⚠️", 600*time.Millisecond, "tugas selesai v1")
+					fmt.Printf("⚠️ [CompleteTask Error] gagal menyelesaikan tugas %d untuk kelas %d: %v\n", taskID, v1Class.ID, err)
+					reply("⚠️ Tugas tidak ditemukan atau gagal diperbarui. Pastikan nomor ID tugas sudah benar.", "⚠️", 600*time.Millisecond, "tugas selesai v1")
 					return
 				}
 				reply(resp, "✅", 600*time.Millisecond, "tugas selesai v1")
@@ -346,7 +311,8 @@ func HandleIncomingMessage(
 			// Tampilkan daftar tugas aktif dari v1 database
 			resp, err := v1Service.GetTasks(context.Background(), v1Class.ID)
 			if err != nil {
-				reply(fmt.Sprintf("⚠️ Terjadi kesalahan memuat tugas: %v", err), "⚠️", 600*time.Millisecond, "daftar tugas v1")
+				fmt.Printf("⚠️ [GetTasks Error] gagal memuat tugas untuk kelas %d: %v\n", v1Class.ID, err)
+				reply("⚠️ Terjadi kendala saat memuat daftar tugas. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar tugas v1")
 				return
 			}
 			reply(resp, "📝", 600*time.Millisecond, "daftar tugas v1")
@@ -373,12 +339,30 @@ func HandleIncomingMessage(
 		return
 	}
 
-	// 6. Handler Khusus Perintah Tautan Penting Kelas (!link, !tautan, !drive, !gdrive, !zoom, !gmeet, !meet)
-	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "drive", "gdrive", "zoom", "gmeet", "meet") {
+	// 6. Handler Khusus Perintah Tautan & Materi Penting Kelas (!link, !tautan, !materi, !drive, !gdrive, !zoom, !gmeet, !meet)
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "link", "tautan", "materi", "drive", "gdrive", "zoom", "gmeet", "meet") {
+		if activeClassID == "" && chatSettingsManager != nil {
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding link")
+			return
+		}
+
+		// Keamanan Tautan: Di chat pribadi (DM), akses tautan dibatasi dan dialihkan ke Web Portal / Grup Resmi.
+		if !v.Info.IsGroup {
+			slug := ""
+			if v1Class != nil {
+				slug = v1Class.Slug
+			} else if activeClassID != "" {
+				slug = strings.ToLower(activeClassID)
+			}
+			reply(linkRestrictedDMMessage(slug), "🔒", 600*time.Millisecond, "tautan dibatasi di DM")
+			return
+		}
+
 		if v1Class != nil && v1Service != nil {
 			resp, err := v1Service.GetLinks(context.Background(), v1Class.ID)
 			if err != nil {
-				reply(fmt.Sprintf("⚠️ Terjadi kesalahan memuat tautan: %v", err), "⚠️", 600*time.Millisecond, "daftar tautan v1")
+				fmt.Printf("⚠️ [GetLinks Error] gagal memuat tautan untuk kelas %d: %v\n", v1Class.ID, err)
+				reply("⚠️ Terjadi kendala saat memuat tautan kelas. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar tautan v1")
 				return
 			}
 			reply(resp, "🔗", 600*time.Millisecond, "daftar tautan v1")
@@ -393,12 +377,77 @@ func HandleIncomingMessage(
 		}
 	}
 
-	// 7. Jika kelas target adalah kelas pilot v1 dan pesan adalah perintah jadwal, layani dari database v1
-	if v1Class != nil && v1Service != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
-		schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
-		if err == nil && schedReply != "" {
-			reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
-			return
+	// 7. Jika kelas target adalah kelas pilot v1, layani perintah jadwal, menu, dan pencarian dari database v1
+	if v1Class != nil && v1Service != nil {
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
+			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
+			if err == nil && schedReply != "" {
+				reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "keyword", "keywords", "katakunci") {
+			kwReply, err := v1Service.GetKeywords(context.Background(), v1Class.ID)
+			if err == nil && kwReply != "" {
+				reply(kwReply, "📖", 600*time.Millisecond, "keywords v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "menu", "help", "bantuan", "panduan") {
+			menuReply, err := v1Service.GetMenu(context.Background(), v1Class.ID)
+			if err == nil && menuReply != "" {
+				reply(menuReply, "📋", 600*time.Millisecond, "menu v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "matkul", "matakuliah", "mata kuliah", "daftarmatkul") {
+			courseReply, err := v1Service.GetCourses(context.Background(), v1Class.ID)
+			if err == nil && courseReply != "" {
+				reply(courseReply, "📚", 600*time.Millisecond, "matkul v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "dosen") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			dosenReply, err := v1Service.SearchDosen(context.Background(), v1Class.ID, query)
+			if err == nil && dosenReply != "" {
+				reply(dosenReply, "👨‍🏫", 600*time.Millisecond, "dosen v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "ruang", "ruangan", "lab") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			ruangReply, err := v1Service.SearchRuang(context.Background(), v1Class.ID, query)
+			if err == nil && ruangReply != "" {
+				reply(ruangReply, "🏫", 600*time.Millisecond, "ruang v1")
+				return
+			}
+		}
+
+		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "cari", "search") {
+			parts := strings.Fields(msgText)
+			query := ""
+			if len(parts) > 1 {
+				query = strings.Join(parts[1:], " ")
+			}
+			cariReply, err := v1Service.SearchGlobal(context.Background(), v1Class.ID, query)
+			if err == nil && cariReply != "" {
+				reply(cariReply, "🔍", 600*time.Millisecond, "cari v1")
+				return
+			}
 		}
 	}
 
