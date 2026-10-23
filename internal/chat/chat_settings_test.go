@@ -168,17 +168,48 @@ func TestChatSettings_HandleCommand(t *testing.T) {
 		t.Errorf("Respon !kelas grup yang belum tertaut tidak boleh menandai kelas aktif: %s", kelasResp)
 	}
 
-	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
-	if !strings.Contains(dmResp, "BERHASIL DIATUR") || !strings.Contains(dmResp, "D4-TI-SMT3-A") {
-		t.Errorf("User di DM harus bisa set kelas miliknya, got: %s", dmResp)
+	// Input ambigu di DM harus memunculkan pesan disambiguasi dan tidak menyimpan kelas ke database
+	ambiguousResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
+	if !strings.Contains(ambiguousResp, "PILIHAN KELAS AMBIGU") || !strings.Contains(ambiguousResp, "!setkelas d4 3a") || !strings.Contains(ambiguousResp, "!setkelas d3 3a") {
+		t.Errorf("Input ambigu !setkelas smt 3 a harus membalas dengan pilihan disambiguasi, got: %s", ambiguousResp)
+	}
+	if class := csm.GetClass(userJID); class != "" {
+		t.Errorf("Input ambigu tidak boleh menyimpan kelas ke DB, got: %s", class)
+	}
+
+	ambiguous2AResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas 2A", classMgr)
+	if !strings.Contains(ambiguous2AResp, "PILIHAN KELAS AMBIGU") {
+		t.Errorf("Input ambigu !setkelas 2A harus membalas dengan pilihan disambiguasi, got: %s", ambiguous2AResp)
+	}
+	if class := csm.GetClass(userJID); class != "" {
+		t.Errorf("Input ambigu 2A tidak boleh menyimpan kelas ke DB, got: %s", class)
+	}
+
+	// Input spesifik dengan prodi D4 harus langsung berhasil
+	d4Resp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas d4 3a", classMgr)
+	if !strings.Contains(d4Resp, "BERHASIL DIATUR") || !strings.Contains(d4Resp, "D4-TI-SMT3-A") {
+		t.Errorf("User di DM harus bisa set kelas D4 miliknya, got: %s", d4Resp)
 	}
 	if class := csm.GetClass(userJID); class != "D4-TI-SMT3-A" {
 		t.Errorf("Kelas DM harus D4-TI-SMT3-A, got: %s", class)
 	}
 
-	set2AResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas 2A", classMgr)
-	if !strings.Contains(set2AResp, "BERHASIL DIATUR") || !strings.Contains(set2AResp, "D4-TI-SMT3-A") {
-		t.Errorf("Setkelas 2A harus berhasil memetakan ke D4-TI-SMT3-A, got: %s", set2AResp)
+	// Input spesifik dengan prodi D3 harus langsung berhasil
+	d3Resp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas d3 3a", classMgr)
+	if !strings.Contains(d3Resp, "BERHASIL DIATUR") || !strings.Contains(d3Resp, "D3-TI-SMT3-A") {
+		t.Errorf("User di DM harus bisa set kelas D3 miliknya, got: %s", d3Resp)
+	}
+	if class := csm.GetClass(userJID); class != "D3-TI-SMT3-A" {
+		t.Errorf("Kelas DM harus D3-TI-SMT3-A, got: %s", class)
+	}
+
+	// Input kelas tanpa prodi yang hanya ada di 1 prodi (misal: SMT 3 C hanya di D4) harus langsung berhasil tanpa ambigu
+	smt3CResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 c", classMgr)
+	if !strings.Contains(smt3CResp, "BERHASIL DIATUR") || !strings.Contains(smt3CResp, "D4-TI-SMT3-C") {
+		t.Errorf("Setkelas smt 3 c harus berhasil tanpa ambigu ke D4-TI-SMT3-C, got: %s", smt3CResp)
+	}
+	if class := csm.GetClass(userJID); class != "D4-TI-SMT3-C" {
+		t.Errorf("Kelas DM harus D4-TI-SMT3-C, got: %s", class)
 	}
 
 	copyPasteResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas [`D4-TI-SMT3-A`]", classMgr)
@@ -376,10 +407,10 @@ func TestChatSettings_HandleCommand_WithPreexistingCohortClass(t *testing.T) {
 
 	userJID := "628999888777@s.whatsapp.net"
 
-	// Uji 1: User mengetik format santai "!setkelas smt 3 a"
-	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas smt 3 a", classMgr)
+	// Uji 1: User mengetik format santai "!setkelas d4 3a"
+	dmResp := csm.HandleCommand(userJID, false, userJID, false, "!setkelas d4 3a", classMgr)
 	if strings.Contains(dmResp, "UNIQUE constraint failed") || strings.Contains(dmResp, "Gagal menyimpan") || strings.Contains(dmResp, "Terjadi kendala") {
-		t.Fatalf("!setkelas smt 3 a tidak boleh gagal dengan error: %s", dmResp)
+		t.Fatalf("!setkelas d4 3a tidak boleh gagal dengan error: %s", dmResp)
 	}
 	if !strings.Contains(dmResp, "BERHASIL DIATUR") {
 		t.Errorf("Harus berhasil diatur, got: %s", dmResp)

@@ -67,7 +67,7 @@ function systemAdminApp() {
     kelasAktif: '',
     kelasAktifObj: null,
     modalBuatTerbuka: false,
-    kelasForm: { prodi: 'D4 Teknik Informatika', angkatan: '2025', rombel: 'A', nama: 'D4-TI 1A', slug: 'd4-ti-1a', portal_access_mode: 'LINK', kustom: false },
+    kelasForm: { prodi: 'D4 Teknik Informatika', angkatan: String(new Date().getFullYear()), rombel: 'A', nama: '', slug: '', portal_access_mode: 'LINK', kustom: false },
     kelasError: '',
     kelasSaving: false,
     kelasStatusConfirm: null,
@@ -4237,7 +4237,7 @@ function systemAdminApp() {
             slug: k.slug,
             nama: k.code,
             prodi: k.program || 'Teknik Informatika',
-            angkatan: String(k.cohort || '2024'),
+            angkatan: String(k.cohort || new Date().getFullYear()),
             group: k.group || 'A',
             status: k.status || 'ACTIVE',
             statusKM: k.status_km || (k.km_name ? 'active' : (k.pending_phone ? 'pending' : 'none')),
@@ -5454,7 +5454,7 @@ function systemAdminApp() {
 
     portalURLPreview() {
       const host = window.location.host || 'domain.com';
-      const slug = (this.kelasForm && this.kelasForm.slug) ? this.kelasForm.slug : 'd4-ti-1a';
+      const slug = (this.kelasForm && this.kelasForm.slug) ? this.kelasForm.slug : ':slug';
       return host + '/c/' + slug;
     },
 
@@ -5479,12 +5479,13 @@ function systemAdminApp() {
     },
 
     resetKelasForm() {
+      const currentYear = String(new Date().getFullYear());
       this.kelasForm = {
         prodi: 'D4 Teknik Informatika',
-        angkatan: '2025',
+        angkatan: currentYear,
         rombel: 'A',
-        nama: 'D4-TI 1A',
-        slug: 'd4-ti-1a',
+        nama: '',
+        slug: '',
         portal_access_mode: 'LINK',
         kustom: false
       };

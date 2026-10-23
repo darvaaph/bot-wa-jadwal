@@ -105,7 +105,7 @@
               <div class="flex items-center gap-2 mt-1.5 flex-wrap text-[12px] text-[#64748B]">
                 <span class="inline-flex items-center gap-1.5 font-mono font-medium text-slate-700 text-[12px]">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-slate-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span x-text="fmtDeadlineDetailed(t.deadline_at) || t.deadline">Rabu, 14 Okt 2026, 23.09 WIB</span>
+                  <span x-text="fmtDeadlineDetailed(t.deadline_at) || t.deadline || '-'">-</span>
                 </span>
                 
                 <template x-if="t.submission_url">

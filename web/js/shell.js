@@ -199,7 +199,8 @@ const AsteriskShell = (() => {
         if (c && c.program && c.cohort && c.group) {
           const prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
           const cohort = parseInt(c.cohort, 10);
-          const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+          const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
           return `${prodi} ${tingkat}${c.group}`;
         }
         const raw = String(this.selectedClass || asg.class_slug || '').trim();
@@ -207,12 +208,13 @@ const AsteriskShell = (() => {
           const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
           if (m) {
             const cohort = parseInt(m[3], 10);
-            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
             return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
           }
           return raw;
         }
-        return 'D4-TI 2A';
+        return (this.classList && this.classList.length > 0 ? (this.classList[0].name || this.classList[0].code || this.classList[0]) : '-');
       },
       pjClassName() {
         if (this.dashboardData?.class?.label) return this.dashboardData.class.label;
@@ -223,7 +225,8 @@ const AsteriskShell = (() => {
           const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
           if (m) {
             const cohort = parseInt(m[3], 10);
-            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
             return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
           }
           return raw.toUpperCase();

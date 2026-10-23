@@ -167,23 +167,7 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 		cm.aliases[fmt.Sprintf("%s %s %s", prodi, semester, kelasPart)] = norm
 		cm.aliases[fmt.Sprintf("%s %s%s", prodi, semester, kelasPart)] = norm
 
-		// Alias D4 boleh menghilangkan prefix prodi karena D4 adalah prodi default.
-		if prodi == "D4" {
-			cm.aliases[fmt.Sprintf("SMT%s%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEM%s%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SMT%s-%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEM%s-%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SMT %s %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEM %s %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEMESTER %s %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEMESTER %s%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("SEMESTER %s KELAS %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%s%s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%s %s", semester, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("KELAS %s%s", semester, kelasPart)] = norm
-		}
-
-		// Alias tingkat 2 dipetakan ke semester 3 tanpa menimpa alias kelas lain.
+		// Alias tingkat 2 dipetakan ke semester 3 jika prodi dicantumkan (contoh: D4 2A -> D4-TI-SMT3-A)
 		if semester == "3" {
 			if subProdi != "" {
 				cm.aliases[fmt.Sprintf("%s-%s-2%s", prodi, subProdi, kelasPart)] = norm
@@ -191,15 +175,6 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 			cm.aliases[fmt.Sprintf("%s-2%s", prodi, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("%s 2 %s", prodi, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("%s 2%s", prodi, kelasPart)] = norm
-
-			if prodi == "D4" {
-				cm.aliases[fmt.Sprintf("2%s", kelasPart)] = norm
-				cm.aliases[fmt.Sprintf("2 %s", kelasPart)] = norm
-				cm.aliases[fmt.Sprintf("KELAS 2%s", kelasPart)] = norm
-				cm.aliases[fmt.Sprintf("TINGKAT 2 %s", kelasPart)] = norm
-				cm.aliases[fmt.Sprintf("TINGKAT 2%s", kelasPart)] = norm
-				cm.aliases[fmt.Sprintf("TINGKAT 2 KELAS %s", kelasPart)] = norm
-			}
 		}
 
 		// Alias angkatan / cohort permanen (misal: D4-TI-2025-A -> D4-TI-SMT3-A)
@@ -219,14 +194,24 @@ func (cm *ClassManager) registerAliases(canonicalID string) {
 			cm.aliases[fmt.Sprintf("%s-%d%s", prodi, cohortYear, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("%s %d %s", prodi, cohortYear, kelasPart)] = norm
 			cm.aliases[fmt.Sprintf("%s %d%s", prodi, cohortYear, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%d-%s", cohortYear, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%d%s", cohortYear, kelasPart)] = norm
-			cm.aliases[fmt.Sprintf("%d %s", cohortYear, kelasPart)] = norm
 		}
 	}
 }
 
-// ResolveClassID memetakan input pengguna (apapun variasinya) ke ID kelas kanonikal (contoh: "3a" -> "D4-TI-SMT3-A")
+// ResolveClassCandidates mencari seluruh kandidat ID kelas kanonikal yang cocok dengan input pengguna.
+// Jika input spesifik (misal "D4 3A", "D3 3A", atau "D4-TI-SMT3-A"), mengembalikan 1 kandidat.
+// Jika input ambigu (misal "smt 3 a" atau "3a" yang tersedia di D4 dan D3), mengembalikan seluruh kandidat yang cocok.
+// Jika tidak cocok sama sekali, mengembalikan slice kosong.
+func (cm *ClassManager) ResolveClassCandidates(input string) []string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	return cm.resolveCandidatesInternal(input)
+}
+
+// ResolveClassID memetakan input pengguna ke ID kelas kanonikal (contoh: "d4 3a" -> "D4-TI-SMT3-A").
+// Jika input memiliki beberapa kandidat (ambigu seperti "3a"), mengembalikan kandidat pertama (default D4) untuk kompatibilitas pencarian.
+// Untuk validasi interaktif yang mendeteksi ambiguitas (seperti pada perintah !setkelas), gunakan ResolveClassCandidates.
 func (cm *ClassManager) ResolveClassID(input string) string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
@@ -235,20 +220,28 @@ func (cm *ClassManager) ResolveClassID(input string) string {
 }
 
 func (cm *ClassManager) resolveInternal(input string) string {
+	candidates := cm.resolveCandidatesInternal(input)
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
+	return ""
+}
+
+func (cm *ClassManager) resolveCandidatesInternal(input string) []string {
 	raw := strings.TrimSpace(strings.ToUpper(input))
 	if raw == "" {
-		return ""
+		return nil
 	}
 
 	norm := NormalizeClassID(raw)
 
 	if _, ok := cm.classes[norm]; ok {
-		return norm
+		return []string{norm}
 	}
 
 	if canonical, ok := cm.aliases[norm]; ok {
 		if _, exists := cm.classes[canonical]; exists {
-			return canonical
+			return []string{canonical}
 		}
 	}
 
@@ -263,23 +256,40 @@ func (cm *ClassManager) resolveInternal(input string) string {
 
 	joinedCompact := strings.Join(fields, "")
 	if canonical, ok := cm.aliases[joinedCompact]; ok {
-		return canonical
+		if _, exists := cm.classes[canonical]; exists {
+			return []string{canonical}
+		}
 	}
 
 	joinedHyphen := strings.Join(fields, "-")
 	if canonical, ok := cm.aliases[joinedHyphen]; ok {
-		return canonical
+		if _, exists := cm.classes[canonical]; exists {
+			return []string{canonical}
+		}
 	}
 
 	joinedSpace := strings.Join(fields, " ")
 	if canonical, ok := cm.aliases[joinedSpace]; ok {
-		return canonical
+		if _, exists := cm.classes[canonical]; exists {
+			return []string{canonical}
+		}
 	}
 
-	isD3 := strings.Contains(clean, "D3")
-	prodiPrefix := "D4-TI-"
-	if isD3 && !strings.Contains(clean, "D4") {
-		prodiPrefix = "D3-TI-"
+	hasD3 := false
+	hasD4 := false
+	for _, f := range fields {
+		if f == "D3" || strings.HasPrefix(f, "D3") {
+			hasD3 = true
+		}
+		if f == "D4" || strings.HasPrefix(f, "D4") {
+			hasD4 = true
+		}
+	}
+	if !hasD3 && strings.Contains(clean, "D3") {
+		hasD3 = true
+	}
+	if !hasD4 && strings.Contains(clean, "D4") {
+		hasD4 = true
 	}
 
 	var semDigit string
@@ -291,7 +301,7 @@ func (cm *ClassManager) resolveInternal(input string) string {
 				if time.Now().Month() < time.September {
 					academicStartYear--
 				}
-				s := (academicStartYear - yr) * 2 + 1
+				s := (academicStartYear-yr)*2 + 1
 				if s >= 1 && s <= 8 {
 					semDigit = strconv.Itoa(s)
 					break
@@ -304,6 +314,10 @@ func (cm *ClassManager) resolveInternal(input string) string {
 		}
 	}
 
+	if semDigit == "" && (strings.Contains(clean, "TINGKAT 2") || strings.Contains(clean, "TINGKAT2")) {
+		semDigit = "3"
+	}
+
 	var classLetter string
 	for i := len(fields) - 1; i >= 0; i-- {
 		f := fields[i]
@@ -312,28 +326,70 @@ func (cm *ClassManager) resolveInternal(input string) string {
 			break
 		}
 		if len(f) == 2 && (f[0] >= '1' && f[0] <= '8') && (f[1] >= 'A' && f[1] <= 'D') {
-			semDigit = string(f[0])
+			if semDigit == "" {
+				semDigit = string(f[0])
+			}
 			classLetter = string(f[1])
 			break
 		}
 		if strings.HasPrefix(f, "SMT") && len(f) >= 5 {
 			s := strings.TrimPrefix(f, "SMT")
 			if len(s) == 2 && (s[0] >= '1' && s[0] <= '8') && (s[1] >= 'A' && s[1] <= 'D') {
-				semDigit = string(s[0])
+				if semDigit == "" {
+					semDigit = string(s[0])
+				}
 				classLetter = string(s[1])
 				break
 			}
 		}
 	}
 
-	if semDigit != "" && classLetter != "" {
-		targetCanonical := fmt.Sprintf("%sSMT%s-%s", prodiPrefix, semDigit, classLetter)
-		if _, ok := cm.classes[targetCanonical]; ok {
-			return targetCanonical
+	if semDigit == "" && len(fields) > 0 {
+		for _, f := range fields {
+			if len(f) == 2 && (f[0] >= '1' && f[0] <= '8') && (f[1] >= 'A' && f[1] <= 'D') {
+				semDigit = string(f[0])
+				classLetter = string(f[1])
+				break
+			}
 		}
 	}
 
-	return ""
+	// Jika pengguna memasukkan "2A" atau semester 2, tapi di sistem aktif semester ganjil (SMT3):
+	// petakan semester 2 / tingkat 2 ke semester 3 jika SMT2 tidak ada di daftar kelas.
+	if semDigit == "2" {
+		hasSMT2 := false
+		for k := range cm.classes {
+			if strings.Contains(k, "SMT2-") {
+				hasSMT2 = true
+				break
+			}
+		}
+		if !hasSMT2 {
+			semDigit = "3"
+		}
+	}
+
+	if semDigit != "" && classLetter != "" {
+		var prodisToCheck []string
+		if hasD3 && !hasD4 {
+			prodisToCheck = []string{"D3"}
+		} else if hasD4 && !hasD3 {
+			prodisToCheck = []string{"D4"}
+		} else {
+			prodisToCheck = []string{"D4", "D3"}
+		}
+
+		var candidates []string
+		for _, p := range prodisToCheck {
+			targetCanonical := fmt.Sprintf("%s-TI-SMT%s-%s", p, semDigit, classLetter)
+			if _, ok := cm.classes[targetCanonical]; ok {
+				candidates = append(candidates, targetCanonical)
+			}
+		}
+		return candidates
+	}
+
+	return nil
 }
 
 func (cm *ClassManager) SetOverrideManager(om *OverrideManager) {

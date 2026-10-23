@@ -67,7 +67,7 @@ function pjApp() {
     pjBreadcrumbs() {
       const c = [];
       c.push({ label: 'Sistem', action: () => this.go('dashboard'), clickable: true });
-      const kelas = this.dashboardData?.class?.code || this.dashboardData?.class?.label || this.selectedClass || 'D4-TI 1A';
+      const kelas = this.dashboardData?.class?.code || this.dashboardData?.class?.label || this.selectedClass || '-';
       c.push({ label: kelas, action: () => this.go('dashboard'), clickable: false });
 
       if (this.view === 'dashboard') {
@@ -1470,7 +1470,7 @@ function pjApp() {
     },
 
     get alasanSlotKosong() {
-      const className = this.selectedClass || this.profile?.class_name || 'D4-TI 1A';
+      const className = this.selectedClass || this.profile?.class_name || '-';
       const day = this.roomFilterDay;
       const typeLabel = this.roomFilterType === 'lab' ? 'lab komputer' : (this.roomFilterType === 'teori' ? 'ruang teori' : 'ruangan');
       
@@ -3157,7 +3157,7 @@ function pjApp() {
           reviewer: this.tugasKoreksi.reviewer_name || 'Ketua Murid',
           note: this.tugasKoreksi.note || 'Instruksi tugas perlu disesuaikan sebelum disetujui KM.',
           version: (this.tugasDetail && this.tugasDetail.version) || 1,
-          waktu: 'Kemarin, 19:40 WIB'
+          waktu: this.formatSubmittedTime(this.tugasKoreksi.created_at || this.tugasKoreksi.reviewed_at)
         };
       }
       return null;

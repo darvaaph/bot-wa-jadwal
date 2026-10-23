@@ -602,7 +602,8 @@ function portalApp() {
     },
 
     get selectedClassSlug() {
-      return (this.selectedClass || 'd4-ti-2024-a').toLowerCase().replace(/\s+/g, '-');
+      const cls = this.selectedClass || (this.classList && this.classList.length > 0 ? this.classList[0] : '');
+      return String(cls || '').toLowerCase().replace(/\s+/g, '-');
     },
 
     loadingPin: false,
@@ -1385,14 +1386,8 @@ function portalApp() {
     },
 
     getKodeMatkul(s) {
-      if (!s) return 'TI2104';
-      if (s.code || s.kode) return s.code || s.kode;
-      const m = String(s.matkul || '').toLowerCase();
-      if (m.includes('aljabar')) return 'TI2104';
-      if (m.includes('web')) return 'TI2105';
-      if (m.includes('basis data')) return 'TI2103';
-      if (m.includes('objek') || m.includes('pbo')) return 'TI2102';
-      return 'TI2101';
+      if (!s) return '';
+      return s.code || s.kode || s.course_code || '';
     },
 
     formatWaktuPublikasi(iso) {

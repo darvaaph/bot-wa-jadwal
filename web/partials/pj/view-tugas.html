@@ -1184,12 +1184,12 @@
                 x-text="r.decision === 'CHANGES_REQUESTED' ? ('Permintaan Koreksi (Versi ' + r.version + ')') : ('Disetujui KM (Versi ' + r.version + ')')"
               ></div>
               <div class="text-[11px] text-[#64748B]">
-                <span x-text="r.reviewer">Raka Pratama</span> (Ketua Murid)
+                <span x-text="r.reviewer || 'Ketua Murid'">Ketua Murid</span>
               </div>
               <div x-show="r.note" class="text-[11px] text-[#334155] bg-[#FFF1F2] border border-[#FECDD3] rounded-lg p-2.5 mt-1 leading-relaxed">
-                <span x-text="r.note">Instruksi kurang lengkap.</span>
+                <span x-text="r.note">-</span>
               </div>
-              <div class="text-[11px] text-[#94A3B8]" x-text="r.waktu">Kemarin, 19:40 WIB</div>
+              <div class="text-[11px] text-[#94A3B8]" x-text="r.waktu">-</div>
             </div>
           </div>
         </template>

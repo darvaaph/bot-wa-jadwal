@@ -33,7 +33,7 @@
             class="box-border w-[250px] shrink-0 h-[40px] flex flex-row gap-[8px] px-[12px] justify-start items-center border-x border-[#E2E8F0]">
             <div class="text-[14px] text-[#1D1B3A] font-mono font-bold text-left whitespace-nowrap"
               x-text="rentangPekanLabel">
-              5 – 11 Oktober 2026
+              -
             </div>
             <div
               class="box-border w-fit shrink-0 h-fit flex flex-row px-[8px] py-[4px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
@@ -682,7 +682,7 @@
             class="box-border w-full h-[40px] shrink-0 flex flex-row gap-[8px] px-3.5 justify-start items-center bg-slate-100/90 border border-slate-200/80 rounded-xl">
             <div class="text-[12px] box-border text-slate-800 font-bold text-left whitespace-nowrap"
               x-text="formatTanggalLengkap(d)">
-              Senin, 5 Oktober 2026
+              -
             </div>
             <template x-if="d === todayName && weekOffset === 0">
               <div
@@ -861,8 +861,8 @@
               <h2 class="text-[18px] md:text-[20px] font-heading font-bold text-[#0F172A] leading-snug"
                 x-text="detailSesi.matkul">Mata Kuliah</h2>
               <div class="text-[12px] font-medium text-[#64748B]"
-                x-text="'Kode: ' + getKodeMatkul(detailSesi) + ' • ' + (detailSesi.sks ? detailSesi.sks + ' SKS • ' : '3 SKS • ') + (selectedClassFormatted || 'D4-TI 1A') + ' • Pertemuan ' + pekanAktifNum">
-                Kode: TI2105 • 3 SKS • D4-TI 1A • Pertemuan 6
+                x-text="(getKodeMatkul(detailSesi) ? ('Kode: ' + getKodeMatkul(detailSesi) + ' • ') : '') + (detailSesi.sks ? (detailSesi.sks + ' SKS • ') : '') + (selectedClassFormatted || '-') + (pekanAktifNum ? (' • Pertemuan ' + pekanAktifNum) : '')">
+                Detail Sesi Perkuliahan
               </div>
             </div>
 
@@ -1146,7 +1146,7 @@
                         <path
                           d="M8.682 10.5a.87.87 0 1 1 0-1.74.87.87 0 0 1 0 1.74zm-5.408 1.75a.94.94 0 0 1-.94-.943V3.86a.94.94 0 0 1 .94-.943h1.032V1.933a.29.29 0 0 1 .58 0v.984h4.173v-.984a.29.29 0 0 1 .58 0v.984h1.032c.52 0 .943.424.943.944v7.447c0 .52-.423.943-.943.943H3.274zm0-.584h7.45a.36.36 0 0 0 .36-.36V6.195H2.915v5.113c0 .2.16.36.36.36z" />
                       </svg>
-                      <span x-text="formatWaktuEfektif(ch)">Rabu, 7 Okt 2026 • 13:30 - 15:10 WIB • Ruang D204</span>
+                      <span x-text="formatWaktuEfektif(ch)">-</span>
                     </div>
                     <div
                       class="w-full p-2.5 bg-[#FFFFFFCC] [outline:1px_solid_#FEF3C7] [outline-offset:-0.5px] rounded-[12px] flex items-start gap-1.5">
@@ -1156,7 +1156,7 @@
                       </svg>
                       <div class="text-[12px] leading-[17px] text-[#475569] font-medium"
                         x-text="'Alasan: ' + (ch.reason || 'Menggantikan sesi yang berhalangan hadir.')">
-                        Alasan: Menggantikan sesi Jumat, 2 Okt 2026 yang berhalangan hadir.
+                        Alasan: -
                       </div>
                     </div>
                   </div>
@@ -1175,14 +1175,14 @@
                       </div>
                       <div class="text-[11px] text-[#64748B] font-medium whitespace-nowrap"
                         x-text="formatWaktuPublikasi(ch.published_at)">
-                        1 Okt 2026 oleh KM
+                        Terbit oleh KM
                       </div>
                     </div>
                     <div class="text-[15px] text-[#334155] font-heading font-bold" x-text="ch.offering">
                       Matematika Diskrit
                     </div>
                     <div class="text-[12px] text-[#64748B] font-medium" x-text="formatWaktuEfektif(ch)">
-                      Jumat, 2 Okt 2026 • 13:00 - 14:40 WIB
+                      -
                     </div>
                     <div
                       class="w-full p-2.5 bg-white [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] text-[12px] leading-[17px] text-[#475569] font-medium"

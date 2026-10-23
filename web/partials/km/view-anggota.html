@@ -45,22 +45,22 @@
       <div class="flex items-center gap-3.5 min-w-0">
         <!-- Avatar Inisial KM -->
         <div class="w-[44px] h-[44px] rounded-full bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] flex items-center justify-center shrink-0 font-bold text-[14px]">
-          <span x-text="pjInisial((currentUser && currentUser.display_name) || 'Raka Pratama')">RP</span>
+          <span x-text="pjInisial((currentUser && currentUser.display_name) || 'Ketua Murid')">KM</span>
         </div>
         <!-- Detail KM -->
         <div class="flex flex-col gap-1 min-w-0">
           <div class="flex items-center gap-2.5 flex-wrap">
             <span class="text-[14px] sm:text-[15px] font-bold text-[#0F172A]">
-              <span x-text="(currentUser && currentUser.display_name) || 'Raka Pratama'">Raka Pratama</span> (Anda)
+              <span x-text="(currentUser && currentUser.display_name) || 'Ketua Murid'">Ketua Murid</span> (Anda)
             </span>
             <span class="text-[12px] font-mono text-[#64748B]"
-              x-text="formatPhone((currentUser && currentUser.identity_key) || '+62 811-2233-4455')">
-              +62 ...
+              x-text="formatPhone((currentUser && currentUser.identity_key) || '-')">
+              -
             </span>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-[12px] font-medium text-[#475569]">
-              Ketua Murid · Pengurus Utama Kelas <span class="font-semibold text-[#1E293B]" x-text="(typeof kmClassShort === 'function' ? kmClassShort() : (typeof kmClassName === 'function' ? kmClassName() : selectedClass)) || 'D4-TI 1A'">D4-TI 1A</span>
+              Ketua Murid · Pengurus Utama Kelas <span class="font-semibold text-[#1E293B]" x-text="(typeof kmClassShort === 'function' ? kmClassShort() : (typeof kmClassName === 'function' ? kmClassName() : selectedClass)) || '-'">-</span>
             </span>
             <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -148,7 +148,7 @@
                   Nama PJ
                 </span>
                 <span class="text-[12px] font-mono text-[#64748B]" x-text="formatPhone(a.identity_key || '-')">
-                  +62 ...
+                  -
                 </span>
               </div>
               <div class="flex items-center gap-2 flex-wrap">

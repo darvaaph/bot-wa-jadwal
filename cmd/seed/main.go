@@ -164,6 +164,10 @@ func seedDemoUsers(db *sql.DB) error {
 	var classID, semesterID int64
 	err = db.QueryRow(`SELECT id FROM classes WHERE slug = 'd4-ti-2024-a' LIMIT 1;`).Scan(&classID)
 	if err != nil {
+		// Fallback ke kelas apa pun yang tersedia jika slug demo spesifik tidak ditemukan
+		err = db.QueryRow(`SELECT id FROM classes ORDER BY id ASC LIMIT 1;`).Scan(&classID)
+	}
+	if err != nil {
 		return nil
 	}
 	_ = db.QueryRow(`SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1;`, classID).Scan(&semesterID)

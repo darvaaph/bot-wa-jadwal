@@ -80,7 +80,7 @@
 
           <!-- Penjelasan / Subtitle Dialog -->
           <div class="text-[12px] leading-[17px] box-border w-full text-[#64748B] font-normal text-left"
-               x-text="editMateriId ? ('Terakhir diperbarui pada ' + fmtTanggalLengkap(editMateriItem ? editMateriItem.created_at : '') + ' oleh ' + (userName || 'Farhan Pratama') + ' (PJ).') : 'Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.'">
+               x-text="editMateriId ? ('Terakhir diperbarui pada ' + fmtTanggalLengkap(editMateriItem ? editMateriItem.created_at : '') + ' oleh ' + (userName || 'PJ Mata Kuliah') + ' (PJ).') : 'Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.'">
             Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.
           </div>
         </div>
@@ -451,7 +451,7 @@
 
                 <div class="text-[11px] leading-normal text-[#64748B] font-normal text-left truncate mt-0.5"
                      x-text="materiKeteranganText(m)">
-                  Basis Data · Format: PDF · Oleh Farhan Pratama (PJ)
+                  -
                 </div>
 
                 <!-- Tanggal on mobile below subtitle -->

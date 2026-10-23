@@ -56,6 +56,10 @@ func main() {
 	}
 	if cfg.PublicBaseURL != "" {
 		fmt.Printf("🌐 [Public URL] URL publik disetel ke: %s\n", cfg.PublicBaseURL)
+	} else if !*webOnly {
+		fmt.Println("⚠️  [Public URL] BOT_JADWAL_PUBLIC_BASE_URL atau flag -public-url belum disetel.")
+		fmt.Println("    Tautan portal di pesan WhatsApp akan menggunakan default 'http://localhost:8080'.")
+		fmt.Println("    Untuk tunneling (mis. Cloudflare), jalankan dengan: -public-url https://xxxx.trycloudflare.com")
 	}
 
 	if err := cfg.EnsureStorageAndMigrate(); err != nil {
@@ -198,7 +202,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "❌ Gagal memulai server Web API: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
+	if cfg.PublicBaseURL != "" {
+		fmt.Printf("👉 Web Dashboard siap diakses: %s (Lokal: http://localhost%s)\n", cfg.PublicBaseURL, cfg.APIPort)
+	} else {
+		fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
+	}
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 	<-stopSig

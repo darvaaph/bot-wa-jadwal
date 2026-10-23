@@ -45,33 +45,31 @@ func TestClassManager_GetClass(t *testing.T) {
 	}{
 		{"D4-TI-SMT3-A", true},
 		{"d4-ti-smt3-a", true},
-		{"3A", true},
-		{"3a", true},
-		{"  3a  ", true},
-		{"kelas 3A", true},
-		{"KELAS 3a", true},
-		{"kelas-3b", true},
-		{"3B", true},
 		{"D4-TI-3A", true},
 		{"d4-ti-3a", true},
-		{"smt 3 a", true},
-		{"sem 3 a", true},
-		{"semester 3 kelas a", true},
 		{"d4 3 a", true},
+		{"d4 3a", true},
+		{"d3 3 a", true},
+		{"d3 3a", true},
 		{"D3-TI-SMT1-A", true},
 		{"d3-ti-1a", true},
 		{"d3 1 a", true},
 		{"d3-ti-smt5-c", true},
-		{"2A", true},
-		{"2a", true},
-		{"kelas 2A", true},
-		{"tingkat 2 a", true},
 		{"d4-ti-2a", true},
+		{"d4 2a", true},
+		{"smt 3 c", true}, // Unambiguous: only exists in D4
+		{"smt 5 c", true}, // Unambiguous: only exists in D3
+		{"smt 7 a", true}, // Unambiguous: only exists in D4
 		{"[`D4-TI-SMT3-A`]", true},
 		{"`D4-TI-SMT3-A`", true},
 		{"[D4-TI-SMT3-A]", true},
 		{"*D4-TI-SMT3-A*", true},
 		{"\"D4-TI-SMT3-A\"", true},
+		{"3A", true},
+		{"3a", true},
+		{"smt 3 a", true},
+		{"sem 3 a", true},
+		{"2A", true},
 		{"99Z", false},
 		{"KELAS_GHOIB", false},
 	}
@@ -86,13 +84,74 @@ func TestClassManager_GetClass(t *testing.T) {
 		}
 	}
 
-	cfg3A, _ := cm.GetClass("3A")
-	cfg3B, _ := cm.GetClass("3B")
+	cfg3A, _ := cm.GetClass("D4-TI-SMT3-A")
+	cfg3B, _ := cm.GetClass("D4-TI-SMT3-B")
 	if !strings.Contains(cfg3A.Kampus, "3A") {
 		t.Errorf("Jadwal 3A kampus mismatch: %s", cfg3A.Kampus)
 	}
 	if !strings.Contains(cfg3B.Kampus, "3B") {
 		t.Errorf("Jadwal 3B kampus mismatch: %s", cfg3B.Kampus)
+	}
+}
+
+func TestClassManager_ResolveClassCandidates(t *testing.T) {
+	cm, err := NewClassManager("data/jadwal", "jadwal.json")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi ClassManager: %v", err)
+	}
+
+	// Ambiguous inputs (exist in both D4 and D3)
+	ambiguousCases := []string{
+		"smt 3 a",
+		"3a",
+		"sem 3 a",
+		"semester 3 kelas a",
+		"tingkat 2 a",
+		"2a",
+		"smt 1 b",
+		"1b",
+	}
+	for _, input := range ambiguousCases {
+		candidates := cm.ResolveClassCandidates(input)
+		if len(candidates) != 2 {
+			t.Errorf("ResolveClassCandidates(%q): expected 2 candidates, got %d (%v)", input, len(candidates), candidates)
+		}
+	}
+
+	// Specific inputs with explicit prodi
+	specificCases := []struct {
+		input    string
+		expected string
+	}{
+		{"d4 3a", "D4-TI-SMT3-A"},
+		{"d4 3 a", "D4-TI-SMT3-A"},
+		{"d4-ti-smt3-a", "D4-TI-SMT3-A"},
+		{"d3 3a", "D3-TI-SMT3-A"},
+		{"d3 3 a", "D3-TI-SMT3-A"},
+		{"d3-ti-smt3-a", "D3-TI-SMT3-A"},
+		{"d4 2a", "D4-TI-SMT3-A"},
+		{"d3 2a", "D3-TI-SMT3-A"},
+		{"smt 3 c", "D4-TI-SMT3-C"},
+		{"3c", "D4-TI-SMT3-C"},
+		{"smt 5 c", "D3-TI-SMT5-C"},
+		{"5c", "D3-TI-SMT5-C"},
+		{"smt 7 a", "D4-TI-SMT7-A"},
+		{"7a", "D4-TI-SMT7-A"},
+	}
+	for _, tc := range specificCases {
+		candidates := cm.ResolveClassCandidates(tc.input)
+		if len(candidates) != 1 || candidates[0] != tc.expected {
+			t.Errorf("ResolveClassCandidates(%q): expected [%s], got %v", tc.input, tc.expected, candidates)
+		}
+	}
+
+	// Invalid inputs
+	invalidCases := []string{"99z", "xyz", "kelas_tidak_ada"}
+	for _, input := range invalidCases {
+		candidates := cm.ResolveClassCandidates(input)
+		if len(candidates) != 0 {
+			t.Errorf("ResolveClassCandidates(%q): expected 0 candidates, got %v", input, candidates)
+		}
 	}
 }
 
@@ -112,14 +171,14 @@ func TestClassManager_DefaultClass(t *testing.T) {
 		t.Fatalf("Default class config tidak boleh nil")
 	}
 
-	c3b := cm.GetClassOrDefault("3B")
+	c3b := cm.GetClassOrDefault("D4-TI-SMT3-B")
 	if !strings.Contains(c3b.Kampus, "3B") {
-		t.Errorf("GetClassOrDefault(3B) gagal mengambil kelas 3B")
+		t.Errorf("GetClassOrDefault(D4-TI-SMT3-B) gagal mengambil kelas 3B")
 	}
 
-	c3bKanonikal := cm.GetClassOrDefault("D4-TI-SMT3-B")
-	if c3bKanonikal != c3b {
-		t.Errorf("GetClassOrDefault(D4-TI-SMT3-B) harus sama dengan GetClassOrDefault(3B)")
+	c3bShort := cm.GetClassOrDefault("d4 3b")
+	if c3bShort != c3b {
+		t.Errorf("GetClassOrDefault(d4 3b) harus sama dengan GetClassOrDefault(D4-TI-SMT3-B)")
 	}
 
 	cInvalid := cm.GetClassOrDefault("KELAS_GHOIB")

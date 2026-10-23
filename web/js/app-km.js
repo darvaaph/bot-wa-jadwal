@@ -654,7 +654,7 @@ function kmApp() {
     },
 
     formatSemesterLabel(s) {
-      if (!s) return 'Semester Ganjil 2026/2027 (Aktif)';
+      if (!s) return 'Semester Aktif';
       const termRaw = String(s.term || '').toLowerCase();
       let termLabel = 'Semester';
       if (termRaw.includes('ganjil')) {
@@ -1452,7 +1452,7 @@ function kmApp() {
         const found = this.semesterOptions.find(s => String(s.id) === String(this.semesterId)) || this.semesterOptions[0];
         if (found) return `${found.academic_year || ''} · ${found.term || ''}`;
       }
-      return 'Semester Ganjil 2026/2027';
+      return 'Semester Aktif';
     },
 
     get selectedOfferingObj() {
@@ -1462,7 +1462,7 @@ function kmApp() {
 
     get selectedOfferingName() {
       const o = this.selectedOfferingObj;
-      return o ? (o.display_name || o.course_name || o.course_code || 'Aljabar Linier') : 'Pilih Mata Kuliah';
+      return o ? (o.display_name || o.course_name || o.course_code || '-') : 'Pilih Mata Kuliah';
     },
 
     get selectedOfferingLecturer() {
@@ -1509,7 +1509,7 @@ function kmApp() {
     },
 
     get simulasiKelasCheckText() {
-      const cls = this.selectedClass || 'D4-TI 1A';
+      const cls = this.selectedClass || this.profile?.class_name || '-';
       const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
       return `${cls} kosong pada ${jam}. Bebas bentrok.`;
     },
