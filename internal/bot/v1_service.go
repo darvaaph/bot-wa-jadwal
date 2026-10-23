@@ -113,7 +113,14 @@ func formatClassDisplayName(code, studyProgram string, cohortYear int, groupLabe
 	}
 	prodi := strings.ToUpper(strings.TrimSpace(studyProgram))
 	if prodi == "" {
-		if strings.HasPrefix(code, "D4") {
+		parts := strings.Split(code, "-")
+		if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+			if parts[1] == "TI" {
+				prodi = parts[0] + " TEKNIK INFORMATIKA"
+			} else {
+				prodi = parts[0] + " " + parts[1]
+			}
+		} else if strings.HasPrefix(code, "D4") {
 			prodi = "D4 TEKNIK INFORMATIKA"
 		} else if strings.HasPrefix(code, "D3") {
 			prodi = "D3 TEKNIK INFORMATIKA"
@@ -421,7 +428,10 @@ func formatClassShort(code string, cohortYear int, groupLabel string, academicYe
 		return ""
 	}
 	prefix := "TI"
-	if strings.HasPrefix(code, "D4") {
+	parts := strings.Split(code, "-")
+	if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+		prefix = parts[0] + "-" + parts[1]
+	} else if strings.HasPrefix(code, "D4") {
 		prefix = "D4-TI"
 	} else if strings.HasPrefix(code, "D3") {
 		prefix = "D3-TI"
@@ -429,7 +439,6 @@ func formatClassShort(code string, cohortYear int, groupLabel string, academicYe
 
 	group := strings.ToUpper(strings.TrimSpace(groupLabel))
 	if group == "" {
-		parts := strings.Split(code, "-")
 		if len(parts) > 0 {
 			group = strings.ToUpper(parts[len(parts)-1])
 		}

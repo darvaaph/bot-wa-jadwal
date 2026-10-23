@@ -5453,7 +5453,7 @@ function systemAdminApp() {
     },
 
     portalURLPreview() {
-      const host = window.location.host || 'domain.com';
+      const host = window.location.host || window.location.hostname || 'localhost:8080';
       const slug = (this.kelasForm && this.kelasForm.slug) ? this.kelasForm.slug : ':slug';
       return host + '/c/' + slug;
     },

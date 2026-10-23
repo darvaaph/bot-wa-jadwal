@@ -314,7 +314,7 @@
     <div>
       <h1 class="text-[22px] md:text-[24px] font-bold text-ink">Buat Draf Tugas Baru</h1>
       <p class="text-[12px] md:text-[13px] text-muted mt-0.5">
-        Isi instruksi tugas <span class="font-semibold text-ink" x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span>. Draf akan diajukan ke Ketua Murid untuk disetujui sebelum disiarkan.
+        Isi instruksi tugas <span class="font-semibold text-ink" x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Mata Kuliah</span>. Draf akan diajukan ke Ketua Murid untuk disetujui sebelum disiarkan.
       </p>
     </div>
     <button
@@ -385,7 +385,7 @@
       <div class="space-y-1.5">
         <label class="block text-[12px] font-semibold text-[#334155]">Mata Kuliah Binaan</label>
         <div class="w-full h-[42px] px-3.5 flex items-center justify-between bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-[13px] text-[#334155]">
-          <span class="font-semibold truncate" x-text="offeringName() || pjMatkul || 'Mata Kuliah Belum Dipilih'">Basis Data</span>
+          <span class="font-semibold truncate" x-text="offeringName() || pjMatkul || 'Mata Kuliah Belum Dipilih'">-</span>
           <span class="text-[11px] font-medium text-[#64748B] shrink-0 ml-2">Terkunci (Penugasan Anda)</span>
         </div>
       </div>
@@ -536,7 +536,7 @@
             <div class="flex-1 min-w-0">
               <h3 class="text-[14px] font-bold text-[#0F172A] leading-snug line-clamp-2 break-words break-all [overflow-wrap:anywhere]" x-text="tugasForm.judul || 'Contoh: Praktikum 03 - Pemodelan Data Relasional (BCNF)'"></h3>
               <p class="text-[12px] text-[#64748B] mt-0.5 line-clamp-1 truncate">
-                <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span> · Dosen: <span x-text="tugasDosen()">Dosen Pengampu</span>
+                <span x-text="offeringName() || pjMatkul || 'Mata Kuliah'">-</span> · Dosen: <span x-text="tugasDosen()">Dosen Pengampu</span>
               </p>
             </div>
           </div>
@@ -924,7 +924,7 @@
     <div class="flex items-center gap-2 text-[12px] sm:text-[13px] text-slate-500 flex-wrap">
       <span>Sistem</span>
       <span class="text-slate-300">/</span>
-      <span x-text="selectedClass || 'D4-TI 1A'">-</span>
+      <span x-text="selectedClass || '-'">-</span>
       <span class="text-slate-300">/</span>
       <button type="button" @click="view = 'tugas'" class="hover:text-primary transition underline cursor-pointer">Tugas Dikelola</button>
       <span class="text-slate-300">/</span>
@@ -1011,7 +1011,7 @@
       <div class="space-y-1.5">
         <label class="block text-[12px] font-semibold text-[#334155]">Mata Kuliah</label>
         <div class="w-full h-[42px] px-3.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl flex items-center justify-between text-[12px] sm:text-[13px]">
-          <span class="text-[#475569] font-semibold truncate" x-text="(tugasDetail && (tugasDetail.offering || tugasDetail.matkul)) || offeringName() || pjMatkul || 'Mata Kuliah'">Basis Data</span>
+          <span class="text-[#475569] font-semibold truncate" x-text="(tugasDetail && (tugasDetail.offering || tugasDetail.matkul)) || offeringName() || pjMatkul || 'Mata Kuliah'">-</span>
           <span class="text-[#64748B] text-[11px] font-semibold flex items-center gap-1 shrink-0">
             <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="currentColor">
               <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0zm0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z"/>

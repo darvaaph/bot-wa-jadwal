@@ -9,7 +9,7 @@
     <p
       class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
       Jadwal efektif kelas <span class="font-semibold text-[#334155]"
-        x-text="selectedClassFormatted || 'D4-TI 1A'">D4-TI 1A</span> pekan ini, termasuk kuliah pengganti resmi.
+        x-text="selectedClassFormatted || '-'">-</span> pekan ini, termasuk kuliah pengganti resmi.
     </p>
   </div>
 
@@ -39,7 +39,7 @@
               class="box-border w-fit shrink-0 h-fit flex flex-row px-[8px] py-[4px] justify-start items-center bg-[#F1F5F9] rounded-[6px]">
               <span class="text-[11px] text-[#475467] font-semibold whitespace-nowrap"
                 x-text="'Pekan ' + pekanAktifNum">
-                Pekan 6
+                -
               </span>
             </div>
           </div>
@@ -113,7 +113,7 @@
           </svg>
         </button>
         <div class="px-2.5 text-[12px] text-slate-800 font-bold whitespace-nowrap border-x border-slate-100" x-text="rentangPekanSingkatLabel">
-          5 - 11 Okt (Pekan 6)
+          -
         </div>
         <button type="button" @click="nextWeek()" title="Pekan Berikutnya" aria-label="Pekan Berikutnya"
           class="w-[44px] h-[44px] flex justify-center items-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors">
@@ -736,7 +736,7 @@
                     Mata Kuliah
                   </div>
                   <div class="text-[11px] box-border text-[#64748B] font-medium text-left truncate flex items-center gap-1.5 flex-wrap">
-                    <span x-text="s.ruang ? 'Ruang ' + cleanRuang(s.ruang) : (s.link ? 'Kuliah Daring' : '—')">Ruang D105</span>
+                    <span x-text="s.ruang ? 'Ruang ' + cleanRuang(s.ruang) : (s.link ? 'Kuliah Daring' : '—')">—</span>
                     <span x-show="s.dosen" class="text-slate-300">·</span>
                     <span x-show="s.dosen" class="text-slate-600 truncate max-w-[200px]" x-text="s.dosen"></span>
                   </div>

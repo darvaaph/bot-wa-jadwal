@@ -8,18 +8,18 @@
       <div class="box-border w-fit h-fit shrink-0 flex flex-row gap-0 p-[5px_10px] justify-start items-start bg-[#EFF6FF] outline outline-1 outline-[#BFDBFE] -outline-offset-[0.5px] rounded-[6px]">
         <div class="text-[11px] leading-normal box-border text-[#1D4ED8] font-mono font-semibold text-left whitespace-nowrap"
              x-text="'MATA KULIAH BINAAN: ' + (pjMatkul || 'Mata Kuliah') + (pjMatkulCode ? ' (' + pjMatkulCode + ')' : '')">
-          MATA KULIAH BINAAN: Basis Data (25IF1101)
+          MATA KULIAH BINAAN
         </div>
       </div>
       <!-- Judul Materi Kuliah -->
       <h1 class="text-[22px] sm:text-[24px] leading-normal box-border text-[#0F172A] font-bold text-left"
-          x-text="'Materi Kuliah ' + (pjMatkul || 'Basis Data')">
-        Materi Kuliah Basis Data
+          x-text="'Materi Kuliah ' + (pjMatkul || 'Mata Kuliah')">
+        Materi Kuliah
       </h1>
       <!-- Penjelasan Repositori -->
       <p class="text-[12px] leading-relaxed box-border text-[#64748B] font-normal text-left"
-         x-text="'Kumpulan modul, slide dosen, dan tautan praktikum ' + (pjMatkul || 'Basis Data') + ' untuk kelas ' + (selectedClass || 'kelas') + '.'">
-        Kumpulan modul, slide dosen, dan tautan praktikum Basis Data untuk kelas D4-TI 1A.
+         x-text="'Kumpulan modul, slide dosen, dan tautan praktikum ' + (pjMatkul || 'mata kuliah ini') + ' untuk kelas ' + (selectedClass || 'kelas') + '.'">
+        Kumpulan modul, slide dosen, dan tautan praktikum untuk kelas ini.
       </p>
     </div>
 
@@ -31,7 +31,7 @@
       </svg>
       <span class="text-[12px] leading-normal box-border text-[#FFFFFF] font-semibold text-left whitespace-nowrap"
             x-text="'Tambah Materi ' + (pjMatkul || 'Kuliah')">
-        Tambah Materi Basis Data
+        Tambah Materi Baru
       </span>
     </button>
   </div>
@@ -53,8 +53,8 @@
           <template x-if="editMateriId">
             <div class="box-border w-fit h-fit shrink-0 flex flex-row gap-0 p-[4px_8px] justify-start items-start bg-[#EFF6FF] outline outline-1 outline-[#BFDBFE] -outline-offset-[0.5px] rounded-[6px]">
               <div class="text-[10px] leading-normal box-border text-[#1D4ED8] font-bold text-left whitespace-nowrap uppercase"
-                   x-text="'EDIT BERKAS #' + (editMateriItem ? editMateriItem.id : editMateriId) + ' · ' + String(pjMatkul || 'BASIS DATA').toUpperCase()">
-                EDIT BERKAS #12 · BASIS DATA
+                   x-text="'EDIT BERKAS #' + (editMateriItem ? editMateriItem.id : editMateriId) + ' · ' + String(pjMatkul || 'MATA KULIAH').toUpperCase()">
+                EDIT BERKAS
               </div>
             </div>
           </template>
@@ -66,8 +66,8 @@
                 <path d="M3.85889 12.25q-0.39307 0-0.66993-0.27344-0.27344-0.27685-0.27343-0.66992l0-5.11328q0-0.39307 0.27343-0.6665 0.27686-0.27686 0.66993-0.27686l0.80664 0 0-1.16553q0-0.97754 0.68017-1.65429 0.68018-0.68018 1.6543-0.68018 0.97412 0 1.6543 0.68018 0.68018 0.67676 0.68017 1.65429l0 1.16553 0.80664 0q0.39307 0 0.66651 0.27686 0.27686 0.27344 0.27685 0.6665l0 5.11328q0 0.39307-0.27685 0.66992-0.27344 0.27344-0.66651 0.27344l-6.28222 0z m0-0.58447l6.28222 0q0.15723 0 0.25635-0.09912 0.10254-0.10254 0.10254-0.25977l0-5.11328q0-0.15723-0.10254-0.25635-0.09912-0.10254-0.25635-0.10254l-6.28222 0q-0.15723 0-0.25977 0.10254-0.09912 0.09912-0.09912 0.25635l0 5.11328q0 0.15723 0.09912 0.25977 0.10254 0.09912 0.25977 0.09912z m3.14111-2.04053q0.36914 0 0.62207-0.25293 0.25293-0.25293 0.25293-0.62207 0-0.36914-0.25293-0.62207-0.25293-0.25293-0.62207-0.25293-0.36914 0-0.62207 0.25293-0.25293 0.25293-0.25293 0.62207 0 0.36914 0.25293 0.62207 0.25293 0.25293 0.62207 0.25293z m-1.75-4.375l3.5 0 0-1.16553q0-0.73145-0.5127-1.24072-0.50928-0.50928-1.2373-0.50928-0.72803 0-1.24072 0.50928-0.50928 0.50928-0.50928 1.24072l0 1.16553z m-1.75 6.41553q0 0 0-0.09912 0-0.10254 0-0.25977l0-5.11328q0-0.15723 0-0.25635 0-0.10254 0-0.10254 0 0 0 0.10254 0 0.09912 0 0.25635l0 5.11328q0 0.15723 0 0.25977 0 0.09912 0 0.09912z" fill="#1D4ED8"></path>
               </svg>
               <div class="text-[10px] leading-normal box-border text-[#1D4ED8] font-bold text-left whitespace-nowrap uppercase"
-                   x-text="'MATA KULIAH: ' + String(pjMatkul || 'BASIS DATA').toUpperCase()">
-                MATA KULIAH: BASIS DATA
+                   x-text="'MATA KULIAH: ' + String(pjMatkul || 'MATA KULIAH').toUpperCase()">
+                MATA KULIAH
               </div>
             </div>
           </template>
@@ -167,8 +167,8 @@
             <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z" fill="#2563EB"></path>
           </svg>
           <div class="text-[11px] leading-[17px] box-border flex-1 text-[#475569] font-normal text-left"
-               x-text="editMateriId ? 'Pembaruan materi akan langsung terlihat oleh mahasiswa di portal publik kelas.' : ('Materi ini akan dikelompokkan otomatis di bawah mata kuliah ' + (pjMatkul || 'Basis Data') + ' pada portal publik kelas.')">
-            Materi ini akan dikelompokkan otomatis di bawah mata kuliah Basis Data pada portal publik kelas.
+               x-text="editMateriId ? 'Pembaruan materi akan langsung terlihat oleh mahasiswa di portal publik kelas.' : ('Materi ini akan dikelompokkan otomatis di bawah mata kuliah ' + (pjMatkul || 'binaan Anda') + ' pada portal publik kelas.')">
+            Materi ini akan dikelompokkan otomatis di bawah mata kuliah binaan pada portal publik kelas.
           </div>
         </div>
       </div>

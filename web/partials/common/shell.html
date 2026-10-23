@@ -423,11 +423,11 @@
             </svg>
           </button>
 
-          <!-- Breadcrumb: Sistem / D4-TI 1A / Tugas / Tambah Tugas Baru -->
+          <!-- Breadcrumb: Sistem / <Kelas> / Tugas / Tambah Tugas Baru -->
           <nav aria-label="Breadcrumb" class="hidden md:flex items-center gap-2 min-w-0 text-[13px]">
             <button type="button" @click="go('dashboard')" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Sistem</button>
             <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
-            <span class="text-[#667085] font-medium truncate" x-text="kmClassShort()">D4-TI 1A</span>
+            <span class="text-[#667085] font-medium truncate" x-text="kmClassShort()">-</span>
             <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
             <template x-if="view === 'tugas' && tugasSub === 'tambah'">
               <span class="contents">

@@ -500,7 +500,18 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		}
 
 		pName := "LAINNYA"
-		if strings.HasPrefix(c, "D4-TI-") || strings.HasPrefix(c, "D4-") {
+		parts := strings.Split(c, "-")
+		if len(parts) >= 2 {
+			codeP := strings.ToUpper(parts[0])
+			codeDept := strings.ToUpper(parts[1])
+			if (codeP == "D4" || codeP == "D3" || codeP == "D2" || codeP == "S1") && codeDept != "" {
+				if codeDept == "TI" {
+					pName = codeP + " TEKNIK INFORMATIKA"
+				} else {
+					pName = codeP + " " + codeDept
+				}
+			}
+		} else if strings.HasPrefix(c, "D4-TI-") || strings.HasPrefix(c, "D4-") {
 			pName = "D4 TEKNIK INFORMATIKA"
 		} else if strings.HasPrefix(c, "D3-TI-") || strings.HasPrefix(c, "D3-") {
 			pName = "D3 TEKNIK INFORMATIKA"
@@ -515,6 +526,11 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		}
 
 		pBucket := progMap[pName]
+		if pBucket == nil {
+			pBucket = &programBucket{name: pName}
+			progMap[pName] = pBucket
+			progOrder = append(progOrder, pName)
+		}
 		var sBucket *semesterBucket
 		for _, sb := range pBucket.semesters {
 			if sb.semester == sem {
@@ -602,7 +618,16 @@ func (csm *ChatSettingsManager) FormatAmbiguousClassMessage(rawInput string, can
 	for i, c := range candidates {
 		prodiName := "Teknik Informatika"
 		prodiCode := "D4"
-		if strings.HasPrefix(c, "D3") {
+		parts := strings.Split(c, "-")
+		if len(parts) >= 2 {
+			prodiCode = parts[0]
+			deptCode := parts[1]
+			if deptCode == "TI" {
+				prodiName = prodiCode + " Teknik Informatika"
+			} else {
+				prodiName = prodiCode + " " + deptCode
+			}
+		} else if strings.HasPrefix(c, "D3") {
 			prodiCode = "D3"
 			prodiName = "D3 Teknik Informatika"
 		} else if strings.HasPrefix(c, "D4") {
@@ -611,7 +636,6 @@ func (csm *ChatSettingsManager) FormatAmbiguousClassMessage(rawInput string, can
 		}
 
 		var shortCmd string
-		parts := strings.Split(c, "-")
 		if len(parts) >= 4 {
 			sem := strings.TrimPrefix(parts[2], "SMT")
 			rombel := parts[3]

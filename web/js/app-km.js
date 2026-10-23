@@ -1481,7 +1481,7 @@ function kmApp() {
     },
 
     get simulasiDatePill() {
-      if (!this.ubahForm.date) return 'Rabu, 7 Okt';
+      if (!this.ubahForm.date) return '';
       const d = new Date(this.ubahForm.date + 'T00:00:00+07:00');
       if (isNaN(d.getTime())) return this.ubahForm.date;
       return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' });
@@ -1497,10 +1497,19 @@ function kmApp() {
     },
 
     get simulasiRuangCheckText() {
-      const rm = this.selectedRoomName || 'Ruang D204';
-      const tgl = this.simulasiDatePill || 'Rabu';
-      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
-      return `${rm} tersedia ${tgl} ${jam}. Tidak ada kelas lain.`;
+      const rm = this.selectedRoomName;
+      const tgl = this.simulasiDatePill;
+      const start = this.ubahForm.start;
+      const end = this.ubahForm.end;
+      const jam = (start && end) ? `${start} - ${end}` : (start || end || '');
+      if (!rm || rm === 'Ruang Belum Dipilih') {
+        return 'Pilih ruangan untuk verifikasi ketersediaan.';
+      }
+      const timePart = [tgl, jam].filter(Boolean).join(' ');
+      if (!timePart) {
+        return `${rm} siap diverifikasi.`;
+      }
+      return `${rm} tersedia ${timePart}. Tidak ada kelas lain.`;
     },
 
     get simulasiDosenCheckText() {
@@ -1509,8 +1518,10 @@ function kmApp() {
     },
 
     get simulasiKelasCheckText() {
-      const cls = this.selectedClass || this.profile?.class_name || '-';
-      const jam = (this.ubahForm.start || '13:00') + ' - ' + (this.ubahForm.end || '15:30');
+      const cls = this.selectedClass || this.profile?.class_name || 'Kelas';
+      const start = this.ubahForm.start;
+      const end = this.ubahForm.end;
+      const jam = (start && end) ? `${start} - ${end}` : (start || end || 'jam pelaksanaan');
       return `${cls} kosong pada ${jam}. Bebas bentrok.`;
     },
 

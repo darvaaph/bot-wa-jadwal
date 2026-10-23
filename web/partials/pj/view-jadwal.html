@@ -12,7 +12,7 @@
           <span x-text="'Mata Kuliah Binaan: ' + (offeringName() || pjMatkul || 'Mata Kuliah Anda')"></span>
         </span>
         <div class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700">
-          <span x-text="activeSemesterLabel()">Semester Ganjil 2026/2027 (Aktif)</span>
+          <span x-text="activeSemesterLabel()">Semester Aktif</span>
         </div>
       </div>
       <h1 class="text-[22px] sm:text-[26px] md:text-[28px] font-bold text-[#0F172A] font-display">Jadwal Kuliah &amp; Ketersediaan Ruangan</h1>
@@ -73,7 +73,7 @@
 
         <div class="flex items-center gap-1.5 min-w-0">
           <div class="font-mono font-bold text-[12px] sm:text-[14px] text-[#1D1B3A] tracking-tight truncate px-0.5" x-text="weekLabel">-</div>
-          <div class="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#F1F5F9] rounded-[6px] text-[10px] sm:text-[11px] font-semibold text-[#475467] shrink-0" x-text="'Pekan ' + pekanNum">Pekan 6</div>
+          <div class="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[#F1F5F9] rounded-[6px] text-[10px] sm:text-[11px] font-semibold text-[#475467] shrink-0" x-text="'Pekan ' + pekanNum">-</div>
         </div>
 
         <button type="button" @click="weekOffset = 0" class="h-[36px] px-2.5 sm:px-3.5 bg-[#F8FAFC] border border-[#CBD5E1] hover:bg-slate-100 rounded-lg text-[11px] sm:text-[12px] font-semibold text-[#1D1B3A] transition cursor-pointer flex items-center shrink-0 whitespace-nowrap shadow-2xs">
@@ -127,10 +127,10 @@
               <span class="text-[10px] font-bold text-[#78350F] tracking-wide uppercase">MENUNGGU PERSETUJUAN KM</span>
             </div>
             <div data-pencil-name="Judul Usulan Pengganti"
-              class="text-[14px] font-bold text-[#0F172A]" x-text="p.title">Praktikum Basis Data (Sesi Pengganti)</div>
+              class="text-[14px] font-bold text-[#0F172A]" x-text="p.title">-</div>
             <p data-pencil-name="Rencana dan Konfirmasi TU"
               class="text-[12px] text-[#475569] leading-relaxed" x-text="p.summaryText">
-              Rencana: Sabtu, 10 Okt 2026 · 09:00 - 11:30 WIB · Lab Database 1 (TU: Pak Bambang - Terkonfirmasi)
+              -
             </p>
           </div>
           <div data-pencil-name="Aksi Usulan Menunggu KM"
@@ -479,7 +479,7 @@
                       <div>
                         <!-- Draf Pengganti (Garis Putus-Putus Amber - SCR-PJ-SCHED-002) -->
                         <template x-if="item.session.isDraft">
-                          <div data-pencil-name="Slot Draf Pengganti Basis Data"
+                          <div data-pencil-name="Slot Draf Pengganti"
                             class="p-3 rounded-[10px] flex flex-col gap-1.5 bg-[#FFFBEB] hover:bg-[#FEF3C7] border-2 border-dashed border-[#FBBF24] relative shadow-2xs text-left transition">
                             <div class="flex items-center justify-between gap-1">
                               <span class="font-mono text-[11px] font-bold text-[#78350F]" x-text="item.session.jam + ' WIB'">-</span>
@@ -1106,7 +1106,7 @@
               data-pencil-name="Label kelas"
               class="text-[10px] text-[#1D4ED8] font-bold tracking-[0.5px] uppercase text-left whitespace-nowrap"
             >
-              ALAT BANTU PJ · KELAS <span x-text="selectedClass || profile?.class_name || 'D4-TI 1A'"></span>
+              ALAT BANTU PJ · KELAS <span x-text="selectedClass || profile?.class_name || '-'"></span>
             </div>
           </div>
           <div
@@ -1573,7 +1573,7 @@
       <div class="w-full flex flex-row gap-3 p-5 sm:p-6 justify-between items-start border-b border-[#F1F5F9]">
         <div class="flex-1 flex flex-col gap-1">
           <h2 class="text-[18px] text-[#0F172A] font-bold font-display">
-            Pengajuan Kuliah Pengganti / Tambahan (<span x-text="pjMatkul || 'Mata Kuliah Anda'">Basis Data</span>)
+            Pengajuan Kuliah Pengganti / Tambahan (<span x-text="pjMatkul || 'Mata Kuliah Anda'">-</span>)
           </h2>
           <p class="text-[12px] text-[#64748B]">
             Isi slot baru dan catat konfirmasi TU sebelum mengajukan ke Ketua Murid.
@@ -1598,8 +1598,8 @@
             MATA KULIAH · SESUAI PENUGASAN PJ
           </label>
           <div class="w-full h-10 px-3.5 flex items-center justify-between bg-[#F8FAFC] border border-[#CBD5E1] rounded-[10px]">
-            <span class="text-[12px] text-[#334155] font-semibold" x-text="pjMatkul || 'Basis Data'">
-              Basis Data
+            <span class="text-[12px] text-[#334155] font-semibold" x-text="pjMatkul || 'Mata Kuliah'">
+              -
             </span>
             <svg class="w-4 h-4 text-[#64748B]" viewBox="0 0 14 14" fill="currentColor">
               <path d="M3.859 12.25q-0.393 0-0.67-0.273t-0.273-0.67V6.194q0-0.393 0.273-0.667t0.67-0.277h0.807V4.085q0-0.978 0.68-1.654 0.68-0.68 1.654-0.68t1.654 0.68q0.68 0.677 0.68 1.654v1.166h0.807q0.393 0 0.667 0.277t0.276 0.667v5.113q0 0.393-0.276 0.67t-0.667 0.273H3.859zm0-0.584h6.282q0.157 0 0.256-0.099t0.103-0.26V6.194q0-0.157-0.103-0.256t-0.256-0.103H3.859q-0.157 0-0.26 0.103t-0.099 0.256v5.113q0 0.157 0.099 0.26t0.26 0.099zm3.141-2.041q0.369 0 0.622-0.253t0.253-0.622q0-0.369-0.253-0.622t-0.622-0.253q-0.369 0-0.622 0.253t-0.253 0.622q0 0.369 0.253 0.622t0.622 0.253zm-1.75-4.375h3.5V4.085q0-0.731-0.513-1.241-0.509-0.509-1.237-0.509t-1.241 0.509q-0.509 0.51-0.509 1.241v1.165z"/>
