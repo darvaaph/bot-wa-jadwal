@@ -387,7 +387,7 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 		sb.WriteString("1. Ketik `!kanal` di grup ini untuk menyalin ID grup (JID).\n")
 		sb.WriteString("2. Buka Dashboard (KM / Admin) -> menu *Pengaturan Kelas*.\n")
 		sb.WriteString("3. Tempel ID pada bagian *Kanal WhatsApp Kelas* lalu simpan.\n\n")
-		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/\n\n")
+		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/c/\n\n")
 		sb.WriteString("Ketik `!daftarkelas` untuk melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("_Catatan: Penautan grup WhatsApp dilakukan oleh Ketua Murid (KM) atau Admin melalui dashboard._")

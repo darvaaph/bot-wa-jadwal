@@ -1001,9 +1001,13 @@ function portalApp() {
         if (data && Array.isArray(data.classes)) {
           this.classList = data.classes;
         }
+        const savedClass = localStorage.getItem('portal_class');
         if (slugFromUrl) {
           const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === slugFromUrl.toLowerCase());
           this.selectedClass = match || decodeURIComponent(slugFromUrl);
+        } else if (savedClass) {
+          const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === savedClass.toLowerCase());
+          this.selectedClass = match || savedClass;
         } else if (data && data.default_class) {
           this.selectedClass = data.default_class;
         }

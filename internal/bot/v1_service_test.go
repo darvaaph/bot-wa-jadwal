@@ -252,9 +252,10 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 
 	// Senin 06 Jan 2025
 	// Kuliah ada di 08:00 - 10:00
+	loc, _ := time.LoadLocation("Asia/Jakarta")
 
 	// Kasus 1: Jam 08:30 -> Sedang berlangsung
-	during := time.Date(2025, 1, 6, 8, 30, 0, 0, time.UTC)
+	during := time.Date(2025, 1, 6, 8, 30, 0, 0, loc)
 	resp, err := svc.GetNextClass(ctx, 1, during)
 	if err != nil {
 		t.Fatalf("GetNextClass during gagal: %v", err)
@@ -264,7 +265,7 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 	}
 
 	// Kasus 2: Jam 07:00 -> Kuliah berikutnya
-	before := time.Date(2025, 1, 6, 7, 0, 0, 0, time.UTC)
+	before := time.Date(2025, 1, 6, 7, 0, 0, 0, loc)
 	resp, err = svc.GetNextClass(ctx, 1, before)
 	if err != nil {
 		t.Fatalf("GetNextClass before gagal: %v", err)
@@ -274,7 +275,7 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 	}
 
 	// Kasus 3: Jam 11:00 -> Sudah selesai
-	after := time.Date(2025, 1, 6, 11, 0, 0, 0, time.UTC)
+	after := time.Date(2025, 1, 6, 11, 0, 0, 0, loc)
 	resp, err = svc.GetNextClass(ctx, 1, after)
 	if err != nil {
 		t.Fatalf("GetNextClass after gagal: %v", err)
@@ -352,7 +353,8 @@ func TestV1BotService_HandleScheduleCommand(t *testing.T) {
 	svc := setupTestV1DB(t)
 	ctx := context.Background()
 
-	refNow := time.Date(2025, 1, 6, 9, 0, 0, 0, time.UTC) // Senin
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	refNow := time.Date(2025, 1, 6, 9, 0, 0, 0, loc) // Senin
 
 	// Test !jadwal
 	res, err := svc.HandleScheduleCommand(ctx, 1, "!jadwal", refNow)

@@ -102,16 +102,17 @@
          data-pencil-name="Daftar sesi kuliah"
          class="w-full flex flex-col lg:flex-row gap-[10px] lg:gap-[12px] items-stretch">
       <template x-for="(s, idx) in jadwalEfektifHariIni" :key="s.id || idx">
-        <div :class="idx === 0 ? 'bg-[#F3F8FF] border border-[#BFDBFE]' : 'bg-[#F8FAFC] border border-[#E2E8F0]'"
+        <div :class="getStatusWaktu(s) === 'Sedang berlangsung' ? 'bg-[#F0FDF4] border-2 border-[#16A34A] shadow-xs' : (getStatusWaktu(s) === 'Akan datang' ? 'bg-[#F3F8FF] border border-[#BFDBFE]' : 'bg-[#F8FAFC] border border-[#E2E8F0] opacity-80')"
              class="flex-1 min-w-0 p-[14px] rounded-[12px] flex flex-col gap-[7px] justify-between text-left transition hover:shadow-xs">
           
           <div class="flex flex-col gap-[7px]">
             <!-- Waktu dan jenis sesi -->
             <div class="w-full flex flex-row justify-between items-center gap-[8px]">
-              <div class="text-[11px] text-[#1D4ED8] font-mono font-bold whitespace-nowrap"
-                   x-text="(s.timeStart || '') + ' - ' + (s.timeEnd || '') + ' WIB'">
+              <div class="text-[11px] font-mono font-bold whitespace-nowrap"
+                   :class="getStatusWaktu(s) === 'Sedang berlangsung' ? 'text-[#166534]' : (getStatusWaktu(s) === 'Selesai' ? 'text-[#64748B]' : 'text-[#1D4ED8]')"
+                   x-text="(getStatusWaktu(s) === 'Sedang berlangsung' ? '● ' : '') + (s.timeStart || '') + ' - ' + (s.timeEnd || '') + ' WIB'">
               </div>
-              <div :class="idx === 0 ? 'bg-[#DBEAFE] text-[#1E40AF]' : 'bg-[#EFF6FF] text-[#1D4ED8]'"
+              <div :class="getStatusWaktu(s) === 'Sedang berlangsung' ? 'bg-[#DCFCE7] text-[#166534]' : (getStatusWaktu(s) === 'Akan datang' ? 'bg-[#DBEAFE] text-[#1E40AF]' : 'bg-[#F1F5F9] text-[#64748B]')"
                    class="px-[8px] py-[3px] rounded-[6px] text-[10px] font-bold uppercase tracking-wider">
                 <span x-text="s.activity_type || s.activityType || (s.kind === 'REGULER' ? 'TEORI' : labelJenisUbah(s.kind))"></span>
               </div>

@@ -194,6 +194,17 @@ function loginApp() {
       }
     },
 
+    bukaPortalMahasiswa() {
+      try {
+        const saved = localStorage.getItem('portal_class');
+        if (saved) {
+          window.location.href = '/c/' + encodeURIComponent(saved);
+          return;
+        }
+      } catch (e) { }
+      window.location.href = '/c/';
+    },
+
     showToast(msg) {
       if (this.toast.timer) clearTimeout(this.toast.timer);
       this.toast.message = msg;

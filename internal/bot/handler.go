@@ -322,7 +322,8 @@ func HandleIncomingMessage(
 		// Fallback ke legacy taskManager untuk kelas non-pilot
 		if taskManager != nil {
 			isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-			tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now(), activeClassID)
+			nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+			tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, nowWIB, activeClassID)
 			reply(tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 			return
 		}
@@ -334,7 +335,8 @@ func HandleIncomingMessage(
 			return
 		}
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, nowWIB)
 		reply(overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 		return
 	}
@@ -380,7 +382,8 @@ func HandleIncomingMessage(
 	// 7. Jika kelas target adalah kelas pilot v1, layani perintah jadwal, menu, dan pencarian dari database v1
 	if v1Class != nil && v1Service != nil {
 		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
-			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
+			nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, nowWIB)
 			if err == nil && schedReply != "" {
 				reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
 				return

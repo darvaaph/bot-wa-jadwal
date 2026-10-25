@@ -167,8 +167,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		})
 	})
 
-	// Route akses portal mahasiswa via slug (/c/{slug})
-	mux.HandleFunc("GET /c/{slug}", func(w http.ResponseWriter, r *http.Request) {
+	// Route akses portal mahasiswa via slug (/c/{slug}) atau portal umum (/c, /c/)
+	servePortal := func(w http.ResponseWriter, r *http.Request) {
 		indexFile, err := web.Files.ReadFile("index.html")
 		if err != nil {
 			http.NotFound(w, r)
@@ -176,7 +176,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexFile)
-	})
+	}
+
+	mux.HandleFunc("GET /c/{slug}", servePortal)
+	mux.HandleFunc("GET /c", servePortal)
+	mux.HandleFunc("GET /c/", servePortal)
 
 	// Alias lama: /superadmin.html dialihkan permanen ke /system-admin.html.
 	mux.HandleFunc("GET /superadmin.html", func(w http.ResponseWriter, r *http.Request) {

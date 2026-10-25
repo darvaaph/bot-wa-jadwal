@@ -35,6 +35,8 @@ func TestWebKnownPage_StillServed(t *testing.T) {
 func TestIsWebPagePath(t *testing.T) {
 	for p, want := range map[string]bool{
 		"/":                   false,
+		"/c":                  false,
+		"/c/":                 false,
 		"/km.html":            true,
 		"/salah-ketik.html":   true,
 		"/tentang":            true,
