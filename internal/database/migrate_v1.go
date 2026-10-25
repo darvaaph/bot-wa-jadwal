@@ -218,7 +218,7 @@ var v1Schema = []string{
 		origin_schedule_pattern_id INTEGER REFERENCES schedule_patterns(id),
 		origin_occurrence_date DATE,
 		result_schedule_pattern_id INTEGER REFERENCES schedule_patterns(id),
-		event_kind TEXT NOT NULL CHECK (event_kind IN ('REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED')),
+		event_kind TEXT NOT NULL CHECK (event_kind IN ('REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED','EXAM_UTS','EXAM_UAS')),
 		starts_at DATETIME NOT NULL,
 		ends_at DATETIME NOT NULL CHECK (ends_at > starts_at),
 		room_id INTEGER REFERENCES rooms(id),

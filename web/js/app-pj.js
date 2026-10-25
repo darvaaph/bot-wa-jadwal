@@ -37,6 +37,7 @@ function pjApp() {
     semesterStatus: '',
 
     ...AsteriskShell.behavior('pj'),
+    ...examSessionBehavior(),
 
     roleLabel: 'PJ',
     contextAssignments: [],
@@ -742,6 +743,8 @@ function pjApp() {
 
     sesiType(s) {
       if (!s) return 'Teori';
+      if (s.eventKind === 'EXAM_UTS') return 'UTS';
+      if (s.eventKind === 'EXAM_UAS') return 'UAS';
       if (s.eventKind === 'REPLACEMENT') return 'Pengganti';
       const m = String(s.matkul || '').toLowerCase();
       const act = String(s.activityType || '').toLowerCase();
@@ -751,6 +754,8 @@ function pjApp() {
 
     sesiTypeBadgeClass(s) {
       const type = this.sesiType(s);
+      if (type === 'UTS') return 'exam-badge exam-badge--uts';
+      if (type === 'UAS') return 'exam-badge exam-badge--uas';
       if (type === 'Pengganti') return 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]';
       if (type === 'Praktikum') return 'bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]';
       return 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]';
@@ -887,7 +892,7 @@ function pjApp() {
         all.forEach(e => {
           if (e.isDraft) return;
           const kind = String(e.eventKind || '').toUpperCase();
-          if ((kind === 'REPLACEMENT' || kind === 'SESSION_CANCELLED') && e.originPatternId && e.originDate === activeDateStr) {
+          if (['REPLACEMENT', 'SESSION_CANCELLED', 'EXAM_UTS', 'EXAM_UAS'].includes(kind) && e.originPatternId && e.originDate === activeDateStr) {
             overriddenPatternIds.add(String(e.originPatternId));
           }
         });
@@ -1291,6 +1296,8 @@ function pjApp() {
 
     kindLabel(kind) {
       const k = String(kind || '').toUpperCase();
+      if (k === 'EXAM_UTS') return 'Ujian Tengah Semester (UTS)';
+      if (k === 'EXAM_UAS') return 'Ujian Akhir Semester (UAS)';
       if (k === 'REPLACEMENT') return 'Kelas Pengganti';
       if (k === 'EXTRA') return 'Kelas Tambahan';
       if (k === 'HOLIDAY') return 'Hari Libur';
@@ -2244,6 +2251,7 @@ function pjApp() {
     },
 
     async lanjutkanDraf(ev) {
+      if (['EXAM_UTS', 'EXAM_UAS'].includes(ev.event_kind)) return this.bukaDrafUjian(ev);
       this.draftEvent = ev;
       const f = this.ubahForm;
       f.kind = ev.event_kind || 'REPLACEMENT';
@@ -2329,8 +2337,9 @@ function pjApp() {
         return;
       }
 
-      await AsteriskShell.mount('pj', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'audit', 'status', 'akun']);
+      await AsteriskShell.mount('pj', ['dashboard', 'tugas', 'jadwal', 'exam', 'rooms', 'materi', 'semester', 'audit', 'status', 'akun']);
       await this.loadPartials([
+        ['pj-exam', '/partials/common/exam-dialog.html'],
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
         ['pj-jadwal', '/partials/pj/view-jadwal.html'],

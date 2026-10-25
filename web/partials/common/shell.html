@@ -136,8 +136,8 @@
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
             <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" :title="sidebarCollapsed ? shellIdentity().detail + ' (' + shellIdentity().sub + ')' : ''" aria-hidden="true" x-text="saInitials()"></div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="shellIdentity().detail"></span>
-              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" :title="shellIdentity().detail" x-text="shellIdentity().detail"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" :title="shellIdentity().sub" x-text="shellIdentity().sub"></span>
             </div>
           </button>
           <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">

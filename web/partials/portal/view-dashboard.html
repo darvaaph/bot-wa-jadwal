@@ -112,9 +112,9 @@
                    :class="getStatusWaktu(s) === 'Sedang berlangsung' ? 'text-[#166534]' : (getStatusWaktu(s) === 'Selesai' ? 'text-[#64748B]' : 'text-[#1D4ED8]')"
                    x-text="(getStatusWaktu(s) === 'Sedang berlangsung' ? '● ' : '') + (s.timeStart || '') + ' - ' + (s.timeEnd || '') + ' WIB'">
               </div>
-              <div :class="getStatusWaktu(s) === 'Sedang berlangsung' ? 'bg-[#DCFCE7] text-[#166534]' : (getStatusWaktu(s) === 'Akan datang' ? 'bg-[#DBEAFE] text-[#1E40AF]' : 'bg-[#F1F5F9] text-[#64748B]')"
+              <div :class="portalSesiBadgeClass(s)"
                    class="px-[8px] py-[3px] rounded-[6px] text-[10px] font-bold uppercase tracking-wider">
-                <span x-text="s.activity_type || s.activityType || (s.kind === 'REGULER' ? 'TEORI' : labelJenisUbah(s.kind))"></span>
+                <span x-text="['UTS', 'UAS'].includes(s.kind) ? '● SESI ' + s.kind : portalSesiType(s)"></span>
               </div>
             </div>
 
@@ -128,6 +128,8 @@
                  x-text="(s.ruang ? 'Ruang ' + s.ruang + ' · ' : '') + (s.dosen ? 'Dosen: ' + s.dosen : '')">
             </div>
           </div>
+
+          <p x-show="['UTS', 'UAS'].includes(s.kind) && s.reason" class="exam-note" x-text="s.reason"></p>
 
           <!-- Tombol gabung Zoom / daring (kondisional jika ada link) -->
           <div x-show="s.link || s.meeting_link" class="pt-2">

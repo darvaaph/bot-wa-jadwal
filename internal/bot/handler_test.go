@@ -122,4 +122,25 @@ func TestLinkRestrictedDMMessage(t *testing.T) {
 	if !strings.Contains(withoutSlug, "Web Portal Kelas") {
 		t.Fatalf("harus memuat web portal kelas meski tanpa slug, got: %s", withoutSlug)
 	}
+	if !strings.Contains(withoutSlug, "/c/") {
+		t.Fatalf("harus memuat /c/ meski tanpa slug, got: %s", withoutSlug)
+	}
+}
+
+func TestPortalMessage(t *testing.T) {
+	withSlug := PortalMessage("d4-ti-2024-a", "D4-TI 2A")
+	if !strings.Contains(withSlug, "/c/d4-ti-2024-a") {
+		t.Fatalf("harus memuat slug kelas, got: %s", withSlug)
+	}
+	if !strings.Contains(withSlug, "D4-TI 2A") {
+		t.Fatalf("harus memuat nama kelas, got: %s", withSlug)
+	}
+
+	withoutSlug := PortalMessage("", "")
+	if !strings.Contains(withoutSlug, "/c/") {
+		t.Fatalf("harus memuat /c/ jika tanpa slug, got: %s", withoutSlug)
+	}
+	if strings.Contains(withoutSlug, "8080/ (") {
+		t.Fatalf("tidak boleh memuat root / polos, got: %s", withoutSlug)
+	}
 }

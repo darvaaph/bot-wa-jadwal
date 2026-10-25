@@ -307,7 +307,7 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		if slug != "" {
 			portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 		} else {
-			portalURL = util.PublicBaseURL()
+			portalURL = util.PublicBaseURL() + "/c/"
 		}
 	}
 
@@ -371,7 +371,12 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		reason := getString("reason")
 
 		var b strings.Builder
-		b.WriteString("*PENGUMUMAN KULIAH PENGGANTI*\n────────────────────\n")
+		kind := getString("event_kind")
+		if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
+			b.WriteString("*PENGUMUMAN UJIAN [" + strings.TrimPrefix(kind, "EXAM_") + "]*\n────────────────────\n")
+		} else {
+			b.WriteString("*PENGUMUMAN KULIAH PENGGANTI*\n────────────────────\n")
+		}
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}

@@ -27,6 +27,12 @@
         </svg>
         <span>Ajukan Kuliah Pengganti</span>
       </button>
+      <button type="button" @click="bukaUjian()" class="w-full sm:w-auto h-11 sm:h-10 px-3.5 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] rounded-[10px] text-[12px] font-semibold flex items-center justify-center gap-2 shadow-2xs transition min-h-[44px] cursor-pointer">
+        <svg class="w-[18px] h-[18px] text-[#334155]" viewBox="0 0 14 14" fill="currentColor">
+          <path d="M7 1a6 6 0 1 0 0 12A6 6 0 0 0 7 1zm0 2.5a.75.75 0 0 1 .75.75v2h2a.75.75 0 0 1 0 1.5h-2v2a.75.75 0 0 1-1.5 0v-2h-2a.75.75 0 0 1 0-1.5h2v-2A.75.75 0 0 1 7 3.5z"/>
+        </svg>
+        <span>Tambah Sesi Ujian</span>
+      </button>
       <button type="button" @click="bukaCekRuangan()" class="order-last sm:order-first w-full sm:w-auto h-11 sm:h-10 px-3.5 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#334155] rounded-[10px] text-[12px] font-semibold flex items-center justify-center gap-2 shadow-2xs transition min-h-[44px] cursor-pointer">
         <svg class="w-[18px] h-[18px] text-[#334155]" viewBox="0 0 14 14" fill="currentColor">
           <path d="M5.564 8.883q-1.398 0-2.372-0.97-0.97-0.972-0.97-2.373 0-1.398 0.97-2.369Q4.167 2.197 5.564 2.197q1.398 0 2.369 0.974 0.974 0.971 0.974 2.369 0 0.608-0.215 1.179t-0.564 0.97l3.445 3.446q0.082 0.082 0.085 0.202 0.007 0.12-0.085 0.212-0.092 0.092-0.208 0.092t-0.205-0.092L7.74 8.508q-0.438 0.373-1.008 0.578t-1.168 0.197zm0-0.581q1.162 0 1.958-0.8 0.8-0.8 0.8-1.962 0-1.159-0.8-1.958-0.796-0.8-1.958-0.8-1.162 0-1.962 0.8-0.796 0.8-0.796 1.958 0 1.162 0.796 1.962 0.8 0.8 1.962 0.8z"/>
@@ -1989,6 +1995,7 @@
             </button>
 
             <!-- Tombol Kanan: Ajukan Pengganti vs Tutup -->
+            <button type="button" x-show="selectedSessionDetail.isMine && selectedSessionDetail.session.patternId" class="ui-button ui-button--outline" @click="bukaUjian(selectedSessionDetail.session, selectedSessionDetail.day)">Tandai Ujian</button>
             <template x-if="selectedSessionDetail.isMine">
               <button type="button" @click="ajukanPenggantiDariDetail()"
                 class="w-full sm:w-auto h-11 sm:h-10 px-5 bg-[#2563EB] hover:bg-blue-700 text-white rounded-[10px] text-[12px] font-semibold shadow-xs transition min-h-[44px] flex items-center justify-center cursor-pointer">

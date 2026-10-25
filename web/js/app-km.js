@@ -20,6 +20,7 @@ function kmApp() {
     activeScheduleDay: '',
 
     ...AsteriskShell.behavior('km'),
+    ...examSessionBehavior(),
 
     roleLabel: 'KM',
     contextAssignments: [],
@@ -684,6 +685,8 @@ function kmApp() {
     },
 
     slotKind(matkul, eventKind) {
+      if (eventKind === 'EXAM_UTS') return 'UTS';
+      if (eventKind === 'EXAM_UAS') return 'UAS';
       if (String(eventKind || '').toUpperCase() === 'REPLACEMENT') return 'Pengganti';
       const s = String(matkul || '').toLowerCase();
       if (s.includes('praktikum') || s.includes('praktik') || s.includes('lab')) return 'Praktikum';
@@ -710,7 +713,7 @@ function kmApp() {
         all.forEach(item => {
           if (item.eventId) {
             const kind = String(item.eventKind || '').toUpperCase();
-            if ((kind === 'REPLACEMENT' || kind === 'SESSION_CANCELLED') && item.originDate === activeDateStr) {
+            if (['REPLACEMENT', 'SESSION_CANCELLED', 'EXAM_UTS', 'EXAM_UAS'].includes(kind) && item.originDate === activeDateStr) {
               if (item.originPatternId) suppressedPatternIds.add(String(item.originPatternId));
               else if (item.offeringId) suppressedOfferings.add(String(item.offeringId));
             }
@@ -1413,6 +1416,8 @@ function kmApp() {
 
     kindLabel(kind) {
       const k = String(kind || '').toUpperCase();
+      if (k === 'EXAM_UTS') return 'Ujian Tengah Semester (UTS)';
+      if (k === 'EXAM_UAS') return 'Ujian Akhir Semester (UAS)';
       if (k === 'REPLACEMENT') return 'Kelas Pengganti';
       if (k === 'EXTRA') return 'Kelas Tambahan';
       if (k === 'HOLIDAY') return 'Hari Libur';
@@ -1911,6 +1916,7 @@ function kmApp() {
     },
 
     async lanjutkanDraf(ev) {
+      if (['EXAM_UTS', 'EXAM_UAS'].includes(ev.event_kind)) return this.bukaDrafUjian(ev);
       this.draftEvent = ev;
       const f = this.ubahForm;
       f.offeringId = String(ev.offering_id || f.offeringId || '');
@@ -2044,8 +2050,9 @@ function kmApp() {
         return;
       }
 
-      await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan', 'log']);
+      await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'exam', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan', 'log']);
       await this.loadPartials([
+        ['km-exam', '/partials/common/exam-dialog.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
         ['km-jadwal', '/partials/km/view-jadwal.html'],
@@ -2422,7 +2429,7 @@ function kmApp() {
           const entry = {
             id: `pattern-${s.id || i}`,
             patternId: s.id,
-            offeringId: s.offering_id || '',
+            offeringId: s.course_offering_id || s.offering_id || '',
             hari: this.polaHariName(s.day_of_week),
             jam: `${String(s.start_time || '').slice(0, 5)} - ${String(s.end_time || '').slice(0, 5)}`,
             matkul: s.display_name || s.offering || s.course_name || 'Mata Kuliah',

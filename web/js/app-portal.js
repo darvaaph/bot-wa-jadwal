@@ -286,6 +286,7 @@ function portalApp() {
 
     portalSesiType(s) {
       if (!s) return 'TEORI';
+      if (s.kind === 'UTS' || s.kind === 'UAS') return s.kind;
       if (s.kind === 'PENGGANTI') return 'PENGGANTI';
       const m = String(s.matkul || '').toLowerCase();
       const r = String(s.ruang || '').toLowerCase();
@@ -296,6 +297,8 @@ function portalApp() {
 
     portalSesiBadgeClass(s) {
       const type = this.portalSesiType(s);
+      if (type === 'UTS') return 'exam-badge exam-badge--uts';
+      if (type === 'UAS') return 'exam-badge exam-badge--uas';
       if (type === 'PENGGANTI') {
         return 'bg-amber-50 text-amber-800 border-amber-200/80';
       }
@@ -644,20 +647,21 @@ function portalApp() {
         }
 
         if (res.status === 401) {
-          // Kelas ini memerlukan PIN (mode CODE)
-          this.gateStep = 'pin';
-          this.pin = '';
+          // Kelas ini memerlukan PIN (mode CODE) atau sesi telah kedaluwarsa/dirotasi
+          this.kunciPortal();
           return;
         }
 
         // Jika kelas tidak dikenal portal (404): jangan buka; tampilkan error jujur.
         // Status lain (500, dsb): masalah server/koneksi, juga jangan buka diam-diam.
+        this.kunciPortal();
         this.showToast(res.status === 404
           ? 'Kelas tidak terdaftar di portal. Periksa kode kelas atau hubungi KM.'
           : 'Portal belum dapat diakses. Periksa koneksi lalu coba lagi.');
         return;
       } catch (err) {
         // Fallback jika offline/error: tetap terkunci agar tidak tampil portal kosong.
+        this.kunciPortal();
         this.showToast('Tidak dapat terhubung ke portal. Periksa koneksi lalu coba lagi.');
         return;
       } finally {
@@ -726,7 +730,6 @@ function portalApp() {
     kunciPortal() {
       localStorage.removeItem('portal_pin_ok');
       localStorage.removeItem('portal_token');
-      localStorage.removeItem('portal_class');
       this.unlocked = false;
       this.gateStep = 'pin';
       this.pin = '';
@@ -1534,11 +1537,14 @@ function portalApp() {
           const st = hasil[0].err && hasil[0].err.status;
           this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
           this.tasks = [];
+          if (st === 401) {
+            this.kunciPortal();
+            this.showToast('Sesi portal berakhir atau kode akses telah diperbarui KM.');
+            return;
+          }
           this.tugasError = st === 404
             ? 'Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.'
-            : st === 401
-              ? 'Kelas ini dilindungi kode akses. Kunci portal lalu masukkan kode dari grup kelas.'
-              : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+            : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
           return;
         }
         const petakan = (arr) => (arr || []).map(t => {
@@ -2019,6 +2025,8 @@ function portalApp() {
 
     labelJenisUbah(kind) {
       const k = String(kind || '').toUpperCase();
+      if (k === 'EXAM_UTS' || k === 'UTS') return 'UTS';
+      if (k === 'EXAM_UAS' || k === 'UAS') return 'UAS';
       if (k === 'REPLACEMENT') return 'Kelas Pengganti';
       if (k === 'EXTRA') return 'Kelas Tambahan';
       if (k === 'HOLIDAY') return 'Hari Libur';

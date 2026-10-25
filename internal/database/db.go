@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 15
+const LatestSchemaVersion = 16
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL
@@ -99,6 +99,12 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		if applied {
 			continue
 		}
+		if item.version == 16 {
+			if err := rebuildExamEvents(ctx, db, item); err != nil {
+				return fmt.Errorf("migration %d (%s): %w", item.version, item.name, err)
+			}
+			continue
+		}
 
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -121,6 +127,72 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func rebuildExamEvents(ctx context.Context, db *sql.DB, item migration) (err error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	// SQLite ignores foreign_keys changes inside a transaction; pin the connection for the rebuild.
+	if _, err = conn.ExecContext(ctx, "PRAGMA foreign_keys=OFF"); err != nil {
+		return err
+	}
+	defer func() {
+		_, restoreErr := conn.ExecContext(context.Background(), "PRAGMA foreign_keys=ON")
+		if err == nil {
+			err = restoreErr
+		}
+	}()
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT sql FROM sqlite_master WHERE tbl_name='teaching_events' AND type IN ('index','trigger') AND sql IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	var definitions []string
+	for rows.Next() {
+		var definition string
+		if err := rows.Scan(&definition); err != nil {
+			rows.Close()
+			return err
+		}
+		definitions = append(definitions, definition)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, item.sql); err != nil {
+		return err
+	}
+	for _, definition := range definitions {
+		if _, err = tx.ExecContext(ctx, definition); err != nil {
+			return err
+		}
+	}
+	check, err := tx.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return err
+	}
+	invalid := check.Next()
+	err = check.Err()
+	check.Close()
+	if err != nil {
+		return err
+	}
+	if invalid {
+		return fmt.Errorf("referensi foreign key tidak valid setelah rebuild teaching_events")
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO schema_migrations (version, name) VALUES (?, ?)", item.version, item.name); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // CurrentSchemaVersion mengembalikan migration tertinggi yang sudah diterapkan.

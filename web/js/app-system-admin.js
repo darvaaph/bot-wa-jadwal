@@ -5691,6 +5691,16 @@ function systemAdminApp() {
         }
         await this.loadDetailSettings(this.kelasAktifObj.slug);
       } catch (err) {
+        if (mode === 'CODE' && /rotasi|kode/i.test(String(err.message || ''))) {
+          try {
+            await this.rotasiKodePortal();
+            this.showToast('Kode portal dibuat dan mode kode aktif.');
+            return;
+          } catch (err2) {
+            this.showToast(err2.message || 'Gagal membuat kode portal.');
+            return;
+          }
+        }
         this.showToast(err.message || 'Gagal mengubah mode portal.');
       }
     },

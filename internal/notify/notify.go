@@ -281,12 +281,19 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		}
 	}
 
-	if len(activeTasks) == 0 {
+	rows.Close()
+	exams, err := s.buildExamReminder(ctx, classID, nowLocal.AddDate(0, 0, 1))
+	if err != nil {
+		return "", err
+	}
+	if len(activeTasks) == 0 && exams == "" {
 		return "", nil
 	}
 
 	var sb strings.Builder
-	sb.WriteString("*PENGINGAT TUGAS KULIAH*\n")
+	if len(activeTasks) > 0 {
+		sb.WriteString("*PENGINGAT TUGAS KULIAH*\n")
+	}
 	if classCode != "" {
 		sb.WriteString(fmt.Sprintf("Kelas: %s\n", classCode))
 	}
@@ -313,6 +320,9 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		}
 	}
 
+	if exams != "" {
+		sb.WriteString("\n" + exams)
+	}
 	if link == "" && classSlug != "" {
 		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
 	}
@@ -322,6 +332,51 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 	}
 
 	return sb.String(), nil
+}
+
+func (s *Service) buildExamReminder(ctx context.Context, classID int64, tomorrow time.Time) (string, error) {
+	start := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, tomorrow.Location())
+	rows, err := s.db.QueryContext(ctx, `SELECT co.display_name, te.event_kind, te.starts_at, te.ends_at,
+		COALESCE(r.code, '-'), COALESCE(te.reason, '')
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id=te.id
+		JOIN course_offerings co ON co.id=teo.course_offering_id
+		JOIN semesters sem ON sem.id=co.semester_id
+		LEFT JOIN rooms r ON r.id=te.room_id
+		WHERE sem.class_id=? AND sem.status='ACTIVE' AND te.lifecycle_status='PUBLISHED'
+		AND (teo.participation_role='OWNER' OR teo.participation_status='ACCEPTED')
+		AND te.event_kind IN ('EXAM_UTS','EXAM_UAS')
+		AND datetime(te.starts_at)>=datetime(?) AND datetime(te.starts_at)<datetime(?)
+		ORDER BY te.starts_at, te.id`, classID, start.UTC().Format(time.RFC3339), start.AddDate(0, 0, 1).UTC().Format(time.RFC3339))
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var b strings.Builder
+	i := 0
+	for rows.Next() {
+		var course, kind, starts, ends, room, note string
+		if err := rows.Scan(&course, &kind, &starts, &ends, &room, &note); err != nil {
+			return "", err
+		}
+		st, err := time.Parse(time.RFC3339Nano, starts)
+		if err != nil {
+			return "", err
+		}
+		en, err := time.Parse(time.RFC3339Nano, ends)
+		if err != nil {
+			return "", err
+		}
+		if i == 0 {
+			fmt.Fprintf(&b, "*PENGINGAT UJIAN BESOK (H-1)*\n%s\n", start.Format("02 Jan 2006"))
+		}
+		i++
+		fmt.Fprintf(&b, "\n%d. *%s* [%s]\n   - Waktu: %s - %s WIB\n   - Ruang: %s\n", i, course, strings.TrimPrefix(kind, "EXAM_"), st.In(start.Location()).Format("15:04"), en.In(start.Location()).Format("15:04"), room)
+		if note != "" {
+			fmt.Fprintf(&b, "   - Keterangan: %s\n", note)
+		}
+	}
+	return b.String(), rows.Err()
 }
 
 func (s *Service) classContext(ctx context.Context, classID int64) (*time.Location, int64, string, string, error) {

@@ -1344,7 +1344,7 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 				if len(origDate) >= 10 {
 					origDatePrefix = origDate[:10]
 				}
-				if (evKind == "REPLACEMENT" || evKind == "SESSION_CANCELLED") && origPatID.Valid && origDatePrefix == dateStr {
+				if (evKind == "REPLACEMENT" || evKind == "SESSION_CANCELLED" || evKind == "EXAM_UTS" || evKind == "EXAM_UAS") && origPatID.Valid && origDatePrefix == dateStr {
 					suppressedPatternIDs[origPatID.Int64] = true
 				} else if evKind == "HOLIDAY" || (evKind == "SESSION_CANCELLED" && origDatePrefix == "") {
 					if origPatID.Valid {
@@ -1454,6 +1454,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 					"EXTRA":             "TAMBAHAN",
 					"HOLIDAY":           "LIBUR",
 					"SESSION_CANCELLED": "DIBATALKAN",
+					"EXAM_UTS":          "UTS",
+					"EXAM_UAS":          "UAS",
 				}
 				kindLabel, ok := kindMap[eventKind]
 				if !ok {

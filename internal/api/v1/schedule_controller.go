@@ -32,9 +32,9 @@ type CreatePatternRequest struct {
 // CreateTeachingEventRequest adalah payload pembuatan kejadian perkuliahan
 type CreateTeachingEventRequest struct {
 	OwnerOfferingID        int64   `json:"owner_offering_id"`
-	EventKind              string  `json:"event_kind"` // REPLACEMENT, EXTRA, HOLIDAY, SESSION_CANCELLED
-	StartsAt               string  `json:"starts_at"`  // UTC RFC3339
-	EndsAt                 string  `json:"ends_at"`    // UTC RFC3339
+	EventKind              string  `json:"event_kind"`
+	StartsAt               string  `json:"starts_at"` // UTC RFC3339
+	EndsAt                 string  `json:"ends_at"`   // UTC RFC3339
 	OriginPatternID        *int64  `json:"origin_pattern_id,omitempty"`
 	OriginDate             *string `json:"origin_date,omitempty"`
 	ParticipantOfferingIDs []int64 `json:"participant_offering_ids,omitempty"`
@@ -589,9 +589,21 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 	}
 
 	kind := strings.ToUpper(strings.TrimSpace(req.EventKind))
-	if kind != "REPLACEMENT" && kind != "EXTRA" && kind != "HOLIDAY" && kind != "SESSION_CANCELLED" {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "event_kind harus REPLACEMENT, EXTRA, HOLIDAY, atau SESSION_CANCELLED")
+	if kind != "REPLACEMENT" && kind != "EXTRA" && kind != "HOLIDAY" && kind != "SESSION_CANCELLED" && kind != "EXAM_UTS" && kind != "EXAM_UAS" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "event_kind harus REPLACEMENT, EXTRA, HOLIDAY, SESSION_CANCELLED, EXAM_UTS, atau EXAM_UAS")
 		return
+	}
+	if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
+		if (req.OriginPatternID == nil) != (req.OriginDate == nil) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Origin ujian harus menyertakan pola dan tanggal, atau keduanya kosong")
+			return
+		}
+		if req.OriginDate != nil {
+			if _, err := time.Parse("2006-01-02", *req.OriginDate); err != nil {
+				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "origin_date harus berupa tanggal YYYY-MM-DD")
+				return
+			}
+		}
 	}
 
 	if (kind == "REPLACEMENT" || kind == "SESSION_CANCELLED") && (req.OriginPatternID == nil || req.OriginDate == nil) {
@@ -644,7 +656,7 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 
 	if req.OriginPatternID != nil {
 		var patOfferingID int64
-		if err := c.db.QueryRow(`SELECT course_offering_id FROM schedule_patterns WHERE id = ?`, *req.OriginPatternID).Scan(&patOfferingID); err == nil && patOfferingID != req.OwnerOfferingID {
+		if err := c.db.QueryRow(`SELECT course_offering_id FROM schedule_patterns WHERE id = ?`, *req.OriginPatternID).Scan(&patOfferingID); err != nil || patOfferingID != req.OwnerOfferingID {
 			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "origin_pattern_id tidak sesuai dengan mata kuliah owner")
 			return
 		}
@@ -739,6 +751,10 @@ func (c *ScheduleController) CreateTeachingEvent(w http.ResponseWriter, r *http.
 		"id":               eventID,
 		"event_kind":       kind,
 		"lifecycle_status": "DRAFT",
+		"starts_at":        startsAtStr,
+		"ends_at":          endsAtStr,
+		"room_id":          req.RoomID,
+		"reason":           req.Reason,
 		"version":          1,
 	})
 }
@@ -907,11 +923,13 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 		reason      sql.NullString
 		roomCode    sql.NullString
 		originPatID sql.NullInt64
+		eventKind   string
+		originDate  sql.NullString
 	)
 
 	err = c.db.QueryRow(`
 		SELECT te.version, te.lifecycle_status, te.room_id, te.starts_at, te.ends_at, te.reason,
-		       co.id, sem.class_id, co.display_name, r.code, te.origin_schedule_pattern_id
+		       co.id, sem.class_id, co.display_name, r.code, te.origin_schedule_pattern_id, te.event_kind, te.origin_occurrence_date
 		FROM teaching_events te
 		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
 		JOIN course_offerings co ON teo.course_offering_id = co.id
@@ -919,7 +937,7 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 		LEFT JOIN rooms r ON te.room_id = r.id
 		WHERE te.id = ?;
 	`, eventID).Scan(&curVersion, &curStatus, &roomID, &startsAt, &endsAt, &reason,
-		&offeringID, &classID, &offName, &roomCode, &originPatID)
+		&offeringID, &classID, &offName, &roomCode, &originPatID, &eventKind, &originDate)
 
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kejadian jadwal tidak ditemukan")
@@ -1002,6 +1020,10 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 			ExcludeEventID:   &eventID,
 			ExcludePatternID: excludePat,
 		})
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
 		if err == nil {
 			for _, conf := range conflicts {
 				if conf.Code == schedule.CodeOutsideOwnerSem || conf.Code == schedule.CodeOutsidePartSem {
@@ -1027,11 +1049,34 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 	}
 	defer tx.Rollback()
 
+	if eventKind == "EXAM_UTS" || eventKind == "EXAM_UAS" {
+		if originPatID.Valid && originDate.Valid {
+			var duplicate bool
+			if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM teaching_events WHERE origin_schedule_pattern_id=?
+				AND origin_occurrence_date=? AND lifecycle_status='PUBLISHED' AND id<>?)`, originPatID.Int64, originDate.String, eventID).Scan(&duplicate); err != nil {
+				common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa sesi asal")
+				return
+			}
+			if duplicate {
+				common.WriteV1Error(w, http.StatusConflict, common.CodeValidation, "Sesi asal sudah memiliki perubahan terbit")
+				return
+			}
+		}
+		if roomID.Valid {
+			var confirmed bool
+			if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM room_confirmations WHERE teaching_event_id=? AND room_id=?
+				AND confirmation_status='CONFIRMED' AND superseded_at IS NULL)`, eventID, roomID.Int64).Scan(&confirmed); err != nil || !confirmed {
+				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Ruangan ujian memerlukan konfirmasi TU")
+				return
+			}
+		}
+	}
 	res, err := tx.Exec(`
 		UPDATE teaching_events
-		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, version = version + 1
+		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, version = version + 1,
+		    conflict_override_reason = ?
 		WHERE id = ? AND version = ?;
-	`, u.UserID, eventID, curVersion)
+	`, u.UserID, req.ConflictOverrideReason, eventID, curVersion)
 
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menerbitkan jadwal: %v", err))
@@ -1102,10 +1147,11 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 		rs = reason.String
 	}
 	common.QueueNotification(c.db, classID, "SCHEDULE_REPLACEMENT", "TEACHING_EVENT", eventID, map[string]any{
-		"course":    offName,
-		"starts_at": startsAt.Time.Format(time.RFC3339),
-		"room":      rc,
-		"reason":    rs,
+		"event_kind": eventKind,
+		"course":     offName,
+		"starts_at":  startsAt.Time.Format(time.RFC3339),
+		"room":       rc,
+		"reason":     rs,
 	}, u.UserID)
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{

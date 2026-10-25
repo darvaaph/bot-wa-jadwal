@@ -47,7 +47,7 @@ func kanalReplyText(chatJID string, isGroup bool) string {
 
 // linkRestrictedDMMessage menyusun teks pemberitahuan pembatasan akses tautan di chat pribadi.
 func linkRestrictedDMMessage(slug string) string {
-	portalURL := util.PublicBaseURL() + "/"
+	portalURL := util.PublicBaseURL() + "/c/"
 	if slug != "" {
 		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 	}
@@ -105,15 +105,26 @@ func RedirectMessage(entity string) string {
 }
 
 // PortalMessage menyusun balasan perintah !portal/!web.
-func PortalMessage() string {
+func PortalMessage(slug, className string) string {
 	var sb strings.Builder
 	sb.WriteString("*PORTAL & DASHBOARD*\n")
 	sb.WriteString("──────────\n")
 	sb.WriteString("*Portal Kelas (mahasiswa):*\n")
-	sb.WriteString(util.PublicBaseURL() + "/ (pilih kelas Anda)\n\n")
+	cleanSlug := strings.TrimSpace(slug)
+	if cleanSlug != "" {
+		sb.WriteString(fmt.Sprintf("%s/c/%s\n", util.PublicBaseURL(), cleanSlug))
+		if strings.TrimSpace(className) != "" {
+			sb.WriteString(fmt.Sprintf("Jadwal kuliah, tugas, dan materi kelas %s.\n\n", strings.TrimSpace(className)))
+		} else {
+			sb.WriteString("Jadwal kuliah, tugas, dan materi kelas Anda.\n\n")
+		}
+	} else {
+		sb.WriteString(util.PublicBaseURL() + "/c/ (pilih kelas Anda)\n")
+		sb.WriteString("Kunjungi portal lalu pilih kelas Anda untuk melihat jadwal dan tugas.\n\n")
+	}
 	sb.WriteString("*Dashboard Pengelola (PJ/KM):*\n")
 	sb.WriteString(util.PublicBaseURL() + "/login.html\n")
-	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
+	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n")
 	return sb.String()
 }
 
@@ -202,11 +213,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
-		reply(PortalMessage(), "🌐", 600*time.Millisecond, "perintah portal")
-		return
-	}
-
 	// BE-015: balas JID chat saat ini agar admin tinggal salin ke form
 	// Kelola Kanal di dashboard. Baca saja, aman untuk semua pengirim.
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "kanal", "channel", "jid") {
@@ -227,6 +233,23 @@ func HandleIncomingMessage(
 		if activeClassID != "" {
 			v1Class, _ = v1Service.FindClass(context.Background(), activeClassID)
 		}
+	}
+
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
+		slug := ""
+		className := ""
+		if v1Class != nil {
+			slug = v1Class.Slug
+			className = formatClassShort(v1Class.Code, v1Class.CohortYear, v1Class.GroupLabel, "")
+			if className == "" {
+				className = v1Class.Code
+			}
+		} else if activeClassID != "" {
+			slug = schedule.NormalizeClassID(activeClassID)
+			className = activeClassID
+		}
+		reply(PortalMessage(slug, className), "🌐", 600*time.Millisecond, "perintah portal")
+		return
 	}
 
 	// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)

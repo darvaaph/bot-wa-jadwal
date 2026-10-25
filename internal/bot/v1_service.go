@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -260,6 +261,8 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 			statusLabel = " [KULIAH PENGGANTI]"
 		case "EXTRA":
 			statusLabel = " [KULIAH TAMBAHAN]"
+		case "UTS", "UAS":
+			statusLabel = " [" + it.Status + "]"
 		}
 
 		b.WriteString(fmt.Sprintf("%d. *%s*%s\n", i+1, it.Course, statusLabel))
@@ -290,7 +293,7 @@ type ScheduleItem struct {
 	EndTime   string
 	Room      string
 	Lecturers string
-	Status    string // REGULAR, REPLACEMENT, CANCELLED, EXTRA
+	Status    string
 	Note      string
 }
 
@@ -344,10 +347,17 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		  AND sp.status = 'ACTIVE'
 		  AND sp.effective_from <= ?
 		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM teaching_events exam
+		      WHERE exam.origin_schedule_pattern_id = sp.id
+		        AND exam.origin_occurrence_date = ?
+		        AND exam.lifecycle_status = 'PUBLISHED'
+		        AND exam.event_kind IN ('EXAM_UTS', 'EXAM_UAS')
+		  )
 		GROUP BY sp.id
 		ORDER BY sp.start_time ASC;
 	`
-	rows, err := s.db.QueryContext(ctx, patternQuery, semID, weekday, date, date)
+	rows, err := s.db.QueryContext(ctx, patternQuery, semID, weekday, date, date, date)
 	if err != nil {
 		return className, classSlug, semTerm, semYear, nil, err
 	}
@@ -411,6 +421,9 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 					if evKind == "EXTRA" {
 						statusKind = "EXTRA"
 					}
+					if evKind == "EXAM_UTS" || evKind == "EXAM_UAS" {
+						statusKind = strings.TrimPrefix(evKind, "EXAM_")
+					}
 					items = append(items, ScheduleItem{
 						Course:    offName,
 						StartTime: startTime,
@@ -424,6 +437,7 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 		}
 	}
 
+	sort.SliceStable(items, func(i, j int) bool { return items[i].StartTime < items[j].StartTime })
 	return className, classSlug, semTerm, semYear, items, nil
 }
 
@@ -607,7 +621,7 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	}
 
 	b.WriteString("\n────────────────────\n")
-	portalURL := util.PublicBaseURL() + "/"
+	portalURL := util.PublicBaseURL() + "/c/"
 	if slug != "" {
 		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 	}

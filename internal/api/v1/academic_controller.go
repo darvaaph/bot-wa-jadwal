@@ -1917,8 +1917,12 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 			WHERE sp.room_id = ? AND sp.status = 'ACTIVE' AND sp.day_of_week = ?
 			  AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
 			  AND sp.start_time < ? AND sp.end_time > ?
+			  AND NOT EXISTS (SELECT 1 FROM teaching_events current
+			      WHERE current.id = ? AND current.origin_schedule_pattern_id = sp.id
+			      AND current.origin_occurrence_date = ?
+			      AND current.event_kind IN ('REPLACEMENT', 'EXAM_UTS', 'EXAM_UAS'))
 		)`, req.RoomID, eventID, endsAt.Time.Format(time.RFC3339), startsAt.Time.Format(time.RFC3339),
-			req.RoomID, dayOfWeek, date, date, localEnd.Format("15:04"), localStart.Format("15:04")).Scan(&roomConflict)
+			req.RoomID, dayOfWeek, date, date, localEnd.Format("15:04"), localStart.Format("15:04"), eventID, date).Scan(&roomConflict)
 		if err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa ketersediaan ruangan")
 			return

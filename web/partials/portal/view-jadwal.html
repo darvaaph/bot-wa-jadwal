@@ -328,7 +328,7 @@
                                     : (s.activityType === 'PRACTICE'
                                        ? 'bg-[#EDE9FE] text-[#5B21B6]'
                                        : 'bg-[#DBEAFE] text-[#1E40AF]')"
-                            x-text="s.kind === 'PENGGANTI' ? 'Pengganti' : (s.activityType === 'PRACTICE' ? 'Praktikum' : 'Teori')">
+                            x-text="portalSesiType(s)">
                         Teori
                       </span>
                     </template>
@@ -383,6 +383,8 @@
                 </div>
 
                 <!-- Catatan Kuliah Pengganti -->
+                <p x-show="['UTS', 'UAS'].includes(s.kind)" :class="portalSesiBadgeClass(s)" x-text="'● SESI ' + s.kind"></p>
+                <p x-show="['UTS', 'UAS'].includes(s.kind) && s.reason" class="exam-note" x-text="s.reason"></p>
                 <template x-if="s.kind === 'PENGGANTI'">
                   <div class="text-[10px] italic text-[#B45309] truncate"
                        x-text="fmtAsalPengganti(s.originDate, s.reason)">
@@ -513,6 +515,8 @@
                     <p class="text-[12px] text-[#667085] mt-0.5 truncate"
                       :class="isSesiOngoing(s, d) ? 'text-[#166534]' : 'text-[#667085]'">
                       <span x-text="(s.dosen ? s.dosen + ' • ' : '') + (s.ruang ? (s.ruang.startsWith('Ruang') || s.ruang.startsWith('Lab') ? s.ruang : 'Ruang ' + s.ruang) : (s.link ? 'Kuliah Daring' : 'Tanpa ruangan'))"></span>
+                      <span x-show="['UTS', 'UAS'].includes(s.kind)" :class="portalSesiBadgeClass(s)" x-text="'● SESI ' + s.kind"></span>
+                      <p x-show="['UTS', 'UAS'].includes(s.kind) && s.reason" class="exam-note" x-text="s.reason"></p>
                       <span x-show="s.kind === 'PENGGANTI'" class="italic text-[#B45309]" x-text="' • ' + fmtAsalPengganti(s.originDate, s.reason)"></span>
                     </p>
                   </div>
@@ -595,6 +599,8 @@
                   </svg>
                   <span class="truncate" x-text="'Dosen: ' + s.dosen"></span>
                 </div>
+                <p x-show="['UTS', 'UAS'].includes(s.kind)" :class="portalSesiBadgeClass(s)" x-text="'● SESI ' + s.kind"></p>
+                <p x-show="['UTS', 'UAS'].includes(s.kind) && s.reason" class="exam-note" x-text="s.reason"></p>
                 <p x-show="portalSesiType(s) === 'PENGGANTI'" class="italic text-[#B45309] text-[11px]" x-text="fmtAsalPengganti(s.originDate, s.reason)"></p>
               </div>
 

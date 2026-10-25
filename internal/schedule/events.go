@@ -160,7 +160,7 @@ func eventDateInTZ(startsUTC time.Time, tz string, semStarts, semEnds string) (s
 func (s *EventService) CreateDraft(ctx context.Context, actor EventActor, in CreateDraftInput) (*EventRow, error) {
 	kind := strings.ToUpper(strings.TrimSpace(in.Kind))
 	switch kind {
-	case "REPLACEMENT", "EXTRA", "HOLIDAY", "SESSION_CANCELLED":
+	case "REPLACEMENT", "EXTRA", "HOLIDAY", "SESSION_CANCELLED", "EXAM_UTS", "EXAM_UAS":
 	default:
 		return nil, ErrEventInvalidInput
 	}
@@ -193,8 +193,10 @@ func (s *EventService) CreateDraft(ctx context.Context, actor EventActor, in Cre
 	if needsOrigin && (in.OriginPatternID == nil || in.OriginDate == nil || strings.TrimSpace(*in.OriginDate) == "") {
 		return nil, errors.New("event pengganti/pembatalan wajib menunjuk pola dan tanggal asal")
 	}
-	if !needsOrigin && kind != "HOLIDAY" && in.OriginPatternID == nil {
-		// EXTRA without origin is allowed; HOLIDAY without origin allowed.
+	if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
+		if in.IsPermanent || (in.OriginPatternID == nil) != (in.OriginDate == nil) {
+			return nil, ErrEventInvalidInput
+		}
 	}
 	if in.OriginPatternID != nil {
 		var patternOffering int64

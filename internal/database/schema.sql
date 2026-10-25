@@ -367,7 +367,7 @@ CREATE TABLE teaching_events (
     origin_occurrence_date TEXT,
     result_schedule_pattern_id INTEGER,
     event_kind TEXT NOT NULL
-        CHECK (event_kind IN ('REPLACEMENT', 'EXTRA', 'HOLIDAY', 'SESSION_CANCELLED')),
+        CHECK (event_kind IN ('REPLACEMENT', 'EXTRA', 'HOLIDAY', 'SESSION_CANCELLED', 'EXAM_UTS', 'EXAM_UAS')),
     starts_at TEXT NOT NULL,
     ends_at TEXT NOT NULL,
     room_id INTEGER,
