@@ -12,8 +12,8 @@ import (
 // Courses returns the published academic detail for each offering in one semester.
 func (c *PortalController) Courses(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
-	var classID int64
-	if err := c.db.QueryRowContext(r.Context(), `SELECT id FROM classes WHERE slug=?`, slug).Scan(&classID); err != nil {
+	rc, err := c.resolveClass(r.Context(), slug)
+	if err != nil {
 		if err == sql.ErrNoRows {
 			common.WriteV1Error(w, 404, common.CodeNotFound, "Kelas tidak ditemukan")
 		} else {
@@ -21,6 +21,7 @@ func (c *PortalController) Courses(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	classID := rc.ID
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
 	}

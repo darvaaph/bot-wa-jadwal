@@ -645,8 +645,16 @@ function portalApp() {
 
         if (res.ok) {
           // Akses langsung diizinkan (mode LINK atau sesi token valid)
+          let canonicalSlug = slug;
+          try {
+            const data = await res.json();
+            if (data && data.data && data.data.class) {
+              canonicalSlug = data.data.class;
+            }
+          } catch (e) { }
+
           localStorage.setItem('portal_pin_ok', '1');
-          localStorage.setItem('portal_class', slug);
+          localStorage.setItem('portal_class', canonicalSlug);
           this.unlocked = true;
           this.gateStep = 'pin';
           this.showToast(`Selamat datang di Jadwal & Tugas ${this.selectedClass}!`);
@@ -804,7 +812,11 @@ function portalApp() {
       }
       const mYear = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
       if (mYear) {
-        return { prodi: mYear[1].toUpperCase(), smt: '1', abjad: mYear[3].toUpperCase() };
+        const currentYear = new Date().getFullYear();
+        const angkatan = parseInt(mYear[2], 10) || currentYear;
+        const tingkat = Math.max(1, Math.min(5, currentYear - angkatan + 1));
+        const smt = String((tingkat * 2) - 1);
+        return { prodi: mYear[1].toUpperCase(), smt: smt, abjad: mYear[3].toUpperCase() };
       }
       const mShort = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
       if (mShort) {

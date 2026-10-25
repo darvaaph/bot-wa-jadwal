@@ -1482,22 +1482,6 @@ const BotApi = {
     });
   },
 
-  async getSchedule(slug, dateStr) {
-    const qs = new URLSearchParams();
-    if (dateStr && dateStr !== 'all') qs.set('date', dateStr);
-    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
-      credentials: 'same-origin',
-      headers: this.portalHeaders(slug)
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) {
-      const err = new Error((json && json.error && json.error.message) || 'Jadwal portal gagal dimuat.');
-      err.status = res.status;
-      throw err;
-    }
-    return (json && json.data && Array.isArray(json.data.items)) ? json.data.items : [];
-  },
-
   async deleteTask(taskId, version) {
     // Backend tidak punya DELETE /api/v1/tasks/{id} (410 Gone); hapus di UI diterjemahkan ke arsip.
     return this.archiveTask(taskId, false, version);

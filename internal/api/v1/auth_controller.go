@@ -145,20 +145,6 @@ func NewAuthController(db *sql.DB, secManager *middleware.SecurityManager, rlMan
 	}
 }
 
-// RegisterRoutes mendaftarkan seluruh endpoint auth ke ServeMux
-func (c *AuthController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
-	mux.HandleFunc("POST /api/v1/auth/login", c.Login)
-	mux.HandleFunc("POST /api/v1/auth/recovery/request", c.RequestRecovery)
-	mux.HandleFunc("POST /api/v1/auth/recovery/confirm", c.ConfirmRecovery)
-	mux.HandleFunc("POST /api/v1/auth/logout", auth.RequireAuth(c.Logout))
-	mux.HandleFunc("GET /api/v1/auth/me", auth.RequireAuth(c.GetMe))
-	mux.HandleFunc("POST /api/v1/auth/switch-context", auth.RequireAuth(c.SwitchContext))
-	mux.HandleFunc("GET /api/v1/classes", c.GetClassesAccess)
-	mux.HandleFunc("PATCH /api/v1/classes/{slug}", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.PatchClassStatus)))
-	mux.HandleFunc("POST /api/v1/invitations", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.CreateInvitation)))
-	mux.HandleFunc("POST /api/v1/invitations/accept", c.AcceptInvitation)
-}
-
 func (c *AuthController) clientSource(r *http.Request) string {
 	var trusted []string
 	if c.secManager != nil {

@@ -69,15 +69,6 @@ func NewHandler(classManager *schedule.ClassManager, taskManager *task.TaskManag
 	}
 }
 
-// RegisterRoutes mendaftarkan seluruh endpoint legacy ke ServeMux
-func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/classes", h.HandleClasses)
-	mux.HandleFunc("GET /api/schedule", h.HandleSchedule)
-	mux.HandleFunc("GET /api/tasks", h.HandleGetTasks)
-	mux.HandleFunc("POST /api/tasks", h.HandleCreateTask)
-	mux.HandleFunc("DELETE /api/tasks/{id}", h.HandleDeleteTask)
-}
-
 // HandleClasses menyajikan daftar seluruh kode kelas kanonikal beserta kelas default (Legacy Shim)
 func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Deprecation", "true")
@@ -90,6 +81,22 @@ func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 			classes = make([]string, 0)
 		}
 		defaultClass = h.classManager.GetDefaultClassID()
+	}
+
+	if len(classes) == 0 && h.v1DB != nil {
+		rows, err := h.v1DB.QueryContext(r.Context(), `SELECT code FROM classes WHERE status = 'ACTIVE' ORDER BY code;`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var code string
+				if err := rows.Scan(&code); err == nil {
+					classes = append(classes, code)
+				}
+			}
+			if len(classes) > 0 && defaultClass == "" {
+				defaultClass = classes[0]
+			}
+		}
 	}
 
 	resp := ClassesResponse{

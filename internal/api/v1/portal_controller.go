@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -44,18 +46,6 @@ func NewPortalController(db *sql.DB, portalService *portal.Service, rlManager *m
 		rlManager:     rlManager,
 		secManager:    secManager,
 	}
-}
-
-// RegisterRoutes mendaftarkan seluruh endpoint portal ke ServeMux
-func (c *PortalController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
-	mux.HandleFunc("POST /api/v1/portal/{slug}/session", c.CreateSession)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/summary", c.Summary)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/schedule", c.Schedule)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks", c.Tasks)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/tasks/{id}", c.TaskDetail)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/changes", c.Changes)
-	mux.HandleFunc("GET /api/v1/portal/{slug}/materials", c.Materials)
-	mux.HandleFunc("POST /api/v1/classes/{slug}/portal-code/rotate", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.RotateCode)))
 }
 
 func noStore(w http.ResponseWriter) {
@@ -119,6 +109,91 @@ func (c *PortalController) portalAccessAllowed(w http.ResponseWriter, r *http.Re
 	return true
 }
 
+// ResolvedClass memuat data identifikasi kelas yang dinormalisasi dari slug kanonikal maupun alias legacy.
+type ResolvedClass struct {
+	ID           int64
+	Code         string
+	Slug         string
+	StudyProgram string
+	CohortYear   int
+	GroupLabel   string
+	Timezone     string
+}
+
+var legacyClassRegex = regexp.MustCompile(`^(?:(D3|D4)-TI-)?(?:SMT)?([1357])-?([A-D])$`)
+
+// resolveClass menyelesaikan slug atau kode kelas (baik format kanonikal maupun alias legacy) ke entitas kelas.
+func (c *PortalController) resolveClass(ctx context.Context, rawSlug string) (*ResolvedClass, error) {
+	rawSlug = strings.TrimSpace(rawSlug)
+	if rawSlug == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	var rc ResolvedClass
+	// 1. Pencocokan langsung: c.slug atau c.code (case-insensitive)
+	queryDirect := `
+		SELECT c.id, c.code, c.slug, c.study_program, c.cohort_year, c.group_label, COALESCE(cs.timezone, 'Asia/Jakarta')
+		FROM classes c
+		LEFT JOIN class_settings cs ON cs.class_id = c.id
+		WHERE LOWER(c.slug) = LOWER(?) OR LOWER(c.code) = LOWER(?)
+		LIMIT 1;
+	`
+	err := c.db.QueryRowContext(ctx, queryDirect, rawSlug, rawSlug).Scan(
+		&rc.ID, &rc.Code, &rc.Slug, &rc.StudyProgram, &rc.CohortYear, &rc.GroupLabel, &rc.Timezone,
+	)
+	if err == nil {
+		return &rc, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	// 2. Pencocokan alias legacy (contoh: D4-TI-SMT3-A, d4-ti-smt3-a, SMT3-A, 3A)
+	cleanUpper := strings.ToUpper(strings.ReplaceAll(rawSlug, " ", ""))
+	if match := legacyClassRegex.FindStringSubmatch(cleanUpper); match != nil {
+		level := match[1]
+		if level == "" {
+			level = "D4"
+		}
+		semester, _ := strconv.Atoi(match[2])
+		label := match[3]
+
+		academicStartYear := time.Now().Year()
+		if time.Now().Month() < time.September {
+			academicStartYear--
+		}
+		var dbAcademicYear string
+		_ = c.db.QueryRowContext(ctx, `SELECT SUBSTR(academic_year, 1, 4) FROM semesters WHERE status = 'ACTIVE' ORDER BY starts_on DESC LIMIT 1`).Scan(&dbAcademicYear)
+		if parsedAY, errAY := strconv.Atoi(dbAcademicYear); errAY == nil && parsedAY > 2000 {
+			academicStartYear = parsedAY
+		}
+
+		cohort := academicStartYear - ((semester - 1) / 2)
+		prodiPattern := "%" + level + "%"
+
+		queryLegacy := `
+			SELECT c.id, c.code, c.slug, c.study_program, c.cohort_year, c.group_label, COALESCE(cs.timezone, 'Asia/Jakarta')
+			FROM classes c
+			LEFT JOIN class_settings cs ON cs.class_id = c.id
+			WHERE (c.study_program LIKE ? OR c.code LIKE ?)
+			  AND c.cohort_year = ?
+			  AND UPPER(c.group_label) = UPPER(?)
+			LIMIT 1;
+		`
+		errLegacy := c.db.QueryRowContext(ctx, queryLegacy, prodiPattern, prodiPattern, cohort, label).Scan(
+			&rc.ID, &rc.Code, &rc.Slug, &rc.StudyProgram, &rc.CohortYear, &rc.GroupLabel, &rc.Timezone,
+		)
+		if errLegacy == nil {
+			return &rc, nil
+		}
+		if !errors.Is(errLegacy, sql.ErrNoRows) {
+			return nil, errLegacy
+		}
+	}
+
+	return nil, sql.ErrNoRows
+}
+
 // CreateSession menangani POST /api/v1/portal/{slug}/session
 func (c *PortalController) CreateSession(w http.ResponseWriter, r *http.Request) {
 	noStore(w)
@@ -136,7 +211,7 @@ func (c *PortalController) CreateSession(w http.ResponseWriter, r *http.Request)
 	}
 
 	var classID int64
-	err := c.db.QueryRowContext(r.Context(), `SELECT id FROM classes WHERE slug = ?`, r.PathValue("slug")).Scan(&classID)
+	rc, err := c.resolveClass(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi kode portal")
@@ -145,6 +220,7 @@ func (c *PortalController) CreateSession(w http.ResponseWriter, r *http.Request)
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Kode portal tidak valid")
 		return
 	}
+	classID = rc.ID
 
 	session, err := c.portalService.VerifyCode(r.Context(), classID, req.Code, c.clientSource(r))
 	if err != nil {
@@ -192,8 +268,7 @@ func (c *PortalController) RotateCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var classID int64
-	err := c.db.QueryRowContext(r.Context(), `SELECT id FROM classes WHERE slug = ?`, r.PathValue("slug")).Scan(&classID)
+	rc, err := c.resolveClass(r.Context(), r.PathValue("slug"))
 	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
@@ -202,6 +277,7 @@ func (c *PortalController) RotateCode(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
 	if u.ActiveRole == "KM" && (!u.ActiveClassID.Valid || u.ActiveClassID.Int64 != classID) {
 		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Anda tidak dapat merotasi kode portal kelas lain")
 		return
@@ -263,7 +339,16 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
 		return
 	}
-	slug := strings.TrimSpace(r.PathValue("slug"))
+	rawSlug := strings.TrimSpace(r.PathValue("slug"))
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat pengaturan kelas")
+		return
+	}
+	slug := rc.Slug
 	var out struct {
 		ClassID           int64          `json:"-"`
 		Timezone          string         `json:"timezone"`
@@ -274,14 +359,14 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 		Replacement       sql.NullInt64  `json:"-"`
 		Version           int            `json:"-"`
 	}
-	err := c.db.QueryRow(`
+	err = c.db.QueryRow(`
 		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version,
 		       cs.morning_reminder_time, cs.afternoon_reminder_time,
 		       cs.replacement_reminder_minutes, cs.version
 		FROM classes c
 		JOIN class_settings cs ON cs.class_id = c.id
-		WHERE c.slug = ?;
-	`, slug).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion,
+		WHERE c.id = ?;
+	`, rc.ID).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion,
 		&out.Morning, &out.Afternoon, &out.Replacement, &out.Version)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
@@ -337,7 +422,16 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Hanya KM atau System Admin yang berwenang mengubah pengaturan kelas")
 		return
 	}
-	slug := strings.TrimSpace(r.PathValue("slug"))
+	rawSlug := strings.TrimSpace(r.PathValue("slug"))
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca pengaturan kelas")
+		return
+	}
+	slug := rc.Slug
 	var req UpdateClassSettingsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Payload JSON tidak valid")
@@ -349,7 +443,7 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 	var curMorning, curAfternoon sql.NullString
 	var curRepl sql.NullInt64
 	if err := c.db.QueryRow(`SELECT c.id, cs.version, cs.timezone, cs.morning_reminder_time, cs.afternoon_reminder_time, cs.replacement_reminder_minutes
-		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.slug = ?;`, slug).
+		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.id = ?;`, rc.ID).
 		Scan(&classID, &curVersion, &curTz, &curMorning, &curAfternoon, &curRepl); err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
@@ -484,16 +578,25 @@ func (c *PortalController) SetPortalMode(w http.ResponseWriter, r *http.Request)
 		reason = strings.TrimSpace(*req.Reason)
 	}
 
-	slug := strings.TrimSpace(r.PathValue("slug"))
+	rawSlug := strings.TrimSpace(r.PathValue("slug"))
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
+		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
+		return
+	} else if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
+		return
+	}
+	slug := rc.Slug
 	var classID int64
 	var curMode string
 	var hasHash bool
-	err := c.db.QueryRow(`
+	err = c.db.QueryRow(`
 		SELECT c.id, cs.portal_access_mode, cs.portal_code_hash IS NOT NULL
 		FROM classes c
 		JOIN class_settings cs ON cs.class_id = c.id
-		WHERE c.slug = ?;
-	`, slug).Scan(&classID, &curMode, &hasHash)
+		WHERE c.id = ?;
+	`, rc.ID).Scan(&classID, &curMode, &hasHash)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
@@ -592,23 +695,17 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slug := r.PathValue("slug")
-	var classID int64
-	var timezone string
-	err := c.db.QueryRow(`
-		SELECT c.id, cs.timezone
-		FROM classes c
-		JOIN class_settings cs ON c.id = cs.class_id
-		WHERE c.slug = ?;
-	`, slug).Scan(&classID, &timezone)
-
-	if err == sql.ErrNoRows {
+	rawSlug := r.PathValue("slug")
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
+	timezone := rc.Timezone
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -701,7 +798,7 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
-		"class":         slug,
+		"class":         rc.Slug,
 		"date":          dateStr,
 		"now_event":     nowEvent,
 		"next_event":    nextEvent,
@@ -718,23 +815,17 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slug := r.PathValue("slug")
-	var classID int64
-	var timezone string
-	err := c.db.QueryRow(`
-		SELECT c.id, cs.timezone
-		FROM classes c
-		JOIN class_settings cs ON c.id = cs.class_id
-		WHERE c.slug = ?;
-	`, slug).Scan(&classID, &timezone)
-
-	if err == sql.ErrNoRows {
+	rawSlug := r.PathValue("slug")
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
+	timezone := rc.Timezone
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -774,7 +865,7 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
-		"class": slug,
+		"class": rc.Slug,
 		"date":  dateStr,
 		"items": items,
 	})
@@ -787,23 +878,17 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slug := r.PathValue("slug")
-	var classID int64
-	var timezone string
-	err := c.db.QueryRow(`
-		SELECT c.id, cs.timezone
-		FROM classes c
-		JOIN class_settings cs ON c.id = cs.class_id
-		WHERE c.slug = ?;
-	`, slug).Scan(&classID, &timezone)
-
-	if err == sql.ErrNoRows {
+	rawSlug := r.PathValue("slug")
+	rc, err := c.resolveClass(r.Context(), rawSlug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
+	timezone := rc.Timezone
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -932,15 +1017,15 @@ func (c *PortalController) TaskDetail(w http.ResponseWriter, r *http.Request) {
 	taskIDStr := r.PathValue("id")
 	taskID, _ := strconv.ParseInt(taskIDStr, 10, 64)
 
-	var classID int64
-	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
-	if err == sql.ErrNoRows {
+	rc, err := c.resolveClass(r.Context(), slug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -1040,15 +1125,15 @@ func (c *PortalController) Changes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slug := r.PathValue("slug")
-	var classID int64
-	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
-	if err == sql.ErrNoRows {
+	rc, err := c.resolveClass(r.Context(), slug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -1123,15 +1208,15 @@ func (c *PortalController) Semesters(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slug := r.PathValue("slug")
-	var classID int64
-	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
-	if err == sql.ErrNoRows {
+	rc, err := c.resolveClass(r.Context(), slug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -1176,15 +1261,15 @@ func (c *PortalController) Materials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slug := r.PathValue("slug")
-	var classID int64
-	err := c.db.QueryRow(`SELECT id FROM classes WHERE slug = ?;`, slug).Scan(&classID)
-	if err == sql.ErrNoRows {
+	rc, err := c.resolveClass(r.Context(), slug)
+	if errors.Is(err, sql.ErrNoRows) {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat kelas")
 		return
 	}
+	classID := rc.ID
 
 	if !c.portalAccessAllowed(w, r, classID) {
 		return
@@ -1382,6 +1467,28 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 	}
 	defer patternRows.Close()
 
+	lecturersCache := make(map[int64][]string)
+	type pjData struct{ name, phone string }
+	pjCache := make(map[int64]pjData)
+
+	getLecturers := func(id int64) []string {
+		if l, ok := lecturersCache[id]; ok {
+			return l
+		}
+		l := c.getOfferingLecturers(id)
+		lecturersCache[id] = l
+		return l
+	}
+
+	getPJ := func(id int64) (string, string) {
+		if d, ok := pjCache[id]; ok {
+			return d.name, d.phone
+		}
+		name, phone := c.getOfferingPJ(id)
+		pjCache[id] = pjData{name: name, phone: phone}
+		return name, phone
+	}
+
 	for patternRows.Next() {
 		var patternID, offID int64
 		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink, courseCode string
@@ -1391,8 +1498,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 			if suppressedPatternIDs[patternID] || suppressedOfferingIDs[offID] {
 				continue
 			}
-			lecturers := c.getOfferingLecturers(offID)
-			pj, pjQueryPhone := c.getOfferingPJ(offID)
+			lecturers := getLecturers(offID)
+			pj, pjQueryPhone := getPJ(offID)
 			items = append(items, map[string]any{
 				"id":            fmt.Sprintf("pat_%d", patternID),
 				"kind":          "REGULER",
@@ -1462,8 +1569,8 @@ func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetD
 					kindLabel = eventKind
 				}
 
-				lecturers := c.getOfferingLecturers(offID)
-				pj, pjQueryPhone := c.getOfferingPJ(offID)
+				lecturers := getLecturers(offID)
+				pj, pjQueryPhone := getPJ(offID)
 
 				items = append(items, map[string]any{
 					"id":                     fmt.Sprintf("ev_%d", eventID),

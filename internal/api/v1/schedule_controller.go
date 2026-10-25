@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"bot-jadwal/internal/api/common"
-	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/schedule"
 )
@@ -82,22 +81,6 @@ type ScheduleController struct {
 // NewScheduleController membuat instance controller jadwal baru
 func NewScheduleController(db *sql.DB) *ScheduleController {
 	return &ScheduleController{db: db}
-}
-
-// RegisterRoutes mendaftarkan rute jadwal v1 ke ServeMux
-func (c *ScheduleController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
-	mux.HandleFunc("GET /api/v1/schedule/patterns", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetPatterns)))
-	mux.HandleFunc("POST /api/v1/schedule/patterns", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreatePattern)))
-	mux.HandleFunc("PATCH /api/v1/schedule/patterns/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchPattern)))
-	mux.HandleFunc("DELETE /api/v1/schedule/patterns/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.DeletePattern)))
-	mux.HandleFunc("POST /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreateTeachingEvent)))
-	mux.HandleFunc("GET /api/v1/teaching-events", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEvents)))
-	mux.HandleFunc("GET /api/v1/teaching-events/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTeachingEventDetail)))
-	mux.HandleFunc("DELETE /api/v1/teaching-events/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.DeleteTeachingEvent)))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PreviewTeachingEvent)))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/publish", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PublishTeachingEvent)))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/revoke", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.RevokeTeachingEvent)))
-	mux.HandleFunc("POST /api/v1/teaching-events/{id}/participation", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ParticipationTeachingEvent)))
 }
 
 // GetTeachingEventDetail returns one event together with its offering

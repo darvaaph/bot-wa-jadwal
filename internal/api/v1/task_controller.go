@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"bot-jadwal/internal/api/common"
-	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
 )
 
@@ -59,19 +58,6 @@ type TaskController struct {
 // NewTaskController membuat instance controller baru
 func NewTaskController(db *sql.DB) *TaskController {
 	return &TaskController{db: db}
-}
-
-// RegisterRoutes mendaftarkan seluruh endpoint tugas v1 ke ServeMux
-func (c *TaskController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
-	mux.HandleFunc("GET /api/v1/tasks", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTasks)))
-	mux.HandleFunc("POST /api/v1/tasks", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreateTask)))
-	mux.HandleFunc("GET /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTaskDetail)))
-	mux.HandleFunc("PATCH /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ReviewTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CompleteTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.UncompleteTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.ArchiveTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.RestoreTask)))
 }
 
 // GetTasks menangani GET /api/v1/tasks
