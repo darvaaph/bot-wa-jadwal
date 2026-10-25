@@ -117,7 +117,7 @@
                        placeholder="Contoh: +62 812-3456-7890 atau 0812..."
                        @keydown.enter="masuk()"
                        :aria-invalid="fieldError === 'nomor'"
-                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
                        :class="fieldError === 'nomor' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
               </div>
               <p class="text-[12px] text-[#64748B] mt-1.5 leading-normal">
@@ -141,7 +141,7 @@
                        autocomplete="current-password"
                        @keydown.enter="masuk()"
                        :aria-invalid="fieldError === 'sandi'"
-                       class="w-full h-[44px] pl-3.5 pr-11 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       class="w-full h-[44px] pl-3.5 pr-11 rounded-[10px] border text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
                        :class="fieldError === 'sandi' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
                 <button type="button" @click="lihat = !lihat"
                         :aria-label="lihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
@@ -248,7 +248,7 @@
                 <input id="recovery-nomor" type="text" x-model="nomor" inputmode="tel" autocomplete="tel"
                        placeholder="Contoh: 081234567890"
                        @keydown.enter="mintaPemulihan()"
-                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
               </div>
             </div>
 
@@ -303,7 +303,7 @@
                 Kata Sandi Baru (Min. 12 Karakter) <span class="text-red-500">*</span>
               </label>
               <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password"
-                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
             </div>
 
             <div>
@@ -312,7 +312,7 @@
               </label>
               <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password"
                      @keydown.enter="aturUlangSandi()"
-                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
             </div>
 
             <button type="button" @click="aturUlangSandi()" :disabled="loading"
