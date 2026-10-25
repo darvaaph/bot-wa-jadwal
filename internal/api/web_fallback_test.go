@@ -79,8 +79,8 @@ func TestPWARoutes_ServedWithCorrectHeaders(t *testing.T) {
 		if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "json") {
 			t.Fatalf("GET %s Content-Type = %q, mau json", p, ct)
 		}
-		if !strings.Contains(rr.Body.String(), "Bot Jadwal") {
-			t.Fatalf("GET %s tidak memuat nama 'Bot Jadwal'", p)
+		if !strings.Contains(rr.Body.String(), "Asterisk") {
+			t.Fatalf("GET %s tidak memuat nama 'Asterisk'", p)
 		}
 		if !strings.Contains(rr.Body.String(), "/assets/icons/icon-192.png") {
 			t.Fatalf("GET %s tidak memuat icon-192.png", p)

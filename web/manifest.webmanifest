@@ -1,6 +1,6 @@
 {
-  "name": "Bot Jadwal — Jadwal & Tugas Kelas",
-  "short_name": "Bot Jadwal",
+  "name": "Asterisk — Jadwal & Tugas Kelas",
+  "short_name": "Asterisk",
   "description": "Pantau jadwal kuliah, tenggat tugas, dan materi kelas tanpa ribet.",
   "start_url": "/c/",
   "scope": "/",

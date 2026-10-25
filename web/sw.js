@@ -1,5 +1,5 @@
-// sw.js — Service Worker untuk PWA Bot Jadwal
-const CACHE_NAME = 'bot-jadwal-pwa-v1';
+// sw.js — Service Worker untuk PWA Asterisk (Jadwal & Tugas Mahasiswa)
+const CACHE_NAME = 'asterisk-pwa-v2';
 
 const STATIC_PRECACHE = [
   '/c/',
@@ -33,14 +33,14 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_PRECACHE).catch((err) => {
-        console.debug('Beberapa aset gagal di-precache:', err);
+        console.debug('Aset precache parsial:', err);
       });
     })
   );
   self.skipWaiting();
 });
 
-// 2. Activate Event: Bersihkan cache versi lama
+// 2. Activate Event: Bersihkan cache versi lama seketika
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -72,8 +72,8 @@ self.addEventListener('fetch', (event) => {
   // Jangan tangani resource lintas domain (eksternal)
   if (url.origin !== self.location.origin) return;
 
-  // A. Halaman Navigasi HTML (/c/, /c/:slug, dll): Network-First
-  if (req.mode === 'navigate' || url.pathname.startsWith('/c')) {
+  // A. Halaman Navigasi HTML (/c/, /c/:slug, /, /index.html): Network-First
+  if (req.mode === 'navigate' || url.pathname.startsWith('/c') || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       fetch(req)
         .then((networkRes) => {
@@ -84,7 +84,6 @@ self.addEventListener('fetch', (event) => {
           return networkRes;
         })
         .catch(() => {
-          // Jika offline, fallback ke cache request ini atau halaman /c/
           return caches.match(req).then((cached) => {
             return cached || caches.match('/c/');
           });
@@ -93,8 +92,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. API Data Jadwal & Tugas (/api/v1/portal/): Network-First dengan Cache Fallback
-  if (url.pathname.startsWith('/api/v1/portal/')) {
+  // B. Seluruh Endpoint API (/api/): Network-First dengan Cache Fallback
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req)
         .then((networkRes) => {
@@ -109,12 +108,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. Aset Statis (CSS, JS, Fonts, Images/Icons, Partials): Stale-While-Revalidate
+  // C. Partials HTML & Dynamic App JS: Network-First (agar selalu segar saat online)
+  if (
+    url.pathname.startsWith('/partials/') ||
+    url.pathname === '/js/app-portal.js' ||
+    url.pathname === '/js/api.js' ||
+    url.pathname === '/js/shell.js' ||
+    url.pathname === '/js/theme-init.js'
+  ) {
+    event.respondWith(
+      fetch(req)
+        .then((networkRes) => {
+          if (networkRes.status === 200) {
+            const resClone = networkRes.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+          }
+          return networkRes;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // D. Aset Statis Murni (CSS, Vendor JS, Fonts, Icons): Stale-While-Revalidate
   if (
     url.pathname.startsWith('/css/') ||
-    url.pathname.startsWith('/js/') ||
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.startsWith('/partials/')
+    url.pathname.startsWith('/js/vendor/') ||
+    url.pathname.startsWith('/assets/')
   ) {
     event.respondWith(
       caches.match(req).then((cachedRes) => {
@@ -134,7 +154,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // D. Default: Fetch dengan fallback cache biasa
+  // E. Default Fallback
   event.respondWith(
     caches.match(req).then((cached) => cached || fetch(req))
   );

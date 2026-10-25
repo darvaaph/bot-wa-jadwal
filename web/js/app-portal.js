@@ -63,6 +63,8 @@ function portalApp() {
     selectedAbjad: 'A',
     classList: [],
     classModalOpen: false,
+    classModalSearch: '',
+    classModalProdi: 'ALL',
     comboboxOpen: false,
     classQuery: '',
     classFilterProdi: 'ALL',
@@ -689,6 +691,7 @@ function portalApp() {
       this.pin = '';
       this.pinError = '';
       this.classModalOpen = false;
+      this.classModalSearch = '';
       const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
       try {
         window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
@@ -810,25 +813,98 @@ function portalApp() {
       return { prodi: 'D4', smt: '3', abjad: 'A' };
     },
 
+    formatClassItem(code) {
+      if (!code) return { raw: '', slug: '', title: '-', subtitle: '', badge: '', prodi: 'D4', tingkat: 1 };
+      const raw = String(code).trim();
+      const currentYear = new Date().getFullYear();
+
+      let prodi = 'D4';
+      let prodiName = 'D4 Teknik Informatika';
+      let tingkat = 1;
+      let smt = 1;
+      let abjad = 'A';
+      let angkatan = currentYear;
+
+      const mSmt = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      if (mSmt) {
+        prodi = mSmt[1].toUpperCase();
+        smt = parseInt(mSmt[2], 10) || 1;
+        abjad = mSmt[3].toUpperCase();
+        tingkat = Math.ceil(smt / 2);
+        angkatan = currentYear - Math.floor((smt - 1) / 2);
+      } else {
+        const mYear = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
+        if (mYear) {
+          prodi = mYear[1].toUpperCase();
+          angkatan = parseInt(mYear[2], 10);
+          abjad = mYear[3].toUpperCase();
+          tingkat = Math.max(1, Math.min(5, currentYear - angkatan + 1));
+          smt = (tingkat * 2) - 1;
+        } else {
+          const mShort = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
+          if (mShort) {
+            prodi = mShort[1].toUpperCase();
+            tingkat = parseInt(mShort[2], 10) || 1;
+            abjad = mShort[3].toUpperCase();
+            smt = (tingkat * 2) - 1;
+            angkatan = currentYear - (tingkat - 1);
+          } else {
+            prodi = raw.startsWith('D3') ? 'D3' : 'D4';
+          }
+        }
+      }
+
+      prodiName = prodi === 'D3' ? 'D3 Teknik Informatika' : 'D4 Teknik Informatika';
+      const badge = `${tingkat}${abjad}`;
+      const title = `${prodiName} — ${badge}`;
+      const subtitle = `Tingkat ${tingkat} · Semester ${smt} · Angkatan ${angkatan}`;
+      const searchKey = `${raw} ${prodi} ${prodiName} ${badge} ${tingkat} ${abjad} ${angkatan} smt${smt} semester ${smt} tingkat ${tingkat} angkatan ${angkatan}`.toLowerCase();
+
+      return {
+        raw,
+        slug: raw.toLowerCase().replace(/\s+/g, '-'),
+        prodi,
+        prodiName,
+        tingkat,
+        smt,
+        abjad,
+        angkatan,
+        badge,
+        title,
+        subtitle,
+        searchKey
+      };
+    },
+
+    get modalFormattedClasses() {
+      return (this.classList || []).map(c => this.formatClassItem(c));
+    },
+
+    get modalFilteredClasses() {
+      const q = (this.classModalSearch || '').trim().toLowerCase();
+      const prodi = this.classModalProdi || 'ALL';
+      const list = this.modalFormattedClasses || [];
+      return list.filter(item => {
+        if (!item) return false;
+        if (prodi !== 'ALL' && item.prodi !== prodi) return false;
+        if (!q) return true;
+        return (item.searchKey || '').includes(q);
+      });
+    },
+
+    get modalProdiCounts() {
+      const all = this.modalFormattedClasses || [];
+      return {
+        all: all.length,
+        d4: all.filter(x => x && x.prodi === 'D4').length,
+        d3: all.filter(x => x && x.prodi === 'D3').length
+      };
+    },
+
     get selectedClassFormatted() {
       if (!this.selectedClass) return 'kelas ini';
-      const raw = String(this.selectedClass).trim();
-      const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
-      if (mYear) {
-        return `${mYear[1].toUpperCase()}-${mYear[2].toUpperCase()} 1${mYear[4].toUpperCase()}`;
-      }
-      const mSmt = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-SMT(\d+)-([A-Za-z0-9]+)$/i);
-      if (mSmt) {
-        return `${mSmt[1].toUpperCase()}-${mSmt[2].toUpperCase()} ${mSmt[3]}${mSmt[4].toUpperCase()}`;
-      }
-      const mShort = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-([0-9]+[A-Za-z]+)$/i);
-      if (mShort) {
-        return `${mShort[1].toUpperCase()}-${mShort[2].toUpperCase()} ${mShort[3].toUpperCase()}`;
-      }
-      if (/^[A-Za-z0-9]+-[A-Za-z0-9]+\s+[0-9A-Za-z]+$/i.test(raw)) {
-        return raw.toUpperCase();
-      }
-      return raw;
+      const item = this.formatClassItem(this.selectedClass);
+      return `${item.prodi}-TI ${item.badge}`;
     },
 
     get selectedClassMeta() {
