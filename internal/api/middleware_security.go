@@ -45,3 +45,8 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 func (s *Server) recoveryMiddleware(next http.Handler) http.Handler {
 	return middleware.Recovery(next)
 }
+
+// compressMiddleware mengompresi respons jika klien mendukung header Accept-Encoding: gzip.
+func (s *Server) compressMiddleware(next http.Handler) http.Handler {
+	return middleware.Gzip(next)
+}

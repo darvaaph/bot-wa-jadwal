@@ -175,6 +175,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 		_, _ = w.Write(indexFile)
 	}
 
@@ -228,6 +229,14 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 			if _, err := web.Files.Open(strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")); err != nil {
 				serveWebNotFound(w, r)
 				return
+			}
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+		} else {
+			// Aset statis (CSS, JS, Fonts, Gambar, Icons)
+			if r.URL.Query().Get("v") != "" {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
 			}
 		}
 		webFS.ServeHTTP(w, r)

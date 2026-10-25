@@ -223,7 +223,8 @@ func OpenPool(dbPath string) (*sql.DB, error) {
 	if dbPath != ":memory:" && !strings.HasPrefix(dbPath, "file:") {
 		// busy_timeout menunggu penulis lain hingga 5 detik; WAL memungkinkan baca-tulis bersamaan.
 		// foreign_keys menjaga referensi; synchronous NORMAL menyeimbangkan durabilitas dan throughput.
-		dsn = fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)", dbPath)
+		// cache_size mengalokasikan 32MB page cache; mmap_size 128MB I/O memori; temp_store MEMORY di RAM.
+		dsn = fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-32000)&_pragma=mmap_size(134217728)&_pragma=temp_store(MEMORY)", dbPath)
 	}
 
 	db, err := sql.Open("sqlite", dsn)
@@ -237,6 +238,9 @@ func OpenPool(dbPath string) (*sql.DB, error) {
 		PRAGMA busy_timeout = 5000;
 		PRAGMA foreign_keys = ON;
 		PRAGMA synchronous = NORMAL;
+		PRAGMA cache_size = -32000;
+		PRAGMA mmap_size = 134217728;
+		PRAGMA temp_store = MEMORY;
 	`)
 
 	if dbPath == ":memory:" {

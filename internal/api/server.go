@@ -111,7 +111,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	// Registrasi seluruh rute (legacy shim, API v1, static web assets)
 	s.registerRoutes(mux)
 
-	handler := s.corsMiddleware(s.recoveryMiddleware(s.maintenanceMiddleware(mux)))
+	handler := s.corsMiddleware(s.recoveryMiddleware(s.compressMiddleware(s.maintenanceMiddleware(mux))))
 
 	s.httpServer = &http.Server{
 		Addr:              addr,
