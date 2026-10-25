@@ -308,6 +308,18 @@
           </div>
         </div>
 
+        <!-- Tombol Aksi Bagikan Tugas (Native Share API) -->
+        <button type="button" @click="bagikanTugas(detailTugas)"
+          class="min-h-[44px] h-[44px] w-full px-4 rounded-[12px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer"
+          title="Bagikan rincian tugas ini">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-[#2563EB] shrink-0">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          <span x-text="'share' in navigator ? 'Bagikan Rincian Tugas' : 'Salin Rincian Tugas'">Bagikan Rincian Tugas</span>
+        </button>
+
         <!-- Kartu 2: Bantuan & Koordinasi -->
         <div class="bg-[#F8FAFC] rounded-[16px] border border-[#E2E8F0] p-4 sm:p-5 space-y-2">
           <h3 class="text-[12px] font-bold text-[#64748B] uppercase tracking-wider flex items-center gap-1.5">

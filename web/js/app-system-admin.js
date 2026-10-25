@@ -801,13 +801,22 @@ function systemAdminApp() {
       await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests(), this.muatDukunganAktif()]);
       await this.muatSemesterSemua();
       this.dashboardLoading = false;
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
 
       setInterval(() => {
         if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
       }, 30000);
       setInterval(() => {
         this.dukunganSekarang = Date.now();
+        if (this.dukunganAktif && !this.dukunganMasihAktif()) {
+          this.dukunganAktif = null;
+        }
       }, 1000);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'sa_support_sync') this.dukunganAktif = null;
+      });
     },
 
     async loadPartials(slots) {
@@ -5886,6 +5895,7 @@ function systemAdminApp() {
         this.dukunganAktif = null;
         this.dukunganAlasan = '';
         this.dukunganLoading = false;
+        try { localStorage.setItem('sa_support_sync', String(Date.now())); } catch (_) {}
       }
     },
 
@@ -5976,6 +5986,9 @@ function systemAdminApp() {
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
       this.currentUser = null;
       this.kelasList = [];
       this.totalKelas = 0;

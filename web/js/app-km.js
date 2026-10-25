@@ -33,6 +33,7 @@ function kmApp() {
       try {
         await API.supportExit('');
       } catch (e) {}
+      try { localStorage.setItem('sa_support_sync', String(Date.now())); } catch (_) {}
       window.location.replace('/system-admin.html');
     },
 
@@ -2090,7 +2091,22 @@ function kmApp() {
         ['km-log', '/partials/km/view-log.html'],
       ]);
       this.updateClock();
-      setInterval(() => { this.updateClock(); this.supportSekarang = Date.now(); }, 1000);
+      setInterval(() => {
+        this.updateClock();
+        this.supportSekarang = Date.now();
+        if (this.supportGrant && !this.supportMasihAktif()) {
+          this.supportGrant = null;
+          this.showToast('Masa berlaku Mode Dukungan telah berakhir.');
+          setTimeout(() => window.location.replace('/system-admin.html'), 1200);
+        }
+      }, 1000);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'sa_support_sync' && this.supportGrant) {
+          this.supportGrant = null;
+          this.showToast('Sesi Mode Dukungan telah diakhiri.');
+          setTimeout(() => window.location.replace('/system-admin.html'), 1200);
+        }
+      });
       await Promise.all([this.checkBot(), this.loadKMDashboard()]);
       this.dashboardLoading = false;
       await this.loadClasses();
@@ -2533,12 +2549,26 @@ function kmApp() {
                    offering_id: t.offering_id,
                    urgency: u.level, countdown: u.badge };
         });
+        this.updateAppBadge();
       } catch (e) {
         this.tasks = [];
+        this.updateAppBadge();
         this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
       }
+    },
+
+    updateAppBadge() {
+      try {
+        if (!('setAppBadge' in navigator)) return;
+        const count = this.antrean ? this.antrean.length : 0;
+        if (count > 0) {
+          navigator.setAppBadge(count).catch(() => {});
+        } else if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      } catch (e) {}
     },
 
     async loadOfferings() {
@@ -4983,6 +5013,9 @@ function kmApp() {
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
       this.currentUser = null;
       this.showToast('Berhasil keluar. Mengarahkan ke login...');
       setTimeout(() => {

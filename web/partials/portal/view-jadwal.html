@@ -2,15 +2,41 @@
 <section x-show="view === 'jadwal'" x-cloak class="w-full flex flex-col gap-[20px]">
 
   <!-- Judul dan konteks jadwal -->
-  <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[5px] justify-start items-start">
-    <h1 class="text-[24px] md:text-[25px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
-      Jadwal Perkuliahan
-    </h1>
-    <p
-      class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
-      Jadwal efektif kelas <span class="font-semibold text-[#334155]"
-        x-text="selectedClassFormatted || '-'">-</span> pekan ini, termasuk kuliah pengganti resmi.
-    </p>
+  <div class="box-border w-full h-fit shrink-0 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+    <div class="flex flex-col gap-[5px]">
+      <h1 class="text-[24px] md:text-[25px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
+        Jadwal Perkuliahan
+      </h1>
+      <p
+        class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
+        Jadwal efektif kelas <span class="font-semibold text-[#334155]"
+          x-text="selectedClassFormatted || '-'">-</span> pekan ini, termasuk kuliah pengganti resmi.
+      </p>
+    </div>
+
+    <!-- Tombol Saklar Layar Tetap Menyala (Wake Lock API) -->
+    <template x-if="typeof wakeLockActive !== 'undefined' && 'wakeLock' in navigator">
+      <button type="button"
+        @click="toggleWakeLock()"
+        :aria-pressed="String(wakeLockActive)"
+        :class="wakeLockActive ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-xs' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'"
+        class="h-9 px-3 rounded-xl border flex items-center gap-2 text-[12px] font-semibold transition-all shrink-0 cursor-pointer"
+        :title="wakeLockActive ? 'Layar dijaga tetap menyala (Ketuk untuk menonaktifkan)' : 'Jaga layar HP tetap menyala saat kuliah atau lab'">
+        <span class="relative flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" :class="wakeLockActive ? 'text-amber-600' : 'text-slate-500'">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+          </svg>
+          <span x-show="wakeLockActive" class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+        </span>
+        <span x-text="wakeLockActive ? 'Layar Terus Menyala' : 'Layar Tetap Menyala'">Layar Tetap Menyala</span>
+      </button>
+    </template>
   </div>
 
   <!-- Navigasi Pekan dan Legenda Portal (DESKTOP) -->
@@ -1032,13 +1058,15 @@
                 class="h-[38px] px-4 flex items-center justify-center bg-white hover:bg-slate-50 border border-[#CBD5E1] text-[#334155] rounded-[10px] text-[12px] font-semibold transition-colors">
                 Tutup
               </button>
-              <button type="button" @click="salinRingkasanSesi(detailSesi)"
-                class="h-[38px] px-4 flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[10px] text-[12px] font-bold transition-colors shadow-sm">
-                <svg viewBox="0 0 14 14" class="w-3.5 h-3.5" fill="currentColor">
-                  <path
-                    d="M5.318 9.916a.94.94 0 0 1-.943-.94V2.694c0-.52.423-.943.943-.943h4.532c.52 0 .943.423.943.943v6.282c0 .52-.423.94-.943.94H5.318zm0-.581h4.532a.36.36 0 0 0 .36-.36V2.694a.36.36 0 0 0-.36-.36H5.318a.36.36 0 0 0-.36.36v6.281c0 .2.16.36.36.36zm-1.75 2.331a.94.94 0 0 1-.943-.943V4.147a.29.29 0 0 1 .58 0v6.576c0 .2.16.36.36.36h4.823a.29.29 0 0 1 0 .58H3.568z" />
+              <button type="button" @click="bagikanSesi(detailSesi)"
+                class="min-h-[44px] h-[38px] px-4 flex items-center justify-center gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[10px] text-[12px] font-bold transition-colors shadow-sm cursor-pointer"
+                title="Bagikan jadwal sesi ini">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                  <polyline points="16 6 12 2 8 6"/>
+                  <line x1="12" y1="2" x2="12" y2="15"/>
                 </svg>
-                <span>Salin Info Sesi</span>
+                <span x-text="'share' in navigator ? 'Bagikan Sesi' : 'Salin Info Sesi'">Bagikan Sesi</span>
               </button>
             </div>
           </div>

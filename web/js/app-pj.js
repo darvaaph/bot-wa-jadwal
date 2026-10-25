@@ -2928,12 +2928,27 @@ function pjApp() {
           list = scoped.length > 0 ? scoped : list;
         }
         this.tasks = list;
+        this.updateAppBadge();
       } catch (e) {
         this.tasks = [];
+        this.updateAppBadge();
         this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
       }
+    },
+
+    updateAppBadge() {
+      try {
+        if (!('setAppBadge' in navigator)) return;
+        const active = (this.tasks || []).filter(t => !t.completed_at && !t.archived_at);
+        const count = active.length;
+        if (count > 0) {
+          navigator.setAppBadge(count).catch(() => {});
+        } else if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      } catch (e) {}
     },
 
     parseDeadlineID(tanggal, jam) { return API.parseDeadlineID(tanggal, jam); },
@@ -3736,6 +3751,9 @@ function pjApp() {
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
       this.currentUser = null;
       this.showToast('Berhasil keluar. Mengarahkan ke login...');
       setTimeout(() => {

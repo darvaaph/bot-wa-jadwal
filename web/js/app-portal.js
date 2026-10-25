@@ -27,6 +27,8 @@ function portalApp() {
     resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
+    wakeLockActive: false,
+    wakeLockSentinel: null,
 
     ...AsteriskShell.behavior('portal'),
 
@@ -566,6 +568,15 @@ function portalApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) { }
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
+      window.addEventListener('focus', () => { this.updateAppBadge(); });
+      document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+          this.updateAppBadge();
+          if (this.wakeLockActive) {
+            await this.requestWakeLock();
+          }
+        }
+      });
       window.addEventListener('pwa:update-available', () => {
         this.showToast('Pembaruan sistem tersedia. Memperbarui aplikasi...');
         setTimeout(() => {
@@ -756,6 +767,12 @@ function portalApp() {
       this.pin = '';
       this.pinError = '';
       this.view = 'dashboard';
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
+      if (this.wakeLockActive) {
+        this.releaseWakeLock();
+      }
     },
 
     toggleSidebar() {
@@ -792,7 +809,11 @@ function portalApp() {
           this.loadMateri();
           this.loadPerubahan();
           this.loadSemester();
+        } else {
+          this.updateAppBadge();
         }
+      } else {
+        this.updateAppBadge();
       }
 
       try {
@@ -1432,18 +1453,137 @@ function portalApp() {
       }
     },
 
-    salinRingkasanSesi(s) {
+    async bagikanSesi(s) {
       if (!s) return;
       const tgl = this.tanggalPekanFormatted[s.hari] || s.hari;
-      const teks = `[Jadwal Kuliah - ${s.matkul}]\n` +
+      const url = `${window.location.origin}/c/${this.selectedClassSlug}`;
+      const teks = `[Jadwal Kuliah: ${s.matkul}]\n` +
         `📅 Hari/Tgl: ${s.hari}, ${tgl}\n` +
-        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
-        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')}\n` +
-        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        `⏰ Waktu: ${s.timeStart} - ${s.timeEnd} WIB\n` +
+        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '-')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '-'}\n` +
         (s.pj ? `👤 PJ: ${s.pj}\n` : '') +
         (s.kind === 'PENGGANTI' ? `ℹ️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}\n` : '') +
-        (s.link ? `🔗 Link: ${s.link}\n` : '');
+        (s.link ? `🔗 Link: ${s.link}\n` : '') +
+        `\nAkses portal: ${url}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Jadwal Kuliah: ${s.matkul}`,
+            text: teks,
+            url: url
+          });
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
       this.copyText(teks, 'Ringkasan sesi berhasil disalin ke papan klip!');
+    },
+
+    salinRingkasanSesi(s) {
+      return this.bagikanSesi(s);
+    },
+
+    async bagikanTugas(t) {
+      if (!t) return;
+      const deadlineTxt = this.fmtDeadlineDetailed(t.deadline_at) || t.deadline || '-';
+      const url = `${window.location.origin}/c/${this.selectedClassSlug}`;
+      let teks = `[Tugas: ${t.matkul || 'Perkuliahan'}]\n` +
+        `📝 Judul: ${t.title || t.deskripsi || 'Tugas'}\n` +
+        `⏳ Batas Waktu: ${deadlineTxt}\n`;
+      if (t.submission_url) {
+        teks += `🔗 Tempat Pengumpulan: ${t.submission_url}\n`;
+      } else if (t.submission_text) {
+        teks += `📍 Tempat Pengumpulan: ${t.submission_text}\n`;
+      }
+      if (t.instructions && t.instructions.trim()) {
+        teks += `\n📋 Instruksi:\n${t.instructions.trim()}\n`;
+      }
+      teks += `\nAkses portal: ${url}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Tugas ${t.matkul}: ${t.title || ''}`,
+            text: teks,
+            url: url
+          });
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      this.copyText(teks, 'Rincian tugas berhasil disalin ke papan klip!');
+    },
+
+    updateAppBadge() {
+      try {
+        if (!('setAppBadge' in navigator)) return;
+        if (!this.unlocked) {
+          if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+          return;
+        }
+        const activeTasks = (this.tasks || []).filter(t => !t.is_completed && !t.completed_at);
+        const count = activeTasks.length;
+        if (count > 0) {
+          navigator.setAppBadge(count).catch(() => {});
+        } else if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      } catch (e) {
+        // Non-critical API, silent fallback
+      }
+    },
+
+    async toggleWakeLock() {
+      if (!('wakeLock' in navigator)) {
+        this.showToast('Browser ini belum mendukung fitur layar tetap menyala.');
+        return;
+      }
+      if (this.wakeLockActive) {
+        await this.releaseWakeLock();
+        this.showToast('Mode layar tetap menyala dinonaktifkan.');
+      } else {
+        const ok = await this.requestWakeLock();
+        if (ok) {
+          this.showToast('Layar akan tetap menyala selama tab ini dibuka.');
+        } else {
+          this.showToast('Tidak dapat mengaktifkan mode layar tetap menyala.');
+        }
+      }
+    },
+
+    async requestWakeLock() {
+      try {
+        if (!('wakeLock' in navigator)) return false;
+        this.wakeLockSentinel = await navigator.wakeLock.request('screen');
+        this.wakeLockActive = true;
+        this.wakeLockSentinel.addEventListener('release', () => {
+          if (document.visibilityState === 'visible') {
+            this.wakeLockActive = false;
+            this.wakeLockSentinel = null;
+          }
+        });
+        return true;
+      } catch (err) {
+        this.wakeLockActive = false;
+        this.wakeLockSentinel = null;
+        return false;
+      }
+    },
+
+    async releaseWakeLock() {
+      try {
+        if (this.wakeLockSentinel) {
+          await this.wakeLockSentinel.release();
+        }
+      } catch (e) {
+      } finally {
+        this.wakeLockSentinel = null;
+        this.wakeLockActive = false;
+      }
     },
 
     hubungiPJ(s) {
@@ -1672,9 +1812,11 @@ function portalApp() {
         [...this.tugasGrup.mendatang, ...this.tugasGrup.minggu_ini, ...this.tugasGrup.hari_ini, ...this.tugasGrup.terlewat]
           .forEach(t => { if (!gabung.has(String(t.id))) gabung.set(String(t.id), t); });
         this.tasks = Array.from(gabung.values());
+        this.updateAppBadge();
       } catch (e) {
         this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
         this.tasks = [];
+        this.updateAppBadge();
         this.tugasError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
