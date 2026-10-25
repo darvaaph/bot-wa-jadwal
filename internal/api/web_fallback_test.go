@@ -51,3 +51,53 @@ func TestIsWebPagePath(t *testing.T) {
 		}
 	}
 }
+
+func TestPWARoutes_ServedWithCorrectHeaders(t *testing.T) {
+	s := newTestServer(t)
+
+	// 1. Service Worker: no-cache, Service-Worker-Allowed: /
+	rr := performRequest(t, s, "GET", "/sw.js", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /sw.js status = %d, mau 200", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "javascript") {
+		t.Fatalf("GET /sw.js Content-Type = %q, mau javascript", ct)
+	}
+	if swa := rr.Header().Get("Service-Worker-Allowed"); swa != "/" {
+		t.Fatalf("GET /sw.js Service-Worker-Allowed = %q, mau /", swa)
+	}
+	if cc := rr.Header().Get("Cache-Control"); !strings.Contains(cc, "no-cache") {
+		t.Fatalf("GET /sw.js Cache-Control = %q, mau no-cache", cc)
+	}
+
+	// 2. Manifests: application/manifest+json
+	for _, p := range []string{"/manifest.webmanifest", "/manifest.json"} {
+		rr := performRequest(t, s, "GET", p, nil)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d, mau 200", p, rr.Code)
+		}
+		if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "json") {
+			t.Fatalf("GET %s Content-Type = %q, mau json", p, ct)
+		}
+		if !strings.Contains(rr.Body.String(), "Bot Jadwal") {
+			t.Fatalf("GET %s tidak memuat nama 'Bot Jadwal'", p)
+		}
+		if !strings.Contains(rr.Body.String(), "/assets/icons/icon-192.png") {
+			t.Fatalf("GET %s tidak memuat icon-192.png", p)
+		}
+	}
+
+	// 3. PWA Icons: 200 OK
+	for _, icon := range []string{
+		"/assets/icons/icon-192.png",
+		"/assets/icons/icon-512.png",
+		"/assets/icons/icon-maskable-192.png",
+		"/assets/icons/icon-maskable-512.png",
+		"/assets/icons/favicon.svg",
+	} {
+		rr := performRequest(t, s, "GET", icon, nil)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d, mau 200", icon, rr.Code)
+		}
+	}
+}
