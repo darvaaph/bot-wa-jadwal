@@ -73,10 +73,16 @@ func (c *AdminController) EnterSupport(w http.ResponseWriter, r *http.Request) {
 	}
 	var classID int64
 	var classCode string
-	if err := c.db.QueryRow(`SELECT id, code FROM classes WHERE slug = ?;`, slug).Scan(&classID, &classCode); err != nil {
+	var canonicalSlug string
+	if err := c.db.QueryRow(`
+		SELECT id, code, slug FROM classes 
+		WHERE LOWER(slug) = LOWER(?) OR LOWER(code) = LOWER(?) OR slug = ?
+		LIMIT 1;
+	`, slug, slug, slug).Scan(&classID, &classCode, &canonicalSlug); err != nil {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
+	slug = canonicalSlug
 
 	subject := fmt.Sprintf("admin:%d", u.UserID)
 	var trustedProxies []string

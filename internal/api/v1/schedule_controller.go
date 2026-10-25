@@ -307,7 +307,7 @@ func (c *ScheduleController) GetPatterns(w http.ResponseWriter, r *http.Request)
 		}
 		query += " AND sp.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") || (u.ActiveRole == "SYSTEM_ADMIN" && u.ActiveClassID.Valid) {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak aktif")
 			return
@@ -778,7 +778,7 @@ func (c *ScheduleController) GetTeachingEvents(w http.ResponseWriter, r *http.Re
 		}
 		query += " AND co.id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "PJ" && scopeParam == "class") || (u.ActiveRole == "SYSTEM_ADMIN" && u.ActiveClassID.Valid) {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas tidak aktif")
 			return

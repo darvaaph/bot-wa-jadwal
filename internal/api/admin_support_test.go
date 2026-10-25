@@ -283,3 +283,64 @@ func TestV1Audit_PJScope(t *testing.T) {
 		t.Fatalf("PJ filter aksi expected 1, got %d (%d)", len(items), code)
 	}
 }
+
+func TestV1Support_KMWorkspaceAccess(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// 1. Tanpa Mode Dukungan -> Akses KM Dashboard ditolak (403)
+	w := helperDo(t, s, "GET", "/api/v1/km/dashboard", adminToken, nil)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("tanpa dukungan expected 403, got %d", w.Code)
+	}
+
+	// 2. Masuk Mode Dukungan dengan kode kelas huruf besar (case-insensitivity check)
+	w = helperDo(t, s, "POST", "/api/v1/admin/support/enter", adminToken, map[string]string{
+		"class_slug": "D4-TI-2024-A", "reason": "Bantuan darurat jadwal perkuliahan",
+	})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("enter dukungan expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 3. Dengan Mode Dukungan -> Akses KM Dashboard diizinkan (200) & data kelas sesuai
+	w = helperDo(t, s, "GET", "/api/v1/km/dashboard", adminToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("dengan dukungan expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var dash struct {
+		Data struct {
+			Class struct {
+				Slug string `json:"slug"`
+				Code string `json:"code"`
+			} `json:"class"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &dash)
+	if dash.Data.Class.Slug != "d4-ti-2024-a" {
+		t.Fatalf("slug kelas dashboard tidak sesuai: %s", dash.Data.Class.Slug)
+	}
+
+	// 4. Pola jadwal dan tugas ter-scope dengan rapi
+	w = helperDo(t, s, "GET", "/api/v1/schedule/patterns", adminToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patterns expected 200, got %d", w.Code)
+	}
+	w = helperDo(t, s, "GET", "/api/v1/tasks", adminToken, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("tasks expected 200, got %d", w.Code)
+	}
+
+	// 5. Keluar Mode Dukungan -> Sesi tertutup
+	w = helperDo(t, s, "POST", "/api/v1/admin/support/exit", adminToken, map[string]string{"reason": "Selesai membantu"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("exit expected 200, got %d", w.Code)
+	}
+
+	// 6. Setelah keluar -> Akses KM Dashboard kembali ditolak (403)
+	w = helperDo(t, s, "GET", "/api/v1/km/dashboard", adminToken, nil)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("setelah exit expected 403, got %d", w.Code)
+	}
+}
+

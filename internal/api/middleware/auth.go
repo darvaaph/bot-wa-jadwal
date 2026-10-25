@@ -204,6 +204,22 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// 6. Perbarui waktu aktivitas terakhir (last_seen_at)
 		_, _ = am.db.Exec(`UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?;`, sessionID)
 
+		// Dukungan System Admin: jika sedang dalam Mode Dukungan aktif, cakupkan konteks kelasnya
+		if role.Valid && role.String == "SYSTEM_ADMIN" {
+			var sgClassID int64
+			var sgClassSlug string
+			if err := am.db.QueryRow(`
+				SELECT sg.class_id, c.slug
+				FROM support_grants sg
+				JOIN classes c ON c.id = sg.class_id
+				WHERE sg.user_id = ? AND sg.status = 'ACTIVE' AND datetime(sg.expires_at) > datetime('now')
+				ORDER BY sg.id DESC LIMIT 1;
+			`, userID).Scan(&sgClassID, &sgClassSlug); err == nil {
+				classID = sql.NullInt64{Int64: sgClassID, Valid: true}
+				classSlug = sql.NullString{String: sgClassSlug, Valid: true}
+			}
+		}
+
 		// 7. Bentuk UserContext dan simpan ke request context
 		userCtx := &common.UserContext{
 			SessionID:              sessionID,

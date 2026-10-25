@@ -1,0 +1,18 @@
+<div x-show="supportGrant && supportMasihAktif()" x-cloak class="w-full border-b border-[#FCD34D] bg-[#FFFBEB] px-4 py-2.5 sm:px-6 lg:px-7" role="region" aria-label="Mode Dukungan aktif">
+  <div class="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#FDE68A] bg-[#FEF3C7] text-[#B45309]" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.5 20 6v6c0 5-3.2 8.2-8 10-4.8-1.8-8-5-8-10V6l8-3.5Z"/></svg>
+      </span>
+      <div class="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span class="text-[13px] font-bold text-[#78350F]">Mode Dukungan: <span x-text="supportGrant?.class_code || selectedClass"></span></span>
+        <span class="rounded-full border border-[#FDE68A] bg-[#FEF3C7] px-2 py-0.5 font-mono text-[11px] text-[#92400E]" x-text="'Sisa ' + supportHitungMundur()"></span>
+        <span class="text-[12px] text-[#92400E] truncate">· Alasan: <span x-text="supportGrant?.reason"></span></span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="/system-admin.html" class="ui-button ui-button--secondary min-h-[36px] h-[36px] px-3 text-[12px]">Panel Admin</a>
+      <button type="button" @click="keluarDukunganKM()" class="ui-button min-h-[36px] h-[36px] border-[#DC2626] bg-[#DC2626] hover:bg-[#B91C1C] px-3 text-[12px] text-white">Keluar Dukungan</button>
+    </div>
+  </div>
+</div>

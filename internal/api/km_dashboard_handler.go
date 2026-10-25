@@ -64,7 +64,7 @@ type kmDashboardData struct {
 // handleKMDashboard returns one class-scoped, active-semester snapshot.
 func (s *Server) handleKMDashboard(w http.ResponseWriter, r *http.Request) {
 	u, ok := common.GetAuthContext(r)
-	if !ok || u.ActiveRole != "KM" || !u.ActiveClassID.Valid {
+	if !ok || (u.ActiveRole != "KM" && u.ActiveRole != "SYSTEM_ADMIN") || !u.ActiveClassID.Valid {
 		s.writeV1Error(w, http.StatusForbidden, CodeForbidden, "Konteks KM kelas tidak aktif")
 		return
 	}

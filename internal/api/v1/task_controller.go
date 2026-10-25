@@ -95,7 +95,7 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		query += " AND t.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "SYSTEM_ADMIN" && u.ActiveClassID.Valid) {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
 			return

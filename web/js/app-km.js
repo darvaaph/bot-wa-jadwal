@@ -18,6 +18,23 @@ function kmApp() {
     weekOffset: 0,
     hideEmpty: false,
     activeScheduleDay: '',
+    supportGrant: null,
+    supportSekarang: Date.now(),
+    supportMasihAktif() {
+      const akhir = Date.parse(this.supportGrant && this.supportGrant.expires_at);
+      return !!this.supportGrant && Number.isFinite(akhir) && akhir > this.supportSekarang;
+    },
+    supportHitungMundur() {
+      const akhir = Date.parse(this.supportGrant && this.supportGrant.expires_at);
+      const detik = Number.isFinite(akhir) ? Math.max(0, Math.ceil((akhir - this.supportSekarang) / 1000)) : 0;
+      return String(Math.floor(detik / 60)).padStart(2, '0') + ':' + String(detik % 60).padStart(2, '0');
+    },
+    async keluarDukunganKM() {
+      try {
+        await API.supportExit('');
+      } catch (e) {}
+      window.location.replace('/system-admin.html');
+    },
 
     ...AsteriskShell.behavior('km'),
     ...examSessionBehavior(),
@@ -1198,6 +1215,7 @@ function kmApp() {
       if (asg.role === 'SYSTEM_ADMIN') {
         const requested = new URLSearchParams(window.location.search).get('class');
         if (requested) return requested;
+        if (this.supportGrant && this.supportGrant.class_slug) return this.supportGrant.class_slug;
       }
       if (asg.class_slug) return String(asg.class_slug);
       const list = (me && me.classes) || [];
@@ -2031,10 +2049,13 @@ function kmApp() {
           return;
         }
         if (role === 'SYSTEM_ADMIN') {
-          window.location.replace('/system-admin.html');
-          return;
-        }
-        if (role !== 'KM') {
+          const supportActive = await API.supportActive().catch(() => null);
+          if (!supportActive) {
+            window.location.replace('/system-admin.html');
+            return;
+          }
+          this.supportGrant = supportActive;
+        } else if (role !== 'KM') {
           window.location.replace('/login.html?role=km');
           return;
         }
@@ -2052,6 +2073,7 @@ function kmApp() {
 
       await AsteriskShell.mount('km', ['dashboard', 'tugas', 'jadwal', 'exam', 'rooms', 'materi', 'semester', 'anggota', 'antrean', 'monitor', 'notif', 'pengaturan', 'usulan', 'log']);
       await this.loadPartials([
+        ['km-banner', '/partials/km/support-banner.html'],
         ['km-exam', '/partials/common/exam-dialog.html'],
         ['km-dashboard', '/partials/km/view-dashboard.html'],
         ['km-tugas', '/partials/km/view-tugas.html'],
@@ -2068,7 +2090,7 @@ function kmApp() {
         ['km-log', '/partials/km/view-log.html'],
       ]);
       this.updateClock();
-      setInterval(() => this.updateClock(), 1000);
+      setInterval(() => { this.updateClock(); this.supportSekarang = Date.now(); }, 1000);
       await Promise.all([this.checkBot(), this.loadKMDashboard()]);
       this.dashboardLoading = false;
       await this.loadClasses();

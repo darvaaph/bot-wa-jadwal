@@ -5879,12 +5879,12 @@ function systemAdminApp() {
       this.dukunganLoading = true;
       try {
         await API.supportExit('');
-        this.dukunganAktif = null;
-        this.dukunganAlasan = '';
         this.showToast('Mode Dukungan dimatikan.');
       } catch (err) {
-        this.showToast(err.message || 'Gagal keluar Mode Dukungan.');
+        this.showToast(err.status === 404 ? 'Mode Dukungan telah berakhir.' : (err.message || 'Gagal keluar Mode Dukungan.'));
       } finally {
+        this.dukunganAktif = null;
+        this.dukunganAlasan = '';
         this.dukunganLoading = false;
       }
     },

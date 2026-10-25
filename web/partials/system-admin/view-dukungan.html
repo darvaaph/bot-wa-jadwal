@@ -3,7 +3,7 @@
   <div class="p-5 md:p-6 rounded-2xl border border-amber-300 bg-amber-50">
     <h1 class="font-display text-[24px] font-bold text-[#1D1B3A]">Mode Dukungan</h1>
     <p class="text-[13px] text-amber-900 mt-1">Pilih kelas, lalu tulis alasan operasional untuk mengaktifkan sesi dukungan 60 menit.</p>
-    <div x-show="dukunganAktif" class="mt-4 p-4 rounded-xl bg-white border border-amber-200 text-[13px]">
+    <div x-show="dukunganMasihAktif()" class="mt-4 p-4 rounded-xl bg-white border border-amber-200 text-[13px]">
       <p class="font-bold text-[#1D1B3A]">Aktif: <span x-text="namaDukungan()"></span></p>
       <p class="text-amber-900 mt-0.5">Alasan: <span x-text="dukunganAktif ? (dukunganAktif.reason || '') : ''"></span></p>
       <p class="text-amber-900 mt-0.5" x-show="dukunganAktif && dukunganAktif.expires_at">Berlaku s.d. <span class="font-mono" x-text="fmtWaktuID(dukunganAktif.expires_at)"></span> (60 menit, tercatat di Audit Global).</p>
@@ -13,7 +13,7 @@
         <button type="button" @click="keluarDukungan()" :disabled="dukunganLoading" class="min-h-[40px] px-4 rounded-lg border border-red-300 text-red-700 text-[12px] font-semibold disabled:opacity-60">Keluar mode dukungan</button>
       </div>
     </div>
-    <div x-show="!dukunganAktif" class="mt-4 flex flex-col gap-3">
+    <div x-show="!dukunganMasihAktif()" class="mt-4 flex flex-col gap-3">
       <div>
         <label class="block text-[13px] font-bold text-[#1D1B3A] mb-1" for="sa-dukungan-kelas">Kelas tujuan</label>
         <select id="sa-dukungan-kelas" x-model="kelasAktif" class="w-full max-w-xl h-11 px-3 bg-white border border-[#CBD5E1] rounded-xl text-[13px] text-[#1D1B3A]">
@@ -52,7 +52,7 @@
 
         <!-- Tombol Aksi Mode Dukungan -->
         <div>
-          <template x-if="!dukunganAktif">
+          <template x-if="!dukunganMasihAktif()">
             <button
               type="button"
               @click="bukaModalDukunganGlobal()"
@@ -63,7 +63,7 @@
               <span class="text-[12px] font-normal">Masuk Mode Dukungan</span>
             </button>
           </template>
-          <template x-if="dukunganAktif">
+          <template x-if="dukunganMasihAktif()">
             <button
               type="button"
               @click="keluarDukungan()"
