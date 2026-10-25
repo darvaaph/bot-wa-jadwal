@@ -119,8 +119,8 @@ func TestLinkRestrictedDMMessage(t *testing.T) {
 	}
 
 	withoutSlug := linkRestrictedDMMessage("")
-	if !strings.Contains(withoutSlug, "Web Portal Kelas") {
-		t.Fatalf("harus memuat web portal kelas meski tanpa slug, got: %s", withoutSlug)
+	if !strings.Contains(withoutSlug, "Web Jadwal & Tugas") {
+		t.Fatalf("harus memuat web jadwal & tugas meski tanpa slug, got: %s", withoutSlug)
 	}
 	if !strings.Contains(withoutSlug, "/c/") {
 		t.Fatalf("harus memuat /c/ meski tanpa slug, got: %s", withoutSlug)

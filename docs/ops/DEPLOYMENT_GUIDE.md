@@ -233,3 +233,41 @@ Setelah server menyala di balik domain resmi:
 4. **Verifikasi Interaksi Bot:**
    - Di grup WhatsApp yang sudah ditautkan, ketik: `!jadwal` dan `!portal`.
    - Pastikan bot membalas dengan ringkasan jadwal yang benar dan tautan portal resmi berdomain HTTPS.
+
+---
+
+## 🔄 9. Prosedur Pembaruan Kode Rutin (Update SOP)
+
+Jika ada perbaikan *bug*, penambahan fitur, atau pembaruan kode di lokal, ikuti SOP ringkas ini tanpa perlu mengulang setup awal:
+
+### Langkah A: Di Laptop Pengembang (PowerShell)
+Kompilasi biner Linux terbaru dan unggah ke server:
+```powershell
+# 1. Kompilasi biner Linux AMD64
+$env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"
+go build -ldflags="-s -w" -o bot-jadwal ./cmd/bot
+
+# 2. Unggah biner baru ke server (sebagai berkas sementara)
+scp bot-jadwal user@ip-server-azure:~/bot-jadwal.new
+
+# (Opsional) Jika ada perubahan data kurikulum/jadwal kelas di data/jadwal/
+scp -r data user@ip-server-azure:~/
+```
+
+### Langkah B: Di Terminal Server (SSH)
+Timpa biner lama dan mulai ulang layanan background:
+```bash
+# 1. Timpa biner lama dengan biner yang baru diunggah
+mv ~/bot-jadwal.new ~/bot-jadwal
+chmod +x ~/bot-jadwal
+
+# 2. Restart layanan daemon (systemd)
+sudo systemctl restart bot-jadwal
+
+# 3. Pastikan statusnya aktif (running)
+sudo systemctl status bot-jadwal
+```
+
+> **Catatan Operasional:**  
+> Sesi WhatsApp (`storage/sesi_bot.db`) dan data aplikasi (`storage/bot_v1.db`) akan tetap aman dan tidak akan ter-reset saat proses pembaruan ini.
+

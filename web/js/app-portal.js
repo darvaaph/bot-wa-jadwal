@@ -564,6 +564,16 @@ function portalApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) { }
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
+      window.addEventListener('pwa:update-available', () => {
+        this.showToast('Pembaruan sistem tersedia. Memperbarui aplikasi...');
+        setTimeout(() => {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          } else {
+            window.location.reload();
+          }
+        }, 1500);
+      });
       await this.loadClasses();
       await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
       await AsteriskShell.mount('portal', ['dashboard', 'tugas', 'jadwal', 'materi', 'courses', 'perubahan', 'arsip']);
@@ -637,7 +647,7 @@ function portalApp() {
           localStorage.setItem('portal_class', slug);
           this.unlocked = true;
           this.gateStep = 'pin';
-          this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
+          this.showToast(`Selamat datang di Jadwal & Tugas ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
           this.searchMateriQuery = '';
@@ -656,13 +666,13 @@ function portalApp() {
         // Status lain (500, dsb): masalah server/koneksi, juga jangan buka diam-diam.
         this.kunciPortal();
         this.showToast(res.status === 404
-          ? 'Kelas tidak terdaftar di portal. Periksa kode kelas atau hubungi KM.'
-          : 'Portal belum dapat diakses. Periksa koneksi lalu coba lagi.');
+          ? 'Kelas tidak terdaftar. Periksa kode kelas atau hubungi KM.'
+          : 'Jadwal belum dapat diakses. Periksa koneksi lalu coba lagi.');
         return;
       } catch (err) {
         // Fallback jika offline/error: tetap terkunci agar tidak tampil portal kosong.
         this.kunciPortal();
-        this.showToast('Tidak dapat terhubung ke portal. Periksa koneksi lalu coba lagi.');
+        this.showToast('Tidak dapat memuat jadwal kelas. Periksa koneksi lalu coba lagi.');
         return;
       } finally {
         this.checkingAccess = false;
@@ -707,7 +717,7 @@ function portalApp() {
         localStorage.setItem('portal_pin_at', String(Date.now()));
         this.unlocked = true;
         this.gateStep = 'pin';
-        this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
+        this.showToast('Kode akses terverifikasi. Selamat datang di Jadwal & Tugas Kelas!');
 
         await this.ensureDashboardPartials();
         this.updateClock();
@@ -1539,11 +1549,11 @@ function portalApp() {
           this.tasks = [];
           if (st === 401) {
             this.kunciPortal();
-            this.showToast('Sesi portal berakhir atau kode akses telah diperbarui KM.');
+            this.showToast('Sesi akses berakhir atau kode telah diperbarui KM.');
             return;
           }
           this.tugasError = st === 404
-            ? 'Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.'
+            ? 'Kelas tidak ditemukan. Periksa kode kelas atau hubungi KM.'
             : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
           return;
         }

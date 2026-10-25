@@ -80,8 +80,8 @@
 
           <!-- Penjelasan / Subtitle Dialog -->
           <div class="text-[12px] leading-[17px] box-border w-full text-[#64748B] font-normal text-left"
-               x-text="editMateriId ? ('Terakhir diperbarui pada ' + fmtTanggalLengkap(editMateriItem ? editMateriItem.created_at : '') + ' oleh ' + (userName || 'PJ Mata Kuliah') + ' (PJ).') : 'Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.'">
-            Materi yang ditambahkan langsung dapat diakses mahasiswa melalui portal web kelas.
+               x-text="editMateriId ? ('Terakhir diperbarui pada ' + fmtTanggalLengkap(editMateriItem ? editMateriItem.created_at : '') + ' oleh ' + (userName || 'PJ Mata Kuliah') + ' (PJ).') : 'Materi yang ditambahkan langsung dapat diakses mahasiswa melalui web kelas.'">
+            Materi yang ditambahkan langsung dapat diakses mahasiswa melalui web kelas.
           </div>
         </div>
 
@@ -167,8 +167,8 @@
             <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z" fill="#2563EB"></path>
           </svg>
           <div class="text-[11px] leading-[17px] box-border flex-1 text-[#475569] font-normal text-left"
-               x-text="editMateriId ? 'Pembaruan materi akan langsung terlihat oleh mahasiswa di portal publik kelas.' : ('Materi ini akan dikelompokkan otomatis di bawah mata kuliah ' + (pjMatkul || 'binaan Anda') + ' pada portal publik kelas.')">
-            Materi ini akan dikelompokkan otomatis di bawah mata kuliah binaan pada portal publik kelas.
+               x-text="editMateriId ? 'Pembaruan materi akan langsung terlihat oleh mahasiswa di portal publik kelas.' : ('Materi ini akan dikelompokkan otomatis di bawah mata kuliah ' + (pjMatkul || 'binaan Anda') + ' pada web jadwal & tugas kelas.')">
+            Materi ini akan dikelompokkan otomatis di bawah mata kuliah binaan pada web jadwal & tugas kelas.
           </div>
         </div>
       </div>
@@ -330,7 +330,7 @@
           <path d="M7 9.625q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085l0-2.625q0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545-0.12305 0-0.2085 0.08545-0.08203 0.08203-0.08203 0.20849l0 2.625q0 0.12305 0.08203 0.2085 0.08545 0.08203 0.2085 0.08203z m0-4.04004q0.15381 0 0.25635-0.10254 0.10254-0.10254 0.10254-0.25635 0-0.15039-0.10254-0.25293-0.10254-0.10596-0.25635-0.10595-0.15381 0-0.25635 0.10595-0.10254 0.10254-0.10254 0.25293 0 0.15381 0.10254 0.25635 0.10254 0.10254 0.25635 0.10254z m0.00342 6.66504q-1.09033 0-2.05078-0.41357-0.95703-0.41357-1.66797-1.1211-0.70752-0.70752-1.1211-1.66455-0.41357-0.96045-0.41357-2.04736 0-1.09033 0.41357-2.04737 0.41357-0.96045 1.1211-1.66796 0.70752-0.71094 1.66455-1.12452 0.96045-0.41357 2.04736-0.41357 1.09033 0 2.04737 0.41357 0.96045 0.41357 1.66796 1.1211 0.71094 0.70752 1.12452 1.66797 0.41357 0.95703 0.41357 2.04394 0 1.09033-0.41357 2.05078-0.41357 0.95703-1.1211 1.66797-0.70752 0.70752-1.66797 1.1211-0.95703 0.41357-2.04394 0.41357z m-0.00342-0.58447q1.95508 0 3.30859-1.35352 1.35693-1.35693 1.35694-3.31201 0-1.95508-1.35694-3.30859-1.35352-1.35693-3.30859-1.35694-1.95508 0-3.31201 1.35694-1.35352 1.35352-1.35352 3.30859 0 1.95508 1.35352 3.31201 1.35693 1.35352 3.31201 1.35352z" fill="#64748B"></path>
         </svg>
         <div class="text-[11px] leading-[17px] box-border flex-1 text-[#475569] font-normal text-left">
-          Tautan Google Drive atau GitHub langsung dapat diakses mahasiswa melalui portal web kelas.
+          Tautan Google Drive atau GitHub langsung dapat diakses mahasiswa melalui web kelas.
         </div>
       </div>
     </div>

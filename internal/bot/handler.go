@@ -56,7 +56,7 @@ func linkRestrictedDMMessage(slug string) string {
 	sb.WriteString("──────────\n")
 	sb.WriteString("Untuk keamanan dan privasi perkuliahan (Google Meet, Zoom, atau Google Drive), daftar tautan kelas hanya dapat diakses melalui:\n")
 	sb.WriteString("- Grup WhatsApp resmi kelas yang terdaftar\n")
-	sb.WriteString(fmt.Sprintf("- Web Portal Kelas: %s", portalURL))
+	sb.WriteString(fmt.Sprintf("- Web Jadwal & Tugas: %s", portalURL))
 	return sb.String()
 }
 
@@ -107,20 +107,20 @@ func RedirectMessage(entity string) string {
 // PortalMessage menyusun balasan perintah !portal/!web.
 func PortalMessage(slug, className string) string {
 	var sb strings.Builder
-	sb.WriteString("*PORTAL & DASHBOARD*\n")
+	sb.WriteString("*JADWAL & DASHBOARD KELAS*\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString("*Portal Kelas (mahasiswa):*\n")
+	sb.WriteString("*Jadwal & Tugas Kelas (Mahasiswa):*\n")
 	cleanSlug := strings.TrimSpace(slug)
 	if cleanSlug != "" {
 		sb.WriteString(fmt.Sprintf("%s/c/%s\n", util.PublicBaseURL(), cleanSlug))
 		if strings.TrimSpace(className) != "" {
-			sb.WriteString(fmt.Sprintf("Jadwal kuliah, tugas, dan materi kelas %s.\n\n", strings.TrimSpace(className)))
+			sb.WriteString(fmt.Sprintf("Buka tanpa login untuk melihat jadwal kuliah, tugas, dan materi kelas %s.\n\n", strings.TrimSpace(className)))
 		} else {
-			sb.WriteString("Jadwal kuliah, tugas, dan materi kelas Anda.\n\n")
+			sb.WriteString("Buka tanpa login untuk melihat jadwal kuliah, tugas, dan materi kelas Anda.\n\n")
 		}
 	} else {
 		sb.WriteString(util.PublicBaseURL() + "/c/ (pilih kelas Anda)\n")
-		sb.WriteString("Kunjungi portal lalu pilih kelas Anda untuk melihat jadwal dan tugas.\n\n")
+		sb.WriteString("Buka tautan lalu pilih kelas Anda untuk melihat jadwal dan tugas.\n\n")
 	}
 	sb.WriteString("*Dashboard Pengelola (PJ/KM):*\n")
 	sb.WriteString(util.PublicBaseURL() + "/login.html\n")

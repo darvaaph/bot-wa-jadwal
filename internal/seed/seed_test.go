@@ -648,3 +648,104 @@ func TestSeed_Case9_ReRunWhenPortalModeWasCodeClearsCodeHash(t *testing.T) {
 		t.Errorf("Ekspektasi mode=LINK dan codeHash=nil, dapat mode=%s, codeHash=%v", mode, codeHash)
 	}
 }
+
+// Kasus 10: Master Ruangan (rooms) otomatis di-seed dan terhubung ke schedule_patterns.
+func TestSeed_Case10_RoomsAutoSeededAndLinked(t *testing.T) {
+	targetDBPath := filepath.Join(t.TempDir(), "target_rooms.db")
+	db, err := database.InitDB(targetDBPath)
+	if err != nil {
+		t.Fatalf("InitDB gagal: %v", err)
+	}
+	defer db.Close()
+
+	curriculumPath := setupMockCurriculum(t, "pilot_rooms.json")
+	manifest := &Manifest{
+		Classes: []ClassMapping{
+			{
+				ClassCode:        "D4-TI-2024-A",
+				Slug:             "d4-ti-2024-a",
+				StudyProgram:     "D4 Teknik Informatika",
+				CohortYear:       2024,
+				GroupLabel:       "A",
+				SourceFile:       curriculumPath,
+				LegacyClassID:    "D4-TI-SMT3-A",
+				AcademicYear:     "2026/2027",
+				Term:             "GANJIL",
+				StartsOn:         "2026-09-01",
+				EndsOn:           "2027-01-31",
+				Timezone:         "Asia/Jakarta",
+				PortalAccessMode: "LINK",
+			},
+		},
+	}
+
+	report, err := SeedClasses(manifest, "chk-rooms", db, "")
+	if err != nil {
+		t.Fatalf("SeedClasses gagal: %v", err)
+	}
+
+	// 1. Verifikasi target counts rooms
+	if report.Classes[0].TargetCounts.Rooms != 3 {
+		t.Errorf("Ekspektasi 3 master rooms di TargetCounts, dapat %d", report.Classes[0].TargetCounts.Rooms)
+	}
+
+	// 2. Verifikasi isi tabel rooms
+	var roomCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM rooms WHERE status = 'ACTIVE'").Scan(&roomCount)
+	if err != nil || roomCount != 3 {
+		t.Errorf("Ekspektasi 3 ruangan aktif, dapat %d (err: %v)", roomCount, err)
+	}
+
+	// 3. Verifikasi detail ruangan
+	type roomCheck struct {
+		code     string
+		building string
+		roomType string
+	}
+	checks := []roomCheck{
+		{"D102-Lab", "Gedung D", "Laboratorium"},
+		{"D101-Kelas", "Gedung D", "Ruang Kuliah"},
+		{"H501-Lab", "Gedung H", "Laboratorium"},
+	}
+	for _, c := range checks {
+		var building, roomType string
+		err := db.QueryRow("SELECT building, room_type FROM rooms WHERE code = ?", c.code).Scan(&building, &roomType)
+		if err != nil {
+			t.Errorf("Ruangan %s tidak ditemukan: %v", c.code, err)
+		}
+		if building != c.building || roomType != c.roomType {
+			t.Errorf("Ruangan %s salah atribut: building=%s (mau %s), roomType=%s (mau %s)",
+				c.code, building, c.building, roomType, c.roomType)
+		}
+	}
+
+	// 4. Verifikasi bahwa semua pola jadwal memiliki room_id terisi
+	var unlinkedCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM schedule_patterns WHERE room_id IS NULL AND status = 'ACTIVE'").Scan(&unlinkedCount)
+	if err != nil || unlinkedCount != 0 {
+		t.Errorf("Ekspektasi 0 pola jadwal tanpa ruangan, dapat %d unlinked (err: %v)", unlinkedCount, err)
+	}
+
+	// 5. Verifikasi join pola jadwal ke kode ruangan
+	rows, err := db.Query(`
+		SELECT sp.start_time, r.code
+		FROM schedule_patterns sp
+		JOIN rooms r ON sp.room_id = r.id
+		WHERE sp.status = 'ACTIVE'
+		ORDER BY sp.day_of_week
+	`)
+	if err != nil {
+		t.Fatalf("Query schedule_patterns join rooms gagal: %v", err)
+	}
+	defer rows.Close()
+
+	linkedCodes := []string{}
+	for rows.Next() {
+		var st, code string
+		rows.Scan(&st, &code)
+		linkedCodes = append(linkedCodes, code)
+	}
+	if len(linkedCodes) != 3 {
+		t.Errorf("Ekspektasi 3 jadwal terhubung ruangan, dapat %d: %v", len(linkedCodes), linkedCodes)
+	}
+}

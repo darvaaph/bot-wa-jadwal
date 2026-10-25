@@ -292,7 +292,7 @@ function kmApp() {
     salinPortalUrl() {
       const url = this.portalUrl;
       if (!url) return;
-      this.copyText(url, 'Tautan portal mahasiswa disalin ke clipboard.');
+      this.copyText(url, 'Tautan jadwal mahasiswa disalin ke clipboard.');
     },
 
     isSessionCurrent(s) {
@@ -4786,7 +4786,7 @@ function kmApp() {
 
     salinKodePortal() {
       if (!this.portalCodeReveal) return;
-      this.copyText(this.portalCodeReveal, 'Kode portal disalin.');
+      this.copyText(this.portalCodeReveal, 'Kode akses disalin.');
       this.portalCodeCopied = true;
       setTimeout(() => {
         this.portalCodeCopied = false;
@@ -4798,22 +4798,22 @@ function kmApp() {
       if (!slug) return;
       try {
         await API.setPortalMode(slug, mode, 'Diubah KM');
-        this.showToast(mode === 'CODE' ? 'Portal memakai kode kelas.' : 'Portal memakai tautan.');
+        this.showToast(mode === 'CODE' ? 'Akses web memakai kode kelas.' : 'Akses web memakai tautan langsung.');
         await this.loadPengaturanKelas();
       } catch (e) {
         if (mode === 'CODE' && /rotasi|kode/i.test(String(e.message || ''))) {
           try {
             await this.rotasiKodeKelas();
             await API.setPortalMode(slug, mode, 'Diubah KM');
-            this.showToast('Kode kelas dibuat dan mode portal diubah.');
+            this.showToast('Kode kelas dibuat dan mode kode akses aktif.');
             await this.loadPengaturanKelas();
             return;
           } catch (e2) {
-            this.showToast(e2.message || 'Gagal mengubah mode portal.');
+            this.showToast(e2.message || 'Gagal mengubah mode akses.');
             return;
           }
         }
-        this.showToast(e.message || 'Gagal mengubah mode portal.');
+        this.showToast(e.message || 'Gagal mengubah mode akses.');
       }
     },
 

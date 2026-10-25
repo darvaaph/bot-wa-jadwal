@@ -5529,7 +5529,7 @@ function systemAdminApp() {
         await this.muatSemesterSemua();
 
         if (res && res.portal_code) {
-          this.showToast('Kelas ' + (res.code || payload.name) + ' dibuat! Kode PIN Portal: ' + res.portal_code, 7000);
+          this.showToast('Kelas ' + (res.code || payload.name) + ' dibuat! Kode PIN Akses: ' + res.portal_code, 7000);
         } else {
           this.showToast('Kelas baru berhasil ditambahkan.');
         }
@@ -5581,13 +5581,13 @@ function systemAdminApp() {
         if (res && res.portal_code) {
           this.portalCodeReveal = res.portal_code;
           this.portalCodeRevealTimer = setTimeout(() => { this.portalCodeReveal = ''; }, 60000);
-          this.showToast('Kode portal hanya tampil selama 60 detik. Salin sekarang.');
+          this.showToast('Kode akses hanya tampil selama 60 detik. Salin sekarang.');
         } else {
-          this.showToast('Kode portal kelas berhasil dirotasi.');
+          this.showToast('Kode akses kelas berhasil dirotasi.');
         }
         await this.loadDetailSettings(this.kelasAktifObj.slug);
       } catch (err) {
-        this.showToast(err.message || 'Gagal merotasi kode portal.');
+        this.showToast(err.message || 'Gagal merotasi kode akses.');
       }
     },
 
@@ -5661,7 +5661,7 @@ function systemAdminApp() {
       if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
       const dari = this.detailSettings ? this.detailSettings.portal_access_mode : '?';
       if (dari === mode) {
-        this.showToast(`Mode portal sudah ${mode}.`);
+        this.showToast(`Mode akses sudah ${mode}.`);
         return;
       }
       this.portalModeConfirm = { ke: mode, dari, nama: this.kelasAktifObj.nama };
@@ -5685,7 +5685,7 @@ function systemAdminApp() {
       try {
         const res = await API.setPortalMode(this.kelasAktifObj.slug, mode, alasan);
         if (res && res.changed === false) {
-          this.showToast(`Mode portal sudah ${mode}.`);
+          this.showToast(`Mode akses sudah ${mode}.`);
         } else {
           this.showToast(mode === 'LINK' ? 'Mode tautan aktif. Kode lama tak berlaku.' : 'Mode kode aktif.');
         }
@@ -5694,14 +5694,14 @@ function systemAdminApp() {
         if (mode === 'CODE' && /rotasi|kode/i.test(String(err.message || ''))) {
           try {
             await this.rotasiKodePortal();
-            this.showToast('Kode portal dibuat dan mode kode aktif.');
+            this.showToast('Kode akses dibuat dan mode kode aktif.');
             return;
           } catch (err2) {
-            this.showToast(err2.message || 'Gagal membuat kode portal.');
+            this.showToast(err2.message || 'Gagal membuat kode akses.');
             return;
           }
         }
-        this.showToast(err.message || 'Gagal mengubah mode portal.');
+        this.showToast(err.message || 'Gagal mengubah mode akses.');
       }
     },
 

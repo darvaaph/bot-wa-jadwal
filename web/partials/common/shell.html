@@ -249,7 +249,7 @@
         </div>
       </button>
 
-      <nav aria-label="Navigasi portal mahasiswa" class="mt-4 flex flex-col gap-1 text-[14px] shrink-0 w-full">
+      <nav aria-label="Navigasi jadwal & tugas mahasiswa" class="mt-4 flex flex-col gap-1 text-[14px] shrink-0 w-full">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
           <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="(shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold ' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium ') + (sidebarCollapsed ? 'justify-center' : 'gap-3 px-3')" class="flex items-center w-full h-[44px] rounded-[10px] text-left transition-colors">
             <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
@@ -262,8 +262,8 @@
         <div class="flex items-center justify-between" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
           <button type="button"
                   @click="classModalOpen = true"
-                  title="Ganti kelas portal"
-                  aria-label="Ganti kelas portal"
+                  title="Ganti kelas"
+                  aria-label="Ganti kelas"
                   class="flex items-center text-left rounded-xl hover:bg-slate-50 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
             <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
@@ -500,7 +500,7 @@
           <!-- Desktop top bar -->
           <div class="hidden md:flex items-center justify-between w-full">
             <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px]">
-              <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Portal</button>
+              <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Jadwal & Tugas</button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClassFormatted || 'Kelas'"></button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
@@ -804,7 +804,7 @@
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <nav aria-label="Navigasi mobile portal" class="mt-4 flex flex-col gap-1 text-[14px]">
+      <nav aria-label="Navigasi mobile jadwal & tugas" class="mt-4 flex flex-col gap-1 text-[14px]">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
           <button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium'" class="flex items-center gap-3 px-3 h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors">
             <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>

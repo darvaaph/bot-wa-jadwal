@@ -194,6 +194,27 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		mux.HandleFunc(method+" /index.html", redirectToLogin)
 	}
 
+	// PWA: Manifest & Service Worker
+	servePWAFile := func(filename, contentType string, noCache bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			data, err := web.Files.ReadFile(filename)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", contentType)
+			if noCache {
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				w.Header().Set("Service-Worker-Allowed", "/")
+			}
+			_, _ = w.Write(data)
+		}
+	}
+
+	mux.HandleFunc("GET /sw.js", servePWAFile("sw.js", "application/javascript; charset=utf-8", true))
+	mux.HandleFunc("GET /manifest.webmanifest", servePWAFile("manifest.webmanifest", "application/manifest+json", false))
+	mux.HandleFunc("GET /manifest.json", servePWAFile("manifest.json", "application/manifest+json", false))
+
 	// Menyajikan aset web statis dari web.Files embedded.
 	// Path halaman yang tidak ada (mis. salah ketik *.html) mendapat
 	// halaman 404 kustom, bukan teks polos FileServer.

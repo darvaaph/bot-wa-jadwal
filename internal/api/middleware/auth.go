@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"database/sql"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"net/http"
 	"strings"

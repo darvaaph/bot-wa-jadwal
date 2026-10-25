@@ -280,7 +280,7 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 	}
 
 	b.WriteString("\n──────────\n")
-	b.WriteString(fmt.Sprintf("Portal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
+	b.WriteString(fmt.Sprintf("Web Jadwal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
 }
@@ -830,7 +830,7 @@ func (s *V1BotService) GetWeeklySchedule(ctx context.Context, classID int64) (st
 	}
 
 	b.WriteString("\n──────────\n")
-	b.WriteString(fmt.Sprintf("Portal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
+	b.WriteString(fmt.Sprintf("Web Jadwal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
 }
@@ -907,7 +907,7 @@ func (s *V1BotService) GetNextClass(ctx context.Context, classID int64, now time
 	}
 
 	b.WriteString("\n──────────\n")
-	b.WriteString(fmt.Sprintf("Portal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
+	b.WriteString(fmt.Sprintf("Web Jadwal Kelas: %s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
 }
@@ -1033,7 +1033,7 @@ func (s *V1BotService) GetMenu(ctx context.Context, classID int64) (string, erro
 	b.WriteString("- !cari [kata]   : Cari jadwal mata kuliah / dosen / ruang\n\n")
 
 	b.WriteString("*Pengaturan & Akses:*\n")
-	b.WriteString("- !portal          : Akses Web Portal Mahasiswa & Dashboard\n")
+	b.WriteString("- !portal          : Akses Web Jadwal & Tugas Kelas\n")
 	b.WriteString("- !kanal           : Cek ID WhatsApp (JID) chat/grup ini\n")
 	b.WriteString("- !daftarkelas     : Daftar seluruh kelas yang terdaftar\n")
 	b.WriteString("- !setkelas [nama] : Pilih kelas aktif pribadi (contoh: !setkelas 2a)\n\n")
@@ -1083,7 +1083,7 @@ func (s *V1BotService) GetKeywords(ctx context.Context, classID int64) (string, 
 	b.WriteString("   - !cari [kata kunci]          : Pencarian umum mata kuliah/dosen/ruang\n\n")
 
 	b.WriteString("7. Konfigurasi:\n")
-	b.WriteString("   - !portal                     : Link Portal Mahasiswa & Dashboard\n")
+	b.WriteString("   - !portal                     : Link Web Jadwal & Tugas Kelas\n")
 	b.WriteString("   - !kanal                      : Cek ID JID WhatsApp chat ini\n")
 	b.WriteString("   - !daftarkelas                : Daftar seluruh kelas di sistem\n")
 	b.WriteString("   - !setkelas [nama]            : Tautkan kelas (khusus DM pribadi)\n\n")
@@ -1168,7 +1168,7 @@ func (s *V1BotService) GetCourses(ctx context.Context, classID int64) (string, e
 	}
 
 	b.WriteString("\n────────────────────\n")
-	b.WriteString(fmt.Sprintf("Portal Kelas: %s/c/%s", util.PublicBaseURL(), slug))
+	b.WriteString(fmt.Sprintf("Web Jadwal Kelas: %s/c/%s", util.PublicBaseURL(), slug))
 
 	return b.String(), nil
 }

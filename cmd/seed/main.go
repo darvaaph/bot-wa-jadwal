@@ -100,6 +100,7 @@ func printHumanReport(report *seed.SeedReport, dbPath string) {
 		fmt.Println("   📊 Rekonsiliasi Sumber vs Target:")
 		fmt.Printf("      - Mata Kuliah        : Sumber = %-3d | Target Master = %-3d\n", c.SourceCounts.Courses, c.TargetCounts.Courses)
 		fmt.Printf("      - Dosen Pengampu     : Sumber = %-3d | Target Master = %-3d\n", c.SourceCounts.Lecturers, c.TargetCounts.Lecturers)
+		fmt.Printf("      - Master Ruangan     : Target Master = %-3d\n", c.TargetCounts.Rooms)
 		fmt.Printf("      - Course Offerings   : Target = %-3d\n", c.TargetCounts.CourseOfferings)
 		fmt.Printf("      - Offering Lecturers : Target = %-3d\n", c.TargetCounts.OfferingLecturers)
 		fmt.Printf("      - Pola Jadwal Reguler: Sumber = %-3d | Target Pola   = %-3d\n", c.SourceCounts.Schedules, c.TargetCounts.SchedulePatterns)
