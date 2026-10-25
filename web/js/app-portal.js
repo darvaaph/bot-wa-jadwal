@@ -27,8 +27,6 @@ function portalApp() {
     resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
-    wakeLockActive: false,
-    wakeLockSentinel: null,
 
     ...AsteriskShell.behavior('portal'),
 
@@ -569,12 +567,9 @@ function portalApp() {
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
       window.addEventListener('focus', () => { this.updateAppBadge(); });
-      document.addEventListener('visibilitychange', async () => {
+      document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           this.updateAppBadge();
-          if (this.wakeLockActive) {
-            await this.requestWakeLock();
-          }
         }
       });
       window.addEventListener('pwa:update-available', () => {
@@ -769,9 +764,6 @@ function portalApp() {
       this.view = 'dashboard';
       if ('clearAppBadge' in navigator) {
         navigator.clearAppBadge().catch(() => {});
-      }
-      if (this.wakeLockActive) {
-        this.releaseWakeLock();
       }
     },
 
@@ -1534,55 +1526,6 @@ function portalApp() {
         }
       } catch (e) {
         // Non-critical API, silent fallback
-      }
-    },
-
-    async toggleWakeLock() {
-      if (!('wakeLock' in navigator)) {
-        this.showToast('Browser ini belum mendukung fitur layar tetap menyala.');
-        return;
-      }
-      if (this.wakeLockActive) {
-        await this.releaseWakeLock();
-        this.showToast('Mode layar tetap menyala dinonaktifkan.');
-      } else {
-        const ok = await this.requestWakeLock();
-        if (ok) {
-          this.showToast('Layar akan tetap menyala selama tab ini dibuka.');
-        } else {
-          this.showToast('Tidak dapat mengaktifkan mode layar tetap menyala.');
-        }
-      }
-    },
-
-    async requestWakeLock() {
-      try {
-        if (!('wakeLock' in navigator)) return false;
-        this.wakeLockSentinel = await navigator.wakeLock.request('screen');
-        this.wakeLockActive = true;
-        this.wakeLockSentinel.addEventListener('release', () => {
-          if (document.visibilityState === 'visible') {
-            this.wakeLockActive = false;
-            this.wakeLockSentinel = null;
-          }
-        });
-        return true;
-      } catch (err) {
-        this.wakeLockActive = false;
-        this.wakeLockSentinel = null;
-        return false;
-      }
-    },
-
-    async releaseWakeLock() {
-      try {
-        if (this.wakeLockSentinel) {
-          await this.wakeLockSentinel.release();
-        }
-      } catch (e) {
-      } finally {
-        this.wakeLockSentinel = null;
-        this.wakeLockActive = false;
       }
     },
 

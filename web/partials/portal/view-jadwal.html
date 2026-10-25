@@ -2,41 +2,15 @@
 <section x-show="view === 'jadwal'" x-cloak class="w-full flex flex-col gap-[20px]">
 
   <!-- Judul dan konteks jadwal -->
-  <div class="box-border w-full h-fit shrink-0 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-    <div class="flex flex-col gap-[5px]">
-      <h1 class="text-[24px] md:text-[25px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
-        Jadwal Perkuliahan
-      </h1>
-      <p
-        class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
-        Jadwal efektif kelas <span class="font-semibold text-[#334155]"
-          x-text="selectedClassFormatted || '-'">-</span> pekan ini, termasuk kuliah pengganti resmi.
-      </p>
-    </div>
-
-    <!-- Tombol Saklar Layar Tetap Menyala (Wake Lock API) -->
-    <template x-if="typeof wakeLockActive !== 'undefined' && 'wakeLock' in navigator">
-      <button type="button"
-        @click="toggleWakeLock()"
-        :aria-pressed="String(wakeLockActive)"
-        :class="wakeLockActive ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-xs' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'"
-        class="h-9 px-3 rounded-xl border flex items-center gap-2 text-[12px] font-semibold transition-all shrink-0 cursor-pointer"
-        :title="wakeLockActive ? 'Layar dijaga tetap menyala (Ketuk untuk menonaktifkan)' : 'Jaga layar HP tetap menyala saat kuliah atau lab'">
-        <span class="relative flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" :class="wakeLockActive ? 'text-amber-600' : 'text-slate-500'">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-          </svg>
-          <span x-show="wakeLockActive" class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-        </span>
-        <span x-text="wakeLockActive ? 'Layar Terus Menyala' : 'Layar Tetap Menyala'">Layar Tetap Menyala</span>
-      </button>
-    </template>
+  <div class="box-border w-full h-fit shrink-0 flex flex-col gap-[5px] justify-start items-start">
+    <h1 class="text-[24px] md:text-[25px] box-border text-[#0F172A] font-display font-bold text-left leading-tight">
+      Jadwal Perkuliahan
+    </h1>
+    <p
+      class="text-[11px] md:text-[12px] leading-[18px] box-border w-full text-[#64748B] font-medium text-left">
+      Jadwal efektif kelas <span class="font-semibold text-[#334155]"
+        x-text="selectedClassFormatted || '-'">-</span> pekan ini, termasuk kuliah pengganti resmi.
+    </p>
   </div>
 
   <!-- Navigasi Pekan dan Legenda Portal (DESKTOP) -->

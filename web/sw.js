@@ -1,5 +1,5 @@
 // sw.js — Service Worker untuk PWA Asterisk (Jadwal & Tugas Mahasiswa)
-const CACHE_NAME = 'asterisk-pwa-v4';
+const CACHE_NAME = 'asterisk-pwa-v5';
 
 const STATIC_PRECACHE = [
   '/c/',
