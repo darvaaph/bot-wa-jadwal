@@ -11,6 +11,65 @@
     </p>
   </div>
 
+  <!-- Banner Izin Badge & Notifikasi (Opsi 1: Visual Feature Card dengan Miniatur Badge Ikon) -->
+  <div x-show="shouldShowNotifBanner" x-cloak
+       class="w-full bg-white border border-[#CBD5E1] border-l-4 border-l-[#2563EB] rounded-[16px] p-4 sm:p-5 shadow-[0px_4px_16px_rgba(15,23,42,0.06)] relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left transition-all">
+    
+    <!-- Tombol Tutup Permanen (Pojok Kanan Atas) -->
+    <button type="button" @click="tutupPermanenNotifBanner()" aria-label="Jangan tampilkan lagi" title="Jangan tampilkan lagi"
+            class="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
+      <svg class="w-4 h-4" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="3" x2="11" y2="11"></line>
+        <line x1="11" y1="3" x2="3" y2="11"></line>
+      </svg>
+    </button>
+
+    <!-- Kiri: Miniatur Ikon Mockup Asterisk + Badge Merah & Keterangan -->
+    <div class="flex items-start sm:items-center gap-3.5 pr-6 sm:pr-0">
+      <!-- Miniatur Mockup App Icon dengan Red Badge "1" -->
+      <div class="relative shrink-0 mt-0.5 sm:mt-0">
+        <div class="w-12 h-12 rounded-[12px] bg-[#2563EB] flex items-center justify-center shadow-md shadow-blue-500/20 ring-1 ring-black/5">
+          <!-- Asterisk Logo Mini -->
+          <svg viewBox="0 0 24 24" class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+            <line x1="17" y1="5" x2="7" y2="19"></line>
+            <line x1="7" y1="5" x2="17" y2="19"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+          </svg>
+        </div>
+        <!-- Badge Merah Miniatur Ikon -->
+        <span class="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1 bg-[#EF4444] text-white text-[11px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none">
+          1
+        </span>
+      </div>
+
+      <!-- Teks Penjelasan -->
+      <div class="flex flex-col gap-0.5">
+        <h2 class="text-[14px] sm:text-[15px] font-bold text-[#0F172A] leading-snug">
+          Tampilkan Jumlah Tugas di Layar Utama
+        </h2>
+        <p class="text-[12px] sm:text-[13px] text-[#475467] leading-relaxed max-w-xl">
+          Izinkan notifikasi agar ikon Asterisk di layar utama HP Anda menampilkan badge angka merah secara otomatis setiap ada tugas aktif yang belum selesai.
+        </p>
+      </div>
+    </div>
+
+    <!-- Kanan: Aksi (Nanti Saja 7 Hari / Aktifkan Badge) -->
+    <div class="flex items-center gap-2 self-stretch sm:self-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+      <button type="button" @click="tundaNotifBanner(7)"
+              class="px-3.5 py-2 text-[12px] sm:text-[13px] font-semibold text-slate-500 hover:text-slate-700 min-h-[44px] flex items-center justify-center rounded-[10px] hover:bg-slate-50 transition-colors cursor-pointer">
+        Nanti Saja
+      </button>
+      <button type="button" @click="mintaIzinNotifikasi()"
+              class="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[10px] text-[12px] sm:text-[13px] font-bold transition-all shadow-xs hover:shadow-sm min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+        </svg>
+        <span>Aktifkan Badge</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Filter Grup & Dropdown Mata Kuliah (Mobile-First Reflow) -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mt-2" role="tablist" aria-label="Grup tugas">
     <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth touch-pan-x">
@@ -44,9 +103,21 @@
         <h2 class="text-[16px] sm:text-[18px] font-bold text-[#0F172A]">Daftar Tugas</h2>
         <span class="text-[12px] font-semibold text-slate-500 font-mono" x-text="'(' + tugasTabList.length + ')'">(0)</span>
       </div>
-      <div class="flex items-center gap-1.5 text-[12px] text-slate-400">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1v12M1 7l6 6 6-6"/></svg>
-        <span>Urutkan: tenggat terdekat</span>
+      <div class="flex items-center gap-3">
+        <!-- Toggle Status Badge Ikon saat izin sudah diberikan (Bisa dimatikan/diaktifkan kapan saja) -->
+        <template x-if="notifPermission === 'granted' && ('setAppBadge' in navigator)">
+          <button type="button" @click="toggleBadge(!badgeEnabled)"
+                  class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors cursor-pointer"
+                  :class="badgeEnabled ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'"
+                  :title="badgeEnabled ? 'Badge ikon aplikasi aktif. Klik untuk menonaktifkan.' : 'Badge ikon aplikasi mati. Klik untuk mengaktifkan.'">
+            <span class="w-1.5 h-1.5 rounded-full" :class="badgeEnabled ? 'bg-blue-600' : 'bg-slate-400'"></span>
+            <span x-text="badgeEnabled ? 'Badge Ikon: Aktif' : 'Badge Ikon: Mati'"></span>
+          </button>
+        </template>
+        <div class="flex items-center gap-1.5 text-[12px] text-slate-400">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1v12M1 7l6 6 6-6"/></svg>
+          <span>Urutkan: tenggat terdekat</span>
+        </div>
       </div>
     </div>
 

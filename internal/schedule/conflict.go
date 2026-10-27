@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,6 +39,8 @@ type Conflict struct {
 	StartsAt   string `json:"starts_at"`
 	EndsAt     string `json:"ends_at"`
 	Message    string `json:"message"`
+	ClassName  string `json:"class_name,omitempty"`
+	CourseName string `json:"course_name,omitempty"`
 }
 
 const (
@@ -114,14 +117,16 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 
 	// Kumpulkan sesi aktif: pola efektif + event PUBLISHED.
 	type session struct {
-		entityType string
-		entityID   int64
-		offeringID int64
-		classID    int64
-		roomID     *int64
-		starts     time.Time
-		ends       time.Time
-		lecturers  []int64
+		entityType   string
+		entityID     int64
+		offeringID   int64
+		classID      int64
+		roomID       *int64
+		starts       time.Time
+		ends         time.Time
+		lecturers    []int64
+		offeringName string
+		className    string
 	}
 	var sessions []session
 
@@ -132,9 +137,12 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			date = time.Now().Format("2006-01-02")
 		}
 		rows, err := db.QueryContext(ctx, `SELECT sp.id, sp.course_offering_id, sem.class_id, sp.room_id,
-			sp.start_time, sp.end_time FROM schedule_patterns sp
+			sp.start_time, sp.end_time,
+			co.display_name, c.study_program, c.cohort_year, c.group_label, c.code
+			FROM schedule_patterns sp
 			JOIN course_offerings co ON co.id = sp.course_offering_id
 			JOIN semesters sem ON sem.id = co.semester_id
+			JOIN classes c ON c.id = sem.class_id
 			WHERE sp.status='ACTIVE' AND sp.day_of_week=? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)`,
 			c.PatternDay, date, date)
 		if err == nil {
@@ -142,8 +150,9 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			for rows.Next() {
 				var id, off, classID int64
 				var room sql.NullInt64
-				var st, en string
-				if err := rows.Scan(&id, &off, &classID, &room, &st, &en); err != nil {
+				var st, en, offName, prog, group, code string
+				var cohort int
+				if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
 					continue
 				}
 				if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
@@ -159,22 +168,26 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 					r = &v
 				}
 				lects := lecturersForOffering(ctx, db, off)
-				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, time.Time{}, time.Time{}, lects})
+				clsName := formatClassName(prog, cohort, group, code)
+				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, time.Time{}, time.Time{}, lects, offName, clsName})
 			}
 			rows.Close()
 		}
 		// Event PUBLISHED pada tanggal date yang jamnya overlap.
-		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at
+		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at,
+			co.display_name, c.study_program, c.cohort_year, c.group_label, c.code
 			FROM teaching_events te JOIN teaching_event_offerings teo ON teo.teaching_event_id=te.id AND teo.participation_role='OWNER'
 			JOIN course_offerings co ON co.id=teo.course_offering_id JOIN semesters sem ON sem.id=co.semester_id
+			JOIN classes c ON c.id = sem.class_id
 			WHERE te.lifecycle_status='PUBLISHED' AND date(te.starts_at) BETWEEN date(?, '-1 day') AND date(?, '+1 day')`, date, date)
 		if err == nil {
 			defer rows2.Close()
 			for rows2.Next() {
 				var id, off, classID int64
 				var room sql.NullInt64
-				var ss, es string
-				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es); err != nil {
+				var ss, es, offName, prog, group, code string
+				var cohort int
+				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
 					continue
 				}
 				if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
@@ -203,7 +216,8 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 					r = &v
 				}
 				lects := lecturersForOffering(ctx, db, off)
-				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects})
+				clsName := formatClassName(prog, cohort, group, code)
+				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects, offName, clsName})
 			}
 			rows2.Close()
 		}
@@ -213,17 +227,21 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		date := localStart.Format("2006-01-02")
 		dow := weekdayNum(localStart)
 		rows, err := db.QueryContext(ctx, `SELECT sp.id, sp.course_offering_id, sem.class_id, sp.room_id,
-			sp.start_time, sp.end_time FROM schedule_patterns sp
+			sp.start_time, sp.end_time,
+			co.display_name, c.study_program, c.cohort_year, c.group_label, c.code
+			FROM schedule_patterns sp
 			JOIN course_offerings co ON co.id = sp.course_offering_id
 			JOIN semesters sem ON sem.id = co.semester_id
+			JOIN classes c ON c.id = sem.class_id
 			WHERE sp.status='ACTIVE' AND sp.day_of_week=? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)`,
 			dow, date, date)
 		if err == nil {
 			for rows.Next() {
 				var id, off, classID int64
 				var room sql.NullInt64
-				var st, en string
-				if err := rows.Scan(&id, &off, &classID, &room, &st, &en); err != nil {
+				var st, en, offName, prog, group, code string
+				var cohort int
+				if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
 					continue
 				}
 				if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
@@ -245,21 +263,25 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 					r = &v
 				}
 				lects := lecturersForOffering(ctx, db, off)
-				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, ps, pe, lects})
+				clsName := formatClassName(prog, cohort, group, code)
+				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, ps, pe, lects, offName, clsName})
 			}
 			rows.Close()
 		}
-		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at
+		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at,
+			co.display_name, c.study_program, c.cohort_year, c.group_label, c.code
 			FROM teaching_events te JOIN teaching_event_offerings teo ON teo.teaching_event_id=te.id AND teo.participation_role='OWNER'
 			JOIN course_offerings co ON co.id=teo.course_offering_id JOIN semesters sem ON sem.id=co.semester_id
+			JOIN classes c ON c.id = sem.class_id
 			WHERE te.lifecycle_status='PUBLISHED' AND te.starts_at < ? AND te.ends_at > ?`,
 			c.EndsAt.UTC().Format(time.RFC3339), c.StartsAt.UTC().Format(time.RFC3339))
 		if err == nil {
 			for rows2.Next() {
 				var id, off, classID int64
 				var room sql.NullInt64
-				var ss, es string
-				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es); err != nil {
+				var ss, es, offName, prog, group, code string
+				var cohort int
+				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
 					continue
 				}
 				if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
@@ -276,7 +298,8 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 					r = &v
 				}
 				lects := lecturersForOffering(ctx, db, off)
-				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects})
+				clsName := formatClassName(prog, cohort, group, code)
+				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects, offName, clsName})
 			}
 			rows2.Close()
 		}
@@ -293,30 +316,72 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 	for _, s := range sessions {
 		// Offering sama.
 		if c.OwnerOfferingID > 0 && s.offeringID == c.OwnerOfferingID {
-			out = append(out, Conflict{Code: CodeOfferingOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: "offering yang sama memiliki sesi lain pada interval tersebut"})
+			msg := "offering yang sama memiliki sesi lain pada interval tersebut"
+			if s.offeringName != "" {
+				msg = fmt.Sprintf("offering yang sama memiliki sesi lain pada interval tersebut (%s)", s.offeringName)
+			}
+			out = append(out, Conflict{Code: CodeOfferingOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 		}
 		// Kelas sama (offering berbeda).
 		if c.OwnerClassID > 0 && s.classID == c.OwnerClassID && s.offeringID != c.OwnerOfferingID {
-			out = append(out, Conflict{Code: CodeClassOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: "kelas memiliki sesi lain pada interval tersebut"})
+			msg := "kelas memiliki sesi lain pada interval tersebut"
+			if s.offeringName != "" {
+				msg = fmt.Sprintf("kelas memiliki sesi lain pada interval tersebut (%s)", s.offeringName)
+			}
+			out = append(out, Conflict{Code: CodeClassOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 		}
 		// Ruangan sama.
 		if c.RoomID != nil && s.roomID != nil && *c.RoomID == *s.roomID {
-			out = append(out, Conflict{Code: CodeRoomOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: "ruangan dipakai sesi lain pada interval tersebut"})
+			// Mode event (c.PatternDay == 0) memungkinkan override ruangan atas konfirmasi TU (non-blocking).
+			// Mode pola mingguan (c.PatternDay != 0) tetap blocking.
+			isBlocking := c.PatternDay != 0
+			msg := "ruangan dipakai sesi lain pada interval tersebut"
+			if dt := detailName(s.className, s.offeringName); dt != "" {
+				msg = fmt.Sprintf("ruangan dipakai sesi lain pada interval tersebut: %s", dt)
+			}
+			out = append(out, Conflict{Code: CodeRoomOverlap, Blocking: isBlocking, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 		}
 		// Dosen sama.
 		for _, l := range s.lecturers {
 			if lectSet[l] {
-				out = append(out, Conflict{Code: CodeLecturerOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: "dosen mengajar sesi lain pada interval tersebut"})
+				msg := "dosen mengajar sesi lain pada interval tersebut"
+				if dt := detailName(s.className, s.offeringName); dt != "" {
+					msg = fmt.Sprintf("dosen mengajar sesi lain pada interval tersebut: %s", dt)
+				}
+				out = append(out, Conflict{Code: CodeLecturerOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 				break
 			}
 		}
 		// Peserta: sesi dari kelas peserta yang bentrok = nonblocking (perlu keputusan eksplisit).
 		if partSet[s.offeringID] {
-			out = append(out, Conflict{Code: CodeParticipantOverlap, Blocking: false, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: "kelas peserta memiliki sesi lain (perlu konfirmasi)"})
+			msg := "kelas peserta memiliki sesi lain (perlu konfirmasi)"
+			if dt := detailName(s.className, s.offeringName); dt != "" {
+				msg = fmt.Sprintf("kelas peserta memiliki sesi lain (perlu konfirmasi): %s", dt)
+			}
+			out = append(out, Conflict{Code: CodeParticipantOverlap, Blocking: false, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 		}
 	}
 	// Ruangan belum konfirmasi TU = nonblocking.
-	if c.RoomID != nil {
+	// Jika sesi memakai ruangan rutin kelasnya sendiri (ExcludePatternID dengan ruangan yang sama)
+	// dan tidak ada bentrok fisik ruangan (CodeRoomOverlap), maka ruangan ini adalah alokasi rutin
+	// yang telah disetujui untuk kelas tersebut, sehingga tidak membutuhkan konfirmasi TU.
+	isRoutineRoom := false
+	if c.ExcludePatternID != nil && c.RoomID != nil {
+		var patRoom sql.NullInt64
+		if err := db.QueryRowContext(ctx, `SELECT room_id FROM schedule_patterns WHERE id = ?`, *c.ExcludePatternID).Scan(&patRoom); err == nil && patRoom.Valid && patRoom.Int64 == *c.RoomID {
+			hasOverlap := false
+			for _, conf := range out {
+				if conf.Code == CodeRoomOverlap {
+					hasOverlap = true
+					break
+				}
+			}
+			if !hasOverlap {
+				isRoutineRoom = true
+			}
+		}
+	}
+	if c.RoomID != nil && !isRoutineRoom {
 		out = append(out, Conflict{Code: CodeRoomConfirmNeeded, Blocking: false, EntityType: "ROOM", EntityID: *c.RoomID, Message: "ruangan perlu konfirmasi TU sebelum publikasi"})
 	}
 
@@ -393,6 +458,39 @@ func NeedsOverride(conflicts []Conflict) bool {
 		}
 	}
 	return false
+}
+
+func formatClassName(studyProg string, cohortYear int, groupLabel, code string) string {
+	var parts []string
+	if studyProg != "" {
+		parts = append(parts, studyProg)
+	}
+	if cohortYear > 0 {
+		parts = append(parts, strconv.Itoa(cohortYear))
+	}
+	if groupLabel != "" {
+		parts = append(parts, groupLabel)
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, " ")
+	}
+	if code != "" {
+		return code
+	}
+	return "Kelas"
+}
+
+func detailName(className, offeringName string) string {
+	if className != "" && offeringName != "" {
+		return fmt.Sprintf("%s (%s)", className, offeringName)
+	}
+	if className != "" {
+		return className
+	}
+	if offeringName != "" {
+		return offeringName
+	}
+	return ""
 }
 
 var _ = strings.TrimSpace

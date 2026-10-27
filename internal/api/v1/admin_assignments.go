@@ -325,6 +325,22 @@ func (c *AdminController) changeAssignmentStatus(w http.ResponseWriter, r *http.
 		}
 	}
 
+	// Guard Dobel KM: jika mengaktifkan kembali peran KM, pastikan kelas belum memiliki KM aktif lain
+	if target == "ACTIVE" && ra.role == "KM" && ra.classID.Valid {
+		var activeKMName string
+		_ = c.db.QueryRowContext(r.Context(), `
+			SELECT COALESCE(u.display_name, u.identity_key)
+			FROM role_assignments ra2
+			JOIN users u ON u.id = ra2.user_id
+			WHERE ra2.class_id = ? AND ra2.role = 'KM' AND ra2.status = 'ACTIVE' AND ra2.id != ?
+			LIMIT 1;
+		`, ra.classID.Int64, ra.id).Scan(&activeKMName)
+		if activeKMName != "" {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, fmt.Sprintf("Kelas sudah memiliki Ketua Murid (KM) aktif (%s). Cabut atau tangguhkan KM saat ini terlebih dahulu.", activeKMName))
+			return
+		}
+	}
+
 	subject := fmt.Sprintf("admin:%d", u.UserID)
 	var trustedProxies []string
 	if c.secManager != nil {
@@ -351,21 +367,32 @@ func (c *AdminController) changeAssignmentStatus(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Cabut sesi yang memakai penugasan ini agar pencabutan berlaku segera.
-	res, err := tx.Exec(`
-		UPDATE user_sessions
-		SET revoked_at = CURRENT_TIMESTAMP, revocation_reason = ?
-		WHERE active_role_assignment_id = ? AND revoked_at IS NULL;
-	`, target+"_"+reason, ra.id)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencabut sesi penugasan")
-		return
+	var revokedSessions int64
+	if target != "ACTIVE" {
+		// Cabut sesi yang memakai penugasan ini agar pencabutan/penangguhan berlaku segera.
+		res, err := tx.Exec(`
+			UPDATE user_sessions
+			SET revoked_at = CURRENT_TIMESTAMP, revocation_reason = ?
+			WHERE active_role_assignment_id = ? AND revoked_at IS NULL;
+		`, target+"_"+reason, ra.id)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencabut sesi penugasan")
+			return
+		}
+		revokedSessions, _ = res.RowsAffected()
+	} else if ra.userStatus == "SUSPENDED" {
+		// Jika mengaktifkan penugasan dan status pengguna masih suspended, aktifkan kembali akun pengguna
+		if _, err := tx.ExecContext(r.Context(), `UPDATE users SET status = 'ACTIVE' WHERE id = ?;`, ra.userID); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengaktifkan kembali akun pengguna")
+			return
+		}
 	}
-	revokedSessions, _ := res.RowsAffected()
 
 	action := "SUSPEND_ASSIGNMENT"
 	if target == "REVOKED" {
 		action = "REVOKE_ASSIGNMENT"
+	} else if target == "ACTIVE" {
+		action = "ACTIVATE_ASSIGNMENT"
 	}
 	{
 		uid := u.UserID

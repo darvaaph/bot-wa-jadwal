@@ -16,6 +16,7 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
@@ -90,6 +91,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
+
+	// 4c. Setup Maintenance Worker (Pembersihan berkala security attempts & sesi kedaluwarsa)
+	var stopMaintenance func()
+	if v1DB != nil {
+		stopMaintenance = maintenance.StartMaintenanceWorker(context.Background(), v1DB, 24*time.Hour)
+		fmt.Println("Berhasil menginisialisasi worker pemeliharaan database berkala (24h retention)")
+	}
 
 	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
 	chatSettingsManager, err := chat.NewChatSettingsManager(v1DB)
@@ -212,6 +220,12 @@ func main() {
 	<-stopSig
 
 	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
+
+	// Hentikan worker pemeliharaan database berkala
+	if stopMaintenance != nil {
+		fmt.Println("⏳ Menghentikan worker pemeliharaan database berkala...")
+		stopMaintenance()
+	}
 
 	// Hentikan background worker notifikasi WhatsApp
 	if notifWorker != nil {

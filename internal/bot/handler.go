@@ -181,8 +181,10 @@ func HandleIncomingMessage(
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 		ReplyWithTyping(
-			context.Background(),
+			ctx,
 			client,
 			v.Info.Chat,
 			v.Info.Sender,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -171,5 +172,112 @@ func TestConflict_PreviewPublishIdentical(t *testing.T) {
 		if a[i] != b[i] {
 			t.Fatalf("konflik tidak deterministik: %+v vs %+v", a[i], b[i])
 		}
+	}
+}
+
+func TestConflict_RoomOverlap_EventNonBlocking_PatternBlocking(t *testing.T) {
+	db := seedConflictDB(t)
+	ctx := context.Background()
+	// Buat class 2 dan semester 2 agar tidak bentrok kelas dengan class 1.
+	_, err := db.ExecContext(ctx, `INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label) VALUES (2,'C2','c2','TI',2024,'B');
+		INSERT INTO class_settings (class_id, timezone) VALUES (2,'Asia/Jakarta');
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at) VALUES (2,2,'2024/2025','GANJIL','2024-09-01','2025-01-31','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (3,2,1,'TEORI','MK_KelasB');`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	room1 := int64(1)
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+
+	// 1. Mode Event: bentrok ruangan (room 1 dipakai oleh C1 TI 2024 A / MK1)
+	// Harus non-blocking, butuh override, dan memuat nama kelas serta matkul.
+	csEvent, err := CheckConflicts(ctx, db, Candidate{
+		OwnerClassID: 2, OwnerOfferingID: 3, RoomID: &room1,
+		StartsAt: time.Date(2024, 10, 7, 8, 30, 0, 0, loc),
+		EndsAt:   time.Date(2024, 10, 7, 9, 0, 0, 0, loc),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var roomConf *Conflict
+	for i := range csEvent {
+		if csEvent[i].Code == CodeRoomOverlap {
+			roomConf = &csEvent[i]
+			break
+		}
+	}
+	if roomConf == nil {
+		t.Fatalf("harus ada ROOM_TIME_OVERLAP, got: %+v", csEvent)
+	}
+	if roomConf.Blocking {
+		t.Fatal("ROOM_TIME_OVERLAP pada event harus non-blocking agar bisa di-override dengan izin TU")
+	}
+	if !NeedsOverride(csEvent) {
+		t.Fatal("csEvent harus membutuhkan override reason")
+	}
+	if !strings.Contains(roomConf.Message, "TI 2024 A") || !strings.Contains(roomConf.Message, "MK1") {
+		t.Fatalf("pesan harus memuat detail kelas dan matkul yang bentrok, got: %s", roomConf.Message)
+	}
+
+	// 2. Mode Pattern: bentrok ruangan rutin mingguan
+	// Harus tetap blocking!
+	csPattern, err := CheckConflicts(ctx, db, Candidate{
+		OwnerClassID: 2, OwnerOfferingID: 3, RoomID: &room1,
+		PatternDay: 1, PatternStart: "08:30", PatternEnd: "09:00", PatternDate: "2024-10-07",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var patRoomConf *Conflict
+	for i := range csPattern {
+		if csPattern[i].Code == CodeRoomOverlap {
+			patRoomConf = &csPattern[i]
+			break
+		}
+	}
+	if patRoomConf == nil || !patRoomConf.Blocking {
+		t.Fatalf("ROOM_TIME_OVERLAP pada pola rutin mingguan harus tetap blocking: %+v", csPattern)
+	}
+}
+
+func TestConflict_RoutineRoom_NoTUConfirmationNeeded(t *testing.T) {
+	db := seedConflictDB(t)
+	ctx := context.Background()
+	room1 := int64(1)
+	pid := int64(1) // Pattern 1 uses room 1 on Monday 08:00-09:40
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+
+	// Sesi kandidat menggantikan pattern 1 pada jam dan ruangan rutin yang sama (tanpa bentrok fisik):
+	cs, err := CheckConflicts(ctx, db, Candidate{
+		OwnerClassID:     1,
+		OwnerOfferingID:  1,
+		RoomID:           &room1,
+		StartsAt:         time.Date(2024, 10, 7, 8, 0, 0, 0, loc),
+		EndsAt:           time.Date(2024, 10, 7, 9, 40, 0, 0, loc),
+		ExcludePatternID: &pid,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasCode(cs, CodeRoomConfirmNeeded) {
+		t.Fatalf("ruangan rutin tanpa bentrok tidak boleh menghasilkan CodeRoomConfirmNeeded: %+v", cs)
+	}
+
+	// Tetapi jika memakai ruangan lain (room 2):
+	room2 := int64(2)
+	csOther, err := CheckConflicts(ctx, db, Candidate{
+		OwnerClassID:     1,
+		OwnerOfferingID:  1,
+		RoomID:           &room2,
+		StartsAt:         time.Date(2024, 10, 7, 8, 0, 0, 0, loc),
+		EndsAt:           time.Date(2024, 10, 7, 9, 40, 0, 0, loc),
+		ExcludePatternID: &pid,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCode(csOther, CodeRoomConfirmNeeded) {
+		t.Fatalf("ruangan lain harus menghasilkan CodeRoomConfirmNeeded: %+v", csOther)
 	}
 }

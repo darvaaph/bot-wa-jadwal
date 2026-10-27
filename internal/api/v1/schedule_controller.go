@@ -1904,7 +1904,7 @@ func conflictMessage(conflicts []schedule.Conflict) string {
 func conflictMaps(conflicts []schedule.Conflict) []map[string]any {
 	out := []map[string]any{}
 	for _, c := range conflicts {
-		out = append(out, map[string]any{
+		m := map[string]any{
 			"code":        c.Code,
 			"type":        c.Code,
 			"message":     c.Message,
@@ -1913,7 +1913,14 @@ func conflictMaps(conflicts []schedule.Conflict) []map[string]any {
 			"entity_id":   c.EntityID,
 			"starts_at":   c.StartsAt,
 			"ends_at":     c.EndsAt,
-		})
+		}
+		if c.ClassName != "" {
+			m["class_name"] = c.ClassName
+		}
+		if c.CourseName != "" {
+			m["course_name"] = c.CourseName
+		}
+		out = append(out, m)
 	}
 	return out
 }

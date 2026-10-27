@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -315,6 +316,31 @@ func TestV1Admin_ActivateAssignment(t *testing.T) {
 	_ = db.QueryRow(`SELECT status FROM role_assignments WHERE id = 2;`).Scan(&status)
 	if status != "ACTIVE" {
 		t.Fatalf("status DB expected ACTIVE, got %s", status)
+	}
+}
+
+func TestV1Admin_ActivateAssignment_RejectsWhenAnotherKMIsActive(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	defer db.Close()
+	adminToken := helperLogin(t, s, "+6281111111111", "password123")
+
+	// Tambahkan penugasan KM lain yang sedang SUSPENDED pada kelas yang sama (class_id=1)
+	_, err := db.Exec(`
+		INSERT INTO role_assignments (user_id, role, scope_type, class_id, status)
+		VALUES (3, 'KM', 'CLASS', 1, 'SUSPENDED');
+	`)
+	if err != nil {
+		t.Fatalf("failed inserting suspended KM: %v", err)
+	}
+	var newID int64
+	_ = db.QueryRow(`SELECT last_insert_rowid();`).Scan(&newID)
+
+	// Aktivasi harus ditolak 409 Conflict karena kelas 1 sudah punya KM aktif (id=1)
+	w := helperDo(t, s, "POST", fmt.Sprintf("/api/v1/admin/assignments/%d/activate", newID), adminToken, map[string]string{
+		"reason": "Mencoba aktivasi KM ganda",
+	})
+	if w.Code != http.StatusConflict {
+		t.Fatalf("activate duplicate KM expected 409 Conflict, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 

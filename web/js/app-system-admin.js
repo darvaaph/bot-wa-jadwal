@@ -172,7 +172,7 @@ function systemAdminApp() {
     penugasanList: [],
     penugasanLoading: false,
     penugasanError: '',
-    penugasanStatus: '',
+    penugasanStatus: 'ACTIVE',
     penugasanRole: '',
     penugasanKelas: '',
     penugasanAksi: null,
@@ -710,6 +710,13 @@ function systemAdminApp() {
     },
 
     metricTotalUsers() {
+      const u = this.botStatusDetails?.users_summary;
+      if (u) {
+        if (u.active_roles != null) return u.active_roles;
+        if (u.km_count != null || u.pj_count != null || u.admin_count != null) {
+          return (u.km_count || 0) + (u.pj_count || 0) + (u.admin_count || 0);
+        }
+      }
       return this.botStatusDetails?.users_summary?.total || 0;
     },
 
@@ -744,10 +751,15 @@ function systemAdminApp() {
       return (this.backupRequests || []).filter(r => String(r.status || '').toUpperCase() === 'PENDING').length;
     },
 
+    usulanPendingCount() {
+      return (this.usulanList || []).filter(u => String(u.status || '').toUpperCase() === 'PENDING').length;
+    },
+
     perluTindakanCount() {
       let n = 0;
       if ((this.failedCount || 0) > 0) n++;
       if (this.backupPendingCount() > 0) n++;
+      if (this.usulanPendingCount() > 0) n++;
       return n;
     },
 
@@ -798,7 +810,7 @@ function systemAdminApp() {
         ['sa-banner', '/partials/system-admin/support-banner.html']
       ]);
 
-      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests(), this.muatDukunganAktif()]);
+      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests(), this.loadUsulan(''), this.muatDukunganAktif()]);
       await this.muatSemesterSemua();
       this.dashboardLoading = false;
       if ('clearAppBadge' in navigator) {
@@ -806,7 +818,7 @@ function systemAdminApp() {
       }
 
       setInterval(() => {
-        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
+        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.loadUsulan(''); this.muatDukunganAktif(); }
       }, 30000);
       setInterval(() => {
         this.dukunganSekarang = Date.now();
@@ -1431,7 +1443,11 @@ function systemAdminApp() {
     },
 
     penggunaAktifCount() {
-      return (this.penggunaList || []).filter(u => String(u.status || '').toUpperCase() === 'ACTIVE').length;
+      const activeAssignments = (this.penugasanList || []).filter(a => String(a.status || '').toUpperCase() === 'ACTIVE');
+      if (activeAssignments.length > 0) {
+        return activeAssignments.length;
+      }
+      return (this.penggunaList || []).filter(u => String(u.status || '').toUpperCase() === 'ACTIVE' && String(u.identity_key || '').indexOf('system:') !== 0).length;
     },
 
     undanganMenungguCount() {
@@ -1444,12 +1460,16 @@ function systemAdminApp() {
 
     semuaBarisPengguna() {
       const rows = [];
-      (this.filteredPenugasan() || []).forEach(a => {
-        rows.push({ id: 'a-' + a.id, kind: 'assignment', data: a });
-      });
-      (this.filteredUndangan() || []).forEach(u => {
-        rows.push({ id: 'u-' + u.id, kind: 'invitation', data: u });
-      });
+      if (this.penugasanStatus !== 'PENDING') {
+        (this.filteredPenugasan() || []).forEach(a => {
+          rows.push({ id: 'a-' + a.id, kind: 'assignment', data: a });
+        });
+      }
+      if (this.penugasanStatus === '' || this.penugasanStatus === 'PENDING') {
+        (this.filteredUndangan() || []).forEach(u => {
+          rows.push({ id: 'u-' + u.id, kind: 'invitation', data: u });
+        });
+      }
       return rows;
     },
 
@@ -1557,7 +1577,7 @@ function systemAdminApp() {
 
     resetSemuaFilterPengguna() {
       this.penggunaQ = '';
-      this.penugasanStatus = '';
+      this.penugasanStatus = 'ACTIVE';
       this.penugasanRole = '';
       this.penugasanKelas = '';
       this.undanganStatus = '';
@@ -1609,7 +1629,7 @@ function systemAdminApp() {
     },
 
     resetPenugasanFilter() {
-      this.penugasanStatus = '';
+      this.penugasanStatus = 'ACTIVE';
       this.penugasanRole = '';
       this.penugasanKelas = '';
     },
@@ -1667,13 +1687,16 @@ function systemAdminApp() {
         return;
       }
       try {
-        const res = await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), this.penugasanForce);
+        await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), this.penugasanForce);
         const sesi = res && res.revoked_sessions != null ? ` (${res.revoked_sessions} sesi dicabut)` : '';
         this.showToast(a.aksi === 'cabut' ? `Penugasan ${a.nama} dicabut${sesi}.` : `Penugasan ${a.nama} ditangguhkan${sesi}.`);
         this.penugasanAksi = null;
         this.penugasanForce = false;
         this.penugasanGuard = false;
-        await this.loadPenugasan();
+        await Promise.all([this.loadPenugasan(), this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
+        if (this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatKMPenugasan(this.kelasAktifObj.slug);
+        }
       } catch (err) {
         if (err && err.status === 409 && /seluruh KM/i.test(err.message || '')) {
           this.penugasanGuard = true;
@@ -1721,7 +1744,7 @@ function systemAdminApp() {
         await API.revokeInvitation(a.id, this.undanganAlasan.trim());
         this.showToast(`Undangan ${a.nama} dicabut. Buat tautan baru via Daftar Kelas bila masih dibutuhkan.`);
         this.undanganAksi = null;
-        await this.loadUndangan();
+        await Promise.all([this.loadUndangan(), this.loadKelas()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal mencabut undangan.');
       }
@@ -1856,17 +1879,22 @@ function systemAdminApp() {
     },
 
     async aktifkanCepatPengguna(a) {
-      const u = this.penggunaUntukPenugasan(a);
-      if (u) {
-        try {
-          await API.recoverUser(u.id, 'Diaktifkan kembali oleh Administrator');
-          this.showToast('Akun ' + (u.display_name || u.identity_key) + ' berhasil diaktifkan kembali.');
-          await this.muatPenggunaSemua();
-        } catch (err) {
-          this.showToast(err.message || 'Gagal mengaktifkan akun.');
+      if (!a) return;
+      try {
+        if (a.id && a.role) {
+          await API.changeAssignmentStatus(a.id, 'aktifkan', 'Diaktifkan kembali oleh Administrator', false);
         }
-      } else {
-        this.mulaiAksiPenugasan(a, 'cabut');
+        const u = this.penggunaUntukPenugasan(a);
+        if (u && String(u.status || '').toUpperCase() === 'SUSPENDED') {
+          await API.recoverUser(u.id, 'Diaktifkan kembali oleh Administrator');
+        }
+        this.showToast('Penugasan ' + (a.display_name || a.nama || a.identity_key) + ' berhasil diaktifkan kembali.');
+        await Promise.all([this.loadPenugasan(), this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
+        if (this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatKMPenugasan(this.kelasAktifObj.slug);
+        }
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengaktifkan kembali penugasan.');
       }
     },
 
@@ -1993,12 +2021,14 @@ function systemAdminApp() {
         this.ubahPeranError = 'Alasan perubahan peran wajib diisi untuk catatan audit.';
         return;
       }
+      if (f.role === 'PJ') {
+        this.ubahPeranError = 'Penugasan PJ ditetapkan langsung per mata kuliah pada jadwal kelas masing-masing.';
+        return;
+      }
       this.ubahPeranLoading = true;
       this.ubahPeranError = '';
       try {
-        // Cabut penugasan lama terlebih dahulu
-        await API.changeAssignmentStatus(a.id, 'cabut', f.reason.trim(), false);
-        // Buat undangan / penugasan baru dengan peran dan kelas baru
+        // Buat undangan / penugasan baru terlebih dahulu agar jika ada guard (misal target kelas sudah ber-KM), penugasan lama tidak hilang
         const payload = {
           role: f.role,
           invited_identity_key: a.identity_key
@@ -2007,9 +2037,13 @@ function systemAdminApp() {
           payload.class_slug = f.class_slug;
         }
         await API.createInvitation(payload);
-        this.showToast(`Penugasan ${a.display_name || a.identity_key} dirotasi ke ${this.labelPeran(f.role)}.`);
+
+        // Setelah undangan baru berhasil terbit, cabut penugasan lama
+        await API.changeAssignmentStatus(a.id, 'cabut', f.reason.trim(), true);
+
+        this.showToast(`Undangan rotasi ke ${this.labelPeran(f.role)} berhasil dibuat untuk ${a.display_name || a.identity_key}.`);
         this.modalUbahPeran = false;
-        await this.muatPenggunaSemua();
+        await Promise.all([this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
       } catch (err) {
         this.ubahPeranError = err.message || 'Gagal merotasi peran pengguna.';
       } finally {
@@ -4589,8 +4623,8 @@ function systemAdminApp() {
       this.kmPenugasanLoading = true;
       this.kmPenugasan = null;
       try {
-        const list = await API.getAdminAssignments('ACTIVE', 'KM', slug).catch(() => []);
-        this.kmPenugasan = (list || [])[0] || null;
+        const list = await API.getAdminAssignments('', 'KM', slug).catch(() => []);
+        this.kmPenugasan = (list || []).find(a => a.status === 'ACTIVE') || (list || [])[0] || null;
       } catch (e) {
         this.kmPenugasan = null;
       } finally {
@@ -5574,7 +5608,7 @@ function systemAdminApp() {
       try {
         await API.updateClassStatus(this.kelasAktifObj.slug, targetStatus);
         this.kelasAktifObj.status = targetStatus;
-        await this.loadKelas();
+        await Promise.all([this.loadKelas(), this.checkBot()]);
         this.showToast(`Status kelas ${this.kelasAktifObj.nama} berhasil diubah ke ${targetStatus}.`);
       } catch (err) {
         this.showToast(err.message || 'Gagal memperbarui status kelas.');

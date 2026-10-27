@@ -722,6 +722,24 @@ function pjApp() {
       return 'Semester Aktif';
     },
 
+    get targetClassShort() {
+      return AsteriskShell.formatClassShort(
+        this.dashboardData?.class,
+        this.meCache?.active_assignment,
+        this.selectedClass
+      );
+    },
+
+    get targetClassDampak() {
+      const sem = typeof this.activeSemesterLabel === 'function' ? this.activeSemesterLabel() : (this.activeSemesterLabel || '');
+      return AsteriskShell.formatClassDampak(
+        this.dashboardData?.class,
+        this.targetClassShort,
+        sem,
+        this.selectedClass
+      );
+    },
+
     isMatkulSaya(s) {
       if (!s) return false;
       if (this.offeringId && s.offeringId && String(s.offeringId) === String(this.offeringId)) return true;

@@ -15,6 +15,7 @@ function kmApp() {
     dashboardRefreshing: false,
     q: '',
     unreadCount: 0,
+    notifPermission: (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'unsupported',
     weekOffset: 0,
     hideEmpty: false,
     activeScheduleDay: '',
@@ -1386,6 +1387,9 @@ function kmApp() {
     },
 
     get scopePatterns() {
+      if (this.ubahForm && this.ubahForm.offeringId) {
+        return (this.patternsList || []).filter(p => String(p.course_offering_id || '') === String(this.ubahForm.offeringId));
+      }
       const ids = new Set((this.offeringList || []).map(o => String(o.id)));
       if (ids.size === 0) return this.patternsList || [];
       return (this.patternsList || []).filter(p => ids.has(String(p.course_offering_id || '')));
@@ -1479,6 +1483,24 @@ function kmApp() {
       return 'Semester Aktif';
     },
 
+    get targetClassShort() {
+      return AsteriskShell.formatClassShort(
+        this.dashboardData?.class,
+        this.meCache?.active_assignment,
+        this.selectedClass
+      );
+    },
+
+    get targetClassDampak() {
+      const sem = this.activeSemesterLabel || (this.dashboardData?.semester?.academic_year ? `Semester ${this.dashboardData.semester.term || ''} ${this.dashboardData.semester.academic_year}`.trim() : '');
+      return AsteriskShell.formatClassDampak(
+        this.dashboardData?.class,
+        this.targetClassShort,
+        sem,
+        this.selectedClass
+      );
+    },
+
     get selectedOfferingObj() {
       if (!this.ubahForm.offeringId) return null;
       return (this.offeringList || []).find(o => String(o.id) === String(this.ubahForm.offeringId)) || null;
@@ -1549,24 +1571,28 @@ function kmApp() {
       return `${cls} kosong pada ${jam}. Bebas bentrok.`;
     },
 
+    get isFormReadyForSimulation() {
+      return Boolean(this.ubahForm && this.ubahForm.offeringId && this.ubahForm.date && this.ubahForm.start && this.ubahForm.end);
+    },
+
     mulaiUbah(prefill) {
       const f = this.ubahForm;
-      f.offeringId = (prefill && prefill.offeringId) || f.offeringId || '';
+      f.offeringId = (prefill && prefill.offeringId) || '';
       f.kind = (prefill && prefill.kind) || 'REPLACEMENT';
       f.scope = 'sementara';
       f.originPatternId = ''; f.originDate = ''; f.day = '1';
       f.roomId = ''; f.link = ''; f.reason = ''; f.effectiveDate = ''; f.participantIds = ''; f.conflictReason = '';
       if (prefill && prefill.date) {
         f.date = prefill.date;
-      } else if (!f.date) {
+      } else {
         const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const d = String(now.getDate()).padStart(2, '0');
         f.date = `${y}-${m}-${d}`;
       }
-      f.start = (prefill && prefill.start) || (prefill && prefill.session && prefill.session.timeStart) || f.start || '13:00';
-      f.end = (prefill && prefill.end) || (prefill && prefill.session && prefill.session.timeEnd) || f.end || '15:30';
+      f.start = (prefill && prefill.start) || (prefill && prefill.session && prefill.session.timeStart) || '';
+      f.end = (prefill && prefill.end) || (prefill && prefill.session && prefill.session.timeEnd) || '';
       if (prefill && prefill.kind) f.kind = prefill.kind;
       if (prefill && prefill.originDate) f.originDate = prefill.originDate;
       if (prefill && prefill.session) {
@@ -2402,6 +2428,7 @@ function kmApp() {
           if (this.dashboardData.class.label || this.dashboardData.class.code) {
             this.selectedClass = this.dashboardData.class.label || this.dashboardData.class.code;
           }
+          this.updateAppBadge();
         }
         this.dashboardError = '';
       } catch (err) {
@@ -2559,10 +2586,21 @@ function kmApp() {
       }
     },
 
+    async mintaIzinNotifikasi() {
+      if (!('Notification' in window)) return;
+      try {
+        const res = await Notification.requestPermission();
+        this.notifPermission = res;
+        if (res === 'granted') {
+          this.updateAppBadge();
+        }
+      } catch (e) {}
+    },
+
     updateAppBadge() {
       try {
         if (!('setAppBadge' in navigator)) return;
-        const count = this.antrean ? this.antrean.length : 0;
+        const count = (this.antrean && this.antrean.length) || (this.dashboardData?.tasks?.review_count) || 0;
         if (count > 0) {
           navigator.setAppBadge(count).catch(() => {});
         } else if ('clearAppBadge' in navigator) {
@@ -3502,7 +3540,7 @@ function kmApp() {
     detailAktorRoleDanKontak(item) {
       if (!item) return '';
       let role = item.actor_role || '';
-      if (role === 'KM') role = 'Ketua Murid';
+      if (role === 'KM') role = 'Ketua Kelas';
       else if (role === 'PJ') role = 'PJ Mata Kuliah';
       else if (role === 'SYSTEM_ADMIN') role = 'System Admin';
       else if (!role) role = 'Otomatisasi Sistem';
@@ -3896,7 +3934,7 @@ function kmApp() {
       const offeringName = this.materiOfferingName(m);
       const roleText = (m.offering_id !== null && m.offering_id !== undefined && String(m.offering_id) !== '')
         ? `PJ ${offeringName}`
-        : 'Ketua Murid';
+        : 'Ketua Kelas';
       if (uName) {
         return `${uName} (${roleText})`;
       }
@@ -4409,7 +4447,7 @@ function kmApp() {
 
     penugasanLabel(role) {
       const r = String(role || '').toUpperCase();
-      if (r === 'KM') return 'Ketua Murid';
+      if (r === 'KM') return 'Ketua Kelas';
       if (r === 'PJ') return 'PJ Mata Kuliah';
       return role || '-';
     },

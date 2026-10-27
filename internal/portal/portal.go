@@ -134,8 +134,11 @@ func (s *Service) checkRateLimit(classID int64, source string, now time.Time) er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := limiterKey(classID, source)
-	if until, ok := s.blocks[key]; ok && now.Before(until) {
-		return ErrRateLimited
+	if until, ok := s.blocks[key]; ok {
+		if now.Before(until) {
+			return ErrRateLimited
+		}
+		delete(s.blocks, key)
 	}
 	cutoff := now.Add(-attemptWindow)
 	kept := s.failures[key][:0]
@@ -144,7 +147,11 @@ func (s *Service) checkRateLimit(classID int64, source string, now time.Time) er
 			kept = append(kept, t)
 		}
 	}
-	s.failures[key] = kept
+	if len(kept) == 0 {
+		delete(s.failures, key)
+	} else {
+		s.failures[key] = kept
+	}
 	if len(kept) >= maxAttempts {
 		s.blocks[key] = now.Add(blockPeriod)
 		return ErrRateLimited

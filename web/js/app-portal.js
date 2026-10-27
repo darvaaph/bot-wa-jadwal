@@ -27,6 +27,9 @@ function portalApp() {
     resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
+    notifPermission: (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'unsupported',
+    dismissNotifBanner: false,
+    badgeEnabled: typeof window !== 'undefined' ? (localStorage.getItem('asterisk_badge_enabled') !== 'false') : true,
 
     ...AsteriskShell.behavior('portal'),
 
@@ -1510,10 +1513,75 @@ function portalApp() {
       this.copyText(teks, 'Rincian tugas berhasil disalin ke papan klip!');
     },
 
+    get shouldShowNotifBanner() {
+      if (this.notifPermission !== 'default') return false;
+      if (!('Notification' in window) || !('setAppBadge' in navigator)) return false;
+      if (this.dismissNotifBanner) return false;
+      try {
+        if (localStorage.getItem('asterisk_badge_dismissed_permanent') === 'true') return false;
+        const until = localStorage.getItem('asterisk_badge_dismissed_until');
+        if (until && Date.now() < parseInt(until, 10)) return false;
+      } catch (e) {}
+      return true;
+    },
+
+    tundaNotifBanner(hari = 7) {
+      this.dismissNotifBanner = true;
+      try {
+        localStorage.setItem('asterisk_badge_dismissed_until', String(Date.now() + (hari * 24 * 60 * 60 * 1000)));
+      } catch (e) {}
+      if (typeof this.showToast === 'function') {
+        this.showToast(`Pemberitahuan badge ditunda selama ${hari} hari.`, 'info');
+      }
+    },
+
+    tutupPermanenNotifBanner() {
+      this.dismissNotifBanner = true;
+      try {
+        localStorage.setItem('asterisk_badge_dismissed_permanent', 'true');
+      } catch (e) {}
+    },
+
+    toggleBadge(enabled) {
+      this.badgeEnabled = !!enabled;
+      try {
+        localStorage.setItem('asterisk_badge_enabled', String(this.badgeEnabled));
+      } catch (e) {}
+      if (!this.badgeEnabled) {
+        if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+        if (typeof this.showToast === 'function') {
+          this.showToast('Badge ikon aplikasi dinonaktifkan', 'info');
+        }
+      } else {
+        this.updateAppBadge();
+        if (typeof this.showToast === 'function') {
+          this.showToast('Badge ikon aplikasi diaktifkan', 'success');
+        }
+      }
+    },
+
+    async mintaIzinNotifikasi() {
+      if (!('Notification' in window)) return;
+      try {
+        const res = await Notification.requestPermission();
+        this.notifPermission = res;
+        if (res === 'granted') {
+          this.badgeEnabled = true;
+          try { localStorage.setItem('asterisk_badge_enabled', 'true'); } catch (e) {}
+          this.updateAppBadge();
+          if (typeof this.showToast === 'function') {
+            this.showToast('Izin notifikasi & badge aplikasi berhasil diaktifkan!', 'success');
+          }
+        }
+      } catch (e) {
+        console.error('Gagal meminta izin notifikasi:', e);
+      }
+    },
+
     updateAppBadge() {
       try {
         if (!('setAppBadge' in navigator)) return;
-        if (!this.unlocked) {
+        if (!this.unlocked || !this.badgeEnabled) {
           if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
           return;
         }

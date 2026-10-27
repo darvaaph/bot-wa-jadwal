@@ -1,71 +1,337 @@
 <dialog id="exam-dialog" class="ui-dialog exam-dialog" aria-labelledby="exam-title" @cancel="if (examBusy) $event.preventDefault()">
-  <form @submit.prevent="simpanUjian(true)">
+  <form @submit.prevent="examStep === 1 ? simpanUjian(true) : terbitkanUjian()">
+    <!-- MODAL HEADER -->
     <header class="exam-dialog__header">
-      <h2 id="exam-title" class="font-semibold text-lg">Jadikan Sesi Ujian</h2>
-      <button type="button" class="ui-button ui-button--ghost" :disabled="examBusy" @click="document.getElementById('exam-dialog').close()">Tutup</button>
+      <div>
+        <h2 id="exam-title" class="font-semibold text-base sm:text-lg leading-tight"
+            x-text="examStep === 1 ? 'Jadikan Sesi Ujian' : 'Konfirmasi Publikasi Ujian'"></h2>
+        <p class="text-xs text-muted leading-tight mt-0.5"
+           x-text="examStep === 1 ? 'Lengkapi formulir jadwal pelaksanaan ujian' : 'Tinjau ringkasan jadwal dan verifikasi ruangan'"></p>
+      </div>
+      <button type="button" class="ui-button ui-button--ghost text-xs px-2.5 py-1 min-h-[32px] rounded-lg" :disabled="examBusy" @click="document.getElementById('exam-dialog').close()">Tutup</button>
     </header>
-    <p class="text-muted">Ujian berlaku untuk satu sesi. Mata kuliah lain tetap mengikuti jadwalnya.</p>
-    <p x-show="examBusy" role="status" class="mt-3">Memproses sesi ujian...</p>
-    <p x-show="examError" x-text="examError" class="ui-form-error mt-3" role="alert"></p>
-    <fieldset :disabled="examBusy || !!examDraft" class="exam-dialog__fields">
-      <legend class="font-semibold">Jenis ujian</legend>
-      <div class="exam-dialog__choices">
-        <label><input type="radio" x-model="examForm.kind" value="EXAM_UTS" name="exam-kind"> UTS (Ujian Tengah Semester)</label>
-        <label><input type="radio" x-model="examForm.kind" value="EXAM_UAS" name="exam-kind"> UAS (Ujian Akhir Semester)</label>
+
+    <!-- TIMELINE STEPPER -->
+    <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 shrink-0">
+      <div class="exam-stepper">
+        <!-- Step 1 Button -->
+        <button type="button" @click="kembaliKeForm()" class="exam-stepper__item group focus:outline-none cursor-pointer" :disabled="examBusy" title="Kembali ke formulir pengisian data">
+          <div class="exam-stepper__node"
+               :class="examStep === 1 ? 'exam-stepper__node--active' : 'exam-stepper__node--completed'">
+            <span x-show="examStep > 1" class="material-symbols-outlined text-[16px] font-bold">check</span>
+            <span x-show="examStep <= 1">1</span>
+          </div>
+          <div>
+            <span class="exam-stepper__title"
+                  :class="examStep === 1 ? 'text-primary' : 'text-slate-700 dark:text-slate-300'">Langkah 1</span>
+            <span class="exam-stepper__sub text-slate-500 dark:text-slate-400">Isi Data Ujian</span>
+          </div>
+        </button>
+
+        <!-- Connecting Line Track -->
+        <div class="exam-stepper__track" aria-hidden="true">
+          <div class="exam-stepper__track-fill" :style="examStep === 2 ? 'width: 100%' : 'width: 0%'"></div>
+        </div>
+
+        <!-- Step 2 Indicator -->
+        <div class="exam-stepper__item">
+          <div class="exam-stepper__node"
+               :class="examStep === 2 ? 'exam-stepper__node--active' : 'exam-stepper__node--idle'">
+            <span>2</span>
+          </div>
+          <div>
+            <span class="exam-stepper__title"
+                  :class="examStep === 2 ? 'text-primary' : 'text-slate-400 dark:text-slate-500'">Langkah 2</span>
+            <span class="exam-stepper__sub text-slate-400 dark:text-slate-500">Tinjau & Publikasi</span>
+          </div>
+        </div>
       </div>
-      <label>Mata kuliah
-        <select class="ui-field" x-model="examForm.offeringId" :disabled="roleLabel === 'PJ'" @change="examForm.patternId = ''; examForm.originDate = ''" required>
-          <option value="">Pilih mata kuliah</option>
-          <template x-for="o in offeringList" :key="o.id"><option :value="String(o.id)" x-text="o.display_name || o.course_name"></option></template>
-        </select>
-      </label>
-      <label>Jadwal asal
-        <select class="ui-field" x-model="examForm.patternId" @change="pilihAsalUjian()">
-          <option value="">Tanpa jadwal asal (sesi tambahan)</option>
-          <template x-for="p in examPatterns.filter(p => String(p.course_offering_id || p.offering_id) === examForm.offeringId)" :key="p.id">
-            <option :value="String(p.id)" x-text="polaHariName(p.day_of_week) + ', ' + p.start_time + ' - ' + p.end_time"></option>
+    </div>
+
+    <!-- SCROLLABLE BODY -->
+    <div class="exam-dialog__body">
+      <p x-show="examBusy" role="status" class="text-xs text-muted animate-pulse">Memproses sesi ujian...</p>
+      <p x-show="examError" x-text="examError" class="ui-form-error text-xs" role="alert"></p>
+
+      <!-- STEP 1: FORM INPUT -->
+      <div x-show="examStep === 1" class="space-y-3.5">
+        <fieldset :disabled="examBusy" class="exam-dialog__fields space-y-3.5">
+          <!-- Jenis Ujian -->
+          <div class="space-y-1.5">
+            <span class="exam-dialog-label">Jenis Ujian</span>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="exam-check-label p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 min-h-[44px]">
+                <input type="radio" x-model="examForm.kind" value="EXAM_UTS" name="exam-kind" class="text-primary">
+                <span class="text-xs font-medium">UTS (Tengah Semester)</span>
+              </label>
+              <label class="exam-check-label p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 min-h-[44px]">
+                <input type="radio" x-model="examForm.kind" value="EXAM_UAS" name="exam-kind" class="text-primary">
+                <span class="text-xs font-medium">UAS (Akhir Semester)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Mata Kuliah -->
+          <div class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-offering-select">
+              <span>Mata kuliah</span>
+              <span class="text-red-500 font-bold">*</span>
+            </label>
+            <select id="exam-offering-select" class="ui-field text-xs w-full" x-model="examForm.offeringId" :disabled="roleLabel === 'PJ'" @change="examForm.patternId = ''; examForm.originDate = ''" required>
+              <option value="">Pilih mata kuliah</option>
+              <template x-for="o in offeringList" :key="o.id">
+                <option :value="String(o.id)" x-text="o.display_name || o.course_name"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Jadwal Kuliah yang Digantikan -->
+          <div class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-pattern-select">
+              <span>Jadwal kuliah yang digantikan</span>
+            </label>
+            <select id="exam-pattern-select" class="ui-field text-xs w-full" x-model="examForm.patternId" @change="pilihAsalUjian()">
+              <option value="">Tanpa jadwal asal (sesi tambahan di luar jam rutin)</option>
+              <template x-for="p in examPatterns.filter(p => String(p.course_offering_id || p.offering_id) === examForm.offeringId)" :key="p.id">
+                <option :value="String(p.id)" x-text="'Gantikan kuliah rutin: ' + polaHariName(p.day_of_week) + ', ' + p.start_time + ' - ' + p.end_time"></option>
+              </template>
+            </select>
+            <!-- Rekomendasi Pintar Jika Tanggal & Matkul Cocok dengan Jadwal Rutin -->
+            <template x-if="getMatchingPattern() && !examForm.patternId">
+              <div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-2.5 text-xs mt-1.5">
+                <div class="text-blue-900 dark:text-blue-200">
+                  <span class="text-[11px] block text-blue-700 dark:text-blue-300 font-medium">💡 Terdeteksi kuliah rutin di hari yang sama:</span>
+                  <span class="font-bold text-xs" x-text="polaHariName(getMatchingPattern().day_of_week) + ', ' + getMatchingPattern().start_time + ' - ' + getMatchingPattern().end_time"></span>
+                </div>
+                <button type="button" @click="terapkanPolaCocok()" class="px-2.5 py-1.5 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg text-[11px] shrink-0 cursor-pointer shadow-xs transition">
+                  Gantikan Kuliah Ini
+                </button>
+              </div>
+            </template>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed" x-show="!examForm.patternId && !getMatchingPattern()">
+              💡 <em>Pilih jadwal kuliah rutin jika ujian ini diadakan pada jam kuliah biasa agar tidak terdeteksi bentrok dengan kuliah sendiri.</em>
+            </p>
+          </div>
+
+          <!-- Tanggal Sesi Asal -->
+          <div x-show="examForm.patternId" class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-origindate-input">
+              <span>Tanggal sesi asal yang diganti</span>
+              <span class="text-red-500 font-bold">*</span>
+            </label>
+            <input id="exam-origindate-input" class="ui-field text-xs w-full" type="date" x-model="examForm.originDate" :required="!!examForm.patternId">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Hanya jadwal perkuliahan pada tanggal ini yang digantikan oleh sesi ujian.
+            </p>
+          </div>
+
+          <!-- Tanggal Ujian -->
+          <div class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-date-input">
+              <span>Tanggal ujian</span>
+              <span class="text-red-500 font-bold">*</span>
+            </label>
+            <input id="exam-date-input" class="ui-field text-xs w-full" type="date" x-model="examForm.date" required>
+          </div>
+
+          <!-- Waktu Mulai & Selesai -->
+          <div class="exam-dialog__times grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label class="exam-dialog-label" for="exam-start-input">
+                <span>Mulai (WIB)</span>
+                <span class="text-red-500 font-bold">*</span>
+              </label>
+              <input id="exam-start-input" class="ui-field text-xs w-full" type="time" x-model="examForm.start" required>
+            </div>
+            <div class="space-y-1.5">
+              <label class="exam-dialog-label" for="exam-end-input">
+                <span>Selesai (WIB)</span>
+                <span class="text-red-500 font-bold">*</span>
+              </label>
+              <input id="exam-end-input" class="ui-field text-xs w-full" type="time" x-model="examForm.end" required>
+            </div>
+          </div>
+
+          <!-- Ruangan -->
+          <div class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-room-select">
+              <span>Ruangan</span>
+            </label>
+            <select id="exam-room-select" class="ui-field text-xs w-full" x-model="examForm.roomId">
+              <option value="">Belum ditentukan / daring</option>
+              <template x-for="r in polaRooms" :key="r.id">
+                <option :value="String(r.id)" x-text="r.code || r.name"></option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Catatan / Sifat Ujian -->
+          <div class="space-y-1.5">
+            <label class="exam-dialog-label" for="exam-reason-input">
+              <span>Catatan / sifat ujian & pengawas</span>
+            </label>
+            <textarea id="exam-reason-input" class="ui-field text-xs w-full" x-model="examForm.reason" rows="2" placeholder="Contoh: Sifat buka buku, bawa laptop. Pengawas: Pak Hendra."></textarea>
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- STEP 2: PRATINJAU & KONFIRMASI -->
+      <div x-show="examStep === 2" class="space-y-3.5">
+        <!-- RINGKASAN SESI UJIAN (SUMMARY CARD) -->
+        <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 space-y-2.5 text-xs">
+          <div class="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[11px]"
+                    :class="examForm.kind === 'EXAM_UTS' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-200' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-200'"
+                    x-text="examForm.kind === 'EXAM_UTS' ? 'UTS' : 'UAS'"></span>
+              <span class="font-semibold text-sm text-slate-900 dark:text-slate-100" x-text="getExamOfferingName()"></span>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+            <div>
+              <span class="text-slate-400 block text-[11px]">Waktu Ujian</span>
+              <span class="font-medium text-slate-800 dark:text-slate-200" x-text="examForm.date + ' • ' + examForm.start + ' - ' + examForm.end + ' WIB'"></span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[11px]">Ruangan</span>
+              <span class="font-medium text-slate-800 dark:text-slate-200" x-text="getExamRoomName()"></span>
+            </div>
+          </div>
+          <div class="text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200 dark:border-slate-700/40">
+            <span class="text-slate-400 block text-[11px]">Sifat Sesi</span>
+            <span class="font-medium text-slate-700 dark:text-slate-300" x-text="getExamPatternLabel()"></span>
+          </div>
+          <template x-if="examForm.reason">
+            <div class="text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200 dark:border-slate-700/40">
+              <span class="text-slate-400 block text-[11px]">Catatan / Pengawas</span>
+              <span class="italic text-slate-700 dark:text-slate-300" x-text="examForm.reason"></span>
+            </div>
           </template>
-        </select>
-      </label>
-      <label x-show="examForm.patternId">Tanggal sesi asal
-        <input class="ui-field" type="date" x-model="examForm.originDate" :required="!!examForm.patternId">
-      </label>
-      <p class="text-muted">Dengan jadwal asal, hanya sesi pada tanggal tersebut yang diganti. Tanpa asal, jadwal rutin tetap berlaku.</p>
-      <label>Tanggal ujian <input class="ui-field" type="date" x-model="examForm.date" required></label>
-      <div class="exam-dialog__times">
-        <label>Mulai (WIB) <input class="ui-field" type="time" x-model="examForm.start" required></label>
-        <label>Selesai (WIB) <input class="ui-field" type="time" x-model="examForm.end" required></label>
+        </div>
+
+        <!-- 1. BENTROK PEMBLOKIR (BLOCKING CONFLICTS) -->
+        <template x-if="hasBlockingConflicts()">
+          <div class="p-3.5 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 space-y-2">
+            <div class="flex items-center gap-1.5 text-red-800 dark:text-red-300 font-semibold text-xs">
+              <span class="material-symbols-outlined text-[18px]">block</span>
+              <span>Jadwal Bertabrakan (Memblokir Publikasi)</span>
+            </div>
+            <ul class="list-disc list-inside space-y-1 text-xs text-red-700 dark:text-red-300">
+              <template x-for="(c, i) in (examPreview ? (examPreview.conflicts || []).filter(c => c.blocking) : [])" :key="i">
+                <li class="font-medium" x-text="c.message"></li>
+              </template>
+            </ul>
+            <div class="text-[11px] text-red-700 dark:text-red-300 pt-2 border-t border-red-200 dark:border-red-900/40 space-y-1 leading-relaxed">
+              <p>⚠️ <strong>Penting:</strong> Bentrok jadwal dosen atau mata kuliah di atas <strong>tidak dapat dioverride</strong> dengan konfirmasi TU (karena dosen/kelas tidak dapat berada di dua sesi sekaligus).</p>
+              <p>💡 <strong>Solusi:</strong> Jika sesi ujian ini diselenggarakan pada waktu kuliah rutin, klik <strong>« Ubah Data Ujian</strong> di bawah, lalu pilih jadwal tersebut pada bagian <em>"Jadwal kuliah yang digantikan"</em>.</p>
+            </div>
+          </div>
+        </template>
+
+        <!-- 2. KONFIRMASI RUANGAN & TU -->
+        <div x-show="examForm.roomId" 
+             class="p-3.5 rounded-xl border space-y-3 transition-colors"
+             :class="(examPreview ? examPreview.conflicts || [] : []).some(c => c.code === 'ROOM_TIME_OVERLAP') 
+                ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40' 
+                : 'border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/40'">
+
+          <!-- JIKA ADA BENTROK RUANGAN -->
+          <template x-if="(examPreview ? examPreview.conflicts || [] : []).some(c => c.code === 'ROOM_TIME_OVERLAP')">
+            <div class="space-y-1">
+              <div class="flex items-center gap-1.5 text-amber-900 dark:text-amber-200 font-semibold text-xs">
+                <span class="material-symbols-outlined text-[18px]">warning</span>
+                <span>Ruangan Sedang Digunakan Sesi Lain (Perlu Izin TU)</span>
+              </div>
+              <template x-for="(c, i) in (examPreview ? (examPreview.conflicts || []).filter(c => c.code === 'ROOM_TIME_OVERLAP') : [])" :key="'room-'+i">
+                <p class="text-xs text-amber-800 dark:text-amber-300 font-medium pl-6" x-text="c.message"></p>
+              </template>
+            </div>
+          </template>
+
+          <!-- JIKA TIDAK ADA BENTROK RUANGAN -->
+          <template x-if="!(examPreview ? examPreview.conflicts || [] : []).some(c => c.code === 'ROOM_TIME_OVERLAP')">
+            <div class="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold text-xs">
+              <span class="material-symbols-outlined text-[18px] text-primary">meeting_room</span>
+              <span>Konfirmasi Pemakaian Ruangan Kampus</span>
+            </div>
+          </template>
+
+          <!-- CHECKBOX & KONTAK TU -->
+          <div class="space-y-2.5 pt-2 border-t"
+               :class="(examPreview ? examPreview.conflicts || [] : []).some(c => c.code === 'ROOM_TIME_OVERLAP') 
+                  ? 'border-amber-200 dark:border-amber-900/40' 
+                  : 'border-slate-200 dark:border-slate-700/60'">
+            <label class="exam-check-label text-xs font-semibold text-slate-800 dark:text-slate-200">
+              <input type="checkbox" x-model="examRoomConfirmed" class="rounded border-slate-300 text-primary">
+              <span>Ruangan sudah dikonfirmasi & disetujui oleh TU <span class="text-red-500 font-bold">*</span></span>
+            </label>
+
+            <div class="space-y-1">
+              <label class="exam-dialog-label text-slate-700 dark:text-slate-300" for="exam-room-contact-input">
+                <span>Nama Staf / No Kontak TU</span>
+                <span class="text-red-500 font-bold">*</span>
+              </label>
+              <input id="exam-room-contact-input" class="ui-field w-full text-xs" x-model="examRoomContact" type="text" placeholder="Contoh: Pak Agus TU / 08123456789">
+            </div>
+          </div>
+
+          <!-- ALASAN OVERRIDE JIKA BENTROK -->
+          <template x-if="(examPreview ? examPreview.conflicts || [] : []).some(c => !c.blocking && c.code !== 'ROOM_CONFIRMATION_REQUIRED')">
+            <div class="space-y-1 pt-2 border-t border-amber-200 dark:border-amber-900/40">
+              <label class="exam-dialog-label text-amber-950 dark:text-amber-200" for="exam-override-input">
+                <span>Alasan Pengecualian Konflik</span>
+                <span class="text-red-500 font-bold">*</span>
+              </label>
+              <textarea id="exam-override-input" class="ui-field w-full text-xs" x-model="examOverride" rows="2" placeholder="Contoh: Sudah konfirmasi TU, kelas sebelah sedang kuliah daring / ruangan kosong."></textarea>
+            </div>
+          </template>
+        </div>
+
+        <!-- 3. BEBAS KONFLIK & TANPA RUANGAN -->
+        <template x-if="examPreview && !(examPreview.conflicts || []).some(c => c.blocking) && !(examPreview.conflicts || []).some(c => c.code === 'ROOM_TIME_OVERLAP') && !examForm.roomId">
+          <div class="p-3 rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+            <span class="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+            <span>Jadwal siap diterbitkan tanpa benturan waktu.</span>
+          </div>
+        </template>
       </div>
-      <label>Ruangan
-        <select class="ui-field" x-model="examForm.roomId">
-          <option value="">Belum ditentukan / daring</option>
-          <template x-for="r in polaRooms" :key="r.id"><option :value="String(r.id)" x-text="r.code || r.name"></option></template>
-        </select>
-      </label>
-      <label>Catatan / sifat ujian dan pengawas
-        <textarea class="ui-field" x-model="examForm.reason" rows="3" placeholder="Contoh: Buka buku, bawa kalkulator. Pengawas: isi nama pengawas."></textarea>
-      </label>
-    </fieldset>
-    <p x-show="examDraft" class="mt-3 text-muted">Draf sudah tersimpan. Detailnya dapat dikelola dari daftar perubahan jadwal.</p>
-    <section x-show="examPreview" class="exam-dialog__fields" aria-label="Konfirmasi publikasi">
-      <h3 class="font-semibold">Konfirmasi publikasi ujian</h3>
-      <p x-text="(examForm.kind === 'EXAM_UTS' ? 'UTS' : 'UAS') + ': ' + examForm.date + ', ' + examForm.start + ' - ' + examForm.end + ' WIB'"></p>
-      <p>Publikasi menampilkan sesi ujian pada portal dan jadwal WhatsApp kelas.</p>
-      <template x-for="(c, i) in (examPreview ? examPreview.conflicts || [] : [])" :key="i">
-        <p :class="c.blocking ? 'ui-form-error' : 'text-muted'" x-text="c.message"></p>
-      </template>
-      <div x-show="examForm.roomId">
-        <label class="exam-dialog__check"><input type="checkbox" x-model="examRoomConfirmed"> Ruangan sudah dikonfirmasi oleh TU</label>
-        <label>Kontak TU <input class="ui-field" x-model="examRoomContact" type="text"></label>
+    </div>
+
+    <!-- STICKY FOOTER -->
+    <!-- FOOTER STEP 1 -->
+    <footer x-show="examStep === 1" class="exam-dialog__actions">
+      <button type="button" class="ui-button ui-button--ghost text-xs h-10 px-3 min-h-[40px]" :disabled="examBusy" @click="document.getElementById('exam-dialog').close()">Batal</button>
+      <div class="flex items-center gap-2">
+        <button type="button" class="ui-button ui-button--outline text-xs h-10 px-3 min-h-[40px]" :disabled="examBusy" @click="simpanUjian(false)">Simpan Draf</button>
+        <button type="submit" class="ui-button ui-button--primary text-xs h-10 px-4 min-h-[40px] font-semibold flex items-center gap-1" :disabled="examBusy">
+          <span x-text="examBusy ? 'Memproses...' : 'Tinjau Jadwal'"></span>
+          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </button>
       </div>
-      <label x-show="examPreview && (examPreview.conflicts || []).some(c => !c.blocking && c.code !== 'ROOM_CONFIRMATION_REQUIRED')">Alasan pengecualian konflik
-        <textarea class="ui-field" x-model="examOverride" rows="2"></textarea>
-      </label>
-      <button type="button" class="ui-button ui-button--primary" :disabled="examBusy || (examPreview && (examPreview.conflicts || []).some(c => c.blocking))" @click="terbitkanUjian()">Konfirmasi dan Publikasikan</button>
-    </section>
-    <footer class="exam-dialog__actions" x-show="!examPreview">
-      <button type="button" class="ui-button ui-button--outline" :disabled="examBusy" @click="simpanUjian(false)">Simpan Draf</button>
-      <button type="submit" class="ui-button ui-button--primary" :disabled="examBusy">Tinjau dan Publikasikan</button>
+    </footer>
+
+    <!-- STATUS PERINGATAN KETIKA TOMBOL NONAKTIF -->
+    <template x-if="examStep === 2 && hasBlockingConflicts()">
+      <div class="px-5 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-t border-amber-200 dark:border-amber-900/40 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+        <span class="material-symbols-outlined text-[18px] text-amber-600 dark:text-amber-400 shrink-0">help</span>
+        <span class="text-[11px] leading-tight">
+          <strong>Tombol publikasi terkunci:</strong> Selesaikan bentrok dosen/mata kuliah pada kotak merah terlebih dahulu sebelum mempublikasikan.
+        </span>
+      </div>
+    </template>
+
+    <!-- FOOTER STEP 2 -->
+    <footer x-show="examStep === 2" class="exam-dialog__actions">
+      <button type="button" class="ui-button ui-button--outline text-xs h-10 px-3.5 min-h-[40px] font-medium flex items-center gap-1 cursor-pointer" :disabled="examBusy" @click="kembaliKeForm()">
+        <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+        <span>Ubah Data Ujian</span>
+      </button>
+      <button type="button" class="ui-button ui-button--primary text-xs h-10 px-4 min-h-[40px] font-semibold"
+              :disabled="examBusy || hasBlockingConflicts()"
+              :title="hasBlockingConflicts() ? 'Selesaikan bentrok dosen/mata kuliah pada kotak merah terlebih dahulu' : ''"
+              @click="terbitkanUjian()">
+        <span x-text="examBusy ? 'Menerbitkan...' : (hasBlockingConflicts() ? 'Publikasi Terblokir Konflik' : 'Konfirmasi & Publikasikan')"></span>
+      </button>
     </footer>
   </form>
 </dialog>

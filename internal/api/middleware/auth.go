@@ -201,8 +201,11 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 6. Perbarui waktu aktivitas terakhir (last_seen_at)
-		_, _ = am.db.Exec(`UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?;`, sessionID)
+		// 6. Perbarui waktu aktivitas terakhir (last_seen_at) jika sudah lewat minimal 1 menit
+		// guna menghindari write-lock contention pada SQLite saat request bersamaan.
+		if now.Sub(lastSeenAt) > 1*time.Minute {
+			_, _ = am.db.Exec(`UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?;`, sessionID)
+		}
 
 		// Dukungan System Admin: jika sedang dalam Mode Dukungan aktif, cakupkan konteks kelasnya
 		if role.Valid && role.String == "SYSTEM_ADMIN" {

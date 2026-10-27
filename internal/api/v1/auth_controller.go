@@ -829,15 +829,19 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 				FROM role_invitations ri 
 				WHERE ri.class_id = c.id AND ri.role = 'KM' AND ri.status = 'PENDING' AND ri.expires_at > CURRENT_TIMESTAMP
 				ORDER BY ri.created_at DESC LIMIT 1
-			), '')
+			), ''),
+			COALESCE(ra.status, '')
 		FROM classes c
 		LEFT JOIN (
-			SELECT class_id, user_id 
-			FROM role_assignments 
-			WHERE role = 'KM' AND status = 'ACTIVE' 
-			GROUP BY class_id
+			SELECT class_id, user_id, status
+			FROM (
+				SELECT class_id, user_id, status,
+				       ROW_NUMBER() OVER(PARTITION BY class_id ORDER BY CASE WHEN status = 'ACTIVE' THEN 1 ELSE 2 END, id DESC) as rn
+				FROM role_assignments
+				WHERE role = 'KM' AND status IN ('ACTIVE', 'SUSPENDED')
+			) WHERE rn = 1
 		) ra ON ra.class_id = c.id
-		LEFT JOIN users u ON u.id = ra.user_id AND u.status = 'ACTIVE'`
+		LEFT JOIN users u ON u.id = ra.user_id`
 	args := []any{}
 	if scopedClassID.Valid {
 		query += ` WHERE c.id = ?`
@@ -854,15 +858,17 @@ func (c *AuthController) GetClasses(w http.ResponseWriter, r *http.Request) {
 
 	classes := make([]map[string]any, 0)
 	for rows.Next() {
-		var slug, code, prog, grp, st, kmName, kmPhone, pendingPhone string
+		var slug, code, prog, grp, st, kmName, kmPhone, pendingPhone, kmStatus string
 		var cohort int
-		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st, &kmName, &kmPhone, &pendingPhone); err != nil {
+		if err := rows.Scan(&slug, &code, &prog, &cohort, &grp, &st, &kmName, &kmPhone, &pendingPhone, &kmStatus); err != nil {
 			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal membaca daftar kelas")
 			return
 		}
 		statusKM := "none"
-		if kmName != "" {
+		if kmStatus == "ACTIVE" {
 			statusKM = "active"
+		} else if kmStatus == "SUSPENDED" {
+			statusKM = "suspended"
 		} else if pendingPhone != "" {
 			statusKM = "pending"
 		}

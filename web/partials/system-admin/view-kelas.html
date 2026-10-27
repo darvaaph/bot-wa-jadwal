@@ -142,6 +142,7 @@
         <select x-model="kelasFilter.statusKM" class="h-10 w-full appearance-none rounded-[8px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB]">
           <option value="">KM: Semua</option>
           <option value="active">KM: Aktif</option>
+          <option value="suspended">KM: Ditangguhkan</option>
           <option value="pending">KM: Undangan menunggu</option>
           <option value="none">KM: Belum ditetapkan</option>
         </select>
@@ -215,6 +216,9 @@
                 <template x-if="k.statusKM === 'active'">
                   <p class="text-[11px] text-[#1D1B3A] truncate font-medium" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p>
                 </template>
+                <template x-if="k.statusKM === 'suspended'">
+                  <p class="text-[11px] text-[#B42318] truncate font-medium" :title="'KM Ditangguhkan: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || '') + ' (Ditangguhkan)'"></p>
+                </template>
                 <template x-if="k.statusKM === 'pending'">
                   <p class="text-[11px] text-[#92400E] font-medium truncate">Undangan menunggu</p>
                 </template>
@@ -248,7 +252,7 @@
                     <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
                       <path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/>
                     </svg>
-                    <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+                    <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : (k.statusKM === 'suspended' ? 'Ganti KM' : 'Undang KM')"></span>
                   </button>
                 </template>
 
@@ -316,6 +320,7 @@
 
           <div class="text-[11px]">
             <template x-if="k.statusKM === 'active'"><p class="text-[#1D1B3A] font-medium truncate" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p></template>
+            <template x-if="k.statusKM === 'suspended'"><p class="text-[#B42318] font-medium truncate" :title="'KM Ditangguhkan: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || '') + ' (Ditangguhkan)'"></p></template>
             <template x-if="k.statusKM === 'pending'"><p class="text-[#92400E] font-medium">Undangan menunggu</p></template>
             <template x-if="k.statusKM === 'none'"><p class="text-[#92400E] font-medium">KM: Belum Ditetapkan</p></template>
           </div>
@@ -330,7 +335,7 @@
             <template x-if="k.statusKM !== 'active'">
               <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-[9px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="(k.statusKM === 'pending' ? 'Kirim ulang undangan KM ' : 'Undang KM ') + k.nama">
                 <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/></svg>
-                <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+                <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : (k.statusKM === 'suspended' ? 'Ganti KM' : 'Undang KM')"></span>
               </button>
             </template>
             <div class="relative" @click.outside="if (kelasMenu === 'm-' + k.slug) kelasMenu = null">
@@ -917,16 +922,16 @@
             <div
               data-pencil-name="Status KM Aktif"
               class="box-border w-fit shrink-0 flex flex-row gap-1.5 px-2.5 py-1 justify-start items-center rounded-[7px]"
-              :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#DCFCE7]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]')"
+              :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#DCFCE7]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'bg-[#FEF3F2]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]'))"
             >
               <div
                 class="box-border w-1.5 h-1.5 shrink-0 rounded-full"
-                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#16A34A]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#F59E0B]' : 'bg-[#94A3B8]')"
+                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#16A34A]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'bg-[#B42318]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#F59E0B]' : 'bg-[#94A3B8]'))"
               ></div>
               <span
                 class="text-[11px] font-bold text-left whitespace-nowrap"
-                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'text-[#15803D]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'text-[#D97706]' : 'text-[#64748B]')"
-                x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan')"
+                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'text-[#15803D]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'text-[#B42318]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'text-[#D97706]' : 'text-[#64748B]'))"
+                x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'Ditangguhkan' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan'))"
               >Aktif</span>
             </div>
           </div>
@@ -973,7 +978,7 @@
               class="text-[12px] text-[#667085] font-normal text-left"
               x-show="!kmPenugasan || (!kmPenugasan.valid_from && !kmPenugasan.created_at)"
             >
-              <span x-text="kelasAktifObj && kelasAktifObj.kmName ? 'Status penugasan tercatat aktif' : 'Belum ada ketua murid yang ditugaskan'"></span>
+              <span x-text="kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'Penugasan KM saat ini ditangguhkan' : (kelasAktifObj && kelasAktifObj.kmName ? 'Status penugasan tercatat aktif' : 'Belum ada ketua murid yang ditugaskan')"></span>
             </div>
           </div>
         </div>

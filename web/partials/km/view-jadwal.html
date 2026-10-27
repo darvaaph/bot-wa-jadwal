@@ -1,7 +1,7 @@
 <!-- partials/km/view-jadwal.html - Hub Jadwal KM: daftar, form, tinjau, detail, partisipasi. -->
 <section x-show="view === 'jadwal'" x-cloak>
   <!-- Header: Manajemen Jadwal Kuliah -->
-  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
+  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1" x-show="jadwalSub === 'daftar'">
     <div>
       <h1 class="font-heading text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Manajemen Jadwal Kuliah</h1>
       <p class="text-[13px] text-[#667085] mt-1">Jadwal perkuliahan mingguan, kuliah pengganti, dan pemetaan slot kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || '-'">-</span>.</p>
@@ -75,7 +75,7 @@
               </svg>
             </button>
             <div
-              class="box-border w-[250px] shrink-0 h-[40px] flex flex-row gap-[8px] px-[12px] justify-start items-center border-x border-[#E2E8F0]">
+              class="box-border w-auto min-w-[200px] shrink-0 h-[40px] flex flex-row gap-[8px] px-[12px] justify-start items-center border-x border-[#E2E8F0]">
               <div class="text-[14px] text-[#1D1B3A] font-mono font-bold text-left whitespace-nowrap tracking-tight"
                 x-text="weekRangeLabel || weekLabel">
                 -
@@ -684,44 +684,44 @@
 
   <!-- ============ SUB: UBAH (SCR-SCHED-002) ============ -->
   <div x-show="jadwalSub === 'ubah'">
-    <!-- Top Breadcrumb -->
-    <div class="flex items-center gap-2 text-[12px] text-[#667085] mb-1 font-medium">
-      <span>Sistem</span>
-      <span class="text-[#98A2B3]">/</span>
-      <span x-text="selectedClass || '-'">-</span>
-      <span class="text-[#98A2B3]">/</span>
-      <button type="button" @click="bukaDaftar()" class="hover:underline">Jadwal Kuliah</button>
-      <span class="text-[#98A2B3]">/</span>
-      <span class="text-[#1D1B3A] font-semibold">Buat Perubahan Jadwal</span>
+    <!-- Top Breadcrumb & Back Action -->
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-2 text-[12px] text-[#667085] font-medium">
+        <button type="button" @click="bukaDaftar()" class="hover:text-[#3965FB] hover:underline flex items-center gap-1 font-semibold text-[#3965FB]">
+          <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span>Kembali ke Jadwal Kuliah</span>
+        </button>
+        <span class="text-[#CBD5E1]">/</span>
+        <span class="text-[#1D1B3A] font-semibold">Buat Perubahan</span>
+      </div>
+      <button type="button" @click="simpanDrafPerubahan()"
+              class="h-[36px] px-3.5 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-slate-50 rounded-[10px] text-[12px] font-semibold text-[#1D1B3A] transition-all shadow-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+        <span class="material-symbols-outlined text-[16px] text-slate-500">bookmark_border</span>
+        <span>Simpan Draf</span>
+      </button>
     </div>
 
     <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div>
-        <h1 class="font-heading text-[24px] md:text-[26px] font-bold text-[#1D1B3A] tracking-tight">Buat Perubahan Jadwal</h1>
-        <p class="text-[13px] text-[#667085] mt-0.5">Ajukan sesi kuliah pengganti, kelas tambahan, atau pembatalan jadwal kelas <span class="font-medium text-[#1D1B3A]" x-text="selectedClass || 'ini'"></span>.</p>
-      </div>
-      <button type="button" @click="simpanDrafPerubahan()"
-              class="h-[40px] px-4 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-all shadow-sm self-start sm:self-auto flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
-        <span>Simpan sebagai Draf</span>
-      </button>
+    <div>
+      <h1 class="font-heading text-[22px] md:text-[24px] font-bold text-[#1D1B3A] tracking-tight">Buat Perubahan Jadwal</h1>
+      <p class="text-[13px] text-[#667085] mt-0.5">Ajukan sesi kuliah pengganti, kelas tambahan, atau pembatalan jadwal perkuliahan.</p>
     </div>
 
     <!-- Stepper Navigation -->
     <div class="flex flex-wrap items-center gap-2 md:gap-3 w-full mt-4 pt-1">
-      <div class="h-[30px] px-3 bg-[#EFF6FF] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-1.5 shadow-sm">
-        <span>1. Rincian Perubahan</span>
+      <div class="h-[32px] px-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-2 shadow-xs">
+        <span class="w-4 h-4 rounded-full bg-[#3965FB] text-white flex items-center justify-center text-[10px] font-bold">1</span>
+        <span>Rincian Perubahan</span>
       </div>
-      <span class="text-[#98A2B3] text-[13px] font-normal">-</span>
-      <div class="h-[30px] px-3 rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center">
-        <span>2. Tinjau Dampak &amp; Bentrok</span>
+      <span class="text-[#CBD5E1] text-[13px] font-semibold">›</span>
+      <div class="h-[32px] px-3 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-2">
+        <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">2</span>
+        <span>Tinjau Dampak &amp; Bentrok</span>
       </div>
-      <span class="text-[#98A2B3] text-[13px] font-normal">-</span>
-      <div class="h-[30px] px-3 rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center">
-        <span>3. Terbitkan &amp; Siarkan</span>
-      </div>
-      <div class="ml-auto text-[11px] text-[#667085] font-normal hidden md:block">
-        <span x-text="(selectedClass || '-') + ' · ' + (activeSemesterLabel || 'Semester Aktif')"></span>
+      <span class="text-[#CBD5E1] text-[13px] font-semibold">›</span>
+      <div class="h-[32px] px-3 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-2">
+        <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">3</span>
+        <span>Terbitkan &amp; Siarkan</span>
       </div>
     </div>
 
@@ -822,8 +822,9 @@
               <div class="relative">
                 <select id="form-ubah-origin" x-model="ubahForm.originPatternId" @change="pilihPolaAsal()"
                         aria-label="Sesi yang Digantikan"
-                        class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB]">
-                  <option value="">Pilih Sesi Semula</option>
+                        :disabled="!ubahForm.offeringId"
+                        class="w-full h-[44px] bg-white border border-[#CBD5E1] rounded-[12px] pl-3.5 pr-8 text-[12px] font-medium text-[#1D1B3A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 focus:border-[#3965FB] disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed">
+                  <option value="" x-text="ubahForm.offeringId ? 'Pilih Sesi Semula' : 'Pilih Mata Kuliah terlebih dahulu'">Pilih Sesi Semula</option>
                   <template x-for="p in scopePatterns" :key="p.id">
                     <option :value="p.id" x-text="'Sesi Reguler: ' + polaHariName(p.day_of_week) + ' (' + (p.start_time || '').slice(0, 5) + ' - ' + (p.end_time || '').slice(0, 5) + ')'">-</option>
                   </template>
@@ -912,27 +913,42 @@
       <!-- Kolom Kanan: Validasi dan Simulasi -->
       <div class="flex-1 w-full flex flex-col gap-4">
         <!-- Panel 1: Pengecekan Bentrok Langsung -->
-        <div class="w-full bg-[#F0FDF4] border border-[#BBF7D0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[20px] text-[#16A34A]">check_circle</span>
-            <span class="text-[14px] font-bold text-[#166534]">Pengecekan Bentrok: Lolos</span>
+        <template x-if="!isFormReadyForSimulation">
+          <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-2.5">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-[#64748B]">pending_actions</span>
+              <span class="text-[14px] font-bold text-[#1E293B]">Pengecekan Bentrok Jadwal</span>
+              <span class="ml-auto px-2 py-0.5 bg-slate-200/80 rounded-[6px] text-[10px] font-bold text-slate-600">Menunggu Input</span>
+            </div>
+            <p class="text-[12px] text-[#64748B] leading-relaxed">
+              Pilih mata kuliah, tanggal, dan jam pelaksanaan di formulir untuk memverifikasi ketersediaan ruangan, dosen, dan waktu kelas secara otomatis.
+            </p>
           </div>
+        </template>
 
-          <div class="flex flex-col gap-2 text-[12px] text-[#166534] font-medium leading-relaxed">
-            <div class="flex items-start gap-2">
-              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
-              <span x-text="simulasiRuangCheckText"></span>
+        <template x-if="isFormReadyForSimulation">
+          <div class="w-full bg-[#F0FDF4] border border-[#BBF7D0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-[#16A34A]">check_circle</span>
+              <span class="text-[14px] font-bold text-[#166534]">Pengecekan Bentrok: Lolos</span>
             </div>
-            <div class="flex items-start gap-2">
-              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
-              <span x-text="simulasiDosenCheckText"></span>
-            </div>
-            <div class="flex items-start gap-2">
-              <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
-              <span x-text="simulasiKelasCheckText"></span>
+
+            <div class="flex flex-col gap-2 text-[12px] text-[#166534] font-medium leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+                <span x-text="simulasiRuangCheckText"></span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+                <span x-text="simulasiDosenCheckText"></span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="material-symbols-outlined text-[16px] text-[#16A34A] shrink-0 mt-0.5">check</span>
+                <span x-text="simulasiKelasCheckText"></span>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
 
         <!-- Panel 2: Simulasi Kartu Jadwal Baru -->
         <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3.5">
@@ -941,13 +957,18 @@
               <span class="material-symbols-outlined text-[18px] text-[#3965FB]">calendar_month</span>
               <span class="text-[14px] font-semibold text-[#1D1B3A]">Simulasi Kartu Jadwal Baru</span>
             </div>
-            <div class="px-2 py-0.5 bg-[#EFF6FF] rounded-[7px] text-[11px] font-bold text-[#3965FB]" x-text="simulasiDatePill || '-'">
-              -
+            <div x-show="simulasiDatePill" class="px-2 py-0.5 bg-[#EFF6FF] rounded-[7px] text-[11px] font-bold text-[#3965FB]" x-text="simulasiDatePill">
             </div>
           </div>
 
-          <!-- Preview Card Sesi Pengganti -->
-          <div class="w-full bg-[#FFFBEB] border-l-4 border-l-[#F59E0B] border-y border-r border-[#FDE68A] rounded-[12px] p-3.5 flex flex-col gap-1.5 shadow-sm">
+          <!-- Empty State jika mata kuliah belum dipilih -->
+          <div x-show="!ubahForm.offeringId" class="w-full border-2 border-dashed border-[#E2E8F0] rounded-[12px] p-6 flex flex-col items-center justify-center text-center text-[#667085] gap-2">
+            <span class="material-symbols-outlined text-[26px] text-[#94A3B8]">event_note</span>
+            <p class="text-[12px] leading-relaxed">Pratinjau kartu jadwal baru akan tampil di sini setelah Anda memilih mata kuliah.</p>
+          </div>
+
+          <!-- Preview Card Sesi Pengganti (Tanpa artificial left stripe) -->
+          <div x-show="ubahForm.offeringId" class="w-full bg-[#FFFBEB] border border-[#FDE68A] rounded-[12px] p-4 flex flex-col gap-2 shadow-xs">
             <div class="flex items-center justify-between gap-2">
               <div class="font-mono text-[12px] font-bold text-[#78350F]" x-text="(ubahForm.start && ubahForm.end) ? (ubahForm.start + ' - ' + ubahForm.end) : (ubahForm.start || ubahForm.end || '-')">
                 -

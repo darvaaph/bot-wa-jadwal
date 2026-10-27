@@ -74,7 +74,7 @@ const AsteriskShell = (() => {
         if (role === 'sa') return { label: 'System Admin', detail: this.currentUser?.display_name || 'Pengelola sistem', sub: this.currentUser?.identity_key || 'Akses global', short: 'SA' };
         const semester = this.activeSemesterLabel || '';
         const scope = this.roleSub || '';
-        return { label: role === 'km' ? 'Ketua Murid' : 'PJ Mata Kuliah', detail: this.selectedClass || 'Pilih kelas', sub: [semester, scope].filter(Boolean).join(' · '), short: role.toUpperCase() };
+        return { label: role === 'km' ? 'Ketua Kelas' : 'PJ Mata Kuliah', detail: this.selectedClass || 'Pilih kelas', sub: [semester, scope].filter(Boolean).join(' · '), short: role.toUpperCase() };
       },
       shellBottomNav() {
         if (role === 'portal') return [
@@ -318,5 +318,70 @@ const AsteriskShell = (() => {
     };
   }
 
-  return { mount, behavior, version };
+    function formatClassShort(cls, activeAssignment, fallback) {
+    if (activeAssignment && activeAssignment.class_name) return activeAssignment.class_name;
+    const code = (cls && cls.code) || fallback || '';
+    const m = code.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+    if (m) {
+      const cohort = parseInt(m[3], 10);
+      const d = new Date();
+      const currentYear = d.getFullYear();
+      // Tahun akademik Indonesia dimulai Agustus/September (bulan >= 7 pada indeks 0)
+      const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+      const tingkat = Math.max(1, Math.min(4, acadYear - cohort + 1));
+      return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+    }
+    return (cls && cls.code) || fallback || 'Kelas Aktif';
+  }
+
+  function formatClassDampak(cls, shortCode, semesterLabel, fallback) {
+    cls = cls || {};
+    let prodi = cls.study_program || '';
+    if (!prodi && cls.label) {
+      prodi = cls.label.replace(/\s+[A-Za-z0-9]+$/, '').trim();
+    }
+    if (!prodi) prodi = 'Teknik Informatika';
+
+    let group = cls.group_label || '';
+    if (!group && cls.code) {
+      const parts = cls.code.split('-');
+      group = parts[parts.length - 1];
+    }
+
+    let cohort = cls.cohort_year || 0;
+    if (!cohort && cls.code) {
+      const m = cls.code.match(/(\d{4})/);
+      if (m) cohort = parseInt(m[1], 10);
+    }
+
+    let tingkat = '';
+    if (cohort > 0) {
+      const d = new Date();
+      const currentYear = d.getFullYear();
+      const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+      const t = Math.max(1, Math.min(4, acadYear - cohort + 1));
+      tingkat = String(t);
+    }
+
+    const parts = [];
+    if (prodi) parts.push(prodi);
+    if (tingkat && group) {
+      parts.push(`Kelas ${tingkat}${group}`);
+    } else if (group) {
+      parts.push(`Kelas ${group}`);
+    }
+    if (cohort > 0) {
+      parts.push(`Angkatan ${cohort}`);
+    }
+    if (semesterLabel && semesterLabel !== 'Semester Aktif') {
+      parts.push(semesterLabel);
+    }
+
+    if (parts.length > 0) {
+      return `${shortCode} (${parts.join(' · ')})`;
+    }
+    return `${shortCode || fallback || 'ini'}`;
+  }
+
+  return { mount, behavior, formatClassShort, formatClassDampak, version };
 })();
