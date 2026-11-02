@@ -1018,13 +1018,13 @@
         <div x-show="blockingConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-300">
           <p class="text-[14px] font-semibold text-red-800 flex items-center gap-1.5"><span class="material-symbols-outlined">block</span>Konflik pemblokir — penerbitan dinonaktifkan</p>
           <template x-for="(c, i) in blockingConflicts" :key="i">
-            <p class="text-[13px] text-red-700 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
+            <p class="text-[13px] text-red-700 mt-1"><strong x-text="formatConflict(c).title + ': '"></strong><span x-text="formatConflict(c).detail"></span></p>
           </template>
         </div>
         <div x-show="overrideConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
           <p class="text-[14px] font-semibold text-amber-900 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Konflik butuh alasan pengecualian</p>
           <template x-for="(c, i) in overrideConflicts" :key="i">
-            <p class="text-[13px] text-amber-900 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
+            <p class="text-[13px] text-amber-900 mt-1"><strong x-text="formatConflict(c).title + ': '"></strong><span x-text="formatConflict(c).detail"></span></p>
           </template>
           <label class="block text-[13px] font-medium mt-3 mb-1">Alasan pengecualian <span class="text-red-600">*</span></label>
           <textarea aria-label="Alasan pengecualian" x-model="ubahForm.conflictReason" rows="2" placeholder="Jelaskan mengapa perubahan tetap diterbitkan" class="ui-field w-full text-[14px]"></textarea>

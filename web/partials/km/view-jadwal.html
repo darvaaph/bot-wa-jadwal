@@ -689,7 +689,8 @@
       <div class="flex items-center gap-2 text-[12px] text-[#667085] font-medium">
         <button type="button" @click="bukaDaftar()" class="hover:text-[#3965FB] hover:underline flex items-center gap-1 font-semibold text-[#3965FB]">
           <span class="material-symbols-outlined text-[16px]">arrow_back</span>
-          <span>Kembali ke Jadwal Kuliah</span>
+          <span class="hidden sm:inline">Kembali ke Jadwal Kuliah</span>
+          <span class="sm:hidden">Kembali</span>
         </button>
         <span class="text-[#CBD5E1]">/</span>
         <span class="text-[#1D1B3A] font-semibold">Buat Perubahan</span>
@@ -708,27 +709,30 @@
     </div>
 
     <!-- Stepper Navigation -->
-    <div class="flex flex-wrap items-center gap-2 md:gap-3 w-full mt-4 pt-1">
-      <div class="h-[32px] px-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-2 shadow-xs">
+    <div class="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar w-full mt-4 pt-1">
+      <div class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-1.5 sm:gap-2 shadow-xs whitespace-nowrap">
         <span class="w-4 h-4 rounded-full bg-[#3965FB] text-white flex items-center justify-center text-[10px] font-bold">1</span>
-        <span>Rincian Perubahan</span>
+        <span class="hidden sm:inline">Rincian Perubahan</span>
+        <span class="sm:hidden">Rincian</span>
       </div>
-      <span class="text-[#CBD5E1] text-[13px] font-semibold">›</span>
-      <div class="h-[32px] px-3 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-2">
+      <span class="text-[#CBD5E1] text-[13px] font-semibold shrink-0">›</span>
+      <div class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
         <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">2</span>
-        <span>Tinjau Dampak &amp; Bentrok</span>
+        <span class="hidden sm:inline">Tinjau Dampak &amp; Bentrok</span>
+        <span class="sm:hidden">Tinjau</span>
       </div>
-      <span class="text-[#CBD5E1] text-[13px] font-semibold">›</span>
-      <div class="h-[32px] px-3 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-2">
+      <span class="text-[#CBD5E1] text-[13px] font-semibold shrink-0">›</span>
+      <div class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
         <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">3</span>
-        <span>Terbitkan &amp; Siarkan</span>
+        <span class="hidden sm:inline">Terbitkan &amp; Siarkan</span>
+        <span class="sm:hidden">Terbitkan</span>
       </div>
     </div>
 
     <!-- Main Content: 2-Column Layout (Formulir + Validasi & Simulasi) -->
     <div class="flex flex-col lg:flex-row gap-[18px] items-start w-full mt-4">
       <!-- Kolom Kiri: Formulir Perubahan Jadwal -->
-      <div class="w-full lg:w-[670px] shrink-0 bg-white border border-[#D7DDE7] rounded-[16px] p-6 shadow-[0px_3px_12px_#0F172A08] flex flex-col gap-5">
+      <div class="w-full lg:w-[670px] shrink-0 bg-white border border-[#D7DDE7] rounded-[16px] p-4 sm:p-6 shadow-[0px_3px_12px_#0F172A08] flex flex-col gap-5">
         <div x-show="ubahFormError" class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 font-medium" x-text="ubahFormError"></div>
 
         <div x-show="offeringLoading" class="rounded-xl bg-slate-50 p-4 text-[13px] text-slate-600 flex items-center gap-2" role="status">
@@ -898,13 +902,13 @@
         </div>
 
         <!-- 5. Navigasi Formulir (Bottom) -->
-        <div class="pt-4 border-t border-[#F2F4F7] flex items-center justify-between gap-3">
+        <div class="pt-4 border-t border-[#F2F4F7] flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
           <button type="button" @click="bukaDaftar()"
-                  class="h-[44px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+                  class="w-full sm:w-auto h-[44px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20 flex items-center justify-center">
             Batal
           </button>
           <button type="button" @click="tinjauPerubahan()"
-                  class="h-[44px] px-6 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white text-[13px] font-semibold transition-colors flex items-center gap-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
+                  class="w-full sm:w-auto h-[44px] px-6 bg-[#3965FB] hover:bg-[#2B52E2] rounded-[12px] text-white text-[13px] font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
             <span>Lanjut ke Peninjauan →</span>
           </button>
         </div>
@@ -914,7 +918,7 @@
       <div class="flex-1 w-full flex flex-col gap-4">
         <!-- Panel 1: Pengecekan Bentrok Langsung -->
         <template x-if="!isFormReadyForSimulation">
-          <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-2.5">
+          <div class="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-[16px] p-4 sm:p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-2.5">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-[20px] text-[#64748B]">pending_actions</span>
               <span class="text-[14px] font-bold text-[#1E293B]">Pengecekan Bentrok Jadwal</span>
@@ -927,7 +931,7 @@
         </template>
 
         <template x-if="isFormReadyForSimulation">
-          <div class="w-full bg-[#F0FDF4] border border-[#BBF7D0] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3">
+          <div class="w-full bg-[#F0FDF4] border border-[#BBF7D0] rounded-[16px] p-4 sm:p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-[20px] text-[#16A34A]">check_circle</span>
               <span class="text-[14px] font-bold text-[#166534]">Pengecekan Bentrok: Lolos</span>
@@ -951,7 +955,7 @@
         </template>
 
         <!-- Panel 2: Simulasi Kartu Jadwal Baru -->
-        <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3.5">
+        <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-4 sm:p-5 shadow-[0px_2px_8px_#0F172A06] flex flex-col gap-3.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-[18px] text-[#3965FB]">calendar_month</span>
@@ -1006,76 +1010,208 @@
 
   <!-- ============ SUB: TINJAU (SCR-SCH-003) ============ -->
   <div x-show="jadwalSub === 'tinjau'">
-    <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-slate-200 text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Ubah Lagi</button>
-    <div class="ui-card p-5 shadow-sm mt-4">
-      <h2 class="text-[18px] font-semibold text-ink">Tinjau Perubahan</h2>
-      <p class="text-[13px] text-slate-500 mt-1">Periksa dampak sebelum menerbitkan. Tidak ada konfirmasi tambahan setelah ini.</p>
-      <div x-show="previewLoading" class="py-6 text-center text-[13px] text-slate-400">Memuat pratinjau perubahan...</div>
-      <div x-show="previewError" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700">
-        <span x-text="previewError">-</span>
-        <button type="button" @click="muatPratinjau()" class="ui-button ui-button--ghost ml-2 font-semibold underline min-h-[44px]">Coba Lagi</button>
+    <!-- Top Breadcrumb & Back Action -->
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-2 text-[12px] text-[#667085] font-medium">
+        <button type="button" @click="ubahLagi()" class="hover:text-[#3965FB] hover:underline flex items-center gap-1 font-semibold text-[#3965FB]">
+          <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span class="hidden sm:inline">Kembali ke Formulir</span>
+          <span class="sm:hidden">Kembali</span>
+        </button>
+        <span class="text-[#CBD5E1]">/</span>
+        <span class="text-[#1D1B3A] font-semibold hidden sm:inline">Tinjau Dampak &amp; Bentrok</span>
+        <span class="text-[#1D1B3A] font-semibold sm:hidden">Tinjau</span>
       </div>
-      <template x-if="!previewLoading && !previewError && previewData"><div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <p class="text-[11px] font-bold tracking-widest text-slate-400 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">lock</span>SEBELUM</p>
-            <p class="text-[14px] font-semibold mt-1" x-text="previewData.old ? previewData.old.offering : ''">-</p>
-            <p class="text-[13px] text-slate-600 font-mono" x-text="previewData.old ? ('Hari ' + previewData.old.day_of_week + ' · ' + previewData.old.start_time + '-' + previewData.old.end_time + (previewData.old.room ? ' · ' + previewData.old.room : '')) : ''">-</p>
-          </div>
-          <div class="p-4 rounded-xl bg-primary-soft/60 border border-primary/30">
-            <p class="text-[11px] font-bold tracking-widest text-primary">MENJADI</p>
-            <p class="text-[14px] font-semibold mt-1" x-text="previewData.new ? previewData.new.offering : ''">-</p>
-            <p x-show="!(draftEvent && draftEvent.permanent)" class="text-[13px] font-mono" x-text="previewData.new ? fmtWaktuID(previewData.new.starts_at) + ' - ' + fmtWaktuID(previewData.new.ends_at) + (previewData.new.room ? ' · ' + previewData.new.room : '') : ''">-</p>
-            <p x-show="draftEvent && draftEvent.permanent" class="text-[13px]" x-text="previewData.new ? polaHariName(previewData.new.day_of_week) + ' · ' + previewData.new.start_time + '-' + previewData.new.end_time + ' mulai ' + previewData.effective_from : ''">-</p>
-            <a x-show="previewData.new && previewData.new.meeting_link" :href="previewData.new.meeting_link" target="_blank" rel="noopener noreferrer" class="text-[13px] text-primary font-medium hover:underline break-all" x-text="previewData.new.meeting_link">-</a>
-            <p class="text-[12px] mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white border border-primary/20 text-primary font-semibold"><span class="material-symbols-outlined text-[14px]">event</span><span x-text="previewData ? kindLabel(previewData.kind) : ''">-</span></p>
-          </div>
-        </div>
-        <p x-show="draftEvent && draftEvent.permanent" class="mt-3 text-[13px] text-slate-600" x-text="previewData ? previewData.affected_session_count + ' sesi rutin sampai akhir semester; tanggal pertama: ' + (previewData.first_session_dates || []).join(', ') : ''">-</p>
-        <div x-show="previewData && previewData.room_note" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-[13px] text-amber-900 flex gap-2">
-          <span class="material-symbols-outlined text-[20px] shrink-0">meeting_room</span>
-          <p>Ruangan <span class="font-semibold">perlu konfirmasi TU</span>. Catat konfirmasi manual sebelum menerbitkan bila ruangan diwajibkan.</p>
-        </div>
+      <button type="button" @click="bukaDaftar()"
+              class="h-[36px] px-3.5 bg-white border border-[#CBD5E1] hover:border-[#94A3B8] hover:bg-slate-50 rounded-[10px] text-[12px] font-semibold text-[#1D1B3A] transition-all shadow-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+        <span>Batal</span>
+      </button>
+    </div>
 
-        <template x-if="roomCands.length > 0 && previewData && previewData.new && previewData.new.starts_at">
-          <div class="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
-            <h4 class="text-[14px] font-semibold text-blue-900 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">meeting_room</span>Kandidat Ruangan (data internal)</h4>
-            <p class="text-[12px] text-blue-800 mt-1">Sumber internal - <span class="font-mono" x-text="roomCands[0].source_updated_at || '-'">-</span>. Wajib konfirmasi TU sebelum publish.</p>
-            <div class="mt-3 space-y-2">
-              <template x-for="rc in roomCands" :key="rc.id">
-                <div class="ui-card p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div class="flex-1">
-                    <p class="text-[14px] font-medium" x-text="rc.name || rc.code">-</p>
-                    <p class="text-[12px] text-slate-500 font-mono" x-text="rc.code + ' · Kapasitas: ' + rc.capacity + ' · Tipe: ' + rc.room_type">-</p>
+    <!-- Header Section -->
+    <div>
+      <h1 class="font-heading text-[22px] md:text-[24px] font-bold text-[#1D1B3A] tracking-tight">Tinjau Dampak &amp; Bentrok Jadwal</h1>
+      <p class="text-[13px] text-[#667085] mt-0.5">Periksa dampak sesi dan verifikasi potensi bentrok sebelum perubahan diterbitkan.</p>
+    </div>
+
+    <!-- Stepper Navigation (Step 2 Active) -->
+    <div class="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar w-full mt-4 pt-1">
+      <button type="button" @click="ubahLagi()" class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-white border border-[#E2E8F0] hover:border-slate-300 rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap">
+        <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
+        <span class="hidden sm:inline">1. Rincian Perubahan</span>
+        <span class="sm:hidden">1. Rincian</span>
+      </button>
+      <span class="text-[#CBD5E1] text-[13px] font-semibold shrink-0">›</span>
+      <div class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[8px] text-[12px] font-bold text-[#3965FB] flex items-center gap-1.5 sm:gap-2 shadow-xs whitespace-nowrap">
+        <span class="w-4 h-4 rounded-full bg-[#3965FB] text-white flex items-center justify-center text-[10px] font-bold">2</span>
+        <span class="hidden sm:inline">2. Tinjau Dampak &amp; Bentrok</span>
+        <span class="sm:hidden">2. Tinjau</span>
+      </div>
+      <span class="text-[#CBD5E1] text-[13px] font-semibold shrink-0">›</span>
+      <div class="h-[32px] px-2.5 sm:px-3 shrink-0 bg-white border border-[#E2E8F0] rounded-[8px] text-[12px] font-medium text-[#667085] flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+        <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">3</span>
+        <span class="hidden sm:inline">3. Terbitkan &amp; Siarkan</span>
+        <span class="sm:hidden">3. Terbitkan</span>
+      </div>
+    </div>
+
+    <!-- Main Card Container -->
+    <div class="w-full bg-white border border-[#D7DDE7] rounded-[16px] p-4 sm:p-6 shadow-[0px_3px_12px_#0F172A08] flex flex-col gap-5 mt-4">
+      <div x-show="previewLoading" class="py-8 text-center text-[13px] text-slate-500 flex flex-col items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-[24px] animate-spin text-[#3965FB]">progress_activity</span>
+        <span>Memuat dan memeriksa potensi bentrok jadwal...</span>
+      </div>
+
+      <div x-show="previewError" class="p-4 rounded-xl bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center justify-between">
+        <span x-text="previewError">-</span>
+        <button type="button" @click="muatPratinjau()" class="text-[#3965FB] underline font-semibold ml-2">Coba Lagi</button>
+      </div>
+
+      <template x-if="!previewLoading && !previewError && previewData">
+        <div class="flex flex-col gap-4">
+          <!-- Comparison Grid -->
+          <div class="grid grid-cols-1 gap-3.5" :class="previewData.old ? 'md:grid-cols-2' : ''">
+            <!-- SEBELUM (Hanya tampil jika ada sesi asal yang digantikan) -->
+            <div x-show="previewData.old" class="p-4 rounded-[12px] bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
+              <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                <span class="material-symbols-outlined text-[15px]">history</span>
+                <span>SESI ASAL (SEBELUM)</span>
+              </div>
+              <p class="text-[14px] font-bold text-[#1D1B3A]" x-text="previewData.old ? previewData.old.offering : ''">-</p>
+              <p class="text-[12px] text-slate-600 font-mono" x-text="previewData.old ? ('Hari ' + previewData.old.day_of_week + ' · ' + previewData.old.start_time + ' - ' + previewData.old.end_time + (previewData.old.room ? ' · ' + previewData.old.room : '')) : ''">-</p>
+            </div>
+
+            <!-- MENJADI -->
+            <div class="p-4 rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] flex flex-col gap-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#3965FB]">
+                  <span class="material-symbols-outlined text-[15px]">event</span>
+                  <span x-text="previewData.old ? 'PERUBAHAN BARU (MENJADI)' : 'SESI BARU YANG DIAJUKAN'"></span>
+                </div>
+                <span class="px-2 py-0.5 rounded-[6px] bg-white border border-[#3965FB]/20 text-[10px] font-bold text-[#3965FB]" x-text="previewData ? kindLabel(previewData.kind) : ''">-</span>
+              </div>
+              <p class="text-[15px] font-bold text-[#1D1B3A]" x-text="previewData.new ? previewData.new.offering : ''">-</p>
+              <p class="text-[13px] text-slate-700 font-medium" x-text="previewData.new ? (fmtWaktuID(previewData.new.starts_at) + ' - ' + fmtWaktuID(previewData.new.ends_at) + (previewData.new.room ? ' · ' + previewData.new.room : '')) : ''">-</p>
+              <p x-show="draftEvent && draftEvent.permanent" class="text-[12px] text-slate-600 font-mono" x-text="previewData.new ? polaHariName(previewData.new.day_of_week) + ' · ' + previewData.new.start_time + '-' + previewData.new.end_time + ' mulai ' + previewData.effective_from : ''">-</p>
+              <a x-show="previewData.new && previewData.new.meeting_link" :href="previewData.new.meeting_link" target="_blank" rel="noopener noreferrer" class="text-[12px] text-[#3965FB] font-medium hover:underline break-all mt-0.5" x-text="previewData.new.meeting_link">-</a>
+            </div>
+          </div>
+
+          <p x-show="draftEvent && draftEvent.permanent" class="text-[12px] text-slate-600" x-text="previewData ? previewData.affected_session_count + ' sesi rutin sampai akhir semester; tanggal pertama: ' + (previewData.first_session_dates || []).join(', ') : ''">-</p>
+
+          <!-- Room Note TU -->
+          <div x-show="previewData && previewData.room_note" class="p-3.5 rounded-[12px] bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-[18px] text-amber-600 shrink-0 mt-0.5">meeting_room</span>
+            <p class="leading-relaxed">Ruangan <strong class="font-semibold">perlu konfirmasi Tata Usaha (TU)</strong>. Catat konfirmasi manual sebelum menerbitkan bila ruangan diwajibkan.</p>
+          </div>
+
+          <!-- Kandidat Ruangan -->
+          <template x-if="roomCands.length > 0 && previewData && previewData.new && previewData.new.starts_at">
+            <div class="p-4 rounded-[12px] bg-blue-50/70 border border-blue-200">
+              <h4 class="text-[13px] font-bold text-blue-900 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">meeting_room</span>Kandidat Ruangan (data internal)</h4>
+              <p class="text-[12px] text-blue-800 mt-0.5">Sumber internal - <span class="font-mono" x-text="roomCands[0].source_updated_at || '-'">-</span>. Wajib konfirmasi TU sebelum publish.</p>
+              <div class="mt-2.5 space-y-2">
+                <template x-for="rc in roomCands" :key="rc.id">
+                  <div class="bg-white border border-blue-200 rounded-[10px] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                    <div class="flex-1">
+                      <p class="text-[13px] font-semibold text-slate-900" x-text="rc.name || rc.code">-</p>
+                      <p class="text-[11px] text-slate-500 font-mono" x-text="rc.code + ' · Kapasitas: ' + rc.capacity + ' · Tipe: ' + rc.room_type">-</p>
+                    </div>
+                    <button type="button" @click="bukaKonfirmasiTU(rc)" class="w-full sm:w-fit min-h-[44px] sm:min-h-[32px] h-[40px] sm:h-[32px] px-3.5 bg-[#3965FB] hover:bg-[#2B52E2] text-white rounded-[8px] text-[12px] font-semibold flex items-center justify-center transition-colors cursor-pointer">Konfirmasi TU</button>
                   </div>
-                  <button type="button" @click="bukaKonfirmasiTU(rc)" class="ui-button ui-button--primary text-[13px] font-semibold">Konfirmasi TU</button>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- 1. BENTROK PEMBLOKIR (BLOCKING CONFLICTS) -->
+          <div x-show="blockingConflicts.length > 0" class="p-4 rounded-[14px] bg-red-50 border border-red-200 flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-red-600">block</span>
+              <h3 class="text-[14px] font-bold text-red-900">Jadwal Tidak Dapat Diterbitkan (Bentrok Pemblokir)</h3>
+            </div>
+            <p class="text-[12px] text-red-700 leading-relaxed">
+              Ditemukan bentrok waktu perkuliahan kelas yang tidak dapat dilewati secara otomatis. Silakan sesuaikan kembali jam atau tanggal sesi di formulir.
+            </p>
+            <div class="flex flex-col gap-2">
+              <template x-for="(c, i) in blockingConflicts" :key="i">
+                <div class="flex items-start gap-2.5 text-[12px] text-red-800 bg-white/80 p-2.5 rounded-[8px] border border-red-100 shadow-2xs">
+                  <span class="material-symbols-outlined text-[16px] text-red-600 shrink-0 mt-0.5">error</span>
+                  <div class="leading-relaxed">
+                    <span class="font-bold text-red-950" x-text="formatConflict(c).title + ': '"></span>
+                    <span x-text="formatConflict(c).detail"></span>
+                  </div>
                 </div>
               </template>
             </div>
+            <div class="pt-1">
+              <button type="button" @click="ubahLagi()" class="w-full sm:w-fit min-h-[44px] h-[44px] sm:h-[36px] px-4 bg-red-600 hover:bg-red-700 text-white rounded-[10px] text-[12px] font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs">
+                <span class="material-symbols-outlined text-[16px]">edit_calendar</span>
+                <span>Ubah Waktu Sesi Sekarang</span>
+              </button>
+            </div>
           </div>
-        </template>
-        <div x-show="blockingConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-red-50 border border-red-300">
-          <p class="text-[14px] font-semibold text-red-800 flex items-center gap-1.5"><span class="material-symbols-outlined">block</span>Konflik pemblokir - penerbitan dinonaktifkan</p>
-          <template x-for="(c, i) in blockingConflicts" :key="i">
-            <p class="text-[13px] text-red-700 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
-          </template>
+
+          <!-- 2. BENTROK DAPAT DIKECUALIKAN (OVERRIDE CONFLICTS) -->
+          <div x-show="overrideConflicts.length > 0" class="p-4 rounded-[14px] bg-amber-50 border border-amber-200 flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-amber-600">warning</span>
+              <h3 class="text-[14px] font-bold text-amber-900">Konflik Memerlukan Alasan Pengecualian</h3>
+            </div>
+            <p class="text-[12px] text-amber-800 leading-relaxed">
+              Terdapat catatan pemakaian ruangan atau izin khusus kelas lain pada rentang waktu ini.
+            </p>
+            <div class="flex flex-col gap-2">
+              <template x-for="(c, i) in overrideConflicts" :key="i">
+                <div class="flex items-start gap-2.5 text-[12px] text-amber-900 bg-white/80 p-2.5 rounded-[8px] border border-amber-200/60 shadow-2xs">
+                  <span class="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-0.5">info</span>
+                  <div class="leading-relaxed">
+                    <span class="font-bold text-amber-950" x-text="formatConflict(c).title + ': '"></span>
+                    <span x-text="formatConflict(c).detail"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Input alasan hanya aktif jika TIDAK ADA bentrok pemblokir -->
+            <div x-show="blockingConflicts.length === 0" class="pt-1">
+              <label for="conflict-reason-input" class="block text-[12px] font-bold text-amber-950 mb-1.5">
+                Alasan Pengecualian <span class="text-red-500">*</span>
+              </label>
+              <textarea id="conflict-reason-input" aria-label="Alasan pengecualian" x-model="ubahForm.conflictReason" rows="2"
+                        placeholder="Tuliskan alasan mengapa perubahan tetap diterbitkan (mis. Ruangan telah dikonfirmasi langsung ke pihak TU)..."
+                        class="w-full p-3 bg-white border border-amber-300 rounded-[10px] text-[13px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"></textarea>
+            </div>
+            <div x-show="blockingConflicts.length > 0" class="text-[11px] text-amber-800 italic bg-amber-100/60 p-2 rounded-[6px]">
+              * Kolom alasan pengecualian dinonaktifkan sementara hingga bentrok pemblokir di atas diselesaikan.
+            </div>
+          </div>
+
+          <!-- 3. BEBAS BENTROK -->
+          <div x-show="blockingConflicts.length === 0 && overrideConflicts.length === 0" class="p-3.5 rounded-[12px] bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2.5 font-medium">
+            <span class="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+            <span>Tidak ada bentrok jadwal tercatat. Sesi siap untuk diterbitkan dan disiarkan ke kelas.</span>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100">
+            <button type="button" @click="ubahLagi()"
+                    class="w-full sm:w-auto h-[44px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 rounded-[12px] text-[13px] font-semibold text-[#1D1B3A] transition-colors flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#3965FB]/20">
+              <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+              <span>Ubah Rincian Sesi</span>
+            </button>
+            <button type="button" @click="terbitkanPerubahan()"
+                    :disabled="blockingConflicts.length > 0 || (overrideConflicts.length > 0 && !ubahForm.conflictReason)"
+                    :class="blockingConflicts.length > 0 || (overrideConflicts.length > 0 && !ubahForm.conflictReason)
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : 'bg-[#3965FB] hover:bg-[#2B52E2] text-white shadow-sm cursor-pointer'"
+                    class="w-full sm:w-auto h-[44px] px-6 rounded-[12px] font-semibold text-[13px] flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-[#3965FB]/40">
+              <span class="material-symbols-outlined text-[18px]">send</span>
+              <span>Terbitkan &amp; Siarkan Jadwal</span>
+            </button>
+          </div>
         </div>
-        <div x-show="overrideConflicts.length > 0" class="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
-          <p class="text-[14px] font-semibold text-amber-900 flex items-center gap-1.5"><span class="material-symbols-outlined">warning</span>Konflik butuh alasan pengecualian</p>
-          <template x-for="(c, i) in overrideConflicts" :key="i">
-            <p class="text-[13px] text-amber-900 mt-1" x-text="(c.code || 'Bentrok') + ': ' + (c.message || '')">-</p>
-          </template>
-          <label class="block text-[13px] font-medium mt-3 mb-1">Alasan pengecualian <span class="text-red-600">*</span></label>
-          <textarea aria-label="Alasan pengecualian" x-model="ubahForm.conflictReason" rows="2" placeholder="Jelaskan mengapa perubahan tetap diterbitkan" class="ui-field w-full text-[14px]"></textarea>
-        </div>
-        <div x-show="blockingConflicts.length === 0 && overrideConflicts.length === 0" class="ui-empty mt-3 p-3 rounded-xl bg-green-50 border border-green-200 text-[13px] text-green-800 flex items-center gap-2">
-          <span class="material-symbols-outlined">check_circle</span>Tidak ada konflik tercatat untuk jadwal ini.
-        </div>
-        <div class="flex flex-col sm:flex-row gap-3 mt-5">
-          <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-slate-200 font-medium min-h-[44px]">Ubah Lagi</button>
-          <button type="button" @click="terbitkanPerubahan()" :disabled="blockingConflicts.length > 0" :class="blockingConflicts.length > 0 ? 'bg-slate-200 text-slate-400' : 'bg-primary hover:bg-primary-hover text-white'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl font-semibold min-h-[44px]">Terbitkan Perubahan</button>
-        </div>
-      </div></template>
+      </template>
     </div>
   </div>
 

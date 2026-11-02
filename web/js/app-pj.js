@@ -1323,6 +1323,34 @@ function pjApp() {
       return kind || '-';
     },
 
+    formatConflict(c) {
+      if (!c) return { title: 'Bentrok Terdeteksi', detail: '' };
+      let msg = String(c.message || '').trim();
+      let title = 'Bentrok Waktu Jadwal';
+      const code = String(c.code || '').toUpperCase();
+
+      if (code === 'CLASS_TIME_OVERLAP') {
+        title = 'Bentrok Jadwal Kelas';
+        msg = msg.replace(/^CLASS_TIME_OVERLAP:\s*/i, '');
+      } else if (code === 'ROOM_TIME_OVERLAP') {
+        title = 'Ruangan Sudah Terpakai';
+        msg = msg.replace(/^ROOM_TIME_OVERLAP:\s*/i, '');
+      } else if (code === 'ROOM_CONFIRMATION_REQUIRED') {
+        title = 'Konfirmasi TU Diperlukan';
+        msg = msg.replace(/^ROOM_CONFIRMATION_REQUIRED:\s*/i, '');
+      } else if (code === 'LECTURER_TIME_OVERLAP') {
+        title = 'Bentrok Jadwal Dosen';
+        msg = msg.replace(/^LECTURER_TIME_OVERLAP:\s*/i, '');
+      } else {
+        msg = msg.replace(/^[A-Z_]+:\s*/, '');
+      }
+      return { title, detail: msg || c.message || c.code };
+    },
+      if (k === 'HOLIDAY') return 'Hari Libur';
+      if (k === 'SESSION_CANCELLED') return 'Sesi Dibatalkan';
+      return kind || '-';
+    },
+
     statusLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'DRAFT') return 'Draf';

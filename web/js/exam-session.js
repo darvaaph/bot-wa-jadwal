@@ -3,7 +3,7 @@ function examSessionBehavior() {
     examStep: 1, // 1 = Form Input, 2 = Pratinjau & Konfirmasi
     examForm: { kind: 'EXAM_UTS', offeringId: '', patternId: '', originDate: '', date: '', start: '', end: '', roomId: '', reason: '' },
     examPatterns: [], examBusy: false, examError: '', examDraft: null, examPreview: null,
-    examRoomConfirmed: false, examRoomContact: '', examOverride: '',
+    examLecturerConfirmed: true, examRoomConfirmed: false, examRoomContact: '', examOverride: '',
 
     getExamOfferingName() {
       const o = (this.offeringList || []).find(x => String(x.id) === String(this.examForm.offeringId));
@@ -39,7 +39,7 @@ function examSessionBehavior() {
         start: (session && session.timeStart) || '', end: (session && session.timeEnd) || '', roomId: '', reason: '' };
       this.examStep = 1;
       this.examDraft = null; this.examPreview = null; this.examError = '';
-      this.examRoomConfirmed = false; this.examRoomContact = ''; this.examOverride = '';
+      this.examLecturerConfirmed = true; this.examRoomConfirmed = false; this.examRoomContact = ''; this.examOverride = '';
       if (this.tutupModalDetailSesi) this.tutupModalDetailSesi();
       if (this.tutupDetailSesi) this.tutupDetailSesi();
       document.getElementById('exam-dialog').showModal();
@@ -70,6 +70,13 @@ function examSessionBehavior() {
         this.examDraft = e;
         this.examPreview = await API.previewTeachingEvent(e.id);
         if (!this.examPreview) throw new Error('Pratinjau gagal dimuat. Coba tinjau lagi.');
+        if (detail.confirmations && detail.confirmations.length) {
+          const c = detail.confirmations.find(x => String(x.room_id) === String(e.room_id) && x.confirmation_status === 'CONFIRMED');
+          if (c) {
+            this.examRoomConfirmed = true;
+            this.examRoomContact = c.contact || c.external_contact || '';
+          }
+        }
         this.examStep = 2;
       } catch (err) { this.examError = err.message || 'Draf ujian gagal dimuat.'; }
       finally { this.examBusy = false; }
@@ -117,6 +124,16 @@ function examSessionBehavior() {
       return Boolean(this.examPreview && (this.examPreview.conflicts || []).some(c => c.blocking));
     },
 
+    isRoutineRoom() {
+      if (!this.examForm.patternId || !this.examForm.roomId) return false;
+      const p = (this.examPatterns || []).find(x => String(x.id) === String(this.examForm.patternId));
+      if (!p || !p.room_id) return false;
+      if (String(p.room_id) !== String(this.examForm.roomId)) return false;
+      const conflicts = (this.examPreview && this.examPreview.conflicts) || [];
+      if (conflicts.some(c => c.code === 'ROOM_TIME_OVERLAP')) return false;
+      return true;
+    },
+
     async simpanUjian(preview) {
       if (this.examBusy) return;
       const f = this.examForm;
@@ -154,26 +171,54 @@ function examSessionBehavior() {
     async terbitkanUjian() {
       if (this.examBusy || !this.examDraft || !this.examPreview) return;
       const conflicts = this.examPreview.conflicts || [];
-      if (conflicts.some(c => c.blocking)) { this.examError = 'Konflik memblokir publikasi. Klik tombol "Ubah Data Ujian" untuk memindahkan jam/tanggal.'; return; }
-      if (this.examForm.roomId && (!this.examRoomConfirmed || !this.examRoomContact.trim())) {
-        this.examError = 'Catat konfirmasi ruangan dari TU dan nama kontaknya sebelum publikasi.'; return;
+      if (conflicts.some(c => c.blocking)) {
+        this.examError = 'Konflik memblokir publikasi. Klik tombol "Ubah Data Ujian" untuk memindahkan jam/tanggal.';
+        return;
       }
+
+      const routine = this.isRoutineRoom();
+      if (this.examForm.roomId) {
+        if (routine) {
+          if (!this.examLecturerConfirmed) {
+            this.examError = 'Centang persetujuan Dosen Pengampu sebelum menerbitkan jadwal ujian.';
+            return;
+          }
+        } else {
+          if (!this.examRoomConfirmed || !this.examRoomContact.trim()) {
+            this.examError = 'Catat konfirmasi ruangan dari TU dan nama kontaknya sebelum publikasi.';
+            return;
+          }
+        }
+      }
+
       if (conflicts.some(c => !c.blocking && c.code !== 'ROOM_CONFIRMATION_REQUIRED') && !this.examOverride.trim()) {
-        this.examError = 'Isi alasan pengecualian konflik ruangan/sesi.'; return;
+        this.examError = 'Isi alasan pengecualian konflik ruangan/sesi.';
+        return;
       }
-      this.examBusy = true; this.examError = '';
+
+      this.examBusy = true;
+      this.examError = '';
       try {
         if (this.examForm.roomId) {
-          await API.confirmTeachingEventRoom(this.examDraft.id, { room_id: Number(this.examForm.roomId),
-            confirmation_status: 'CONFIRMED', external_contact: this.examRoomContact.trim(), note: 'Konfirmasi ruang ujian' });
+          const contact = routine ? 'Dosen Pengampu' : this.examRoomContact.trim();
+          const note = routine ? 'Ruangan rutin kelas (persetujuan dosen)' : 'Konfirmasi ruang ujian TU';
+          await API.confirmTeachingEventRoom(this.examDraft.id, {
+            room_id: Number(this.examForm.roomId),
+            confirmation_status: 'CONFIRMED',
+            external_contact: contact,
+            note: note
+          });
         }
         const detail = await API.getTeachingEvent(this.examDraft.id);
         await API.publishTeachingEvent(this.examDraft.id, this.examOverride.trim() || null, detail.event.version);
         document.getElementById('exam-dialog').close();
         this.showToast('Sesi ujian berhasil diterbitkan.');
         await Promise.all([this.loadEvents(), this.loadSchedule()]);
-      } catch (err) { this.examError = err.message || 'Ujian belum berhasil diterbitkan. Draf tetap tersimpan.'; }
-      finally { this.examBusy = false; }
+      } catch (err) {
+        this.examError = err.message || 'Ujian belum berhasil diterbitkan. Draf tetap tersimpan.';
+      } finally {
+        this.examBusy = false;
+      }
     }
   };
 }
