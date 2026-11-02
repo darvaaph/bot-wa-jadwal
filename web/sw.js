@@ -1,5 +1,5 @@
 // sw.js — Service Worker untuk PWA Asterisk (Jadwal & Tugas Mahasiswa)
-const CACHE_NAME = 'asterisk-pwa-v13';
+const CACHE_NAME = 'asterisk-pwa-v14';
 
 const STATIC_PRECACHE = [
   '/c/',
@@ -111,10 +111,7 @@ self.addEventListener('fetch', (event) => {
   // C. Partials HTML & Dynamic App JS: Network-First (agar selalu segar saat online)
   if (
     url.pathname.startsWith('/partials/') ||
-    url.pathname === '/js/app-portal.js' ||
-    url.pathname === '/js/api.js' ||
-    url.pathname === '/js/shell.js' ||
-    url.pathname === '/js/theme-init.js'
+    (url.pathname.startsWith('/js/') && !url.pathname.startsWith('/js/vendor/'))
   ) {
     event.respondWith(
       fetch(req)

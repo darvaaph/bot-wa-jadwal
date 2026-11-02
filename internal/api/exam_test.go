@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http/httptest"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -128,3 +131,68 @@ func TestExamAPI_GranularLifecycleAndScope(t *testing.T) {
 		})
 	}
 }
+
+func TestWeb_MaterialSymbolsInSubsetAndExamDialogUX(t *testing.T) {
+	readmeBytes, err := os.ReadFile("../../web/assets/fonts/README.md")
+	if err != nil {
+		t.Fatalf("read fonts README: %v", err)
+	}
+	allowed := map[string]bool{}
+	reCode := regexp.MustCompile("`([a-z0-9_]+)`")
+	for _, line := range strings.Split(string(readmeBytes), "\n") {
+		if strings.Contains(line, "Material Symbols yang disertakan:") {
+			for _, m := range reCode.FindAllStringSubmatch(line, -1) {
+				allowed[m[1]] = true
+			}
+		}
+	}
+	if len(allowed) == 0 {
+		t.Fatal("failed to parse allowed Material Symbols from README.md")
+	}
+
+	webFS := os.DirFS("../../web")
+	reIcon := regexp.MustCompile(`material-symbols-outlined[^>]*>([a-z0-9_]+)<`)
+	err = fs.WalkDir(webFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".html") {
+			return err
+		}
+		b, err := fs.ReadFile(webFS, path)
+		if err != nil {
+			return err
+		}
+		for _, m := range reIcon.FindAllStringSubmatch(string(b), -1) {
+			icon := m[1]
+			if !allowed[icon] {
+				t.Errorf("%s uses unsupported Material Symbol %q (not in subset font)", path, icon)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dialogBytes, err := fs.ReadFile(webFS, "partials/common/exam-dialog.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dialogHTML := string(dialogBytes)
+	if !strings.Contains(dialogHTML, "examForm.roomId && !hasBlockingConflicts()") {
+		t.Error("exam-dialog.html must hide/gate room confirmation form when blocking conflicts exist")
+	}
+	if !strings.Contains(dialogHTML, "formatExamConflict(") {
+		t.Error("exam-dialog.html must use humanized conflict formatter formatExamConflict()")
+	}
+
+	jsBytes, err := fs.ReadFile(webFS, "js/exam-session.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsCode := string(jsBytes)
+	for _, fn := range []string{"pilihMatkulUjian", "formatExamConflict", "tutupDialogUjian"} {
+		if !strings.Contains(jsCode, fn) {
+			t.Errorf("exam-session.js missing required function %s", fn)
+		}
+	}
+}
+

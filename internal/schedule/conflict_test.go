@@ -281,3 +281,30 @@ func TestConflict_RoutineRoom_NoTUConfirmationNeeded(t *testing.T) {
 		t.Fatalf("ruangan lain harus menghasilkan CodeRoomConfirmNeeded: %+v", csOther)
 	}
 }
+
+func TestConflict_SameOfferingDoesNotDuplicateLecturerOverlap(t *testing.T) {
+	db := seedConflictDB(t)
+	ctx := context.Background()
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+
+	// Candidate untuk offering 1 pada Senin 08:30-09:00 tanpa ExcludePatternID
+	// (tabrakan dengan pola rutin offering 1 sendiri yang diajar dosen 1).
+	// Harus menghasilkan CodeOfferingOverlap tanpa menduplikasi CodeLecturerOverlap untuk sesi yang sama.
+	cs, err := CheckConflicts(ctx, db, Candidate{
+		OwnerClassID:    1,
+		OwnerOfferingID: 1,
+		LecturerIDs:     []int64{1},
+		StartsAt:        time.Date(2024, 10, 7, 8, 30, 0, 0, loc),
+		EndsAt:          time.Date(2024, 10, 7, 9, 0, 0, 0, loc),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCode(cs, CodeOfferingOverlap) {
+		t.Fatalf("harus ada CodeOfferingOverlap, got: %+v", cs)
+	}
+	if hasCode(cs, CodeLecturerOverlap) {
+		t.Fatalf("tidak boleh menduplikasi CodeLecturerOverlap untuk offering yang sama: %+v", cs)
+	}
+}
+

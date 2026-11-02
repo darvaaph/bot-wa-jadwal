@@ -341,15 +341,17 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			}
 			out = append(out, Conflict{Code: CodeRoomOverlap, Blocking: isBlocking, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
 		}
-		// Dosen sama.
-		for _, l := range s.lecturers {
-			if lectSet[l] {
-				msg := "dosen mengajar sesi lain pada interval tersebut"
-				if dt := detailName(s.className, s.offeringName); dt != "" {
-					msg = fmt.Sprintf("dosen mengajar sesi lain pada interval tersebut: %s", dt)
+		// Dosen sama (offering berbeda; bila offering sama sudah dicatat oleh CodeOfferingOverlap).
+		if s.offeringID != c.OwnerOfferingID {
+			for _, l := range s.lecturers {
+				if lectSet[l] {
+					msg := "dosen mengajar sesi lain pada interval tersebut"
+					if dt := detailName(s.className, s.offeringName); dt != "" {
+						msg = fmt.Sprintf("dosen mengajar sesi lain pada interval tersebut: %s", dt)
+					}
+					out = append(out, Conflict{Code: CodeLecturerOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
+					break
 				}
-				out = append(out, Conflict{Code: CodeLecturerOverlap, Blocking: true, EntityType: s.entityType, EntityID: s.entityID, StartsAt: s.starts.Format(time.RFC3339), EndsAt: s.ends.Format(time.RFC3339), Message: msg, ClassName: s.className, CourseName: s.offeringName})
-				break
 			}
 		}
 		// Peserta: sesi dari kelas peserta yang bentrok = nonblocking (perlu keputusan eksplisit).

@@ -2,7 +2,7 @@ function examSessionBehavior() {
   return {
     examStep: 1, // 1 = Form Input, 2 = Pratinjau & Konfirmasi
     examForm: { kind: 'EXAM_UTS', offeringId: '', patternId: '', originDate: '', date: '', start: '', end: '', roomId: '', reason: '' },
-    examPatterns: [], examBusy: false, examError: '', examDraft: null, examPreview: null,
+    examPatterns: [], examBusy: false, examError: '', examDraft: null, examDraftIsNew: false, examPreview: null,
     examLecturerConfirmed: true, examRoomConfirmed: false, examRoomContact: '', examOverride: '',
 
     getExamOfferingName() {
@@ -17,16 +17,113 @@ function examSessionBehavior() {
     },
 
     getExamPatternLabel() {
-      if (!this.examForm.patternId) return 'Sesi tambahan (di luar jam kuliah rutin)';
+      if (!this.examForm.patternId) return 'Ujian mandiri (di luar jam kuliah rutin)';
       const p = (this.examPatterns || []).find(x => String(x.id) === String(this.examForm.patternId));
-      if (!p) return 'Menggantikan sesi kuliah rutin';
-      return `Menggantikan sesi ${this.polaHariName(p.day_of_week)}, ${p.start_time} - ${p.end_time}` +
-        (this.examForm.originDate ? ` (tanggal ${this.examForm.originDate})` : '');
+      if (!p) return 'Menggantikan pertemuan kuliah rutin';
+      return `Menggantikan kuliah ${this.polaHariName(p.day_of_week)}, ${String(p.start_time || '').slice(0, 5)} - ${String(p.end_time || '').slice(0, 5)}` +
+        (this.examForm.originDate ? ` (${this.examForm.originDate})` : '');
+    },
+
+    formatExamConflict(c) {
+      if (!c) return { title: 'Bentrok Jadwal', detail: '' };
+      const code = String(c.code || '').toUpperCase();
+      let cleanMsg = String(c.message || '')
+        .replace(/^[A-Z_]+:\s*/i, '')
+        .replace(/^(offering yang sama|kelas|dosen|ruangan)\s+(memiliki|mengajar|dipakai)\s+sesi\s+lain\s+pada\s+interval\s+tersebut:?\s*/i, '')
+        .replace(/^\((.*)\)$/, '$1')
+        .trim();
+
+      if (code === 'OFFERING_TIME_OVERLAP') {
+        const course = c.course_name || cleanMsg || this.getExamOfferingName();
+        return {
+          title: 'Bentrok Kuliah Rutin Sendiri',
+          detail: `Beririsan dengan jadwal rutin ${course}. Pilih jadwal tersebut pada kolom "Jadwal kuliah yang digantikan".`
+        };
+      }
+      if (code === 'CLASS_TIME_OVERLAP') {
+        const course = c.course_name || cleanMsg || 'mata kuliah lain';
+        return {
+          title: 'Bentrok Jadwal Kelas',
+          detail: `Kelas sedang mengikuti sesi ${course} pada jam ini.`
+        };
+      }
+      if (code === 'LECTURER_TIME_OVERLAP') {
+        const target = (c.class_name && c.course_name) ? `${c.class_name} (${c.course_name})` : (cleanMsg || 'kelas lain');
+        return {
+          title: 'Bentrok Jadwal Dosen',
+          detail: `Dosen pengampu sedang mengajar di ${target}.`
+        };
+      }
+      if (code === 'ROOM_TIME_OVERLAP') {
+        const target = (c.class_name && c.course_name) ? `${c.class_name} — ${c.course_name}` : (cleanMsg || 'sesi kelas lain');
+        return {
+          title: 'Digunakan Kelas Lain',
+          detail: target
+        };
+      }
+      return {
+        title: 'Perhatian Jadwal',
+        detail: cleanMsg || c.message || code
+      };
     },
 
     kembaliKeForm() {
       this.examStep = 1;
       this.examError = '';
+    },
+
+    async tutupDialogUjian() {
+      const dlg = document.getElementById('exam-dialog');
+      if (dlg && dlg.open) dlg.close();
+      if (this.examDraft && this.examDraftIsNew) {
+        const draftId = this.examDraft.id;
+        const draftVer = this.examDraft.version || 1;
+        this.examDraft = null;
+        this.examDraftIsNew = false;
+        this.examPreview = null;
+        try {
+          await API.deleteTeachingEvent(draftId, draftVer);
+          if (this.loadEvents) await this.loadEvents();
+        } catch (e) { /* abaikan jika sudah terhapus */ }
+      }
+    },
+
+    pilihMatkulUjian() {
+      const patterns = (this.examPatterns || []).filter(p =>
+        String(p.course_offering_id || p.offering_id) === String(this.examForm.offeringId)
+      );
+      if (patterns.length > 0) {
+        this.examForm.patternId = String(patterns[0].id);
+        this.pilihAsalUjian();
+      } else {
+        this.examForm.patternId = '';
+        this.examForm.originDate = '';
+      }
+    },
+
+    pilihTanggalUjian() {
+      if (!this.examForm.date) return;
+      const parts = this.examForm.date.split('-');
+      if (parts.length !== 3) return;
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const jsDay = d.getDay();
+      const dow = jsDay === 0 ? 7 : jsDay;
+
+      if (this.examForm.patternId) {
+        const p = (this.examPatterns || []).find(x => String(x.id) === String(this.examForm.patternId));
+        if (p && (Number(p.day_of_week) === dow || !this.examForm.originDate)) {
+          this.examForm.originDate = this.examForm.date;
+        }
+      } else {
+        const match = this.getMatchingPattern();
+        if (match) {
+          this.examForm.patternId = String(match.id);
+          this.examForm.originDate = this.examForm.date;
+          if (!this.examForm.start) this.examForm.start = String(match.start_time || '').slice(0, 5);
+          if (!this.examForm.end) this.examForm.end = String(match.end_time || '').slice(0, 5);
+          if (!this.examForm.roomId && match.room_id) this.examForm.roomId = String(match.room_id);
+        }
+      }
     },
 
     async bukaUjian(session, day) {
@@ -38,7 +135,7 @@ function examSessionBehavior() {
         patternId: String((session && session.patternId) || ''), originDate: session ? date : '', date,
         start: (session && session.timeStart) || '', end: (session && session.timeEnd) || '', roomId: '', reason: '' };
       this.examStep = 1;
-      this.examDraft = null; this.examPreview = null; this.examError = '';
+      this.examDraft = null; this.examDraftIsNew = false; this.examPreview = null; this.examError = '';
       this.examLecturerConfirmed = true; this.examRoomConfirmed = false; this.examRoomContact = ''; this.examOverride = '';
       if (this.tutupModalDetailSesi) this.tutupModalDetailSesi();
       if (this.tutupDetailSesi) this.tutupDetailSesi();
@@ -46,10 +143,14 @@ function examSessionBehavior() {
       this.examBusy = true;
       try {
         this.examPatterns = await API.getPatterns();
-        const p = this.examPatterns.find(p => String(p.id) === this.examForm.patternId);
-        if (p) {
-          this.examForm.offeringId = String(p.course_offering_id || p.offering_id);
-          this.examForm.roomId = p.room_id ? String(p.room_id) : '';
+        if (this.examForm.patternId) {
+          const p = this.examPatterns.find(p => String(p.id) === this.examForm.patternId);
+          if (p) {
+            this.examForm.offeringId = String(p.course_offering_id || p.offering_id);
+            this.examForm.roomId = p.room_id ? String(p.room_id) : '';
+          }
+        } else if (this.examForm.offeringId) {
+          this.pilihMatkulUjian();
         }
       } catch (err) { this.examError = err.message || 'Jadwal asal gagal dimuat. Tutup lalu coba lagi.'; }
       finally { this.examBusy = false; }
@@ -68,6 +169,7 @@ function examSessionBehavior() {
           date: start.slice(0, 10), start: start.slice(11, 16), end: end.slice(11, 16),
           roomId: e.room_id ? String(e.room_id) : '', reason: e.reason || '' };
         this.examDraft = e;
+        this.examDraftIsNew = false;
         this.examPreview = await API.previewTeachingEvent(e.id);
         if (!this.examPreview) throw new Error('Pratinjau gagal dimuat. Coba tinjau lagi.');
         if (detail.confirmations && detail.confirmations.length) {
@@ -83,14 +185,18 @@ function examSessionBehavior() {
     },
 
     pilihAsalUjian() {
-      const p = this.examPatterns.find(p => String(p.id) === this.examForm.patternId);
+      const p = (this.examPatterns || []).find(p => String(p.id) === String(this.examForm.patternId));
       if (!p) { this.examForm.originDate = ''; return; }
       this.examForm.start = String(p.start_time || '').slice(0, 5);
       this.examForm.end = String(p.end_time || '').slice(0, 5);
       this.examForm.roomId = p.room_id ? String(p.room_id) : '';
       const day = (this.weekDays || []).find(d => d.name === this.polaHariName(p.day_of_week));
-      this.examForm.originDate = (day && day.dateStr) || '';
-      this.examForm.date = this.examForm.originDate;
+      if (day && day.dateStr) {
+        this.examForm.originDate = day.dateStr;
+        this.examForm.date = day.dateStr;
+      } else if (this.examForm.date && !this.examForm.originDate) {
+        this.examForm.originDate = this.examForm.date;
+      }
     },
 
     getMatchingPattern() {
@@ -137,11 +243,27 @@ function examSessionBehavior() {
     async simpanUjian(preview) {
       if (this.examBusy) return;
       const f = this.examForm;
+      // Auto-bind ke pola kuliah rutin di hari yang sama bila jam beririsan dan user lupa memilih pola asal
+      if (!f.patternId && f.date && f.start && f.end) {
+        const match = this.getMatchingPattern();
+        if (match) {
+          const pStart = String(match.start_time || '').slice(0, 5);
+          const pEnd = String(match.end_time || '').slice(0, 5);
+          if (!pStart || !pEnd || (f.start < pEnd && f.end > pStart)) {
+            f.patternId = String(match.id);
+            f.originDate = f.date;
+          }
+        }
+      }
+      if (f.patternId && !f.originDate && f.date) {
+        f.originDate = f.date;
+      }
       if (!f.offeringId || !f.date || !f.start || !f.end || f.start >= f.end || (f.patternId && !f.originDate)) {
         this.examError = 'Lengkapi mata kuliah, tanggal, jam selesai setelah jam mulai, dan tanggal asal bila memakai jadwal rutin.';
         return;
       }
       this.examBusy = true; this.examError = '';
+      const wasExistingSavedDraft = Boolean(this.examDraft && !this.examDraftIsNew);
       try {
         if (this.examDraft) {
           try {
@@ -156,10 +278,12 @@ function examSessionBehavior() {
         if (f.patternId) { payload.origin_pattern_id = Number(f.patternId); payload.origin_date = f.originDate; }
         this.examDraft = await API.createTeachingEventDraft(payload);
         if (preview) {
+          this.examDraftIsNew = !wasExistingSavedDraft;
           this.examPreview = await API.previewTeachingEvent(this.examDraft.id);
           if (!this.examPreview) throw new Error('Pratinjau gagal dimuat. Draf sudah tersimpan, coba tinjau lagi.');
           this.examStep = 2;
         } else {
+          this.examDraftIsNew = false;
           document.getElementById('exam-dialog').close();
           this.showToast('Draf ujian tersimpan. Lanjutkan publikasi dari daftar perubahan.');
         }
@@ -172,7 +296,7 @@ function examSessionBehavior() {
       if (this.examBusy || !this.examDraft || !this.examPreview) return;
       const conflicts = this.examPreview.conflicts || [];
       if (conflicts.some(c => c.blocking)) {
-        this.examError = 'Konflik memblokir publikasi. Klik tombol "Ubah Data Ujian" untuk memindahkan jam/tanggal.';
+        this.examError = 'Bentrok jadwal dosen/kelas memblokir publikasi. Klik "Ubah Data Ujian" untuk menyesuaikan waktu.';
         return;
       }
 
@@ -192,7 +316,7 @@ function examSessionBehavior() {
       }
 
       if (conflicts.some(c => !c.blocking && c.code !== 'ROOM_CONFIRMATION_REQUIRED') && !this.examOverride.trim()) {
-        this.examError = 'Isi alasan pengecualian konflik ruangan/sesi.';
+        this.examError = 'Isi alasan pengecualian pemakaian ruangan.';
         return;
       }
 
@@ -210,7 +334,9 @@ function examSessionBehavior() {
           });
         }
         const detail = await API.getTeachingEvent(this.examDraft.id);
+        this.examDraft = detail.event;
         await API.publishTeachingEvent(this.examDraft.id, this.examOverride.trim() || null, detail.event.version);
+        this.examDraftIsNew = false;
         document.getElementById('exam-dialog').close();
         this.showToast('Sesi ujian berhasil diterbitkan.');
         await Promise.all([this.loadEvents(), this.loadSchedule()]);
