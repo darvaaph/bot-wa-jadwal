@@ -45,13 +45,6 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
-// Kebijakan rate limit login (registry terpusat BE-012, angka sesuai ADR-0009).
-const (
-	loginMaxFailures = 5
-	loginWindow      = 15 * time.Minute
-	loginBlockPeriod = 15 * time.Minute
-)
-
 // RoleAssignmentItem merepresentasikan penugasan peran pengurus
 type RoleAssignmentItem struct {
 	ID           int64  `json:"id"`
@@ -174,54 +167,7 @@ func (c *AuthController) clearAuthCookie(w http.ResponseWriter) {
 }
 
 func (c *AuthController) loginBlocked(identityHash, sourceHash string) (bool, time.Duration, error) {
-	now := time.Now().UTC()
-	rows, err := c.db.Query(`
-		SELECT outcome, attempted_at FROM login_attempts
-		WHERE identity_hash = ? AND source_hash = ?
-		ORDER BY id DESC LIMIT 32;
-	`, identityHash, sourceHash)
-	if err != nil {
-		return false, 0, err
-	}
-	defer rows.Close()
-	failures := 0
-	var lastFailure time.Time
-	for rows.Next() {
-		var outcome, attempted string
-		if err := rows.Scan(&outcome, &attempted); err != nil {
-			return false, 0, err
-		}
-		ts, err := parseAttemptTime(attempted)
-		if err != nil {
-			continue
-		}
-		if outcome == "SUCCESS" {
-			break
-		}
-		if outcome != "FAILURE" {
-			continue
-		}
-		if now.Sub(ts) > loginWindow+loginBlockPeriod {
-			break
-		}
-		if lastFailure.IsZero() {
-			lastFailure = ts
-		}
-		if now.Sub(ts) <= loginWindow {
-			failures++
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return false, 0, err
-	}
-	if failures < loginMaxFailures {
-		return false, 0, nil
-	}
-	until := lastFailure.Add(loginBlockPeriod)
-	if now.Before(until) {
-		return true, until.Sub(now), nil
-	}
-	return false, 0, nil
+	return auth.LoginBlocked(context.Background(), c.db, identityHash, sourceHash, time.Now().UTC())
 }
 
 func (c *AuthController) recordLoginAttempt(userID *int64, identityHash, sourceHash, outcome string) error {
@@ -234,16 +180,6 @@ func (c *AuthController) recordLoginAttempt(userID *int64, identityHash, sourceH
 		user_id, identity_hash, source_hash, outcome, attempted_at, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, ?, ?)`, uid, identityHash, sourceHash, outcome, now, now, now)
 	return err
-}
-
-func parseAttemptTime(raw string) (time.Time, error) {
-	trimmed := strings.TrimSpace(raw)
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05"} {
-		if ts, err := time.Parse(layout, trimmed); err == nil {
-			return ts.UTC(), nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("format waktu percobaan tidak dikenal")
 }
 
 // Login menangani POST /api/v1/auth/login
@@ -269,6 +205,9 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 	source := c.clientSource(r)
 	identityHash := c.fingerprint("identity", cleanIdentity)
 	sourceHash := c.fingerprint("source", source)
+	// Serialize check and record within the single application process.
+	unlock := auth.LockLoginAttempts()
+	defer unlock()
 
 	blocked, retryAfter, err := c.loginBlocked(identityHash, sourceHash)
 	if err != nil {
@@ -698,7 +637,7 @@ func (c *AuthController) ConfirmRecovery(w http.ResponseWriter, r *http.Request)
 // SwitchContext menangani POST /api/v1/auth/switch-context
 func (c *AuthController) SwitchContext(w http.ResponseWriter, r *http.Request) {
 	noStore(w)
-	u, ok := common.GetAuthContext(r)
+	_, ok := common.GetAuthContext(r)
 	if !ok {
 		common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Autentikasi diperlukan")
 		return
@@ -710,52 +649,16 @@ func (c *AuthController) SwitchContext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var role string
-	err := c.db.QueryRow(`
-		SELECT role FROM role_assignments
-		WHERE id = ? AND user_id = ? AND status = 'ACTIVE'
-		  AND julianday(valid_from) <= julianday('now')
-		  AND (valid_until IS NULL OR julianday(valid_until) > julianday('now'));
-	`, req.RoleAssignmentID, u.UserID).Scan(&role)
-
-	if err == sql.ErrNoRows {
-		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Penugasan peran tidak ditemukan atau Anda tidak memiliki akses")
-		return
-	} else if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memverifikasi penugasan peran")
-		return
-	}
-
-	_, _ = c.db.Exec(`
-		UPDATE user_sessions
-		SET revoked_at = CURRENT_TIMESTAMP, revocation_reason = 'SWITCH_CONTEXT'
-		WHERE id = ?;
-	`, u.SessionID)
-
-	absTTL := 24 * time.Hour
-	if role == "SYSTEM_ADMIN" {
-		absTTL = 8 * time.Hour
-	}
-	expiresAt := time.Now().Add(absTTL)
-
-	newToken, err := generateSecureToken()
+	credential, err := auth.RotateContext(r.Context(), c.db, middleware.ExtractToken(r), req.RoleAssignmentID)
 	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "TOKEN_ERROR", "Gagal membuat token baru")
-		return
-	}
-	tokenHash := computeHash(newToken)
-
-	_, err = c.db.Exec(`
-		INSERT INTO user_sessions (
-			user_id, active_role_assignment_id, token_hash, session_version,
-			created_at, last_seen_at, absolute_expires_at
-		)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?);
-	`, u.UserID, req.RoleAssignmentID, tokenHash, u.SessionVersion, expiresAt.UTC().Format(time.RFC3339))
-	if err != nil {
+		if errors.Is(err, auth.ErrAccessDenied) || errors.Is(err, auth.ErrInvalidSession) {
+			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks atau batas waktu sesi tidak valid")
+			return
+		}
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan sesi baru")
 		return
 	}
+	newToken, expiresAt := credential.Token, credential.Session.AbsoluteExpiresAt
 
 	noStore(w)
 	c.setAuthCookie(w, newToken, expiresAt)
@@ -1211,6 +1114,21 @@ func (c *AuthController) CreateInvitation(w http.ResponseWriter, r *http.Request
 	} else if role != "SYSTEM_ADMIN" {
 		scopeType = "CLASS"
 	}
+	if u.ActiveRole == "KM" && role != "PJ" {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "KM hanya dapat mengundang PJ")
+		return
+	}
+	var sem, off sql.NullInt64
+	if req.SemesterID != nil {
+		sem = sql.NullInt64{Int64: *req.SemesterID, Valid: true}
+	}
+	if req.OfferingID != nil {
+		off = sql.NullInt64{Int64: *req.OfferingID, Valid: true}
+	}
+	if err := auth.ValidateScope(r.Context(), c.db, role, scopeType, classID, sem, off); err != nil {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Hubungan kelas, semester, dan offering tidak valid")
+		return
+	}
 
 	var scopeClassVal, scopeSemVal, scopeOffVal any
 	if classID.Valid {
@@ -1314,11 +1232,6 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if len(req.Password) < 12 {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi minimal 12 karakter")
-		return
-	}
-
 	inviteSubject := "invite:" + strings.TrimSpace(req.Token)
 	inviteSource := c.clientSource(r)
 	var trusted []string
@@ -1384,15 +1297,18 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "CRYPTO_ERROR", "Gagal memproses kata sandi")
-		return
-	}
-
 	displayName := strings.TrimSpace(req.DisplayName)
 	if displayName == "" {
 		displayName = identityKey
+	}
+	var recipient *common.UserContext
+	if middleware.ExtractToken(r) != "" {
+		middleware.NewAuthManager(c.db).RequireAuth(func(_ http.ResponseWriter, authenticated *http.Request) {
+			recipient, _ = common.GetAuthContext(authenticated)
+		})(w, r)
+		if recipient == nil {
+			return
+		}
 	}
 
 	tx, err := c.db.Begin()
@@ -1401,17 +1317,33 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 	defer tx.Rollback()
+	if err := auth.ValidateScope(r.Context(), tx, role, scopeType, classID, semesterID, courseOfferingID); err != nil {
+		common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Cakupan undangan tidak valid")
+		return
+	}
 
 	var userID int64
-	err = tx.QueryRow(`
-		INSERT INTO users (identity_key, display_name, password_hash, status)
-		VALUES (?, ?, ?, 'ACTIVE')
-		ON CONFLICT(identity_key) DO UPDATE SET
-			password_hash = excluded.password_hash,
-			display_name = excluded.display_name,
-			status = 'ACTIVE'
-		RETURNING id;
-	`, identityKey, displayName, string(hashedPassword)).Scan(&userID)
+	var existingStatus string
+	existingAccount := false
+	err = tx.QueryRow(`SELECT id, status FROM users WHERE identity_key=?`, identityKey).Scan(&userID, &existingStatus)
+	if err == nil {
+		existingAccount = true
+		if existingStatus != "ACTIVE" || recipient == nil || recipient.UserID != userID {
+			tx.Rollback()
+			if !recordInviteFailure() {
+				return
+			}
+			common.WriteV1Error(w, http.StatusUnauthorized, common.CodeUnauthenticated, "Masuk sebagai akun penerima undangan, lalu buka kembali tautan ini")
+			return
+		}
+	} else if errors.Is(err, sql.ErrNoRows) {
+		hash, hashErr := auth.HashPassword(identityKey, req.Password)
+		if hashErr != nil {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Kata sandi minimal 12 karakter dan berbeda dari identitas")
+			return
+		}
+		err = tx.QueryRow(`INSERT INTO users(identity_key, display_name, password_hash, status) VALUES(?,?,?,'ACTIVE') RETURNING id`, identityKey, displayName, hash).Scan(&userID)
+	}
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menyimpan akun: %v", err))
 		return
@@ -1510,6 +1442,10 @@ func (c *AuthController) AcceptInvitation(w http.ResponseWriter, r *http.Request
 	}
 	if c.rlManager != nil {
 		c.rlManager.RecordSensitiveLimit(ratelimit.PolicyInviteAccept, inviteSubject, inviteSource, "SUCCESS")
+	}
+	if existingAccount {
+		common.WriteV1Success(w, http.StatusOK, map[string]any{"user_id": userID, "assignment_id": assignmentID, "existing_account": true})
+		return
 	}
 
 	// Buat sesi login langsung agar pengguna masuk ke ruang kerja tanpa login ulang.

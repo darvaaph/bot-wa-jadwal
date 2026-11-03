@@ -606,7 +606,7 @@
   </div>
 
   <!-- Konten Detail: 2-Column Split Workspace (Layout Samping) -->
-  <div x-show="!tugasDetailLoading && tugasDetail" class="space-y-4">
+  <template x-if="!tugasDetailLoading && tugasDetail"><div class="space-y-4">
     <!-- Banner Notifikasi Aksi Sukses (jika ada) -->
     <div x-show="tugasPublishMsg" x-cloak class="p-4 rounded-[12px] bg-[#ECFDF5] border border-[#A7F3D0] text-[13px] text-[#065F46] flex items-center gap-2.5 shadow-sm">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px] text-[#059669] shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
@@ -691,7 +691,7 @@
             <template x-if="String(tugasDetail.review_state || '').toUpperCase() === 'APPROVED'">
               <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[8px] text-[11px] font-semibold bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                <span x-text="'Disetujui KM · Versi ' + (tugasDetail.version || 1)">Disetujui KM · Versi 1</span>
+                <span>Disetujui KM</span>
               </span>
             </template>
             <template x-if="String(tugasDetail.review_state || '').toUpperCase() === 'NOT_REVIEWED'">
@@ -914,7 +914,7 @@
       </div>
 
     </div>
-  </div>
+  </div></template>
 </section>
 
 <!-- Form Perbaiki Draf Tugas · Revisi dari KM (SCR-PJ-TASK-003) & Form Ubah Tugas -->

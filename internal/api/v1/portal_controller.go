@@ -18,6 +18,7 @@ import (
 	"bot-jadwal/internal/audit"
 	"bot-jadwal/internal/portal"
 	"bot-jadwal/internal/ratelimit"
+	"bot-jadwal/internal/schedule"
 )
 
 // CreatePortalSessionRequest merepresentasikan payload pembuatan sesi portal mahasiswa
@@ -1398,205 +1399,22 @@ func (c *PortalController) resolvePortalSemester(w http.ResponseWriter, r *http.
 }
 
 func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
-	dateStr := targetDate.Format("2006-01-02")
-	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
-	dayEnd := dayStart.AddDate(0, 0, 1)
-
-	suppressedPatternIDs := map[int64]bool{}
-	suppressedOfferingIDs := map[int64]bool{}
-	if supRows, err := c.db.Query(`
-		SELECT te.event_kind, te.origin_schedule_pattern_id, COALESCE(te.origin_occurrence_date, ''),
-		       teo.course_offering_id, te.starts_at
-		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
-		  AND (teo.participation_role = 'OWNER' OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
-		JOIN course_offerings co ON teo.course_offering_id = co.id
-		JOIN semesters sem ON co.semester_id = sem.id
-		WHERE sem.class_id = ?
-		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
-		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND (
-		      substr(COALESCE(te.origin_occurrence_date, ''), 1, 10) = ?
-		      OR (datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?))
-		  );
-	`, classID, semesterID, semesterID, dateStr, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339)); err == nil {
-		for supRows.Next() {
-			var evKind, origDate, startsAtRaw string
-			var origPatID sql.NullInt64
-			var offID int64
-			if err := supRows.Scan(&evKind, &origPatID, &origDate, &offID, &startsAtRaw); err == nil {
-				origDatePrefix := ""
-				if len(origDate) >= 10 {
-					origDatePrefix = origDate[:10]
-				}
-				if (evKind == "REPLACEMENT" || evKind == "SESSION_CANCELLED" || evKind == "EXAM_UTS" || evKind == "EXAM_UAS") && origPatID.Valid && origDatePrefix == dateStr {
-					suppressedPatternIDs[origPatID.Int64] = true
-				} else if evKind == "HOLIDAY" || (evKind == "SESSION_CANCELLED" && origDatePrefix == "") {
-					if origPatID.Valid {
-						suppressedPatternIDs[origPatID.Int64] = true
-					} else {
-						suppressedOfferingIDs[offID] = true
-					}
-				}
-			}
-		}
-		supRows.Close()
-	}
-
-	patternRows, err := c.db.Query(`
-		SELECT sp.id, co.id, co.display_name, c.name, co.activity_type,
-		       sp.start_time, sp.end_time, COALESCE(r.code, ''), sp.effective_from, sp.effective_until,
-		       COALESCE(sp.meeting_link, ''), c.code
-		FROM schedule_patterns sp
-		JOIN course_offerings co ON sp.course_offering_id = co.id
-		JOIN courses c ON co.course_id = c.id
-		JOIN semesters sem ON co.semester_id = sem.id
-		LEFT JOIN rooms r ON sp.room_id = r.id
-		WHERE sem.class_id = ?
-		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
-		  AND sp.status = 'ACTIVE'
-		  AND sp.day_of_week = ?
-		  AND (sp.effective_from IS NULL OR sp.effective_from <= ?)
-		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
-		ORDER BY sp.start_time ASC;
-	`, classID, semesterID, semesterID, dayOfWeek, dateStr, dateStr)
-
-	var items []map[string]any
+	sessions, err := schedule.ResolveEffective(context.Background(), c.db, classID, semesterID, targetDate)
 	if err != nil {
 		return nil, err
 	}
-	defer patternRows.Close()
-
-	lecturersCache := make(map[int64][]string)
-	type pjData struct{ name, phone string }
-	pjCache := make(map[int64]pjData)
-
-	getLecturers := func(id int64) []string {
-		if l, ok := lecturersCache[id]; ok {
-			return l
+	items := make([]map[string]any, 0, len(sessions))
+	labels := map[string]string{"REGULAR": "REGULER", "REPLACEMENT": "PENGGANTI", "EXTRA": "TAMBAHAN", "HOLIDAY": "LIBUR", "SESSION_CANCELLED": "DIBATALKAN", "EXAM_UTS": "UTS", "EXAM_UAS": "UAS"}
+	for _, it := range sessions {
+		pj, phone := c.getOfferingPJ(it.OfferingID)
+		id := fmt.Sprintf("pat_%d", it.PatternID)
+		source := map[string]any{"pattern_id": it.PatternID}
+		if it.EventID > 0 {
+			id = fmt.Sprintf("ev_%d", it.EventID)
+			source["event_id"] = it.EventID
 		}
-		l := c.getOfferingLecturers(id)
-		lecturersCache[id] = l
-		return l
+		items = append(items, map[string]any{"id": id, "kind": labels[it.Kind], "offering": it.Offering, "title": it.Title, "code": it.Code, "activity_type": it.ActivityType, "starts_at": it.StartTime, "ends_at": it.EndTime, "room": it.Room, "meeting_link": it.MeetingLink, "lecturers": c.getOfferingLecturers(it.OfferingID), "pj": pj, "pj_phone": phone, "origin_occurrence_date": it.OriginDate, "reason": it.Reason, "source": source})
 	}
-
-	getPJ := func(id int64) (string, string) {
-		if d, ok := pjCache[id]; ok {
-			return d.name, d.phone
-		}
-		name, phone := c.getOfferingPJ(id)
-		pjCache[id] = pjData{name: name, phone: phone}
-		return name, phone
-	}
-
-	for patternRows.Next() {
-		var patternID, offID int64
-		var offDisplay, courseName, actType, startTime, endTime, roomCode, meetingLink, courseCode string
-		var effFrom, effUntil sql.NullString
-
-		if err := patternRows.Scan(&patternID, &offID, &offDisplay, &courseName, &actType, &startTime, &endTime, &roomCode, &effFrom, &effUntil, &meetingLink, &courseCode); err == nil {
-			if suppressedPatternIDs[patternID] || suppressedOfferingIDs[offID] {
-				continue
-			}
-			lecturers := getLecturers(offID)
-			pj, pjQueryPhone := getPJ(offID)
-			items = append(items, map[string]any{
-				"id":            fmt.Sprintf("pat_%d", patternID),
-				"kind":          "REGULER",
-				"offering":      offDisplay,
-				"title":         courseName,
-				"code":          courseCode,
-				"activity_type": actType,
-				"starts_at":     startTime,
-				"ends_at":       endTime,
-				"room":          roomCode,
-				"meeting_link":  meetingLink,
-				"lecturers":     lecturers,
-				"pj":            pj,
-				"pj_phone":      pjQueryPhone,
-				"source": map[string]any{
-					"pattern_id": patternID,
-				},
-			})
-		}
-	}
-
-	eventRows, err := c.db.Query(`
-		SELECT te.id, te.event_kind, co.id, co.display_name, c.name, co.activity_type,
-		       te.starts_at, te.ends_at,
-		       COALESCE(r.code, ''), te.origin_schedule_pattern_id, COALESCE(te.meeting_link, ''),
-		       COALESCE(te.origin_occurrence_date, ''), COALESCE(te.reason, ''), c.code
-		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id
-		  AND (teo.participation_role = 'OWNER' OR (teo.participation_role = 'PARTICIPANT' AND teo.participation_status = 'ACCEPTED'))
-		JOIN course_offerings co ON teo.course_offering_id = co.id
-		JOIN courses c ON co.course_id = c.id
-		JOIN semesters sem ON co.semester_id = sem.id
-		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE sem.class_id = ?
-		  AND ((? = 0 AND sem.status = 'ACTIVE') OR sem.id = ?)
-		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?);
-	`, classID, semesterID, semesterID, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339))
-
-	if err == nil {
-		defer eventRows.Close()
-		for eventRows.Next() {
-			var eventID, offID int64
-			var eventKind, offDisplay, courseName, actType, startTimeRaw, endTimeRaw, roomCode, meetingLink string
-			var originPatID sql.NullInt64
-			var originOccDate, reason, courseCode string
-
-			if err := eventRows.Scan(&eventID, &eventKind, &offID, &offDisplay, &courseName, &actType, &startTimeRaw, &endTimeRaw, &roomCode, &originPatID, &meetingLink, &originOccDate, &reason, &courseCode); err == nil {
-				startTime := startTimeRaw
-				endTime := endTimeRaw
-				if t, err := common.ParseTime(startTimeRaw); err == nil {
-					startTime = t.In(targetDate.Location()).Format("15:04")
-				}
-				if t, err := common.ParseTime(endTimeRaw); err == nil {
-					endTime = t.In(targetDate.Location()).Format("15:04")
-				}
-				kindMap := map[string]string{
-					"REPLACEMENT":       "PENGGANTI",
-					"EXTRA":             "TAMBAHAN",
-					"HOLIDAY":           "LIBUR",
-					"SESSION_CANCELLED": "DIBATALKAN",
-					"EXAM_UTS":          "UTS",
-					"EXAM_UAS":          "UAS",
-				}
-				kindLabel, ok := kindMap[eventKind]
-				if !ok {
-					kindLabel = eventKind
-				}
-
-				lecturers := getLecturers(offID)
-				pj, pjQueryPhone := getPJ(offID)
-
-				items = append(items, map[string]any{
-					"id":                     fmt.Sprintf("ev_%d", eventID),
-					"kind":                   kindLabel,
-					"offering":               offDisplay,
-					"title":                  courseName,
-					"code":                   courseCode,
-					"activity_type":          actType,
-					"starts_at":              startTime,
-					"ends_at":                endTime,
-					"room":                   roomCode,
-					"meeting_link":           meetingLink,
-					"lecturers":              lecturers,
-					"pj":                     pj,
-					"pj_phone":               pjQueryPhone,
-					"origin_occurrence_date": originOccDate,
-					"reason":                 reason,
-					"source": map[string]any{
-						"event_id":   eventID,
-						"pattern_id": originPatID.Int64,
-					},
-				})
-			}
-		}
-	}
-
 	return items, nil
 }
 

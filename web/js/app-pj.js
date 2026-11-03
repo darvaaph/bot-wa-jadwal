@@ -1346,11 +1346,6 @@ function pjApp() {
       }
       return { title, detail: msg || c.message || c.code };
     },
-      if (k === 'HOLIDAY') return 'Hari Libur';
-      if (k === 'SESSION_CANCELLED') return 'Sesi Dibatalkan';
-      return kind || '-';
-    },
-
     statusLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'DRAFT') return 'Draf';
@@ -2926,23 +2921,6 @@ function pjApp() {
           });
         });
 
-        // Fallback jika database pola kosong: muat dari data legacy kelas jika ada
-        if (list.length === 0 && this.classSlug) {
-          const legacyItems = await API.fetchLegacySchedule(this.classSlug).catch(() => []);
-          (legacyItems || []).forEach((item, idx) => {
-            const parts = (item.jam || '').split('-');
-            list.push({
-              id: `leg-${idx}`,
-              hari: item.hari,
-              jam: item.jam,
-              matkul: item.matkul,
-              dosen: item.dosen,
-              ruang: item.ruang,
-              timeStart: (parts[0] || '').trim(),
-              timeEnd: (parts[1] || '').trim()
-            });
-          });
-        }
 
         this.fullSchedule = list;
       } catch (e) {
@@ -2978,7 +2956,7 @@ function pjApp() {
       } catch (e) {
         this.tasks = [];
         this.updateAppBadge();
-        this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.tugasListError = e.code === 'UNAUTHORIZED' ? 'Sesi berakhir. Masuk kembali untuk memuat tugas.' : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
       }

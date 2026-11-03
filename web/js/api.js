@@ -209,6 +209,7 @@ const BotApi = {
         return items.map(item => this.mapTaskItem(item));
       }
       const err = new Error('Daftar tugas gagal dimuat.');
+      err.code = res.status === 401 ? 'UNAUTHORIZED' : 'LOAD_FAILED';
       err.status = res.status;
       throw err;
     } catch (e) {
@@ -268,16 +269,8 @@ const BotApi = {
     return (json && json.data) || true;
   },
 
-  // Mengambil seluruh tab server paralel lalu menggabung (dedupe per id).
-  // Backend tidak punya tab "semua", jadi gabungkan: aktif, draf, review, selesai, terlewat, arsip.
   async getAllTasks(offeringId) {
-    const tabs = ['aktif', 'draf', 'review', 'selesai', 'terlewat', 'arsip'];
-    const results = await Promise.all(tabs.map(t => this.getTasks(offeringId, t).catch(() => [])));
-    const seen = new Map();
-    results.flat().forEach(t => {
-      if (t && t.id != null && !seen.has(String(t.id))) seen.set(String(t.id), t);
-    });
-    return Array.from(seen.values());
+    return this.getTasks(offeringId, 'semua');
   },
 
   async completeTask(taskId, version) {
@@ -663,14 +656,6 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async fetchLegacySchedule(classCode) {
-    const res = await fetch('/api/schedule?class=' + encodeURIComponent(classCode || ''), {
-      credentials: 'same-origin'
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) return [];
-    return (json && json.data && Array.isArray(json.data.items)) ? json.data.items : [];
-  },
 
   async getPatterns(params) {
     const qs = new URLSearchParams(params || {}).toString();
@@ -788,14 +773,15 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async createTeachingEventDraft(payload) {
-    const res = await fetch('/api/v1/teaching-events', {
-      method: 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
+  async createTeachingEventDraft(payload, eventId) {
+    const res = await fetch('/api/v1/teaching-events' + (eventId ? '/' + eventId : ''), {
+      method: eventId ? 'PATCH' : 'POST', credentials: 'same-origin', headers: mutationHeaders(), body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       const err = new Error((body && body.error && body.error.message) || (body && body.error) || 'Gagal membuat draf event.');
-      err.code = 'SAVE_FAILED'; throw err;
+      err.code = res.status === 409 ? 'CONFLICT' : (res.status === 401 ? 'UNAUTHORIZED' : 'SAVE_FAILED');
+      err.status = res.status; throw err;
     }
     return (await res.json()).data;
   },
@@ -823,10 +809,10 @@ const BotApi = {
     return (await res.json()).data;
   },
 
-  async participateTeachingEvent(eventId, action) {
+  async participateTeachingEvent(eventId, action, offeringId) {
     const res = await fetch('/api/v1/teaching-events/' + eventId + '/participation', {
       method: 'POST', credentials: 'same-origin', headers: mutationHeaders(),
-      body: JSON.stringify({ action: action })
+      body: JSON.stringify({ action: action, offering_id: offeringId || undefined })
     });
     const json = await res.json().catch(() => null);
     if (!res.ok) {
@@ -1347,23 +1333,21 @@ const BotApi = {
     return headers;
   },
 
-  // Jadwal efektif portal untuk satu tanggal (pola + perubahan terbit).
-  // Mengembalikan {date, items} atau null bila kelas tak ditemukan / akses ditolak.
   async getPortalSchedule(slug, dateStr, semesterId) {
-    try {
-      const qs = new URLSearchParams();
-      if (dateStr) qs.set('date', dateStr);
-      if (semesterId) qs.set('semester_id', String(semesterId));
-      const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
-        credentials: 'same-origin',
-        headers: this.portalHeaders(slug)
-      });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.data || null;
-    } catch (e) {
-      return null;
+    const qs = new URLSearchParams();
+    if (dateStr) qs.set('date', dateStr);
+    if (semesterId) qs.set('semester_id', String(semesterId));
+    const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
+      credentials: 'same-origin', headers: this.portalHeaders(slug)
+    });
+    if (!res.ok) {
+      const err = new Error('Jadwal kelas gagal dimuat.');
+      err.status = res.status;
+      throw err;
     }
+    const json = await res.json();
+    if (!json.data || !Array.isArray(json.data.items)) throw new Error('Respons jadwal tidak lengkap.');
+    return json.data;
   },
 
   async getPortalSemesters(slug) {

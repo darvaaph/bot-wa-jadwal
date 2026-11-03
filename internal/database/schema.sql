@@ -499,7 +499,7 @@ CREATE TABLE tasks (
     CHECK (publication_status = 'DRAFT' OR published_at IS NOT NULL),
     CHECK (
         (review_state = 'NOT_REVIEWED' AND reviewed_version IS NULL) OR
-        (review_state <> 'NOT_REVIEWED' AND reviewed_version = version)
+        (review_state <> 'NOT_REVIEWED' AND reviewed_version >= 1 AND reviewed_version <= version)
     ),
     CHECK (review_state <> 'APPROVED' OR publication_status = 'PUBLISHED'),
     CHECK (review_state <> 'CHANGES_REQUESTED' OR publication_status = 'DRAFT'),

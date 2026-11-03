@@ -78,13 +78,16 @@ function examSessionBehavior() {
       if (this.examDraft && this.examDraftIsNew) {
         const draftId = this.examDraft.id;
         const draftVer = this.examDraft.version || 1;
-        this.examDraft = null;
-        this.examDraftIsNew = false;
-        this.examPreview = null;
         try {
           await API.deleteTeachingEvent(draftId, draftVer);
+          this.examDraft = null;
+          this.examDraftIsNew = false;
+          this.examPreview = null;
           if (this.loadEvents) await this.loadEvents();
-        } catch (e) { /* abaikan jika sudah terhapus */ }
+        } catch (e) {
+          this.examError = e.message || 'Draf belum terhapus. Coba lagi dari daftar perubahan.';
+          if (this.showToast) this.showToast(this.examError);
+        }
       }
     },
 
@@ -265,18 +268,14 @@ function examSessionBehavior() {
       this.examBusy = true; this.examError = '';
       const wasExistingSavedDraft = Boolean(this.examDraft && !this.examDraftIsNew);
       try {
-        if (this.examDraft) {
-          try {
-            await API.deleteTeachingEvent(this.examDraft.id, this.examDraft.version || 1);
-          } catch (e) { /* ignore cleanup error */ }
-          this.examDraft = null;
-        }
         const payload = { owner_offering_id: Number(f.offeringId), event_kind: f.kind,
           starts_at: new Date(`${f.date}T${f.start}:00+07:00`).toISOString(),
           ends_at: new Date(`${f.date}T${f.end}:00+07:00`).toISOString(),
           room_id: f.roomId ? Number(f.roomId) : null, reason: f.reason.trim() || null };
         if (f.patternId) { payload.origin_pattern_id = Number(f.patternId); payload.origin_date = f.originDate; }
-        this.examDraft = await API.createTeachingEventDraft(payload);
+        if (this.examDraft) payload.version = this.examDraft.version;
+        const saved = await API.createTeachingEventDraft(payload, this.examDraft && this.examDraft.id);
+        this.examDraft = saved;
         if (preview) {
           this.examDraftIsNew = !wasExistingSavedDraft;
           this.examPreview = await API.previewTeachingEvent(this.examDraft.id);

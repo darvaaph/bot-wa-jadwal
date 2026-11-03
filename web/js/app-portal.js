@@ -670,7 +670,7 @@ function portalApp() {
           await this.ensureDashboardPartials();
           this.updateClock();
           this.searchMateriQuery = '';
-          await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+          await Promise.all([this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
           this.dashboardLoading = false;
           return;
         }
@@ -742,7 +742,7 @@ function portalApp() {
         await this.ensureDashboardPartials();
         this.updateClock();
         this.searchMateriQuery = '';
-        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+        await Promise.all([this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
         if (err && err.code === 'RATE_LIMITED') {
@@ -758,6 +758,12 @@ function portalApp() {
     },
 
     kunciPortal() {
+      this.fullSchedule = [];
+      this.jadwalEfektif = [];
+      this.jadwalCacheHariIni = [];
+      this.jadwalPekan = {};
+      this.tasks = [];
+      this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
       localStorage.removeItem('portal_pin_ok');
       localStorage.removeItem('portal_token');
       this.unlocked = false;
@@ -797,7 +803,6 @@ function portalApp() {
         this.unlocked = (savedClass === this.selectedClassSlug && localStorage.getItem('portal_pin_ok') === '1');
         if (this.unlocked) {
           await this.ensureDashboardPartials();
-          this.loadSchedule();
           this.loadJadwalEfektif();
           this.loadTugasPortal();
           this.searchMateriQuery = '';
@@ -1700,19 +1705,6 @@ function portalApp() {
       return ch.room ? `Ruang ${ch.room}` : '';
     },
 
-    async loadSchedule() {
-      try {
-        const raw = await API.fetchLegacySchedule(this.selectedClass);
-        this.fullSchedule = (raw || []).map((s, i) => {
-          const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
-          return {
-            id: `sch-${i}`, hari: s.hari, jam: s.jam, matkul: s.matkul,
-            dosen: s.dosen, ruang: s.ruang,
-            timeStart: parts[0] || '', timeEnd: parts[1] || ''
-          };
-        });
-      } catch (e) { this.fullSchedule = []; }
-    },
 
     // Jadwal efektif (pola + perubahan terbit) untuk seluruh pekan.
     async loadJadwalPekan() {
@@ -1726,31 +1718,13 @@ function portalApp() {
           return API.getPortalSchedule(slug, tgl);
         }));
 
-        let totalV1Items = results.reduce((sum, r) => sum + ((r && Array.isArray(r.items)) ? r.items.length : 0), 0);
-        if (totalV1Items === 0 && (!this.fullSchedule || this.fullSchedule.length === 0)) {
-          await this.loadSchedule();
-        }
-        const useLegacyFallback = totalV1Items === 0 && (this.fullSchedule || []).length > 0;
-
         const newPekan = {};
         days.forEach((d, idx) => {
           const res = results[idx];
-          if (!useLegacyFallback && res && Array.isArray(res.items)) {
-            newPekan[d] = this.normalisasiEfektif(res.items, d);
-          } else {
-            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => {
-              const mLower = String(s.matkul || '').toLowerCase();
-              const rLower = String(s.ruang || '').toLowerCase();
-              const isPrak = mLower.includes('praktik') || rLower.includes('lab');
-              return {
-                id: s.id, hari: s.hari, kind: 'REGULER', activityType: isPrak ? 'PRACTICE' : 'THEORY',
-                matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
-                timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
-                link: '', pj: '', originDate: '', reason: ''
-              };
-            });
-          }
+          if (!res || !Array.isArray(res.items)) throw new Error('Respons jadwal tidak lengkap.');
+          newPekan[d] = this.normalisasiEfektif(res.items, d);
         });
+        this.fullSchedule = Object.values(newPekan).flat();
         this.jadwalPekan = newPekan;
         this.jadwalEfektif = this.jadwalPekan[this.hari] || [];
         if (this.weekOffset === 0) {
@@ -1758,6 +1732,7 @@ function portalApp() {
         }
       } catch (e) {
         this.jadwalError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        if (e.status === 401) this.kunciPortal();
       } finally {
         this.jadwalLoading = false;
       }

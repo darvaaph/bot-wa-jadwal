@@ -278,11 +278,19 @@ func (s *Service) GetInvitationByToken(ctx context.Context, token string) (*Invi
 }
 
 // AcceptInvitation creates user (or reuses matching identity) + role assignment atomically.
-func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, password string) (*User, *RoleAssignment, error) {
+func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, password string, recipientToken ...string) (*User, *RoleAssignment, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, nil, ErrInvalidInput
 	}
 	now := s.clock().UTC()
+	var recipientID int64
+	if len(recipientToken) > 0 {
+		principal, err := s.ValidateSession(ctx, recipientToken[0])
+		if err != nil {
+			return nil, nil, ErrAuthenticationFailed
+		}
+		recipientID = principal.UserID
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, nil, err
@@ -309,11 +317,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, pass
 		_ = tx.Commit()
 		return nil, nil, ErrInvalidInput
 	}
-	if err := ValidatePassword(identity, password); err != nil {
-		return nil, nil, err
-	}
-	passwordHash, err := HashPassword(identity, password)
-	if err != nil {
+	if err := ValidateScope(ctx, tx, role, scope, classID, semesterID, offeringID); err != nil {
 		return nil, nil, err
 	}
 	name := strings.TrimSpace(displayName)
@@ -323,8 +327,13 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, pass
 
 	var userID int64
 	var sessionVersion int
-	err = tx.QueryRowContext(ctx, `SELECT id, session_version FROM users WHERE identity_key = ?`, identity).Scan(&userID, &sessionVersion)
+	var userStatus string
+	err = tx.QueryRowContext(ctx, `SELECT id, session_version, status, display_name FROM users WHERE identity_key = ?`, identity).Scan(&userID, &sessionVersion, &userStatus, &name)
 	if errors.Is(err, sql.ErrNoRows) {
+		passwordHash, err := HashPassword(identity, password)
+		if err != nil {
+			return nil, nil, err
+		}
 		err = tx.QueryRowContext(ctx, `INSERT INTO users (identity_key, display_name, password_hash, status, session_version, created_at, updated_at)
 			VALUES (?, ?, ?, 'ACTIVE', 1, ?, ?) RETURNING id`, identity, name, passwordHash, formatTime(now), formatTime(now)).Scan(&userID)
 		if err != nil {
@@ -334,9 +343,8 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, displayName, pass
 	} else if err != nil {
 		return nil, nil, err
 	} else {
-		if _, err := tx.ExecContext(ctx, `UPDATE users SET display_name=?, password_hash=?, status='ACTIVE', updated_at=? WHERE id=?`,
-			name, passwordHash, formatTime(now), userID); err != nil {
-			return nil, nil, err
+		if userStatus != "ACTIVE" || recipientID != userID {
+			return nil, nil, ErrAuthenticationFailed
 		}
 	}
 

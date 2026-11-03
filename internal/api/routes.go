@@ -75,6 +75,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/schedule/patterns/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1Pattern)))
 	mux.HandleFunc("DELETE /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleDeleteV1Pattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
+	mux.HandleFunc("PATCH /api/v1/teaching-events/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
 	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEvents)))
 	mux.HandleFunc("GET /api/v1/teaching-events/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEventDetail)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1TeachingEvent)))

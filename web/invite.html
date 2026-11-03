@@ -21,8 +21,8 @@
   <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
   <link rel="stylesheet" href="/css/components.css?v=20261026" />
   <script defer src="/js/vendor/alpine.cdn.min.js?v=3.14.3"></script>
-  <script src="/js/api.js?v=20261003"></script>
-  <script src="/js/app-invite.js?v=20261003"></script>
+  <script src="/js/api.js?v=20261103"></script>
+  <script src="/js/app-invite.js?v=20261103"></script>
 </head>
 <body class="bg-white text-ink min-h-screen" x-data="inviteApp()" x-init="initInvite()">
   <div class="min-h-screen flex flex-col items-center justify-center px-4 py-10">
@@ -39,7 +39,9 @@
 
           <div x-show="token">
             <div x-show="formError" class="ui-form-error mt-4" role="alert" x-text="formError">-</div>
-            <div class="mt-4 space-y-4">
+            <label class="block mt-4"><input type="checkbox" x-model="existingAccount" /> Saya sudah punya akun</label>
+            <p x-show="existingAccount" class="mt-3">Masuk sebagai nomor penerima sebelum menerima peran. <a :href="loginUrl()" class="text-primary hover:underline">Masuk akun penerima</a></p>
+            <div x-show="!existingAccount" class="mt-4 space-y-4">
               <div>
                 <label for="invite-nama" class="block text-[13px] font-medium mb-1">Nama lengkap <span class="text-danger">*</span></label>
                 <input id="invite-nama" type="text" x-model="nama" placeholder="Contoh: Nama Lengkap Anda" autocomplete="name"
@@ -83,7 +85,7 @@
             <button type="button" @click="aktifkan()" :disabled="loading"
               class="ui-button ui-button--primary mt-5 w-full text-[14px] font-semibold flex items-center justify-center gap-2">
               <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              <span x-text="loading ? 'Mengaktifkan...' : 'Aktifkan Akun & Masuk'">Aktifkan Akun &amp; Masuk</span>
+              <span x-text="loading ? 'Menyimpan...' : (existingAccount ? 'Terima Peran' : 'Aktifkan Akun & Masuk')">Aktifkan Akun &amp; Masuk</span>
             </button>
             <p class="text-[11px] text-slate-400 mt-3 text-center">Tautan hanya berlaku 7 hari dan otomatis hangus setelah akun diaktifkan.</p>
           </div>
@@ -103,7 +105,7 @@
         </div>
       </template>
     </div>
-    <p class="text-[12px] text-slate-400 mt-4 text-center">Sudah punya akun sebelumnya? Tautan yang sama menambahkan peran ini ke akun Anda — <a href="/login.html" class="text-primary font-medium hover:underline">masuk di sini</a> setelah aktivasi.</p>
+    <p class="text-[12px] text-slate-400 mt-4 text-center">Undangan akun existing hanya menambah peran setelah penerima masuk. Nama, kata sandi, dan sesi tetap. Akun baru memerlukan kata sandi minimal 12 karakter.</p>
   </div>
 </body>
 </html>

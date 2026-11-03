@@ -11,6 +11,7 @@ function loginApp() {
     nomor: '',
     sandi: '',
     recoveryToken: '',
+    inviteToken: '',
     recoveryPassword: '',
     recoveryConfirm: '',
     recoverySent: false,
@@ -34,6 +35,7 @@ function loginApp() {
       this.initTheme();
       try {
         const params = new URLSearchParams(window.location.search);
+        this.inviteToken = params.get('invite_token') || '';
         const r = (params.get('role') || 'km').toLowerCase();
         if (['km', 'pj', 'sa'].includes(r)) this.role = r;
         this.recoveryToken = params.get('recovery_token') || params.get('token') || '';
@@ -129,6 +131,10 @@ function loginApp() {
         const clean = this.normalizedIdentity();
 
         const data = await API.login(clean, this.sandi);
+        if (this.inviteToken) {
+          window.location.href = '/invite.html?token=' + encodeURIComponent(this.inviteToken) + '&existing=1';
+          return;
+        }
         this.showToast('Berhasil masuk. Mengarahkan...');
 
         const daftar = (data && data.assignments) || [];

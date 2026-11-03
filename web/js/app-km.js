@@ -2018,9 +2018,9 @@ function kmApp() {
       }
     },
 
-    async aksiPartisipasi(ev, action) {
+    async aksiPartisipasi(ev, action, offeringId) {
       try {
-        await API.participateTeachingEvent(ev.id, action);
+        await API.participateTeachingEvent(ev.id, action, offeringId);
         const label = action === 'accept' ? 'diterima' : (action === 'decline' ? 'ditolak' : 'dilepas');
         this.showToast(`Partisipasi kelas ${label}.`);
         await this.loadEvents();
@@ -2604,7 +2604,7 @@ function kmApp() {
       } catch (e) {
         this.tasks = [];
         this.updateAppBadge();
-        this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.tugasListError = e.code === 'UNAUTHORIZED' ? 'Sesi berakhir. Masuk kembali untuk memuat tugas.' : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
       }

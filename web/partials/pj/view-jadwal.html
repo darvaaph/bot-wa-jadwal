@@ -982,7 +982,7 @@
         <span x-text="previewError">-</span>
         <button type="button" @click="muatPratinjau()" class="ui-button ui-button--ghost ml-2 font-semibold underline">Coba Lagi</button>
       </div>
-      <div x-show="!previewLoading && !previewError && previewData">
+      <template x-if="!previewLoading && !previewError && previewData"><div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
           <div x-show="previewData.old" class="p-4 rounded-xl bg-slate-50 border border-border">
             <p class="text-[11px] font-bold tracking-widest text-slate-400 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">lock</span>SEBELUM</p>
@@ -1036,12 +1036,12 @@
           <button type="button" @click="ubahLagi()" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl border border-border font-medium min-h-[44px]">Ubah Lagi</button>
           <button type="button" @click="terbitkanPerubahan()" :disabled="blockingConflicts.length > 0" :class="blockingConflicts.length > 0 ? 'bg-slate-200 text-slate-400' : 'bg-primary text-white'" class="ui-button ui-button--ghost flex-1 h-11 rounded-xl font-semibold min-h-[44px]">Terbitkan Perubahan</button>
         </div>
-      </div>
+      </div></template>
     </div>
   </div>
 
   <!-- ============ SUB: DETAIL (SCR-SCH-004) ============ -->
-  <div x-show="jadwalSub === 'detail' && selectedEvent">
+  <template x-if="jadwalSub === 'detail' && selectedEvent"><div>
     <button type="button" @click="bukaDaftar()" class="ui-button ui-button--ghost mt-5 h-11 px-4 rounded-xl border border-border text-[13px] font-medium hover:bg-slate-50 min-h-[44px] flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">arrow_back</span>Kembali ke daftar</button>
     <div class="ui-card p-5 mt-4">
       <div class="flex flex-wrap items-center gap-2">
@@ -1080,13 +1080,15 @@
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
       <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-border text-[13px] text-slate-600 flex gap-2">
         <span class="material-symbols-outlined shrink-0">notifications</span>
-        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis — pantau di menu Notifikasi.</p>
+        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pantau menu Notifikasi. Hasil pengiriman yang tidak pasti perlu diperiksa sebelum dicoba ulang.</p>
       </div>
       <div class="flex flex-wrap gap-3 mt-5">
         <button type="button" @click="lanjutkanDraf(selectedEvent)" x-show="String(selectedEvent.lifecycle_status).toUpperCase() === 'DRAFT'" class="ui-button ui-button--primary text-[13px] font-semibold">Lanjutkan Draf</button>
       </div>
     </div>
   </div>
+
+  </template>
 
   <!-- Modal Cek Ruangan & Jam Kosong (SCR-PJ-SCHED-001) -->
   <div x-show="showRoomQuickCheck" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto" x-cloak>

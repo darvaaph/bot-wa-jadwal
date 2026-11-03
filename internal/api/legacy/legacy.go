@@ -114,6 +114,10 @@ func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 // HandleSchedule menyajikan jadwal perkuliahan berdasarkan kelas dan filter hari (Legacy Shim)
 func (h *Handler) HandleSchedule(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Deprecation", "true")
+	if h.v1DB != nil {
+		common.WriteJSON(w, http.StatusGone, map[string]string{"error": "Gunakan jadwal portal /api/v1/portal/{slug}/schedule"})
+		return
+	}
 	if h.classManager == nil {
 		common.WriteJSON(w, http.StatusNotFound, map[string]string{
 			"status":  "error",
@@ -274,6 +278,9 @@ func (h *Handler) GetLegacyTaskViewFromV1(ctx context.Context, classQuery string
 		JOIN semesters sem ON sem.id = co.semester_id
 		JOIN classes cl ON cl.id = sem.class_id
 		WHERE t.publication_status = 'PUBLISHED'
+		  AND sem.status = 'ACTIVE' AND sem.published_at IS NOT NULL
+		  AND cl.status = 'ACTIVE'
+		  AND EXISTS (SELECT 1 FROM class_settings cs WHERE cs.class_id=cl.id AND cs.portal_access_mode='LINK')
 		  AND t.completed_at IS NULL
 		  AND t.archived_at IS NULL
 		  AND t.deleted_at IS NULL`

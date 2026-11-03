@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"bot-jadwal/internal/maintenance"
+	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
 )
 
@@ -325,119 +325,28 @@ func (s *V1BotService) ResolveDailyItems(ctx context.Context, classID int64, tar
 	className = formatClassDisplayName(code, studyProgram, cohortYear, groupLabel, semYear)
 	classSlug = slug
 
-	weekday := int(targetDate.Weekday())
-	if weekday == 0 {
-		weekday = 7
+	sessions, resolveErr := schedule.ResolveEffective(ctx, s.db, classID, semID, targetDate)
+	if resolveErr != nil {
+		return className, classSlug, semTerm, semYear, nil, resolveErr
 	}
-	date := targetDate.Format("2006-01-02")
-
-	patternQuery := `
-		SELECT sp.id, co.display_name, c.name, sp.start_time, sp.end_time,
-		       COALESCE(r.code, '-') AS room_code,
-		       COALESCE(GROUP_CONCAT(l.full_name, ', '), '-') AS lecturers
-		FROM schedule_patterns sp
-		JOIN course_offerings co ON sp.course_offering_id = co.id
-		JOIN courses c ON co.course_id = c.id
-		LEFT JOIN rooms r ON sp.room_id = r.id
-		LEFT JOIN offering_lecturers ol ON co.id = ol.course_offering_id AND ol.superseded_at IS NULL
-		LEFT JOIN lecturers l ON ol.lecturer_id = l.id
-		WHERE co.semester_id = ?
-		  AND co.status = 'ACTIVE'
-		  AND sp.day_of_week = ?
-		  AND sp.status = 'ACTIVE'
-		  AND sp.effective_from <= ?
-		  AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
-		  AND NOT EXISTS (
-		      SELECT 1 FROM teaching_events exam
-		      WHERE exam.origin_schedule_pattern_id = sp.id
-		        AND exam.origin_occurrence_date = ?
-		        AND exam.lifecycle_status = 'PUBLISHED'
-		        AND exam.event_kind IN ('EXAM_UTS', 'EXAM_UAS')
-		  )
-		GROUP BY sp.id
-		ORDER BY sp.start_time ASC;
-	`
-	rows, err := s.db.QueryContext(ctx, patternQuery, semID, weekday, date, date, date)
-	if err != nil {
-		return className, classSlug, semTerm, semYear, nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var it ScheduleItem
-		var offName, cName string
-		if err := rows.Scan(&it.PatternID, &offName, &cName, &it.StartTime, &it.EndTime, &it.Room, &it.Lecturers); err == nil {
-			it.Course = offName
-			if it.Course == "" {
-				it.Course = cName
-			}
-			it.Status = "REGULAR"
-			items = append(items, it)
+	for _, it := range sessions {
+		course := it.Offering
+		if course == "" {
+			course = it.Title
 		}
-	}
-
-	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
-	dayEnd := dayStart.AddDate(0, 0, 1)
-
-	eventQuery := `
-		SELECT te.id, te.event_kind, te.starts_at, te.ends_at, COALESCE(te.reason, ''),
-		       COALESCE(te.origin_schedule_pattern_id, 0),
-		       co.display_name,
-		       COALESCE(r.code, '-') AS room_code
-		FROM teaching_events te
-		JOIN teaching_event_offerings teo ON te.id = teo.teaching_event_id AND teo.participation_role = 'OWNER'
-		JOIN course_offerings co ON teo.course_offering_id = co.id
-		LEFT JOIN rooms r ON te.room_id = r.id
-		WHERE co.semester_id = ?
-		  AND te.lifecycle_status = 'PUBLISHED'
-		  AND datetime(te.starts_at) >= datetime(?) AND datetime(te.starts_at) < datetime(?)
-		ORDER BY te.starts_at ASC;
-	`
-	evRows, err := s.db.QueryContext(ctx, eventQuery, semID, dayStart.UTC().Format(time.RFC3339), dayEnd.UTC().Format(time.RFC3339))
-	if err == nil {
-		defer evRows.Close()
-		for evRows.Next() {
-			var evID, originPatternID int64
-			var evKind, startsAtStr, endsAtStr, reason, offName, roomCode string
-			if err := evRows.Scan(&evID, &evKind, &startsAtStr, &endsAtStr, &reason, &originPatternID, &offName, &roomCode); err == nil {
-				startTime := startsAtStr
-				endTime := endsAtStr
-				if tStart, errT := time.Parse(time.RFC3339Nano, startsAtStr); errT == nil {
-					startTime = tStart.In(targetDate.Location()).Format("15:04")
-				}
-				if tEnd, errT := time.Parse(time.RFC3339Nano, endsAtStr); errT == nil {
-					endTime = tEnd.In(targetDate.Location()).Format("15:04")
-				}
-
-				if evKind == "SESSION_CANCELLED" && originPatternID > 0 {
-					for idx := range items {
-						if items[idx].PatternID == originPatternID {
-							items[idx].Status = "CANCELLED"
-							items[idx].Note = reason
-						}
-					}
-				} else {
-					statusKind := "REPLACEMENT"
-					if evKind == "EXTRA" {
-						statusKind = "EXTRA"
-					}
-					if evKind == "EXAM_UTS" || evKind == "EXAM_UAS" {
-						statusKind = strings.TrimPrefix(evKind, "EXAM_")
-					}
-					items = append(items, ScheduleItem{
-						Course:    offName,
-						StartTime: startTime,
-						EndTime:   endTime,
-						Room:      roomCode,
-						Status:    statusKind,
-						Note:      reason,
-					})
-				}
-			}
+		status := it.Kind
+		switch status {
+		case "SESSION_CANCELLED":
+			status = "CANCELLED"
+		case "EXAM_UTS", "EXAM_UAS":
+			status = strings.TrimPrefix(status, "EXAM_")
 		}
+		var lecturers string
+		if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(GROUP_CONCAT(l.full_name, ', '),'') FROM offering_lecturers ol JOIN lecturers l ON l.id=ol.lecturer_id WHERE ol.course_offering_id=? AND ol.superseded_at IS NULL`, it.OfferingID).Scan(&lecturers); err != nil {
+			return className, classSlug, semTerm, semYear, nil, err
+		}
+		items = append(items, ScheduleItem{PatternID: it.PatternID, Course: course, StartTime: it.StartTime, EndTime: it.EndTime, Room: it.Room, Lecturers: lecturers, Status: status, Note: it.Reason})
 	}
-
-	sort.SliceStable(items, func(i, j int) bool { return items[i].StartTime < items[j].StartTime })
 	return className, classSlug, semTerm, semYear, items, nil
 }
 

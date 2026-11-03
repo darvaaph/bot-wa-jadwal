@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/api/common"
+	"bot-jadwal/internal/auth"
 )
 
 // AuthManager mengelola verifikasi sesi dan otorisasi berbasis peran (RBAC).
@@ -92,7 +93,7 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 				ra.valid_from, ra.valid_until
 			FROM user_sessions s
 			JOIN users u ON s.user_id = u.id
-			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id AND ra.status = 'ACTIVE'
+			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id AND ra.status = 'ACTIVE' AND ra.user_id = s.user_id
 			LEFT JOIN classes c ON ra.class_id = c.id
 			WHERE s.token_hash = ?;
 		`
@@ -158,6 +159,10 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		now := time.Now()
 
 		if role.Valid {
+			if err := auth.ValidateScope(r.Context(), am.db, role.String, scopeType.String, classID, semesterID, courseOfferingID); err != nil {
+				common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Cakupan penugasan tidak valid")
+				return
+			}
 			if raValidFrom.Valid {
 				vf, err := common.ParseTime(raValidFrom.String)
 				if err != nil {

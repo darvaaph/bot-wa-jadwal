@@ -91,27 +91,26 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 	// 1. Batas semester owner (hanya mode event bertanggal konkret).
 	// Mode pola (PatternDay != 0) bersifat rekuren mingguan tanpa tanggal
 	// tunggal; effective range pola sudah dibatasi query sesi di bawah.
-	var semStart, semEnd string
 	if c.OwnerOfferingID > 0 && c.PatternDay == 0 {
-		err := db.QueryRowContext(ctx, `SELECT sem.starts_on, sem.ends_on FROM course_offerings co
-			JOIN semesters sem ON sem.id = co.semester_id WHERE co.id = ?`, c.OwnerOfferingID).Scan(&semStart, &semEnd)
-		if err == nil {
-			d := c.StartsAt.Format("2006-01-02")
-			if d < semStart || d > semEnd {
-				out = append(out, Conflict{Code: CodeOutsideOwnerSem, Blocking: true, EntityType: "SEMESTER", Message: "kejadian di luar semester owner"})
-			}
+		valid, err := OfferingPeriodContains(ctx, db, c.OwnerOfferingID, c.StartsAt, c.EndsAt)
+		if err != nil {
+			return nil, err
+		}
+		if !valid {
+			out = append(out, Conflict{Code: CodeOutsideOwnerSem, Blocking: true, EntityType: "SEMESTER", Message: "kejadian di luar semester owner"})
 		}
 	}
 	// 2. Batas semester peserta.
 	for _, pid := range c.ParticipantIDs {
-		var ps, pe string
-		err := db.QueryRowContext(ctx, `SELECT sem.starts_on, sem.ends_on FROM course_offerings co
-			JOIN semesters sem ON sem.id = co.semester_id WHERE co.id = ?`, pid).Scan(&ps, &pe)
-		if err == nil {
-			d := c.StartsAt.Format("2006-01-02")
-			if d < ps || d > pe {
-				out = append(out, Conflict{Code: CodeOutsidePartSem, Blocking: true, EntityType: "COURSE_OFFERING", EntityID: pid, Message: "event di luar semester peserta"})
-			}
+		if c.PatternDay != 0 {
+			continue
+		}
+		valid, err := OfferingPeriodContains(ctx, db, pid, c.StartsAt, c.EndsAt)
+		if err != nil {
+			return nil, err
+		}
+		if !valid {
+			out = append(out, Conflict{Code: CodeOutsidePartSem, Blocking: true, EntityType: "COURSE_OFFERING", EntityID: pid, Message: "event di luar semester peserta"})
 		}
 	}
 

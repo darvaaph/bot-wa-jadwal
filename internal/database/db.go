@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 16
+const LatestSchemaVersion = 17
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL
@@ -99,8 +99,12 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		if applied {
 			continue
 		}
-		if item.version == 16 {
-			if err := rebuildExamEvents(ctx, db, item); err != nil {
+		if item.version == 16 || item.version == 17 {
+			table := "teaching_events"
+			if item.version == 17 {
+				table = "tasks"
+			}
+			if err := rebuildReferencedTable(ctx, db, item, table); err != nil {
 				return fmt.Errorf("migration %d (%s): %w", item.version, item.name, err)
 			}
 			continue
@@ -129,7 +133,7 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-func rebuildExamEvents(ctx context.Context, db *sql.DB, item migration) (err error) {
+func rebuildReferencedTable(ctx context.Context, db *sql.DB, item migration, table string) (err error) {
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return err
@@ -150,7 +154,7 @@ func rebuildExamEvents(ctx context.Context, db *sql.DB, item migration) (err err
 		return err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT sql FROM sqlite_master WHERE tbl_name='teaching_events' AND type IN ('index','trigger') AND sql IS NOT NULL`)
+	rows, err := tx.QueryContext(ctx, `SELECT sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL`, table)
 	if err != nil {
 		return err
 	}
@@ -187,7 +191,7 @@ func rebuildExamEvents(ctx context.Context, db *sql.DB, item migration) (err err
 		return err
 	}
 	if invalid {
-		return fmt.Errorf("referensi foreign key tidak valid setelah rebuild teaching_events")
+		return fmt.Errorf("referensi foreign key tidak valid setelah rebuild %s", table)
 	}
 	if _, err = tx.ExecContext(ctx, "INSERT INTO schema_migrations (version, name) VALUES (?, ?)", item.version, item.name); err != nil {
 		return err

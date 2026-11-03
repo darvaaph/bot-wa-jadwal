@@ -1132,6 +1132,14 @@ func (c *AcademicController) SemesterImportApply(w http.ResponseWriter, r *http.
 	defer tx.Rollback()
 
 	// 1. Terapkan Master Mata Kuliah
+	if !common.GuardAcademicMutation(w, r, tx, classID) {
+		return
+	}
+	var semesterStatus string
+	if err := tx.QueryRow(`SELECT status FROM semesters WHERE id=? AND class_id=?`, semID, classID).Scan(&semesterStatus); err != nil || semesterStatus == "ARCHIVED" {
+		common.WriteV1Error(w, 403, common.CodeForbidden, "Semester arsip hanya-baca")
+		return
+	}
 	courseIDMap := make(map[string]int64)
 	for _, course := range payload.Courses {
 		code := strings.TrimSpace(course.Code)
@@ -1500,7 +1508,23 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 	}
 
 	var matID int64
-	err = c.db.QueryRow(`
+	tx, err := c.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+	var off, task sql.NullInt64
+	if req.OfferingID != nil {
+		off = sql.NullInt64{Int64: *req.OfferingID, Valid: true}
+	}
+	if req.TaskID != nil {
+		task = sql.NullInt64{Int64: *req.TaskID, Valid: true}
+	}
+	if !common.GuardMaterialMutation(w, r, tx, classID, off, task) {
+		return
+	}
+	err = tx.QueryRow(`
 		INSERT INTO materials (
 			class_id, course_offering_id, task_id, title, material_type,
 			url, description, visibility, status, version, created_by_user_id
@@ -1514,6 +1538,14 @@ func (c *AcademicController) CreateMaterial(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if err := writeMaterialAudit(r, tx, u, matID, "CREATE_MATERIAL", nil); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan audit materi")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit materi")
+		return
+	}
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{
 		"id":     matID,
 		"status": "ACTIVE",
@@ -1622,13 +1654,35 @@ func (c *AcademicController) PatchMaterial(w http.ResponseWriter, r *http.Reques
 	}
 	sets = append(sets, "version = version + 1")
 	args = append(args, matID, curVersion)
-	res, err := c.db.Exec(`UPDATE materials SET `+strings.Join(sets, ", ")+` WHERE id = ? AND version = ? AND deleted_at IS NULL;`, args...)
+	tx, err := c.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+	before, err := materialSnapshot(r, tx, matID)
+	if err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if !common.GuardMaterialMutation(w, r, tx, classID.Int64, offeringID, before.TaskID) {
+		return
+	}
+	res, err := tx.Exec(`UPDATE materials SET `+strings.Join(sets, ", ")+` WHERE id = ? AND version = ? AND deleted_at IS NULL;`, args...)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengubah materi")
 		return
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan", map[string]any{"current_version": curVersion})
+		return
+	}
+	if err := writeMaterialAudit(r, tx, u, matID, "UPDATE_MATERIAL", before); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan audit materi")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit materi")
 		return
 	}
 	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "version": curVersion + 1})
@@ -1687,13 +1741,35 @@ func (c *AcademicController) DeleteMaterial(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	res, err := c.db.Exec(`UPDATE materials SET status = 'ARCHIVED', version = version + 1 WHERE id = ? AND version = ? AND deleted_at IS NULL;`, matID, curVersion)
+	tx, err := c.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memulai transaksi")
+		return
+	}
+	defer tx.Rollback()
+	before, err := materialSnapshot(r, tx, matID)
+	if err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal membaca materi")
+		return
+	}
+	if !common.GuardMaterialMutation(w, r, tx, classID.Int64, offeringID, before.TaskID) {
+		return
+	}
+	res, err := tx.Exec(`UPDATE materials SET status = 'ARCHIVED', version = version + 1 WHERE id = ? AND version = ? AND deleted_at IS NULL;`, matID, curVersion)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mengarsipkan materi")
 		return
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
+		return
+	}
+	if err := writeMaterialAudit(r, tx, u, matID, "ARCHIVE_MATERIAL", before); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan audit materi")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit materi")
 		return
 	}
 	common.WriteV1Success(w, http.StatusOK, map[string]any{"id": matID, "status": "ARCHIVED"})
@@ -1882,6 +1958,9 @@ func (c *AcademicController) CreateRoomConfirmation(w http.ResponseWriter, r *ht
 	}
 	if lifecycle != "DRAFT" {
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Konfirmasi TU hanya dapat dicatat pada teaching event DRAFT")
+		return
+	}
+	if !common.GuardTeachingEventMutation(w, r, tx, eventID) {
 		return
 	}
 

@@ -82,11 +82,11 @@ func TestNotify_FailureRetryNoDuplicate(t *testing.T) {
 	svc, ctx := newNotifyTestDB(t)
 	bad := &fakeSender{fail: true}
 	good := &fakeSender{}
-	id, _, err := svc.Enqueue(ctx, 1, 1, "TASK_REMINDER", "CLASS", 1, "tasks:1:2026-10-06", "tugas", "", time.Date(2026, 10, 6, 17, 0, 0, 0, time.UTC), nil)
+	id, _, err := svc.Enqueue(ctx, 1, 1, "TASK_REMINDER", "CLASS", 1, "tasks:1:2026-10-06", "tugas", "", time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sent, failed, _ := svc.ProcessDue(ctx, bad, 10, time.Date(2026, 10, 6, 18, 0, 0, 0, time.UTC))
+	sent, failed, _ := svc.ProcessDue(ctx, bad, 10, time.Date(2026, 10, 6, 11, 0, 0, 0, time.UTC))
 	if sent != 0 || failed != 1 {
 		t.Fatalf("fail path: sent=%d failed=%d", sent, failed)
 	}
@@ -97,7 +97,7 @@ func TestNotify_FailureRetryNoDuplicate(t *testing.T) {
 	if err := svc.Retry(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	sent, failed, _ = svc.ProcessDue(ctx, good, 10, time.Date(2026, 10, 6, 19, 0, 0, 0, time.UTC))
+	sent, failed, _ = svc.ProcessDue(ctx, good, 10, time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
 	if sent != 1 || failed != 0 {
 		t.Fatalf("retry path: sent=%d failed=%d", sent, failed)
 	}

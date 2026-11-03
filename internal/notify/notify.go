@@ -1,8 +1,10 @@
 package notify
 
 import (
+	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -25,6 +27,15 @@ type Sender interface {
 type Service struct {
 	db               *sql.DB
 	dailyTextBuilder func(context.Context, int64, time.Time) (string, error)
+	messageFormatter func(string, string, string) string
+}
+
+func (s *Service) SetMessageFormatter(format func(string, string, string) string) {
+	s.messageFormatter = format
+}
+
+type StableSender interface {
+	SendTextWithID(context.Context, string, string, string) (string, error)
 }
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
@@ -145,28 +156,21 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 	dayName := indonesianWeekday(date)
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "*JADWAL KULIAH HARI INI*\n%s, %s | %s\n", dayName, date, classCode)
-	rows, err := s.db.QueryContext(ctx, `SELECT c.name, co.activity_type, sp.start_time, sp.end_time,
-		COALESCE(r.name, '-'), COALESCE(GROUP_CONCAT(l.full_name, ', '), '-')
-		FROM schedule_patterns sp JOIN course_offerings co ON co.id = sp.course_offering_id
-		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
-		LEFT JOIN rooms r ON r.id = sp.room_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
-		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND sp.status = 'ACTIVE'
-		AND sp.day_of_week = ? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
-		GROUP BY sp.id ORDER BY sp.start_time`, classID, weekdayNumber(date), date, date)
+	day, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
-	i := 0
-	for rows.Next() {
-		var name, activity, start, end, room, lecturers string
-		if err := rows.Scan(&name, &activity, &start, &end, &room, &lecturers); err != nil {
-			return "", err
+	sessions, err := schedule.ResolveEffective(ctx, s.db, classID, semID, day)
+	if err != nil {
+		return "", err
+	}
+	i := len(sessions)
+	for index, it := range sessions {
+		name := it.Offering
+		if name == "" {
+			name = it.Title
 		}
-		i++
-		fmt.Fprintf(&sb, "\n%d. *%s* (%s)\n   %s - %s WIB\n   %s | %s", i, name, activity, start, end, room, lecturers)
+		fmt.Fprintf(&sb, "\n%d. *%s* (%s) [%s]\n   %s - %s\n   %s", index+1, name, it.ActivityType, it.Kind, it.StartTime, it.EndTime, it.Room)
 	}
 	if i == 0 {
 		sb.WriteString("\nTidak ada jadwal hari ini.")
@@ -482,8 +486,8 @@ func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, 
 // EnsureReplacementReminders enqueues pre-event reminders for PUBLISHED REPLACEMENT events.
 func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time) (int, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT te.id, sem.class_id, COALESCE(cs.replacement_reminder_minutes,60),
-		te.starts_at, ch.id FROM teaching_events te
-		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND teo.participation_role='OWNER'
+		te.starts_at, ch.id,teo.participation_role,COALESCE(cs.timezone,'Asia/Jakarta') FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND (teo.participation_role='OWNER' OR (teo.participation_role='PARTICIPANT' AND teo.participation_status='ACCEPTED'))
 		JOIN course_offerings co ON co.id = teo.course_offering_id
 		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
@@ -496,8 +500,8 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 	enqueued := 0
 	for rows.Next() {
 		var eventID, classID, minutes, chID int64
-		var startsAt string
-		if err := rows.Scan(&eventID, &classID, &minutes, &startsAt, &chID); err != nil {
+		var startsAt, participationRole, zone string
+		if err := rows.Scan(&eventID, &classID, &minutes, &startsAt, &chID, &participationRole, &zone); err != nil {
 			continue
 		}
 		starts, err := time.Parse(time.RFC3339Nano, startsAt)
@@ -511,8 +515,16 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 		if now.Before(remindAt.Add(-time.Hour)) || now.After(starts) {
 			continue
 		}
-		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", eventID, starts.Format("02-01-2006 15:04"))
-		if _, created, err := s.Enqueue(ctx, classID, chID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", eventID, replacementKey(eventID), text, "", remindAt, nil); err == nil && created {
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return enqueued, err
+		}
+		key := replacementKey(eventID)
+		if participationRole == "PARTICIPANT" {
+			key += fmt.Sprintf(":class:%d", classID)
+		}
+		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", eventID, starts.In(loc).Format("02-01-2006 15:04 MST"))
+		if _, created, err := s.Enqueue(ctx, classID, chID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", eventID, key, text, "", remindAt, nil); err == nil && created {
 			enqueued++
 		}
 	}
@@ -566,113 +578,203 @@ func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int6
 // (e.g. worker crash between claim and attempt write) before requeue.
 const staleProcessingTimeout = 10 * time.Minute
 
-// ReapStaleProcessing returns stuck PROCESSING rows to PENDING.
+// ReapStaleProcessing only requeues claims that never started a send.
+// An unfinished attempt may have reached the provider and needs explicit reconciliation.
 func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64, error) {
 	cutoff := now.Add(-staleProcessingTimeout).UTC().Format(time.RFC3339Nano)
-	res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PENDING',
-		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE status='PROCESSING' AND datetime(updated_at) < datetime(?)`, cutoff)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	n, _ := res.RowsAffected()
-	return n, nil
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE notification_attempts SET finished_at=?,result='FAILED',error_message='DELIVERY_UNCERTAIN: worker stopped before finalization',updated_at=? WHERE result IS NULL AND notification_message_id IN (SELECT id FROM notification_messages WHERE status='PROCESSING' AND julianday(updated_at)<julianday(?))`, nowStr(), nowStr(), cutoff); err != nil {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status=CASE WHEN EXISTS(SELECT 1 FROM notification_attempts a WHERE a.notification_message_id=notification_messages.id AND a.error_message LIKE 'DELIVERY_UNCERTAIN:%') THEN 'FAILED' ELSE 'PENDING' END,updated_at=? WHERE status='PROCESSING' AND julianday(updated_at)<julianday(?)`, nowStr(), cutoff)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
 }
 
-// ProcessDue claims and sends due messages. Returns (sent, failed).
-// Hanya mengklaim baris PENDING/FAILED yang memiliki channel aktif,
-// scheduled_at terisi, dan sudah jatuh tempo. Pesan tanpa channel
-// (menunggu konfigurasi) tidak pernah diklaim.
+// ProcessDue owns claiming, durable attempts, delivery and finalization for every caller.
 func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now time.Time) (int, int, error) {
-	// Reap rows stuck in PROCESSING by a crashed worker before claiming.
-	_, _ = s.ReapStaleProcessing(ctx, now)
-	_, _ = s.ReconcilePendingChannels(ctx, nil)
+	if _, err := s.ReapStaleProcessing(ctx, now); err != nil {
+		return 0, 0, err
+	}
+	if _, err := s.ReconcilePendingChannels(ctx, nil); err != nil {
+		return 0, 0, err
+	}
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT m.id, m.whatsapp_channel_id, m.payload_json FROM notification_messages m
-		JOIN whatsapp_channels ch ON ch.id = m.whatsapp_channel_id AND ch.status = 'ACTIVE'
-		WHERE m.status IN ('PENDING','FAILED') AND m.scheduled_at IS NOT NULL AND m.scheduled_at <= ?
-		ORDER BY m.scheduled_at ASC, m.id ASC LIMIT ?`,
-		now.UTC().Format(time.RFC3339Nano), limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT m.id FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' WHERE m.status='PENDING' AND m.scheduled_at IS NOT NULL AND julianday(m.scheduled_at)<=julianday(?) ORDER BY m.scheduled_at,m.id LIMIT ?`, now.UTC().Format(time.RFC3339Nano), limit)
 	if err != nil {
 		return 0, 0, err
 	}
-	type item struct {
-		id, chID int64
-		payload  string
-	}
-	var items []item
+	var ids []int64
 	for rows.Next() {
-		var it item
-		if err := rows.Scan(&it.id, &it.chID, &it.payload); err != nil {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
 			rows.Close()
 			return 0, 0, err
 		}
-		items = append(items, it)
+		ids = append(ids, id)
 	}
+	err = rows.Err()
 	rows.Close()
-	if err := rows.Err(); err != nil {
+	if err != nil {
 		return 0, 0, err
 	}
 	sent, failed := 0, 0
-	for _, it := range items {
-		res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PROCESSING',
-			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-			WHERE id=? AND status IN ('PENDING','FAILED')`, it.id)
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return sent, failed, err
+		}
+		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
-			failed++
-			continue
+			return sent, failed, err
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='PROCESSING',updated_at=? WHERE id=? AND status='PENDING'`, nowStr(), id)
+		if err != nil {
+			tx.Rollback()
+			return sent, failed, err
 		}
 		if n, _ := res.RowsAffected(); n != 1 {
+			tx.Rollback()
+			continue
+		}
+		var jid, payload, eventType, slug, key, zone string
+		var classID int64
+		err = tx.QueryRowContext(ctx, `SELECT ch.jid,m.payload_json,m.event_type,c.slug,m.idempotency_key,m.class_id,COALESCE(cs.timezone,'Asia/Jakarta') FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' JOIN classes c ON c.id=m.class_id LEFT JOIN class_settings cs ON cs.class_id=m.class_id WHERE m.id=?`, id).Scan(&jid, &payload, &eventType, &slug, &key, &classID, &zone)
+		if err != nil {
+			tx.Rollback()
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return sent, failed, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		if (eventType == "DAILY_SUMMARY" || eventType == "TASK_REMINDER") && (strings.HasPrefix(key, "daily:") || strings.HasPrefix(key, "tasks:")) && !strings.HasSuffix(key, now.In(loc).Format("2006-01-02")) {
+			if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED',updated_at=? WHERE id=?`, nowStr(), id); err != nil {
+				tx.Rollback()
+				return sent, failed, err
+			}
+			if err := tx.Commit(); err != nil {
+				return sent, failed, err
+			}
 			continue
 		}
 		var attempt int
-		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(attempt_number),0)+1 FROM notification_attempts WHERE notification_message_id=?`, it.id).Scan(&attempt)
-		started := nowStr()
-		var jid string
-		_ = s.db.QueryRowContext(ctx, `SELECT jid FROM whatsapp_channels WHERE id=?`, it.chID).Scan(&jid)
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(attempt_number),0)+1 FROM notification_attempts WHERE notification_message_id=?`, id).Scan(&attempt); err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		hash := sha256.Sum256([]byte(key + "\x00" + jid))
+		stableID := fmt.Sprintf("3EB0%X", hash[:14])
+		if _, err := tx.ExecContext(ctx, `INSERT INTO notification_attempts(notification_message_id,attempt_number,started_at,provider_message_id) VALUES(?,?,?,?)`, id, attempt, nowStr(), stableID); err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		if err := tx.Commit(); err != nil {
+			return sent, failed, err
+		}
+		var active bool
+		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' WHERE m.id=? AND m.status='PROCESSING' AND ch.jid=?)`, id, jid).Scan(&active); err != nil {
+			return sent, failed, err
+		}
+		if !active {
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			err := s.finishAttempt(finalCtx, id, attempt, false, "intent superseded or channel revoked", "")
+			cancel()
+			if err != nil {
+				return sent, failed, err
+			}
+			continue
+		}
 		var p Payload
-		_ = json.Unmarshal([]byte(it.payload), &p)
-		if sender == nil || strings.TrimSpace(jid) == "" {
-			_ = s.finishAttempt(ctx, it.id, attempt, started, false, "pengirim WhatsApp tidak tersedia (bot offline)", "")
-			failed++
-			continue
+		if err := json.Unmarshal([]byte(payload), &p); err != nil {
+			return sent, failed, err
 		}
-		providerID, err := sender.SendText(ctx, jid, p.Text)
+		text := p.Text
+		if s.messageFormatter != nil {
+			text = s.messageFormatter(eventType, payload, slug)
+		}
+		if eventType == "DAILY_SUMMARY" && strings.HasPrefix(key, "daily:") {
+			text, err = s.BuildDailyText(ctx, classID, now.In(loc).Format("2006-01-02"), "")
+		}
+		if eventType == "TASK_REMINDER" && strings.HasPrefix(key, "tasks:") {
+			text, err = s.BuildTaskText(ctx, classID, "", now)
+		}
 		if err != nil {
-			_ = s.finishAttempt(ctx, it.id, attempt, started, false, err.Error(), "")
-			failed++
-			continue
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			finishErr := s.finishAttempt(finalCtx, id, attempt, false, err.Error(), "")
+			cancel()
+			if finishErr != nil {
+				return sent, failed, finishErr
+			}
+			return sent, failed, err
 		}
-		_ = s.finishAttempt(ctx, it.id, attempt, started, true, "", providerID)
-		sent++
+		var providerID string
+		var sendErr error
+		if sender == nil {
+			sendErr = errors.New("pengirim WhatsApp tidak tersedia (bot offline)")
+		} else if stable, ok := sender.(StableSender); ok {
+			providerID, sendErr = stable.SendTextWithID(ctx, jid, text, stableID)
+		} else {
+			providerID, sendErr = sender.SendText(ctx, jid, text)
+		}
+		errMsg := ""
+		if sendErr != nil {
+			errMsg = sendErr.Error()
+		}
+		finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		err = s.finishAttempt(finalCtx, id, attempt, sendErr == nil, errMsg, providerID)
+		cancel()
+		if err != nil {
+			return sent, failed, fmt.Errorf("delivery %d finalization failed (provider success=%t): %w", id, sendErr == nil, err)
+		}
+		if sendErr != nil {
+			failed++
+		} else {
+			sent++
+		}
 	}
 	return sent, failed, nil
 }
 
-func (s *Service) finishAttempt(ctx context.Context, messageID int64, attempt int, started string, ok bool, errMsg, providerID string) error {
-	finished := nowStr()
-	result := "FAILED"
-	status := "FAILED"
-	if ok {
-		result = "SUCCESS"
-		status = "SENT"
-	}
+func (s *Service) finishAttempt(ctx context.Context, messageID int64, attempt int, ok bool, errMsg, providerID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO notification_attempts
-		(notification_message_id, attempt_number, started_at, finished_at, result, error_message, provider_message_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, messageID, attempt, started, finished, result, nullIfEmpty(errMsg), nullIfEmpty(providerID)); err != nil {
+	result, status := "FAILED", "FAILED"
+	if ok {
+		result, status = "SUCCESS", "SENT"
+	}
+	finished := nowStr()
+	res, err := tx.ExecContext(ctx, `UPDATE notification_attempts SET finished_at=?,result=?,error_message=?,provider_message_id=COALESCE(?,provider_message_id),updated_at=? WHERE notification_message_id=? AND attempt_number=? AND result IS NULL`, finished, result, nullIfEmpty(errMsg), nullIfEmpty(providerID), finished, messageID, attempt)
+	if err != nil {
 		return err
 	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return errors.New("attempt finalization conflict")
+	}
+	var sentAt any
 	if ok {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, sent_at=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, finished, messageID)
-	} else {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, messageID)
+		sentAt = finished
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status=?,sent_at=?,updated_at=? WHERE id=? AND status='PROCESSING'`, status, sentAt, finished, messageID); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

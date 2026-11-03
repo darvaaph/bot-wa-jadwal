@@ -1,5 +1,5 @@
 // sw.js — Service Worker untuk PWA Asterisk (Jadwal & Tugas Mahasiswa)
-const CACHE_NAME = 'asterisk-pwa-v14';
+const CACHE_NAME = 'asterisk-pwa-v15';
 
 const STATIC_PRECACHE = [
   '/c/',
@@ -72,12 +72,15 @@ self.addEventListener('fetch', (event) => {
   // Jangan tangani resource lintas domain (eksternal)
   if (url.origin !== self.location.origin) return;
 
+  // API data must never fall back to a previous account's cache.
+  if (url.pathname.startsWith('/api/')) return;
+
   // A. Halaman Navigasi HTML (/c/, /c/:slug, /, /index.html): Network-First
   if (req.mode === 'navigate' || url.pathname.startsWith('/c') || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       fetch(req)
         .then((networkRes) => {
-          if (networkRes.status === 200) {
+          if (networkRes.status === 200 && !/no-store/i.test(networkRes.headers.get('Cache-Control') || '')) {
             const resClone = networkRes.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
           }
@@ -92,22 +95,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. Seluruh Endpoint API (/api/): Network-First dengan Cache Fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
-          }
-          return networkRes;
-        })
-        .catch(() => caches.match(req))
-    );
-    return;
-  }
-
   // C. Partials HTML & Dynamic App JS: Network-First (agar selalu segar saat online)
   if (
     url.pathname.startsWith('/partials/') ||
@@ -116,7 +103,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((networkRes) => {
-          if (networkRes.status === 200) {
+          if (networkRes.status === 200 && !/no-store/i.test(networkRes.headers.get('Cache-Control') || '')) {
             const resClone = networkRes.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
           }
@@ -137,7 +124,7 @@ self.addEventListener('fetch', (event) => {
       caches.match(req).then((cachedRes) => {
         const fetchPromise = fetch(req)
           .then((networkRes) => {
-            if (networkRes.status === 200) {
+            if (networkRes.status === 200 && !/no-store/i.test(networkRes.headers.get('Cache-Control') || '')) {
               const resClone = networkRes.clone();
               caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
             }

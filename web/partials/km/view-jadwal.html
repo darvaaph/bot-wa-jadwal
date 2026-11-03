@@ -1249,9 +1249,9 @@
               <div class="ui-card flex flex-wrap items-center gap-2 p-2">
                 <span class="text-[13px] font-medium flex-1" x-text="pt.display_name || pt.offering || '-'">-</span>
                 <span class="ui-badge text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100" x-text="pt.participation_status || '-'">-</span>
-                <button type="button" @click="aksiPartisipasi(selectedEvent, 'accept')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-green-600 text-green-700 text-[12px] font-semibold min-h-[44px]">Terima</button>
-                <button type="button" @click="aksiPartisipasi(selectedEvent, 'decline')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-red-600 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
-                <button type="button" @click="aksiPartisipasi(selectedEvent, 'leave')" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-slate-200 text-[12px] min-h-[44px]">Lepas Kelas</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'accept', pt.offering_id || pt.course_offering_id)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-green-600 text-green-700 text-[12px] font-semibold min-h-[44px]">Terima</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'decline', pt.offering_id || pt.course_offering_id)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-red-600 text-red-700 text-[12px] font-semibold min-h-[44px]">Tolak</button>
+                <button type="button" @click="aksiPartisipasi(selectedEvent, 'leave', pt.offering_id || pt.course_offering_id)" class="ui-button ui-button--ghost h-10 px-3 rounded-lg border border-slate-200 text-[12px] min-h-[44px]">Lepas Kelas</button>
               </div>
             </template>
           </div>
@@ -1265,7 +1265,7 @@
       <h3 class="text-[14px] font-semibold mt-4">Notifikasi</h3>
       <div class="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-600 flex gap-2">
         <span class="material-symbols-outlined shrink-0">notifications</span>
-        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pesan yang gagal akan dicoba lagi otomatis.</p>
+        <p>Status publikasi web terpisah dari status pengiriman WhatsApp. Pantau menu Notifikasi. Hasil pengiriman yang tidak pasti perlu diperiksa sebelum dicoba ulang.</p>
       </div>
       <button type="button" @click="go('notifikasi')" class="ui-button ui-button--outline mt-3 text-primary text-[13px] font-semibold">Pantau di Notifikasi</button>
       <div class="flex flex-wrap gap-3 mt-5">
