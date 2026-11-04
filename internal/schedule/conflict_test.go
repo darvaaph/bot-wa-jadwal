@@ -56,6 +56,46 @@ func hasCode(cs []Conflict, code string) bool {
 	return false
 }
 
+func TestConflict_CandidateReadFailure(t *testing.T) {
+	db := seedConflictDB(t)
+	if _, err := db.Exec(`ALTER TABLE schedule_patterns RENAME TO unavailable_patterns`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := CheckConflicts(context.Background(), db, Candidate{
+		OwnerClassID: 1, OwnerOfferingID: 1, PatternDay: 1,
+		PatternDate: "2024-10-07", PatternStart: "08:00", PatternEnd: "09:00",
+	})
+	if err == nil {
+		t.Fatal("missing schedule data was treated as a successful conflict check")
+	}
+}
+
+type lecturerQueryCounter struct {
+	*sql.DB
+	count int
+}
+
+func (db *lecturerQueryCounter) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	if strings.Contains(query, "FROM offering_lecturers") {
+		db.count++
+	}
+	return db.DB.QueryContext(ctx, query, args...)
+}
+
+func TestCheckPatternRange_ReusesLecturerAssignmentsAcrossWeeks(t *testing.T) {
+	db := &lecturerQueryCounter{DB: seedConflictDB(t)}
+	conflicts, err := CheckPatternRange(t.Context(), db, Candidate{
+		OwnerClassID: 1, OwnerOfferingID: 2, PatternDay: 1,
+		PatternStart: "08:00", PatternEnd: "09:00", LecturerIDs: []int64{1},
+	}, "2024-10-07", "2024-12-30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCode(conflicts, CodeLecturerOverlap) || db.count != 1 {
+		t.Fatalf("conflicts=%+v, lecturer queries=%d", conflicts, db.count)
+	}
+}
+
 func TestConflict_AdjacentNoOverlap(t *testing.T) {
 	a0 := time.Date(2024, 10, 7, 8, 0, 0, 0, time.UTC)
 	a1 := time.Date(2024, 10, 7, 10, 0, 0, 0, time.UTC)
@@ -307,4 +347,3 @@ func TestConflict_SameOfferingDoesNotDuplicateLecturerOverlap(t *testing.T) {
 		t.Fatalf("tidak boleh menduplikasi CodeLecturerOverlap untuk offering yang sama: %+v", cs)
 	}
 }
-

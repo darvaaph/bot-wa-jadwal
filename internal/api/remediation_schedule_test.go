@@ -341,6 +341,116 @@ func TestRemediation_DraftDeleteVersionFailureRollsBackChildren(t *testing.T) {
 	}
 }
 
+func TestPortal_BatchedScheduleAndTasksMatchSingleRequests(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`UPDATE schedule_patterns SET effective_from='2026-09-01'; UPDATE semesters SET starts_on='2026-09-01',ends_on='2027-01-31'`); err != nil {
+		t.Fatal(err)
+	}
+	const base = "/api/v1/portal/d4-ti-2024-a"
+	get := func(path string, want int) json.RawMessage {
+		t.Helper()
+		w := remediationRequest(s, "GET", base+path, "", nil)
+		if w.Code != want {
+			t.Fatalf("%s: got %d, want %d: %s", path, w.Code, want, w.Body.String())
+		}
+		var envelope struct{ Data json.RawMessage }
+		if err := json.Unmarshal(w.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		return envelope.Data
+	}
+
+	var week struct{ Days map[string]json.RawMessage }
+	const schedulePath = "/schedule?date=2026-11-09&days=6"
+	if err := json.Unmarshal(get(schedulePath, 200), &week); err != nil {
+		t.Fatal(err)
+	}
+	if len(week.Days) != 6 {
+		t.Fatalf("got %d schedule days", len(week.Days))
+	}
+	if string(week.Days["2026-11-09"]) == "[]" {
+		t.Fatal("expected the Monday schedule pattern")
+	}
+	for i := 9; i < 15; i++ {
+		date := fmt.Sprintf("2026-11-%02d", i)
+		var single struct{ Items json.RawMessage }
+		if err := json.Unmarshal(get("/schedule?date="+date, 200), &single); err != nil {
+			t.Fatal(err)
+		}
+		if string(week.Days[date]) != string(single.Items) {
+			t.Fatalf("%s: batch=%s, single=%s", date, week.Days[date], single.Items)
+		}
+	}
+	get("/schedule?date=2026-11-09&days=8", 422)
+	get("/schedule?days=6", 422)
+
+	var groups map[string][]json.RawMessage
+	const tasksPath = "/tasks?group=semua"
+	if err := json.Unmarshal(get(tasksPath, 200), &groups); err != nil {
+		t.Fatal(err)
+	}
+	if len(groups["mendatang"]) != 1 {
+		t.Fatalf("expected the published future task, got %s", groups["mendatang"])
+	}
+	for _, name := range []string{"hari_ini", "minggu_ini", "mendatang", "terlewat"} {
+		var single []json.RawMessage
+		if err := json.Unmarshal(get("/tasks?group="+name, 200), &single); err != nil {
+			t.Fatal(err)
+		}
+		if groups[name] == nil || fmt.Sprint(groups[name]) != fmt.Sprint(single) {
+			t.Fatalf("%s: batch=%s, single=%s", name, groups[name], single)
+		}
+	}
+	if _, err := db.Exec(`UPDATE class_settings SET portal_access_mode='CODE',portal_code_hash='test-hash' WHERE class_id=1`); err != nil {
+		t.Fatal(err)
+	}
+	get(schedulePath, 401)
+	get(tasksPath, 401)
+}
+
+func TestTeachingEventPublish_ConcurrentOverlappingDrafts(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	if _, err := db.Exec(`UPDATE semesters SET starts_on='2026-09-01',ends_on='2027-01-31';
+		UPDATE teaching_events SET lifecycle_status='DRAFT',published_at=NULL,published_by_user_id=NULL;
+		INSERT INTO teaching_events (id,event_kind,starts_at,ends_at) VALUES
+		(11,'EXTRA','2026-11-07T01:00:00Z','2026-11-07T02:00:00Z'),
+		(12,'EXTRA','2026-11-07T01:30:00Z','2026-11-07T02:30:00Z');
+		INSERT INTO teaching_event_offerings (teaching_event_id,course_offering_id,participation_role,participation_status)
+		VALUES (11,1,'OWNER','ACCEPTED'),(12,1,'OWNER','ACCEPTED');`); err != nil {
+		t.Fatal(err)
+	}
+	token := helperLogin(t, s, "+6281234567890", "password123")
+	start := make(chan struct{})
+	results := make(chan *httptest.ResponseRecorder, 2)
+	for _, id := range []string{"11", "12"} {
+		go func() {
+			<-start
+			r := httptest.NewRequest("POST", "/api/v1/teaching-events/"+id+"/publish", strings.NewReader(`{"version":1}`))
+			r.Header.Set("Authorization", "Bearer "+token)
+			r.Header.Set("Idempotency-Key", "overlap-"+id)
+			w := httptest.NewRecorder()
+			s.httpServer.Handler.ServeHTTP(w, r)
+			results <- w
+		}()
+	}
+	close(start)
+	codes := map[int]int{}
+	for range 2 {
+		w := <-results
+		codes[w.Code]++
+		if w.Code != 200 && w.Code != 422 {
+			t.Errorf("unexpected publish response: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if codes[200] != 1 || codes[422] != 1 {
+		t.Fatalf("want one publication and one conflict, got %v", codes)
+	}
+	var published int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM teaching_events WHERE id IN (11,12) AND lifecycle_status='PUBLISHED'`).Scan(&published); err != nil || published != 1 {
+		t.Fatalf("published=%d, err=%v", published, err)
+	}
+}
+
 func TestRemediation_PublicationOutboxFailureAndIdempotency(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	db.SetMaxOpenConns(1)

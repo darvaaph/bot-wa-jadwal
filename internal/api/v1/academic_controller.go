@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -713,9 +712,8 @@ func (c *AcademicController) SemesterImportValidate(w http.ResponseWriter, r *ht
 		return
 	}
 
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca body permintaan")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 

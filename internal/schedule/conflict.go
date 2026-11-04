@@ -71,9 +71,18 @@ func parseHM(hm string) (int, int, bool) {
 	return h, m, true
 }
 
+type conflictReader interface {
+	PeriodReader
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
 // CheckConflicts memeriksa candidate terhadap pola efektif + event PUBLISHED.
 // Hasil stabil dan terurut; DRAFT/REVOKED diabaikan sebagai sesi aktif.
-func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, error) {
+func CheckConflicts(ctx context.Context, db conflictReader, c Candidate) ([]Conflict, error) {
+	return checkConflicts(ctx, db, c, map[int64][]int64{})
+}
+
+func checkConflicts(ctx context.Context, db conflictReader, c Candidate, lecturers map[int64][]int64) ([]Conflict, error) {
 	if !c.EndsAt.After(c.StartsAt) && c.PatternDay == 0 {
 		return nil, fmt.Errorf("interval tidak valid")
 	}
@@ -81,9 +90,14 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 	ownerLocation := time.UTC
 	if c.OwnerClassID > 0 {
 		var timezone string
-		if err := db.QueryRowContext(ctx, `SELECT timezone FROM class_settings WHERE class_id=?`, c.OwnerClassID).Scan(&timezone); err == nil {
-			if location, err := time.LoadLocation(timezone); err == nil {
-				ownerLocation = location
+		err := db.QueryRowContext(ctx, `SELECT timezone FROM class_settings WHERE class_id=?`, c.OwnerClassID).Scan(&timezone)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		if err == nil {
+			ownerLocation, err = time.LoadLocation(timezone)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -123,7 +137,6 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		roomID       *int64
 		starts       time.Time
 		ends         time.Time
-		lecturers    []int64
 		offeringName string
 		className    string
 	}
@@ -144,33 +157,36 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			JOIN classes c ON c.id = sem.class_id
 			WHERE sp.status='ACTIVE' AND sp.day_of_week=? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)`,
 			c.PatternDay, date, date)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var id, off, classID int64
-				var room sql.NullInt64
-				var st, en, offName, prog, group, code string
-				var cohort int
-				if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
-					continue
-				}
-				if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
-					continue
-				}
-				// Overlap jam memakai string HH:MM dengan interval [start,end).
-				if !(c.PatternStart < en && st < c.PatternEnd) {
-					continue
-				}
-				var r *int64
-				if room.Valid {
-					v := room.Int64
-					r = &v
-				}
-				lects := lecturersForOffering(ctx, db, off)
-				clsName := formatClassName(prog, cohort, group, code)
-				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, time.Time{}, time.Time{}, lects, offName, clsName})
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id, off, classID int64
+			var room sql.NullInt64
+			var st, en, offName, prog, group, code string
+			var cohort int
+			if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
+				rows.Close()
+				return nil, err
 			}
-			rows.Close()
+			if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
+				continue
+			}
+			// Overlap jam memakai string HH:MM dengan interval [start,end).
+			if !(c.PatternStart < en && st < c.PatternEnd) {
+				continue
+			}
+			var r *int64
+			if room.Valid {
+				v := room.Int64
+				r = &v
+			}
+			clsName := formatClassName(prog, cohort, group, code)
+			sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, time.Time{}, time.Time{}, offName, clsName})
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
 		}
 		// Event PUBLISHED pada tanggal date yang jamnya overlap.
 		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at,
@@ -179,46 +195,49 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			JOIN course_offerings co ON co.id=teo.course_offering_id JOIN semesters sem ON sem.id=co.semester_id
 			JOIN classes c ON c.id = sem.class_id
 			WHERE te.lifecycle_status='PUBLISHED' AND date(te.starts_at) BETWEEN date(?, '-1 day') AND date(?, '+1 day')`, date, date)
-		if err == nil {
-			defer rows2.Close()
-			for rows2.Next() {
-				var id, off, classID int64
-				var room sql.NullInt64
-				var ss, es, offName, prog, group, code string
-				var cohort int
-				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
-					continue
-				}
-				if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
-					continue
-				}
-				st, err1 := parseTime(ss)
-				en, err2 := parseTime(es)
-				if err1 != nil || err2 != nil {
-					continue
-				}
-				// Konversi candidate pola ke time pada tanggal date untuk overlap.
-				ch, cm, ok1 := parseHM(c.PatternStart)
-				eh, em, ok2 := parseHM(c.PatternEnd)
-				if !ok1 || !ok2 {
-					continue
-				}
-				day, _ := time.Parse("2006-01-02", date)
-				cs := time.Date(day.Year(), day.Month(), day.Day(), ch, cm, 0, 0, ownerLocation)
-				ce := time.Date(day.Year(), day.Month(), day.Day(), eh, em, 0, 0, ownerLocation)
-				if !overlaps(cs, ce, st, en) {
-					continue
-				}
-				var r *int64
-				if room.Valid {
-					v := room.Int64
-					r = &v
-				}
-				lects := lecturersForOffering(ctx, db, off)
-				clsName := formatClassName(prog, cohort, group, code)
-				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects, offName, clsName})
+		if err != nil {
+			return nil, err
+		}
+		for rows2.Next() {
+			var id, off, classID int64
+			var room sql.NullInt64
+			var ss, es, offName, prog, group, code string
+			var cohort int
+			if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
+				rows2.Close()
+				return nil, err
 			}
-			rows2.Close()
+			if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
+				continue
+			}
+			st, err1 := parseTime(ss)
+			en, err2 := parseTime(es)
+			if err1 != nil || err2 != nil {
+				continue
+			}
+			// Konversi candidate pola ke time pada tanggal date untuk overlap.
+			ch, cm, ok1 := parseHM(c.PatternStart)
+			eh, em, ok2 := parseHM(c.PatternEnd)
+			if !ok1 || !ok2 {
+				continue
+			}
+			day, _ := time.Parse("2006-01-02", date)
+			cs := time.Date(day.Year(), day.Month(), day.Day(), ch, cm, 0, 0, ownerLocation)
+			ce := time.Date(day.Year(), day.Month(), day.Day(), eh, em, 0, 0, ownerLocation)
+			if !overlaps(cs, ce, st, en) {
+				continue
+			}
+			var r *int64
+			if room.Valid {
+				v := room.Int64
+				r = &v
+			}
+			clsName := formatClassName(prog, cohort, group, code)
+			sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, offName, clsName})
+		}
+		rows2.Close()
+		if err := rows2.Err(); err != nil {
+			return nil, err
 		}
 	} else {
 		// Mode event: pola efektif pada tanggal candidate + event overlap.
@@ -234,38 +253,42 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			JOIN classes c ON c.id = sem.class_id
 			WHERE sp.status='ACTIVE' AND sp.day_of_week=? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)`,
 			dow, date, date)
-		if err == nil {
-			for rows.Next() {
-				var id, off, classID int64
-				var room sql.NullInt64
-				var st, en, offName, prog, group, code string
-				var cohort int
-				if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
-					continue
-				}
-				if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
-					continue
-				}
-				ch, cm, ok1 := parseHM(st)
-				eh, em, ok2 := parseHM(en)
-				if !ok1 || !ok2 {
-					continue
-				}
-				ps := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), ch, cm, 0, 0, ownerLocation)
-				pe := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), eh, em, 0, 0, ownerLocation)
-				if !overlaps(c.StartsAt, c.EndsAt, ps, pe) {
-					continue
-				}
-				var r *int64
-				if room.Valid {
-					v := room.Int64
-					r = &v
-				}
-				lects := lecturersForOffering(ctx, db, off)
-				clsName := formatClassName(prog, cohort, group, code)
-				sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, ps, pe, lects, offName, clsName})
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id, off, classID int64
+			var room sql.NullInt64
+			var st, en, offName, prog, group, code string
+			var cohort int
+			if err := rows.Scan(&id, &off, &classID, &room, &st, &en, &offName, &prog, &cohort, &group, &code); err != nil {
+				rows.Close()
+				return nil, err
 			}
-			rows.Close()
+			if c.ExcludePatternID != nil && id == *c.ExcludePatternID {
+				continue
+			}
+			ch, cm, ok1 := parseHM(st)
+			eh, em, ok2 := parseHM(en)
+			if !ok1 || !ok2 {
+				continue
+			}
+			ps := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), ch, cm, 0, 0, ownerLocation)
+			pe := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), eh, em, 0, 0, ownerLocation)
+			if !overlaps(c.StartsAt, c.EndsAt, ps, pe) {
+				continue
+			}
+			var r *int64
+			if room.Valid {
+				v := room.Int64
+				r = &v
+			}
+			clsName := formatClassName(prog, cohort, group, code)
+			sessions = append(sessions, session{"SCHEDULE_PATTERN", id, off, classID, r, ps, pe, offName, clsName})
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
 		}
 		rows2, err := db.QueryContext(ctx, `SELECT te.id, teo.course_offering_id, sem.class_id, te.room_id, te.starts_at, te.ends_at,
 			co.display_name, c.study_program, c.cohort_year, c.group_label, c.code
@@ -274,33 +297,37 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 			JOIN classes c ON c.id = sem.class_id
 			WHERE te.lifecycle_status='PUBLISHED' AND te.starts_at < ? AND te.ends_at > ?`,
 			c.EndsAt.UTC().Format(time.RFC3339), c.StartsAt.UTC().Format(time.RFC3339))
-		if err == nil {
-			for rows2.Next() {
-				var id, off, classID int64
-				var room sql.NullInt64
-				var ss, es, offName, prog, group, code string
-				var cohort int
-				if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
-					continue
-				}
-				if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
-					continue
-				}
-				st, err1 := parseTime(ss)
-				en, err2 := parseTime(es)
-				if err1 != nil || err2 != nil {
-					continue
-				}
-				var r *int64
-				if room.Valid {
-					v := room.Int64
-					r = &v
-				}
-				lects := lecturersForOffering(ctx, db, off)
-				clsName := formatClassName(prog, cohort, group, code)
-				sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, lects, offName, clsName})
+		if err != nil {
+			return nil, err
+		}
+		for rows2.Next() {
+			var id, off, classID int64
+			var room sql.NullInt64
+			var ss, es, offName, prog, group, code string
+			var cohort int
+			if err := rows2.Scan(&id, &off, &classID, &room, &ss, &es, &offName, &prog, &cohort, &group, &code); err != nil {
+				rows2.Close()
+				return nil, err
 			}
-			rows2.Close()
+			if c.ExcludeEventID != nil && id == *c.ExcludeEventID {
+				continue
+			}
+			st, err1 := parseTime(ss)
+			en, err2 := parseTime(es)
+			if err1 != nil || err2 != nil {
+				continue
+			}
+			var r *int64
+			if room.Valid {
+				v := room.Int64
+				r = &v
+			}
+			clsName := formatClassName(prog, cohort, group, code)
+			sessions = append(sessions, session{"TEACHING_EVENT", id, off, classID, r, st, en, offName, clsName})
+		}
+		rows2.Close()
+		if err := rows2.Err(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -342,7 +369,16 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 		}
 		// Dosen sama (offering berbeda; bila offering sama sudah dicatat oleh CodeOfferingOverlap).
 		if s.offeringID != c.OwnerOfferingID {
-			for _, l := range s.lecturers {
+			ids, loaded := lecturers[s.offeringID]
+			if !loaded {
+				var err error
+				ids, err = LecturersForOffering(ctx, db, s.offeringID)
+				if err != nil {
+					return nil, err
+				}
+				lecturers[s.offeringID] = ids
+			}
+			for _, l := range ids {
 				if lectSet[l] {
 					msg := "dosen mengajar sesi lain pada interval tersebut"
 					if dt := detailName(s.className, s.offeringName); dt != "" {
@@ -369,7 +405,11 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 	isRoutineRoom := false
 	if c.ExcludePatternID != nil && c.RoomID != nil {
 		var patRoom sql.NullInt64
-		if err := db.QueryRowContext(ctx, `SELECT room_id FROM schedule_patterns WHERE id = ?`, *c.ExcludePatternID).Scan(&patRoom); err == nil && patRoom.Valid && patRoom.Int64 == *c.RoomID {
+		err := db.QueryRowContext(ctx, `SELECT room_id FROM schedule_patterns WHERE id = ?`, *c.ExcludePatternID).Scan(&patRoom)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, err
+		}
+		if patRoom.Valid && patRoom.Int64 == *c.RoomID {
 			hasOverlap := false
 			for _, conf := range out {
 				if conf.Code == CodeRoomOverlap {
@@ -401,20 +441,22 @@ func CheckConflicts(ctx context.Context, db *sql.DB, c Candidate) ([]Conflict, e
 	return out, nil
 }
 
-func lecturersForOffering(ctx context.Context, db *sql.DB, offeringID int64) []int64 {
+// LecturersForOffering returns the current lecturer assignments used in conflict checks.
+func LecturersForOffering(ctx context.Context, db conflictReader, offeringID int64) ([]int64, error) {
 	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, offeringID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 	var out []int64
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err == nil {
-			out = append(out, id)
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
 		}
+		out = append(out, id)
 	}
-	return out
+	return out, rows.Err()
 }
 
 func parseTime(s string) (time.Time, error) {

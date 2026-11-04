@@ -912,7 +912,8 @@
 <div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-28 md:bottom-6 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
 
 <!-- Dialog Profil Administrator (SCR-ADM-PROFILE-MODAL) -->
-<div x-show="shellRoleKey === 'sa' && modalProfilAdmin"
+<template x-if="shellRoleKey === 'sa'">
+<div x-show="modalProfilAdmin"
      x-cloak
      role="dialog"
      aria-modal="true"
@@ -998,6 +999,8 @@
     </div>
   </div>
 </div>
+
+</template>
 
 <!-- Dialog Profil PJ Mata Kuliah (SCR-PJ-PROFILE-MODAL) -->
 <div x-show="shellRoleKey === 'pj' && modalProfilPJ"
@@ -1248,7 +1251,8 @@
 </div>
 
 <!-- Dialog Ganti Kata Sandi Akun Administrator (SCR-ADM-PASSWORD-MODAL) -->
-<div x-show="shellRoleKey === 'sa' && modalResetPassword && resetPasswordIsSelf"
+<template x-if="shellRoleKey === 'sa'">
+<div x-show="modalResetPassword && resetPasswordIsSelf"
      x-cloak
      role="dialog"
      aria-modal="true"
@@ -1399,3 +1403,4 @@
     </div>
   </div>
 </div>
+</template>

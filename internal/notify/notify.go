@@ -407,84 +407,105 @@ func reminderWindowOpen(local time.Time, hm string) bool {
 	return err == nil && !local.Before(due) && local.Before(due.Add(time.Hour))
 }
 
-// EnsureDailySummaries enqueues morning summaries for classes whose local time matches config.
+// EnsureDailySummaries enqueues morning summaries for eligible classes.
 func (s *Service) EnsureDailySummaries(ctx context.Context, now time.Time) (int, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.morning_reminder_time,'06:00'), COALESCE(cs.timezone,'Asia/Jakarta')
-		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
-		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	enqueued := 0
-	for rows.Next() {
-		var classID int64
-		var hm, tz string
-		if err := rows.Scan(&classID, &hm, &tz); err != nil {
-			continue
-		}
-		loc, err := time.LoadLocation(tz)
-		if err != nil {
-			loc = time.FixedZone("WIB", 7*3600)
-		}
-		local := now.In(loc)
-		if !reminderWindowOpen(local, hm) {
-			continue
-		}
-		date := local.Format("2006-01-02")
-		chID, _, _ := s.ChannelForClass(ctx, classID)
-		text, err := s.BuildDailyText(ctx, classID, date, "")
-		if err != nil {
-			continue
-		}
-		sched := now.UTC()
-		if _, created, err := s.Enqueue(ctx, classID, chID, "DAILY_SUMMARY", "CLASS", classID, dailyKey(classID, date), text, "", sched, nil); err == nil && created {
-			enqueued++
-		}
-	}
-	return enqueued, rows.Err()
+	return s.ensureClassReminders(ctx, now, true)
 }
 
-// EnsureTaskReminders enqueues afternoon reminders similarly.
+// EnsureTaskReminders enqueues afternoon reminders for eligible classes.
 func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.afternoon_reminder_time,'17:00'), COALESCE(cs.timezone,'Asia/Jakarta')
+	return s.ensureClassReminders(ctx, now, false)
+}
+
+func (s *Service) ensureClassReminders(ctx context.Context, now time.Time, daily bool) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.morning_reminder_time,'06:00'),
+		COALESCE(cs.afternoon_reminder_time,'17:00'), COALESCE(cs.timezone,'Asia/Jakarta')
 		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
 		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
-	enqueued := 0
+	type dueClass struct {
+		id   int64
+		date string
+	}
+	var due []dueClass
 	for rows.Next() {
 		var classID int64
-		var hm, tz string
-		if err := rows.Scan(&classID, &hm, &tz); err != nil {
-			continue
+		var morning, afternoon, zone string
+		if err := rows.Scan(&classID, &morning, &afternoon, &zone); err != nil {
+			return 0, err
 		}
-		loc, err := time.LoadLocation(tz)
+		loc, err := time.LoadLocation(zone)
 		if err != nil {
 			loc = time.FixedZone("WIB", 7*3600)
 		}
+		hm := afternoon
+		if daily {
+			hm = morning
+		}
 		local := now.In(loc)
-		if !reminderWindowOpen(local, hm) {
+		if reminderWindowOpen(local, hm) {
+			due = append(due, dueClass{classID, local.Format("2006-01-02")})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var failures error
+	enqueued := 0
+	for _, class := range due {
+		event, key := "TASK_REMINDER", taskKey(class.id, class.date)
+		if daily {
+			event, key = "DAILY_SUMMARY", dailyKey(class.id, class.date)
+		}
+		exists, err := s.hasReminder(ctx, key)
+		if err != nil {
+			failures = errors.Join(failures, err)
 			continue
 		}
-		date := local.Format("2006-01-02")
-		chID, _, _ := s.ChannelForClass(ctx, classID)
-		text, err := s.BuildTaskText(ctx, classID, "", now)
-		if err != nil || text == "" {
+		if exists {
 			continue
 		}
-		sched := now.UTC()
-		if _, created, err := s.Enqueue(ctx, classID, chID, "TASK_REMINDER", "CLASS", classID, taskKey(classID, date), text, "", sched, nil); err == nil && created {
+		var message string
+		if daily {
+			message, err = s.BuildDailyText(ctx, class.id, class.date, "")
+		} else {
+			message, err = s.BuildTaskText(ctx, class.id, "", now)
+		}
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+			continue
+		}
+		if message == "" {
+			continue
+		}
+		channelID, _, err := s.ChannelForClass(ctx, class.id)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			failures = errors.Join(failures, err)
+			continue
+		}
+		_, created, err := s.Enqueue(ctx, class.id, channelID, event, "CLASS", class.id, key, message, "", now, nil)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+		} else if created {
 			enqueued++
 		}
 	}
-	return enqueued, rows.Err()
+	return enqueued, failures
+}
+
+func (s *Service) hasReminder(ctx context.Context, key string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM notification_messages WHERE idempotency_key=?)`, key).Scan(&exists)
+	return exists, err
 }
 
 // EnsureReplacementReminders enqueues pre-event reminders for PUBLISHED REPLACEMENT events.
 func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time) (int, error) {
+	current := now.UTC().Format(time.RFC3339Nano)
 	rows, err := s.db.QueryContext(ctx, `SELECT te.id, sem.class_id, COALESCE(cs.replacement_reminder_minutes,60),
 		te.starts_at, ch.id,teo.participation_role,COALESCE(cs.timezone,'Asia/Jakarta') FROM teaching_events te
 		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND (teo.participation_role='OWNER' OR (teo.participation_role='PARTICIPANT' AND teo.participation_status='ACCEPTED'))
@@ -492,17 +513,24 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
 		JOIN whatsapp_channels ch ON ch.class_id = sem.class_id AND ch.status='ACTIVE'
-		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED' AND sem.status='ACTIVE'`)
+		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED' AND sem.status='ACTIVE'
+		  AND julianday(te.starts_at) >= julianday(?)
+		  AND julianday(te.starts_at) <= julianday(?, printf('+%d minutes', COALESCE(cs.replacement_reminder_minutes,60)+60))`, current, current)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
-	enqueued := 0
+	type reminder struct {
+		eventID, classID, channelID int64
+		key, zone                   string
+		starts, remindAt            time.Time
+	}
+	var due []reminder
 	for rows.Next() {
 		var eventID, classID, minutes, chID int64
 		var startsAt, participationRole, zone string
 		if err := rows.Scan(&eventID, &classID, &minutes, &startsAt, &chID, &participationRole, &zone); err != nil {
-			continue
+			return 0, err
 		}
 		starts, err := time.Parse(time.RFC3339Nano, startsAt)
 		if err != nil {
@@ -515,20 +543,41 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 		if now.Before(remindAt.Add(-time.Hour)) || now.After(starts) {
 			continue
 		}
-		loc, err := time.LoadLocation(zone)
-		if err != nil {
-			return enqueued, err
-		}
 		key := replacementKey(eventID)
 		if participationRole == "PARTICIPANT" {
 			key += fmt.Sprintf(":class:%d", classID)
 		}
-		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", eventID, starts.In(loc).Format("02-01-2006 15:04 MST"))
-		if _, created, err := s.Enqueue(ctx, classID, chID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", eventID, key, text, "", remindAt, nil); err == nil && created {
+		due = append(due, reminder{eventID, classID, chID, key, zone, starts, remindAt})
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var failures error
+	enqueued := 0
+	for _, item := range due {
+		exists, err := s.hasReminder(ctx, item.key)
+		if err != nil {
+			failures = errors.Join(failures, err)
+			continue
+		}
+		if exists {
+			continue
+		}
+		loc, err := time.LoadLocation(item.zone)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", item.key, err))
+			continue
+		}
+		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", item.eventID, item.starts.In(loc).Format("02-01-2006 15:04 MST"))
+		_, created, err := s.Enqueue(ctx, item.classID, item.channelID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", item.eventID, item.key, text, "", item.remindAt, nil)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", item.key, err))
+		} else if created {
 			enqueued++
 		}
 	}
-	return enqueued, rows.Err()
+	return enqueued, failures
 }
 
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.

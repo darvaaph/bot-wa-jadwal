@@ -98,7 +98,7 @@ test('service worker ignores every API request across accounts and removes old c
   const listeners = {}; let cacheReads = 0; let cacheWrites = 0; const deleted = [];
   const ctx = vm.createContext({ URL, console,
     self: { location: { origin: 'https://app.test' }, addEventListener: (name, fn) => { listeners[name] = fn; }, clients: { claim: async () => {} }, skipWaiting() {} },
-    caches: { keys: async () => ['asterisk-pwa-v14', 'asterisk-pwa-v15'], delete: async key => deleted.push(key), match: async () => { cacheReads++; }, open: async () => ({ put: async () => { cacheWrites++; } }) },
+    caches: { keys: async () => ['asterisk-pwa-v14', 'asterisk-pwa-v15', 'asterisk-pwa-v16', 'asterisk-pwa-v17'], delete: async key => deleted.push(key), match: async () => { cacheReads++; }, open: async () => ({ put: async () => { cacheWrites++; } }) },
     fetch: async () => { throw new Error('offline'); }
   });
   vm.runInContext(source('web/sw.js'), ctx);
@@ -111,7 +111,7 @@ test('service worker ignores every API request across accounts and removes old c
   }
   let activation;
   listeners.activate({ waitUntil(p) { activation = p; } }); await activation;
-  assert.deepEqual(deleted, ['asterisk-pwa-v14']);
+  assert.deepEqual(deleted, ['asterisk-pwa-v14', 'asterisk-pwa-v15', 'asterisk-pwa-v16']);
   assert.equal(cacheReads, 0); assert.equal(cacheWrites, 0);
   ctx.fetch = async () => ({ status: 200, headers: { get: () => 'no-store' }, clone() { return this; } });
   let response;
@@ -121,7 +121,7 @@ test('service worker ignores every API request across accounts and removes old c
 });
 
 test('portal keeps a successful empty week and locks on expired access without legacy fallback', async () => {
-  const ctx = appContext({ AsteriskShell: { behavior: () => ({}) }, navigator: {}, localStorage: { getItem: () => '', removeItem() {} }, API: { getPortalSchedule: async () => ({ items: [] }) } });
+  const ctx = appContext({ AsteriskShell: { behavior: () => ({}) }, navigator: {}, localStorage: { getItem: () => '', removeItem() {} }, API: { getPortalSchedule: async () => ({ days: { '2026-11-09': [] } }) } });
   vm.runInContext(source('web/js/app-portal.js'), ctx);
   const app = ctx.portalApp();
   Object.defineProperty(app, 'selectedClassSlug', { value: 'fixture' });
@@ -135,4 +135,45 @@ test('portal keeps a successful empty week and locks on expired access without l
   assert.equal(app.unlocked, false);
   assert.equal(app.fullSchedule.length, 0);
   assert.ok(app.jadwalError);
+});
+
+test('portal loads schedule and tasks in two requests and ignores a stale week response', async () => {
+  const calls = [];
+  const ctx = appContext({
+    AsteriskShell: { behavior: () => ({}) },
+    navigator: {},
+    localStorage: { getItem: () => '' },
+    fetch: url => new Promise(resolve => calls.push({ url, resolve }))
+  });
+  vm.runInContext(source('web/js/api.js'), ctx);
+  ctx.API = ctx.window.API;
+  vm.runInContext(source('web/js/app-portal.js'), ctx);
+  const app = ctx.portalApp();
+  Object.defineProperty(app, 'selectedClassSlug', { value: 'fixture' });
+  const names = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const date = day => '2026-11-' + String(day).padStart(2, '0');
+  Object.defineProperty(app, 'tanggalPekan', {
+    get: () => Object.fromEntries(names.map((name, i) => [name, date(9 + i + app.weekOffset * 7)]))
+  });
+  app.normalisasiEfektif = items => items;
+  const reply = (call, data) => call.resolve({ ok: true, json: async () => ({ data }) });
+  const schedule = (start, title) => ({
+    days: Object.fromEntries(names.map((_, i) => [date(start + i), i === 0 ? [{ title }] : []]))
+  });
+  const oldWeek = app.loadJadwalPekan();
+  const tasks = app.loadTugasPortal();
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].url, /schedule\?date=2026-11-09&days=6$/);
+  assert.match(calls[1].url, /tasks\?group=semua$/);
+  reply(calls[1], { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] });
+  await tasks;
+  assert.equal(app.tugasError, '');
+  app.weekOffset++;
+  const newWeek = app.loadJadwalPekan();
+  reply(calls[2], schedule(16, 'latest'));
+  await newWeek;
+  reply(calls[0], schedule(9, 'stale'));
+  await oldWeek;
+  assert.equal(app.fullSchedule[0].title, 'latest');
+  assert.equal(app.jadwalLoading, false);
 });

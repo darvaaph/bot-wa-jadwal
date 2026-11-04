@@ -264,6 +264,38 @@ func TestScopedRestore_RejectsCrossClassEvent(t *testing.T) {
 	}
 }
 
+func TestBackupRequest_FinalizationFailureCanRetry(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	s.SetStorageDir(t.TempDir())
+	admin := helperLogin(t, s, "+6281111111111", "password123")
+	if _, err := db.Exec(`INSERT INTO backup_requests (id,class_id,requested_by_user_id,reason) VALUES (1,1,1,'uji finalisasi');
+		CREATE TRIGGER fail_backup_request BEFORE UPDATE ON backup_requests WHEN NEW.status='EXECUTED'
+		BEGIN SELECT RAISE(ABORT, 'injected finalization failure'); END;`); err != nil {
+		t.Fatal(err)
+	}
+	const endpoint = "/api/v1/backup-requests/1/execute"
+	if w := helperDo(t, s, "POST", endpoint, admin, nil); w.Code != 500 {
+		t.Fatalf("execute with failure: %d %s", w.Code, w.Body.String())
+	}
+	var status string
+	var backups int
+	if err := db.QueryRow(`SELECT status, (SELECT COUNT(*) FROM backup_records) FROM backup_requests WHERE id=1`).Scan(&status, &backups); err != nil {
+		t.Fatal(err)
+	}
+	if status != "PENDING" || backups != 0 {
+		t.Fatalf("failed execution left status=%s with %d backups", status, backups)
+	}
+	if _, err := db.Exec(`DROP TRIGGER fail_backup_request; UPDATE backup_requests SET status='PROCESSING' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if w := helperDo(t, s, "POST", endpoint, admin, nil); w.Code != 200 {
+		t.Fatalf("retry of interrupted request: %d %s", w.Code, w.Body.String())
+	}
+	if w := helperDo(t, s, "POST", endpoint, admin, nil); w.Code != 409 {
+		t.Fatalf("duplicate execution: %d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestBackupRequest_RoleTransitions(t *testing.T) {
 	db, s := setupV1TestEnv(t)
 	defer db.Close()

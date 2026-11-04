@@ -54,7 +54,7 @@ func (c *PortalController) Courses(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		item := map[string]any{"id": id, "display_name": name, "activity_type": activity, "course_code": code, "course_name": course,
-			"lecturers": c.getOfferingLecturers(id), "schedule": []map[string]any{}, "tasks": []map[string]any{}, "materials": []map[string]any{}}
+			"lecturers": getOfferingLecturers(r.Context(), c.db, id), "schedule": []map[string]any{}, "tasks": []map[string]any{}, "materials": []map[string]any{}}
 		patterns, err := c.db.QueryContext(r.Context(), `SELECT day_of_week,start_time,end_time,COALESCE(r.code,''),COALESCE(sp.meeting_link,'')
 			FROM schedule_patterns sp LEFT JOIN rooms r ON r.id=sp.room_id WHERE sp.course_offering_id=? AND sp.status='ACTIVE'
 			AND sp.effective_from<=? AND (sp.effective_until IS NULL OR sp.effective_until>=?) ORDER BY day_of_week,start_time`, id, today, today)

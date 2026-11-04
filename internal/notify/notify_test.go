@@ -190,6 +190,59 @@ func TestNotify_Schedulers(t *testing.T) {
 	}
 }
 
+func TestNotify_DailyReminderSkipsExistingKeyBeforeBuilding(t *testing.T) {
+	svc, _ := newNotifyTestDB(t)
+	svc.db.SetMaxOpenConns(1)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	builds := 0
+	svc.SetDailyTextBuilder(func(context.Context, int64, time.Time) (string, error) {
+		builds++
+		return "Jadwal kelas", nil
+	})
+	morning := time.Date(2026, 10, 5, 23, 0, 0, 0, time.UTC)
+	for _, want := range []int{1, 0} {
+		if count, err := svc.EnsureDailySummaries(ctx, morning); err != nil || count != want {
+			t.Fatalf("created=%d, want %d, err=%v", count, want, err)
+		}
+	}
+	if builds != 1 {
+		t.Fatalf("builder called %d times, want 1", builds)
+	}
+}
+
+func TestNotify_ReplacementReminderHonorsConfiguredWindow(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	if _, err := svc.db.ExecContext(ctx, `
+		UPDATE class_settings SET replacement_reminder_minutes=1440 WHERE class_id=1;
+		INSERT INTO users (id,identity_key,display_name,password_hash) VALUES (1,'user:test','Test','disabled');
+		INSERT INTO courses (id,code,name) VALUES (1,'CS101','Pemrograman');
+		INSERT INTO course_offerings (id,semester_id,course_id,activity_type,display_name) VALUES (1,1,1,'TEORI','Pemrograman');
+		INSERT INTO schedule_patterns (id,course_offering_id,day_of_week,start_time,end_time,effective_from)
+		VALUES (1,1,3,'08:00','09:00','2026-09-01');
+		INSERT INTO teaching_events (id,event_kind,starts_at,ends_at,origin_schedule_pattern_id,origin_occurrence_date,lifecycle_status,published_by_user_id,published_at)
+		VALUES (1,'REPLACEMENT','2026-10-07T10:00:00+07:00','2026-10-07T11:00:00+07:00',1,'2026-10-07','PUBLISHED',1,CURRENT_TIMESTAMP),
+		       (2,'REPLACEMENT','2026-10-01T03:00:00Z','2026-10-01T04:00:00Z',1,'2026-09-30','PUBLISHED',1,CURRENT_TIMESTAMP);
+		INSERT INTO teaching_event_offerings (teaching_event_id,course_offering_id,participation_role,participation_status)
+		VALUES (1,1,'OWNER','ACCEPTED'),(2,1,'OWNER','ACCEPTED');
+	`); err != nil {
+		t.Fatal(err)
+	}
+	boundary := time.Date(2026, 10, 6, 2, 0, 0, 0, time.UTC)
+	for _, check := range []struct {
+		now  time.Time
+		want int
+	}{{boundary.Add(-time.Second), 0}, {boundary, 1}, {boundary.Add(time.Minute), 0}} {
+		if count, err := svc.EnsureReplacementReminders(ctx, check.now); err != nil || count != check.want {
+			t.Fatalf("at %s: created=%d, want %d, err=%v", check.now, count, check.want, err)
+		}
+	}
+	var scheduled string
+	if err := svc.db.QueryRowContext(ctx, `SELECT scheduled_at FROM notification_messages WHERE idempotency_key=?`, replacementKey(1)).Scan(&scheduled); err != nil || scheduled != "2026-10-06T03:00:00Z" {
+		t.Fatalf("scheduled=%q, err=%v", scheduled, err)
+	}
+}
+
 func TestNotify_MorningReminderCatchesUpAfterRestart(t *testing.T) {
 	svc, ctx := newNotifyTestDB(t)
 	late := time.Date(2026, 10, 5, 23, 20, 0, 0, time.UTC)

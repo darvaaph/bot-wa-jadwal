@@ -95,6 +95,7 @@ func (w *NotificationWorker) loop() {
 	defer w.wg.Done()
 	ticker := time.NewTicker(w.pollInterval)
 	defer ticker.Stop()
+	var nextReminderCheck time.Time
 
 	for {
 		select {
@@ -102,11 +103,21 @@ func (w *NotificationWorker) loop() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			if w.scheduleService != nil {
-				now := time.Now()
-				_, _ = w.scheduleService.EnsureDailySummaries(ctx, now)
-				_, _ = w.scheduleService.EnsureTaskReminders(ctx, now)
-				_, _ = w.scheduleService.EnsureReplacementReminders(ctx, now)
+			now := time.Now()
+			if w.scheduleService != nil && !now.Before(nextReminderCheck) {
+				if release, allowed := maintenance.EnterMutation(); allowed {
+					nextReminderCheck = now.Add(time.Minute)
+					for _, check := range []func(context.Context, time.Time) (int, error){
+						w.scheduleService.EnsureDailySummaries,
+						w.scheduleService.EnsureTaskReminders,
+						w.scheduleService.EnsureReplacementReminders,
+					} {
+						if _, err := check(ctx, now); err != nil {
+							fmt.Printf("[Notification Worker] Pengingat: %v\n", err)
+						}
+					}
+					release()
+				}
 			}
 			if _, err := w.ProcessPending(ctx); err != nil {
 				fmt.Printf("[Notification Worker] %v\n", err)

@@ -729,12 +729,7 @@ func (c *PortalController) Summary(w http.ResponseWriter, r *http.Request) {
 		targetDate = time.Now().In(loc)
 	}
 	dateStr := targetDate.Format("2006-01-02")
-	dayOfWeek := int(targetDate.Weekday())
-	if dayOfWeek == 0 {
-		dayOfWeek = 7
-	}
-
-	scheduleItems, _ := c.getScheduleForDate(classID, 0, targetDate, dayOfWeek)
+	scheduleItems, _ := c.getScheduleForDate(r.Context(), classID, 0, targetDate)
 
 	nowTimeStr := targetDate.Format("15:04")
 	var nowEvent any
@@ -842,6 +837,27 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
 
+	if span := r.URL.Query().Get("days"); span != "" {
+		days, err := strconv.Atoi(span)
+		start, dateErr := time.ParseInLocation("2006-01-02", r.URL.Query().Get("date"), loc)
+		if err != nil || dateErr != nil || days < 1 || days > 7 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "date wajib diisi dan days harus 1 sampai 7")
+			return
+		}
+		itemsByDate := make(map[string][]map[string]any, days)
+		for i := 0; i < days; i++ {
+			day := start.AddDate(0, 0, i)
+			items, err := c.getScheduleForDate(r.Context(), classID, semesterID, day)
+			if err != nil {
+				common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat jadwal")
+				return
+			}
+			itemsByDate[day.Format("2006-01-02")] = items
+		}
+		common.WriteV1Success(w, http.StatusOK, map[string]any{"class": rc.Slug, "days": itemsByDate})
+		return
+	}
+
 	dateParam := r.URL.Query().Get("date")
 	var targetDate time.Time
 	if dateParam != "" {
@@ -854,12 +870,7 @@ func (c *PortalController) Schedule(w http.ResponseWriter, r *http.Request) {
 		targetDate = time.Now().In(loc)
 	}
 	dateStr := targetDate.Format("2006-01-02")
-	dayOfWeek := int(targetDate.Weekday())
-	if dayOfWeek == 0 {
-		dayOfWeek = 7
-	}
-
-	items, err := c.getScheduleForDate(classID, semesterID, targetDate, dayOfWeek)
+	items, err := c.getScheduleForDate(r.Context(), classID, semesterID, targetDate)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat jadwal")
 		return
@@ -905,10 +916,42 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
 
+	group := r.URL.Query().Get("group")
+	groupNames := []string{"hari_ini", "minggu_ini", "mendatang", "terlewat"}
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	daysSinceMonday := (int(today.Weekday()) + 6) % 7
+	week := today.AddDate(0, 0, -daysSinceMonday)
+	const deadlineFormat = "2006-01-02T15:04:05Z"
+	conditions := map[string]string{
+		"hari_ini":   "t.deadline_at BETWEEN ? AND ?",
+		"minggu_ini": "t.deadline_at BETWEEN ? AND ?",
+		"mendatang":  "t.deadline_at > ?",
+		"terlewat":   "t.deadline_at < ? AND t.completed_at IS NULL",
+	}
+	bounds := map[string][]any{
+		"hari_ini":   {today.UTC().Format(deadlineFormat), today.AddDate(0, 0, 1).Add(-time.Second).UTC().Format(deadlineFormat)},
+		"minggu_ini": {week.UTC().Format(deadlineFormat), week.AddDate(0, 0, 7).Add(-time.Second).UTC().Format(deadlineFormat)},
+		"mendatang":  {now.UTC().Format(deadlineFormat)},
+		"terlewat":   {now.UTC().Format(deadlineFormat)},
+	}
+	if group != "" && group != "semua" && conditions[group] == "" {
+		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "group harus hari_ini, minggu_ini, mendatang, terlewat, atau semua")
+		return
+	}
 	query := `
 		SELECT t.id, co.display_name, t.title, t.instructions, t.deadline_at,
 		       COALESCE(t.submission_text, ''), COALESCE(t.submission_url, ''), t.version,
 		       COALESCE(t.task_type, ''), t.completed_at, COALESCE(t.review_state, 'NOT_REVIEWED')
+	`
+	var args []any
+	if group == "semua" {
+		for _, name := range groupNames {
+			query += ", CASE WHEN " + conditions[name] + " THEN 1 ELSE 0 END"
+			args = append(args, bounds[name]...)
+		}
+	}
+	query += `
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
@@ -917,36 +960,10 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 		  AND t.deleted_at IS NULL
 		  AND t.archived_at IS NULL
 	`
-	args := []any{classID, semesterID}
-
-	group := r.URL.Query().Get("group")
-	if group != "" && group != "hari_ini" && group != "minggu_ini" && group != "mendatang" && group != "terlewat" {
-		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "group harus hari_ini, minggu_ini, mendatang, atau terlewat")
-		return
-	}
-	now := time.Now().In(loc)
-	if group == "hari_ini" {
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).UTC().Format("2006-01-02T15:04:05Z")
-		end := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, loc).UTC().Format("2006-01-02T15:04:05Z")
-		query += " AND t.deadline_at BETWEEN ? AND ?"
-		args = append(args, start, end)
-	} else if group == "minggu_ini" {
-		weekday := int(now.Weekday())
-		if weekday == 0 {
-			weekday = 7
-		}
-		startWeek := now.AddDate(0, 0, -weekday+1)
-		endWeek := startWeek.AddDate(0, 0, 6)
-		start := time.Date(startWeek.Year(), startWeek.Month(), startWeek.Day(), 0, 0, 0, 0, loc).UTC().Format("2006-01-02T15:04:05Z")
-		end := time.Date(endWeek.Year(), endWeek.Month(), endWeek.Day(), 23, 59, 59, 999999999, loc).UTC().Format("2006-01-02T15:04:05Z")
-		query += " AND t.deadline_at BETWEEN ? AND ?"
-		args = append(args, start, end)
-	} else if group == "mendatang" {
-		query += " AND t.deadline_at > ?"
-		args = append(args, now.UTC().Format("2006-01-02T15:04:05Z"))
-	} else if group == "terlewat" {
-		query += " AND t.deadline_at < ? AND t.completed_at IS NULL"
-		args = append(args, now.UTC().Format("2006-01-02T15:04:05Z"))
+	args = append(args, classID, semesterID)
+	if condition := conditions[group]; condition != "" {
+		query += " AND " + condition
+		args = append(args, bounds[group]...)
 	}
 
 	offering := r.URL.Query().Get("offering")
@@ -968,7 +985,7 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 
 	query += " ORDER BY t.deadline_at ASC;"
 
-	rows, err := c.db.Query(query, args...)
+	rows, err := c.db.QueryContext(r.Context(), query, args...)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas portal")
 		return
@@ -976,34 +993,66 @@ func (c *PortalController) Tasks(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	var tasks []map[string]any
+	grouped := make(map[string][]map[string]any, len(groupNames))
+	if group == "semua" {
+		for _, name := range groupNames {
+			grouped[name] = []map[string]any{}
+		}
+	}
 	for rows.Next() {
 		var id int64
 		var offeringName, title, instructions, subText, subURL, taskType, reviewState string
 		var deadlineAt, completedAt common.DBTimestamp
 		var version int
 
-		if err := rows.Scan(&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version, &taskType, &completedAt, &reviewState); err == nil {
-			var compVal any
-			if completedAt.Valid {
-				compVal = completedAt.RFC3339()
+		dest := []any{&id, &offeringName, &title, &instructions, &deadlineAt, &subText, &subURL, &version, &taskType, &completedAt, &reviewState}
+		var membership [4]bool
+		if group == "semua" {
+			for i := range membership {
+				dest = append(dest, &membership[i])
 			}
-			tasks = append(tasks, map[string]any{
-				"id":              id,
-				"offering":        offeringName,
-				"title":           title,
-				"instructions":    instructions,
-				"deadline_at":     deadlineAt.RFC3339(),
-				"submission_text": subText,
-				"submission_url":  subURL,
-				"version":         version,
-				"task_type":       taskType,
-				"completed_at":    compVal,
-				"is_completed":    completedAt.Valid,
-				"review_state":    reviewState,
-			})
+		}
+		if err := rows.Scan(dest...); err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas portal")
+			return
+		}
+		var compVal any
+		if completedAt.Valid {
+			compVal = completedAt.RFC3339()
+		}
+		task := map[string]any{
+			"id":              id,
+			"offering":        offeringName,
+			"title":           title,
+			"instructions":    instructions,
+			"deadline_at":     deadlineAt.RFC3339(),
+			"submission_text": subText,
+			"submission_url":  subURL,
+			"version":         version,
+			"task_type":       taskType,
+			"completed_at":    compVal,
+			"is_completed":    completedAt.Valid,
+			"review_state":    reviewState,
+		}
+		if group == "semua" {
+			for i, name := range groupNames {
+				if membership[i] {
+					grouped[name] = append(grouped[name], task)
+				}
+			}
+		} else {
+			tasks = append(tasks, task)
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memuat tugas portal")
+		return
+	}
+	if group == "semua" {
+		common.WriteV1Success(w, http.StatusOK, grouped)
+		return
+	}
 	common.WriteV1Success(w, http.StatusOK, tasks)
 }
 
@@ -1398,32 +1447,32 @@ func (c *PortalController) resolvePortalSemester(w http.ResponseWriter, r *http.
 	return semesterID, true
 }
 
-func (c *PortalController) getScheduleForDate(classID, semesterID int64, targetDate time.Time, dayOfWeek int) ([]map[string]any, error) {
-	sessions, err := schedule.ResolveEffective(context.Background(), c.db, classID, semesterID, targetDate)
+func (c *PortalController) getScheduleForDate(ctx context.Context, classID, semesterID int64, targetDate time.Time) ([]map[string]any, error) {
+	sessions, err := schedule.ResolveEffective(ctx, c.db, classID, semesterID, targetDate)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]map[string]any, 0, len(sessions))
 	labels := map[string]string{"REGULAR": "REGULER", "REPLACEMENT": "PENGGANTI", "EXTRA": "TAMBAHAN", "HOLIDAY": "LIBUR", "SESSION_CANCELLED": "DIBATALKAN", "EXAM_UTS": "UTS", "EXAM_UAS": "UAS"}
 	for _, it := range sessions {
-		pj, phone := c.getOfferingPJ(it.OfferingID)
+		pj, phone := c.getOfferingPJ(ctx, it.OfferingID)
 		id := fmt.Sprintf("pat_%d", it.PatternID)
 		source := map[string]any{"pattern_id": it.PatternID}
 		if it.EventID > 0 {
 			id = fmt.Sprintf("ev_%d", it.EventID)
 			source["event_id"] = it.EventID
 		}
-		items = append(items, map[string]any{"id": id, "kind": labels[it.Kind], "offering": it.Offering, "title": it.Title, "code": it.Code, "activity_type": it.ActivityType, "starts_at": it.StartTime, "ends_at": it.EndTime, "room": it.Room, "meeting_link": it.MeetingLink, "lecturers": c.getOfferingLecturers(it.OfferingID), "pj": pj, "pj_phone": phone, "origin_occurrence_date": it.OriginDate, "reason": it.Reason, "source": source})
+		items = append(items, map[string]any{"id": id, "kind": labels[it.Kind], "offering": it.Offering, "title": it.Title, "code": it.Code, "activity_type": it.ActivityType, "starts_at": it.StartTime, "ends_at": it.EndTime, "room": it.Room, "meeting_link": it.MeetingLink, "lecturers": getOfferingLecturers(ctx, c.db, it.OfferingID), "pj": pj, "pj_phone": phone, "origin_occurrence_date": it.OriginDate, "reason": it.Reason, "source": source})
 	}
 	return items, nil
 }
 
-func (c *PortalController) getOfferingPJ(offeringID int64) (string, string) {
+func (c *PortalController) getOfferingPJ(ctx context.Context, offeringID int64) (string, string) {
 	if c.db == nil {
 		return "", ""
 	}
 	var name, phone string
-	_ = c.db.QueryRow(`
+	_ = c.db.QueryRowContext(ctx, `
 		SELECT u.display_name, COALESCE(u.identity_key, '')
 		FROM role_assignments ra
 		JOIN users u ON ra.user_id = u.id
@@ -1436,17 +1485,17 @@ func (c *PortalController) getOfferingPJ(offeringID int64) (string, string) {
 	return name, phone
 }
 
-func (c *PortalController) getOfferingLecturers(offeringID int64) []string {
-	return GetOfferingLecturers(c.db, offeringID)
-}
-
 // GetOfferingLecturers mengembalikan daftar nama dosen untuk suatu offering.
 func GetOfferingLecturers(db *sql.DB, offeringID int64) []string {
+	return getOfferingLecturers(context.Background(), db, offeringID)
+}
+
+func getOfferingLecturers(ctx context.Context, db *sql.DB, offeringID int64) []string {
 	var lecturers []string
 	if db == nil {
 		return lecturers
 	}
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT l.full_name
 		FROM offering_lecturers ol
 		JOIN lecturers l ON ol.lecturer_id = l.id

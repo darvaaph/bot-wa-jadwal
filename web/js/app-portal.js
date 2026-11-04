@@ -98,6 +98,8 @@ function portalApp() {
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
+    jadwalRequest: 0,
+    tugasRequest: 0,
     jadwalError: '',
     tasks: [],
     tugasGrup: { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] },
@@ -758,6 +760,10 @@ function portalApp() {
     },
 
     kunciPortal() {
+      this.jadwalRequest++;
+      this.tugasRequest++;
+      this.jadwalLoading = false;
+      this.tugasLoading = false;
       this.fullSchedule = [];
       this.jadwalEfektif = [];
       this.jadwalCacheHariIni = [];
@@ -1711,19 +1717,20 @@ function portalApp() {
       this.jadwalLoading = true;
       this.jadwalError = '';
       const slug = this.selectedClassSlug;
+      const dates = this.tanggalPekan;
+      const request = ++this.jadwalRequest;
+      const isCurrent = () => request === this.jadwalRequest && slug === this.selectedClassSlug;
       const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       try {
-        const results = await Promise.all(days.map(d => {
-          const tgl = this.tanggalPekan[d];
-          return API.getPortalSchedule(slug, tgl);
-        }));
+        const { days: itemsByDate } = await API.getPortalSchedule(slug, dates.Senin, undefined, days.length);
+        if (!isCurrent()) return;
 
         const newPekan = {};
-        days.forEach((d, idx) => {
-          const res = results[idx];
-          if (!res || !Array.isArray(res.items)) throw new Error('Respons jadwal tidak lengkap.');
-          newPekan[d] = this.normalisasiEfektif(res.items, d);
-        });
+        for (const day of days) {
+          const items = itemsByDate[dates[day]];
+          if (!Array.isArray(items)) throw new Error('Respons jadwal tidak lengkap.');
+          newPekan[day] = this.normalisasiEfektif(items, day);
+        }
         this.fullSchedule = Object.values(newPekan).flat();
         this.jadwalPekan = newPekan;
         this.jadwalEfektif = this.jadwalPekan[this.hari] || [];
@@ -1731,10 +1738,11 @@ function portalApp() {
           this.jadwalCacheHariIni = this.jadwalPekan[this.todayName] || [];
         }
       } catch (e) {
+        if (!isCurrent()) return;
         this.jadwalError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
         if (e.status === 401) this.kunciPortal();
       } finally {
-        this.jadwalLoading = false;
+        if (isCurrent()) this.jadwalLoading = false;
       }
     },
 
@@ -1750,27 +1758,11 @@ function portalApp() {
     async loadTugasPortal() {
       this.tugasLoading = true; this.tugasError = '';
       const slug = this.selectedClassSlug;
+      const request = ++this.tugasRequest;
+      const isCurrent = () => request === this.tugasRequest && slug === this.selectedClassSlug;
       try {
-        const grup = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
-        const hasil = await Promise.all(grup.map(g =>
-          API.getPortalTasks(slug, g)
-            .then(data => ({ ok: true, data: data }))
-            .catch(err => ({ ok: false, err: err }))
-        ));
-        if (hasil.every(h => !h.ok)) {
-          const st = hasil[0].err && hasil[0].err.status;
-          this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
-          this.tasks = [];
-          if (st === 401) {
-            this.kunciPortal();
-            this.showToast('Sesi akses berakhir atau kode telah diperbarui KM.');
-            return;
-          }
-          this.tugasError = st === 404
-            ? 'Kelas tidak ditemukan. Periksa kode kelas atau hubungi KM.'
-            : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
-          return;
-        }
+        const grouped = await API.getPortalTasks(slug, 'semua');
+        if (!isCurrent()) return;
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline, t.completed_at || t.is_completed);
@@ -1789,10 +1781,10 @@ function portalApp() {
           };
         });
         this.tugasGrup = {
-          hari_ini: petakan(hasil[0].ok ? hasil[0].data : []),
-          minggu_ini: petakan(hasil[1].ok ? hasil[1].data : []),
-          mendatang: petakan(hasil[2].ok ? hasil[2].data : []),
-          terlewat: petakan(hasil[3].ok ? hasil[3].data : [])
+          hari_ini: petakan(grouped.hari_ini),
+          minggu_ini: petakan(grouped.minggu_ini),
+          mendatang: petakan(grouped.mendatang),
+          terlewat: petakan(grouped.terlewat)
         };
         const gabung = new Map();
         [...this.tugasGrup.mendatang, ...this.tugasGrup.minggu_ini, ...this.tugasGrup.hari_ini, ...this.tugasGrup.terlewat]
@@ -1800,12 +1792,20 @@ function portalApp() {
         this.tasks = Array.from(gabung.values());
         this.updateAppBadge();
       } catch (e) {
+        if (!isCurrent()) return;
+        if (e.status === 401) {
+          this.kunciPortal();
+          this.showToast('Sesi akses berakhir atau kode telah diperbarui KM.');
+          return;
+        }
         this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
         this.tasks = [];
         this.updateAppBadge();
-        this.tugasError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.tugasError = e.status === 404
+          ? 'Kelas tidak ditemukan. Periksa kode kelas atau hubungi KM.'
+          : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
-        this.tugasLoading = false;
+        if (isCurrent()) this.tugasLoading = false;
       }
     },
 

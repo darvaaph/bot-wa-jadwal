@@ -479,7 +479,7 @@ func (c *ScheduleController) CreatePattern(w http.ResponseWriter, r *http.Reques
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Pola baru hanya dapat dibuat dalam semester draf atau aktif")
 		return
 	}
-	conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
+	conflicts, conflictErr := schedule.CheckPatternRange(r.Context(), c.db, schedule.Candidate{
 		OwnerClassID:    classID,
 		OwnerOfferingID: req.OfferingID,
 		RoomID:          req.RoomID,
@@ -1017,59 +1017,31 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 		})
 		return
 	}
-	{
-		var candRoom *int64
-		if roomID.Valid {
-			v := roomID.Int64
-			candRoom = &v
-		}
-		lectIDs := lecturersForOfferingCtx(r.Context(), c.db, offeringID)
-		partIDs := participantOfferingIDs(r.Context(), c.db, eventID, offeringID)
-		var excludePat *int64
-		if originPatID.Valid {
-			v := originPatID.Int64
-			excludePat = &v
-		}
-		conflicts, err := schedule.CheckConflicts(r.Context(), c.db, schedule.Candidate{
-			OwnerClassID:     classID,
-			OwnerOfferingID:  offeringID,
-			ParticipantIDs:   partIDs,
-			RoomID:           candRoom,
-			LecturerIDs:      lectIDs,
-			StartsAt:         startsAt.Time,
-			EndsAt:           endsAt.Time,
-			ExcludeEventID:   &eventID,
-			ExcludePatternID: excludePat,
-		})
-		if err != nil {
-			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
-			return
-		}
-		if err == nil {
-			for _, conf := range conflicts {
-				if conf.Code == schedule.CodeOutsideOwnerSem || conf.Code == schedule.CodeOutsidePartSem {
-					common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
-					return
-				}
-			}
-			if schedule.HasBlocking(conflicts) {
-				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
-				return
-			}
-			if schedule.NeedsOverride(conflicts) && (req.ConflictOverrideReason == nil || strings.TrimSpace(*req.ConflictOverrideReason) == "") {
-				common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Konflik nonblocking memerlukan conflict_override_reason")
-				return
-			}
-		}
-	}
-
-	tx, err := c.db.Begin()
+	tx, err := c.db.BeginTx(r.Context(), nil)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi")
 		return
 	}
 	defer tx.Rollback()
 
+	// Reserve SQLite's writer before reading conflicts. The update rolls back if a check fails.
+	res, err := tx.ExecContext(r.Context(), `
+		UPDATE teaching_events
+		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, version = version + 1,
+		    conflict_override_reason = ?
+		WHERE id = ? AND version = ? AND lifecycle_status='DRAFT';
+	`, u.UserID, req.ConflictOverrideReason, eventID, curVersion)
+
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menerbitkan jadwal: %v", err))
+		return
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Konflik versi saat menyimpan")
+		return
+	}
 	if !common.GuardTeachingEventMutation(w, r, tx, eventID) {
 		return
 	}
@@ -1095,22 +1067,50 @@ func (c *ScheduleController) PublishTeachingEvent(w http.ResponseWriter, r *http
 			}
 		}
 	}
-	res, err := tx.Exec(`
-		UPDATE teaching_events
-		SET lifecycle_status = 'PUBLISHED', published_by_user_id = ?, published_at = CURRENT_TIMESTAMP, version = version + 1,
-		    conflict_override_reason = ?
-		WHERE id = ? AND version = ?;
-	`, u.UserID, req.ConflictOverrideReason, eventID, curVersion)
-
-	if err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal menerbitkan jadwal: %v", err))
-		return
-	}
-
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
-		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Konflik versi saat menyimpan")
-		return
+	{
+		var candRoom *int64
+		if roomID.Valid {
+			v := roomID.Int64
+			candRoom = &v
+		}
+		lectIDs, err := schedule.LecturersForOffering(r.Context(), tx, offeringID)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
+		partIDs, err := participantOfferingIDs(r.Context(), tx, eventID, offeringID)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
+		var excludePat *int64
+		if originPatID.Valid {
+			v := originPatID.Int64
+			excludePat = &v
+		}
+		conflicts, err := schedule.CheckConflicts(r.Context(), tx, schedule.Candidate{
+			OwnerClassID:     classID,
+			OwnerOfferingID:  offeringID,
+			ParticipantIDs:   partIDs,
+			RoomID:           candRoom,
+			LecturerIDs:      lectIDs,
+			StartsAt:         startsAt.Time,
+			EndsAt:           endsAt.Time,
+			ExcludeEventID:   &eventID,
+			ExcludePatternID: excludePat,
+		})
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
+		if schedule.HasBlocking(conflicts) {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, conflictMessage(conflicts))
+			return
+		}
+		if schedule.NeedsOverride(conflicts) && (req.ConflictOverrideReason == nil || strings.TrimSpace(*req.ConflictOverrideReason) == "") {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Konflik nonblocking memerlukan conflict_override_reason")
+			return
+		}
 	}
 
 	afterJSON := fmt.Sprintf(`{"lifecycle_status":"PUBLISHED","room_id":%v,"version":%d}`, func() any {
@@ -1498,7 +1498,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 	}
 	if semesterStatus == "DRAFT" {
 		effectiveDate := semesterStart
-		conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
+		conflicts, conflictErr := schedule.CheckPatternRange(r.Context(), c.db, schedule.Candidate{
 			OwnerClassID:     curClassID,
 			OwnerOfferingID:  newOfferingID,
 			RoomID:           patchRoom,
@@ -1613,7 +1613,7 @@ func (c *ScheduleController) PatchPattern(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tanggal berlaku mendahului pola jadwal asal")
 		return
 	}
-	conflicts, conflictErr := checkPatternRange(r.Context(), c.db, schedule.Candidate{
+	conflicts, conflictErr := schedule.CheckPatternRange(r.Context(), c.db, schedule.Candidate{
 		OwnerClassID:     curClassID,
 		OwnerOfferingID:  newOfferingID,
 		RoomID:           patchRoom,
@@ -1827,8 +1827,16 @@ func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http
 			v := roomID.Int64
 			candRoom = &v
 		}
-		lectIDs := lecturersForOfferingCtx(r.Context(), c.db, previewOfferingID)
-		partIDs := participantOfferingIDs(r.Context(), c.db, eventID, previewOfferingID)
+		lectIDs, err := schedule.LecturersForOffering(r.Context(), c.db, previewOfferingID)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
+		partIDs, err := participantOfferingIDs(r.Context(), c.db, eventID, previewOfferingID)
+		if err != nil {
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
+		}
 		var excludePat *int64
 		if originPatternID.Valid {
 			v := originPatternID.Int64
@@ -1847,7 +1855,8 @@ func (c *ScheduleController) PreviewTeachingEvent(w http.ResponseWriter, r *http
 		}); err == nil {
 			conflicts = conflictMaps(engineConflicts)
 		} else {
-			conflicts = []map[string]any{}
+			common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Pemeriksaan konflik gagal")
+			return
 		}
 	}
 
@@ -2006,37 +2015,26 @@ func conflictMaps(conflicts []schedule.Conflict) []map[string]any {
 	return out
 }
 
-func lecturersForOfferingCtx(ctx context.Context, db *sql.DB, offeringID int64) []int64 {
-	rows, err := db.QueryContext(ctx, `SELECT lecturer_id FROM offering_lecturers WHERE course_offering_id=? AND superseded_at IS NULL`, offeringID)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	var out []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err == nil {
-			out = append(out, id)
-		}
-	}
-	return out
+type scheduleQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
-func participantOfferingIDs(ctx context.Context, db *sql.DB, eventID, ownerOfferingID int64) []int64 {
+func participantOfferingIDs(ctx context.Context, db scheduleQueryer, eventID, ownerOfferingID int64) ([]int64, error) {
 	rows, err := db.QueryContext(ctx, `SELECT course_offering_id FROM teaching_event_offerings
 		WHERE teaching_event_id=? AND participation_role='PARTICIPANT' AND participation_status='ACCEPTED' AND course_offering_id != ?`, eventID, ownerOfferingID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 	var out []int64
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err == nil {
-			out = append(out, id)
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
 		}
+		out = append(out, id)
 	}
-	return out
+	return out, rows.Err()
 }
 
 // DeletePattern menangani DELETE /api/v1/schedule/patterns/{id}

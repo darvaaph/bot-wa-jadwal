@@ -1333,9 +1333,10 @@ const BotApi = {
     return headers;
   },
 
-  async getPortalSchedule(slug, dateStr, semesterId) {
+  async getPortalSchedule(slug, dateStr, semesterId, days) {
     const qs = new URLSearchParams();
     if (dateStr) qs.set('date', dateStr);
+    if (days) qs.set('days', String(days));
     if (semesterId) qs.set('semester_id', String(semesterId));
     const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/schedule' + (qs.toString() ? '?' + qs.toString() : ''), {
       credentials: 'same-origin', headers: this.portalHeaders(slug)
@@ -1346,7 +1347,7 @@ const BotApi = {
       throw err;
     }
     const json = await res.json();
-    if (!json.data || !Array.isArray(json.data.items)) throw new Error('Respons jadwal tidak lengkap.');
+    if (!json.data || (days ? !json.data.days : !Array.isArray(json.data.items))) throw new Error('Respons jadwal tidak lengkap.');
     return json.data;
   },
 
@@ -1404,20 +1405,15 @@ const BotApi = {
     return json.data || [];
   },
 
-  async getPortalTasks(slug, group, semesterId) {    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
+  async getPortalTasks(slug, group, semesterId) {
+    const valid = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat', 'semua'];
     const g = valid.includes(group) ? group : '';
-    const headers = {};
-    try {
-      const savedToken = localStorage.getItem('portal_token');
-      const savedClass = localStorage.getItem('portal_class');
-      if (savedToken && (!slug || savedClass === slug)) headers['X-Portal-Token'] = savedToken;
-    } catch (e) {}
     const qs = new URLSearchParams();
     if (g) qs.set('group', g);
     if (semesterId) qs.set('semester_id', String(semesterId));
     const res = await fetch('/api/v1/portal/' + encodeURIComponent(slug) + '/tasks' + (qs.toString() ? '?' + qs.toString() : ''), {
       credentials: 'same-origin',
-      headers: headers
+      headers: this.portalHeaders(slug)
     });
     if (res.status === 404) {
       const err = new Error('Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.');
@@ -1438,8 +1434,7 @@ const BotApi = {
       throw err;
     }
     const json = await res.json();
-    const arr = Array.isArray(json.data) ? json.data : [];
-    return arr.map(item => {
+    const mapTasks = items => items.map(item => {
       return {
         id: item.id,
         course_offering_id: null,
@@ -1464,6 +1459,14 @@ const BotApi = {
         creator_name: 'PJ Mata Kuliah'
       };
     });
+    if (g === 'semua') {
+      const names = valid.slice(0, -1);
+      if (!json.data || names.some(name => !Array.isArray(json.data[name]))) {
+        throw new Error('Respons tugas tidak lengkap.');
+      }
+      return Object.fromEntries(names.map(name => [name, mapTasks(json.data[name])]));
+    }
+    return mapTasks(Array.isArray(json.data) ? json.data : []);
   },
 
   async deleteTask(taskId, version) {
