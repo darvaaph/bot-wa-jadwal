@@ -96,12 +96,15 @@ test('draft API updates one resource with expected version and exposes conflicts
 
 test('service worker ignores every API request across accounts and removes old caches', async () => {
   const listeners = {}; let cacheReads = 0; let cacheWrites = 0; const deleted = [];
+  const swCode = source('web/sw.js');
+  const cacheNameMatch = swCode.match(/const\s+CACHE_NAME\s*=\s*['"]([^'"]+)['"]/);
+  const currentCache = cacheNameMatch ? cacheNameMatch[1] : 'asterisk-pwa-v17';
   const ctx = vm.createContext({ URL, console,
     self: { location: { origin: 'https://app.test' }, addEventListener: (name, fn) => { listeners[name] = fn; }, clients: { claim: async () => {} }, skipWaiting() {} },
-    caches: { keys: async () => ['asterisk-pwa-v14', 'asterisk-pwa-v15', 'asterisk-pwa-v16', 'asterisk-pwa-v17'], delete: async key => deleted.push(key), match: async () => { cacheReads++; }, open: async () => ({ put: async () => { cacheWrites++; } }) },
+    caches: { keys: async () => ['asterisk-pwa-v14', 'asterisk-pwa-v15', 'asterisk-pwa-v16', currentCache], delete: async key => deleted.push(key), match: async () => { cacheReads++; }, open: async () => ({ put: async () => { cacheWrites++; } }) },
     fetch: async () => { throw new Error('offline'); }
   });
-  vm.runInContext(source('web/sw.js'), ctx);
+  vm.runInContext(swCode, ctx);
   for (const account of ['first', 'second']) {
     for (const endpoint of ['/api/v1/auth/me', '/api/v1/tasks', '/api/v1/portal/a/tasks']) {
       let handled = false;

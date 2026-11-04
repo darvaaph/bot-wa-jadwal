@@ -197,3 +197,31 @@ func TestTaskLifecycle_EditAndReviewVersionProgression(t *testing.T) {
 		t.Fatalf("setelah diapprove KM, review_state wajib APPROVED, got %s", revStateFinal)
 	}
 }
+
+func TestReviewTask_DuplicateApprovalReturnsConflict(t *testing.T) {
+	_, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123")
+
+	// Task 1 disetujui pertama kali
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/reviews",
+		strings.NewReader(`{"decision":"APPROVED","task_version":1,"broadcast_whatsapp":false}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("approval pertama expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Approval kedua untuk versi yang sama harus mengembalikan 409 Conflict, bukan 500 DB_ERROR
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/reviews",
+		strings.NewReader(`{"decision":"APPROVED","task_version":1,"broadcast_whatsapp":false}`))
+	req2.Header.Set("Authorization", "Bearer "+token)
+	w2 := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusConflict {
+		t.Fatalf("approval duplikat expected 409 Conflict, got %d: %s", w2.Code, w2.Body.String())
+	}
+	if !strings.Contains(w2.Body.String(), "VERSION_CONFLICT") {
+		t.Fatalf("expected VERSION_CONFLICT code, got: %s", w2.Body.String())
+	}
+}

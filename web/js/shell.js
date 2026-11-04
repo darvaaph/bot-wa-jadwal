@@ -34,6 +34,8 @@ const AsteriskShell = (() => {
       modalProfilAdmin: false,
       modalProfilPJ: false,
       modalProfilKM: false,
+      roleSwitcherOpen: false,
+      roleSwitcherDrawerOpen: false,
       currentTheme: 'light',
       isDarkMode: false,
       initTheme() {
@@ -67,6 +69,76 @@ const AsteriskShell = (() => {
           return '+62 ' + rest.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
         }
         return String(num);
+      },
+      roleIconSvg(roleKey, size = 18) {
+        const r = String(roleKey || '').toUpperCase();
+        if (r === 'KM') {
+          return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 17L5 7L9.5 12L12 5L14.5 12L19 7L21 17H3Z"/><path d="M3 17V20C3 20.6 3.4 21 4 21H20C20.6 21 21 20.6 21 20V17"/><circle cx="12" cy="13" r="1.25" fill="currentColor" stroke="none"/></svg>`;
+        }
+        if (r === 'PJ') {
+          return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3L2 8.5L12 14L22 8.5L12 3Z"/><path d="M6 11V16.5C6 18.5 8.7 20.5 12 20.5C15.3 20.5 18 18.5 18 16.5V11"/><path d="M22 8.5V15.5C22 16 21.6 16.5 21 16.5H20"/><circle cx="20" cy="17" r="1" fill="currentColor"/></svg>`;
+        }
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2L4 5.5V11.5C4 16.8 7.4 21.7 12 23C16.6 21.7 20 16.8 20 11.5V5.5L12 2Z"/><circle cx="12" cy="11.5" r="2.5"/><path d="M12 6.5V9M12 14V16.5M7 11.5H9.5M14.5 11.5H17"/></svg>`;
+      },
+      roleBadgeClasses(roleKey) {
+        const r = String(roleKey || '').toUpperCase();
+        if (r === 'KM') return 'bg-blue-50 text-[#3965FB] border border-blue-200';
+        if (r === 'PJ') return 'bg-emerald-50 text-[#059669] border border-emerald-200';
+        return 'bg-indigo-50 text-[#6366F1] border border-indigo-200';
+      },
+      formatRoleClass(raw) {
+        if (!raw) return '';
+        const m = String(raw).trim().match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+        if (m) {
+          const cohort = parseInt(m[3], 10);
+          const d = new Date();
+          const currentYear = d.getFullYear();
+          const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+          const tingkat = Math.max(1, Math.min(4, acadYear - cohort + 1));
+          return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+        }
+        return String(raw).toUpperCase();
+      },
+      humanRoleTitle(a) {
+        if (!a) return 'Ruang Kerja';
+        const r = String(a.role || '').toUpperCase();
+        if (r === 'SYSTEM_ADMIN') return 'System Admin';
+        if (r === 'KM') return 'Ketua Murid';
+        if (r === 'PJ') return a.offering_name ? `PJ ${a.offering_name}` : 'PJ Mata Kuliah';
+        return a.role || 'Pengurus';
+      },
+      humanRoleSubtitle(a) {
+        if (!a) return '';
+        const r = String(a.role || '').toUpperCase();
+        if (r === 'SYSTEM_ADMIN') return 'Akses Global Sistem';
+        const rawClass = a.class_name || a.class_slug || '';
+        const formatted = this.formatRoleClass(rawClass);
+        if (formatted) return `Kelas ${formatted}`;
+        if (r === 'KM') return 'Pengelola Kelas';
+        return 'Ruang Penugasan';
+      },
+      activeRoleTitle() {
+        const asg = this.meCache?.active_assignment;
+        if (asg) return this.humanRoleTitle(asg);
+        if (role === 'km') return 'Ketua Murid';
+        if (role === 'pj') return 'PJ Mata Kuliah';
+        if (role === 'sa') return 'System Admin';
+        return 'Pengurus';
+      },
+      activeRoleSubtitle() {
+        const asg = this.meCache?.active_assignment;
+        if (asg) return this.humanRoleSubtitle(asg);
+        if (role === 'km') return (this.kmClassName && this.kmClassName() !== '-') ? `Kelas ${this.kmClassName()}` : 'Pengelola Kelas';
+        if (role === 'pj') return (this.pjClassName && this.pjClassName()) ? `Kelas ${this.pjClassName()}` : 'Ruang Penugasan';
+        if (role === 'sa') return 'Akses Global Sistem';
+        return '';
+      },
+      activeRoleKey() {
+        return (this.meCache?.active_assignment?.role || (role === 'km' ? 'KM' : role === 'pj' ? 'PJ' : 'SYSTEM_ADMIN')).toUpperCase();
+      },
+      contextLabel(a) {
+        if (!a) return '-';
+        return `${this.humanRoleTitle(a)} · ${this.humanRoleSubtitle(a)}`;
       },
       shellNavSections() { return this.navSections || []; },
       shellIdentity() {

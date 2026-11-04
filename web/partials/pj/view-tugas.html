@@ -865,24 +865,11 @@
 
             <!-- Tombol Ubah Rincian Tugas -->
             <button type="button" @click="mulaiUbahTugas()" x-show="!tugasDetail.archived_at"
-              class="min-h-[44px] h-[40px] w-full px-3.5 rounded-[10px] bg-white border border-[#CBD5E1] hover:bg-slate-50 hover:border-slate-400 text-[13px] font-semibold text-[#1D1B3A] flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#64748B]"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+              class="min-h-[44px] h-[40px] w-full px-3.5 rounded-[10px] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE] text-[13px] font-semibold text-[#1D4ED8] flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#2563EB]"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
               <span x-text="tugasDetail.publication_status === 'DRAFT' ? 'Ubah Draf Tugas' : 'Ubah Rincian Tugas'">Ubah Rincian Tugas</span>
             </button>
 
-            <!-- Tombol Tandai Selesai -->
-            <button type="button" @click="bukaModalSelesai(tugasDetail)" x-show="tugasDetail.publication_status === 'PUBLISHED' && !tugasDetail.completed_at && !tugasDetail.archived_at"
-              class="min-h-[44px] h-[40px] w-full px-3.5 rounded-[10px] bg-[#ECFDF5] border border-[#A7F3D0] hover:bg-[#D1FAE5] text-[13px] font-semibold text-[#065F46] flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#059669]"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Tandai Selesai</span>
-            </button>
-
-            <!-- Tombol Kembalikan ke Aktif (Jika selesai) -->
-            <button type="button" @click="batalkanSelesai(tugasDetail.id, tugasDetail.version)" x-show="tugasDetail.publication_status === 'PUBLISHED' && tugasDetail.completed_at && !tugasDetail.archived_at"
-              class="min-h-[44px] h-[40px] w-full px-3.5 rounded-[10px] bg-[#EFF6FF] border border-[#BFDBFE] hover:bg-[#DBEAFE] text-[13px] font-semibold text-[#1D4ED8] flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-[#2563EB]"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              <span>Kembalikan ke Aktif</span>
-            </button>
 
             <!-- Tombol Arsipkan -->
             <button type="button" @click="arsipkanTugas(tugasDetail.id, tugasDetail.version)" x-show="!tugasDetail.archived_at"

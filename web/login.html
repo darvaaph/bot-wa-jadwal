@@ -194,7 +194,7 @@
               Pilih Ruang Kerja
             </h1>
             <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
-              Akun Anda terdaftar pada beberapa peran. Pilih ruang kerja yang ingin Anda kelola:
+              Akun Anda memiliki beberapa peran aktif. Pilih ruang kerja yang ingin Anda kelola:
             </p>
           </div>
 
@@ -202,22 +202,33 @@
 
           <div class="mt-6 space-y-3">
             <template x-for="a in ruangKerja" :key="a.id">
-              <div class="p-4 rounded-[14px] border border-[#CBD5E1] bg-white hover:border-[#3965FB] transition-all">
-                <div class="flex items-center justify-between">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#E9EAFF] text-[#3965FB]" x-text="labelPeran(a.role)">-</span>
+              <div @click="pilihRuangKerja(a)"
+                   class="group relative p-4 rounded-[14px] border border-[#CBD5E1] bg-white cursor-pointer transition-all shadow-xs hover:shadow-md flex items-center gap-3.5"
+                   :class="roleCardBorderClass(a.role)">
+                <!-- Ikon Kustom Peran -->
+                <div class="w-12 h-12 rounded-[12px] flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105"
+                     :class="roleBadgeClasses(a.role)">
+                  <span x-html="roleIconSvg(a.role)"></span>
                 </div>
-                <p class="text-[14px] font-semibold text-[#1D1B3A] mt-2" x-text="deskripsiPenugasan(a)">-</p>
-                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading"
-                        class="w-full h-[40px] mt-3 rounded-[10px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
-                  <span x-show="loading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  <span>Buka Ruang Kerja</span>
-                </button>
+                <!-- Detail Peran -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[11px] font-bold tracking-wide uppercase border"
+                          :class="roleBadgeClasses(a.role)" x-text="labelPeran(a.role)"></span>
+                  </div>
+                  <p class="text-[14px] font-semibold text-[#1D1B3A] mt-1 truncate group-hover:text-primary transition-colors" x-text="deskripsiPenugasan(a)"></p>
+                </div>
+                <!-- Panah / Action Indicator -->
+                <div class="shrink-0 text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
               </div>
             </template>
           </div>
 
-          <button type="button" @click="mode = 'masuk'; formError = ''" class="w-full h-[44px] mt-4 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] text-[13px] font-semibold transition-colors">
-            Kembali ke Masuk
+          <button type="button" @click="mode = 'masuk'; formError = ''" class="w-full h-[44px] mt-5 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-50 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+            <span>Masuk dengan Nomor Lain</span>
           </button>
         </div>
       </template>

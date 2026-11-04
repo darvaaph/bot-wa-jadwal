@@ -495,7 +495,9 @@ function portalApp() {
         const y = d.getFullYear();
         const hh = String(d.getHours()).padStart(2, '0');
         const mm = String(d.getMinutes()).padStart(2, '0');
-        return `${dayName}, ${day} ${m} ${y} · ${hh}:${mm} WIB`;
+        const currentYear = new Date().getFullYear();
+        const yearPart = y !== currentYear ? ` ${y}` : '';
+        return `${dayName}, ${day} ${m}${yearPart} · ${hh}:${mm} WIB`;
       } catch (e) {
         return iso;
       }
@@ -1780,10 +1782,11 @@ function portalApp() {
             urgency: u.level, countdown: u.badge
           };
         });
+        const terlewatIds = new Set((grouped.terlewat || []).map(t => String(t.id)));
         this.tugasGrup = {
-          hari_ini: petakan(grouped.hari_ini),
-          minggu_ini: petakan(grouped.minggu_ini),
-          mendatang: petakan(grouped.mendatang),
+          hari_ini: petakan((grouped.hari_ini || []).filter(t => !terlewatIds.has(String(t.id)))),
+          minggu_ini: petakan((grouped.minggu_ini || []).filter(t => !terlewatIds.has(String(t.id)))),
+          mendatang: petakan((grouped.mendatang || []).filter(t => !terlewatIds.has(String(t.id)))),
           terlewat: petakan(grouped.terlewat)
         };
         const gabung = new Map();
@@ -1857,6 +1860,41 @@ function portalApp() {
       }
     },
 
+    cleanCourseName(name) {
+      if (!name) return '';
+      return String(name).replace(/\s*\((?:Teori|Praktikum|Praktik|Prak\.?|Lab|Pengganti)\)/gi, '').trim();
+    },
+
+    shortCourseName(name, maxLen = 17) {
+      const clean = this.cleanCourseName(name);
+      if (!clean) return '';
+      if (clean.length <= maxLen) return clean;
+      return clean.substring(0, maxLen - 1).trim() + '…';
+    },
+
+    getMateriSourceLabel(m) {
+      if (!m) return 'Tautan';
+      const url = (m.url || '').toLowerCase();
+      if (url.includes('github.com') || url.includes('github.io')) return 'GitHub';
+      if (url.includes('drive.google.com')) return 'Google Drive';
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
+      if (url.endsWith('.pdf') || url.includes('.pdf?')) return 'Dokumen PDF';
+      const type = this.getMateriType(m);
+      if (type === 'Repositori') return 'GitHub';
+      if (type === 'Video') return 'Video';
+      if (type === 'Dokumen') return 'Dokumen';
+      return 'Tautan Berkas';
+    },
+
+    getMateriOpenLabel(m) {
+      if (!m || !m.url) return 'Buka Berkas';
+      const url = m.url.toLowerCase();
+      if (url.includes('github.com') || url.includes('github.io')) return 'Buka di GitHub';
+      if (url.includes('drive.google.com')) return 'Buka di Google Drive';
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Tonton di YouTube';
+      return 'Buka Berkas';
+    },
+
     get materiCategories() {
       const all = this.materiList || [];
       const totalCount = all.length;
@@ -1868,22 +1906,25 @@ function portalApp() {
 
       const list = [
         { key: 'SEMUA', label: 'Semua Materi', shortLabel: 'Semua', count: totalCount },
-        { key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount },
       ];
+
+      if (umumCount > 0 || this.filterMateriMatkul === 'UMUM') {
+        list.push({ key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount });
+      }
 
       const foundKeys = new Set();
       const dynamicCourses = [];
 
       (this.courses || []).forEach(c => {
-        const name = (c.course_name || c.name || '').trim();
+        const name = this.cleanCourseName(c.course_name || c.name || '');
         if (name) dynamicCourses.push(name);
       });
       Object.values(this.jadwalPekan || {}).flat().forEach(s => {
-        const name = this.cleanMatkul(s.matkul || '');
+        const name = this.cleanCourseName(s.matkul || '');
         if (name) dynamicCourses.push(name);
       });
       all.forEach(m => {
-        const name = (m.course_name || '').trim();
+        const name = this.cleanCourseName(m.course_name || '');
         if (name) dynamicCourses.push(name);
       });
 
@@ -1891,13 +1932,15 @@ function portalApp() {
         const lower = cName.toLowerCase();
         if (cName && !foundKeys.has(lower) && !lower.includes('umum') && !lower.includes('silabus') && !lower.includes('rps')) {
           foundKeys.add(lower);
-          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === lower).length;
-          list.push({
-            key: cName,
-            label: cName,
-            shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
-            count,
-          });
+          const count = all.filter(item => this.cleanCourseName(item.course_name || '').toLowerCase() === lower).length;
+          if (count > 0 || this.filterMateriMatkul === cName) {
+            list.push({
+              key: cName,
+              label: cName,
+              shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
+              count,
+            });
+          }
         }
       });
 
@@ -1914,7 +1957,8 @@ function portalApp() {
           return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
         });
       } else if (filter && filter !== 'SEMUA') {
-        list = list.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
+        const target = this.cleanCourseName(filter).toLowerCase();
+        list = list.filter(m => this.cleanCourseName(m.course_name || '').toLowerCase() === target);
       }
 
       const q = (this.searchMateriQuery || '').trim().toLowerCase();
@@ -1952,7 +1996,8 @@ function portalApp() {
           return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
         });
       } else if (filter && filter !== 'SEMUA') {
-        scoped = scoped.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
+        const target = this.cleanCourseName(filter).toLowerCase();
+        scoped = scoped.filter(m => this.cleanCourseName(m.course_name || '').toLowerCase() === target);
       }
       const q = (this.searchMateriQuery || '').trim().toLowerCase();
       if (q) {
@@ -1974,16 +2019,15 @@ function portalApp() {
       const count = this.filteredMateriList.length;
       const q = (this.searchMateriQuery || '').trim();
       if (q) {
-        return `Hasil Pencarian "${q}" (${count} Berkas)`;
+        return `Hasil Pencarian "${q}" (${count})`;
       }
-      const sesiSuffix = this.filterMateriSesi === 'PRAKTIKUM' ? ' · Praktikum' : (this.filterMateriSesi === 'TEORI' ? ' · Teori' : '');
       if (this.filterMateriMatkul === 'SEMUA') {
-        return `Semua Berkas Materi${sesiSuffix} (${count} Berkas)`;
+        return `Daftar Berkas (${count})`;
       }
       if (this.filterMateriMatkul === 'UMUM') {
-        return `Umum Kelas (Silabus & RPS) (${count} Berkas)`;
+        return `Umum Kelas (${count})`;
       }
-      return `${this.filterMateriMatkul}${sesiSuffix} (${count} Berkas)`;
+      return `${this.cleanCourseName(this.filterMateriMatkul)} (${count})`;
     },
 
     getMateriActivity(m) {
@@ -2067,7 +2111,7 @@ function portalApp() {
     getMateriSubtitle(m) {
       if (!m) return '';
       if (m.subtitle_display) return m.subtitle_display;
-      const course = m.course_name || 'Umum Kelas';
+      const course = this.cleanCourseName(m.course_name) || 'Umum Kelas';
       const type = this.getMateriType(m);
       if (type === 'Video') return `${course} · Tautan Google Drive`;
       if (type === 'Repositori') return `${course} · GitHub`;
@@ -2097,13 +2141,14 @@ function portalApp() {
     getMateriModalMeta(m) {
       if (!m) return '';
       const type = this.getMateriType(m);
-      const act = this.getMateriActivity(m);
       let format = 'Dokumen PDF';
-      if (type === 'Video') format = 'Tautan Video (Google Drive)';
+      const url = (m.url || '').toLowerCase();
+      if (type === 'Video') format = url.includes('youtube') ? 'Video YouTube' : 'Rekaman Video (Google Drive)';
       else if (type === 'Repositori') format = 'Repositori Kode (GitHub)';
+      else if (type === 'Slide') format = 'Slide Presentasi';
 
-      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
-      return `Format: ${format} · Sesi: ${act} · ${uploader}`;
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ Kelas';
+      return `${format} · ${uploader}`;
     },
 
     cleanUrlDisplay(url) {

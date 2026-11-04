@@ -152,9 +152,10 @@ function pjApp() {
     },
 
     contextLabel(a) {
-      const role = String(a && a.role || '').toUpperCase();
-      const scope = a && (a.offering_name || a.class_slug) || 'Global';
-      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+      if (!a) return '-';
+      const title = typeof this.humanRoleTitle === 'function' ? this.humanRoleTitle(a) : (a.role || 'Pengurus');
+      const sub = typeof this.humanRoleSubtitle === 'function' ? this.humanRoleSubtitle(a) : (a.class_slug || '');
+      return sub ? `${title} · ${sub}` : title;
     },
 
     async switchContextById(id) {

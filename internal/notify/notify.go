@@ -147,7 +147,7 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 		if err != nil {
 			return "", err
 		}
-		if link != "" {
+		if link != "" && !strings.Contains(text, link) {
 			text += "\n\nDetail jadwal dan tugas:\n" + link
 		}
 		return text, nil
@@ -301,7 +301,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 	if classCode != "" {
 		sb.WriteString(fmt.Sprintf("Kelas: %s\n", classCode))
 	}
-	sb.WriteString("────────────────────\n")
+	sb.WriteString("─────────────────\n")
 
 	for i, t := range activeTasks {
 		actSuffix := ""
@@ -331,7 +331,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
 	}
 	if link != "" {
-		sb.WriteString("\n────────────────────\n")
+		sb.WriteString("\n─────────────────\n")
 		sb.WriteString(fmt.Sprintf("Portal Mahasiswa:\n%s", link))
 	}
 

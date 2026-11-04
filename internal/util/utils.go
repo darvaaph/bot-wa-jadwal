@@ -386,3 +386,116 @@ func FindDataDir(targetPath string) string {
 
 	return targetPath
 }
+
+// FormatClassShort menyusun label nama kelas yang ringkas untuk pesan WhatsApp (contoh: "D4-TI 2A").
+func FormatClassShort(code string, cohortYear int, groupLabel string, academicYear string) string {
+	if code == "" {
+		return ""
+	}
+	prefix := "TI"
+	parts := strings.Split(code, "-")
+	if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+		prefix = parts[0] + "-" + parts[1]
+	} else if strings.HasPrefix(code, "D4") {
+		prefix = "D4-TI"
+	} else if strings.HasPrefix(code, "D3") {
+		prefix = "D3-TI"
+	}
+
+	group := strings.ToUpper(strings.TrimSpace(groupLabel))
+	if group == "" {
+		if len(parts) > 0 {
+			group = strings.ToUpper(parts[len(parts)-1])
+		}
+	}
+
+	var startYear int
+	if academicYear != "" {
+		parts := strings.Split(academicYear, "/")
+		if len(parts) > 0 {
+			startYear, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
+		}
+	}
+	if startYear == 0 {
+		startYear = time.Now().Year()
+	}
+
+	if cohortYear > 0 && group != "" {
+		tingkat := startYear - cohortYear + 1
+		if tingkat >= 1 && tingkat <= 5 {
+			return fmt.Sprintf("%s %d%s", prefix, tingkat, group)
+		}
+		return fmt.Sprintf("%s %s", prefix, group)
+	}
+
+	return code
+}
+
+// FormatClassDisplayName menghasilkan nama kelas panjang yang formal (contoh: "D4 TEKNIK INFORMATIKA 2A (Angkatan 2025)").
+func FormatClassDisplayName(code, studyProgram string, cohortYear int, groupLabel string, academicYear string) string {
+	if code == "" {
+		return ""
+	}
+	prodi := strings.ToUpper(strings.TrimSpace(studyProgram))
+	if prodi == "" {
+		parts := strings.Split(code, "-")
+		if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+			if parts[1] == "TI" {
+				prodi = parts[0] + " TEKNIK INFORMATIKA"
+			} else {
+				prodi = parts[0] + " " + parts[1]
+			}
+		} else if strings.HasPrefix(code, "D4") {
+			prodi = "D4 TEKNIK INFORMATIKA"
+		} else if strings.HasPrefix(code, "D3") {
+			prodi = "D3 TEKNIK INFORMATIKA"
+		} else {
+			return code
+		}
+	} else {
+		hasLevelPrefix := strings.HasPrefix(prodi, "D4") || strings.HasPrefix(prodi, "D3") ||
+			strings.HasPrefix(prodi, "D2") || strings.HasPrefix(prodi, "D1") ||
+			strings.HasPrefix(prodi, "S1") || strings.HasPrefix(prodi, "S2")
+		if !hasLevelPrefix {
+			parts := strings.Split(code, "-")
+			if len(parts) > 0 {
+				codePrefix := strings.ToUpper(parts[0])
+				if strings.HasPrefix(codePrefix, "D") || strings.HasPrefix(codePrefix, "S") {
+					prodi = codePrefix + " " + prodi
+				}
+			}
+		}
+	}
+
+	group := strings.ToUpper(strings.TrimSpace(groupLabel))
+	if group == "" {
+		parts := strings.Split(code, "-")
+		if len(parts) > 0 {
+			last := parts[len(parts)-1]
+			if len(last) == 1 {
+				group = strings.ToUpper(last)
+			}
+		}
+	}
+
+	var startYear int
+	if academicYear != "" {
+		parts := strings.Split(academicYear, "/")
+		if len(parts) > 0 {
+			startYear, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
+		}
+	}
+	if startYear == 0 {
+		startYear = time.Now().Year()
+	}
+
+	if cohortYear > 0 && group != "" {
+		tingkat := startYear - cohortYear + 1
+		if tingkat >= 1 && tingkat <= 5 {
+			return fmt.Sprintf("%s %d%s (Angkatan %d)", prodi, tingkat, group, cohortYear)
+		}
+		return fmt.Sprintf("%s Kelas %s (Angkatan %d)", prodi, group, cohortYear)
+	}
+
+	return code
+}

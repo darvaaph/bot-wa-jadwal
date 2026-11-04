@@ -200,9 +200,21 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		}
 	}
 
+	className := getString("class_name")
+	if className == "" {
+		className = getString("class_code")
+	}
+
+	withHeader := func(title string) string {
+		if className != "" {
+			return fmt.Sprintf("*%s • %s*\n─────────────────\n", title, className)
+		}
+		return fmt.Sprintf("*%s*\n─────────────────\n", title)
+	}
+
 	switch strings.ToUpper(eventType) {
 	case "ACADEMIC_RESTORE_CORRECTION":
-		return fmt.Sprintf("*KOREKSI INFORMASI AKADEMIK*\n────────────────────\nData akademik kelas telah dipulihkan. Jadwal, tugas, dan materi yang berlaku dapat dilihat kembali di Web Jadwal & Tugas Kelas.\n\n- Alasan: %s\n\n_Lihat selengkapnya melalui Web Jadwal Kelas:_\n%s", getString("reason"), portalURL)
+		return fmt.Sprintf("%sData akademik kelas telah dipulihkan. Jadwal, tugas, dan materi yang berlaku dapat dilihat kembali di Web Jadwal & Tugas Kelas.\n\n- Alasan: %s\n\nDetail lengkap:\n%s", withHeader("KOREKSI INFORMASI AKADEMIK"), getString("reason"), portalURL)
 
 	case "TASK_PUBLISHED":
 		course := getString("course")
@@ -212,10 +224,20 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		title := getString("title")
 		deadline := getString("deadline")
 		instructions := getString("instructions")
-		url := getString("submission_url")
+		subText := getString("submission_text")
+		if subText == "" {
+			candidate := getString("submission_url")
+			if candidate == "" {
+				candidate = getString("submission")
+			}
+			// Hanya gunakan jika bukan URL mentah
+			if !strings.HasPrefix(strings.ToLower(candidate), "http://") && !strings.HasPrefix(strings.ToLower(candidate), "https://") {
+				subText = candidate
+			}
+		}
 
 		var b strings.Builder
-		b.WriteString("*TUGAS BARU DITERBITKAN*\n────────────────────\n")
+		b.WriteString(withHeader("TUGAS BARU DITERBITKAN"))
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
@@ -223,15 +245,16 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			b.WriteString(fmt.Sprintf("- Judul: %s\n", title))
 		}
 		if deadline != "" {
-			b.WriteString(fmt.Sprintf("- Tenggat Waktu: %s\n", deadline))
+			b.WriteString(fmt.Sprintf("- Tenggat: %s\n", deadline))
 		}
-		if instructions != "" {
-			b.WriteString(fmt.Sprintf("- Instruksi: %s\n", instructions))
+		if subText != "" {
+			b.WriteString(fmt.Sprintf("- Pengumpulan: %s\n", subText))
 		}
-		if url != "" {
-			b.WriteString(fmt.Sprintf("- Pengumpulan: %s\n", url))
+		// Catatan ringkas hanya jika 1 baris dan singkat
+		if instructions != "" && !strings.Contains(instructions, "\n") && len(instructions) <= 80 {
+			b.WriteString(fmt.Sprintf("- Catatan: %s\n", instructions))
 		}
-		b.WriteString(fmt.Sprintf("\n_Lihat selengkapnya melalui Web Jadwal Kelas:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail instruksi & lampiran lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "TASK_UPDATED":
@@ -240,7 +263,7 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		deadline := getString("deadline")
 
 		var b strings.Builder
-		b.WriteString("*PEMBARUAN INFORMASI TUGAS*\n────────────────────\n")
+		b.WriteString(withHeader("PEMBARUAN TUGAS"))
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
@@ -250,7 +273,7 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		if deadline != "" {
 			b.WriteString(fmt.Sprintf("- Tenggat Baru: %s\n", deadline))
 		}
-		b.WriteString(fmt.Sprintf("\n_Lihat selengkapnya melalui Web Jadwal Kelas:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail instruksi & lampiran lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "SCHEDULE_REPLACEMENT", "TEACHING_EVENT_PUBLISHED":
@@ -262,9 +285,9 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		var b strings.Builder
 		kind := getString("event_kind")
 		if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
-			b.WriteString("*PENGUMUMAN UJIAN [" + strings.TrimPrefix(kind, "EXAM_") + "]*\n────────────────────\n")
+			b.WriteString(withHeader("PENGUMUMAN UJIAN [" + strings.TrimPrefix(kind, "EXAM_") + "]"))
 		} else {
-			b.WriteString("*PENGUMUMAN KULIAH PENGGANTI*\n────────────────────\n")
+			b.WriteString(withHeader("PENGUMUMAN KULIAH PENGGANTI"))
 		}
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
@@ -273,12 +296,12 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			b.WriteString(fmt.Sprintf("- Waktu Pelaksanaan: %s\n", startsAt))
 		}
 		if room != "" {
-			b.WriteString(fmt.Sprintf("- Ruangan: %s\n", room))
+			b.WriteString(fmt.Sprintf("- Ruang: %s\n", room))
 		}
 		if reason != "" {
 			b.WriteString(fmt.Sprintf("- Keterangan: %s\n", reason))
 		}
-		b.WriteString(fmt.Sprintf("\n_Jadwal efektif perkuliahan telah diperbarui di Web Jadwal Kelas:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail jadwal lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "SCHEDULE_REVOKED", "TEACHING_EVENT_REVOKED":
@@ -286,14 +309,14 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		reason := getString("reason")
 
 		var b strings.Builder
-		b.WriteString("*PEMBATALAN KULIAH PENGGANTI*\n────────────────────\n")
+		b.WriteString(withHeader("PEMBATALAN KULIAH PENGGANTI"))
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
 		if reason != "" {
 			b.WriteString(fmt.Sprintf("- Alasan: %s\n", reason))
 		}
-		b.WriteString(fmt.Sprintf("\n_Perkuliahan pengganti dibatalkan. Jadwal kembali mengikuti pola perkuliahan reguler:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nJadwal kembali mengikuti pola perkuliahan reguler:\n%s", portalURL))
 		return b.String()
 
 	default:
@@ -302,8 +325,8 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			msg = getString("text")
 		}
 		if msg != "" {
-			return fmt.Sprintf("*PENGUMUMAN KELAS*\n────────────────────\n%s\n\n_Lihat selengkapnya melalui Web Jadwal Kelas:_\n%s", msg, portalURL)
+			return fmt.Sprintf("%s%s\n\nDetail lengkap:\n%s", withHeader("PENGUMUMAN KELAS"), msg, portalURL)
 		}
-		return fmt.Sprintf("*PEMBERITAHUAN KELAS (%s)*\n────────────────────\nSilakan cek Web Jadwal Kelas untuk informasi terbaru:\n%s", eventType, portalURL)
+		return fmt.Sprintf("%sSilakan cek Web Portal untuk informasi terbaru:\n%s", withHeader(fmt.Sprintf("PEMBERITAHUAN KELAS (%s)", eventType)), portalURL)
 	}
 }

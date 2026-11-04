@@ -814,16 +814,19 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var currentVersion int
-	var currentPubStatus string
-	var classID int64
+	var (
+		currentVersion   int
+		currentPubStatus string
+		currentRevState  string
+		classID          int64
+	)
 	err := c.db.QueryRow(`
-		SELECT t.version, t.publication_status, sem.class_id
+		SELECT t.version, t.publication_status, t.review_state, sem.class_id
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE t.id = ? AND t.deleted_at IS NULL;
-	`, taskID).Scan(&currentVersion, &currentPubStatus, &classID)
+	`, taskID).Scan(&currentVersion, &currentPubStatus, &currentRevState, &classID)
 
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Tugas tidak ditemukan")
@@ -889,11 +892,33 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var existingReviewID int64
+	errReview := tx.QueryRow(`
+		SELECT id FROM task_reviews
+		WHERE task_id = ? AND task_version = ? AND decision = ? AND reviewer_role_assignment_id = ?
+	`, taskID, currentVersion, decision, u.ActiveAssignmentID).Scan(&existingReviewID)
+	if errReview == nil {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Keputusan pemeriksaan untuk versi tugas ini sudah pernah dicatat", map[string]any{
+			"current_version": currentVersion,
+			"current_data": map[string]any{
+				"publication_status": currentPubStatus,
+				"review_state":       currentRevState,
+			},
+		})
+		return
+	}
+
 	_, err = tx.Exec(`
 		INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`, taskID, u.UserID, u.ActiveAssignmentID, currentVersion, decision, req.Note)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Keputusan pemeriksaan untuk versi tugas ini sudah pernah dicatat", map[string]any{
+				"current_version": currentVersion,
+			})
+			return
+		}
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan catatan review")
 		return
 	}

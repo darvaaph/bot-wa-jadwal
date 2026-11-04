@@ -311,7 +311,7 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetTasks gagal: %v", err)
 	}
-	if !strings.Contains(respTasks, "Tugas Algoritma 1") || !strings.Contains(respTasks, "#1") {
+	if !strings.Contains(respTasks, "Tugas Algoritma 1") {
 		t.Errorf("Output GetTasks tidak sesuai: %s", respTasks)
 	}
 
@@ -346,6 +346,53 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	}
 	if !strings.Contains(respLinks, "Slide Pertemuan 1") || !strings.Contains(respLinks, "https://drive.google.com/test") {
 		t.Errorf("Output GetLinks tidak sesuai: %s", respLinks)
+	}
+}
+
+func TestV1BotService_Tasks_ExcludesPastDeadline(t *testing.T) {
+	svc := setupTestV1DB(t)
+	ctx := context.Background()
+
+	// Tugas yang sudah lewat tenggat (2 jam yang lalu)
+	dlPast := time.Now().Add(-2 * time.Hour).Format(time.RFC3339)
+	_, err := svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Kadaluarsa', 'Sudah lewat tenggat', ?,
+		          'Kumpul di Kelas', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dlPast)
+	if err != nil {
+		t.Fatalf("Insert past task gagal: %v", err)
+	}
+
+	// Tugas yang masih aktif (24 jam ke depan)
+	dlFuture := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Aktif Masa Depan', 'Masih berlaku', ?,
+		          'Kumpul di Portal', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dlFuture)
+	if err != nil {
+		t.Fatalf("Insert future task gagal: %v", err)
+	}
+
+	resp, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks gagal: %v", err)
+	}
+
+	if strings.Contains(resp, "Tugas Kadaluarsa") {
+		t.Errorf("Tugas yang sudah lewat tenggat seharusnya tidak dimunculkan di WhatsApp: %s", resp)
+	}
+	if !strings.Contains(resp, "Tugas Aktif Masa Depan") {
+		t.Errorf("Tugas yang masih aktif harus dimunculkan di WhatsApp: %s", resp)
 	}
 }
 
@@ -436,7 +483,7 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(respTasks, "- ID Tugas:") || !strings.Contains(respTasks, "- Tenggat :") {
+	if !strings.Contains(respTasks, "- Matkul:") || !strings.Contains(respTasks, "- Tenggat:") {
 		t.Errorf("Output GetTasks harus memuat format bullet strip (-): %s", respTasks)
 	}
 }

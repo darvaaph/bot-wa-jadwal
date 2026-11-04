@@ -85,9 +85,10 @@ function kmApp() {
     },
 
     contextLabel(a) {
-      const role = String(a && a.role || '').toUpperCase();
-      const scope = a && (a.offering_name || a.class_slug) || 'Global';
-      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+      if (!a) return '-';
+      const title = typeof this.humanRoleTitle === 'function' ? this.humanRoleTitle(a) : (a.role || 'Pengurus');
+      const sub = typeof this.humanRoleSubtitle === 'function' ? this.humanRoleSubtitle(a) : (a.class_slug || '');
+      return sub ? `${title} · ${sub}` : title;
     },
 
     async switchContextById(id) {
@@ -3133,6 +3134,10 @@ function kmApp() {
 
     bukaModalSetujui(task) {
       if (!task) return;
+      if (String(task.review_state || '').toUpperCase() === 'APPROVED') {
+        this.showToast('Tugas versi ini sudah disetujui sebelumnya.');
+        return;
+      }
       this.modalSetujui = {
         open: true,
         task: task,
@@ -3160,8 +3165,10 @@ function kmApp() {
         await API.reviewTask(task.id, {
           decision: 'APPROVED',
           task_version: version,
+          note: (this.reviewNote || '').trim() || undefined,
           broadcast_whatsapp: this.modalSetujui.broadcastWA
         });
+        this.reviewNote = '';
         this.modalSetujui.open = false;
         this.modalSetujui.task = null;
         await this.loadTasks();
@@ -3171,7 +3178,7 @@ function kmApp() {
         }
       } catch (err) {
         if (err.code === 'VERSION_CONFLICT') {
-          this.modalSetujui.error = 'Versi tugas telah berubah. Muat ulang untuk melihat data terbaru.';
+          this.modalSetujui.error = err.message || 'Versi tugas telah berubah atau sudah disetujui sebelumnya. Muat ulang untuk melihat data terbaru.';
           await this.loadTasks();
         } else {
           this.modalSetujui.error = err.message || 'Gagal menyetujui tugas.';
@@ -3321,6 +3328,10 @@ function kmApp() {
       const d = this.tugasDetail;
       if (!d) return;
       if (decision === 'APPROVED') {
+        if (String(d.review_state || '').toUpperCase() === 'APPROVED') {
+          this.showToast('Tugas versi ini sudah disetujui sebelumnya.');
+          return;
+        }
         this.bukaModalSetujui(d);
         return;
       }
