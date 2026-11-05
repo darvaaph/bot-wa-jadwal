@@ -340,13 +340,38 @@ function portalApp() {
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')))[0] || null;
     },
 
+    isTaskOverdue(t) {
+      if (!t) return false;
+      if (t.countdown === 'Terlewat') return true;
+      if (!t.deadline_at) return false;
+      try {
+        const time = new Date(t.deadline_at).getTime();
+        return !isNaN(time) && time < Date.now();
+      } catch (e) {
+        return false;
+      }
+    },
+
     get withUrgency() {
       const rank = { mendesak: 0, mendekati: 1, aman: 2 };
-      return [...this.tasks].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));
+      return (this.tasks || [])
+        .filter(t => !t.is_completed && !t.completed_at && !this.isTaskOverdue(t))
+        .slice()
+        .sort((a, b) => {
+          const rDiff = (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2);
+          if (rDiff !== 0) return rDiff;
+          const aTime = a.deadline_at ? new Date(a.deadline_at).getTime() : Infinity;
+          const bTime = b.deadline_at ? new Date(b.deadline_at).getTime() : Infinity;
+          return aTime - bTime;
+        });
     },
 
     get urgent3() { return this.withUrgency.slice(0, 3); },
-    get nearCount() { return this.tasks.filter(t => t.urgency !== 'aman').length; },
+    get nearCount() {
+      return (this.tasks || [])
+        .filter(t => !t.is_completed && !t.completed_at && !this.isTaskOverdue(t) && t.urgency !== 'aman')
+        .length;
+    },
 
     get matkulOpts() {
       const dariTugas = (this.tasks || []).map(t => t.matkul).filter(Boolean);
@@ -539,7 +564,7 @@ function portalApp() {
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
         if (diffMs < 0) {
-          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+          return { bg: 'bg-[#FEF2F2]', text: 'text-[#B91C1C]', dot: 'bg-[#EF4444]' };
         }
         if (diffHours <= 24) {
           return { bg: 'bg-[#FEF2F2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' };
@@ -1870,6 +1895,18 @@ function portalApp() {
       if (!clean) return '';
       if (clean.length <= maxLen) return clean;
       return clean.substring(0, maxLen - 1).trim() + '…';
+    },
+
+    formatInstructions(text) {
+      if (!text) return 'Tidak ada instruksi khusus tertulis untuk tugas ini.';
+      const div = document.createElement('div');
+      div.textContent = text;
+      let escaped = div.innerHTML;
+
+      const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+      return escaped.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium hover:text-blue-800 break-all cursor-pointer">${url}</a>`;
+      });
     },
 
     getMateriSourceLabel(m) {
