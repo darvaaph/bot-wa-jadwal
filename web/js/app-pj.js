@@ -338,16 +338,24 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d)) return 'Aktif';
         const now = new Date();
-        const diffH = Math.round((d - now) / 3600000);
-        if (diffH < 0) {
-          const daysOver = Math.abs(Math.floor(diffH / 24));
-          return daysOver > 0 ? `Terlewat ${daysOver} Hari` : `Terlewat ${Math.abs(diffH)} Jam`;
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0) {
+          const absHours = Math.floor(Math.abs(diffMs) / 3600000);
+          if (absHours < 24) return `Terlewat ${Math.max(1, absHours)} Jam`;
+          const daysOver = Math.max(1, Math.abs(calDays));
+          return `Terlewat ${daysOver} Hari`;
         }
-        if (diffH < 48) {
+        if (calDays <= 0) {
+          const diffH = Math.floor(diffMs / 3600000);
+          if (diffH < 1) {
+            const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+            return `Sisa ${diffMin} Menit`;
+          }
           return `Sisa ${diffH} Jam`;
         }
-        const days = Math.round(diffH / 24);
-        return `Sisa ${days} Hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} Hari`;
       } catch (e) {
         return 'Aktif';
       }
@@ -359,9 +367,11 @@ function pjApp() {
       try {
         const d = new Date(t.deadline_at);
         if (isNaN(d)) return 'bg-slate-100 text-slate-700 border-slate-200';
-        const diffH = (d - new Date()) / 3600000;
-        if (diffH < 0) return 'bg-rose-50 text-rose-800 border-rose-200';
-        if (diffH < 48) return 'bg-amber-50 text-amber-900 border-amber-200';
+        const now = new Date();
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0 || calDays <= 0) return 'bg-rose-50 text-rose-800 border-rose-200';
+        if (calDays <= 3) return 'bg-amber-50 text-amber-900 border-amber-200';
         return 'bg-slate-100 text-slate-700 border-slate-200';
       } catch (e) {
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -374,10 +384,7 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d)) return String(iso);
         const now = new Date();
-        const isToday = d.toDateString() === now.toDateString();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         const datePart = d.toLocaleDateString('id-ID', {
           timeZone: 'Asia/Jakarta',
@@ -392,8 +399,8 @@ function pjApp() {
         }).replace('.', ':') + ' WIB';
 
         let prefix = '';
-        if (isToday) prefix = 'Hari ini, ';
-        else if (isTomorrow) prefix = 'Besok, ';
+        if (calDays === 0) prefix = 'Hari ini, ';
+        else if (calDays === 1) prefix = 'Besok, ';
 
         return `${prefix}${datePart} · ${timePart}`;
       } catch (e) {
@@ -459,10 +466,8 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return String(iso);
         const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        const isToday = d.toDateString() === now.toDateString();
-        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        const parts = DateUtil.wibParts(d);
         const timePart = d.toLocaleTimeString('id-ID', {
           timeZone: 'Asia/Jakarta',
           hour: '2-digit',
@@ -471,8 +476,11 @@ function pjApp() {
         }).replace('.', ':') + ' WIB';
         const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const dayName = isToday ? 'Hari ini' : (isTomorrow ? 'Besok' : dayNames[d.getDay()]);
-        const datePart = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+        const dayIdx = parts ? parts.day : d.getDay();
+        const dateNum = parts ? parts.date : d.getDate();
+        const monthIdx = parts ? parts.month : d.getMonth();
+        const dayName = calDays === 0 ? 'Hari ini' : (calDays === 1 ? 'Besok' : dayNames[dayIdx]);
+        const datePart = `${dateNum} ${monthNames[monthIdx]}`;
         return `${dayName}, ${datePart} · ${timePart}`;
       } catch (e) {
         return String(iso);
@@ -485,14 +493,19 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return 'Aktif';
         const now = new Date();
-        const diffH = (d - now) / 3600000;
-        if (diffH < 0) return 'Terlewat';
-        if (diffH <= 48) {
-          const jam = Math.max(1, Math.round(diffH));
-          return `Sisa ${jam} jam`;
+        const diffMs = d.getTime() - now.getTime();
+        if (diffMs < 0) return 'Terlewat';
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (calDays <= 0) {
+          const diffHours = Math.floor(diffMs / 3600000);
+          if (diffHours < 1) {
+            const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+            return `Sisa ${diffMinutes} menit`;
+          }
+          return `Sisa ${diffHours} jam`;
         }
-        const hari = Math.round(diffH / 24);
-        return `Sisa ${hari} hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} hari`;
       } catch (e) {
         return 'Aktif';
       }
@@ -504,11 +517,12 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
         const now = new Date();
-        const diffH = (d - now) / 3600000;
-        if (diffH <= 28) {
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0 || calDays <= 0) {
           return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
         }
-        if (diffH <= 72) {
+        if (calDays <= 3) {
           return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#D97706]' };
         }
         return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
@@ -2505,16 +2519,27 @@ function pjApp() {
       if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
       const d = new Date(deadlineAt);
       if (isNaN(d)) return { text: '—', class: 'bg-slate-100 text-slate-700' };
-      const diffMs = d.getTime() - Date.now();
-      const diffH = Math.round(diffMs / (1000 * 60 * 60));
+      const now = new Date();
+      const diffMs = d.getTime() - now.getTime();
       if (diffMs < 0) {
         return { text: 'Terlewat', class: 'bg-rose-50 text-rose-700 border border-rose-200' };
       }
-      if (diffH <= 48) {
-        return { text: `Sisa ${diffH} Jam`, class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+      if (calDays <= 0) {
+        const diffH = Math.floor(diffMs / 3600000);
+        if (diffH < 1) {
+          const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+          return { text: `Sisa ${diffMin} Menit`, class: 'bg-rose-50 text-rose-700 border border-rose-200' };
+        }
+        return { text: `Sisa ${diffH} Jam`, class: 'bg-rose-50 text-rose-700 border border-rose-200' };
       }
-      const diffDays = Math.ceil(diffH / 24);
-      return { text: `Sisa ${diffDays} Hari`, class: 'bg-emerald-50 text-emerald-800 border border-emerald-200' };
+      if (calDays === 1) {
+        return { text: 'Besok', class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      }
+      if (calDays <= 3) {
+        return { text: `Sisa ${calDays} Hari`, class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      }
+      return { text: `Sisa ${calDays} Hari`, class: 'bg-emerald-50 text-emerald-800 border border-emerald-200' };
     },
 
     waktuRelatif(iso) {
@@ -2996,10 +3021,14 @@ function pjApp() {
             if (target < new Date(now.getTime() - 86400000)) target.setFullYear(target.getFullYear() + 1);
           }
         }
-        const diffH = (target - now) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+        const diffMs = target.getTime() - now.getTime();
+        if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+        const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const targetMid = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+        const calDays = Math.round((targetMid - nowMid) / 86400000);
+        if (calDays <= 0) return { level: 'mendesak', badge: 'Hari ini' };
+        if (calDays === 1) return { level: 'mendekati', badge: 'Besok' };
+        if (calDays <= 3) return { level: 'mendekati', badge: `H-${calDays}` };
         return { level: 'aman', badge: 'Aktif' };
       } catch (e) {
         return { level: 'aman', badge: 'Aktif' };

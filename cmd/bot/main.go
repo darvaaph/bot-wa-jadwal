@@ -188,7 +188,7 @@ func main() {
 			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
 			notifService := notify.NewService(v1DB)
 			v1BotService := bot.NewV1BotService(v1DB)
-			notifService.SetDailyTextBuilder(v1BotService.GetSchedule)
+			notifService.SetDailyTextBuilder(v1BotService.GetDailySummary)
 			notifWorker.SetScheduleService(notifService)
 			notifWorker.Start()
 		}

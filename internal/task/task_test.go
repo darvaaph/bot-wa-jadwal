@@ -475,3 +475,27 @@ func TestHandleCommand_V3PublishedReads(t *testing.T) {
 		t.Errorf("Expected completed v3 task in history, got:\n%s", historyReply)
 	}
 }
+
+func TestGetUrgencyBadge_CalendarDays(t *testing.T) {
+	wib := time.FixedZone("WIB", 7*3600)
+	// Minggu, 8 Nov 2026 19:55 WIB
+	now := time.Date(2026, 11, 8, 19, 55, 0, 0, wib)
+
+	// Selasa, 10 Nov 2026 13:00 WIB (selisih ~41 jam, tapi beda 2 hari kalender)
+	tue := time.Date(2026, 11, 10, 13, 0, 0, 0, wib)
+	if got := GetUrgencyBadge(tue, now); !strings.Contains(got, "*H-2* (2 hari lagi)") {
+		t.Errorf("Expected *H-2* (2 hari lagi) for Tuesday 10 Nov 13:00 from Sunday 8 Nov 19:55, got: %s", got)
+	}
+
+	// Rabu, 11 Nov 2026 13:00 WIB (selisih ~65 jam, tapi beda 3 hari kalender)
+	wed := time.Date(2026, 11, 11, 13, 0, 0, 0, wib)
+	if got := GetUrgencyBadge(wed, now); !strings.Contains(got, "*H-3* (3 hari lagi)") {
+		t.Errorf("Expected *H-3* (3 hari lagi) for Wednesday 11 Nov 13:00 from Sunday 8 Nov 19:55, got: %s", got)
+	}
+
+	// Senin, 9 Nov 2026 08:00 WIB (selisih ~12 jam, beda 1 hari kalender -> Besok)
+	mon := time.Date(2026, 11, 9, 8, 0, 0, 0, wib)
+	if got := GetUrgencyBadge(mon, now); !strings.Contains(got, "DEADLINE BESOK (H-1)") {
+		t.Errorf("Expected DEADLINE BESOK (H-1) for Monday 9 Nov 08:00 from Sunday 8 Nov 19:55, got: %s", got)
+	}
+}

@@ -512,15 +512,17 @@ function portalApp() {
       try {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return iso;
+        const parts = DateUtil.wibParts(d);
+        const nowParts = DateUtil.wibParts(new Date());
         const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const dayName = days[d.getDay()];
-        const day = d.getDate();
-        const m = months[d.getMonth()];
-        const y = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        const currentYear = new Date().getFullYear();
+        const dayName = days[parts ? parts.day : d.getDay()];
+        const day = parts ? parts.date : d.getDate();
+        const m = months[parts ? parts.month : d.getMonth()];
+        const y = parts ? parts.year : d.getFullYear();
+        const hh = String(parts ? parts.hours : d.getHours()).padStart(2, '0');
+        const mm = String(parts ? parts.minutes : d.getMinutes()).padStart(2, '0');
+        const currentYear = nowParts ? nowParts.year : new Date().getFullYear();
         const yearPart = y !== currentYear ? ` ${y}` : '';
         return `${dayName}, ${day} ${m}${yearPart} · ${hh}:${mm} WIB`;
       } catch (e) {
@@ -531,25 +533,29 @@ function portalApp() {
     deadlineRelative(iso) {
       if (!iso) return '-';
       try {
-        const target = new Date(iso).getTime();
-        const now = Date.now();
-        const diffMs = target - now;
+        const d = new Date(iso);
+        const target = d.getTime();
+        if (isNaN(target)) return '-';
+        const now = new Date();
+        const diffMs = target - now.getTime();
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffHours / 24);
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         if (diffMs < 0) {
-          const absHours = Math.abs(diffHours);
-          if (absHours < 24) return `Terlewat ${absHours} jam`;
-          const absDays = Math.abs(diffDays);
+          const absHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+          if (absHours < 24) return `Terlewat ${Math.max(1, absHours)} jam`;
+          const absDays = Math.max(1, Math.abs(calDays));
           return `Terlewat ${absDays} hari`;
         }
-        if (diffHours < 1) {
-          const diffMinutes = Math.floor(diffMs / (1000 * 60));
-          return `Sisa ${Math.max(1, diffMinutes)} menit`;
+        if (calDays <= 0) {
+          if (diffHours < 1) {
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            return `Sisa ${Math.max(1, diffMinutes)} menit`;
+          }
+          return `Sisa ${diffHours} jam`;
         }
-        if (diffHours < 24) return `Sisa ${diffHours} jam`;
-        if (diffDays === 1) return 'Besok';
-        return `Sisa ${diffDays} hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} hari`;
       } catch (e) {
         return '-';
       }
@@ -558,18 +564,20 @@ function portalApp() {
     urgencyStyle(iso) {
       if (!iso) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
       try {
-        const target = new Date(iso).getTime();
-        const now = Date.now();
-        const diffMs = target - now;
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const d = new Date(iso);
+        const target = d.getTime();
+        if (isNaN(target)) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+        const now = new Date();
+        const diffMs = target - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         if (diffMs < 0) {
           return { bg: 'bg-[#FEF2F2]', text: 'text-[#B91C1C]', dot: 'bg-[#EF4444]' };
         }
-        if (diffHours <= 24) {
+        if (calDays <= 0) {
           return { bg: 'bg-[#FEF2F2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' };
         }
-        if (diffHours <= 72) {
+        if (calDays <= 3) {
           return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#F59E0B]' };
         }
         return { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', dot: 'bg-[#16A34A]' };
@@ -2360,10 +2368,14 @@ function portalApp() {
             if (target < new Date(now.getTime() - 86400000)) target.setFullYear(target.getFullYear() + 1);
           }
         }
-        const diffH = (target - now) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+        const diffMs = target.getTime() - now.getTime();
+        if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+        const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const targetMid = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+        const calDays = Math.round((targetMid - nowMid) / 86400000);
+        if (calDays <= 0) return { level: 'mendesak', badge: 'Hari ini' };
+        if (calDays === 1) return { level: 'mendekati', badge: 'Besok' };
+        if (calDays <= 3) return { level: 'mendekati', badge: `H-${calDays}` };
         return { level: 'aman', badge: 'Aktif' };
       } catch (e) {
         return { level: 'aman', badge: 'Aktif' };

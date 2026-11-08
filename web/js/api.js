@@ -73,6 +73,29 @@ const DateUtil = {
     }
   },
 
+  wibParts(dateInput) {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return null;
+    const wib = new Date(d.getTime() + 7 * 3600000);
+    return {
+      year: wib.getUTCFullYear(),
+      month: wib.getUTCMonth(),
+      date: wib.getUTCDate(),
+      day: wib.getUTCDay(),
+      hours: wib.getUTCHours(),
+      minutes: wib.getUTCMinutes()
+    };
+  },
+
+  wibCalendarDaysDiff(targetDateInput, nowDateInput) {
+    const target = this.wibParts(targetDateInput);
+    const now = this.wibParts(nowDateInput !== undefined ? nowDateInput : new Date());
+    if (!target || !now) return NaN;
+    const targetMidnight = Date.UTC(target.year, target.month, target.date);
+    const nowMidnight = Date.UTC(now.year, now.month, now.date);
+    return Math.round((targetMidnight - nowMidnight) / 86400000);
+  },
+
   waktuDeadline(iso) {
     if (!iso) return NaN;
     const t = new Date(iso).getTime();
@@ -89,26 +112,18 @@ const DateUtil = {
       const diffH = diffMs / 3600000;
       if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
 
-      const isToday = d.getFullYear() === now.getFullYear() &&
-                      d.getMonth() === now.getMonth() &&
-                      d.getDate() === now.getDate();
-      if (isToday) {
+      const calDays = this.wibCalendarDaysDiff(d, now);
+      if (calDays <= 0) {
         const hours = Math.floor(diffH);
         if (hours > 0) return { level: 'mendesak', badge: `Hari ini (~${hours} jam)` };
         const mins = Math.max(1, Math.floor(diffMs / 60000));
         return { level: 'mendesak', badge: `Hari ini (~${mins} menit)` };
       }
 
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      const isTomorrow = d.getFullYear() === tomorrow.getFullYear() &&
-                         d.getMonth() === tomorrow.getMonth() &&
-                         d.getDate() === tomorrow.getDate();
-      if (isTomorrow) return { level: 'mendekati', badge: 'Besok (H-1)' };
+      if (calDays === 1) return { level: 'mendekati', badge: 'Besok (H-1)' };
 
-      const days = Math.ceil(diffH / 24);
-      if (days <= 3) return { level: 'mendekati', badge: `Sisa ${days} hari` };
-      return { level: 'aman', badge: `${days} hari lagi` };
+      if (calDays <= 3) return { level: 'mendekati', badge: `Sisa ${calDays} hari` };
+      return { level: 'aman', badge: `${calDays} hari lagi` };
     } catch (e) {
       return { level: 'aman', badge: 'Aktif' };
     }

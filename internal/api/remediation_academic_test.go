@@ -105,7 +105,8 @@ func TestRemediation_TaskOutboxFailureRollsBackAndEditSupersedes(t *testing.T) {
 	if _, err := db.Exec(`CREATE TRIGGER fail_outbox BEFORE INSERT ON notification_messages BEGIN SELECT RAISE(ABORT,'injected outbox failure'); END;`); err != nil {
 		t.Fatal(err)
 	}
-	w := remediationRequest(s, "PATCH", "/api/v1/tasks/1", token, map[string]any{"version": 1, "title": "Must rollback"})
+	// Penarikan publikasi (DRAFT) menulis TASK_REVOKED ke outbox; jika outbox gagal harus rollback
+	w := remediationRequest(s, "PATCH", "/api/v1/tasks/1", token, map[string]any{"version": 1, "save_as": "draft"})
 	if w.Code != 500 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -116,6 +117,10 @@ func TestRemediation_TaskOutboxFailureRollsBackAndEditSupersedes(t *testing.T) {
 		t.Fatal("partial commit", version, audits)
 	}
 	db.Exec(`DROP TRIGGER fail_outbox`)
+	// Masukkan notifikasi PENDING lama untuk menguji bahwa edit tugas mensupersede notifikasi lama
+	if _, err := db.Exec(`INSERT INTO notification_messages (class_id, event_type, entity_type, entity_id, idempotency_key, payload_json, status) VALUES (1, 'TASK_PUBLISHED', 'TASK', 1, 'task-init-pending', '{}', 'PENDING')`); err != nil {
+		t.Fatal(err)
+	}
 	for i := 1; i <= 2; i++ {
 		w = remediationRequest(s, "PATCH", "/api/v1/tasks/1", token, map[string]any{"version": i, "title": fmt.Sprintf("Revision %d", i)})
 		if w.Code != 200 {
@@ -125,8 +130,9 @@ func TestRemediation_TaskOutboxFailureRollsBackAndEditSupersedes(t *testing.T) {
 	var pending, stale int
 	db.QueryRow(`SELECT COUNT(*) FROM notification_messages WHERE status='PENDING'`).Scan(&pending)
 	db.QueryRow(`SELECT COUNT(*) FROM notification_messages WHERE status='SUPERSEDED'`).Scan(&stale)
-	if pending != 1 || stale != 1 {
-		t.Fatal("stale notification", pending, stale)
+	// Opsi A: Pembaruan tugas tidak lagi menambah notifikasi PENDING (pending=0), dan notifikasi lama disupersede (stale=1)
+	if pending != 0 || stale != 1 {
+		t.Fatalf("stale notification: pending=%d (want 0), stale=%d (want 1)", pending, stale)
 	}
 }
 

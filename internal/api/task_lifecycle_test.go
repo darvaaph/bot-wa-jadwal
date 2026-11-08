@@ -225,3 +225,52 @@ func TestReviewTask_DuplicateApprovalReturnsConflict(t *testing.T) {
 		t.Fatalf("expected VERSION_CONFLICT code, got: %s", w2.Body.String())
 	}
 }
+
+func TestTaskUpdate_DoesNotQueueTaskUpdatedNotification(t *testing.T) {
+	db, s := setupV1TestEnv(t)
+	token := helperLogin(t, s, "+6281234567890", "password123") // KM
+
+	// Update tugas (PATCH)
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/tasks/1",
+		strings.NewReader(`{"title":"Tugas Algoritma 1 Revisi Judul","version":1}`))
+	patchReq.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, patchReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patch task failed: %d %s", w.Code, w.Body.String())
+	}
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(1) FROM notification_messages WHERE event_type = 'TASK_UPDATED'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("Pembaruan tugas (PATCH) tidak boleh memasukkan notifikasi TASK_UPDATED ke outbox, got %d", count)
+	}
+
+	// Selesaikan tugas (complete) lalu batalkan selesai (uncomplete)
+	compReq := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/complete",
+		strings.NewReader(`{"version":2}`))
+	compReq.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, compReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("complete task failed: %d %s", w.Code, w.Body.String())
+	}
+
+	uncompReq := httptest.NewRequest(http.MethodPost, "/api/v1/tasks/1/uncomplete",
+		strings.NewReader(`{"version":3}`))
+	uncompReq.Header.Set("Authorization", "Bearer "+token)
+	w = httptest.NewRecorder()
+	s.httpServer.Handler.ServeHTTP(w, uncompReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("uncomplete task failed: %d %s", w.Code, w.Body.String())
+	}
+
+	if err := db.QueryRow(`SELECT COUNT(1) FROM notification_messages WHERE event_type = 'TASK_UPDATED'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("Uncomplete tugas tidak boleh memasukkan notifikasi TASK_UPDATED ke outbox, got %d", count)
+	}
+}

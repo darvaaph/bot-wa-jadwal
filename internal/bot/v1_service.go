@@ -235,6 +235,36 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 	return b.String(), nil
 }
 
+// GetDailySummary menyusun ringkasan jadwal kuliah untuk broadcast pengingat pagi otomatis.
+// Jika tidak ada sesi perkuliahan aktif (libur, akhir pekan tanpa jadwal, atau semua sesi dibatalkan),
+// fungsi mengembalikan string kosong ("") agar pengingat senyap (silent) dan tidak mengirim broadcast ke WhatsApp.
+func (s *V1BotService) GetDailySummary(ctx context.Context, classID int64, targetDate time.Time) (string, error) {
+	if s.db == nil {
+		return "", fmt.Errorf("database v1 belum siap")
+	}
+
+	_, _, _, _, items, err := s.ResolveDailyItems(ctx, classID, targetDate)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+
+	hasActiveClasses := false
+	for _, it := range items {
+		if it.Status != "CANCELLED" && it.Status != "HOLIDAY" {
+			hasActiveClasses = true
+			break
+		}
+	}
+	if !hasActiveClasses {
+		return "", nil
+	}
+
+	return s.GetSchedule(ctx, classID, targetDate)
+}
+
 // ScheduleItem merepresentasikan satu sesi perkuliahan dari pola reguler maupun kejadian
 type ScheduleItem struct {
 	PatternID int64
@@ -332,9 +362,10 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 
 	query := `
 		SELECT t.id, t.title, COALESCE(t.instructions, ''), t.deadline_at,
-		       co.display_name, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, '')
+		       COALESCE(c.name, co.display_name), COALESCE(t.submission_url, ''), COALESCE(t.submission_text, '')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
+		LEFT JOIN courses c ON c.id = co.course_id
 		WHERE co.semester_id = (SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1)
 		  AND t.publication_status = 'PUBLISHED'
 		  AND t.deleted_at IS NULL
@@ -378,76 +409,39 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*DAFTAR TUGAS • %s*\n", shortName))
-	b.WriteString("─────────────────\n\n")
+	b.WriteString("─────────────\n")
 
 	if len(tasks) == 0 {
-		b.WriteString("Tidak ada tugas aktif saat ini. Semua tugas telah selesai.\n\n")
-		b.WriteString("─────────────────\n")
+		b.WriteString("\nTidak ada tugas aktif saat ini. Semua tugas telah selesai.\n\n")
+		b.WriteString("─────────────\n")
 		portalURL := util.PublicBaseURL() + "/c/"
 		if slug != "" {
 			portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 		}
-		b.WriteString(fmt.Sprintf("Riwayat tugas lengkap dapat dilihat di Web Portal:\n%s\n\n", portalURL))
+		b.WriteString(fmt.Sprintf("Detail & pengumpulan:\n%s\n\n", portalURL))
 		b.WriteString("_Ketik !jadwal untuk melihat jadwal kuliah hari ini._")
 		return b.String(), nil
 	}
 
-	indoDays := [...]string{"Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"}
-	indoMonths := [...]string{"", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"}
-
 	for i, t := range tasks {
-		dayName := indoDays[t.deadline.Weekday()]
-		mName := indoMonths[t.deadline.Month()]
-		deadlineFormatted := fmt.Sprintf("%s, %02d %s %d, %02d:%02d WIB",
-			dayName, t.deadline.Day(), mName, t.deadline.Year(), t.deadline.Hour(), t.deadline.Minute())
+		deadlineStr := util.FormatTaskDeadline(t.deadline, now)
+		subText := strings.TrimSpace(t.submissionText)
 
-		diff := t.deadline.Sub(now)
-		var statusStr string
-		if diff < 0 {
-			statusStr = "Lewat Tenggat"
-		} else if t.deadline.Year() == now.Year() && t.deadline.YearDay() == now.YearDay() {
-			hours := int(diff.Hours())
-			if hours > 0 {
-				statusStr = fmt.Sprintf("Hari ini (Sisa ~%d jam)", hours)
-			} else {
-				mins := int(diff.Minutes())
-				if mins <= 0 {
-					mins = 1
-				}
-				statusStr = fmt.Sprintf("Hari ini (Sisa ~%d menit)", mins)
-			}
+		b.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, t.course, t.title))
+		if subText != "" && subText != "-" {
+			b.WriteString(fmt.Sprintf("   ├ *%s*\n", deadlineStr))
+			b.WriteString(fmt.Sprintf("   └ Pengumpulan: %s\n", subText))
 		} else {
-			tomorrow := now.AddDate(0, 0, 1)
-			if t.deadline.Year() == tomorrow.Year() && t.deadline.YearDay() == tomorrow.YearDay() {
-				statusStr = "Besok (H-1)"
-			} else {
-				days := int(diff.Hours() / 24)
-				if days <= 0 {
-					days = 1
-				}
-				statusStr = fmt.Sprintf("%d hari lagi", days)
-			}
-		}
-
-		pengumpulan := strings.TrimSpace(t.submissionText)
-
-		b.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, t.title))
-		b.WriteString(fmt.Sprintf("   - Matkul: %s\n", t.course))
-		b.WriteString(fmt.Sprintf("   - Tenggat: %s (%s)\n", deadlineFormatted, statusStr))
-		if pengumpulan != "" {
-			b.WriteString(fmt.Sprintf("   - Pengumpulan: %s\n", pengumpulan))
-		}
-		if i < len(tasks)-1 {
-			b.WriteString("\n")
+			b.WriteString(fmt.Sprintf("   └ *%s*\n", deadlineStr))
 		}
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	portalURL := util.PublicBaseURL() + "/c/"
 	if slug != "" {
 		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 	}
-	b.WriteString(fmt.Sprintf("Detail instruksi & lampiran lengkap:\n%s\n\n", portalURL))
+	b.WriteString(fmt.Sprintf("Detail & pengumpulan:\n%s\n\n", portalURL))
 	b.WriteString("_Ketik !jadwal untuk melihat jadwal kuliah hari ini._")
 
 	return b.String(), nil

@@ -147,15 +147,15 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 		if err != nil {
 			return "", err
 		}
+		if strings.TrimSpace(text) == "" {
+			return "", nil
+		}
 		if link != "" && !strings.Contains(text, link) {
 			text += "\n\nDetail jadwal dan tugas:\n" + link
 		}
 		return text, nil
 	}
 	_ = semID
-	dayName := indonesianWeekday(date)
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "*JADWAL KULIAH HARI INI*\n%s, %s | %s\n", dayName, date, classCode)
 	day, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
 		return "", err
@@ -164,16 +164,25 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 	if err != nil {
 		return "", err
 	}
-	i := len(sessions)
+	hasActiveClasses := false
+	for _, it := range sessions {
+		if it.Kind != "HOLIDAY" && it.Kind != "SESSION_CANCELLED" {
+			hasActiveClasses = true
+			break
+		}
+	}
+	if !hasActiveClasses {
+		return "", nil
+	}
+	dayName := indonesianWeekday(date)
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "*JADWAL KULIAH HARI INI*\n%s, %s | %s\n", dayName, date, classCode)
 	for index, it := range sessions {
 		name := it.Offering
 		if name == "" {
 			name = it.Title
 		}
 		fmt.Fprintf(&sb, "\n%d. *%s* (%s) [%s]\n   %s - %s\n   %s", index+1, name, it.ActivityType, it.Kind, it.StartTime, it.EndTime, it.Room)
-	}
-	if i == 0 {
-		sb.WriteString("\nTidak ada jadwal hari ini.")
 	}
 	_ = loc
 	if link != "" {
@@ -182,15 +191,30 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 	return sb.String(), nil
 }
 
+func formatTaskDeadline(deadline, now time.Time) string {
+	return util.FormatTaskDeadline(deadline, now)
+}
+
 func taskUrgencyStatus(deadline time.Time, now time.Time) string {
 	if deadline.IsZero() {
 		return "Aktif"
 	}
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	deadline = deadline.In(loc)
+
 	diff := deadline.Sub(now)
 	if diff < 0 {
 		return "Terlewat"
 	}
-	if deadline.Year() == now.Year() && deadline.YearDay() == now.YearDay() {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	targetDay := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
+	days := int(targetDay.Sub(today) / (24 * time.Hour))
+
+	if days <= 0 {
 		hours := int(diff.Hours())
 		mins := int(diff.Minutes()) % 60
 		if hours > 0 {
@@ -201,13 +225,8 @@ func taskUrgencyStatus(deadline time.Time, now time.Time) string {
 		}
 		return "Hari ini"
 	}
-	tomorrow := now.Add(24 * time.Hour)
-	if deadline.Year() == tomorrow.Year() && deadline.YearDay() == tomorrow.YearDay() {
+	if days == 1 {
 		return "Besok (H-1)"
-	}
-	days := int(diff.Hours() / 24)
-	if days <= 0 {
-		days = 1
 	}
 	return fmt.Sprintf("%d hari lagi (H-%d)", days, days)
 }
@@ -225,7 +244,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 	}
 	nowLocal := refNow.In(loc)
 
-	rows, err := s.db.QueryContext(ctx, `SELECT c.name, COALESCE(co.activity_type, ''), t.title, COALESCE(t.task_type, ''), COALESCE(t.submission_text, ''), t.deadline_at 
+	rows, err := s.db.QueryContext(ctx, `SELECT c.name, t.title, COALESCE(t.submission_text, ''), t.deadline_at 
 		FROM tasks t
 		JOIN course_offerings co ON co.id = t.course_offering_id
 		JOIN courses c ON c.id = co.course_id 
@@ -240,18 +259,15 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 
 	type taskItem struct {
 		courseName     string
-		activityType   string
 		title          string
-		taskType       string
 		submissionText string
 		deadlineFmt    string
-		status         string
 	}
 	var activeTasks []taskItem
 
 	for rows.Next() {
-		var course, actType, title, tType, subText, rawDeadline string
-		if err := rows.Scan(&course, &actType, &title, &tType, &subText, &rawDeadline); err != nil {
+		var course, title, subText, rawDeadline string
+		if err := rows.Scan(&course, &title, &subText, &rawDeadline); err != nil {
 			return "", err
 		}
 		dl := util.ParseFlexibleTime(rawDeadline, loc)
@@ -260,23 +276,15 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		}
 		dlLocal := dl.In(loc)
 		if nowLocal.After(dlLocal) {
-			// Opsi B: Hanya tugas mendatang, abaikan tugas yang sudah terlewat
+			// Hanya tugas mendatang, abaikan tugas yang sudah terlewat
 			continue
 		}
-		statusText := taskUrgencyStatus(dlLocal, nowLocal)
-
-		hari := util.GetHariIndonesia(dlLocal)
-		bulan := util.GetBulanIndonesia(dlLocal)
-		deadlineFmt := fmt.Sprintf("%s, %02d %s %d, %02d:%02d WIB", hari, dlLocal.Day(), bulan, dlLocal.Year(), dlLocal.Hour(), dlLocal.Minute())
 
 		item := taskItem{
 			courseName:     course,
-			activityType:   actType,
 			title:          title,
-			taskType:       tType,
-			submissionText: subText,
-			deadlineFmt:    deadlineFmt,
-			status:         statusText,
+			submissionText: strings.TrimSpace(subText),
+			deadlineFmt:    formatTaskDeadline(dlLocal, nowLocal),
 		}
 
 		activeTasks = append(activeTasks, item)
@@ -296,43 +304,38 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 
 	var sb strings.Builder
 	if len(activeTasks) > 0 {
-		sb.WriteString("*PENGINGAT TUGAS KULIAH*\n")
-	}
-	if classCode != "" {
-		sb.WriteString(fmt.Sprintf("Kelas: %s\n", classCode))
-	}
-	sb.WriteString("─────────────────\n")
-
-	for i, t := range activeTasks {
-		actSuffix := ""
-		uAct := strings.ToUpper(t.activityType)
-		if uAct == "PRACTICE" || uAct == "PRAKTIKUM" || uAct == "LAB" {
-			actSuffix = " (Praktikum)"
-		} else if uAct == "THEORY" || uAct == "TEORI" || uAct == "KULIAH" {
-			actSuffix = " (Teori)"
+		if classCode != "" {
+			sb.WriteString(fmt.Sprintf("*PENGINGAT TUGAS • %s*\n", classCode))
+		} else {
+			sb.WriteString("*PENGINGAT TUGAS*\n")
 		}
+		sb.WriteString("─────────────\n")
 
-		sb.WriteString(fmt.Sprintf("\n%d. *%s%s*\n", i+1, t.courseName, actSuffix))
-		sb.WriteString(fmt.Sprintf("   - Tugas: %s\n", t.title))
-		sb.WriteString(fmt.Sprintf("   - Tenggat: %s\n", t.deadlineFmt))
-		sb.WriteString(fmt.Sprintf("   - Status: %s\n", t.status))
-		if t.taskType != "" {
-			sb.WriteString(fmt.Sprintf("   - Jenis: Tugas %s\n", t.taskType))
-		}
-		if t.submissionText != "" {
-			sb.WriteString(fmt.Sprintf("   - Pengumpulan: %s\n", t.submissionText))
+		for i, t := range activeTasks {
+			sb.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, t.courseName, t.title))
+			subText := strings.TrimSpace(t.submissionText)
+			if subText != "" && subText != "-" {
+				sb.WriteString(fmt.Sprintf("   ├ *%s*\n", t.deadlineFmt))
+				sb.WriteString(fmt.Sprintf("   └ Pengumpulan: %s\n", subText))
+			} else {
+				sb.WriteString(fmt.Sprintf("   └ *%s*\n", t.deadlineFmt))
+			}
 		}
 	}
 
 	if exams != "" {
-		sb.WriteString("\n" + exams)
+		if len(activeTasks) > 0 {
+			sb.WriteString("\n" + exams)
+		} else {
+			sb.WriteString(exams)
+		}
 	}
 	if link == "" && classSlug != "" {
 		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
 	}
 	if link != "" {
-		sb.WriteString("\n─────────────────\n")
-		sb.WriteString(fmt.Sprintf("Portal Mahasiswa:\n%s", link))
+		sb.WriteString("\n─────────────\n")
+		sb.WriteString(fmt.Sprintf("Detail & pengumpulan:\n%s", link))
 	}
 
 	return sb.String(), nil
@@ -758,10 +761,16 @@ func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now 
 			text = s.messageFormatter(eventType, payload, slug)
 		}
 		if eventType == "DAILY_SUMMARY" && strings.HasPrefix(key, "daily:") {
-			text, err = s.BuildDailyText(ctx, classID, now.In(loc).Format("2006-01-02"), "")
+			freshText, freshErr := s.BuildDailyText(ctx, classID, now.In(loc).Format("2006-01-02"), "")
+			if freshErr == nil && freshText != "" {
+				text = freshText
+			}
 		}
 		if eventType == "TASK_REMINDER" && strings.HasPrefix(key, "tasks:") {
-			text, err = s.BuildTaskText(ctx, classID, "", now)
+			freshText, freshErr := s.BuildTaskText(ctx, classID, "", now)
+			if freshErr == nil && freshText != "" {
+				text = freshText
+			}
 		}
 		if err != nil {
 			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -771,6 +780,15 @@ func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now 
 				return sent, failed, finishErr
 			}
 			return sent, failed, err
+		}
+		if strings.TrimSpace(text) == "" {
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			err := s.finishAttempt(finalCtx, id, attempt, true, "", "")
+			cancel()
+			if err != nil {
+				return sent, failed, err
+			}
+			continue
 		}
 		var providerID string
 		var sendErr error

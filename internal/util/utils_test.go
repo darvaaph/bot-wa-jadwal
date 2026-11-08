@@ -115,3 +115,21 @@ func TestUtils(t *testing.T) {
 		t.Errorf("FindDataDir data/jadwal should not be empty")
 	}
 }
+
+func TestFormatTaskDeadline(t *testing.T) {
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Date(2026, 11, 7, 17, 0, 0, 0, loc)
+
+	if got := FormatTaskDeadline(time.Date(2026, 11, 7, 23, 59, 0, 0, loc), now); got != "Hari ini (Sabtu, 23:59)" {
+		t.Errorf("expected 'Hari ini (Sabtu, 23:59)', got '%s'", got)
+	}
+	if got := FormatTaskDeadline(time.Date(2026, 11, 8, 23, 59, 0, 0, loc), now); got != "Besok (Minggu, 23:59)" {
+		t.Errorf("expected 'Besok (Minggu, 23:59)', got '%s'", got)
+	}
+	if got := FormatTaskDeadline(time.Date(2026, 11, 10, 13, 0, 0, 0, loc), now); got != "Selasa, 10 Nov (13:00)" {
+		t.Errorf("expected 'Selasa, 10 Nov (13:00)', got '%s'", got)
+	}
+	if got := FormatTaskDeadline(time.Date(2027, 2, 1, 8, 0, 0, 0, loc), now); got != "Senin, 01 Feb 2027 (08:00)" {
+		t.Errorf("expected 'Senin, 01 Feb 2027 (08:00)', got '%s'", got)
+	}
+}

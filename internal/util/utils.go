@@ -85,6 +85,34 @@ func GetBulanIndonesia(t time.Time) string {
 	return ""
 }
 
+// FormatTaskDeadline mengembalikan format tenggat waktu tugas yang manusiawi dan ringkas
+// Contoh: "Hari ini (Sabtu, 23:59)", "Besok (Minggu, 23:59)", "Selasa, 10 Nov (13:00)"
+func FormatTaskDeadline(deadline, now time.Time) string {
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	deadline = deadline.In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	targetDay := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
+	daysDiff := int(targetDay.Sub(today) / (24 * time.Hour))
+
+	hari := GetHariIndonesia(deadline)
+	bulan := GetBulanIndonesia(deadline)
+
+	if daysDiff == 0 {
+		return fmt.Sprintf("Hari ini (%s, %02d:%02d)", hari, deadline.Hour(), deadline.Minute())
+	}
+	if daysDiff == 1 {
+		return fmt.Sprintf("Besok (%s, %02d:%02d)", hari, deadline.Hour(), deadline.Minute())
+	}
+	if deadline.Year() != now.Year() {
+		return fmt.Sprintf("%s, %02d %s %d (%02d:%02d)", hari, deadline.Day(), bulan, deadline.Year(), deadline.Hour(), deadline.Minute())
+	}
+	return fmt.Sprintf("%s, %02d %s (%02d:%02d)", hari, deadline.Day(), bulan, deadline.Hour(), deadline.Minute())
+}
+
 // IsDayName mengecek apakah string mengandung nama hari kerja
 func IsDayName(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))

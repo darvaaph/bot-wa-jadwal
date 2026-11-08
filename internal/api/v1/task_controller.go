@@ -756,12 +756,7 @@ func (c *TaskController) PatchTask(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal mengganti notifikasi lama")
 		return
 	}
-	if newPubStatus == "PUBLISHED" {
-		if err := queueTaskNotification(r.Context(), tx, taskID, "TASK_UPDATED", u.UserID); err != nil {
-			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan koreksi tugas")
-			return
-		}
-	} else if curPubStatus == "PUBLISHED" {
+	if curPubStatus == "PUBLISHED" && newPubStatus != "PUBLISHED" {
 		if err := common.QueueNotification(r.Context(), tx, curClassID, "TASK_REVOKED", "TASK", taskID, map[string]any{"text": "Publikasi tugas ditarik untuk koreksi. Periksa portal kelas untuk informasi terbaru.", "version": newVersion}, u.UserID); err != nil {
 			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan koreksi tugas")
 			return
@@ -1127,12 +1122,6 @@ func (c *TaskController) handleTaskStateChange(w http.ResponseWriter, r *http.Re
 	if err := common.SupersedeNotifications(r.Context(), tx, "TASK", taskID); err != nil {
 		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal mengganti notifikasi status tugas")
 		return
-	}
-	if (action == "restore" || action == "uncomplete") && curPub == "PUBLISHED" {
-		if err := queueTaskNotification(r.Context(), tx, taskID, "TASK_UPDATED", u.UserID); err != nil {
-			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan notifikasi status tugas")
-			return
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit transaksi")

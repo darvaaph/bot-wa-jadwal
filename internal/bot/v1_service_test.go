@@ -155,6 +155,23 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 		t.Errorf("Expected output libur pada hari Minggu, got: %s", resp)
 	}
 
+	// 2b. Verifikasi GetDailySummary (Pengingat otomatis harus senyap saat libur)
+	summarySunday, err := svc.GetDailySummary(ctx, 1, sundayDate)
+	if err != nil {
+		t.Fatalf("GetDailySummary Minggu gagal: %v", err)
+	}
+	if summarySunday != "" {
+		t.Errorf("Expected GetDailySummary Minggu kosong (senyap), got: %s", summarySunday)
+	}
+
+	summaryMonday, err := svc.GetDailySummary(ctx, 1, mondayDate)
+	if err != nil {
+		t.Fatalf("GetDailySummary Senin gagal: %v", err)
+	}
+	if !strings.Contains(summaryMonday, "Algoritma & Pemrograman") {
+		t.Errorf("Expected GetDailySummary Senin memuat jadwal aktif, got: %s", summaryMonday)
+	}
+
 	// 3. Tambahkan kejadian pengganti (teaching_events) pada hari Selasa (07 Jan 2025)
 	tuesdayDate := time.Date(2025, 1, 7, 10, 0, 0, 0, time.UTC)
 	tStart := tuesdayDate.Format(time.RFC3339)
@@ -483,7 +500,10 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(respTasks, "- Matkul:") || !strings.Contains(respTasks, "- Tenggat:") {
-		t.Errorf("Output GetTasks harus memuat format bullet strip (-): %s", respTasks)
+	if !strings.Contains(respTasks, "Tugas Algoritma AntiSlop") || (!strings.Contains(respTasks, "├") && !strings.Contains(respTasks, "└")) {
+		t.Errorf("Output GetTasks harus memuat judul dan konektor pohon (├/└): %s", respTasks)
+	}
+	if !strings.Contains(respTasks, "Kumpul di Portal") {
+		t.Errorf("Output GetTasks harus memuat teks pengumpulan: %s", respTasks)
 	}
 }

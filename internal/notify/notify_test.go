@@ -123,6 +123,14 @@ func TestNotify_SupersedeOnRevoke(t *testing.T) {
 
 func TestNotify_Schedulers(t *testing.T) {
 	svc, ctx := newNotifyTestDB(t)
+	// Seed jadwal Selasa (day_of_week = 2) agar ada jadwal kuliah aktif
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (1, 1, 1, 'TEORI', 'Pemrograman (Teori)');
+		INSERT INTO schedule_patterns (id, course_offering_id, day_of_week, start_time, end_time, status) VALUES (1, 1, 2, '08:00', '10:00', 'ACTIVE');
+	`); err != nil {
+		t.Fatal(err)
+	}
 	// 06:00 WIB = 23:00 UTC previous day.
 	morning := time.Date(2026, 10, 5, 23, 0, 0, 0, time.UTC)
 	n, err := svc.EnsureDailySummaries(ctx, morning)
@@ -141,6 +149,14 @@ func TestNotify_Schedulers(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("daily idempoten: n=%d", n)
 	}
+
+	// Pada hari Sabtu (tanpa jadwal aktif), pengingat pagi harus senyap (n == 0).
+	saturdayMorning := time.Date(2026, 10, 9, 23, 0, 0, 0, time.UTC)
+	nSat, err := svc.EnsureDailySummaries(ctx, saturdayMorning)
+	if err != nil || nSat != 0 {
+		t.Fatalf("daily pada hari Sabtu tanpa jadwal harus senyap: n=%d err=%v", nSat, err)
+	}
+
 	// 17:00 WIB = 10:00 UTC.
 	afternoon := time.Date(2026, 10, 6, 10, 0, 0, 0, time.UTC)
 	// Tanpa tugas aktif, pengingat sore harus senyap (Opsi B: n == 0).
@@ -157,12 +173,6 @@ func TestNotify_Schedulers(t *testing.T) {
 	if _, err := svc.db.ExecContext(ctx, `INSERT INTO users (id, identity_key, display_name, password_hash) VALUES (1, '+6281111111111', 'User 1', 'hash')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.db.ExecContext(ctx, `INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.db.ExecContext(ctx, `INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (1, 1, 1, 'TEORI', 'Pemrograman (Teori)')`); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := svc.db.ExecContext(ctx, `INSERT INTO tasks (course_offering_id, title, instructions, submission_text, deadline_at, publication_status, published_at, created_by_user_id) VALUES (1, 'Tugas 1', 'Kerjakan soal 1-5', 'Kirim via email', '2026-10-10T23:59:00Z', 'PUBLISHED', '2026-10-06T08:00:00Z', 1)`); err != nil {
 		t.Fatal(err)
 	}
@@ -176,11 +186,17 @@ func TestNotify_Schedulers(t *testing.T) {
 	if err != nil || taskText == "" {
 		t.Fatalf("build tasks: %v", err)
 	}
-	if !strings.Contains(taskText, "PENGINGAT TUGAS KULIAH") {
+	if !strings.Contains(taskText, "PENGINGAT TUGAS") {
 		t.Errorf("expected header, got: %s", taskText)
 	}
-	if !strings.Contains(taskText, "- Tugas: Tugas 1") {
-		t.Errorf("expected task title with bullet strip, got: %s", taskText)
+	if !strings.Contains(taskText, "Tugas 1") {
+		t.Errorf("expected task title, got: %s", taskText)
+	}
+	if !strings.Contains(taskText, "├") && !strings.Contains(taskText, "└") {
+		t.Errorf("expected tree connector in deadline line, got: %s", taskText)
+	}
+	if !strings.Contains(taskText, "Kirim via email") {
+		t.Errorf("expected submission text, got: %s", taskText)
 	}
 	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️", "🚨", "⌛", "👥", "📤"}
 	for _, emoji := range slopEmojis {
@@ -245,6 +261,13 @@ func TestNotify_ReplacementReminderHonorsConfiguredWindow(t *testing.T) {
 
 func TestNotify_MorningReminderCatchesUpAfterRestart(t *testing.T) {
 	svc, ctx := newNotifyTestDB(t)
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES (1, 1, 1, 'TEORI', 'Pemrograman (Teori)');
+		INSERT INTO schedule_patterns (id, course_offering_id, day_of_week, start_time, end_time, status) VALUES (1, 1, 2, '08:00', '10:00', 'ACTIVE');
+	`); err != nil {
+		t.Fatal(err)
+	}
 	late := time.Date(2026, 10, 5, 23, 20, 0, 0, time.UTC)
 	n, err := svc.EnsureDailySummaries(ctx, late)
 	if err != nil || n != 1 {
@@ -275,5 +298,52 @@ func TestNotify_ReapsStaleProcessing(t *testing.T) {
 	items, _ := svc.List(ctx, 1, "SENT", 10)
 	if len(items) != 1 {
 		t.Fatalf("pesan reaped harus SENT, didapat %+v", items)
+	}
+}
+
+func TestFormatTaskDeadline(t *testing.T) {
+	loc := time.FixedZone("WIB", 7*3600)
+	// Ref: Saturday, 07 Nov 2026, 17:00 WIB
+	now := time.Date(2026, 11, 7, 17, 0, 0, 0, loc)
+
+	tests := []struct {
+		name     string
+		deadline time.Time
+		expected string
+	}{
+		{
+			name:     "Hari ini",
+			deadline: time.Date(2026, 11, 7, 23, 59, 0, 0, loc),
+			expected: "Hari ini (Sabtu, 23:59)",
+		},
+		{
+			name:     "Besok",
+			deadline: time.Date(2026, 11, 8, 23, 59, 0, 0, loc),
+			expected: "Besok (Minggu, 23:59)",
+		},
+		{
+			name:     "Selasa pekan depan",
+			deadline: time.Date(2026, 11, 10, 13, 0, 0, 0, loc),
+			expected: "Selasa, 10 Nov (13:00)",
+		},
+		{
+			name:     "Kamis pekan depan",
+			deadline: time.Date(2026, 11, 12, 23, 59, 0, 0, loc),
+			expected: "Kamis, 12 Nov (23:59)",
+		},
+		{
+			name:     "Tahun depan",
+			deadline: time.Date(2027, 1, 15, 10, 30, 0, 0, loc),
+			expected: "Jumat, 15 Jan 2027 (10:30)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatTaskDeadline(tc.deadline, now)
+			if got != tc.expected {
+				t.Errorf("formatTaskDeadline() = %q, want %q", got, tc.expected)
+			}
+		})
 	}
 }
