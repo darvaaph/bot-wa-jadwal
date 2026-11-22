@@ -106,6 +106,14 @@ func TestKanalCommand_StaysReadable(t *testing.T) {
 	}
 }
 
+func TestPJCommand_StaysReadable(t *testing.T) {
+	for _, text := range []string{"!pj", "/pj"} {
+		if entity, ok := MutationRedirectEntity(text, true); ok {
+			t.Fatalf("%s dialihkan sebagai %s, seharusnya tidak", text, entity)
+		}
+	}
+}
+
 func TestLinkRestrictedDMMessage(t *testing.T) {
 	withSlug := linkRestrictedDMMessage("d4-ti-2025-a")
 	if !strings.Contains(withSlug, "AKSES TAUTAN DIBATASI") {

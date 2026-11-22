@@ -254,6 +254,31 @@ func HandleIncomingMessage(
 		return
 	}
 
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "pj", "daftarpj", "listpj") {
+		if activeClassID == "" && chatSettingsManager != nil {
+			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding daftar pj")
+			return
+		}
+		if v1Class == nil || v1Service == nil {
+			reply("Daftar PJ hanya tersedia untuk kelas yang terdaftar pada sistem v1.", "⚠️", 600*time.Millisecond, "daftar pj tidak tersedia")
+			return
+		}
+
+		parts := strings.Fields(msgText)
+		query := ""
+		if len(parts) > 1 {
+			query = strings.Join(parts[1:], " ")
+		}
+		pjReply, err := v1Service.GetCoursePJs(context.Background(), v1Class.ID, query)
+		if err != nil {
+			fmt.Printf("⚠️ [GetCoursePJs Error] gagal memuat daftar PJ untuk kelas %d: %v\n", v1Class.ID, err)
+			reply("Terjadi kendala saat memuat daftar PJ. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar pj v1")
+			return
+		}
+		reply(pjReply, "👥", 600*time.Millisecond, "daftar pj v1")
+		return
+	}
+
 	// 1. Handler Khusus Perintah Pengaturan Kelas (!kelas / !daftarkelas / !setkelas / !pilihkelas / !resetkelas)
 	if chatSettingsManager != nil && util.MatchCommandPrefix(msgText, v.Info.IsGroup, "kelas", "daftarkelas", "setkelas", "pilihkelas", "resetkelas") {
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
