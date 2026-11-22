@@ -1000,6 +1000,7 @@ func (s *V1BotService) GetMenu(ctx context.Context, classID int64) (string, erro
 
 	b.WriteString("*Pencarian & Informasi:*\n")
 	b.WriteString("- !matkul        : Daftar mata kuliah semester aktif\n")
+	b.WriteString("- !pj [kata]     : Daftar PJ mata kuliah (opsional filter nama/kode)\n")
 	b.WriteString("- !dosen [nama]  : Cari info / jadwal dosen (contoh: !dosen Budi)\n")
 	b.WriteString("- !ruang [kode]  : Cari info / jadwal ruangan (contoh: !ruang LAB-1)\n")
 	b.WriteString("- !cari [kata]   : Cari jadwal mata kuliah / dosen / ruang\n\n")
@@ -1050,6 +1051,7 @@ func (s *V1BotService) GetKeywords(ctx context.Context, classID int64) (string, 
 
 	b.WriteString("6. Pencarian:\n")
 	b.WriteString("   - !matkul                     : Daftar seluruh mata kuliah semester ini\n")
+	b.WriteString("   - !pj [kata kunci]            : Daftar PJ mata kuliah (opsional filter)\n")
 	b.WriteString("   - !dosen [nama/kode]          : Cari jadwal mengajar dosen\n")
 	b.WriteString("   - !ruang [kode/nama]          : Cari pemakaian ruangan kuliah\n")
 	b.WriteString("   - !cari [kata kunci]          : Pencarian umum mata kuliah/dosen/ruang\n\n")
@@ -1142,6 +1144,140 @@ func (s *V1BotService) GetCourses(ctx context.Context, classID int64) (string, e
 	b.WriteString("\n────────────────────\n")
 	b.WriteString(fmt.Sprintf("Portal Kelas: %s/c/%s", util.PublicBaseURL(), slug))
 
+	return b.String(), nil
+}
+
+// GetCoursePJs menghasilkan daftar PJ mata kuliah aktif pada semester aktif.
+func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query string) (string, error) {
+	if s.db == nil {
+		return "", fmt.Errorf("database v1 belum siap")
+	}
+
+	var code, slug, groupLabel, semYear string
+	var cohortYear int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT code, slug, cohort_year, group_label
+		FROM classes
+		WHERE id = ?;
+	`, classID).Scan(&code, &slug, &cohortYear, &groupLabel); err != nil {
+		return "", err
+	}
+
+	var semesterID int64
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1;`, classID).Scan(&semesterID)
+	if err == sql.ErrNoRows {
+		return "Belum ada semester aktif untuk kelas ini.", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if err := s.db.QueryRowContext(ctx, `SELECT academic_year FROM semesters WHERE id = ?;`, semesterID).Scan(&semYear); err != nil {
+		return "", err
+	}
+
+	shortName := formatClassShort(code, cohortYear, groupLabel, semYear)
+	if shortName == "" {
+		shortName = code
+	}
+
+	cleanQuery := strings.ToLower(strings.TrimSpace(query))
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT co.id, co.display_name, c.name, u.display_name
+		FROM course_offerings co
+		JOIN courses c ON c.id = co.course_id
+		LEFT JOIN role_assignments ra
+			ON ra.role = 'PJ'
+			AND ra.scope_type = 'COURSE_OFFERING'
+			AND ra.course_offering_id = co.id
+			AND ra.status = 'ACTIVE'
+			AND (ra.valid_until IS NULL OR julianday(ra.valid_until) > julianday('now'))
+		LEFT JOIN users u ON u.id = ra.user_id AND u.status = 'ACTIVE'
+		WHERE co.semester_id = ?
+			AND co.status = 'ACTIVE'
+			AND (
+				? = ''
+				OR instr(LOWER(co.display_name), ?) > 0
+				OR instr(LOWER(c.name), ?) > 0
+				OR instr(LOWER(c.code), ?) > 0
+			)
+		ORDER BY co.display_name ASC, co.id ASC, LOWER(u.display_name) ASC, u.display_name ASC;
+	`, semesterID, cleanQuery, cleanQuery, cleanQuery, cleanQuery)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	type coursePJ struct {
+		id          int64
+		displayName string
+		courseName  string
+		pjs         []string
+		seenPJs     map[string]struct{}
+	}
+	var courses []coursePJ
+	courseIndexes := make(map[int64]int)
+	for rows.Next() {
+		var id int64
+		var displayName, courseName string
+		var pjName sql.NullString
+		if err := rows.Scan(&id, &displayName, &courseName, &pjName); err != nil {
+			return "", err
+		}
+
+		index, exists := courseIndexes[id]
+		if !exists {
+			index = len(courses)
+			courseIndexes[id] = index
+			courses = append(courses, coursePJ{
+				id:          id,
+				displayName: displayName,
+				courseName:  courseName,
+				seenPJs:     make(map[string]struct{}),
+			})
+		}
+		if pjName.Valid {
+			name := strings.TrimSpace(pjName.String)
+			key := strings.ToLower(name)
+			if name != "" {
+				if _, exists := courses[index].seenPJs[key]; !exists {
+					courses[index].seenPJs[key] = struct{}{}
+					courses[index].pjs = append(courses[index].pjs, name)
+				}
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("*DAFTAR PJ MATA KULIAH • %s*\n", shortName))
+	b.WriteString("─────────────\n")
+	if len(courses) == 0 {
+		if cleanQuery == "" {
+			b.WriteString("Belum ada mata kuliah aktif pada semester ini.")
+		} else {
+			b.WriteString(fmt.Sprintf("Tidak ada mata kuliah yang cocok dengan kata kunci \"%s\".", strings.TrimSpace(query)))
+		}
+	} else {
+		for i, course := range courses {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			title := course.displayName
+			if strings.TrimSpace(title) == "" {
+				title = course.courseName
+			}
+			b.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, title))
+			pjList := "Belum ditetapkan"
+			if len(course.pjs) > 0 {
+				pjList = strings.Join(course.pjs, ", ")
+			}
+			b.WriteString("   - PJ: " + pjList + "\n")
+		}
+	}
+	b.WriteString("─────────────\n")
+	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas: %s/c/%s", util.PublicBaseURL(), slug))
 	return b.String(), nil
 }
 

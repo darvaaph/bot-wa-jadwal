@@ -423,6 +423,7 @@ func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	sb.WriteString("- !besok         : Jadwal kuliah besok\n")
 	sb.WriteString("- !seminggu      : Jadwal Senin - Jumat\n")
 	sb.WriteString("- !matkul        : Daftar mata kuliah & dosen\n")
+	sb.WriteString("- !pj [kata]     : Daftar PJ mata kuliah (setelah kelas aktif)\n")
 	sb.WriteString("- !tugas         : Pengingat tugas & deadline\n")
 	sb.WriteString("- !link          : Tautan penting kelas (Drive/Zoom)\n")
 	sb.WriteString("- !dosen [nama]  : Cari jadwal dosen\n")

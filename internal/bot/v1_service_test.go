@@ -348,6 +348,124 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	}
 }
 
+func TestV1BotService_GetCoursePJs(t *testing.T) {
+	t.Run("single and multiple PJ with a course without PJ", func(t *testing.T) {
+		svc := setupTestV1DB(t)
+		ctx := context.Background()
+		_, err := svc.db.ExecContext(ctx, `
+			INSERT INTO users (id, identity_key, display_name, password_hash, status)
+			VALUES
+				(2, 'private:pj-2', 'Budi Santoso', 'disabled', 'ACTIVE'),
+				(3, 'private:pj-3', 'Sinta Dewi', 'disabled', 'ACTIVE'),
+				(4, 'private:pj-4', 'Andi Pratama', 'disabled', 'ACTIVE'),
+				(5, 'private:pj-5', 'Sinta Dewi', 'disabled', 'ACTIVE');
+
+			INSERT INTO role_assignments (user_id, role, scope_type, class_id, semester_id, course_offering_id)
+			VALUES
+				(2, 'PJ', 'COURSE_OFFERING', 1, 1, 1),
+				(3, 'PJ', 'COURSE_OFFERING', 1, 1, 2),
+				(4, 'PJ', 'COURSE_OFFERING', 1, 1, 2),
+				(5, 'PJ', 'COURSE_OFFERING', 1, 1, 2);
+		`)
+		if err != nil {
+			t.Fatalf("seed PJ gagal: %v", err)
+		}
+
+		resp, err := svc.GetCoursePJs(ctx, 1, "")
+		if err != nil {
+			t.Fatalf("GetCoursePJs gagal: %v", err)
+		}
+		for _, want := range []string{
+			"*DAFTAR PJ MATA KULIAH",
+			"1. *Algoritma & Pemrograman (Teori)*\n   - PJ: Budi Santoso",
+			"2. *Struktur Data (Praktik)*\n   - PJ: Andi Pratama, Sinta Dewi",
+		} {
+			if !strings.Contains(resp, want) {
+				t.Errorf("GetCoursePJs tidak memuat %q: %s", want, resp)
+			}
+		}
+		if strings.Contains(resp, "Belum ditetapkan") {
+			t.Errorf("matkul yang memiliki PJ tidak boleh ditandai kosong: %s", resp)
+		}
+		for _, privateValue := range []string{"private:pj-2", "private:pj-3", "private:pj-4", "private:pj-5"} {
+			if strings.Contains(resp, privateValue) {
+				t.Errorf("balasan membocorkan identity_key %q: %s", privateValue, resp)
+			}
+		}
+	})
+
+	t.Run("unassigned and inactive or expired PJ are omitted", func(t *testing.T) {
+		svc := setupTestV1DB(t)
+		ctx := context.Background()
+		_, err := svc.db.ExecContext(ctx, `
+			INSERT INTO users (id, identity_key, display_name, password_hash, status)
+			VALUES
+				(2, 'private:suspended-user', 'PJ Nonaktif', 'disabled', 'SUSPENDED'),
+				(3, 'private:expired-pj', 'PJ Kedaluwarsa', 'disabled', 'ACTIVE');
+
+			INSERT INTO role_assignments (user_id, role, scope_type, class_id, semester_id, course_offering_id, valid_from)
+			VALUES (2, 'PJ', 'COURSE_OFFERING', 1, 1, 1, '2020-01-01');
+
+			INSERT INTO role_assignments (user_id, role, scope_type, class_id, semester_id, course_offering_id, valid_from, valid_until)
+			VALUES (3, 'PJ', 'COURSE_OFFERING', 1, 1, 1, '2020-01-01', '2021-01-01');
+		`)
+		if err != nil {
+			t.Fatalf("seed PJ tidak aktif gagal: %v", err)
+		}
+
+		resp, err := svc.GetCoursePJs(ctx, 1, "")
+		if err != nil {
+			t.Fatalf("GetCoursePJs gagal: %v", err)
+		}
+		if strings.Count(resp, "Belum ditetapkan") != 2 {
+			t.Errorf("kedua mata kuliah harus tampil tanpa PJ aktif: %s", resp)
+		}
+		for _, name := range []string{"PJ Nonaktif", "PJ Kedaluwarsa"} {
+			if strings.Contains(resp, name) {
+				t.Errorf("PJ tidak aktif %q tidak boleh ditampilkan: %s", name, resp)
+			}
+		}
+	})
+
+	t.Run("keyword filters offering name course name and code", func(t *testing.T) {
+		svc := setupTestV1DB(t)
+		if _, err := svc.db.Exec(`UPDATE course_offerings SET display_name = 'Praktik Kelas' WHERE id = 2;`); err != nil {
+			t.Fatalf("ubah nama tampilan matkul gagal: %v", err)
+		}
+		for _, tc := range []struct {
+			query string
+			want  string
+			omit  string
+		}{
+			{query: "Praktik", want: "Praktik Kelas", omit: "Algoritma"},
+			{query: "Struktur Data", want: "Praktik Kelas", omit: "Algoritma"},
+			{query: "TI2102", want: "Praktik Kelas", omit: "Algoritma"},
+		} {
+			resp, err := svc.GetCoursePJs(context.Background(), 1, tc.query)
+			if err != nil {
+				t.Fatalf("GetCoursePJs query %q gagal: %v", tc.query, err)
+			}
+			if !strings.Contains(resp, tc.want) || strings.Contains(resp, tc.omit) {
+				t.Errorf("filter %q menghasilkan daftar tidak sesuai: %s", tc.query, resp)
+			}
+		}
+	})
+
+	t.Run("no active semester", func(t *testing.T) {
+		svc := setupTestV1DB(t)
+		if _, err := svc.db.Exec(`UPDATE semesters SET status = 'ARCHIVED', archived_at = CURRENT_TIMESTAMP WHERE id = 1;`); err != nil {
+			t.Fatalf("arsipkan semester gagal: %v", err)
+		}
+		resp, err := svc.GetCoursePJs(context.Background(), 1, "")
+		if err != nil {
+			t.Fatalf("GetCoursePJs gagal: %v", err)
+		}
+		if !strings.Contains(resp, "Belum ada semester aktif") {
+			t.Errorf("harus menyatakan semester aktif belum tersedia: %s", resp)
+		}
+	})
+}
+
 func TestV1BotService_HandleScheduleCommand(t *testing.T) {
 	svc := setupTestV1DB(t)
 	ctx := context.Background()
