@@ -207,9 +207,9 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 
 	withHeader := func(title string) string {
 		if className != "" {
-			return fmt.Sprintf("*%s • %s*\n─────────────────\n", title, className)
+			return fmt.Sprintf("*%s • %s*\n─────────────\n", title, className)
 		}
-		return fmt.Sprintf("*%s*\n─────────────────\n", title)
+		return fmt.Sprintf("*%s*\n─────────────\n", title)
 	}
 
 	switch strings.ToUpper(eventType) {
@@ -222,6 +222,8 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			course = getString("course_name")
 		}
 		title := getString("title")
+		taskType := getString("task_type")
+		isQuiz := util.IsQuizTaskType(taskType)
 		deadline := getString("deadline")
 		instructions := getString("instructions")
 		subText := getString("submission_text")
@@ -237,18 +239,26 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		}
 
 		var b strings.Builder
-		b.WriteString(withHeader("TUGAS BARU DITERBITKAN"))
+		if isQuiz {
+			b.WriteString(withHeader("INFORMASI KUIS BARU"))
+		} else {
+			b.WriteString(withHeader("TUGAS BARU DITERBITKAN"))
+		}
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
 		if title != "" {
-			b.WriteString(fmt.Sprintf("- Judul: %s\n", title))
+			b.WriteString(fmt.Sprintf("- Judul: %s\n", util.FormatTaskTitle(title, taskType)))
 		}
 		if deadline != "" {
-			b.WriteString(fmt.Sprintf("- Tenggat: %s\n", deadline))
+			if isQuiz {
+				b.WriteString(fmt.Sprintf("- Waktu: %s\n", deadline))
+			} else {
+				b.WriteString(fmt.Sprintf("- Tenggat: %s\n", deadline))
+			}
 		}
 		if subText != "" {
-			b.WriteString(fmt.Sprintf("- Pengumpulan: %s\n", subText))
+			b.WriteString(fmt.Sprintf("- %s: %s\n", util.TaskSubmissionLabel(taskType), subText))
 		}
 		// Catatan ringkas hanya jika 1 baris dan singkat
 		if instructions != "" && !strings.Contains(instructions, "\n") && len(instructions) <= 80 {

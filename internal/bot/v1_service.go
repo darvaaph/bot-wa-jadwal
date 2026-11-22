@@ -172,7 +172,7 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 	className, classSlug, semTerm, _, items, err := s.ResolveDailyItems(ctx, classID, targetDate)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Sprintf("*JADWAL KULIAH • %s*\n─────────────────\nBelum ada semester aktif yang dikonfigurasi untuk kelas ini.", shortName), nil
+			return fmt.Sprintf("*JADWAL KULIAH • %s*\n─────────────\nBelum ada semester aktif yang dikonfigurasi untuk kelas ini.", shortName), nil
 		}
 		return "", err
 	}
@@ -193,11 +193,11 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*JADWAL KULIAH • %s*\n", shortName))
 	b.WriteString(fmt.Sprintf("%s, %s (Semester %s)\n", dayName, dateStr, semTerm))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(items) == 0 {
 		b.WriteString(fmt.Sprintf("Tidak ada perkuliahan pada %s, %s. (Libur/istirahat)\n", dayName, dateStr))
-		b.WriteString("\n─────────────────\n")
+		b.WriteString("\n─────────────\n")
 		b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), classSlug))
 		return b.String(), nil
 	}
@@ -229,7 +229,7 @@ func (s *V1BotService) GetSchedule(ctx context.Context, classID int64, targetDat
 		}
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
@@ -361,8 +361,9 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	}
 
 	query := `
-		SELECT t.id, t.title, COALESCE(t.instructions, ''), t.deadline_at,
-		       COALESCE(c.name, co.display_name), COALESCE(t.submission_url, ''), COALESCE(t.submission_text, '')
+		SELECT t.id, t.title, COALESCE(t.task_type, ''), COALESCE(t.instructions, ''), t.deadline_at,
+		       COALESCE(c.name, co.display_name), COALESCE(co.activity_type, ''),
+		       COALESCE(t.submission_url, ''), COALESCE(t.submission_text, '')
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		LEFT JOIN courses c ON c.id = co.course_id
@@ -381,9 +382,11 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	type taskItem struct {
 		id             int64
 		title          string
+		taskType       string
 		instructions   string
 		deadline       time.Time
 		course         string
+		activityType   string
 		url            string
 		submissionText string
 	}
@@ -394,7 +397,7 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	for rows.Next() {
 		var it taskItem
 		var dlStr string
-		if err := rows.Scan(&it.id, &it.title, &it.instructions, &dlStr, &it.course, &it.url, &it.submissionText); err == nil {
+		if err := rows.Scan(&it.id, &it.title, &it.taskType, &it.instructions, &dlStr, &it.course, &it.activityType, &it.url, &it.submissionText); err == nil {
 			tDl := util.ParseFlexibleTime(dlStr, loc)
 			if !tDl.IsZero() {
 				it.deadline = tDl.In(loc)
@@ -426,11 +429,14 @@ func (s *V1BotService) GetTasks(ctx context.Context, classID int64) (string, err
 	for i, t := range tasks {
 		deadlineStr := util.FormatTaskDeadline(t.deadline, now)
 		subText := strings.TrimSpace(t.submissionText)
+		courseDisplay := util.FormatCourseWithActivity(t.course, t.activityType)
+		titleDisplay := util.FormatTaskTitle(t.title, t.taskType)
+		subLabel := util.TaskSubmissionLabel(t.taskType)
 
-		b.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, t.course, t.title))
+		b.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, courseDisplay, titleDisplay))
 		if subText != "" && subText != "-" {
 			b.WriteString(fmt.Sprintf("   ├ *%s*\n", deadlineStr))
-			b.WriteString(fmt.Sprintf("   └ Pengumpulan: %s\n", subText))
+			b.WriteString(fmt.Sprintf("   └ %s: %s\n", subLabel, subText))
 		} else {
 			b.WriteString(fmt.Sprintf("   └ *%s*\n", deadlineStr))
 		}
@@ -526,7 +532,7 @@ func (s *V1BotService) GetLinks(ctx context.Context, classID int64) (string, err
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*TAUTAN & MATERI PENTING • %s*\n", shortName))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(links) == 0 {
 		b.WriteString("Belum ada tautan atau materi yang dibagikan untuk kelas ini.")
@@ -544,7 +550,7 @@ func (s *V1BotService) GetLinks(ctx context.Context, classID int64) (string, err
 		}
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail materi dan tugas:\n%s/c/%s", util.PublicBaseURL(), slug))
 
 	return b.String(), nil
@@ -635,7 +641,7 @@ func (s *V1BotService) GetWeeklySchedule(ctx context.Context, classID int64) (st
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*JADWAL KULIAH LENGKAP SEMINGGU • %s*\n", shortName))
 	b.WriteString(fmt.Sprintf("Semester: %s %s\n", semTerm, semYear))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(orderedDays) == 0 {
 		b.WriteString("Belum ada jadwal perkuliahan reguler yang terdaftar.")
@@ -653,7 +659,7 @@ func (s *V1BotService) GetWeeklySchedule(ctx context.Context, classID int64) (st
 		}
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
@@ -714,7 +720,7 @@ func (s *V1BotService) GetNextClass(ctx context.Context, classID int64, now time
 	var b strings.Builder
 	if ongoing != nil {
 		b.WriteString(fmt.Sprintf("*KULIAH SEDANG BERLANGSUNG • %s*\n", shortName))
-		b.WriteString("─────────────────\n")
+		b.WriteString("─────────────\n")
 		b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", ongoing.Course))
 		b.WriteString(fmt.Sprintf("- Waktu: %s - %s WIB (Sekarang: %s)\n", ongoing.StartTime, ongoing.EndTime, nowStr))
 		b.WriteString(fmt.Sprintf("- Ruang: %s\n", ongoing.Room))
@@ -726,7 +732,7 @@ func (s *V1BotService) GetNextClass(ctx context.Context, classID int64, now time
 		}
 	} else if nextUp != nil {
 		b.WriteString(fmt.Sprintf("*KULIAH BERIKUTNYA • %s*\n", shortName))
-		b.WriteString("─────────────────\n")
+		b.WriteString("─────────────\n")
 		b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", nextUp.Course))
 		b.WriteString(fmt.Sprintf("- Waktu: %s - %s WIB (Sekarang: %s)\n", nextUp.StartTime, nextUp.EndTime, nowStr))
 		b.WriteString(fmt.Sprintf("- Ruang: %s\n", nextUp.Room))
@@ -738,11 +744,11 @@ func (s *V1BotService) GetNextClass(ctx context.Context, classID int64, now time
 		}
 	} else {
 		b.WriteString(fmt.Sprintf("Seluruh perkuliahan kelas %s hari ini telah selesai.\n", shortName))
-		b.WriteString("─────────────────\n")
+		b.WriteString("─────────────\n")
 		b.WriteString("Selamat beristirahat atau belajar mandiri untuk persiapan esok hari.")
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), classSlug))
 
 	return b.String(), nil
@@ -849,7 +855,7 @@ func (s *V1BotService) GetMenu(ctx context.Context, classID int64) (string, erro
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*PANDUAN PERINTAH • %s*\n", shortName))
 	b.WriteString(fmt.Sprintf("%s, %02d %s · %s\n", dayName, nowInLoc.Day(), mName, statusHariIni))
-	b.WriteString("─────────────────\n\n")
+	b.WriteString("─────────────\n\n")
 
 	b.WriteString("*Jadwal Kuliah:*\n")
 	b.WriteString("- !jadwal        : Jadwal kuliah hari ini\n")
@@ -874,7 +880,7 @@ func (s *V1BotService) GetMenu(ctx context.Context, classID int64) (string, erro
 	b.WriteString("- !daftarkelas     : Daftar seluruh kelas yang terdaftar\n")
 	b.WriteString("- !setkelas [nama] : Pilih kelas aktif pribadi (contoh: !setkelas 2a)\n\n")
 
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 	b.WriteString("Catatan: Penambahan tugas, perubahan jadwal, dan materi dikelola oleh PJ/KM melalui Web Dashboard.")
 
 	return b.String(), nil
@@ -893,7 +899,7 @@ func (s *V1BotService) GetKeywords(ctx context.Context, classID int64) (string, 
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*DAFTAR KATA KUNCI PERINTAH • %s*\n", shortName))
-	b.WriteString("─────────────────\n\n")
+	b.WriteString("─────────────\n\n")
 
 	b.WriteString("1. Jadwal Harian:\n")
 	b.WriteString("   - !jadwal / !hari ini / !today : Jadwal hari ini\n")
@@ -924,7 +930,7 @@ func (s *V1BotService) GetKeywords(ctx context.Context, classID int64) (string, 
 	b.WriteString("   - !daftarkelas                : Daftar seluruh kelas di sistem\n")
 	b.WriteString("   - !setkelas [nama]            : Tautkan kelas (khusus DM pribadi)\n\n")
 
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 	b.WriteString("Ketik !menu untuk menu ringkas.")
 
 	return b.String(), nil
@@ -979,7 +985,7 @@ func (s *V1BotService) GetCourses(ctx context.Context, classID int64) (string, e
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*DAFTAR MATA KULIAH • %s*\n", shortName))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(list) == 0 {
 		b.WriteString("Belum ada mata kuliah yang terdaftar untuk semester aktif ini.")
@@ -1003,7 +1009,7 @@ func (s *V1BotService) GetCourses(ctx context.Context, classID int64) (string, e
 		}
 	}
 
-	b.WriteString("\n─────────────────\n")
+	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail materi dan tugas:\n%s/c/%s", util.PublicBaseURL(), slug))
 
 	return b.String(), nil
@@ -1072,7 +1078,7 @@ func (s *V1BotService) SearchDosen(ctx context.Context, classID int64, query str
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*PENCARIAN DOSEN: \"%s\" • %s*\n", strings.ToUpper(cleanQuery), shortName))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(matches) == 0 {
 		b.WriteString(fmt.Sprintf("Tidak ditemukan jadwal dosen dengan kata kunci \"%s\" di kelas ini.", cleanQuery))
@@ -1150,7 +1156,7 @@ func (s *V1BotService) SearchRuang(ctx context.Context, classID int64, query str
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*PENCARIAN RUANGAN: \"%s\" • %s*\n", strings.ToUpper(cleanQuery), shortName))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(matches) == 0 {
 		b.WriteString(fmt.Sprintf("Tidak ditemukan jadwal perkuliahan di ruangan \"%s\" untuk kelas ini.", cleanQuery))
@@ -1232,7 +1238,7 @@ func (s *V1BotService) SearchGlobal(ctx context.Context, classID int64, query st
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("*HASIL PENCARIAN: \"%s\" • %s*\n", strings.ToUpper(cleanQuery), shortName))
-	b.WriteString("─────────────────\n")
+	b.WriteString("─────────────\n")
 
 	if len(matches) == 0 {
 		b.WriteString(fmt.Sprintf("Tidak ditemukan jadwal perkuliahan dengan kata kunci \"%s\" untuk kelas ini.", cleanQuery))

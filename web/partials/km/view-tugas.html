@@ -471,12 +471,12 @@
 
             <!-- Judul Tugas Kuliah -->
             <div class="w-full flex flex-col gap-[6px]">
-              <label class="text-[13px] font-semibold text-[#1D1B3A]">Judul Tugas Kuliah <span class="text-rose-500">*</span></label>
+              <label class="text-[13px] font-semibold text-[#1D1B3A]"><span x-text="tugasForm.jenis === 'Kuis' ? 'Judul / Topik Kuis' : 'Judul Tugas Kuliah'">Judul Tugas Kuliah</span> <span class="text-rose-500">*</span></label>
               <input
                 aria-label="Judul Tugas Kuliah"
                 type="text"
                 x-model="tugasForm.judul"
-                placeholder="Praktikum 4: Optimasi Query & Normalisasi BCNF"
+                :placeholder="tugasForm.jenis === 'Kuis' ? 'Kuis 1: Aljabar Relasional & SQL Dasar' : 'Praktikum 4: Optimasi Query & Normalisasi BCNF'"
                 class="h-[44px] w-full px-[14px] bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:border-transparent min-h-[44px]"
               />
             </div>
@@ -484,11 +484,11 @@
 
           <!-- 2. Batas Waktu Pengumpulan -->
           <div class="w-full flex flex-col gap-[10px]">
-            <h2 class="text-[16px] font-semibold text-[#1D1B3A] font-display">2. Batas Waktu Pengumpulan</h2>
+            <h2 class="text-[16px] font-semibold text-[#1D1B3A] font-display" x-text="tugasForm.jenis === 'Kuis' ? '2. Waktu Pelaksanaan Kuis' : '2. Batas Waktu Pengumpulan'">2. Batas Waktu Pengumpulan</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-[12px] w-full">
               <!-- Tanggal Deadline -->
               <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[#1D1B3A]">Tanggal Deadline <span class="text-rose-500">*</span></label>
+                <label class="text-[13px] font-semibold text-[#1D1B3A]"><span x-text="tugasForm.jenis === 'Kuis' ? 'Tanggal Pelaksanaan / Batas Kuis' : 'Tanggal Deadline'">Tanggal Deadline</span> <span class="text-rose-500">*</span></label>
                 <input
                   aria-label="Tanggal Deadline"
                   type="date"
@@ -498,7 +498,7 @@
               </div>
               <!-- Jam Deadline -->
               <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[#1D1B3A]">Jam Deadline <span class="text-rose-500">*</span></label>
+                <label class="text-[13px] font-semibold text-[#1D1B3A]"><span x-text="tugasForm.jenis === 'Kuis' ? 'Jam Pelaksanaan / Batas Kuis' : 'Jam Deadline'">Jam Deadline</span> <span class="text-rose-500">*</span></label>
                 <input
                   aria-label="Jam Deadline"
                   type="time"
@@ -510,12 +510,12 @@
 
             <!-- Instruksi dan Ketentuan Dosen -->
             <div class="w-full flex flex-col gap-[6px]">
-              <label class="text-[13px] font-semibold text-[#1D1B3A]">Instruksi dan Ketentuan Dosen <span class="text-rose-500">*</span></label>
+              <label class="text-[13px] font-semibold text-[#1D1B3A]"><span x-text="tugasForm.jenis === 'Kuis' ? 'Kisi-kisi dan Ketentuan Kuis' : 'Instruksi dan Ketentuan Dosen'">Instruksi dan Ketentuan Dosen</span> <span class="text-rose-500">*</span></label>
               <textarea
                 aria-label="Instruksi dan Ketentuan Dosen"
                 x-model="tugasForm.deskripsi"
                 rows="3"
-                placeholder="Kerjakan studi kasus database e-commerce pada lembar praktikum. Sertakan file script SQL (.sql) dan laporan analisis dalam bentuk PDF. Dilarang copy-paste script rekan lain."
+                :placeholder="tugasForm.jenis === 'Kuis' ? 'Jelaskan materi yang diujikan, sifat kuis (open/closed book), durasi, dan ketentuan dari dosen...' : 'Kerjakan studi kasus database e-commerce pada lembar praktikum. Sertakan file script SQL (.sql) dan laporan analisis dalam bentuk PDF. Dilarang copy-paste script rekan lain.'"
                 class="w-full p-[12px] bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] leading-[18px] text-[#1D1B3A] placeholder-[#98A2B3] resize-none focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:border-transparent"
               ></textarea>
             </div>
@@ -524,18 +524,18 @@
           <!-- 3. Metode Pengumpulan -->
           <div class="w-full flex flex-col gap-[10px]">
             <div class="flex flex-col gap-0.5">
-              <h2 class="text-[16px] font-semibold text-[#1D1B3A] font-display">3. Metode Pengumpulan <span class="text-rose-500">*</span></h2>
+              <h2 class="text-[16px] font-semibold text-[#1D1B3A] font-display"><span x-text="tugasForm.jenis === 'Kuis' ? '3. Lokasi / Media Pelaksanaan' : '3. Metode Pengumpulan'">3. Metode Pengumpulan</span> <span class="text-rose-500">*</span></h2>
               <p class="text-[12px] text-[#667085]">
-                Wajib mengisi minimal salah satu: Keterangan Tempat fisik <span class="font-medium text-[#1D1B3A]">ATAU</span> Tautan URL pengumpulan online.
+                Wajib mengisi minimal salah satu: Lokasi/Keterangan Tempat <span class="font-medium text-[#1D1B3A]">ATAU</span> Tautan URL online.
               </p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-[12px] w-full">
               <!-- Jenis Tugas -->
               <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[#1D1B3A]">Jenis Tugas</label>
+                <label class="text-[13px] font-semibold text-[#1D1B3A]">Kategori</label>
                 <div class="relative w-full">
                   <select
-                    aria-label="Jenis Tugas"
+                    aria-label="Kategori"
                     x-model="tugasForm.jenis"
                     class="h-[44px] w-full px-[14px] pr-[36px] bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:border-transparent min-h-[44px] appearance-none"
                   >
@@ -554,14 +554,14 @@
               <!-- Keterangan Tempat Pengumpulan -->
               <div class="flex flex-col gap-[6px]">
                 <div class="flex items-center justify-between">
-                  <label class="text-[13px] font-semibold text-[#1D1B3A]">Keterangan Tempat</label>
+                  <label class="text-[13px] font-semibold text-[#1D1B3A]" x-text="tugasForm.jenis === 'Kuis' ? 'Lokasi / Media Kuis' : 'Keterangan Tempat'">Keterangan Tempat</label>
                   <span class="text-[11px] font-medium" :class="tugasForm.kumpulUrl ? 'text-[#667085]' : 'text-amber-600'" x-text="tugasForm.kumpulUrl ? 'Opsional jika ada tautan' : 'Wajib jika tanpa tautan'"></span>
                 </div>
                 <input
                   aria-label="Keterangan Tempat Pengumpulan"
                   type="text"
                   x-model="tugasForm.kumpul"
-                  placeholder="Contoh: Meja Dosen R-301 / Di Kelas / Email"
+                  :placeholder="tugasForm.jenis === 'Kuis' ? 'Contoh: Di Kelas D105 / Spada / Quizizz' : 'Contoh: Meja Dosen R-301 / Di Kelas / Email'"
                   class="h-[44px] w-full px-[14px] bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] placeholder-[#98A2B3] focus:outline-none focus:ring-2 focus:ring-[#3965FB] focus:border-transparent min-h-[44px]"
                 />
               </div>
@@ -1228,30 +1228,30 @@
             </select>
           </div>
           <div>
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Judul tugas <span class="text-rose-500">*</span></label>
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1"><span x-text="tugasForm.jenis === 'Kuis' ? 'Judul / Topik kuis' : 'Judul tugas'">Judul tugas</span> <span class="text-rose-500">*</span></label>
             <input aria-label="Judul tugas" type="text" x-model="tugasForm.judul" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent" />
           </div>
           <div>
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Tanggal deadline <span class="text-rose-500">*</span></label>
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1"><span x-text="tugasForm.jenis === 'Kuis' ? 'Tanggal pelaksanaan / batas kuis' : 'Tanggal deadline'">Tanggal deadline</span> <span class="text-rose-500">*</span></label>
             <input aria-label="Tanggal deadline" type="date" x-model="tugasForm.tanggal" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent" />
           </div>
           <div>
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Jam deadline <span class="text-rose-500">*</span></label>
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1"><span x-text="tugasForm.jenis === 'Kuis' ? 'Jam pelaksanaan / batas kuis' : 'Jam deadline'">Jam deadline</span> <span class="text-rose-500">*</span></label>
             <input aria-label="Jam deadline" type="time" x-model="tugasForm.jam" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] font-mono focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent" />
           </div>
           <div class="sm:col-span-2">
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Instruksi tugas <span class="text-rose-500">*</span></label>
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1"><span x-text="tugasForm.jenis === 'Kuis' ? 'Kisi-kisi & ketentuan kuis' : 'Instruksi tugas'">Instruksi tugas</span> <span class="text-rose-500">*</span></label>
             <textarea aria-label="Instruksi tugas" x-model="tugasForm.deskripsi" rows="3" class="w-full p-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent resize-none"></textarea>
           </div>
           <div>
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Jenis tugas</label>
-            <select aria-label="Jenis tugas" x-model="tugasForm.jenis" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent">
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Kategori</label>
+            <select aria-label="Kategori" x-model="tugasForm.jenis" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent">
               <option>Individu</option><option>Kelompok</option><option>Kuis</option><option>Proyek</option>
             </select>
           </div>
           <div>
-            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Keterangan pengumpulan</label>
-            <input aria-label="Keterangan pengumpulan" type="text" x-model="tugasForm.kumpul" placeholder="Misal: Google Classroom" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent" />
+            <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1" x-text="tugasForm.jenis === 'Kuis' ? 'Lokasi / media kuis' : 'Keterangan pengumpulan'">Keterangan pengumpulan</label>
+            <input aria-label="Keterangan pengumpulan" type="text" x-model="tugasForm.kumpul" :placeholder="tugasForm.jenis === 'Kuis' ? 'Misal: Di Kelas D105 / Spada / Quizizz' : 'Misal: Google Classroom'" class="min-h-[44px] h-[40px] w-full px-3 bg-white border border-[#CBD5E1] rounded-[10px] text-[13px] text-[#1D1B3A] focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent" />
           </div>
           <div class="sm:col-span-2">
             <label class="block text-[13px] font-semibold text-[#1D1B3A] mb-1">Tautan pengumpulan</label>

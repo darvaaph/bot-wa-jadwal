@@ -142,6 +142,10 @@
               <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase text-blue-700 bg-blue-50 border border-blue-200/80 truncate max-w-[200px] sm:max-w-[280px] shrink-0"
                     :title="cleanCourseName(t.matkul)"
                     x-text="cleanCourseName(t.matkul)">Mata Kuliah</span>
+              <span x-show="String(t.task_type || '').toLowerCase() === 'kuis'"
+                    class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase text-indigo-700 bg-indigo-50 border border-indigo-200 shrink-0">
+                Kuis
+              </span>
               <span x-show="String(t.review_state || '').toUpperCase() === 'NOT_REVIEWED'"
                     class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-[6px] shrink-0">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 text-amber-600 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -249,7 +253,8 @@
           <template x-if="detailTugas.task_type">
             <span class="text-[12px] text-slate-500 font-medium flex items-center gap-1.5">
               <span class="w-1 h-1 rounded-full bg-slate-300"></span>
-              <span x-text="'Tugas ' + detailTugas.task_type">Individu</span>
+              <span :class="String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'px-2 py-0.5 rounded-[6px] text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200' : ''"
+                    x-text="String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'Kuis' : 'Tugas ' + detailTugas.task_type">Individu</span>
             </span>
           </template>
 
@@ -292,7 +297,7 @@
             <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
           </svg>
           <div>
-            <span class="text-slate-500 text-[11px] block sm:inline sm:mr-1">Tenggat:</span>
+            <span class="text-slate-500 text-[11px] block sm:inline sm:mr-1" x-text="String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'Waktu:' : 'Tenggat:'">Tenggat:</span>
             <span class="font-bold text-slate-900" x-text="fmtDeadlineDetailed(detailTugas.deadline_at) || detailTugas.deadline || '-'">-</span>
           </div>
         </div>
@@ -328,7 +333,7 @@
 
       <!-- Tautan Pengumpulan & Lembar Kerja (Action Card Rapi Tepat Setelah Instruksi) -->
       <div class="pt-4 border-t border-slate-100 space-y-2">
-        <h2 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tautan Pengumpulan &amp; Lembar Kerja</h2>
+        <h2 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider" x-text="String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'Lokasi & Media Pelaksanaan Kuis' : 'Tautan Pengumpulan & Lembar Kerja'">Tautan Pengumpulan &amp; Lembar Kerja</h2>
 
         <!-- Tautan Online Aktif (Opsi 1: Truncate Ellipsis Aman di Mobile) -->
         <template x-if="detailTugas.submission_url">
@@ -341,7 +346,7 @@
                 </svg>
               </div>
               <div class="w-full min-w-0 flex-1">
-                <p class="text-[13px] sm:text-[14px] font-bold text-slate-900 truncate" x-text="detailTugas.submission_text || 'Tautan Pengumpulan Tugas'">Tautan Pengumpulan</p>
+                <p class="text-[13px] sm:text-[14px] font-bold text-slate-900 truncate" x-text="detailTugas.submission_text || (String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'Tautan Pelaksanaan Kuis' : 'Tautan Pengumpulan Tugas')">Tautan Pengumpulan</p>
                 <p class="text-[11px] text-slate-500 truncate block w-full" :title="detailTugas.submission_url" x-text="detailTugas.submission_url">https://teams.microsoft.com/...</p>
               </div>
             </div>
@@ -358,7 +363,7 @@
         <template x-if="!detailTugas.submission_url && detailTugas.submission_text">
           <div class="p-3.5 rounded-[12px] bg-slate-50 border border-slate-200 text-[12px] text-slate-700 flex items-center gap-2.5">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-blue-600 shrink-0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <span>Metode Pengumpulan: <strong class="text-slate-900 font-semibold" x-text="detailTugas.submission_text">Fisik di kelas</strong></span>
+            <span><span x-text="String(detailTugas.task_type || '').toLowerCase() === 'kuis' ? 'Pelaksanaan:' : 'Metode Pengumpulan:'">Metode Pengumpulan:</span> <strong class="text-slate-900 font-semibold" x-text="detailTugas.submission_text">Fisik di kelas</strong></span>
           </div>
         </template>
       </div>

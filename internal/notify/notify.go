@@ -244,7 +244,7 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 	}
 	nowLocal := refNow.In(loc)
 
-	rows, err := s.db.QueryContext(ctx, `SELECT c.name, t.title, COALESCE(t.submission_text, ''), t.deadline_at 
+	rows, err := s.db.QueryContext(ctx, `SELECT c.name, COALESCE(co.activity_type, ''), t.title, COALESCE(t.task_type, ''), COALESCE(t.submission_text, ''), t.deadline_at 
 		FROM tasks t
 		JOIN course_offerings co ON co.id = t.course_offering_id
 		JOIN courses c ON c.id = co.course_id 
@@ -259,15 +259,17 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 
 	type taskItem struct {
 		courseName     string
+		activityType   string
 		title          string
+		taskType       string
 		submissionText string
 		deadlineFmt    string
 	}
 	var activeTasks []taskItem
 
 	for rows.Next() {
-		var course, title, subText, rawDeadline string
-		if err := rows.Scan(&course, &title, &subText, &rawDeadline); err != nil {
+		var course, actType, title, taskType, subText, rawDeadline string
+		if err := rows.Scan(&course, &actType, &title, &taskType, &subText, &rawDeadline); err != nil {
 			return "", err
 		}
 		dl := util.ParseFlexibleTime(rawDeadline, loc)
@@ -282,7 +284,9 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 
 		item := taskItem{
 			courseName:     course,
+			activityType:   actType,
 			title:          title,
+			taskType:       taskType,
 			submissionText: strings.TrimSpace(subText),
 			deadlineFmt:    formatTaskDeadline(dlLocal, nowLocal),
 		}
@@ -312,11 +316,14 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		sb.WriteString("─────────────\n")
 
 		for i, t := range activeTasks {
-			sb.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, t.courseName, t.title))
+			courseDisplay := util.FormatCourseWithActivity(t.courseName, t.activityType)
+			titleDisplay := util.FormatTaskTitle(t.title, t.taskType)
+			subLabel := util.TaskSubmissionLabel(t.taskType)
+			sb.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, courseDisplay, titleDisplay))
 			subText := strings.TrimSpace(t.submissionText)
 			if subText != "" && subText != "-" {
 				sb.WriteString(fmt.Sprintf("   ├ *%s*\n", t.deadlineFmt))
-				sb.WriteString(fmt.Sprintf("   └ Pengumpulan: %s\n", subText))
+				sb.WriteString(fmt.Sprintf("   └ %s: %s\n", subLabel, subText))
 			} else {
 				sb.WriteString(fmt.Sprintf("   └ *%s*\n", t.deadlineFmt))
 			}

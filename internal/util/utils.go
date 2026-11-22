@@ -113,6 +113,54 @@ func FormatTaskDeadline(deadline, now time.Time) string {
 	return fmt.Sprintf("%s, %02d %s (%02d:%02d)", hari, deadline.Day(), bulan, deadline.Hour(), deadline.Minute())
 }
 
+var courseActivitySuffixRe = regexp.MustCompile(`(?i)\s*\((teori|praktikum|praktik|lab|kuliah|[pt])\)\s*$`)
+
+// FormatCourseWithActivity memformat nama mata kuliah dengan suffix ringkas (P) atau (T)
+// Contoh: "Sistem Basis Data", "PRACTICE" -> "Sistem Basis Data (P)"
+// Contoh: "Aljabar Linear", "THEORY" -> "Aljabar Linear (T)"
+func FormatCourseWithActivity(courseName, activityType string) string {
+	cleanName := strings.TrimSpace(courseActivitySuffixRe.ReplaceAllString(courseName, ""))
+	if cleanName == "" {
+		cleanName = strings.TrimSpace(courseName)
+	}
+
+	u := strings.ToUpper(strings.TrimSpace(activityType))
+	var badge string
+	if u == "PRACTICE" || u == "PRAKTIKUM" || u == "PRAKTIK" || u == "LAB" || u == "P" {
+		badge = "P"
+	} else if u == "THEORY" || u == "TEORI" || u == "KULIAH" || u == "T" {
+		badge = "T"
+	}
+
+	if badge != "" {
+		return fmt.Sprintf("%s (%s)", cleanName, badge)
+	}
+	return cleanName
+}
+
+// IsQuizTaskType memeriksa apakah task_type merupakan kategori Kuis.
+func IsQuizTaskType(taskType string) bool {
+	return strings.EqualFold(strings.TrimSpace(taskType), "Kuis")
+}
+
+// FormatTaskTitle menambahkan penanda "[KUIS] " pada judul apabila task_type adalah Kuis
+// dan judul belum memuat kata "kuis" (case-insensitive).
+func FormatTaskTitle(title, taskType string) string {
+	cleanTitle := strings.TrimSpace(title)
+	if IsQuizTaskType(taskType) && !strings.Contains(strings.ToLower(cleanTitle), "kuis") {
+		return "[KUIS] " + cleanTitle
+	}
+	return cleanTitle
+}
+
+// TaskSubmissionLabel mengembalikan label "Pelaksanaan" untuk Kuis, atau "Pengumpulan" untuk tugas biasa.
+func TaskSubmissionLabel(taskType string) string {
+	if IsQuizTaskType(taskType) {
+		return "Pelaksanaan"
+	}
+	return "Pengumpulan"
+}
+
 // IsDayName mengecek apakah string mengandung nama hari kerja
 func IsDayName(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))

@@ -133,3 +133,46 @@ func TestFormatTaskDeadline(t *testing.T) {
 		t.Errorf("expected 'Senin, 01 Feb 2027 (08:00)', got '%s'", got)
 	}
 }
+
+func TestFormatCourseWithActivity(t *testing.T) {
+	tests := []struct {
+		name     string
+		course   string
+		activity string
+		expected string
+	}{
+		{"Practice clean", "Sistem Basis Data", "PRACTICE", "Sistem Basis Data (P)"},
+		{"Practice with suffix", "Sistem Basis Data (Praktikum)", "PRAKTIKUM", "Sistem Basis Data (P)"},
+		{"Theory clean", "Aljabar Linear", "THEORY", "Aljabar Linear (T)"},
+		{"Theory with suffix", "Aljabar Linear (Teori)", "TEORI", "Aljabar Linear (T)"},
+		{"No activity", "Pancasila", "", "Pancasila"},
+		{"Already has (P)", "Basis Data (P)", "PRACTICE", "Basis Data (P)"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FormatCourseWithActivity(tc.course, tc.activity)
+			if got != tc.expected {
+				t.Errorf("FormatCourseWithActivity(%q, %q) = %q, want %q", tc.course, tc.activity, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFormatTaskTitleAndSubmissionLabel(t *testing.T) {
+	if got := FormatTaskTitle("Aljabar Relasional", "Kuis"); got != "[KUIS] Aljabar Relasional" {
+		t.Errorf("expected '[KUIS] Aljabar Relasional', got %q", got)
+	}
+	if got := FormatTaskTitle("Kuis 1 - SQL", "Kuis"); got != "Kuis 1 - SQL" {
+		t.Errorf("expected 'Kuis 1 - SQL' without duplicate prefix, got %q", got)
+	}
+	if got := FormatTaskTitle("Latihan Vektor", "Individu"); got != "Latihan Vektor" {
+		t.Errorf("expected 'Latihan Vektor', got %q", got)
+	}
+	if got := TaskSubmissionLabel("Kuis"); got != "Pelaksanaan" {
+		t.Errorf("expected 'Pelaksanaan', got %q", got)
+	}
+	if got := TaskSubmissionLabel("Kelompok"); got != "Pengumpulan" {
+		t.Errorf("expected 'Pengumpulan', got %q", got)
+	}
+}

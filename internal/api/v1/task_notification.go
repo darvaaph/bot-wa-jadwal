@@ -12,13 +12,13 @@ import (
 
 func queueTaskNotification(ctx context.Context, tx *sql.Tx, id int64, eventType string, userID int64) error {
 	var classID int64
-	var course, title, instructions, subURL, subText, slug, zone, classCode, groupLabel, semYear string
+	var course, title, instructions, taskType, subURL, subText, slug, zone, classCode, groupLabel, semYear string
 	var cohortYear, version int
 	var reviewID int64
 	var deadline common.DBTimestamp
 	query := `
 		SELECT sem.class_id, co.display_name, t.title, COALESCE(t.instructions, ''),
-		       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
+		       COALESCE(t.task_type, ''), t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
 		       cl.slug, cl.code, cl.cohort_year, COALESCE(cl.group_label, ''),
 		       COALESCE(sem.academic_year, ''), COALESCE(cs.timezone, 'Asia/Jakarta'), t.version
 		FROM tasks t
@@ -30,7 +30,7 @@ func queueTaskNotification(ctx context.Context, tx *sql.Tx, id int64, eventType 
 	`
 	err := tx.QueryRowContext(ctx, query, id).Scan(
 		&classID, &course, &title, &instructions,
-		&deadline, &subURL, &subText,
+		&taskType, &deadline, &subURL, &subText,
 		&slug, &classCode, &cohortYear, &groupLabel,
 		&semYear, &zone, &version,
 	)
@@ -57,6 +57,7 @@ func queueTaskNotification(ctx context.Context, tx *sql.Tx, id int64, eventType 
 	payload := map[string]any{
 		"course":          course,
 		"title":           title,
+		"task_type":       taskType,
 		"instructions":    instructions,
 		"deadline":        deadlineFormatted,
 		"submission_text": subText,

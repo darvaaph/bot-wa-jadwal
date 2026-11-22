@@ -506,4 +506,32 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 	if !strings.Contains(respTasks, "Kumpul di Portal") {
 		t.Errorf("Output GetTasks harus memuat teks pengumpulan: %s", respTasks)
 	}
+	if !strings.Contains(respTasks, "(T)") {
+		t.Errorf("Output GetTasks harus memuat badge singkat (T): %s", respTasks)
+	}
+
+	// Verifikasi tugas bertipe Kuis menampilkan [KUIS] dan Pelaksanaan:
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, task_type, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Materi Bab 1-3', 'Kuis', 'Closed book', ?,
+		          'Di Kelas D105', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dl)
+	if err != nil {
+		t.Fatalf("Insert quiz task gagal: %v", err)
+	}
+
+	respQuiz, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks kuis gagal: %v", err)
+	}
+	if !strings.Contains(respQuiz, "[KUIS] Materi Bab 1-3") {
+		t.Errorf("Output GetTasks untuk kuis harus memuat [KUIS] Materi Bab 1-3: %s", respQuiz)
+	}
+	if !strings.Contains(respQuiz, "Pelaksanaan: Di Kelas D105") {
+		t.Errorf("Output GetTasks untuk kuis harus memuat Pelaksanaan: Di Kelas D105: %s", respQuiz)
+	}
 }

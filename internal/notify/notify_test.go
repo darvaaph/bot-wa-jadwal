@@ -198,6 +198,9 @@ func TestNotify_Schedulers(t *testing.T) {
 	if !strings.Contains(taskText, "Kirim via email") {
 		t.Errorf("expected submission text, got: %s", taskText)
 	}
+	if !strings.Contains(taskText, "(T)") {
+		t.Errorf("expected activity badge (T), got: %s", taskText)
+	}
 	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️", "🚨", "⌛", "👥", "📤"}
 	for _, emoji := range slopEmojis {
 		if strings.Contains(taskText, emoji) {
