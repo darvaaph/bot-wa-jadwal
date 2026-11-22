@@ -358,17 +358,18 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 		Morning           sql.NullString `json:"-"`
 		Afternoon         sql.NullString `json:"-"`
 		Replacement       sql.NullInt64  `json:"-"`
+		Attendance        sql.NullInt64  `json:"-"`
 		Version           int            `json:"-"`
 	}
 	err = c.db.QueryRow(`
 		SELECT c.id, cs.timezone, cs.portal_access_mode, cs.portal_code_version,
 		       cs.morning_reminder_time, cs.afternoon_reminder_time,
-		       cs.replacement_reminder_minutes, cs.version
+		       cs.replacement_reminder_minutes, cs.attendance_reminder_minutes, cs.version
 		FROM classes c
 		JOIN class_settings cs ON cs.class_id = c.id
 		WHERE c.id = ?;
 	`, rc.ID).Scan(&out.ClassID, &out.Timezone, &out.PortalAccessMode, &out.PortalCodeVersion,
-		&out.Morning, &out.Afternoon, &out.Replacement, &out.Version)
+		&out.Morning, &out.Afternoon, &out.Replacement, &out.Attendance, &out.Version)
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
@@ -396,6 +397,11 @@ func (c *PortalController) GetClassSettings(w http.ResponseWriter, r *http.Reque
 	if out.Replacement.Valid {
 		resp["replacement_reminder_minutes"] = out.Replacement.Int64
 	}
+	if out.Attendance.Valid {
+		resp["attendance_reminder_minutes"] = out.Attendance.Int64
+	} else {
+		resp["attendance_reminder_minutes"] = 25
+	}
 	common.WriteV1Success(w, http.StatusOK, resp)
 }
 
@@ -406,6 +412,7 @@ type UpdateClassSettingsRequest struct {
 	MorningReminderTime        *string `json:"morning_reminder_time,omitempty"`
 	AfternoonReminderTime      *string `json:"afternoon_reminder_time,omitempty"`
 	ReplacementReminderMinutes *int    `json:"replacement_reminder_minutes,omitempty"`
+	AttendanceReminderMinutes  *int    `json:"attendance_reminder_minutes,omitempty"`
 }
 
 // UpdateClassSettings menangani PATCH /api/v1/classes/{slug}/settings.
@@ -442,10 +449,10 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 	var curVersion int
 	var curTz string
 	var curMorning, curAfternoon sql.NullString
-	var curRepl sql.NullInt64
-	if err := c.db.QueryRow(`SELECT c.id, cs.version, cs.timezone, cs.morning_reminder_time, cs.afternoon_reminder_time, cs.replacement_reminder_minutes
+	var curRepl, curAtt sql.NullInt64
+	if err := c.db.QueryRow(`SELECT c.id, cs.version, cs.timezone, cs.morning_reminder_time, cs.afternoon_reminder_time, cs.replacement_reminder_minutes, cs.attendance_reminder_minutes
 		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.id = ?;`, rc.ID).
-		Scan(&classID, &curVersion, &curTz, &curMorning, &curAfternoon, &curRepl); err == sql.ErrNoRows {
+		Scan(&classID, &curVersion, &curTz, &curMorning, &curAfternoon, &curRepl, &curAtt); err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	} else if err != nil {
@@ -506,6 +513,14 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		}
 		sets = append(sets, "replacement_reminder_minutes = ?")
 		args = append(args, *req.ReplacementReminderMinutes)
+	}
+	if req.AttendanceReminderMinutes != nil {
+		if *req.AttendanceReminderMinutes < 0 || *req.AttendanceReminderMinutes > 60 {
+			common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "attendance_reminder_minutes harus 0-60")
+			return
+		}
+		sets = append(sets, "attendance_reminder_minutes = ?")
+		args = append(args, *req.AttendanceReminderMinutes)
 	}
 	if len(sets) == 0 {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")

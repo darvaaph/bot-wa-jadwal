@@ -117,6 +117,10 @@ func TestV1Class_UpdateSettings(t *testing.T) {
 	if ver != 1 {
 		t.Fatalf("version awal expected 1, got %v", get.Data["version"])
 	}
+	attM, _ := get.Data["attendance_reminder_minutes"].(float64)
+	if attM != 25 {
+		t.Fatalf("attendance_reminder_minutes awal expected 25, got %v", get.Data["attendance_reminder_minutes"])
+	}
 
 	// 2. Timezone invalid -> 422
 	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]string{"timezone": "Mars/Olympus"})
@@ -135,6 +139,14 @@ func TestV1Class_UpdateSettings(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("menit invalid expected 422, got %d", w.Code)
 	}
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{"attendance_reminder_minutes": 65})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("attendance_reminder_minutes > 60 expected 422, got %d", w.Code)
+	}
+	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{"attendance_reminder_minutes": -1})
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("attendance_reminder_minutes < 0 expected 422, got %d", w.Code)
+	}
 
 	// 5. Body kosong -> 422
 	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{})
@@ -146,16 +158,17 @@ func TestV1Class_UpdateSettings(t *testing.T) {
 	w = helperDo(t, s, "PATCH", "/api/v1/classes/d4-ti-2024-a/settings", kmToken, map[string]any{
 		"timezone": "Asia/Jakarta", "morning_reminder_time": "06:00",
 		"afternoon_reminder_time": "17:00", "replacement_reminder_minutes": 60,
+		"attendance_reminder_minutes": 30,
 	})
 	if w.Code != http.StatusOK {
 		t.Fatalf("PATCH expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 	var dbTz, dbPagi, dbSore string
-	var dbGanti int
+	var dbGanti, dbAbsen int
 	var dbVer int
-	_ = db.QueryRow(`SELECT timezone, morning_reminder_time, afternoon_reminder_time, replacement_reminder_minutes, version FROM class_settings WHERE class_id = 1;`).Scan(&dbTz, &dbPagi, &dbSore, &dbGanti, &dbVer)
-	if dbTz != "Asia/Jakarta" || dbPagi != "06:00" || dbSore != "17:00" || dbGanti != 60 || dbVer != 2 {
-		t.Fatalf("DB tak sesuai: %v %v %v %v %v", dbTz, dbPagi, dbSore, dbGanti, dbVer)
+	_ = db.QueryRow(`SELECT timezone, morning_reminder_time, afternoon_reminder_time, replacement_reminder_minutes, attendance_reminder_minutes, version FROM class_settings WHERE class_id = 1;`).Scan(&dbTz, &dbPagi, &dbSore, &dbGanti, &dbAbsen, &dbVer)
+	if dbTz != "Asia/Jakarta" || dbPagi != "06:00" || dbSore != "17:00" || dbGanti != 60 || dbAbsen != 30 || dbVer != 2 {
+		t.Fatalf("DB tak sesuai: %v %v %v %v %v %v", dbTz, dbPagi, dbSore, dbGanti, dbAbsen, dbVer)
 	}
 	var nAudit int
 	_ = db.QueryRow(`SELECT COUNT(*) FROM audit_logs WHERE action = 'UPDATE_CLASS_SETTINGS';`).Scan(&nAudit)

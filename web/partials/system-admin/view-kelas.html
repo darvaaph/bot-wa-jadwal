@@ -869,6 +869,7 @@
           <dt class="text-muted">Pengingat Jadwal Pagi</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.morning_reminder_time ? detailSettings.morning_reminder_time : 'Belum diatur'"></dd>
           <dt class="text-muted">Rekap Tugas Sore</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.afternoon_reminder_time ? detailSettings.afternoon_reminder_time : 'Belum diatur'"></dd>
           <dt class="text-muted">Kuliah Pengganti</dt><dd class="text-right font-semibold text-deep-ink" x-text="detailSettings?.replacement_reminder_minutes != null ? detailSettings.replacement_reminder_minutes + ' menit sebelum sesi' : 'Belum diatur'"></dd>
+          <dt class="text-muted">Pengingat Absen</dt><dd class="text-right font-semibold text-deep-ink" x-text="detailSettings?.attendance_reminder_minutes > 0 ? (detailSettings.attendance_reminder_minutes + ' menit setelah mulai') : (detailSettings?.attendance_reminder_minutes === 0 ? 'Nonaktif' : '25 menit setelah mulai')"></dd>
         </dl>
         <p x-show="detailSettings" class="mt-2 text-[12px] text-muted">Zona waktu: <span x-text="detailSettings?.timezone || '-'"></span></p>
         <button type="button" x-show="detailSettings && !pengingatFormTerbuka" @click="bukaPengingatForm()" class="ui-button ui-button--outline mt-4">Ubah Jam Pengingat</button>
@@ -876,6 +877,7 @@
           <label class="text-[13px] font-semibold text-deep-ink">Jam pagi<input type="time" x-model="pengingatForm.morning_reminder_time" required class="ui-field mt-1 w-full"></label>
           <label class="text-[13px] font-semibold text-deep-ink">Jam sore<input type="time" x-model="pengingatForm.afternoon_reminder_time" required class="ui-field mt-1 w-full"></label>
           <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Kuliah pengganti, menit sebelumnya<input type="number" x-model="pengingatForm.replacement_reminder_minutes" min="0" max="1440" step="1" required class="ui-field mt-1 w-full"></label>
+          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Pengingat absen kuliah, menit setelah mulai (0 = nonaktif, 1–60 menit)<input type="number" x-model="pengingatForm.attendance_reminder_minutes" min="0" max="60" step="1" required class="ui-field mt-1 w-full"></label>
           <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-danger sm:col-span-2" role="alert"></p>
           <div class="flex flex-wrap gap-2 sm:col-span-2">
             <button type="submit" :disabled="pengingatSaving" class="ui-button ui-button--primary" x-text="pengingatSaving ? 'Menyimpan...' : 'Simpan pengingat'"></button>

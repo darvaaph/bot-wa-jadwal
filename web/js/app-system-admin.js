@@ -152,7 +152,7 @@ function systemAdminApp() {
     dukunganSekarang: Date.now(),
     dukunganError: '',
     pengingatFormTerbuka: false,
-    pengingatForm: { morning_reminder_time: '', afternoon_reminder_time: '', replacement_reminder_minutes: 60 },
+    pengingatForm: { morning_reminder_time: '', afternoon_reminder_time: '', replacement_reminder_minutes: 60, attendance_reminder_minutes: 25 },
     pengingatSaving: false,
     pengingatError: '',
 
@@ -1157,6 +1157,7 @@ function systemAdminApp() {
       if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') return 'Pembatalan kuliah';
       if (t === 'ACADEMIC_RESTORE_CORRECTION') return 'Koreksi jadwal & tugas';
       if (t === 'DAILY_DIGEST') return 'Pengingat jadwal';
+      if (t === 'ATTENDANCE_REMINDER') return 'Pengingat absen';
       if (t === 'PORTAL_ACCESS') return 'Kode akses portal';
       return eventType || 'Pengumuman kelas';
     },
@@ -1192,6 +1193,7 @@ function systemAdminApp() {
       else if (t === 'SCHEDULE_REVOKED' || t === 'TEACHING_EVENT_REVOKED') label = 'Pembatalan Kuliah';
       else if (t === 'ACADEMIC_RESTORE_CORRECTION') label = 'Koreksi Akademik';
       else if (t === 'DAILY_DIGEST') label = 'Pengingat Jadwal';
+      else if (t === 'ATTENDANCE_REMINDER') label = 'Pengingat Absen Kuliah';
       else if (t === 'PORTAL_ACCESS') label = 'Kode Akses Portal';
       return eventType ? `${label} (${eventType})` : label;
     },
@@ -1241,6 +1243,7 @@ function systemAdminApp() {
       else if (event === 'SCHEDULE_REVOKED' || event === 'TEACHING_EVENT_REVOKED') title = '⚠️ PEMBATALAN KULIAH PENGGANTI';
       else if (event === 'ACADEMIC_RESTORE_CORRECTION') title = '📌 KOREKSI INFORMASI AKADEMIK';
       else if (event === 'DAILY_DIGEST') title = '📅 JADWAL KULIAH HARI INI';
+      else if (event === 'ATTENDANCE_REMINDER') title = '📋 PENGINGAT ABSEN KULIAH';
       else if (event === 'PORTAL_ACCESS') title = '🔑 KODE AKSES PORTAL KELAS';
 
       const course = payload.course || payload.course_name || '';
@@ -5652,7 +5655,8 @@ function systemAdminApp() {
       this.pengingatForm = {
         morning_reminder_time: this.detailSettings.morning_reminder_time || '',
         afternoon_reminder_time: this.detailSettings.afternoon_reminder_time || '',
-        replacement_reminder_minutes: this.detailSettings.replacement_reminder_minutes ?? 60
+        replacement_reminder_minutes: this.detailSettings.replacement_reminder_minutes ?? 60,
+        attendance_reminder_minutes: this.detailSettings.attendance_reminder_minutes ?? 25
       };
       this.pengingatError = '';
       this.pengingatFormTerbuka = true;
@@ -5676,8 +5680,9 @@ function systemAdminApp() {
       const f = this.pengingatForm;
       const validJam = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
       const menit = Number(f.replacement_reminder_minutes);
-      if (!validJam(f.morning_reminder_time) || !validJam(f.afternoon_reminder_time) || !Number.isInteger(menit) || menit < 0 || menit > 1440) {
-        this.pengingatError = 'Isi jam dalam format HH:MM dan interval 0–1440 menit.';
+      const att = Number(f.attendance_reminder_minutes);
+      if (!validJam(f.morning_reminder_time) || !validJam(f.afternoon_reminder_time) || !Number.isInteger(menit) || menit < 0 || menit > 1440 || !Number.isInteger(att) || att < 0 || att > 60) {
+        this.pengingatError = 'Isi jam format HH:MM, pengganti 0–1440 menit, dan absen 0–60 menit.';
         return;
       }
       this.pengingatError = '';
@@ -5687,7 +5692,8 @@ function systemAdminApp() {
           version: this.detailSettings.version,
           morning_reminder_time: f.morning_reminder_time,
           afternoon_reminder_time: f.afternoon_reminder_time,
-          replacement_reminder_minutes: menit
+          replacement_reminder_minutes: menit,
+          attendance_reminder_minutes: att
         });
         await this.loadDetailSettings(slug);
         this.pengingatFormTerbuka = false;
