@@ -75,6 +75,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/schedule/patterns/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1Pattern)))
 	mux.HandleFunc("DELETE /api/v1/schedule/patterns/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleDeleteV1Pattern)))
 	mux.HandleFunc("POST /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
+	mux.HandleFunc("PATCH /api/v1/teaching-events/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleCreateV1TeachingEvent)))
 	mux.HandleFunc("GET /api/v1/teaching-events", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEvents)))
 	mux.HandleFunc("GET /api/v1/teaching-events/{id}", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handleGetV1TeachingEventDetail)))
 	mux.HandleFunc("POST /api/v1/teaching-events/{id}/preview", s.RequireAuth(s.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(s.handlePreviewV1TeachingEvent)))
@@ -167,16 +168,21 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		})
 	})
 
-	// Route akses portal mahasiswa via slug (/c/{slug})
-	mux.HandleFunc("GET /c/{slug}", func(w http.ResponseWriter, r *http.Request) {
+	// Route akses portal mahasiswa via slug (/c/{slug}) atau portal umum (/c, /c/)
+	servePortal := func(w http.ResponseWriter, r *http.Request) {
 		indexFile, err := web.Files.ReadFile("index.html")
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 		_, _ = w.Write(indexFile)
-	})
+	}
+
+	mux.HandleFunc("GET /c/{slug}", servePortal)
+	mux.HandleFunc("GET /c", servePortal)
+	mux.HandleFunc("GET /c/", servePortal)
 
 	// Alias lama: /superadmin.html dialihkan permanen ke /system-admin.html.
 	mux.HandleFunc("GET /superadmin.html", func(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +195,27 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	for _, method := range []string{"GET", "HEAD"} {
 		mux.HandleFunc(method+" /index.html", redirectToLogin)
 	}
+
+	// PWA: Manifest & Service Worker
+	servePWAFile := func(filename, contentType string, noCache bool) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			data, err := web.Files.ReadFile(filename)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", contentType)
+			if noCache {
+				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+				w.Header().Set("Service-Worker-Allowed", "/")
+			}
+			_, _ = w.Write(data)
+		}
+	}
+
+	mux.HandleFunc("GET /sw.js", servePWAFile("sw.js", "application/javascript; charset=utf-8", true))
+	mux.HandleFunc("GET /manifest.webmanifest", servePWAFile("manifest.webmanifest", "application/manifest+json", false))
+	mux.HandleFunc("GET /manifest.json", servePWAFile("manifest.json", "application/manifest+json", false))
 
 	// Menyajikan aset web statis dari web.Files embedded.
 	// Path halaman yang tidak ada (mis. salah ketik *.html) mendapat
@@ -203,6 +230,14 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 			if _, err := web.Files.Open(strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")); err != nil {
 				serveWebNotFound(w, r)
 				return
+			}
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+		} else {
+			// Aset statis (CSS, JS, Fonts, Gambar, Icons)
+			if r.URL.Query().Get("v") != "" {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800")
 			}
 		}
 		webFS.ServeHTTP(w, r)

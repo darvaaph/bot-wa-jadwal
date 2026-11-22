@@ -136,8 +136,8 @@
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
             <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" :title="sidebarCollapsed ? shellIdentity().detail + ' (' + shellIdentity().sub + ')' : ''" aria-hidden="true" x-text="saInitials()"></div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="shellIdentity().detail"></span>
-              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" x-text="shellIdentity().sub"></span>
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" :title="shellIdentity().detail" x-text="shellIdentity().detail"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate" :title="shellIdentity().sub" x-text="shellIdentity().sub"></span>
             </div>
           </button>
           <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
@@ -164,21 +164,70 @@
         <div x-show="!sidebarCollapsed" class="sidebar-label min-w-0 flex flex-col gap-[2px]">
           <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Kelas</span>
             <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
           </div>
         </div>
       </button>
-      <div x-show="contextAssignments && contextAssignments.length > 1" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
-        <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
-        <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
-            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
+      <!-- Role / Workspace Switcher (Multi-Role Support) -->
+      <div x-show="contextAssignments && contextAssignments.length > 1"
+           class="sidebar-section relative shrink-0 mt-3 box-border w-full flex flex-col gap-1.5 p-2 bg-[#F6F7FB] border border-[#EEEEEE] rounded-[14px] transition-all"
+           :class="roleSwitcherOpen ? 'z-30 ring-2 ring-[#3965FB]/20 border-[#3965FB]/40 bg-white shadow-sm' : 'z-10'"
+           @click.outside="roleSwitcherOpen = false">
+        <div class="flex items-center justify-between px-1.5 pt-0.5">
+          <span class="text-[10px]/[14px] font-bold tracking-[0.8px] text-[#667085] uppercase">RUANG KERJA</span>
+          <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#EEF2FF] text-[#3965FB]" x-text="(contextAssignments || []).length + ' Peran'"></span>
+        </div>
+        <button type="button"
+                @click="roleSwitcherOpen = !roleSwitcherOpen"
+                :aria-expanded="String(roleSwitcherOpen)"
+                aria-haspopup="listbox"
+                aria-label="Pilih peran atau ruang kerja"
+                class="w-full flex items-center gap-2 p-1.5 rounded-[10px] bg-white border border-[#E2E8F0] hover:border-[#3965FB] transition-all text-left cursor-pointer group focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <span class="w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
+                :class="roleBadgeClasses(activeRoleKey())"
+                x-html="roleIconSvg(activeRoleKey(), 16)"></span>
+          <span class="min-w-0 flex-1 flex flex-col">
+            <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="activeRoleTitle()"></span>
+            <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="activeRoleSubtitle()"></span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200 text-[#667085] group-hover:text-[#3965FB]" :class="roleSwitcherOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
           </svg>
-        </label>
+        </button>
+
+        <!-- Menu Popover Dropdown -->
+        <div x-show="roleSwitcherOpen"
+             x-cloak
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+             role="listbox"
+             aria-label="Daftar peran dan ruang kerja"
+             class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-[#D7DDE7] rounded-[12px] shadow-xl p-1.5 max-h-[260px] overflow-y-auto scroll-slim flex flex-col gap-1">
+          <div class="px-2 py-1 text-[10px] font-bold text-[#667085] uppercase tracking-wider border-b border-[#F2F4F7]">Ganti Ruang Kerja</div>
+          <template x-for="a in contextAssignments || []" :key="a.id">
+            <button type="button"
+                    role="option"
+                    :aria-selected="String(String(a.id) === String(meCache?.active_assignment?.id))"
+                    @click="roleSwitcherOpen = false; switchContextById(a.id)"
+                    class="w-full flex items-center gap-2.5 p-2 rounded-[9px] text-left transition-all cursor-pointer group"
+                    :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'hover:bg-slate-50 border border-transparent'">
+              <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                    :class="roleBadgeClasses(a.role)"
+                    x-html="roleIconSvg(a.role, 15)"></span>
+              <span class="min-w-0 flex-1 flex flex-col">
+                <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+                <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+              </span>
+              <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1" title="Aktif">✓</span>
+              <span x-show="String(a.id) !== String(meCache?.active_assignment?.id)" class="text-slate-400 group-hover:text-[#3965FB] shrink-0 text-[11px] px-1 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+            </button>
+          </template>
+        </div>
       </div>
       <nav aria-label="Navigasi utama" class="mt-2 flex flex-col text-[14px] shrink-0 w-full">
         <template x-for="section in shellNavSections()" :key="section.title">
@@ -214,12 +263,12 @@
                   class="flex items-center text-left rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
             <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all"
-                 :title="sidebarCollapsed ? ((currentUser?.display_name || 'Ketua Murid') + ' (Ketua Murid)') : ''"
+                 :title="sidebarCollapsed ? ((currentUser?.display_name || 'Ketua Kelas') + ' (Ketua Kelas)') : ''"
                  aria-hidden="true"
                  x-text="kmInitials()"></div>
             <div x-show="!sidebarCollapsed" class="sidebar-footer-text sidebar-label min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
-              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Murid</span>
+              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Kelas'"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Kelas</span>
             </div>
           </button>
           <button type="button" @click="konfirmasiLogout()" title="Keluar dari akun" aria-label="Keluar dari akun" class="w-[36px] h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0 transition-colors">
@@ -249,7 +298,7 @@
         </div>
       </button>
 
-      <nav aria-label="Navigasi portal mahasiswa" class="mt-4 flex flex-col gap-1 text-[14px] shrink-0 w-full">
+      <nav aria-label="Navigasi jadwal & tugas mahasiswa" class="mt-4 flex flex-col gap-1 text-[14px] shrink-0 w-full">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
           <button type="button" @click="shellGo(item)" :title="sidebarCollapsed ? item.label : ''" :aria-label="sidebarCollapsed ? item.label : null" :aria-current="shellIsActive(item) ? 'page' : null" :class="(shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold ' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium ') + (sidebarCollapsed ? 'justify-center' : 'gap-3 px-3')" class="flex items-center w-full h-[44px] rounded-[10px] text-left transition-colors">
             <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
@@ -262,8 +311,8 @@
         <div class="flex items-center justify-between" :class="sidebarCollapsed ? 'flex-col gap-2 justify-center py-1' : 'gap-[10px] p-[8px]'">
           <button type="button"
                   @click="classModalOpen = true"
-                  title="Ganti kelas portal"
-                  aria-label="Ganti kelas portal"
+                  title="Ganti kelas"
+                  aria-label="Ganti kelas"
                   class="flex items-center text-left rounded-xl hover:bg-slate-50 p-1 -m-1 transition-colors cursor-pointer min-w-0 flex-1 group"
                   :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-[10px]'">
             <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#1D4ED8]/30 transition-all" aria-hidden="true">MH</div>
@@ -299,16 +348,65 @@
           </div>
         </div>
       </button>
-      <div x-show="!sidebarCollapsed && contextAssignments && contextAssignments.length > 1" class="sidebar-section shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
-        <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
-        <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
-            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
+      <!-- Role / Workspace Switcher (Multi-Role Support) -->
+      <div x-show="contextAssignments && contextAssignments.length > 1"
+           class="sidebar-section relative shrink-0 mt-3 box-border w-full flex flex-col gap-1.5 p-2 bg-[#F6F7FB] border border-[#EEEEEE] rounded-[14px] transition-all"
+           :class="roleSwitcherOpen ? 'z-30 ring-2 ring-[#3965FB]/20 border-[#3965FB]/40 bg-white shadow-sm' : 'z-10'"
+           @click.outside="roleSwitcherOpen = false">
+        <div class="flex items-center justify-between px-1.5 pt-0.5">
+          <span class="text-[10px]/[14px] font-bold tracking-[0.8px] text-[#667085] uppercase">RUANG KERJA</span>
+          <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#EEF2FF] text-[#3965FB]" x-text="(contextAssignments || []).length + ' Peran'"></span>
+        </div>
+        <button type="button"
+                @click="roleSwitcherOpen = !roleSwitcherOpen"
+                :aria-expanded="String(roleSwitcherOpen)"
+                aria-haspopup="listbox"
+                aria-label="Pilih peran atau ruang kerja"
+                class="w-full flex items-center gap-2 p-1.5 rounded-[10px] bg-white border border-[#E2E8F0] hover:border-[#3965FB] transition-all text-left cursor-pointer group focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+          <span class="w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
+                :class="roleBadgeClasses(activeRoleKey())"
+                x-html="roleIconSvg(activeRoleKey(), 16)"></span>
+          <span class="min-w-0 flex-1 flex flex-col">
+            <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="activeRoleTitle()"></span>
+            <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="activeRoleSubtitle()"></span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="#667085" class="w-3.5 h-3.5 shrink-0 transition-transform duration-200 text-[#667085] group-hover:text-[#3965FB]" :class="roleSwitcherOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
           </svg>
-        </label>
+        </button>
+
+        <!-- Menu Popover Dropdown -->
+        <div x-show="roleSwitcherOpen"
+             x-cloak
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+             role="listbox"
+             aria-label="Daftar peran dan ruang kerja"
+             class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-[#D7DDE7] rounded-[12px] shadow-xl p-1.5 max-h-[260px] overflow-y-auto scroll-slim flex flex-col gap-1">
+          <div class="px-2 py-1 text-[10px] font-bold text-[#667085] uppercase tracking-wider border-b border-[#F2F4F7]">Ganti Ruang Kerja</div>
+          <template x-for="a in contextAssignments || []" :key="a.id">
+            <button type="button"
+                    role="option"
+                    :aria-selected="String(String(a.id) === String(meCache?.active_assignment?.id))"
+                    @click="roleSwitcherOpen = false; switchContextById(a.id)"
+                    class="w-full flex items-center gap-2.5 p-2 rounded-[9px] text-left transition-all cursor-pointer group"
+                    :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'hover:bg-slate-50 border border-transparent'">
+              <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                    :class="roleBadgeClasses(a.role)"
+                    x-html="roleIconSvg(a.role, 15)"></span>
+              <span class="min-w-0 flex-1 flex flex-col">
+                <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+                <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+              </span>
+              <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1" title="Aktif">✓</span>
+              <span x-show="String(a.id) !== String(meCache?.active_assignment?.id)" class="text-slate-400 group-hover:text-[#3965FB] shrink-0 text-[11px] px-1 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+            </button>
+          </template>
+        </div>
       </div>
       <nav aria-label="Navigasi utama" class="mt-4 flex flex-col gap-0 text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
@@ -332,7 +430,7 @@
           <button type="button" @click="bukaModalProfilPJ()" aria-haspopup="dialog" class="min-w-0 flex-1 flex items-center gap-2.5 text-left rounded-lg p-1 -m-1 hover:bg-slate-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary group cursor-pointer" :aria-label="'Buka profil ' + (currentUser?.display_name || 'PJ Mata Kuliah')">
             <span class="w-[38px] h-[38px] shrink-0 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" x-text="pjInitials()"></span>
             <span x-show="!sidebarCollapsed" class="min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Farhan Pratama'"></span>
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'PJ Mata Kuliah'"></span>
               <span class="block text-[11px] text-[#667085] truncate leading-tight" x-text="'PJ ' + (dashboardData?.offering?.course_name || pjMatkul || 'Matkul')"></span>
             </span>
           </button>
@@ -423,11 +521,11 @@
             </svg>
           </button>
 
-          <!-- Breadcrumb: Sistem / D4-TI 1A / Tugas / Tambah Tugas Baru -->
+          <!-- Breadcrumb: Sistem / <Kelas> / Tugas / Tambah Tugas Baru -->
           <nav aria-label="Breadcrumb" class="hidden md:flex items-center gap-2 min-w-0 text-[13px]">
             <button type="button" @click="go('dashboard')" class="text-[#667085] font-medium hover:text-[#1D1B3A] hover:underline truncate transition-colors">Sistem</button>
             <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
-            <span class="text-[#667085] font-medium truncate" x-text="kmClassShort()">D4-TI 1A</span>
+            <span class="text-[#667085] font-medium truncate" x-text="kmClassShort()">-</span>
             <span class="text-[#98A2B3] shrink-0" aria-hidden="true">/</span>
             <template x-if="view === 'tugas' && tugasSub === 'tambah'">
               <span class="contents">
@@ -491,16 +589,21 @@
               <span class="text-[14px] font-bold text-[#0F172A] font-heading leading-tight whitespace-nowrap">ASTERISK</span>
               <button type="button" @click="classModalOpen = true" title="Ganti kelas" class="box-border px-[8px] py-[4px] bg-[#EFF6FF] border border-[#BFDBFE] rounded-[6px] text-[10px] font-bold text-[#1D4ED8] whitespace-nowrap hover:bg-blue-100 transition-colors cursor-pointer" x-text="selectedClassFormatted || 'Kelas'"></button>
             </div>
-            <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
-              <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
-              <span class="text-[9px] text-[#065F46] font-bold whitespace-nowrap">Terhubung</span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <div class="flex items-center gap-[5px] px-[7px] py-[5px] bg-[#ECFDF5] rounded-[12px] shrink-0">
+                <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
+                <span class="text-[9px] text-[#065F46] font-bold whitespace-nowrap">Terhubung</span>
+              </div>
+              <a href="/login.html" class="flex items-center gap-1 px-2 py-1 bg-white border border-[#E2E8F0] rounded-[8px] text-[10px] font-bold text-[#475569] hover:text-[#0F172A] hover:bg-slate-50 transition-colors" title="Masuk Pengurus">
+                Pengurus
+              </a>
             </div>
           </div>
 
           <!-- Desktop top bar -->
           <div class="hidden md:flex items-center justify-between w-full">
             <nav aria-label="Breadcrumb" class="flex items-center gap-[8px] min-w-0 text-[12px]">
-              <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Portal</button>
+              <button type="button" @click="go('dashboard')" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors whitespace-nowrap">Jadwal & Tugas</button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
               <button type="button" @click="classModalOpen = true" class="text-[#64748B] font-medium hover:text-[#0F172A] hover:underline transition-colors truncate max-w-[200px]" x-text="selectedClassFormatted || 'Kelas'"></button>
               <span class="text-[#94A3B8] font-medium shrink-0" aria-hidden="true">/</span>
@@ -511,6 +614,10 @@
                 <span class="w-[6px] h-[6px] bg-[#065F46] rounded-full shrink-0" aria-hidden="true"></span>
                 <span class="text-[11px] text-[#065F46] font-bold whitespace-nowrap">Bot Terhubung</span>
               </div>
+              <a href="/login.html" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E2E8F0] rounded-xl hover:bg-slate-50 text-[12px] font-semibold text-[#475569] hover:text-[#0F172A] transition-colors shadow-xs" title="Masuk Pengurus Kelas (KM / PJ / Admin)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                <span>Masuk Pengurus</span>
+              </a>
             </div>
           </div>
         </div>
@@ -728,23 +835,60 @@
           <div class="min-w-0 flex flex-col gap-[2px]">
             <span class="block text-[16px] font-extrabold tracking-[0.6px] text-[#1D1B3A] font-heading leading-tight truncate">ASTERISK</span>
             <div class="flex items-center gap-1.5 min-w-0">
-              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Murid</span>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-[10px] font-bold bg-[#EEF2FF] text-[#3965FB] w-fit leading-tight shrink-0">Ketua Kelas</span>
               <span x-show="!contextAssignments || contextAssignments.length <= 1" class="text-[11px] font-medium text-[#667085] leading-tight truncate" :title="kmClassName()" x-text="kmClassName() ? ('· ' + kmClassName()) : ''"></span>
             </div>
           </div>
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 shrink-0 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div x-show="contextAssignments && contextAssignments.length > 1" class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
-        <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
-        <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
+      <!-- Role / Workspace Switcher (Mobile Drawer) -->
+      <div x-show="contextAssignments && contextAssignments.length > 1"
+           class="shrink-0 mt-4 box-border w-full flex flex-col gap-1.5 p-2 bg-[#F6F7FB] border border-[#EEEEEE] rounded-[14px]">
+        <div class="flex items-center justify-between px-1.5 pt-0.5">
+          <span class="text-[10px]/[14px] font-bold tracking-[0.8px] text-[#667085] uppercase">RUANG KERJA</span>
+          <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#EEF2FF] text-[#3965FB]" x-text="(contextAssignments || []).length + ' Peran'"></span>
+        </div>
+        <button type="button"
+                @click="roleSwitcherDrawerOpen = !roleSwitcherDrawerOpen"
+                :aria-expanded="String(roleSwitcherDrawerOpen)"
+                aria-label="Pilih peran atau ruang kerja"
+                class="w-full flex items-center gap-2.5 p-2 rounded-[10px] bg-white border border-[#E2E8F0] hover:border-[#3965FB] transition-all text-left cursor-pointer group">
+          <span class="w-8 h-8 rounded-[8px] flex items-center justify-center shrink-0"
+                :class="roleBadgeClasses(activeRoleKey())"
+                x-html="roleIconSvg(activeRoleKey(), 18)"></span>
+          <span class="min-w-0 flex-1 flex flex-col">
+            <span class="text-[13px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="activeRoleTitle()"></span>
+            <span class="text-[11px] font-medium text-[#667085] truncate leading-tight" x-text="activeRoleSubtitle()"></span>
+          </span>
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="#667085" class="w-4 h-4 shrink-0 transition-transform duration-200" :class="roleSwitcherDrawerOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
           </svg>
-        </label>
+        </button>
+
+        <!-- Accordion / List in Drawer -->
+        <div x-show="roleSwitcherDrawerOpen"
+             x-cloak
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             class="flex flex-col gap-1.5 pt-1">
+          <template x-for="a in contextAssignments || []" :key="a.id">
+            <button type="button"
+                    @click="roleSwitcherDrawerOpen = false; switchContextById(a.id); shellCloseDrawer()"
+                    class="w-full flex items-center gap-2.5 p-2 rounded-[10px] text-left transition-all cursor-pointer"
+                    :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'bg-white hover:bg-slate-50 border border-[#E2E8F0]'">
+              <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                    :class="roleBadgeClasses(a.role)"
+                    x-html="roleIconSvg(a.role, 16)"></span>
+              <span class="min-w-0 flex-1 flex flex-col">
+                <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+                <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+              </span>
+              <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1" title="Aktif">✓</span>
+            </button>
+          </template>
+        </div>
       </div>
       <nav aria-label="Navigasi mobile" class="mt-2 flex flex-col text-[14px] shrink-0">
         <template x-for="section in shellNavSections()" :key="section.title">
@@ -773,8 +917,8 @@
                   class="flex items-center text-left min-w-0 flex-1 gap-[10px] rounded-xl hover:bg-slate-100/70 p-1 -m-1 transition-colors cursor-pointer group">
             <div class="w-[38px] h-[38px] rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center shrink-0 group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" aria-hidden="true" x-text="kmInitials()"></div>
             <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Murid'"></span>
-              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Murid</span>
+              <span class="block text-[13px] font-bold text-[#1D1B3A] leading-tight truncate group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Ketua Kelas'"></span>
+              <span class="block text-[11px] font-normal text-[#667085] leading-tight truncate">Ketua Kelas</span>
             </div>
           </button>
           <button type="button" @click="konfirmasiLogout(); shellCloseDrawer()" title="Keluar dari akun" aria-label="Keluar dari akun" class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#667085] hover:text-danger hover:bg-slate-50 shrink-0">
@@ -804,7 +948,7 @@
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <nav aria-label="Navigasi mobile portal" class="mt-4 flex flex-col gap-1 text-[14px]">
+      <nav aria-label="Navigasi mobile jadwal & tugas" class="mt-4 flex flex-col gap-1 text-[14px]">
         <template x-for="item in navSections[0]?.items || []" :key="item.id">
           <button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'text-[#64748B] hover:bg-slate-50 hover:text-[#1D1B3A] font-medium'" class="flex items-center gap-3 px-3 h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors">
             <span x-html="portalNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true" :class="shellIsActive(item) ? 'text-[#1D4ED8]' : 'text-[#64748B]'"></span>
@@ -812,7 +956,7 @@
           </button>
         </template>
       </nav>
-      <div class="mt-auto pt-3 px-1 border-t border-[#E2E8F0]">
+      <div class="mt-auto pt-3 px-1 border-t border-[#E2E8F0] flex flex-col gap-2">
         <button type="button" @click="classModalOpen = true; shellCloseDrawer()" class="flex items-center gap-[10px] w-full p-2 rounded-xl hover:bg-slate-50 transition-colors text-left">
           <div class="w-[38px] h-[38px] rounded-full bg-[#DBEAFE] text-[#1D4ED8] text-[11px] font-bold flex items-center justify-center shrink-0">MH</div>
           <div class="min-w-0 flex-1 flex flex-col gap-[2px]">
@@ -821,6 +965,10 @@
           </div>
           <span class="text-[11px] font-bold text-[#1D4ED8]">Ganti</span>
         </button>
+        <a href="/login.html" class="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl border border-[#E2E8F0] bg-white hover:bg-slate-50 text-[12px] font-semibold text-[#475569] hover:text-[#0F172A] transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          <span>Masuk Pengurus</span>
+        </a>
       </div>
     </div>
   </template>
@@ -845,16 +993,53 @@
         </div>
         <button type="button" data-drawer-close @click="shellCloseDrawer()" aria-label="Tutup menu" class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085]"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div x-show="contextAssignments && contextAssignments.length > 1" class="shrink-0 min-h-[72px] mt-4 box-border w-full flex flex-col gap-[6px] p-[12px] bg-[#F6F7FB] border border-[#EEEEEE] rounded-[12px]">
-        <p class="text-[10px]/[14px] font-semibold tracking-[0.8px] text-[#667085] uppercase">KELAS AKTIF</p>
-        <label class="relative flex items-center gap-2 min-h-[28px] cursor-pointer">
-          <select :value="meCache?.active_assignment?.id || ''" @change="switchContextById($event.target.value)" :disabled="contextSwitching" class="w-full min-w-0 appearance-none bg-transparent pr-6 text-[13px] font-semibold text-[#1D1B3A] truncate cursor-pointer rounded-lg">
-            <template x-for="a in contextAssignments || []" :key="a.id"><option :value="a.id" x-text="contextLabel(a)"></option></template>
-          </select>
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="#667085" class="pointer-events-none absolute right-0 w-[18px] h-[18px] shrink-0" aria-hidden="true" focusable="false">
-            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="#667085"></path>
+      <!-- Role / Workspace Switcher (Mobile Drawer) -->
+      <div x-show="contextAssignments && contextAssignments.length > 1"
+           class="shrink-0 mt-4 box-border w-full flex flex-col gap-1.5 p-2 bg-[#F6F7FB] border border-[#EEEEEE] rounded-[14px]">
+        <div class="flex items-center justify-between px-1.5 pt-0.5">
+          <span class="text-[10px]/[14px] font-bold tracking-[0.8px] text-[#667085] uppercase">RUANG KERJA</span>
+          <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#EEF2FF] text-[#3965FB]" x-text="(contextAssignments || []).length + ' Peran'"></span>
+        </div>
+        <button type="button"
+                @click="roleSwitcherDrawerOpen = !roleSwitcherDrawerOpen"
+                :aria-expanded="String(roleSwitcherDrawerOpen)"
+                aria-label="Pilih peran atau ruang kerja"
+                class="w-full flex items-center gap-2.5 p-2 rounded-[10px] bg-white border border-[#E2E8F0] hover:border-[#3965FB] transition-all text-left cursor-pointer group">
+          <span class="w-8 h-8 rounded-[8px] flex items-center justify-center shrink-0"
+                :class="roleBadgeClasses(activeRoleKey())"
+                x-html="roleIconSvg(activeRoleKey(), 18)"></span>
+          <span class="min-w-0 flex-1 flex flex-col">
+            <span class="text-[13px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="activeRoleTitle()"></span>
+            <span class="text-[11px] font-medium text-[#667085] truncate leading-tight" x-text="activeRoleSubtitle()"></span>
+          </span>
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="#667085" class="w-4 h-4 shrink-0 transition-transform duration-200" :class="roleSwitcherDrawerOpen ? 'rotate-180' : ''" aria-hidden="true" focusable="false">
+            <path d="M7 8.81494q-0.12988 0-0.24951-0.04443-0.11963-0.04443-0.21875-0.14356l-2.67969-2.67968q-0.18457-0.18457-0.18457-0.46143 0-0.28027 0.18457-0.46826 0.18457-0.18457 0.46484-0.18457 0.28027 0 0.46485 0.18457l2.21826 2.22168 2.21826-2.22168q0.18457-0.18457 0.46485-0.18457 0.28027 0 0.46484 0.18457 0.18457 0.18799 0.18457 0.46826 0 0.27686-0.18457 0.46143l-2.67969 2.67968q-0.09912 0.09912-0.21875 0.14356-0.11963 0.04443-0.24951 0.04443z" fill="currentColor"></path>
           </svg>
-        </label>
+        </button>
+
+        <!-- Accordion / List in Drawer -->
+        <div x-show="roleSwitcherDrawerOpen"
+             x-cloak
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             class="flex flex-col gap-1.5 pt-1">
+          <template x-for="a in contextAssignments || []" :key="a.id">
+            <button type="button"
+                    @click="roleSwitcherDrawerOpen = false; switchContextById(a.id); shellCloseDrawer()"
+                    class="w-full flex items-center gap-2.5 p-2 rounded-[10px] text-left transition-all cursor-pointer"
+                    :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'bg-white hover:bg-slate-50 border border-[#E2E8F0]'">
+              <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                    :class="roleBadgeClasses(a.role)"
+                    x-html="roleIconSvg(a.role, 16)"></span>
+              <span class="min-w-0 flex-1 flex flex-col">
+                <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+                <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+              </span>
+              <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1" title="Aktif">✓</span>
+            </button>
+          </template>
+        </div>
       </div>
       <nav aria-label="Navigasi mobile" class="mt-4 flex flex-col gap-0 text-[14px]">
         <template x-for="section in shellNavSections()" :key="section.title"><div class="contents"><p class="px-3 pt-3.5 pb-1 text-[10px]/[14px] font-semibold tracking-wider text-[#667085] uppercase" x-text="section.title"></p><div class="flex flex-col gap-1"><template x-for="item in section.items" :key="item.id"><button type="button" @click="shellGo(item)" :aria-current="shellIsActive(item) ? 'page' : null" :class="shellIsActive(item) ? 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold' : 'text-[#64748B] hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-3 h-[44px] rounded-[10px] text-left min-h-[44px] transition-colors"><span x-show="item.icon" x-html="pjNavIcon(item)" class="shrink-0 flex items-center justify-center w-5 h-5" aria-hidden="true"></span><span x-show="!item.icon" class="ui-icon shrink-0" :class="shellIconClass(item)" aria-hidden="true"></span><span class="flex-1 text-left text-[14px]" x-text="item.label"></span><span x-show="item.id === 'tugas' && pjReviewCount() > 0" class="min-w-[22px] h-5 rounded-[7px] bg-[#FEF3C7] px-1.5 text-[11px] font-bold text-[#92400E] flex items-center justify-center" x-text="pjReviewCount()"></span></button></template></div></div></template>
@@ -864,7 +1049,7 @@
           <button type="button" @click="bukaModalProfilPJ(); shellCloseDrawer()" aria-haspopup="dialog" class="min-w-0 flex-1 flex items-center gap-2.5 text-left group cursor-pointer" :aria-label="'Buka profil ' + (currentUser?.display_name || 'PJ Mata Kuliah')">
             <span class="w-[38px] h-[38px] shrink-0 rounded-full bg-[#E9EAFF] text-[#3965FB] text-[13px] font-bold flex items-center justify-center group-hover:ring-2 group-hover:ring-[#3965FB]/30 transition-all" x-text="pjInitials()"></span>
             <span class="min-w-0 flex-1 flex flex-col gap-[2px]">
-              <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'Farhan Pratama'"></span>
+              <span class="block text-[13px] font-semibold text-[#1D1B3A] truncate leading-tight group-hover:text-[#3965FB] transition-colors" x-text="currentUser?.display_name || 'PJ Mata Kuliah'"></span>
               <span class="block text-[11px] text-[#667085] truncate leading-tight" x-text="'PJ ' + (dashboardData?.offering?.course_name || pjMatkul || 'Matkul')"></span>
             </span>
           </button>
@@ -899,7 +1084,8 @@
 <div x-show="toast.show" x-cloak role="status" aria-live="polite" class="ui-toast fixed bottom-28 md:bottom-6 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 z-50 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-success" aria-hidden="true">info</span><span x-text="toast.message"></span></div>
 
 <!-- Dialog Profil Administrator (SCR-ADM-PROFILE-MODAL) -->
-<div x-show="shellRoleKey === 'sa' && modalProfilAdmin"
+<template x-if="shellRoleKey === 'sa'">
+<div x-show="modalProfilAdmin"
      x-cloak
      role="dialog"
      aria-modal="true"
@@ -934,10 +1120,35 @@
       <div class="w-[48px] h-[48px] shrink-0 rounded-full bg-[#E9EAFF] ring-2 ring-white shadow-sm flex items-center justify-center text-[16px] font-bold text-[#2854D6]" aria-hidden="true" x-text="typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')">SA</div>
       <div class="min-w-0 flex-1 flex flex-col gap-1">
         <div class="text-[14px] leading-tight text-[#1D1B3A] font-bold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || 'System Admin'">System Admin</div>
-        <div class="text-[12px] leading-tight text-[#475467] font-mono tracking-tight truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '+62 811-1111-1111'">+62 811-1111-1111</div>
+        <div class="text-[12px] leading-tight text-[#475467] font-mono tracking-tight truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '-'">-</div>
         <div class="mt-0.5">
           <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#DCFCE7] border border-[#BBF7D0] text-[10px] leading-tight text-[#15803D] font-medium">Akses Penuh Seluruh Kampus</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Pindah Ruang Kerja Cepat (Multi-Role KM) -->
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="w-full flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-[14px]">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold text-[#1D1B3A] uppercase tracking-wider">Pindah Ruang Kerja</span>
+        <span class="text-[10px] font-medium text-[#667085]" x-text="(contextAssignments || []).length + ' Ruang Kerja'"></span>
+      </div>
+      <div class="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto scroll-slim">
+        <template x-for="a in contextAssignments || []" :key="a.id">
+          <button type="button"
+                  @click="switchContextById(a.id); tutupModalProfilKM()"
+                  class="w-full flex items-center gap-2.5 p-2 rounded-[10px] text-left transition-all cursor-pointer"
+                  :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'bg-white hover:bg-slate-100 border border-[#E2E8F0]'">
+            <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                  :class="roleBadgeClasses(a.role)"
+                  x-html="roleIconSvg(a.role, 15)"></span>
+            <span class="min-w-0 flex-1 flex flex-col">
+              <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+              <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+            </span>
+            <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1">✓</span>
+          </button>
+        </template>
       </div>
     </div>
 
@@ -985,6 +1196,8 @@
     </div>
   </div>
 </div>
+
+</template>
 
 <!-- Dialog Profil PJ Mata Kuliah (SCR-PJ-PROFILE-MODAL) -->
 <div x-show="shellRoleKey === 'pj' && modalProfilPJ"
@@ -1050,17 +1263,28 @@
     </div>
 
     <!-- Pindah Ruang Kerja Cepat (Hanya tampil jika Multi-Assignment) -->
-    <div x-show="contextAssignments && contextAssignments.length > 1" class="w-full p-3 bg-blue-50/70 border border-blue-200 rounded-[12px]">
-      <label for="modal-pj-context-select" class="block text-[11px] font-bold text-blue-900 uppercase tracking-wider">Pindah Ruang Kerja</label>
-      <select id="modal-pj-context-select"
-              :value="meCache?.active_assignment?.id || ''"
-              @change="switchContextById($event.target.value); tutupModalProfilPJ()"
-              :disabled="contextSwitching"
-              class="mt-1.5 w-full min-h-[44px] h-10 px-3 rounded-lg border border-blue-300 bg-white text-slate-900 text-[12px] font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer">
+    <div x-show="contextAssignments && contextAssignments.length > 1" class="w-full flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-[14px]">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold text-[#1D1B3A] uppercase tracking-wider">Pindah Ruang Kerja</span>
+        <span class="text-[10px] font-medium text-[#667085]" x-text="(contextAssignments || []).length + ' Ruang Kerja'"></span>
+      </div>
+      <div class="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto scroll-slim">
         <template x-for="a in contextAssignments || []" :key="a.id">
-          <option :value="a.id" x-text="contextLabel(a)"></option>
+          <button type="button"
+                  @click="switchContextById(a.id); tutupModalProfilPJ()"
+                  class="w-full flex items-center gap-2.5 p-2 rounded-[10px] text-left transition-all cursor-pointer"
+                  :class="String(a.id) === String(meCache?.active_assignment?.id) ? 'bg-[#EEF2FF] border border-[#C7D7FE]' : 'bg-white hover:bg-slate-100 border border-[#E2E8F0]'">
+            <span class="w-7 h-7 rounded-[7px] flex items-center justify-center shrink-0"
+                  :class="roleBadgeClasses(a.role)"
+                  x-html="roleIconSvg(a.role, 15)"></span>
+            <span class="min-w-0 flex-1 flex flex-col">
+              <span class="text-[12px] font-bold text-[#1D1B3A] truncate leading-tight" x-text="humanRoleTitle(a)"></span>
+              <span class="text-[10.5px] font-medium text-[#667085] truncate leading-tight" x-text="humanRoleSubtitle(a)"></span>
+            </span>
+            <span x-show="String(a.id) === String(meCache?.active_assignment?.id)" class="text-[#3965FB] shrink-0 text-[12px] font-bold px-1">✓</span>
+          </button>
         </template>
-      </select>
+      </div>
     </div>
 
     <!-- Info Footer -->
@@ -1211,7 +1435,7 @@
       <div class="w-[36px] h-[36px] shrink-0 rounded-[18px] bg-[#E9EAFF] text-[#2854D6] text-[12px] font-bold flex items-center justify-center" aria-hidden="true" x-text="shellRoleKey === 'sa' ? (typeof saInitials === 'function' ? saInitials() : (shellIdentity().short || 'SA')) : (shellRoleKey === 'km' ? (typeof kmInitials === 'function' ? kmInitials() : (shellIdentity().short || 'KM')) : (typeof pjInitials === 'function' ? pjInitials() : (shellIdentity().short || 'PJ')))">SA</div>
       <div class="min-w-0 flex-1 flex flex-col gap-[3px]">
         <div class="text-[12px] leading-tight text-[#1D1B3A] font-semibold truncate" x-text="(currentUser && currentUser.display_name) || shellIdentity().detail || (shellRoleKey === 'sa' ? 'System Admin' : (shellRoleKey === 'km' ? 'Ketua Murid' : 'PJ Mata Kuliah'))">System Admin</div>
-        <div class="text-[11px] leading-tight text-[#667085] font-mono truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || (shellRoleKey === 'sa' ? '+62 811-1111-1111' : '-')">+62 811-1111-1111</div>
+        <div class="text-[11px] leading-tight text-[#667085] font-mono truncate" x-text="(typeof formatNomorWA === 'function' ? formatNomorWA(currentUser?.identity_key || shellIdentity().sub) : (currentUser?.identity_key || shellIdentity().sub)) || '-'">-</div>
       </div>
     </div>
 
@@ -1235,7 +1459,8 @@
 </div>
 
 <!-- Dialog Ganti Kata Sandi Akun Administrator (SCR-ADM-PASSWORD-MODAL) -->
-<div x-show="shellRoleKey === 'sa' && modalResetPassword && resetPasswordIsSelf"
+<template x-if="shellRoleKey === 'sa'">
+<div x-show="modalResetPassword && resetPasswordIsSelf"
      x-cloak
      role="dialog"
      aria-modal="true"
@@ -1386,3 +1611,4 @@
     </div>
   </div>
 </div>
+</template>

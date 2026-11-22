@@ -85,6 +85,82 @@ func GetBulanIndonesia(t time.Time) string {
 	return ""
 }
 
+// FormatTaskDeadline mengembalikan format tenggat waktu tugas yang manusiawi dan ringkas
+// Contoh: "Hari ini (Sabtu, 23:59)", "Besok (Minggu, 23:59)", "Selasa, 10 Nov (13:00)"
+func FormatTaskDeadline(deadline, now time.Time) string {
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	deadline = deadline.In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	targetDay := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
+	daysDiff := int(targetDay.Sub(today) / (24 * time.Hour))
+
+	hari := GetHariIndonesia(deadline)
+	bulan := GetBulanIndonesia(deadline)
+
+	if daysDiff == 0 {
+		return fmt.Sprintf("Hari ini (%s, %02d:%02d)", hari, deadline.Hour(), deadline.Minute())
+	}
+	if daysDiff == 1 {
+		return fmt.Sprintf("Besok (%s, %02d:%02d)", hari, deadline.Hour(), deadline.Minute())
+	}
+	if deadline.Year() != now.Year() {
+		return fmt.Sprintf("%s, %02d %s %d (%02d:%02d)", hari, deadline.Day(), bulan, deadline.Year(), deadline.Hour(), deadline.Minute())
+	}
+	return fmt.Sprintf("%s, %02d %s (%02d:%02d)", hari, deadline.Day(), bulan, deadline.Hour(), deadline.Minute())
+}
+
+var courseActivitySuffixRe = regexp.MustCompile(`(?i)\s*\((teori|praktikum|praktik|lab|kuliah|[pt])\)\s*$`)
+
+// FormatCourseWithActivity memformat nama mata kuliah dengan suffix ringkas (P) atau (T)
+// Contoh: "Sistem Basis Data", "PRACTICE" -> "Sistem Basis Data (P)"
+// Contoh: "Aljabar Linear", "THEORY" -> "Aljabar Linear (T)"
+func FormatCourseWithActivity(courseName, activityType string) string {
+	cleanName := strings.TrimSpace(courseActivitySuffixRe.ReplaceAllString(courseName, ""))
+	if cleanName == "" {
+		cleanName = strings.TrimSpace(courseName)
+	}
+
+	u := strings.ToUpper(strings.TrimSpace(activityType))
+	var badge string
+	if u == "PRACTICE" || u == "PRAKTIKUM" || u == "PRAKTIK" || u == "LAB" || u == "P" {
+		badge = "P"
+	} else if u == "THEORY" || u == "TEORI" || u == "KULIAH" || u == "T" {
+		badge = "T"
+	}
+
+	if badge != "" {
+		return fmt.Sprintf("%s (%s)", cleanName, badge)
+	}
+	return cleanName
+}
+
+// IsQuizTaskType memeriksa apakah task_type merupakan kategori Kuis.
+func IsQuizTaskType(taskType string) bool {
+	return strings.EqualFold(strings.TrimSpace(taskType), "Kuis")
+}
+
+// FormatTaskTitle menambahkan penanda "[KUIS] " pada judul apabila task_type adalah Kuis
+// dan judul belum memuat kata "kuis" (case-insensitive).
+func FormatTaskTitle(title, taskType string) string {
+	cleanTitle := strings.TrimSpace(title)
+	if IsQuizTaskType(taskType) && !strings.Contains(strings.ToLower(cleanTitle), "kuis") {
+		return "[KUIS] " + cleanTitle
+	}
+	return cleanTitle
+}
+
+// TaskSubmissionLabel mengembalikan label "Pelaksanaan" untuk Kuis, atau "Pengumpulan" untuk tugas biasa.
+func TaskSubmissionLabel(taskType string) string {
+	if IsQuizTaskType(taskType) {
+		return "Pelaksanaan"
+	}
+	return "Pengumpulan"
+}
+
 // IsDayName mengecek apakah string mengandung nama hari kerja
 func IsDayName(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))
@@ -289,7 +365,12 @@ func PublicBaseURL() string {
 	if base := strings.TrimRight(strings.TrimSpace(os.Getenv("BOT_JADWAL_PUBLIC_BASE_URL")), "/"); base != "" {
 		return base
 	}
-	return "http://localhost:8080"
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		port = "8080"
+	}
+	port = strings.TrimPrefix(port, ":")
+	return "http://localhost:" + port
 }
 
 // Contains memeriksa apakah suatu string terdapat dalam slice (case-insensitive)
@@ -380,4 +461,117 @@ func FindDataDir(targetPath string) string {
 	}
 
 	return targetPath
+}
+
+// FormatClassShort menyusun label nama kelas yang ringkas untuk pesan WhatsApp (contoh: "D4-TI 2A").
+func FormatClassShort(code string, cohortYear int, groupLabel string, academicYear string) string {
+	if code == "" {
+		return ""
+	}
+	prefix := "TI"
+	parts := strings.Split(code, "-")
+	if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+		prefix = parts[0] + "-" + parts[1]
+	} else if strings.HasPrefix(code, "D4") {
+		prefix = "D4-TI"
+	} else if strings.HasPrefix(code, "D3") {
+		prefix = "D3-TI"
+	}
+
+	group := strings.ToUpper(strings.TrimSpace(groupLabel))
+	if group == "" {
+		if len(parts) > 0 {
+			group = strings.ToUpper(parts[len(parts)-1])
+		}
+	}
+
+	var startYear int
+	if academicYear != "" {
+		parts := strings.Split(academicYear, "/")
+		if len(parts) > 0 {
+			startYear, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
+		}
+	}
+	if startYear == 0 {
+		startYear = time.Now().Year()
+	}
+
+	if cohortYear > 0 && group != "" {
+		tingkat := startYear - cohortYear + 1
+		if tingkat >= 1 && tingkat <= 5 {
+			return fmt.Sprintf("%s %d%s", prefix, tingkat, group)
+		}
+		return fmt.Sprintf("%s %s", prefix, group)
+	}
+
+	return code
+}
+
+// FormatClassDisplayName menghasilkan nama kelas panjang yang formal (contoh: "D4 TEKNIK INFORMATIKA 2A (Angkatan 2025)").
+func FormatClassDisplayName(code, studyProgram string, cohortYear int, groupLabel string, academicYear string) string {
+	if code == "" {
+		return ""
+	}
+	prodi := strings.ToUpper(strings.TrimSpace(studyProgram))
+	if prodi == "" {
+		parts := strings.Split(code, "-")
+		if len(parts) >= 2 && (strings.HasPrefix(parts[0], "D") || strings.HasPrefix(parts[0], "S")) {
+			if parts[1] == "TI" {
+				prodi = parts[0] + " TEKNIK INFORMATIKA"
+			} else {
+				prodi = parts[0] + " " + parts[1]
+			}
+		} else if strings.HasPrefix(code, "D4") {
+			prodi = "D4 TEKNIK INFORMATIKA"
+		} else if strings.HasPrefix(code, "D3") {
+			prodi = "D3 TEKNIK INFORMATIKA"
+		} else {
+			return code
+		}
+	} else {
+		hasLevelPrefix := strings.HasPrefix(prodi, "D4") || strings.HasPrefix(prodi, "D3") ||
+			strings.HasPrefix(prodi, "D2") || strings.HasPrefix(prodi, "D1") ||
+			strings.HasPrefix(prodi, "S1") || strings.HasPrefix(prodi, "S2")
+		if !hasLevelPrefix {
+			parts := strings.Split(code, "-")
+			if len(parts) > 0 {
+				codePrefix := strings.ToUpper(parts[0])
+				if strings.HasPrefix(codePrefix, "D") || strings.HasPrefix(codePrefix, "S") {
+					prodi = codePrefix + " " + prodi
+				}
+			}
+		}
+	}
+
+	group := strings.ToUpper(strings.TrimSpace(groupLabel))
+	if group == "" {
+		parts := strings.Split(code, "-")
+		if len(parts) > 0 {
+			last := parts[len(parts)-1]
+			if len(last) == 1 {
+				group = strings.ToUpper(last)
+			}
+		}
+	}
+
+	var startYear int
+	if academicYear != "" {
+		parts := strings.Split(academicYear, "/")
+		if len(parts) > 0 {
+			startYear, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
+		}
+	}
+	if startYear == 0 {
+		startYear = time.Now().Year()
+	}
+
+	if cohortYear > 0 && group != "" {
+		tingkat := startYear - cohortYear + 1
+		if tingkat >= 1 && tingkat <= 5 {
+			return fmt.Sprintf("%s %d%s (Angkatan %d)", prodi, tingkat, group, cohortYear)
+		}
+		return fmt.Sprintf("%s Kelas %s (Angkatan %d)", prodi, group, cohortYear)
+	}
+
+	return code
 }

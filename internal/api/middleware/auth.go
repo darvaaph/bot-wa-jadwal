@@ -1,14 +1,15 @@
 package middleware
 
 import (
-	"database/sql"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
 
 	"bot-jadwal/internal/api/common"
+	"bot-jadwal/internal/auth"
 )
 
 // AuthManager mengelola verifikasi sesi dan otorisasi berbasis peran (RBAC).
@@ -92,7 +93,7 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 				ra.valid_from, ra.valid_until
 			FROM user_sessions s
 			JOIN users u ON s.user_id = u.id
-			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id AND ra.status = 'ACTIVE'
+			LEFT JOIN role_assignments ra ON s.active_role_assignment_id = ra.id AND ra.status = 'ACTIVE' AND ra.user_id = s.user_id
 			LEFT JOIN classes c ON ra.class_id = c.id
 			WHERE s.token_hash = ?;
 		`
@@ -158,6 +159,10 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		now := time.Now()
 
 		if role.Valid {
+			if err := auth.ValidateScope(r.Context(), am.db, role.String, scopeType.String, classID, semesterID, courseOfferingID); err != nil {
+				common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Cakupan penugasan tidak valid")
+				return
+			}
 			if raValidFrom.Valid {
 				vf, err := common.ParseTime(raValidFrom.String)
 				if err != nil {
@@ -201,8 +206,27 @@ func (am *AuthManager) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// 6. Perbarui waktu aktivitas terakhir (last_seen_at)
-		_, _ = am.db.Exec(`UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?;`, sessionID)
+		// 6. Perbarui waktu aktivitas terakhir (last_seen_at) jika sudah lewat minimal 1 menit
+		// guna menghindari write-lock contention pada SQLite saat request bersamaan.
+		if now.Sub(lastSeenAt) > 1*time.Minute {
+			_, _ = am.db.Exec(`UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?;`, sessionID)
+		}
+
+		// Dukungan System Admin: jika sedang dalam Mode Dukungan aktif, cakupkan konteks kelasnya
+		if role.Valid && role.String == "SYSTEM_ADMIN" {
+			var sgClassID int64
+			var sgClassSlug string
+			if err := am.db.QueryRow(`
+				SELECT sg.class_id, c.slug
+				FROM support_grants sg
+				JOIN classes c ON c.id = sg.class_id
+				WHERE sg.user_id = ? AND sg.status = 'ACTIVE' AND datetime(sg.expires_at) > datetime('now')
+				ORDER BY sg.id DESC LIMIT 1;
+			`, userID).Scan(&sgClassID, &sgClassSlug); err == nil {
+				classID = sql.NullInt64{Int64: sgClassID, Valid: true}
+				classSlug = sql.NullString{String: sgClassSlug, Valid: true}
+			}
+		}
 
 		// 7. Bentuk UserContext dan simpan ke request context
 		userCtx := &common.UserContext{

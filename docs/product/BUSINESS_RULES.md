@@ -143,7 +143,7 @@ PJ boleh mengubah tugas terbit dalam cakupannya dan KM boleh mengubah seluruh tu
 
 ### BR-TASK-006 Invariant Review
 
-Review state pada tugas adalah proyeksi keputusan untuk versi aktif. Nilai selain `NOT_REVIEWED` hanya valid jika terdapat `task_reviews` dengan `task_version` yang sama. Penambahan review dan pembaruan tugas wajib terjadi dalam satu transaksi. Sistem dilarang mengubah review state tanpa menambah riwayat review atau menerapkan keputusan pada versi yang sudah berubah.
+Review state pada tugas adalah proyeksi keputusan atas isi terakhir yang direview. `version` adalah token konkurensi untuk perubahan isi maupun status. `reviewed_version` menunjuk snapshot isi yang memiliki bukti `task_reviews.task_version` dan keputusan yang cocok. Complete, uncomplete, archive, dan restore menaikkan `version` tanpa mengubah isi atau memindahkan `reviewed_version`. Perubahan isi mengatur ulang review oleh PJ atau mencatat review baru oleh KM. Penambahan review dan pembaruan tugas wajib terjadi dalam satu transaksi; sistem tidak boleh membuat keputusan atas nama reviewer terdahulu.
 
 ### BR-TASK-005 Materi dan Tautan
 

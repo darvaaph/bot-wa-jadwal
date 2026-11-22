@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -88,21 +89,42 @@ func SeedFromJSON(ctx context.Context, db *sql.DB, filePath string) error {
 		_ = tx.Rollback()
 	}()
 
+	now := time.Now()
+	curYear := now.Year()
+	academicStartYear := curYear
+	if now.Month() < time.August {
+		academicStartYear--
+	}
+
 	classCode := "D4-TI-3A"
 	classSlug := "d4-ti-3a"
 	studyProgram := "D4 Teknik Informatika"
 	groupLabel := "3A"
-	cohortYear := 2024
+	cohortYear := academicStartYear - 1
 
 	baseName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	if strings.HasPrefix(baseName, "D") {
+	if strings.HasPrefix(baseName, "D") || strings.HasPrefix(baseName, "S") {
 		// Contoh: D4-TI-SMT3-A -> group_label: 3A, code: D4-TI-3A
 		parts := strings.Split(baseName, "-")
 		if len(parts) >= 4 {
 			smtNum := strings.TrimPrefix(parts[2], "SMT")
+			smtNum = strings.TrimPrefix(smtNum, "SEM")
 			groupLabel = smtNum + parts[3]
 			classCode = fmt.Sprintf("%s-%s-%s", parts[0], parts[1], groupLabel)
 			classSlug = strings.ToLower(classCode)
+
+			prodiCode := strings.ToUpper(parts[1])
+			pName := "Teknik Informatika"
+			if prodiCode == "SIKC" {
+				pName = "Sistem Informasi Kota Cerdas"
+			} else if prodiCode != "" && prodiCode != "TI" {
+				pName = prodiCode
+			}
+			studyProgram = parts[0] + " " + pName
+
+			if semInt, err := strconv.Atoi(smtNum); err == nil && semInt > 0 {
+				cohortYear = academicStartYear - ((semInt - 1) / 2)
+			}
 		}
 	}
 
@@ -133,10 +155,17 @@ func SeedFromJSON(ctx context.Context, db *sql.DB, filePath string) error {
 	}
 
 	var semesterID int64
-	academicYear := "2026/2027"
+	academicYear := fmt.Sprintf("%d/%d", academicStartYear, academicStartYear+1)
 	term := "GANJIL"
-	startsOn := "2026-09-01"
-	endsOn := "2027-01-31"
+	if now.Month() >= time.February && now.Month() < time.August {
+		term = "GENAP"
+	}
+	startsOn := fmt.Sprintf("%d-09-01", academicStartYear)
+	endsOn := fmt.Sprintf("%d-01-31", academicStartYear+1)
+	if term == "GENAP" {
+		startsOn = fmt.Sprintf("%d-02-01", academicStartYear+1)
+		endsOn = fmt.Sprintf("%d-07-31", academicStartYear+1)
+	}
 
 	semesterQuery := `
 		INSERT INTO semesters (class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at, created_at, updated_at)

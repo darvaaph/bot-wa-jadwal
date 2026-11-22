@@ -3,12 +3,12 @@ package v1
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"bot-jadwal/internal/api/common"
 	"bot-jadwal/internal/audit"
@@ -155,17 +155,7 @@ func (c *AdminController) ExecuteBackupRequest(w http.ResponseWriter, r *http.Re
 		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memuat permintaan")
 		return
 	}
-	if status != "PENDING" {
-		common.WriteV1Error(w, 409, common.CodeVersionConflict, "Permintaan sudah diproses")
-		return
-	}
-	res, err := c.db.ExecContext(r.Context(), `UPDATE backup_requests SET status='PROCESSING' WHERE id=? AND status='PENDING'`, id)
-	if err != nil {
-		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memulai eksekusi")
-		return
-	}
-	n, _ := res.RowsAffected()
-	if n != 1 {
+	if status != "PENDING" && status != "PROCESSING" {
 		common.WriteV1Error(w, 409, common.CodeVersionConflict, "Permintaan sudah diproses")
 		return
 	}
@@ -174,16 +164,13 @@ func (c *AdminController) ExecuteBackupRequest(w http.ResponseWriter, r *http.Re
 		sem = &semesterID.Int64
 	}
 	svc := backup.NewService(c.db, filepath.Join(c.getStorageDir(), "backups"))
-	record, err := svc.Create(r.Context(), classID, sem, u.UserID, reason)
-	if err != nil {
-		_, _ = c.db.ExecContext(r.Context(), `UPDATE backup_requests SET status='FAILED', decided_at=? WHERE id=?`, time.Now().UTC().Format(time.RFC3339Nano), id)
-		common.WriteV1Error(w, 500, "BACKUP_FAILED", "Gagal membuat cadangan akademik")
+	record, err := svc.CreateForRequest(r.Context(), id, classID, sem, u.UserID, reason)
+	if errors.Is(err, backup.ErrRequestDecided) {
+		common.WriteV1Error(w, 409, common.CodeVersionConflict, "Permintaan sudah diproses")
 		return
 	}
-	_, err = c.db.ExecContext(r.Context(), `UPDATE backup_requests SET status='EXECUTED', executed_by_user_id=?, backup_id=?, decided_at=? WHERE id=? AND status='PROCESSING'`,
-		u.UserID, record.ID, time.Now().UTC().Format(time.RFC3339Nano), id)
 	if err != nil {
-		common.WriteV1Error(w, 500, "DB_ERROR", "Cadangan dibuat tetapi status permintaan gagal diperbarui")
+		common.WriteV1Error(w, 500, "BACKUP_FAILED", "Gagal membuat cadangan akademik")
 		return
 	}
 	common.WriteV1Success(w, 200, map[string]any{"id": id, "status": "EXECUTED", "backup_id": record.ID, "checksum": record.Checksum})

@@ -155,6 +155,23 @@ func TestV1BotService_GetSchedule(t *testing.T) {
 		t.Errorf("Expected output libur pada hari Minggu, got: %s", resp)
 	}
 
+	// 2b. Verifikasi GetDailySummary (Pengingat otomatis harus senyap saat libur)
+	summarySunday, err := svc.GetDailySummary(ctx, 1, sundayDate)
+	if err != nil {
+		t.Fatalf("GetDailySummary Minggu gagal: %v", err)
+	}
+	if summarySunday != "" {
+		t.Errorf("Expected GetDailySummary Minggu kosong (senyap), got: %s", summarySunday)
+	}
+
+	summaryMonday, err := svc.GetDailySummary(ctx, 1, mondayDate)
+	if err != nil {
+		t.Fatalf("GetDailySummary Senin gagal: %v", err)
+	}
+	if !strings.Contains(summaryMonday, "Algoritma & Pemrograman") {
+		t.Errorf("Expected GetDailySummary Senin memuat jadwal aktif, got: %s", summaryMonday)
+	}
+
 	// 3. Tambahkan kejadian pengganti (teaching_events) pada hari Selasa (07 Jan 2025)
 	tuesdayDate := time.Date(2025, 1, 7, 10, 0, 0, 0, time.UTC)
 	tStart := tuesdayDate.Format(time.RFC3339)
@@ -252,9 +269,10 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 
 	// Senin 06 Jan 2025
 	// Kuliah ada di 08:00 - 10:00
+	loc, _ := time.LoadLocation("Asia/Jakarta")
 
 	// Kasus 1: Jam 08:30 -> Sedang berlangsung
-	during := time.Date(2025, 1, 6, 8, 30, 0, 0, time.UTC)
+	during := time.Date(2025, 1, 6, 8, 30, 0, 0, loc)
 	resp, err := svc.GetNextClass(ctx, 1, during)
 	if err != nil {
 		t.Fatalf("GetNextClass during gagal: %v", err)
@@ -264,7 +282,7 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 	}
 
 	// Kasus 2: Jam 07:00 -> Kuliah berikutnya
-	before := time.Date(2025, 1, 6, 7, 0, 0, 0, time.UTC)
+	before := time.Date(2025, 1, 6, 7, 0, 0, 0, loc)
 	resp, err = svc.GetNextClass(ctx, 1, before)
 	if err != nil {
 		t.Fatalf("GetNextClass before gagal: %v", err)
@@ -274,7 +292,7 @@ func TestV1BotService_GetNextClass(t *testing.T) {
 	}
 
 	// Kasus 3: Jam 11:00 -> Sudah selesai
-	after := time.Date(2025, 1, 6, 11, 0, 0, 0, time.UTC)
+	after := time.Date(2025, 1, 6, 11, 0, 0, 0, loc)
 	resp, err = svc.GetNextClass(ctx, 1, after)
 	if err != nil {
 		t.Fatalf("GetNextClass after gagal: %v", err)
@@ -310,7 +328,7 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetTasks gagal: %v", err)
 	}
-	if !strings.Contains(respTasks, "Tugas Algoritma 1") || !strings.Contains(respTasks, "#1") {
+	if !strings.Contains(respTasks, "Tugas Algoritma 1") {
 		t.Errorf("Output GetTasks tidak sesuai: %s", respTasks)
 	}
 
@@ -345,6 +363,53 @@ func TestV1BotService_Tasks_And_Links(t *testing.T) {
 	}
 	if !strings.Contains(respLinks, "Slide Pertemuan 1") || !strings.Contains(respLinks, "https://drive.google.com/test") {
 		t.Errorf("Output GetLinks tidak sesuai: %s", respLinks)
+	}
+}
+
+func TestV1BotService_Tasks_ExcludesPastDeadline(t *testing.T) {
+	svc := setupTestV1DB(t)
+	ctx := context.Background()
+
+	// Tugas yang sudah lewat tenggat (2 jam yang lalu)
+	dlPast := time.Now().Add(-2 * time.Hour).Format(time.RFC3339)
+	_, err := svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Kadaluarsa', 'Sudah lewat tenggat', ?,
+		          'Kumpul di Kelas', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dlPast)
+	if err != nil {
+		t.Fatalf("Insert past task gagal: %v", err)
+	}
+
+	// Tugas yang masih aktif (24 jam ke depan)
+	dlFuture := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Tugas Aktif Masa Depan', 'Masih berlaku', ?,
+		          'Kumpul di Portal', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dlFuture)
+	if err != nil {
+		t.Fatalf("Insert future task gagal: %v", err)
+	}
+
+	resp, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks gagal: %v", err)
+	}
+
+	if strings.Contains(resp, "Tugas Kadaluarsa") {
+		t.Errorf("Tugas yang sudah lewat tenggat seharusnya tidak dimunculkan di WhatsApp: %s", resp)
+	}
+	if !strings.Contains(resp, "Tugas Aktif Masa Depan") {
+		t.Errorf("Tugas yang masih aktif harus dimunculkan di WhatsApp: %s", resp)
 	}
 }
 
@@ -470,7 +535,8 @@ func TestV1BotService_HandleScheduleCommand(t *testing.T) {
 	svc := setupTestV1DB(t)
 	ctx := context.Background()
 
-	refNow := time.Date(2025, 1, 6, 9, 0, 0, 0, time.UTC) // Senin
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	refNow := time.Date(2025, 1, 6, 9, 0, 0, 0, loc) // Senin
 
 	// Test !jadwal
 	res, err := svc.HandleScheduleCommand(ctx, 1, "!jadwal", refNow)
@@ -552,7 +618,38 @@ func TestAntiSlop_NoDecorativeEmojis(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(respTasks, "- ID Tugas:") || !strings.Contains(respTasks, "- Tenggat :") {
-		t.Errorf("Output GetTasks harus memuat format bullet strip (-): %s", respTasks)
+	if !strings.Contains(respTasks, "Tugas Algoritma AntiSlop") || (!strings.Contains(respTasks, "├") && !strings.Contains(respTasks, "└")) {
+		t.Errorf("Output GetTasks harus memuat judul dan konektor pohon (├/└): %s", respTasks)
+	}
+	if !strings.Contains(respTasks, "Kumpul di Portal") {
+		t.Errorf("Output GetTasks harus memuat teks pengumpulan: %s", respTasks)
+	}
+	if !strings.Contains(respTasks, "(T)") {
+		t.Errorf("Output GetTasks harus memuat badge singkat (T): %s", respTasks)
+	}
+
+	// Verifikasi tugas bertipe Kuis menampilkan [KUIS] dan Pelaksanaan:
+	_, err = svc.db.ExecContext(ctx, `
+		INSERT INTO tasks (
+			course_offering_id, title, task_type, instructions, deadline_at,
+			submission_text, publication_status, review_state, reviewed_version,
+			created_by_user_id, published_at, version
+		) VALUES (1, 'Materi Bab 1-3', 'Kuis', 'Closed book', ?,
+		          'Di Kelas D105', 'PUBLISHED', 'APPROVED', 1,
+		          1, CURRENT_TIMESTAMP, 1);
+	`, dl)
+	if err != nil {
+		t.Fatalf("Insert quiz task gagal: %v", err)
+	}
+
+	respQuiz, err := svc.GetTasks(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetTasks kuis gagal: %v", err)
+	}
+	if !strings.Contains(respQuiz, "[KUIS] Materi Bab 1-3") {
+		t.Errorf("Output GetTasks untuk kuis harus memuat [KUIS] Materi Bab 1-3: %s", respQuiz)
+	}
+	if !strings.Contains(respQuiz, "Pelaksanaan: Di Kelas D105") {
+		t.Errorf("Output GetTasks untuk kuis harus memuat Pelaksanaan: Di Kelas D105: %s", respQuiz)
 	}
 }

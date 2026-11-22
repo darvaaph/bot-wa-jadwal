@@ -47,7 +47,7 @@ func kanalReplyText(chatJID string, isGroup bool) string {
 
 // linkRestrictedDMMessage menyusun teks pemberitahuan pembatasan akses tautan di chat pribadi.
 func linkRestrictedDMMessage(slug string) string {
-	portalURL := util.PublicBaseURL() + "/"
+	portalURL := util.PublicBaseURL() + "/c/"
 	if slug != "" {
 		portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 	}
@@ -56,7 +56,7 @@ func linkRestrictedDMMessage(slug string) string {
 	sb.WriteString("──────────\n")
 	sb.WriteString("Untuk keamanan dan privasi perkuliahan (Google Meet, Zoom, atau Google Drive), daftar tautan kelas hanya dapat diakses melalui:\n")
 	sb.WriteString("- Grup WhatsApp resmi kelas yang terdaftar\n")
-	sb.WriteString(fmt.Sprintf("- Web Portal Kelas: %s", portalURL))
+	sb.WriteString(fmt.Sprintf("- Web Jadwal & Tugas: %s", portalURL))
 	return sb.String()
 }
 
@@ -105,15 +105,26 @@ func RedirectMessage(entity string) string {
 }
 
 // PortalMessage menyusun balasan perintah !portal/!web.
-func PortalMessage() string {
+func PortalMessage(slug, className string) string {
 	var sb strings.Builder
-	sb.WriteString("*PORTAL & DASHBOARD*\n")
+	sb.WriteString("*JADWAL & DASHBOARD KELAS*\n")
 	sb.WriteString("──────────\n")
-	sb.WriteString("*Portal Kelas (mahasiswa):*\n")
-	sb.WriteString(util.PublicBaseURL() + "/ (pilih kelas Anda)\n\n")
+	sb.WriteString("*Jadwal & Tugas Kelas (Mahasiswa):*\n")
+	cleanSlug := strings.TrimSpace(slug)
+	if cleanSlug != "" {
+		sb.WriteString(fmt.Sprintf("%s/c/%s\n", util.PublicBaseURL(), cleanSlug))
+		if strings.TrimSpace(className) != "" {
+			sb.WriteString(fmt.Sprintf("Buka tanpa login untuk melihat jadwal kuliah, tugas, dan materi kelas %s.\n\n", strings.TrimSpace(className)))
+		} else {
+			sb.WriteString("Buka tanpa login untuk melihat jadwal kuliah, tugas, dan materi kelas Anda.\n\n")
+		}
+	} else {
+		sb.WriteString(util.PublicBaseURL() + "/c/ (pilih kelas Anda)\n")
+		sb.WriteString("Buka tautan lalu pilih kelas Anda untuk melihat jadwal dan tugas.\n\n")
+	}
 	sb.WriteString("*Dashboard Pengelola (PJ/KM):*\n")
 	sb.WriteString(util.PublicBaseURL() + "/login.html\n")
-	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n\n")
+	sb.WriteString("Kelola tugas, jadwal, dan materi dengan login pengurus.\n")
 	return sb.String()
 }
 
@@ -170,8 +181,10 @@ func HandleIncomingMessage(
 	fmt.Printf("[Pesan Masuk dari %s]: %s\n", v.Info.Sender.User, msgText)
 
 	reply := func(replyText, emoji string, typingDuration time.Duration, actionName string) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 		ReplyWithTyping(
-			context.Background(),
+			ctx,
 			client,
 			v.Info.Chat,
 			v.Info.Sender,
@@ -202,11 +215,6 @@ func HandleIncomingMessage(
 		return
 	}
 
-	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
-		reply(PortalMessage(), "🌐", 600*time.Millisecond, "perintah portal")
-		return
-	}
-
 	// BE-015: balas JID chat saat ini agar admin tinggal salin ke form
 	// Kelola Kanal di dashboard. Baca saja, aman untuk semua pengirim.
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "kanal", "channel", "jid") {
@@ -227,6 +235,23 @@ func HandleIncomingMessage(
 		if activeClassID != "" {
 			v1Class, _ = v1Service.FindClass(context.Background(), activeClassID)
 		}
+	}
+
+	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "portal", "web") {
+		slug := ""
+		className := ""
+		if v1Class != nil {
+			slug = v1Class.Slug
+			className = formatClassShort(v1Class.Code, v1Class.CohortYear, v1Class.GroupLabel, "")
+			if className == "" {
+				className = v1Class.Code
+			}
+		} else if activeClassID != "" {
+			slug = schedule.NormalizeClassID(activeClassID)
+			className = activeClassID
+		}
+		reply(PortalMessage(slug, className), "🌐", 600*time.Millisecond, "perintah portal")
+		return
 	}
 
 	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "pj", "daftarpj", "listpj") {
@@ -347,7 +372,8 @@ func HandleIncomingMessage(
 		// Fallback ke legacy taskManager untuk kelas non-pilot
 		if taskManager != nil {
 			isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-			tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now(), activeClassID)
+			nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+			tugasReply := taskManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, nowWIB, activeClassID)
 			reply(tugasReply, "📝", 600*time.Millisecond, "perintah tugas")
 			return
 		}
@@ -359,7 +385,8 @@ func HandleIncomingMessage(
 			return
 		}
 		isAdmin := ResolveSenderAdmin(context.Background(), client, v.Info.IsGroup, v.Info.Chat, v.Info.Sender, v.Info.SenderAlt)
-		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, time.Now())
+		nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+		overrideReply := overrideManager.HandleCommand(v.Info.Chat.String(), v.Info.IsGroup, v.Info.Sender.String(), isAdmin, msgText, activeJadwal, nowWIB)
 		reply(overrideReply, "🔄", 600*time.Millisecond, "perintah override")
 		return
 	}
@@ -405,7 +432,8 @@ func HandleIncomingMessage(
 	// 7. Jika kelas target adalah kelas pilot v1, layani perintah jadwal, menu, dan pencarian dari database v1
 	if v1Class != nil && v1Service != nil {
 		if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "jadwal", "next", "sekarang", "kuliah", "ongoing", "senin", "selasa", "rabu", "kamis", "jumat", "jum'at", "sabtu", "minggu", "hari ini", "hariini", "today", "besok", "tomorrow", "seminggu", "semua", "all") {
-			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, time.Now())
+			nowWIB := time.Now().In(time.FixedZone("WIB", 7*3600))
+			schedReply, err := v1Service.HandleScheduleCommand(context.Background(), v1Class.ID, msgText, nowWIB)
 			if err == nil && schedReply != "" {
 				reply(schedReply, "📅", 700*time.Millisecond, "jadwal v1")
 				return

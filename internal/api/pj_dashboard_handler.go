@@ -55,10 +55,13 @@ type pjDashboardOfferingItem struct {
 
 type pjDashboardData struct {
 	Class struct {
-		Code     string `json:"code"`
-		Slug     string `json:"slug"`
-		Label    string `json:"label"`
-		Timezone string `json:"timezone"`
+		Code         string `json:"code"`
+		Slug         string `json:"slug"`
+		Label        string `json:"label"`
+		Timezone     string `json:"timezone"`
+		CohortYear   int    `json:"cohort_year,omitempty"`
+		StudyProgram string `json:"study_program,omitempty"`
+		GroupLabel   string `json:"group_label,omitempty"`
 	} `json:"class"`
 	Semester *struct {
 		ID           int64  `json:"id"`
@@ -125,10 +128,11 @@ func (s *Server) handlePJDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var code, slug, program, group, zone string
+	var cohortYear int
 	if err := s.v1DB.QueryRowContext(r.Context(), `
-		SELECT c.code, c.slug, c.study_program, c.group_label, cs.timezone
+		SELECT c.code, c.slug, c.study_program, c.group_label, c.cohort_year, cs.timezone
 		FROM classes c JOIN class_settings cs ON cs.class_id = c.id WHERE c.id = ?`, classID,
-	).Scan(&code, &slug, &program, &group, &zone); err != nil {
+	).Scan(&code, &slug, &program, &group, &cohortYear, &zone); err != nil {
 		s.writeV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Kelas aktif gagal dimuat")
 		return
 	}
@@ -143,6 +147,9 @@ func (s *Server) handlePJDashboard(w http.ResponseWriter, r *http.Request) {
 	data.Class.Code, data.Class.Slug = code, slug
 	data.Class.Label = strings.TrimSpace(program + " " + group)
 	data.Class.Timezone = zone
+	data.Class.CohortYear = cohortYear
+	data.Class.StudyProgram = program
+	data.Class.GroupLabel = group
 	data.Date = now.Format("2006-01-02")
 	data.Offerings = []pjDashboardOfferingItem{}
 	data.Tasks.List = []pjDashboardTask{}

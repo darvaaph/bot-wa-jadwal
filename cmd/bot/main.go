@@ -16,6 +16,7 @@ import (
 	"bot-jadwal/internal/config"
 	"bot-jadwal/internal/database"
 	"bot-jadwal/internal/link"
+	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/notify"
 	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/task"
@@ -56,6 +57,10 @@ func main() {
 	}
 	if cfg.PublicBaseURL != "" {
 		fmt.Printf("🌐 [Public URL] URL publik disetel ke: %s\n", cfg.PublicBaseURL)
+	} else if !*webOnly {
+		fmt.Println("⚠️  [Public URL] BOT_JADWAL_PUBLIC_BASE_URL atau flag -public-url belum disetel.")
+		fmt.Println("    Tautan portal di pesan WhatsApp akan menggunakan default 'http://localhost:8080'.")
+		fmt.Println("    Untuk tunneling (mis. Cloudflare), jalankan dengan: -public-url https://xxxx.trycloudflare.com")
 	}
 
 	if err := cfg.EnsureStorageAndMigrate(); err != nil {
@@ -86,6 +91,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Berhasil menghubungkan database v1 (%s) [WAL Mode]\n", cfg.V1DBPath)
+
+	// 4c. Setup Maintenance Worker (Pembersihan berkala security attempts & sesi kedaluwarsa)
+	var stopMaintenance func()
+	if v1DB != nil {
+		stopMaintenance = maintenance.StartMaintenanceWorker(context.Background(), v1DB, 24*time.Hour)
+		fmt.Println("Berhasil menginisialisasi worker pemeliharaan database berkala (24h retention)")
+	}
 
 	// 5. Setup Pengelola Setelan Chat / Pemilihan Kelas (Chat Settings Manager)
 	chatSettingsManager, err := chat.NewChatSettingsManager(v1DB)
@@ -176,7 +188,7 @@ func main() {
 			notifWorker = bot.NewNotificationWorker(v1DB, botClient.Client, 5*time.Second)
 			notifService := notify.NewService(v1DB)
 			v1BotService := bot.NewV1BotService(v1DB)
-			notifService.SetDailyTextBuilder(v1BotService.GetSchedule)
+			notifService.SetDailyTextBuilder(v1BotService.GetDailySummary)
 			notifWorker.SetScheduleService(notifService)
 			notifWorker.Start()
 		}
@@ -198,12 +210,22 @@ func main() {
 		fmt.Fprintf(os.Stderr, "❌ Gagal memulai server Web API: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
+	if cfg.PublicBaseURL != "" {
+		fmt.Printf("👉 Web Dashboard siap diakses: %s (Lokal: http://localhost%s)\n", cfg.PublicBaseURL, cfg.APIPort)
+	} else {
+		fmt.Printf("👉 Web Dashboard siap diakses: http://localhost%s\n", cfg.APIPort)
+	}
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, os.Interrupt, syscall.SIGTERM)
 	<-stopSig
 
 	fmt.Println("\n🛑 [Graceful Shutdown] Sinyal penghentian diterima. Mematikan sistem dengan aman...")
+
+	// Hentikan worker pemeliharaan database berkala
+	if stopMaintenance != nil {
+		fmt.Println("⏳ Menghentikan worker pemeliharaan database berkala...")
+		stopMaintenance()
+	}
 
 	// Hentikan background worker notifikasi WhatsApp
 	if notifWorker != nil {

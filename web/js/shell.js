@@ -34,6 +34,8 @@ const AsteriskShell = (() => {
       modalProfilAdmin: false,
       modalProfilPJ: false,
       modalProfilKM: false,
+      roleSwitcherOpen: false,
+      roleSwitcherDrawerOpen: false,
       currentTheme: 'light',
       isDarkMode: false,
       initTheme() {
@@ -68,13 +70,83 @@ const AsteriskShell = (() => {
         }
         return String(num);
       },
+      roleIconSvg(roleKey, size = 18) {
+        const r = String(roleKey || '').toUpperCase();
+        if (r === 'KM') {
+          return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 17L5 7L9.5 12L12 5L14.5 12L19 7L21 17H3Z"/><path d="M3 17V20C3 20.6 3.4 21 4 21H20C20.6 21 21 20.6 21 20V17"/><circle cx="12" cy="13" r="1.25" fill="currentColor" stroke="none"/></svg>`;
+        }
+        if (r === 'PJ') {
+          return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3L2 8.5L12 14L22 8.5L12 3Z"/><path d="M6 11V16.5C6 18.5 8.7 20.5 12 20.5C15.3 20.5 18 18.5 18 16.5V11"/><path d="M22 8.5V15.5C22 16 21.6 16.5 21 16.5H20"/><circle cx="20" cy="17" r="1" fill="currentColor"/></svg>`;
+        }
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2L4 5.5V11.5C4 16.8 7.4 21.7 12 23C16.6 21.7 20 16.8 20 11.5V5.5L12 2Z"/><circle cx="12" cy="11.5" r="2.5"/><path d="M12 6.5V9M12 14V16.5M7 11.5H9.5M14.5 11.5H17"/></svg>`;
+      },
+      roleBadgeClasses(roleKey) {
+        const r = String(roleKey || '').toUpperCase();
+        if (r === 'KM') return 'bg-blue-50 text-[#3965FB] border border-blue-200';
+        if (r === 'PJ') return 'bg-emerald-50 text-[#059669] border border-emerald-200';
+        return 'bg-indigo-50 text-[#6366F1] border border-indigo-200';
+      },
+      formatRoleClass(raw) {
+        if (!raw) return '';
+        const m = String(raw).trim().match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+        if (m) {
+          const cohort = parseInt(m[3], 10);
+          const d = new Date();
+          const currentYear = d.getFullYear();
+          const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+          const tingkat = Math.max(1, Math.min(4, acadYear - cohort + 1));
+          return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+        }
+        return String(raw).toUpperCase();
+      },
+      humanRoleTitle(a) {
+        if (!a) return 'Ruang Kerja';
+        const r = String(a.role || '').toUpperCase();
+        if (r === 'SYSTEM_ADMIN') return 'System Admin';
+        if (r === 'KM') return 'Ketua Murid';
+        if (r === 'PJ') return a.offering_name ? `PJ ${a.offering_name}` : 'PJ Mata Kuliah';
+        return a.role || 'Pengurus';
+      },
+      humanRoleSubtitle(a) {
+        if (!a) return '';
+        const r = String(a.role || '').toUpperCase();
+        if (r === 'SYSTEM_ADMIN') return 'Akses Global Sistem';
+        const rawClass = a.class_name || a.class_slug || '';
+        const formatted = this.formatRoleClass(rawClass);
+        if (formatted) return `Kelas ${formatted}`;
+        if (r === 'KM') return 'Pengelola Kelas';
+        return 'Ruang Penugasan';
+      },
+      activeRoleTitle() {
+        const asg = this.meCache?.active_assignment;
+        if (asg) return this.humanRoleTitle(asg);
+        if (role === 'km') return 'Ketua Murid';
+        if (role === 'pj') return 'PJ Mata Kuliah';
+        if (role === 'sa') return 'System Admin';
+        return 'Pengurus';
+      },
+      activeRoleSubtitle() {
+        const asg = this.meCache?.active_assignment;
+        if (asg) return this.humanRoleSubtitle(asg);
+        if (role === 'km') return (this.kmClassName && this.kmClassName() !== '-') ? `Kelas ${this.kmClassName()}` : 'Pengelola Kelas';
+        if (role === 'pj') return (this.pjClassName && this.pjClassName()) ? `Kelas ${this.pjClassName()}` : 'Ruang Penugasan';
+        if (role === 'sa') return 'Akses Global Sistem';
+        return '';
+      },
+      activeRoleKey() {
+        return (this.meCache?.active_assignment?.role || (role === 'km' ? 'KM' : role === 'pj' ? 'PJ' : 'SYSTEM_ADMIN')).toUpperCase();
+      },
+      contextLabel(a) {
+        if (!a) return '-';
+        return `${this.humanRoleTitle(a)} · ${this.humanRoleSubtitle(a)}`;
+      },
       shellNavSections() { return this.navSections || []; },
       shellIdentity() {
         if (role === 'portal') return { label: 'Portal Kelas', detail: this.selectedClass || 'Pilih kelas', sub: this.semesterLabel || 'Hanya lihat', short: 'PK' };
         if (role === 'sa') return { label: 'System Admin', detail: this.currentUser?.display_name || 'Pengelola sistem', sub: this.currentUser?.identity_key || 'Akses global', short: 'SA' };
         const semester = this.activeSemesterLabel || '';
         const scope = this.roleSub || '';
-        return { label: role === 'km' ? 'Ketua Murid' : 'PJ Mata Kuliah', detail: this.selectedClass || 'Pilih kelas', sub: [semester, scope].filter(Boolean).join(' · '), short: role.toUpperCase() };
+        return { label: role === 'km' ? 'Ketua Kelas' : 'PJ Mata Kuliah', detail: this.selectedClass || 'Pilih kelas', sub: [semester, scope].filter(Boolean).join(' · '), short: role.toUpperCase() };
       },
       shellBottomNav() {
         if (role === 'portal') return [
@@ -197,9 +269,15 @@ const AsteriskShell = (() => {
         const c = (this.classList || []).find(x => (x.slug || x) === this.selectedClass || (x.code || '') === this.selectedClass);
         if (c && c.name) return c.name;
         if (c && c.program && c.cohort && c.group) {
-          const prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
+          let prodi = /d3/i.test(c.program) ? 'D3-TI' : 'D4-TI';
+          if (/sikc|kota cerdas/i.test(c.program)) prodi = 'D4-SIKC';
+          else if (c.code && c.code.includes('-')) {
+            const p = c.code.split('-');
+            if (p.length >= 2) prodi = `${p[0].toUpperCase()}-${p[1].toUpperCase()}`;
+          }
           const cohort = parseInt(c.cohort, 10);
-          const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+          const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
           return `${prodi} ${tingkat}${c.group}`;
         }
         const raw = String(this.selectedClass || asg.class_slug || '').trim();
@@ -207,12 +285,13 @@ const AsteriskShell = (() => {
           const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
           if (m) {
             const cohort = parseInt(m[3], 10);
-            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
             return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
           }
           return raw;
         }
-        return 'D4-TI 2A';
+        return (this.classList && this.classList.length > 0 ? (this.classList[0].name || this.classList[0].code || this.classList[0]) : '-');
       },
       pjClassName() {
         if (this.dashboardData?.class?.label) return this.dashboardData.class.label;
@@ -223,7 +302,8 @@ const AsteriskShell = (() => {
           const m = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
           if (m) {
             const cohort = parseInt(m[3], 10);
-            const tingkat = Math.max(1, Math.min(4, 2026 - cohort + 1));
+            const currentYear = new Date().getFullYear();
+          const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
             return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
           }
           return raw.toUpperCase();
@@ -237,6 +317,16 @@ const AsteriskShell = (() => {
         }
         if (/D3.*Teknik Informatika\s*([0-9][A-Za-z])/i.test(full)) {
           return full.replace(/.*Teknik Informatika\s*/i, 'D3-TI ');
+        }
+        if (/D4.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*([0-9][A-Za-z])/i.test(full)) {
+          return full.replace(/.*(?:SIKC|Sistem Informasi Kota Cerdas)\s*/i, 'D4-SIKC ');
+        }
+        const m = full.match(/^(D[1-4]|S[1-2])\s+(.+?)\s+([0-9][A-Za-z])$/i);
+        if (m) {
+          const level = m[1].toUpperCase();
+          const prodiWords = m[2].trim().split(/\s+/);
+          const initials = prodiWords.map(w => w[0]).join('').toUpperCase();
+          return `${level}-${initials} ${m[3].toUpperCase()}`;
         }
         return full;
       },
@@ -300,5 +390,70 @@ const AsteriskShell = (() => {
     };
   }
 
-  return { mount, behavior, version };
+    function formatClassShort(cls, activeAssignment, fallback) {
+    if (activeAssignment && activeAssignment.class_name) return activeAssignment.class_name;
+    const code = (cls && cls.code) || fallback || '';
+    const m = code.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+    if (m) {
+      const cohort = parseInt(m[3], 10);
+      const d = new Date();
+      const currentYear = d.getFullYear();
+      // Tahun akademik Indonesia dimulai Agustus/September (bulan >= 7 pada indeks 0)
+      const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+      const tingkat = Math.max(1, Math.min(4, acadYear - cohort + 1));
+      return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+    }
+    return (cls && cls.code) || fallback || 'Kelas Aktif';
+  }
+
+  function formatClassDampak(cls, shortCode, semesterLabel, fallback) {
+    cls = cls || {};
+    let prodi = cls.study_program || '';
+    if (!prodi && cls.label) {
+      prodi = cls.label.replace(/\s+[A-Za-z0-9]+$/, '').trim();
+    }
+    if (!prodi) prodi = 'Teknik Informatika';
+
+    let group = cls.group_label || '';
+    if (!group && cls.code) {
+      const parts = cls.code.split('-');
+      group = parts[parts.length - 1];
+    }
+
+    let cohort = cls.cohort_year || 0;
+    if (!cohort && cls.code) {
+      const m = cls.code.match(/(\d{4})/);
+      if (m) cohort = parseInt(m[1], 10);
+    }
+
+    let tingkat = '';
+    if (cohort > 0) {
+      const d = new Date();
+      const currentYear = d.getFullYear();
+      const acadYear = d.getMonth() < 7 ? currentYear - 1 : currentYear;
+      const t = Math.max(1, Math.min(4, acadYear - cohort + 1));
+      tingkat = String(t);
+    }
+
+    const parts = [];
+    if (prodi) parts.push(prodi);
+    if (tingkat && group) {
+      parts.push(`Kelas ${tingkat}${group}`);
+    } else if (group) {
+      parts.push(`Kelas ${group}`);
+    }
+    if (cohort > 0) {
+      parts.push(`Angkatan ${cohort}`);
+    }
+    if (semesterLabel && semesterLabel !== 'Semester Aktif') {
+      parts.push(semesterLabel);
+    }
+
+    if (parts.length > 0) {
+      return `${shortCode} (${parts.join(' · ')})`;
+    }
+    return `${shortCode || fallback || 'ini'}`;
+  }
+
+  return { mount, behavior, formatClassShort, formatClassDampak, version };
 })();

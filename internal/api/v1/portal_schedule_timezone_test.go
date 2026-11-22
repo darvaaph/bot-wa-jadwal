@@ -29,7 +29,7 @@ func TestPortalSchedule_UsesLocalClassDayForUTCEvent(t *testing.T) {
 	}
 	loc, _ := time.LoadLocation("Asia/Jakarta")
 	day := time.Date(2025, 1, 6, 0, 0, 0, 0, loc)
-	items, err := (&PortalController{db: db}).getScheduleForDate(1, 1, day, 1)
+	items, err := (&PortalController{db: db}).getScheduleForDate(t.Context(), 1, 1, day)
 	if err != nil {
 		t.Fatal(err)
 	}

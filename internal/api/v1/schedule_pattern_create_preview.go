@@ -36,7 +36,11 @@ func (c *ScheduleController) PreviewCreatePattern(w http.ResponseWriter, r *http
 		common.WriteV1Error(w, 403, common.CodeForbidden, "Mata kuliah di luar cakupan peran")
 		return
 	}
-	assignedLecturers := lecturersForOfferingCtx(r.Context(), c.db, req.OfferingID)
+	assignedLecturers, err := schedule.LecturersForOffering(r.Context(), c.db, req.OfferingID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa dosen")
+		return
+	}
 	lecturers := assignedLecturers
 	if req.LecturerIDs != nil {
 		allowed := map[int64]bool{}
@@ -71,7 +75,7 @@ func (c *ScheduleController) PreviewCreatePattern(w http.ResponseWriter, r *http
 		return
 	}
 	end := start.Add(time.Duration(req.DurationMin) * time.Minute).Format("15:04")
-	conflicts, err := checkPatternRange(r.Context(), c.db, schedule.Candidate{OwnerClassID: classID, OwnerOfferingID: req.OfferingID, RoomID: req.RoomID, LecturerIDs: lecturers,
+	conflicts, err := schedule.CheckPatternRange(r.Context(), c.db, schedule.Candidate{OwnerClassID: classID, OwnerOfferingID: req.OfferingID, RoomID: req.RoomID, LecturerIDs: lecturers,
 		PatternDay: req.DayOfWeek, PatternStart: req.StartTime, PatternEnd: end}, effectiveFrom, semesterEnd)
 	if err != nil {
 		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memeriksa konflik")

@@ -380,8 +380,15 @@ func (r *Repository) EnsureClass(ctx context.Context, rawCode string) (*Class, e
 			if parsedCohort, err := strconv.Atoi(parts[len(parts)-2]); err == nil {
 				cohort = parsedCohort
 			}
-			if parts[0] == "D3" || parts[0] == "D4" {
-				program = parts[0] + " Teknik Informatika"
+			level := parts[0]
+			prodiPart := parts[1]
+			switch strings.ToUpper(prodiPart) {
+			case "TI":
+				program = level + " Teknik Informatika"
+			case "SIKC":
+				program = level + " Sistem Informasi Kota Cerdas"
+			default:
+				program = level + " " + prodiPart
 			}
 		}
 	}
@@ -568,11 +575,12 @@ func (r *Repository) EnsureSchedulePattern(ctx context.Context, courseOfferingID
 		return 0, fmt.Errorf("gagal memeriksa schedule_patterns: %w", err)
 	}
 
+	effectiveFrom := time.Now().Format("2006-01-02")
 	err = r.db.QueryRowContext(ctx, `
 		INSERT INTO schedule_patterns (course_offering_id, room_id, day_of_week, start_time, end_time, effective_from, status)
-		VALUES (?, ?, ?, ?, ?, '2024-01-01', 'ACTIVE')
+		VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
 		RETURNING id;
-	`, courseOfferingID, roomID, dayOfWeek, startTime, endTime).Scan(&patternID)
+	`, courseOfferingID, roomID, dayOfWeek, startTime, endTime, effectiveFrom).Scan(&patternID)
 	if err != nil {
 		return 0, fmt.Errorf("gagal menyisipkan schedule_patterns: %w", err)
 	}

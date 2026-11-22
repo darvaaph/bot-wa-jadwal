@@ -37,6 +37,7 @@ function pjApp() {
     semesterStatus: '',
 
     ...AsteriskShell.behavior('pj'),
+    ...examSessionBehavior(),
 
     roleLabel: 'PJ',
     contextAssignments: [],
@@ -67,7 +68,7 @@ function pjApp() {
     pjBreadcrumbs() {
       const c = [];
       c.push({ label: 'Sistem', action: () => this.go('dashboard'), clickable: true });
-      const kelas = this.dashboardData?.class?.code || this.dashboardData?.class?.label || this.selectedClass || 'D4-TI 1A';
+      const kelas = this.dashboardData?.class?.code || this.dashboardData?.class?.label || this.selectedClass || '-';
       c.push({ label: kelas, action: () => this.go('dashboard'), clickable: false });
 
       if (this.view === 'dashboard') {
@@ -151,9 +152,10 @@ function pjApp() {
     },
 
     contextLabel(a) {
-      const role = String(a && a.role || '').toUpperCase();
-      const scope = a && (a.offering_name || a.class_slug) || 'Global';
-      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+      if (!a) return '-';
+      const title = typeof this.humanRoleTitle === 'function' ? this.humanRoleTitle(a) : (a.role || 'Pengurus');
+      const sub = typeof this.humanRoleSubtitle === 'function' ? this.humanRoleSubtitle(a) : (a.class_slug || '');
+      return sub ? `${title} · ${sub}` : title;
     },
 
     async switchContextById(id) {
@@ -336,16 +338,24 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d)) return 'Aktif';
         const now = new Date();
-        const diffH = Math.round((d - now) / 3600000);
-        if (diffH < 0) {
-          const daysOver = Math.abs(Math.floor(diffH / 24));
-          return daysOver > 0 ? `Terlewat ${daysOver} Hari` : `Terlewat ${Math.abs(diffH)} Jam`;
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0) {
+          const absHours = Math.floor(Math.abs(diffMs) / 3600000);
+          if (absHours < 24) return `Terlewat ${Math.max(1, absHours)} Jam`;
+          const daysOver = Math.max(1, Math.abs(calDays));
+          return `Terlewat ${daysOver} Hari`;
         }
-        if (diffH < 48) {
+        if (calDays <= 0) {
+          const diffH = Math.floor(diffMs / 3600000);
+          if (diffH < 1) {
+            const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+            return `Sisa ${diffMin} Menit`;
+          }
           return `Sisa ${diffH} Jam`;
         }
-        const days = Math.round(diffH / 24);
-        return `Sisa ${days} Hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} Hari`;
       } catch (e) {
         return 'Aktif';
       }
@@ -357,9 +367,11 @@ function pjApp() {
       try {
         const d = new Date(t.deadline_at);
         if (isNaN(d)) return 'bg-slate-100 text-slate-700 border-slate-200';
-        const diffH = (d - new Date()) / 3600000;
-        if (diffH < 0) return 'bg-rose-50 text-rose-800 border-rose-200';
-        if (diffH < 48) return 'bg-amber-50 text-amber-900 border-amber-200';
+        const now = new Date();
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0 || calDays <= 0) return 'bg-rose-50 text-rose-800 border-rose-200';
+        if (calDays <= 3) return 'bg-amber-50 text-amber-900 border-amber-200';
         return 'bg-slate-100 text-slate-700 border-slate-200';
       } catch (e) {
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -372,10 +384,7 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d)) return String(iso);
         const now = new Date();
-        const isToday = d.toDateString() === now.toDateString();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         const datePart = d.toLocaleDateString('id-ID', {
           timeZone: 'Asia/Jakarta',
@@ -390,8 +399,8 @@ function pjApp() {
         }).replace('.', ':') + ' WIB';
 
         let prefix = '';
-        if (isToday) prefix = 'Hari ini, ';
-        else if (isTomorrow) prefix = 'Besok, ';
+        if (calDays === 0) prefix = 'Hari ini, ';
+        else if (calDays === 1) prefix = 'Besok, ';
 
         return `${prefix}${datePart} · ${timePart}`;
       } catch (e) {
@@ -457,10 +466,8 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return String(iso);
         const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        const isToday = d.toDateString() === now.toDateString();
-        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        const parts = DateUtil.wibParts(d);
         const timePart = d.toLocaleTimeString('id-ID', {
           timeZone: 'Asia/Jakarta',
           hour: '2-digit',
@@ -469,8 +476,11 @@ function pjApp() {
         }).replace('.', ':') + ' WIB';
         const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const dayName = isToday ? 'Hari ini' : (isTomorrow ? 'Besok' : dayNames[d.getDay()]);
-        const datePart = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+        const dayIdx = parts ? parts.day : d.getDay();
+        const dateNum = parts ? parts.date : d.getDate();
+        const monthIdx = parts ? parts.month : d.getMonth();
+        const dayName = calDays === 0 ? 'Hari ini' : (calDays === 1 ? 'Besok' : dayNames[dayIdx]);
+        const datePart = `${dateNum} ${monthNames[monthIdx]}`;
         return `${dayName}, ${datePart} · ${timePart}`;
       } catch (e) {
         return String(iso);
@@ -483,14 +493,19 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return 'Aktif';
         const now = new Date();
-        const diffH = (d - now) / 3600000;
-        if (diffH < 0) return 'Terlewat';
-        if (diffH <= 48) {
-          const jam = Math.max(1, Math.round(diffH));
-          return `Sisa ${jam} jam`;
+        const diffMs = d.getTime() - now.getTime();
+        if (diffMs < 0) return 'Terlewat';
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (calDays <= 0) {
+          const diffHours = Math.floor(diffMs / 3600000);
+          if (diffHours < 1) {
+            const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+            return `Sisa ${diffMinutes} menit`;
+          }
+          return `Sisa ${diffHours} jam`;
         }
-        const hari = Math.round(diffH / 24);
-        return `Sisa ${hari} hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} hari`;
       } catch (e) {
         return 'Aktif';
       }
@@ -502,11 +517,12 @@ function pjApp() {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
         const now = new Date();
-        const diffH = (d - now) / 3600000;
-        if (diffH <= 28) {
+        const diffMs = d.getTime() - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+        if (diffMs < 0 || calDays <= 0) {
           return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
         }
-        if (diffH <= 72) {
+        if (calDays <= 3) {
           return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#D97706]' };
         }
         return { bg: 'bg-[#DCFCE7]', text: 'text-[#166534]', dot: 'bg-[#16A34A]' };
@@ -709,7 +725,7 @@ function pjApp() {
           if (weekNum >= 1 && weekNum <= 24) return weekNum;
         }
       }
-      return Math.max(1, 6 + this.weekOffset);
+      return Math.max(1, 1 + this.weekOffset);
     },
 
     activeSemesterLabel() {
@@ -719,6 +735,24 @@ function pjApp() {
         return `Semester ${termStr} ${s.academic_year || ''} (Aktif)`.replace(/\s+/g, ' ').trim();
       }
       return 'Semester Aktif';
+    },
+
+    get targetClassShort() {
+      return AsteriskShell.formatClassShort(
+        this.dashboardData?.class,
+        this.meCache?.active_assignment,
+        this.selectedClass
+      );
+    },
+
+    get targetClassDampak() {
+      const sem = typeof this.activeSemesterLabel === 'function' ? this.activeSemesterLabel() : (this.activeSemesterLabel || '');
+      return AsteriskShell.formatClassDampak(
+        this.dashboardData?.class,
+        this.targetClassShort,
+        sem,
+        this.selectedClass
+      );
     },
 
     isMatkulSaya(s) {
@@ -742,6 +776,8 @@ function pjApp() {
 
     sesiType(s) {
       if (!s) return 'Teori';
+      if (s.eventKind === 'EXAM_UTS') return 'UTS';
+      if (s.eventKind === 'EXAM_UAS') return 'UAS';
       if (s.eventKind === 'REPLACEMENT') return 'Pengganti';
       const m = String(s.matkul || '').toLowerCase();
       const act = String(s.activityType || '').toLowerCase();
@@ -751,6 +787,8 @@ function pjApp() {
 
     sesiTypeBadgeClass(s) {
       const type = this.sesiType(s);
+      if (type === 'UTS') return 'exam-badge exam-badge--uts';
+      if (type === 'UAS') return 'exam-badge exam-badge--uas';
       if (type === 'Pengganti') return 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]';
       if (type === 'Praktikum') return 'bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE]';
       return 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]';
@@ -887,7 +925,7 @@ function pjApp() {
         all.forEach(e => {
           if (e.isDraft) return;
           const kind = String(e.eventKind || '').toUpperCase();
-          if ((kind === 'REPLACEMENT' || kind === 'SESSION_CANCELLED') && e.originPatternId && e.originDate === activeDateStr) {
+          if (['REPLACEMENT', 'SESSION_CANCELLED', 'EXAM_UTS', 'EXAM_UAS'].includes(kind) && e.originPatternId && e.originDate === activeDateStr) {
             overriddenPatternIds.add(String(e.originPatternId));
           }
         });
@@ -1291,6 +1329,8 @@ function pjApp() {
 
     kindLabel(kind) {
       const k = String(kind || '').toUpperCase();
+      if (k === 'EXAM_UTS') return 'Ujian Tengah Semester (UTS)';
+      if (k === 'EXAM_UAS') return 'Ujian Akhir Semester (UAS)';
       if (k === 'REPLACEMENT') return 'Kelas Pengganti';
       if (k === 'EXTRA') return 'Kelas Tambahan';
       if (k === 'HOLIDAY') return 'Hari Libur';
@@ -1298,6 +1338,29 @@ function pjApp() {
       return kind || '-';
     },
 
+    formatConflict(c) {
+      if (!c) return { title: 'Bentrok Terdeteksi', detail: '' };
+      let msg = String(c.message || '').trim();
+      let title = 'Bentrok Waktu Jadwal';
+      const code = String(c.code || '').toUpperCase();
+
+      if (code === 'CLASS_TIME_OVERLAP') {
+        title = 'Bentrok Jadwal Kelas';
+        msg = msg.replace(/^CLASS_TIME_OVERLAP:\s*/i, '');
+      } else if (code === 'ROOM_TIME_OVERLAP') {
+        title = 'Ruangan Sudah Terpakai';
+        msg = msg.replace(/^ROOM_TIME_OVERLAP:\s*/i, '');
+      } else if (code === 'ROOM_CONFIRMATION_REQUIRED') {
+        title = 'Konfirmasi TU Diperlukan';
+        msg = msg.replace(/^ROOM_CONFIRMATION_REQUIRED:\s*/i, '');
+      } else if (code === 'LECTURER_TIME_OVERLAP') {
+        title = 'Bentrok Jadwal Dosen';
+        msg = msg.replace(/^LECTURER_TIME_OVERLAP:\s*/i, '');
+      } else {
+        msg = msg.replace(/^[A-Z_]+:\s*/, '');
+      }
+      return { title, detail: msg || c.message || c.code };
+    },
     statusLabel(st) {
       const s = String(st || '').toUpperCase();
       if (s === 'DRAFT') return 'Draf';
@@ -1470,7 +1533,7 @@ function pjApp() {
     },
 
     get alasanSlotKosong() {
-      const className = this.selectedClass || this.profile?.class_name || 'D4-TI 1A';
+      const className = this.selectedClass || this.profile?.class_name || '-';
       const day = this.roomFilterDay;
       const typeLabel = this.roomFilterType === 'lab' ? 'lab komputer' : (this.roomFilterType === 'teori' ? 'ruang teori' : 'ruangan');
       
@@ -2244,6 +2307,7 @@ function pjApp() {
     },
 
     async lanjutkanDraf(ev) {
+      if (['EXAM_UTS', 'EXAM_UAS'].includes(ev.event_kind)) return this.bukaDrafUjian(ev);
       this.draftEvent = ev;
       const f = this.ubahForm;
       f.kind = ev.event_kind || 'REPLACEMENT';
@@ -2329,8 +2393,9 @@ function pjApp() {
         return;
       }
 
-      await AsteriskShell.mount('pj', ['dashboard', 'tugas', 'jadwal', 'rooms', 'materi', 'semester', 'audit', 'status', 'akun']);
+      await AsteriskShell.mount('pj', ['dashboard', 'tugas', 'jadwal', 'exam', 'rooms', 'materi', 'semester', 'audit', 'status', 'akun']);
       await this.loadPartials([
+        ['pj-exam', '/partials/common/exam-dialog.html'],
         ['pj-dashboard', '/partials/pj/view-dashboard.html'],
         ['pj-tugas', '/partials/pj/view-tugas.html'],
         ['pj-jadwal', '/partials/pj/view-jadwal.html'],
@@ -2454,16 +2519,27 @@ function pjApp() {
       if (!deadlineAt) return { text: '—', class: 'bg-slate-100 text-slate-700' };
       const d = new Date(deadlineAt);
       if (isNaN(d)) return { text: '—', class: 'bg-slate-100 text-slate-700' };
-      const diffMs = d.getTime() - Date.now();
-      const diffH = Math.round(diffMs / (1000 * 60 * 60));
+      const now = new Date();
+      const diffMs = d.getTime() - now.getTime();
       if (diffMs < 0) {
         return { text: 'Terlewat', class: 'bg-rose-50 text-rose-700 border border-rose-200' };
       }
-      if (diffH <= 48) {
-        return { text: `Sisa ${diffH} Jam`, class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      const calDays = DateUtil.wibCalendarDaysDiff(d, now);
+      if (calDays <= 0) {
+        const diffH = Math.floor(diffMs / 3600000);
+        if (diffH < 1) {
+          const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+          return { text: `Sisa ${diffMin} Menit`, class: 'bg-rose-50 text-rose-700 border border-rose-200' };
+        }
+        return { text: `Sisa ${diffH} Jam`, class: 'bg-rose-50 text-rose-700 border border-rose-200' };
       }
-      const diffDays = Math.ceil(diffH / 24);
-      return { text: `Sisa ${diffDays} Hari`, class: 'bg-emerald-50 text-emerald-800 border border-emerald-200' };
+      if (calDays === 1) {
+        return { text: 'Besok', class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      }
+      if (calDays <= 3) {
+        return { text: `Sisa ${calDays} Hari`, class: 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]' };
+      }
+      return { text: `Sisa ${calDays} Hari`, class: 'bg-emerald-50 text-emerald-800 border border-emerald-200' };
     },
 
     waktuRelatif(iso) {
@@ -2871,23 +2947,6 @@ function pjApp() {
           });
         });
 
-        // Fallback jika database pola kosong: muat dari data legacy kelas jika ada
-        if (list.length === 0 && this.classSlug) {
-          const legacyItems = await API.fetchLegacySchedule(this.classSlug).catch(() => []);
-          (legacyItems || []).forEach((item, idx) => {
-            const parts = (item.jam || '').split('-');
-            list.push({
-              id: `leg-${idx}`,
-              hari: item.hari,
-              jam: item.jam,
-              matkul: item.matkul,
-              dosen: item.dosen,
-              ruang: item.ruang,
-              timeStart: (parts[0] || '').trim(),
-              timeEnd: (parts[1] || '').trim()
-            });
-          });
-        }
 
         this.fullSchedule = list;
       } catch (e) {
@@ -2919,12 +2978,27 @@ function pjApp() {
           list = scoped.length > 0 ? scoped : list;
         }
         this.tasks = list;
+        this.updateAppBadge();
       } catch (e) {
         this.tasks = [];
-        this.tugasListError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.updateAppBadge();
+        this.tugasListError = e.code === 'UNAUTHORIZED' ? 'Sesi berakhir. Masuk kembali untuk memuat tugas.' : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
         this.tugasLoading = false;
       }
+    },
+
+    updateAppBadge() {
+      try {
+        if (!('setAppBadge' in navigator)) return;
+        const active = (this.tasks || []).filter(t => !t.completed_at && !t.archived_at);
+        const count = active.length;
+        if (count > 0) {
+          navigator.setAppBadge(count).catch(() => {});
+        } else if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      } catch (e) {}
     },
 
     parseDeadlineID(tanggal, jam) { return API.parseDeadlineID(tanggal, jam); },
@@ -2947,10 +3021,14 @@ function pjApp() {
             if (target < new Date(now.getTime() - 86400000)) target.setFullYear(target.getFullYear() + 1);
           }
         }
-        const diffH = (target - now) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+        const diffMs = target.getTime() - now.getTime();
+        if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+        const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const targetMid = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+        const calDays = Math.round((targetMid - nowMid) / 86400000);
+        if (calDays <= 0) return { level: 'mendesak', badge: 'Hari ini' };
+        if (calDays === 1) return { level: 'mendekati', badge: 'Besok' };
+        if (calDays <= 3) return { level: 'mendekati', badge: `H-${calDays}` };
         return { level: 'aman', badge: 'Aktif' };
       } catch (e) {
         return { level: 'aman', badge: 'Aktif' };
@@ -3157,7 +3235,7 @@ function pjApp() {
           reviewer: this.tugasKoreksi.reviewer_name || 'Ketua Murid',
           note: this.tugasKoreksi.note || 'Instruksi tugas perlu disesuaikan sebelum disetujui KM.',
           version: (this.tugasDetail && this.tugasDetail.version) || 1,
-          waktu: 'Kemarin, 19:40 WIB'
+          waktu: this.formatSubmittedTime(this.tugasKoreksi.created_at || this.tugasKoreksi.reviewed_at)
         };
       }
       return null;
@@ -3648,11 +3726,50 @@ function pjApp() {
     },
 
     copyText(text, okMsg) {
+      const clean = String(text || '').trim();
+      if (!clean) return;
       const done = () => this.showToast(okMsg || 'Tersalin.');
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(() => this.showToast('Gagal menyalin otomatis.'));
+        navigator.clipboard.writeText(clean).then(done).catch(() => {
+          if (this.fallbackCopyText(clean)) {
+            done();
+          } else {
+            this.showToast('Gagal menyalin otomatis. Silakan salin manual.');
+          }
+        });
+        return;
+      }
+      if (this.fallbackCopyText(clean)) {
+        done();
       } else {
-        this.showToast('Clipboard tidak tersedia di browser ini.');
+        this.showToast('Gagal menyalin otomatis. Silakan salin manual.');
+      }
+    },
+
+    fallbackCopyText(text) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.width = '2em';
+        ta.style.height = '2em';
+        ta.style.padding = '0';
+        ta.style.border = 'none';
+        ta.style.outline = 'none';
+        ta.style.boxShadow = 'none';
+        ta.style.background = 'transparent';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
       }
     },
 
@@ -3688,6 +3805,9 @@ function pjApp() {
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
       this.currentUser = null;
       this.showToast('Berhasil keluar. Mengarahkan ke login...');
       setTimeout(() => {

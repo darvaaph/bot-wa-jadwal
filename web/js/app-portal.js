@@ -27,6 +27,9 @@ function portalApp() {
     resetPasswordLoading: false,
     hari: 'Senin',
     tugasMatkul: 'Semua',
+    notifPermission: (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'unsupported',
+    dismissNotifBanner: false,
+    badgeEnabled: typeof window !== 'undefined' ? (localStorage.getItem('asterisk_badge_enabled') !== 'false') : true,
 
     ...AsteriskShell.behavior('portal'),
 
@@ -63,6 +66,8 @@ function portalApp() {
     selectedAbjad: 'A',
     classList: [],
     classModalOpen: false,
+    classModalSearch: '',
+    classModalProdi: 'ALL',
     comboboxOpen: false,
     classQuery: '',
     classFilterProdi: 'ALL',
@@ -93,6 +98,8 @@ function portalApp() {
     pekanHariListDesktop: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'],
     pekanHariListMobile: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
     jadwalLoading: false,
+    jadwalRequest: 0,
+    tugasRequest: 0,
     jadwalError: '',
     tasks: [],
     tugasGrup: { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] },
@@ -179,7 +186,7 @@ function portalApp() {
           }
         }
       } catch (e) { }
-      return 6; // fallback sesuai Figma: Pekan Ke-6
+      return 1; // fallback sebelum semester aktif dimuat
     },
 
     get pekanAktifNum() {
@@ -286,6 +293,7 @@ function portalApp() {
 
     portalSesiType(s) {
       if (!s) return 'TEORI';
+      if (s.kind === 'UTS' || s.kind === 'UAS') return s.kind;
       if (s.kind === 'PENGGANTI') return 'PENGGANTI';
       const m = String(s.matkul || '').toLowerCase();
       const r = String(s.ruang || '').toLowerCase();
@@ -296,6 +304,8 @@ function portalApp() {
 
     portalSesiBadgeClass(s) {
       const type = this.portalSesiType(s);
+      if (type === 'UTS') return 'exam-badge exam-badge--uts';
+      if (type === 'UAS') return 'exam-badge exam-badge--uas';
       if (type === 'PENGGANTI') {
         return 'bg-amber-50 text-amber-800 border-amber-200/80';
       }
@@ -330,13 +340,38 @@ function portalApp() {
         .sort((a, b) => String(a.timeStart || '').localeCompare(String(b.timeStart || '')))[0] || null;
     },
 
+    isTaskOverdue(t) {
+      if (!t) return false;
+      if (t.countdown === 'Terlewat') return true;
+      if (!t.deadline_at) return false;
+      try {
+        const time = new Date(t.deadline_at).getTime();
+        return !isNaN(time) && time < Date.now();
+      } catch (e) {
+        return false;
+      }
+    },
+
     get withUrgency() {
       const rank = { mendesak: 0, mendekati: 1, aman: 2 };
-      return [...this.tasks].sort((a, b) => (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2));
+      return (this.tasks || [])
+        .filter(t => !t.is_completed && !t.completed_at && !this.isTaskOverdue(t))
+        .slice()
+        .sort((a, b) => {
+          const rDiff = (rank[a.urgency] ?? 2) - (rank[b.urgency] ?? 2);
+          if (rDiff !== 0) return rDiff;
+          const aTime = a.deadline_at ? new Date(a.deadline_at).getTime() : Infinity;
+          const bTime = b.deadline_at ? new Date(b.deadline_at).getTime() : Infinity;
+          return aTime - bTime;
+        });
     },
 
     get urgent3() { return this.withUrgency.slice(0, 3); },
-    get nearCount() { return this.tasks.filter(t => t.urgency !== 'aman').length; },
+    get nearCount() {
+      return (this.tasks || [])
+        .filter(t => !t.is_completed && !t.completed_at && !this.isTaskOverdue(t) && t.urgency !== 'aman')
+        .length;
+    },
 
     get matkulOpts() {
       const dariTugas = (this.tasks || []).map(t => t.matkul).filter(Boolean);
@@ -477,15 +512,19 @@ function portalApp() {
       try {
         const d = new Date(iso);
         if (isNaN(d.getTime())) return iso;
+        const parts = DateUtil.wibParts(d);
+        const nowParts = DateUtil.wibParts(new Date());
         const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const dayName = days[d.getDay()];
-        const day = d.getDate();
-        const m = months[d.getMonth()];
-        const y = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        return `${dayName}, ${day} ${m} ${y} · ${hh}:${mm} WIB`;
+        const dayName = days[parts ? parts.day : d.getDay()];
+        const day = parts ? parts.date : d.getDate();
+        const m = months[parts ? parts.month : d.getMonth()];
+        const y = parts ? parts.year : d.getFullYear();
+        const hh = String(parts ? parts.hours : d.getHours()).padStart(2, '0');
+        const mm = String(parts ? parts.minutes : d.getMinutes()).padStart(2, '0');
+        const currentYear = nowParts ? nowParts.year : new Date().getFullYear();
+        const yearPart = y !== currentYear ? ` ${y}` : '';
+        return `${dayName}, ${day} ${m}${yearPart} · ${hh}:${mm} WIB`;
       } catch (e) {
         return iso;
       }
@@ -494,25 +533,29 @@ function portalApp() {
     deadlineRelative(iso) {
       if (!iso) return '-';
       try {
-        const target = new Date(iso).getTime();
-        const now = Date.now();
-        const diffMs = target - now;
+        const d = new Date(iso);
+        const target = d.getTime();
+        if (isNaN(target)) return '-';
+        const now = new Date();
+        const diffMs = target - now.getTime();
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffHours / 24);
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         if (diffMs < 0) {
-          const absHours = Math.abs(diffHours);
-          if (absHours < 24) return `Terlewat ${absHours} jam`;
-          const absDays = Math.abs(diffDays);
+          const absHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60));
+          if (absHours < 24) return `Terlewat ${Math.max(1, absHours)} jam`;
+          const absDays = Math.max(1, Math.abs(calDays));
           return `Terlewat ${absDays} hari`;
         }
-        if (diffHours < 1) {
-          const diffMinutes = Math.floor(diffMs / (1000 * 60));
-          return `Sisa ${Math.max(1, diffMinutes)} menit`;
+        if (calDays <= 0) {
+          if (diffHours < 1) {
+            const diffMinutes = Math.floor(diffMs / (1000 * 60));
+            return `Sisa ${Math.max(1, diffMinutes)} menit`;
+          }
+          return `Sisa ${diffHours} jam`;
         }
-        if (diffHours < 24) return `Sisa ${diffHours} jam`;
-        if (diffDays === 1) return 'Besok';
-        return `Sisa ${diffDays} hari`;
+        if (calDays === 1) return 'Besok';
+        return `Sisa ${calDays} hari`;
       } catch (e) {
         return '-';
       }
@@ -521,18 +564,20 @@ function portalApp() {
     urgencyStyle(iso) {
       if (!iso) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
       try {
-        const target = new Date(iso).getTime();
-        const now = Date.now();
-        const diffMs = target - now;
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const d = new Date(iso);
+        const target = d.getTime();
+        if (isNaN(target)) return { bg: 'bg-[#F1F5F9]', text: 'text-[#475569]', dot: 'bg-[#94A3B8]' };
+        const now = new Date();
+        const diffMs = target - now.getTime();
+        const calDays = DateUtil.wibCalendarDaysDiff(d, now);
 
         if (diffMs < 0) {
-          return { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#DC2626]' };
+          return { bg: 'bg-[#FEF2F2]', text: 'text-[#B91C1C]', dot: 'bg-[#EF4444]' };
         }
-        if (diffHours <= 24) {
+        if (calDays <= 0) {
           return { bg: 'bg-[#FEF2F2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' };
         }
-        if (diffHours <= 72) {
+        if (calDays <= 3) {
           return { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#F59E0B]' };
         }
         return { bg: 'bg-[#DCFCE7]', text: 'text-[#15803D]', dot: 'bg-[#16A34A]' };
@@ -561,6 +606,22 @@ function portalApp() {
       try { this.sidebarCollapsed = localStorage.getItem('asterisk:sidebar:collapsed') === '1'; } catch (e) { }
       window.addEventListener('offline', () => { this.showPageError('offline'); });
       window.addEventListener('online', () => { if (this.pageState && this.pageState.status === 'offline') window.location.reload(); });
+      window.addEventListener('focus', () => { this.updateAppBadge(); });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.updateAppBadge();
+        }
+      });
+      window.addEventListener('pwa:update-available', () => {
+        this.showToast('Pembaruan sistem tersedia. Memperbarui aplikasi...');
+        setTimeout(() => {
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          } else {
+            window.location.reload();
+          }
+        }, 1500);
+      });
       await this.loadClasses();
       await this.loadPartials([['portal-gate', '/partials/portal/gate.html']]);
       await AsteriskShell.mount('portal', ['dashboard', 'tugas', 'jadwal', 'materi', 'courses', 'perubahan', 'arsip']);
@@ -602,7 +663,8 @@ function portalApp() {
     },
 
     get selectedClassSlug() {
-      return (this.selectedClass || 'd4-ti-2024-a').toLowerCase().replace(/\s+/g, '-');
+      const cls = this.selectedClass || (this.classList && this.classList.length > 0 ? this.classList[0] : '');
+      return String(cls || '').toLowerCase().replace(/\s+/g, '-');
     },
 
     loadingPin: false,
@@ -629,35 +691,44 @@ function portalApp() {
 
         if (res.ok) {
           // Akses langsung diizinkan (mode LINK atau sesi token valid)
+          let canonicalSlug = slug;
+          try {
+            const data = await res.json();
+            if (data && data.data && data.data.class) {
+              canonicalSlug = data.data.class;
+            }
+          } catch (e) { }
+
           localStorage.setItem('portal_pin_ok', '1');
-          localStorage.setItem('portal_class', slug);
+          localStorage.setItem('portal_class', canonicalSlug);
           this.unlocked = true;
           this.gateStep = 'pin';
-          this.showToast(`Selamat datang di Portal ${this.selectedClass}!`);
+          this.showToast(`Selamat datang di Jadwal & Tugas ${this.selectedClass}!`);
           await this.ensureDashboardPartials();
           this.updateClock();
           this.searchMateriQuery = '';
-          await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+          await Promise.all([this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
           this.dashboardLoading = false;
           return;
         }
 
         if (res.status === 401) {
-          // Kelas ini memerlukan PIN (mode CODE)
-          this.gateStep = 'pin';
-          this.pin = '';
+          // Kelas ini memerlukan PIN (mode CODE) atau sesi telah kedaluwarsa/dirotasi
+          this.kunciPortal();
           return;
         }
 
         // Jika kelas tidak dikenal portal (404): jangan buka; tampilkan error jujur.
         // Status lain (500, dsb): masalah server/koneksi, juga jangan buka diam-diam.
+        this.kunciPortal();
         this.showToast(res.status === 404
-          ? 'Kelas tidak terdaftar di portal. Periksa kode kelas atau hubungi KM.'
-          : 'Portal belum dapat diakses. Periksa koneksi lalu coba lagi.');
+          ? 'Kelas tidak terdaftar. Periksa kode kelas atau hubungi KM.'
+          : 'Jadwal belum dapat diakses. Periksa koneksi lalu coba lagi.');
         return;
       } catch (err) {
         // Fallback jika offline/error: tetap terkunci agar tidak tampil portal kosong.
-        this.showToast('Tidak dapat terhubung ke portal. Periksa koneksi lalu coba lagi.');
+        this.kunciPortal();
+        this.showToast('Tidak dapat memuat jadwal kelas. Periksa koneksi lalu coba lagi.');
         return;
       } finally {
         this.checkingAccess = false;
@@ -674,6 +745,7 @@ function portalApp() {
       this.pin = '';
       this.pinError = '';
       this.classModalOpen = false;
+      this.classModalSearch = '';
       const slug = (cls || '').toLowerCase().replace(/\s+/g, '-');
       try {
         window.history.replaceState({}, '', '/c/' + encodeURIComponent(slug));
@@ -702,12 +774,12 @@ function portalApp() {
         localStorage.setItem('portal_pin_at', String(Date.now()));
         this.unlocked = true;
         this.gateStep = 'pin';
-        this.showToast('Kode akses terverifikasi. Selamat datang di Portal Kelas!');
+        this.showToast('Kode akses terverifikasi. Selamat datang di Jadwal & Tugas Kelas!');
 
         await this.ensureDashboardPartials();
         this.updateClock();
         this.searchMateriQuery = '';
-        await Promise.all([this.loadSchedule(), this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
+        await Promise.all([this.loadJadwalEfektif(), this.loadTugasPortal(), this.loadMateri(), this.loadPerubahan(), this.loadSemester()]);
         this.dashboardLoading = false;
       } catch (err) {
         if (err && err.code === 'RATE_LIMITED') {
@@ -723,14 +795,26 @@ function portalApp() {
     },
 
     kunciPortal() {
+      this.jadwalRequest++;
+      this.tugasRequest++;
+      this.jadwalLoading = false;
+      this.tugasLoading = false;
+      this.fullSchedule = [];
+      this.jadwalEfektif = [];
+      this.jadwalCacheHariIni = [];
+      this.jadwalPekan = {};
+      this.tasks = [];
+      this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
       localStorage.removeItem('portal_pin_ok');
       localStorage.removeItem('portal_token');
-      localStorage.removeItem('portal_class');
       this.unlocked = false;
       this.gateStep = 'pin';
       this.pin = '';
       this.pinError = '';
       this.view = 'dashboard';
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
     },
 
     toggleSidebar() {
@@ -760,14 +844,17 @@ function portalApp() {
         this.unlocked = (savedClass === this.selectedClassSlug && localStorage.getItem('portal_pin_ok') === '1');
         if (this.unlocked) {
           await this.ensureDashboardPartials();
-          this.loadSchedule();
           this.loadJadwalEfektif();
           this.loadTugasPortal();
           this.searchMateriQuery = '';
           this.loadMateri();
           this.loadPerubahan();
           this.loadSemester();
+        } else {
+          this.updateAppBadge();
         }
+      } else {
+        this.updateAppBadge();
       }
 
       try {
@@ -787,7 +874,11 @@ function portalApp() {
       }
       const mYear = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
       if (mYear) {
-        return { prodi: mYear[1].toUpperCase(), smt: '1', abjad: mYear[3].toUpperCase() };
+        const currentYear = new Date().getFullYear();
+        const angkatan = parseInt(mYear[2], 10) || currentYear;
+        const tingkat = Math.max(1, Math.min(5, currentYear - angkatan + 1));
+        const smt = String((tingkat * 2) - 1);
+        return { prodi: mYear[1].toUpperCase(), smt: smt, abjad: mYear[3].toUpperCase() };
       }
       const mShort = str.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
       if (mShort) {
@@ -796,25 +887,98 @@ function portalApp() {
       return { prodi: 'D4', smt: '3', abjad: 'A' };
     },
 
+    formatClassItem(code) {
+      if (!code) return { raw: '', slug: '', title: '-', subtitle: '', badge: '', prodi: 'D4', tingkat: 1 };
+      const raw = String(code).trim();
+      const currentYear = new Date().getFullYear();
+
+      let prodi = 'D4';
+      let prodiName = 'D4 Teknik Informatika';
+      let tingkat = 1;
+      let smt = 1;
+      let abjad = 'A';
+      let angkatan = currentYear;
+
+      const mSmt = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-SMT(\d+)-([A-Za-z0-9]+)$/i);
+      if (mSmt) {
+        prodi = mSmt[1].toUpperCase();
+        smt = parseInt(mSmt[2], 10) || 1;
+        abjad = mSmt[3].toUpperCase();
+        tingkat = Math.ceil(smt / 2);
+        angkatan = currentYear - Math.floor((smt - 1) / 2);
+      } else {
+        const mYear = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d{4})-([A-Za-z0-9]+)$/i);
+        if (mYear) {
+          prodi = mYear[1].toUpperCase();
+          angkatan = parseInt(mYear[2], 10);
+          abjad = mYear[3].toUpperCase();
+          tingkat = Math.max(1, Math.min(5, currentYear - angkatan + 1));
+          smt = (tingkat * 2) - 1;
+        } else {
+          const mShort = raw.match(/^([A-Za-z0-9]+)-[A-Za-z0-9]+-(\d+)([A-Za-z0-9]+)$/i);
+          if (mShort) {
+            prodi = mShort[1].toUpperCase();
+            tingkat = parseInt(mShort[2], 10) || 1;
+            abjad = mShort[3].toUpperCase();
+            smt = (tingkat * 2) - 1;
+            angkatan = currentYear - (tingkat - 1);
+          } else {
+            prodi = raw.startsWith('D3') ? 'D3' : 'D4';
+          }
+        }
+      }
+
+      prodiName = prodi === 'D3' ? 'D3 Teknik Informatika' : 'D4 Teknik Informatika';
+      const badge = `${tingkat}${abjad}`;
+      const title = `${prodiName} — ${badge}`;
+      const subtitle = `Tingkat ${tingkat} · Semester ${smt} · Angkatan ${angkatan}`;
+      const searchKey = `${raw} ${prodi} ${prodiName} ${badge} ${tingkat} ${abjad} ${angkatan} smt${smt} semester ${smt} tingkat ${tingkat} angkatan ${angkatan}`.toLowerCase();
+
+      return {
+        raw,
+        slug: raw.toLowerCase().replace(/\s+/g, '-'),
+        prodi,
+        prodiName,
+        tingkat,
+        smt,
+        abjad,
+        angkatan,
+        badge,
+        title,
+        subtitle,
+        searchKey
+      };
+    },
+
+    get modalFormattedClasses() {
+      return (this.classList || []).map(c => this.formatClassItem(c));
+    },
+
+    get modalFilteredClasses() {
+      const q = (this.classModalSearch || '').trim().toLowerCase();
+      const prodi = this.classModalProdi || 'ALL';
+      const list = this.modalFormattedClasses || [];
+      return list.filter(item => {
+        if (!item) return false;
+        if (prodi !== 'ALL' && item.prodi !== prodi) return false;
+        if (!q) return true;
+        return (item.searchKey || '').includes(q);
+      });
+    },
+
+    get modalProdiCounts() {
+      const all = this.modalFormattedClasses || [];
+      return {
+        all: all.length,
+        d4: all.filter(x => x && x.prodi === 'D4').length,
+        d3: all.filter(x => x && x.prodi === 'D3').length
+      };
+    },
+
     get selectedClassFormatted() {
       if (!this.selectedClass) return 'kelas ini';
-      const raw = String(this.selectedClass).trim();
-      const mYear = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
-      if (mYear) {
-        return `${mYear[1].toUpperCase()}-${mYear[2].toUpperCase()} 1${mYear[4].toUpperCase()}`;
-      }
-      const mSmt = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-SMT(\d+)-([A-Za-z0-9]+)$/i);
-      if (mSmt) {
-        return `${mSmt[1].toUpperCase()}-${mSmt[2].toUpperCase()} ${mSmt[3]}${mSmt[4].toUpperCase()}`;
-      }
-      const mShort = raw.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-([0-9]+[A-Za-z]+)$/i);
-      if (mShort) {
-        return `${mShort[1].toUpperCase()}-${mShort[2].toUpperCase()} ${mShort[3].toUpperCase()}`;
-      }
-      if (/^[A-Za-z0-9]+-[A-Za-z0-9]+\s+[0-9A-Za-z]+$/i.test(raw)) {
-        return raw.toUpperCase();
-      }
-      return raw;
+      const item = this.formatClassItem(this.selectedClass);
+      return `${item.prodi}-TI ${item.badge}`;
     },
 
     get selectedClassMeta() {
@@ -840,20 +1004,30 @@ function portalApp() {
 
     get flatClassGroups() {
       const q = this.classQuery.trim().toLowerCase();
-      const groups = [
-        {
-          title: 'D4 Teknik Informatika',
-          prodi: 'D4',
-          badge: 'Sarjana Terapan',
-          items: this.classList.filter(c => this.parseClass(c).prodi === 'D4')
-        },
-        {
-          title: 'D3 Teknik Informatika',
-          prodi: 'D3',
-          badge: 'Diploma Tiga',
-          items: this.classList.filter(c => this.parseClass(c).prodi === 'D3')
+      const prodis = this.availableProdis;
+      const groups = prodis.map(pr => {
+        let title = pr;
+        let badge = 'Program Studi';
+        if (pr === 'D4') {
+          title = 'D4 Teknik Informatika';
+          badge = 'Sarjana Terapan';
+        } else if (pr === 'D3') {
+          title = 'D3 Teknik Informatika';
+          badge = 'Diploma Tiga';
+        } else if (pr === 'S1') {
+          title = 'S1 Sarjana';
+          badge = 'Sarjana';
+        } else if (pr === 'S2') {
+          title = 'S2 Magister Terapan';
+          badge = 'Pascasarjana';
         }
-      ];
+        return {
+          title,
+          prodi: pr,
+          badge,
+          items: this.classList.filter(c => this.parseClass(c).prodi === pr)
+        };
+      });
 
       return groups.map(g => {
         if (this.classFilterProdi !== 'ALL' && g.prodi !== this.classFilterProdi) {
@@ -990,9 +1164,13 @@ function portalApp() {
         if (data && Array.isArray(data.classes)) {
           this.classList = data.classes;
         }
+        const savedClass = localStorage.getItem('portal_class');
         if (slugFromUrl) {
           const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === slugFromUrl.toLowerCase());
           this.selectedClass = match || decodeURIComponent(slugFromUrl);
+        } else if (savedClass) {
+          const match = (this.classList || []).find(c => c.toLowerCase().replace(/\s+/g, '-') === savedClass.toLowerCase());
+          this.selectedClass = match || savedClass;
         } else if (data && data.default_class) {
           this.selectedClass = data.default_class;
         }
@@ -1126,15 +1304,7 @@ function portalApp() {
         `👤 PJ Matkul: ${s.pj || 'Belum ditugaskan'}` +
         (s.link ? `\n🔗 Link Zoom: ${s.link}` : '') +
         (s.kind === 'PENGGANTI' ? `\n⚠️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}` : '');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          this.showToast('Informasi sesi berhasil disalin ke clipboard!');
-        }).catch(() => {
-          this.showToast('Gagal menyalin informasi sesi.');
-        });
-      } else {
-        this.showToast('Informasi sesi berhasil disalin.');
-      }
+      this.copyText(text, 'Informasi sesi berhasil disalin ke clipboard!');
     },
 
     async prevWeek() {
@@ -1324,25 +1494,152 @@ function portalApp() {
       }
     },
 
-    salinRingkasanSesi(s) {
+    async bagikanSesi(s) {
       if (!s) return;
       const tgl = this.tanggalPekanFormatted[s.hari] || s.hari;
-      const teks = `[Jadwal Kuliah - ${s.matkul}]\n` +
+      const url = `${window.location.origin}/c/${this.selectedClassSlug}`;
+      const teks = `[Jadwal Kuliah: ${s.matkul}]\n` +
         `📅 Hari/Tgl: ${s.hari}, ${tgl}\n` +
-        `⏰ Waktu: ${s.timeStart} – ${s.timeEnd} WIB\n` +
-        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '—')}\n` +
-        `👨‍🏫 Dosen: ${s.dosen || '—'}\n` +
+        `⏰ Waktu: ${s.timeStart} - ${s.timeEnd} WIB\n` +
+        `📍 Tempat: ${s.ruang ? 'Ruang ' + s.ruang : (s.link ? 'Kuliah Daring' : '-')}\n` +
+        `👨‍🏫 Dosen: ${s.dosen || '-'}\n` +
         (s.pj ? `👤 PJ: ${s.pj}\n` : '') +
         (s.kind === 'PENGGANTI' ? `ℹ️ Keterangan: ${this.fmtAsalPengganti(s.originDate, s.reason)}\n` : '') +
-        (s.link ? `🔗 Link: ${s.link}\n` : '');
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(teks).then(() => {
-          this.showToast('Ringkasan sesi berhasil disalin ke papan klip!');
-        }).catch(() => {
-          this.showToast('Ringkasan sesi disalin.');
-        });
+        (s.link ? `🔗 Link: ${s.link}\n` : '') +
+        `\nAkses portal: ${url}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Jadwal Kuliah: ${s.matkul}`,
+            text: teks,
+            url: url
+          });
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      this.copyText(teks, 'Ringkasan sesi berhasil disalin ke papan klip!');
+    },
+
+    salinRingkasanSesi(s) {
+      return this.bagikanSesi(s);
+    },
+
+    async bagikanTugas(t) {
+      if (!t) return;
+      const deadlineTxt = this.fmtDeadlineDetailed(t.deadline_at) || t.deadline || '-';
+      const url = `${window.location.origin}/c/${this.selectedClassSlug}`;
+      let teks = `[Tugas: ${t.matkul || 'Perkuliahan'}]\n` +
+        `📝 Judul: ${t.title || t.deskripsi || 'Tugas'}\n` +
+        `⏳ Batas Waktu: ${deadlineTxt}\n`;
+      if (t.submission_url) {
+        teks += `🔗 Tempat Pengumpulan: ${t.submission_url}\n`;
+      } else if (t.submission_text) {
+        teks += `📍 Tempat Pengumpulan: ${t.submission_text}\n`;
+      }
+      if (t.instructions && t.instructions.trim()) {
+        teks += `\n📋 Instruksi:\n${t.instructions.trim()}\n`;
+      }
+      teks += `\nAkses portal: ${url}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Tugas ${t.matkul}: ${t.title || ''}`,
+            text: teks,
+            url: url
+          });
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      this.copyText(teks, 'Rincian tugas berhasil disalin ke papan klip!');
+    },
+
+    get shouldShowNotifBanner() {
+      if (this.notifPermission !== 'default') return false;
+      if (!('Notification' in window) || !('setAppBadge' in navigator)) return false;
+      if (this.dismissNotifBanner) return false;
+      try {
+        if (localStorage.getItem('asterisk_badge_dismissed_permanent') === 'true') return false;
+        const until = localStorage.getItem('asterisk_badge_dismissed_until');
+        if (until && Date.now() < parseInt(until, 10)) return false;
+      } catch (e) {}
+      return true;
+    },
+
+    tundaNotifBanner(hari = 7) {
+      this.dismissNotifBanner = true;
+      try {
+        localStorage.setItem('asterisk_badge_dismissed_until', String(Date.now() + (hari * 24 * 60 * 60 * 1000)));
+      } catch (e) {}
+      if (typeof this.showToast === 'function') {
+        this.showToast(`Pemberitahuan badge ditunda selama ${hari} hari.`, 'info');
+      }
+    },
+
+    tutupPermanenNotifBanner() {
+      this.dismissNotifBanner = true;
+      try {
+        localStorage.setItem('asterisk_badge_dismissed_permanent', 'true');
+      } catch (e) {}
+    },
+
+    toggleBadge(enabled) {
+      this.badgeEnabled = !!enabled;
+      try {
+        localStorage.setItem('asterisk_badge_enabled', String(this.badgeEnabled));
+      } catch (e) {}
+      if (!this.badgeEnabled) {
+        if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+        if (typeof this.showToast === 'function') {
+          this.showToast('Badge ikon aplikasi dinonaktifkan', 'info');
+        }
       } else {
-        this.showToast('Ringkasan sesi disalin.');
+        this.updateAppBadge();
+        if (typeof this.showToast === 'function') {
+          this.showToast('Badge ikon aplikasi diaktifkan', 'success');
+        }
+      }
+    },
+
+    async mintaIzinNotifikasi() {
+      if (!('Notification' in window)) return;
+      try {
+        const res = await Notification.requestPermission();
+        this.notifPermission = res;
+        if (res === 'granted') {
+          this.badgeEnabled = true;
+          try { localStorage.setItem('asterisk_badge_enabled', 'true'); } catch (e) {}
+          this.updateAppBadge();
+          if (typeof this.showToast === 'function') {
+            this.showToast('Izin notifikasi & badge aplikasi berhasil diaktifkan!', 'success');
+          }
+        }
+      } catch (e) {
+        console.error('Gagal meminta izin notifikasi:', e);
+      }
+    },
+
+    updateAppBadge() {
+      try {
+        if (!('setAppBadge' in navigator)) return;
+        if (!this.unlocked || !this.badgeEnabled) {
+          if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {});
+          return;
+        }
+        const activeTasks = (this.tasks || []).filter(t => !t.is_completed && !t.completed_at);
+        const count = activeTasks.length;
+        if (count > 0) {
+          navigator.setAppBadge(count).catch(() => {});
+        } else if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+      } catch (e) {
+        // Non-critical API, silent fallback
       }
     },
 
@@ -1401,14 +1698,8 @@ function portalApp() {
     },
 
     getKodeMatkul(s) {
-      if (!s) return 'TI2104';
-      if (s.code || s.kode) return s.code || s.kode;
-      const m = String(s.matkul || '').toLowerCase();
-      if (m.includes('aljabar')) return 'TI2104';
-      if (m.includes('web')) return 'TI2105';
-      if (m.includes('basis data')) return 'TI2103';
-      if (m.includes('objek') || m.includes('pbo')) return 'TI2102';
-      return 'TI2101';
+      if (!s) return '';
+      return s.code || s.kode || s.course_code || '';
     },
 
     formatWaktuPublikasi(iso) {
@@ -1455,66 +1746,38 @@ function portalApp() {
       return ch.room ? `Ruang ${ch.room}` : '';
     },
 
-    async loadSchedule() {
-      try {
-        const raw = await API.fetchLegacySchedule(this.selectedClass);
-        this.fullSchedule = (raw || []).map((s, i) => {
-          const parts = String(s.jam || '').split('-').map(x => x.trim().replace('.', ':'));
-          return {
-            id: `sch-${i}`, hari: s.hari, jam: s.jam, matkul: s.matkul,
-            dosen: s.dosen, ruang: s.ruang,
-            timeStart: parts[0] || '', timeEnd: parts[1] || ''
-          };
-        });
-      } catch (e) { this.fullSchedule = []; }
-    },
 
     // Jadwal efektif (pola + perubahan terbit) untuk seluruh pekan.
     async loadJadwalPekan() {
       this.jadwalLoading = true;
       this.jadwalError = '';
       const slug = this.selectedClassSlug;
+      const dates = this.tanggalPekan;
+      const request = ++this.jadwalRequest;
+      const isCurrent = () => request === this.jadwalRequest && slug === this.selectedClassSlug;
       const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       try {
-        const results = await Promise.all(days.map(d => {
-          const tgl = this.tanggalPekan[d];
-          return API.getPortalSchedule(slug, tgl);
-        }));
-
-        let totalV1Items = results.reduce((sum, r) => sum + ((r && Array.isArray(r.items)) ? r.items.length : 0), 0);
-        if (totalV1Items === 0 && (!this.fullSchedule || this.fullSchedule.length === 0)) {
-          await this.loadSchedule();
-        }
-        const useLegacyFallback = totalV1Items === 0 && (this.fullSchedule || []).length > 0;
+        const { days: itemsByDate } = await API.getPortalSchedule(slug, dates.Senin, undefined, days.length);
+        if (!isCurrent()) return;
 
         const newPekan = {};
-        days.forEach((d, idx) => {
-          const res = results[idx];
-          if (!useLegacyFallback && res && Array.isArray(res.items)) {
-            newPekan[d] = this.normalisasiEfektif(res.items, d);
-          } else {
-            newPekan[d] = (this.fullSchedule || []).filter(s => s.hari === d).map(s => {
-              const mLower = String(s.matkul || '').toLowerCase();
-              const rLower = String(s.ruang || '').toLowerCase();
-              const isPrak = mLower.includes('praktik') || rLower.includes('lab');
-              return {
-                id: s.id, hari: s.hari, kind: 'REGULER', activityType: isPrak ? 'PRACTICE' : 'THEORY',
-                matkul: s.matkul, dosen: s.dosen || '', ruang: s.ruang || '',
-                timeStart: s.timeStart || '', timeEnd: s.timeEnd || '',
-                link: '', pj: '', originDate: '', reason: ''
-              };
-            });
-          }
-        });
+        for (const day of days) {
+          const items = itemsByDate[dates[day]];
+          if (!Array.isArray(items)) throw new Error('Respons jadwal tidak lengkap.');
+          newPekan[day] = this.normalisasiEfektif(items, day);
+        }
+        this.fullSchedule = Object.values(newPekan).flat();
         this.jadwalPekan = newPekan;
         this.jadwalEfektif = this.jadwalPekan[this.hari] || [];
         if (this.weekOffset === 0) {
           this.jadwalCacheHariIni = this.jadwalPekan[this.todayName] || [];
         }
       } catch (e) {
+        if (!isCurrent()) return;
         this.jadwalError = 'Jadwal belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        if (e.status === 401) this.kunciPortal();
       } finally {
-        this.jadwalLoading = false;
+        if (isCurrent()) this.jadwalLoading = false;
       }
     },
 
@@ -1530,24 +1793,11 @@ function portalApp() {
     async loadTugasPortal() {
       this.tugasLoading = true; this.tugasError = '';
       const slug = this.selectedClassSlug;
+      const request = ++this.tugasRequest;
+      const isCurrent = () => request === this.tugasRequest && slug === this.selectedClassSlug;
       try {
-        const grup = ['hari_ini', 'minggu_ini', 'mendatang', 'terlewat'];
-        const hasil = await Promise.all(grup.map(g =>
-          API.getPortalTasks(slug, g)
-            .then(data => ({ ok: true, data: data }))
-            .catch(err => ({ ok: false, err: err }))
-        ));
-        if (hasil.every(h => !h.ok)) {
-          const st = hasil[0].err && hasil[0].err.status;
-          this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
-          this.tasks = [];
-          this.tugasError = st === 404
-            ? 'Kelas tidak ditemukan di portal. Periksa kode kelas atau hubungi KM.'
-            : st === 401
-              ? 'Kelas ini dilindungi kode akses. Kunci portal lalu masukkan kode dari grup kelas.'
-              : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
-          return;
-        }
+        const grouped = await API.getPortalTasks(slug, 'semua');
+        if (!isCurrent()) return;
         const petakan = (arr) => (arr || []).map(t => {
           const deadline = t.deadline_at;
           const u = this.deadlineBadge(deadline, t.completed_at || t.is_completed);
@@ -1565,22 +1815,33 @@ function portalApp() {
             urgency: u.level, countdown: u.badge
           };
         });
+        const terlewatIds = new Set((grouped.terlewat || []).map(t => String(t.id)));
         this.tugasGrup = {
-          hari_ini: petakan(hasil[0].ok ? hasil[0].data : []),
-          minggu_ini: petakan(hasil[1].ok ? hasil[1].data : []),
-          mendatang: petakan(hasil[2].ok ? hasil[2].data : []),
-          terlewat: petakan(hasil[3].ok ? hasil[3].data : [])
+          hari_ini: petakan((grouped.hari_ini || []).filter(t => !terlewatIds.has(String(t.id)))),
+          minggu_ini: petakan((grouped.minggu_ini || []).filter(t => !terlewatIds.has(String(t.id)))),
+          mendatang: petakan((grouped.mendatang || []).filter(t => !terlewatIds.has(String(t.id)))),
+          terlewat: petakan(grouped.terlewat)
         };
         const gabung = new Map();
         [...this.tugasGrup.mendatang, ...this.tugasGrup.minggu_ini, ...this.tugasGrup.hari_ini, ...this.tugasGrup.terlewat]
           .forEach(t => { if (!gabung.has(String(t.id))) gabung.set(String(t.id), t); });
         this.tasks = Array.from(gabung.values());
+        this.updateAppBadge();
       } catch (e) {
+        if (!isCurrent()) return;
+        if (e.status === 401) {
+          this.kunciPortal();
+          this.showToast('Sesi akses berakhir atau kode telah diperbarui KM.');
+          return;
+        }
         this.tugasGrup = { hari_ini: [], minggu_ini: [], mendatang: [], terlewat: [] };
         this.tasks = [];
-        this.tugasError = 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        this.updateAppBadge();
+        this.tugasError = e.status === 404
+          ? 'Kelas tidak ditemukan. Periksa kode kelas atau hubungi KM.'
+          : 'Tugas belum dapat dimuat. Periksa koneksi lalu coba lagi.';
       } finally {
-        this.tugasLoading = false;
+        if (isCurrent()) this.tugasLoading = false;
       }
     },
 
@@ -1632,6 +1893,53 @@ function portalApp() {
       }
     },
 
+    cleanCourseName(name) {
+      if (!name) return '';
+      return String(name).replace(/\s*\((?:Teori|Praktikum|Praktik|Prak\.?|Lab|Pengganti)\)/gi, '').trim();
+    },
+
+    shortCourseName(name, maxLen = 17) {
+      const clean = this.cleanCourseName(name);
+      if (!clean) return '';
+      if (clean.length <= maxLen) return clean;
+      return clean.substring(0, maxLen - 1).trim() + '…';
+    },
+
+    formatInstructions(text) {
+      if (!text) return 'Tidak ada instruksi khusus tertulis untuk tugas ini.';
+      const div = document.createElement('div');
+      div.textContent = text;
+      let escaped = div.innerHTML;
+
+      const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+      return escaped.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium hover:text-blue-800 break-all cursor-pointer">${url}</a>`;
+      });
+    },
+
+    getMateriSourceLabel(m) {
+      if (!m) return 'Tautan';
+      const url = (m.url || '').toLowerCase();
+      if (url.includes('github.com') || url.includes('github.io')) return 'GitHub';
+      if (url.includes('drive.google.com')) return 'Google Drive';
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
+      if (url.endsWith('.pdf') || url.includes('.pdf?')) return 'Dokumen PDF';
+      const type = this.getMateriType(m);
+      if (type === 'Repositori') return 'GitHub';
+      if (type === 'Video') return 'Video';
+      if (type === 'Dokumen') return 'Dokumen';
+      return 'Tautan Berkas';
+    },
+
+    getMateriOpenLabel(m) {
+      if (!m || !m.url) return 'Buka Berkas';
+      const url = m.url.toLowerCase();
+      if (url.includes('github.com') || url.includes('github.io')) return 'Buka di GitHub';
+      if (url.includes('drive.google.com')) return 'Buka di Google Drive';
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Tonton di YouTube';
+      return 'Buka Berkas';
+    },
+
     get materiCategories() {
       const all = this.materiList || [];
       const totalCount = all.length;
@@ -1643,22 +1951,25 @@ function portalApp() {
 
       const list = [
         { key: 'SEMUA', label: 'Semua Materi', shortLabel: 'Semua', count: totalCount },
-        { key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount },
       ];
+
+      if (umumCount > 0 || this.filterMateriMatkul === 'UMUM') {
+        list.push({ key: 'UMUM', label: 'Umum Kelas (Silabus & RPS)', shortLabel: 'Umum Kelas', count: umumCount });
+      }
 
       const foundKeys = new Set();
       const dynamicCourses = [];
 
       (this.courses || []).forEach(c => {
-        const name = (c.course_name || c.name || '').trim();
+        const name = this.cleanCourseName(c.course_name || c.name || '');
         if (name) dynamicCourses.push(name);
       });
       Object.values(this.jadwalPekan || {}).flat().forEach(s => {
-        const name = this.cleanMatkul(s.matkul || '');
+        const name = this.cleanCourseName(s.matkul || '');
         if (name) dynamicCourses.push(name);
       });
       all.forEach(m => {
-        const name = (m.course_name || '').trim();
+        const name = this.cleanCourseName(m.course_name || '');
         if (name) dynamicCourses.push(name);
       });
 
@@ -1666,13 +1977,15 @@ function portalApp() {
         const lower = cName.toLowerCase();
         if (cName && !foundKeys.has(lower) && !lower.includes('umum') && !lower.includes('silabus') && !lower.includes('rps')) {
           foundKeys.add(lower);
-          const count = all.filter(item => (item.course_name || '').trim().toLowerCase() === lower).length;
-          list.push({
-            key: cName,
-            label: cName,
-            shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
-            count,
-          });
+          const count = all.filter(item => this.cleanCourseName(item.course_name || '').toLowerCase() === lower).length;
+          if (count > 0 || this.filterMateriMatkul === cName) {
+            list.push({
+              key: cName,
+              label: cName,
+              shortLabel: cName.length > 14 ? cName.split(' ').slice(0, 2).join(' ') : cName,
+              count,
+            });
+          }
         }
       });
 
@@ -1689,7 +2002,8 @@ function portalApp() {
           return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
         });
       } else if (filter && filter !== 'SEMUA') {
-        list = list.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
+        const target = this.cleanCourseName(filter).toLowerCase();
+        list = list.filter(m => this.cleanCourseName(m.course_name || '').toLowerCase() === target);
       }
 
       const q = (this.searchMateriQuery || '').trim().toLowerCase();
@@ -1727,7 +2041,8 @@ function portalApp() {
           return !m.course_name || c.includes('umum') || c.includes('silabus') || c.includes('rps');
         });
       } else if (filter && filter !== 'SEMUA') {
-        scoped = scoped.filter(m => (m.course_name || '').trim().toLowerCase() === filter.toLowerCase());
+        const target = this.cleanCourseName(filter).toLowerCase();
+        scoped = scoped.filter(m => this.cleanCourseName(m.course_name || '').toLowerCase() === target);
       }
       const q = (this.searchMateriQuery || '').trim().toLowerCase();
       if (q) {
@@ -1749,16 +2064,15 @@ function portalApp() {
       const count = this.filteredMateriList.length;
       const q = (this.searchMateriQuery || '').trim();
       if (q) {
-        return `Hasil Pencarian "${q}" (${count} Berkas)`;
+        return `Hasil Pencarian "${q}" (${count})`;
       }
-      const sesiSuffix = this.filterMateriSesi === 'PRAKTIKUM' ? ' · Praktikum' : (this.filterMateriSesi === 'TEORI' ? ' · Teori' : '');
       if (this.filterMateriMatkul === 'SEMUA') {
-        return `Semua Berkas Materi${sesiSuffix} (${count} Berkas)`;
+        return `Daftar Berkas (${count})`;
       }
       if (this.filterMateriMatkul === 'UMUM') {
-        return `Umum Kelas (Silabus & RPS) (${count} Berkas)`;
+        return `Umum Kelas (${count})`;
       }
-      return `${this.filterMateriMatkul}${sesiSuffix} (${count} Berkas)`;
+      return `${this.cleanCourseName(this.filterMateriMatkul)} (${count})`;
     },
 
     getMateriActivity(m) {
@@ -1842,7 +2156,7 @@ function portalApp() {
     getMateriSubtitle(m) {
       if (!m) return '';
       if (m.subtitle_display) return m.subtitle_display;
-      const course = m.course_name || 'Umum Kelas';
+      const course = this.cleanCourseName(m.course_name) || 'Umum Kelas';
       const type = this.getMateriType(m);
       if (type === 'Video') return `${course} · Tautan Google Drive`;
       if (type === 'Repositori') return `${course} · GitHub`;
@@ -1872,13 +2186,14 @@ function portalApp() {
     getMateriModalMeta(m) {
       if (!m) return '';
       const type = this.getMateriType(m);
-      const act = this.getMateriActivity(m);
       let format = 'Dokumen PDF';
-      if (type === 'Video') format = 'Tautan Video (Google Drive)';
+      const url = (m.url || '').toLowerCase();
+      if (type === 'Video') format = url.includes('youtube') ? 'Video YouTube' : 'Rekaman Video (Google Drive)';
       else if (type === 'Repositori') format = 'Repositori Kode (GitHub)';
+      else if (type === 'Slide') format = 'Slide Presentasi';
 
-      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Pengunggah tidak tercatat';
-      return `Format: ${format} · Sesi: ${act} · ${uploader}`;
+      const uploader = m.uploader_name ? `Diunggah oleh ${m.uploader_name}` : 'Diunggah oleh PJ Kelas';
+      return `${format} · ${uploader}`;
     },
 
     cleanUrlDisplay(url) {
@@ -1973,15 +2288,7 @@ function portalApp() {
         this.showToast('Tautan belum tersedia.');
         return;
       }
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(() => {
-          this.showToast('Tautan berkas berhasil disalin!');
-        }).catch(() => {
-          this.showToast('Tautan berkas berhasil disalin!');
-        });
-      } else {
-        this.showToast('Tautan berkas berhasil disalin!');
-      }
+      this.copyText(url, 'Tautan berkas berhasil disalin!');
     },
 
     bukaTautanLangsung(url) {
@@ -2034,6 +2341,8 @@ function portalApp() {
 
     labelJenisUbah(kind) {
       const k = String(kind || '').toUpperCase();
+      if (k === 'EXAM_UTS' || k === 'UTS') return 'UTS';
+      if (k === 'EXAM_UAS' || k === 'UAS') return 'UAS';
       if (k === 'REPLACEMENT') return 'Kelas Pengganti';
       if (k === 'EXTRA') return 'Kelas Tambahan';
       if (k === 'HOLIDAY') return 'Hari Libur';
@@ -2059,10 +2368,14 @@ function portalApp() {
             if (target < new Date(now.getTime() - 86400000)) target.setFullYear(target.getFullYear() + 1);
           }
         }
-        const diffH = (target - now) / 3600000;
-        if (diffH < 0) return { level: 'mendesak', badge: 'Terlewat' };
-        if (diffH < 24) return { level: 'mendesak', badge: 'Besok' };
-        if (diffH <= 72) return { level: 'mendekati', badge: `H-${Math.ceil(diffH / 24)}` };
+        const diffMs = target.getTime() - now.getTime();
+        if (diffMs < 0) return { level: 'mendesak', badge: 'Terlewat' };
+        const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const targetMid = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+        const calDays = Math.round((targetMid - nowMid) / 86400000);
+        if (calDays <= 0) return { level: 'mendesak', badge: 'Hari ini' };
+        if (calDays === 1) return { level: 'mendekati', badge: 'Besok' };
+        if (calDays <= 3) return { level: 'mendekati', badge: `H-${calDays}` };
         return { level: 'aman', badge: 'Aktif' };
       } catch (e) {
         return { level: 'aman', badge: 'Aktif' };
@@ -2074,6 +2387,54 @@ function portalApp() {
       this.toast.message = msg;
       this.toast.show = true;
       this.toast.timer = setTimeout(() => { this.toast.show = false; }, 3000);
+    },
+
+    copyText(text, okMsg) {
+      const clean = String(text || '').trim();
+      if (!clean) return;
+      const done = () => this.showToast(okMsg || 'Tersalin ke clipboard.');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(clean).then(done).catch(() => {
+          if (this.fallbackCopyText(clean)) {
+            done();
+          } else {
+            this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+          }
+        });
+        return;
+      }
+      if (this.fallbackCopyText(clean)) {
+        done();
+      } else {
+        this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+      }
+    },
+
+    fallbackCopyText(text) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.width = '2em';
+        ta.style.height = '2em';
+        ta.style.padding = '0';
+        ta.style.border = 'none';
+        ta.style.outline = 'none';
+        ta.style.boxShadow = 'none';
+        ta.style.background = 'transparent';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
     }
   };
 }

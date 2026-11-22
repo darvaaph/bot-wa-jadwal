@@ -111,7 +111,7 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 	// Registrasi seluruh rute (legacy shim, API v1, static web assets)
 	s.registerRoutes(mux)
 
-	handler := s.corsMiddleware(s.recoveryMiddleware(s.maintenanceMiddleware(mux)))
+	handler := s.corsMiddleware(s.recoveryMiddleware(s.compressMiddleware(s.maintenanceMiddleware(mux))))
 
 	s.httpServer = &http.Server{
 		Addr:              addr,
@@ -127,6 +127,9 @@ func NewServer(addr string, botClient *bot.BotClient, classManager *schedule.Cla
 
 func (s *Server) maintenanceMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions ||
 			strings.HasSuffix(r.URL.Path, "/restore-execute") {
 			next.ServeHTTP(w, r)
