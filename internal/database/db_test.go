@@ -244,6 +244,9 @@ func TestInitDBAppliesPendingMigration(t *testing.T) {
 	if _, err := db.Exec("ALTER TABLE room_confirmations DROP COLUMN superseded_at"); err != nil {
 		t.Fatalf("Gagal menyiapkan tabel pra-restore: %v", err)
 	}
+	if _, err := db.Exec("ALTER TABLE class_settings DROP COLUMN attendance_reminder_minutes"); err != nil {
+		t.Fatalf("Gagal menyiapkan tabel class_settings pra-restore: %v", err)
+	}
 	if _, err := db.Exec("DELETE FROM schema_migrations"); err != nil {
 		t.Fatalf("Gagal menyiapkan versi migration lama: %v", err)
 	}

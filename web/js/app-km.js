@@ -232,7 +232,10 @@ function kmApp() {
       pagi: '06:00',
       sore: '17:00',
       gantiMenit: 60,
-      zona: 'Asia/Jakarta'
+      zona: 'Asia/Jakarta',
+      absenAktif: true,
+      absenMenit: 25,
+      absenMenitTerakhir: 25
     },
     pengaturanSaving: false,
     pengaturanFormError: '',
@@ -4686,6 +4689,24 @@ function kmApp() {
       }
     },
 
+    onToggleAbsen() {
+      if (this.pengaturan.absenAktif) {
+        const v = Number(this.pengaturan.absenMenit);
+        if (!Number.isInteger(v) || v < 1 || v > 60) {
+          this.pengaturan.absenMenit = this.pengaturan.absenMenitTerakhir || 25;
+        }
+      }
+      this.pengaturanFormError = '';
+    },
+
+    onAbsenMenitInput() {
+      const v = Number(this.pengaturan.absenMenit);
+      if (Number.isInteger(v) && v >= 1 && v <= 60) {
+        this.pengaturan.absenMenitTerakhir = v;
+      }
+      this.pengaturanFormError = '';
+    },
+
     async loadPengaturanKelas() {
       const slug = this.classSlug || this.selectedClass;
       if (!slug) return;
@@ -4699,6 +4720,17 @@ function kmApp() {
         if (s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
         if (s.replacement_reminder_minutes !== undefined && s.replacement_reminder_minutes !== null) {
           this.pengaturan.gantiMenit = Number(s.replacement_reminder_minutes);
+        }
+        if (s.attendance_reminder_minutes !== undefined && s.attendance_reminder_minutes !== null) {
+          const att = Number(s.attendance_reminder_minutes);
+          if (att === 0) {
+            this.pengaturan.absenAktif = false;
+            this.pengaturan.absenMenit = this.pengaturan.absenMenitTerakhir || 25;
+          } else if (att >= 1 && att <= 60) {
+            this.pengaturan.absenAktif = true;
+            this.pengaturan.absenMenit = att;
+            this.pengaturan.absenMenitTerakhir = att;
+          }
         }
         if (s.timezone) this.pengaturan.zona = s.timezone;
       } catch (e) {
@@ -4721,6 +4753,14 @@ function kmApp() {
         this.pengaturanFormError = 'Pengingat pengganti harus 0-1440 menit.';
         return;
       }
+      let attMenit = 0;
+      if (this.pengaturan.absenAktif) {
+        attMenit = Number(this.pengaturan.absenMenit);
+        if (!Number.isInteger(attMenit) || attMenit < 1 || attMenit > 60) {
+          this.pengaturanFormError = 'Pengingat absen harus 1-60 menit setelah kuliah dimulai.';
+          return;
+        }
+      }
       this.pengaturanFormError = '';
       this.pengaturanSaving = true;
       try {
@@ -4729,7 +4769,8 @@ function kmApp() {
           timezone: (this.pengaturan.zona || '').trim() || undefined,
           morning_reminder_time: this.pengaturan.pagi,
           afternoon_reminder_time: this.pengaturan.sore,
-          replacement_reminder_minutes: menit
+          replacement_reminder_minutes: menit,
+          attendance_reminder_minutes: this.pengaturan.absenAktif ? attMenit : 0
         });
         this.showToast('Pengaturan kelas disimpan. Berlaku pengiriman berikutnya.');
         await this.loadPengaturanKelas();
