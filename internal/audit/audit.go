@@ -353,6 +353,10 @@ func Write(ctx context.Context, db DBTX, e Entry) error {
 
 // Write implements Writer.Write.
 func (w *Writer) Write(ctx context.Context, exec Executor, e Entry) error {
+	if support, ok := ctx.Value(supportKey{}).(map[string]any); ok {
+		e.Actor.Context = map[string]any{"support": support, "context": e.Actor.Context}
+		e.ActorContextJSON = nil
+	}
 	return writeEntry(ctx, exec, e)
 }
 

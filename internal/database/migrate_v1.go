@@ -137,6 +137,7 @@ var v1Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_one_active ON role_assignments(user_id, role, scope_type, COALESCE(class_id,-1), COALESCE(semester_id,-1), COALESCE(course_offering_id,-1)) WHERE status = 'ACTIVE';`,
 	`CREATE INDEX IF NOT EXISTS idx_assignments_user ON role_assignments(user_id, status);`,
 	`CREATE INDEX IF NOT EXISTS idx_assignments_class ON role_assignments(class_id, role, status);`,
+	`CREATE INDEX IF NOT EXISTS idx_role_assignments_class_role_status ON role_assignments(class_id, role, status);`,
 	`CREATE TABLE IF NOT EXISTS login_attempts (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER REFERENCES users(id),
@@ -219,7 +220,7 @@ var v1Schema = []string{
 		origin_schedule_pattern_id INTEGER REFERENCES schedule_patterns(id),
 		origin_occurrence_date DATE,
 		result_schedule_pattern_id INTEGER REFERENCES schedule_patterns(id),
-		event_kind TEXT NOT NULL CHECK (event_kind IN ('REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED')),
+		event_kind TEXT NOT NULL CHECK (event_kind IN ('REPLACEMENT','EXTRA','HOLIDAY','SESSION_CANCELLED','EXAM_UTS','EXAM_UAS')),
 		starts_at DATETIME NOT NULL,
 		ends_at DATETIME NOT NULL CHECK (ends_at > starts_at),
 		room_id INTEGER REFERENCES rooms(id),

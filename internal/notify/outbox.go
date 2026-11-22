@@ -58,6 +58,10 @@ func validateEnqueue(req EnqueueRequest) error {
 // membuat baris atau attempt baru. Channel diisi jika ada yang aktif,
 // jika tidak maka NULL + scheduled_at NULL (menunggu rekonsiliasi).
 func (s *Service) EnqueueTx(ctx context.Context, exec DBTX, req EnqueueRequest) (int64, error) {
+	return EnqueueIntent(ctx, exec, req)
+}
+
+func EnqueueIntent(ctx context.Context, exec DBTX, req EnqueueRequest) (int64, error) {
 	if err := validateEnqueue(req); err != nil {
 		return 0, err
 	}
@@ -68,16 +72,20 @@ func (s *Service) EnqueueTx(ctx context.Context, exec DBTX, req EnqueueRequest) 
 	}
 	// Idempotency fast-path: kembalikan ID yang sudah ada.
 	var existing int64
-	if err := s.db.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, key).Scan(&existing); err == nil {
+	if err := exec.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, key).Scan(&existing); err == nil {
 		return existing, nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
 	}
 	// Cari channel aktif untuk kelas (boleh tidak ada).
 	var chID any
 	var sched any
 	var ch int64
-	if err := s.db.QueryRowContext(ctx, `SELECT id FROM whatsapp_channels WHERE class_id = ? AND status = 'ACTIVE' ORDER BY id LIMIT 1`, req.ClassID).Scan(&ch); err == nil {
+	if err := exec.QueryRowContext(ctx, `SELECT id FROM whatsapp_channels WHERE class_id = ? AND status = 'ACTIVE' ORDER BY id LIMIT 1`, req.ClassID).Scan(&ch); err == nil {
 		chID = ch
 		sched = time.Now().UTC().Format(time.RFC3339Nano)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
 	}
 	var id int64
 	err = exec.QueryRowContext(ctx, `INSERT INTO notification_messages
@@ -88,7 +96,7 @@ func (s *Service) EnqueueTx(ctx context.Context, exec DBTX, req EnqueueRequest) 
 		req.EntityID, key, payloadStr, sched, req.TriggeredByUserID,
 	).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
-		if err := s.db.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, key).Scan(&id); err != nil {
+		if err := exec.QueryRowContext(ctx, `SELECT id FROM notification_messages WHERE idempotency_key = ?`, key).Scan(&id); err != nil {
 			return 0, err
 		}
 		return id, nil
@@ -135,9 +143,9 @@ func (s *Service) ReconcilePendingChannels(ctx context.Context, classID *int64) 
 			WHERE ch.class_id = notification_messages.class_id AND ch.status = 'ACTIVE'
 			ORDER BY ch.id LIMIT 1
 		),
-		scheduled_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+		scheduled_at = COALESCE(scheduled_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')),
 		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE status = 'PENDING' AND whatsapp_channel_id IS NULL AND scheduled_at IS NULL
+		WHERE status = 'PENDING' AND whatsapp_channel_id IS NULL
 		AND EXISTS (SELECT 1 FROM whatsapp_channels ch2 WHERE ch2.class_id = notification_messages.class_id AND ch2.status = 'ACTIVE')`
 	var args []any
 	if classID != nil {

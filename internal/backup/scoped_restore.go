@@ -426,8 +426,12 @@ func (s *Service) Execute(ctx context.Context, backupID, userID int64, reason, e
 			return prePoint.ID, err
 		}
 		payload, _ := json.Marshal(map[string]any{"backup_id": backupID, "semester_id": rec.SemesterID, "reason": strings.TrimSpace(reason)})
+		var scheduledAt any
+		if channelID.Valid {
+			scheduledAt = now
+		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO notification_messages(class_id,whatsapp_channel_id,event_type,entity_type,entity_id,idempotency_key,payload_json,status,scheduled_at,triggered_by_user_id)
-			VALUES(?,?, 'ACADEMIC_RESTORE_CORRECTION','BACKUP_RECORD',?,?,?,'PENDING',?,?)`, rec.ClassID, channelID, backupID, fmt.Sprintf("restore-correction-%d-%d", backupID, prePoint.ID), string(payload), now, userID)
+			VALUES(?,?, 'ACADEMIC_RESTORE_CORRECTION','BACKUP_RECORD',?,?,?,'PENDING',?,?)`, rec.ClassID, channelID, backupID, fmt.Sprintf("restore-correction-%d-%d", backupID, prePoint.ID), string(payload), scheduledAt, userID)
 		if err != nil {
 			return prePoint.ID, err
 		}

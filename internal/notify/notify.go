@@ -1,8 +1,10 @@
 package notify
 
 import (
+	"bot-jadwal/internal/schedule"
 	"bot-jadwal/internal/util"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -25,6 +27,15 @@ type Sender interface {
 type Service struct {
 	db               *sql.DB
 	dailyTextBuilder func(context.Context, int64, time.Time) (string, error)
+	messageFormatter func(string, string, string) string
+}
+
+func (s *Service) SetMessageFormatter(format func(string, string, string) string) {
+	s.messageFormatter = format
+}
+
+type StableSender interface {
+	SendTextWithID(context.Context, string, string, string) (string, error)
 }
 
 func NewService(db *sql.DB) *Service { return &Service{db: db} }
@@ -136,40 +147,42 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 		if err != nil {
 			return "", err
 		}
-		if link != "" {
+		if strings.TrimSpace(text) == "" {
+			return "", nil
+		}
+		if link != "" && !strings.Contains(text, link) {
 			text += "\n\nDetail jadwal dan tugas:\n" + link
 		}
 		return text, nil
 	}
 	_ = semID
-	dayName := indonesianWeekday(date)
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "*JADWAL KULIAH HARI INI*\n%s, %s | %s\n", dayName, date, classCode)
-	rows, err := s.db.QueryContext(ctx, `SELECT c.name, co.activity_type, sp.start_time, sp.end_time,
-		COALESCE(r.name, '-'), COALESCE(GROUP_CONCAT(l.full_name, ', '), '-')
-		FROM schedule_patterns sp JOIN course_offerings co ON co.id = sp.course_offering_id
-		JOIN courses c ON c.id = co.course_id JOIN semesters sem ON sem.id = co.semester_id
-		LEFT JOIN rooms r ON r.id = sp.room_id
-		LEFT JOIN offering_lecturers ol ON ol.course_offering_id = co.id AND ol.superseded_at IS NULL
-		LEFT JOIN lecturers l ON l.id = ol.lecturer_id
-		WHERE sem.class_id = ? AND sem.status = 'ACTIVE' AND sp.status = 'ACTIVE'
-		AND sp.day_of_week = ? AND sp.effective_from <= ? AND (sp.effective_until IS NULL OR sp.effective_until >= ?)
-		GROUP BY sp.id ORDER BY sp.start_time`, classID, weekdayNumber(date), date, date)
+	day, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
-	i := 0
-	for rows.Next() {
-		var name, activity, start, end, room, lecturers string
-		if err := rows.Scan(&name, &activity, &start, &end, &room, &lecturers); err != nil {
-			return "", err
-		}
-		i++
-		fmt.Fprintf(&sb, "\n%d. *%s* (%s)\n   %s - %s WIB\n   %s | %s", i, name, activity, start, end, room, lecturers)
+	sessions, err := schedule.ResolveEffective(ctx, s.db, classID, semID, day)
+	if err != nil {
+		return "", err
 	}
-	if i == 0 {
-		sb.WriteString("\nTidak ada jadwal hari ini.")
+	hasActiveClasses := false
+	for _, it := range sessions {
+		if it.Kind != "HOLIDAY" && it.Kind != "SESSION_CANCELLED" {
+			hasActiveClasses = true
+			break
+		}
+	}
+	if !hasActiveClasses {
+		return "", nil
+	}
+	dayName := indonesianWeekday(date)
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "*JADWAL KULIAH HARI INI*\n%s, %s | %s\n", dayName, date, classCode)
+	for index, it := range sessions {
+		name := it.Offering
+		if name == "" {
+			name = it.Title
+		}
+		fmt.Fprintf(&sb, "\n%d. *%s* (%s) [%s]\n   %s - %s\n   %s", index+1, name, it.ActivityType, it.Kind, it.StartTime, it.EndTime, it.Room)
 	}
 	_ = loc
 	if link != "" {
@@ -178,15 +191,30 @@ func (s *Service) BuildDailyText(ctx context.Context, classID int64, date string
 	return sb.String(), nil
 }
 
+func formatTaskDeadline(deadline, now time.Time) string {
+	return util.FormatTaskDeadline(deadline, now)
+}
+
 func taskUrgencyStatus(deadline time.Time, now time.Time) string {
 	if deadline.IsZero() {
 		return "Aktif"
 	}
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	deadline = deadline.In(loc)
+
 	diff := deadline.Sub(now)
 	if diff < 0 {
 		return "Terlewat"
 	}
-	if deadline.Year() == now.Year() && deadline.YearDay() == now.YearDay() {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	targetDay := time.Date(deadline.Year(), deadline.Month(), deadline.Day(), 0, 0, 0, 0, loc)
+	days := int(targetDay.Sub(today) / (24 * time.Hour))
+
+	if days <= 0 {
 		hours := int(diff.Hours())
 		mins := int(diff.Minutes()) % 60
 		if hours > 0 {
@@ -197,13 +225,8 @@ func taskUrgencyStatus(deadline time.Time, now time.Time) string {
 		}
 		return "Hari ini"
 	}
-	tomorrow := now.Add(24 * time.Hour)
-	if deadline.Year() == tomorrow.Year() && deadline.YearDay() == tomorrow.YearDay() {
+	if days == 1 {
 		return "Besok (H-1)"
-	}
-	days := int(diff.Hours() / 24)
-	if days <= 0 {
-		days = 1
 	}
 	return fmt.Sprintf("%d hari lagi (H-%d)", days, days)
 }
@@ -241,13 +264,12 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		taskType       string
 		submissionText string
 		deadlineFmt    string
-		status         string
 	}
 	var activeTasks []taskItem
 
 	for rows.Next() {
-		var course, actType, title, tType, subText, rawDeadline string
-		if err := rows.Scan(&course, &actType, &title, &tType, &subText, &rawDeadline); err != nil {
+		var course, actType, title, taskType, subText, rawDeadline string
+		if err := rows.Scan(&course, &actType, &title, &taskType, &subText, &rawDeadline); err != nil {
 			return "", err
 		}
 		dl := util.ParseFlexibleTime(rawDeadline, loc)
@@ -256,23 +278,17 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		}
 		dlLocal := dl.In(loc)
 		if nowLocal.After(dlLocal) {
-			// Opsi B: Hanya tugas mendatang, abaikan tugas yang sudah terlewat
+			// Hanya tugas mendatang, abaikan tugas yang sudah terlewat
 			continue
 		}
-		statusText := taskUrgencyStatus(dlLocal, nowLocal)
-
-		hari := util.GetHariIndonesia(dlLocal)
-		bulan := util.GetBulanIndonesia(dlLocal)
-		deadlineFmt := fmt.Sprintf("%s, %02d %s %d, %02d:%02d WIB", hari, dlLocal.Day(), bulan, dlLocal.Year(), dlLocal.Hour(), dlLocal.Minute())
 
 		item := taskItem{
 			courseName:     course,
 			activityType:   actType,
 			title:          title,
-			taskType:       tType,
-			submissionText: subText,
-			deadlineFmt:    deadlineFmt,
-			status:         statusText,
+			taskType:       taskType,
+			submissionText: strings.TrimSpace(subText),
+			deadlineFmt:    formatTaskDeadline(dlLocal, nowLocal),
 		}
 
 		activeTasks = append(activeTasks, item)
@@ -281,47 +297,100 @@ func (s *Service) BuildTaskText(ctx context.Context, classID int64, link string,
 		}
 	}
 
-	if len(activeTasks) == 0 {
+	rows.Close()
+	exams, err := s.buildExamReminder(ctx, classID, nowLocal.AddDate(0, 0, 1))
+	if err != nil {
+		return "", err
+	}
+	if len(activeTasks) == 0 && exams == "" {
 		return "", nil
 	}
 
 	var sb strings.Builder
-	sb.WriteString("*PENGINGAT TUGAS KULIAH*\n")
-	if classCode != "" {
-		sb.WriteString(fmt.Sprintf("Kelas: %s\n", classCode))
-	}
-	sb.WriteString("────────────────────\n")
-
-	for i, t := range activeTasks {
-		actSuffix := ""
-		uAct := strings.ToUpper(t.activityType)
-		if uAct == "PRACTICE" || uAct == "PRAKTIKUM" || uAct == "LAB" {
-			actSuffix = " (Praktikum)"
-		} else if uAct == "THEORY" || uAct == "TEORI" || uAct == "KULIAH" {
-			actSuffix = " (Teori)"
+	if len(activeTasks) > 0 {
+		if classCode != "" {
+			sb.WriteString(fmt.Sprintf("*PENGINGAT TUGAS • %s*\n", classCode))
+		} else {
+			sb.WriteString("*PENGINGAT TUGAS*\n")
 		}
+		sb.WriteString("─────────────\n")
 
-		sb.WriteString(fmt.Sprintf("\n%d. *%s%s*\n", i+1, t.courseName, actSuffix))
-		sb.WriteString(fmt.Sprintf("   - Tugas: %s\n", t.title))
-		sb.WriteString(fmt.Sprintf("   - Tenggat: %s\n", t.deadlineFmt))
-		sb.WriteString(fmt.Sprintf("   - Status: %s\n", t.status))
-		if t.taskType != "" {
-			sb.WriteString(fmt.Sprintf("   - Jenis: Tugas %s\n", t.taskType))
-		}
-		if t.submissionText != "" {
-			sb.WriteString(fmt.Sprintf("   - Pengumpulan: %s\n", t.submissionText))
+		for i, t := range activeTasks {
+			courseDisplay := util.FormatCourseWithActivity(t.courseName, t.activityType)
+			titleDisplay := util.FormatTaskTitle(t.title, t.taskType)
+			subLabel := util.TaskSubmissionLabel(t.taskType)
+			sb.WriteString(fmt.Sprintf("\n%d. *%s*: %s\n", i+1, courseDisplay, titleDisplay))
+			subText := strings.TrimSpace(t.submissionText)
+			if subText != "" && subText != "-" {
+				sb.WriteString(fmt.Sprintf("   ├ *%s*\n", t.deadlineFmt))
+				sb.WriteString(fmt.Sprintf("   └ %s: %s\n", subLabel, subText))
+			} else {
+				sb.WriteString(fmt.Sprintf("   └ *%s*\n", t.deadlineFmt))
+			}
 		}
 	}
 
+	if exams != "" {
+		if len(activeTasks) > 0 {
+			sb.WriteString("\n" + exams)
+		} else {
+			sb.WriteString(exams)
+		}
+	}
 	if link == "" && classSlug != "" {
 		link = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), classSlug)
 	}
 	if link != "" {
-		sb.WriteString("\n────────────────────\n")
-		sb.WriteString(fmt.Sprintf("Portal Mahasiswa:\n%s", link))
+		sb.WriteString("\n─────────────\n")
+		sb.WriteString(fmt.Sprintf("Detail & pengumpulan:\n%s", link))
 	}
 
 	return sb.String(), nil
+}
+
+func (s *Service) buildExamReminder(ctx context.Context, classID int64, tomorrow time.Time) (string, error) {
+	start := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, tomorrow.Location())
+	rows, err := s.db.QueryContext(ctx, `SELECT co.display_name, te.event_kind, te.starts_at, te.ends_at,
+		COALESCE(r.code, '-'), COALESCE(te.reason, '')
+		FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id=te.id
+		JOIN course_offerings co ON co.id=teo.course_offering_id
+		JOIN semesters sem ON sem.id=co.semester_id
+		LEFT JOIN rooms r ON r.id=te.room_id
+		WHERE sem.class_id=? AND sem.status='ACTIVE' AND te.lifecycle_status='PUBLISHED'
+		AND (teo.participation_role='OWNER' OR teo.participation_status='ACCEPTED')
+		AND te.event_kind IN ('EXAM_UTS','EXAM_UAS')
+		AND datetime(te.starts_at)>=datetime(?) AND datetime(te.starts_at)<datetime(?)
+		ORDER BY te.starts_at, te.id`, classID, start.UTC().Format(time.RFC3339), start.AddDate(0, 0, 1).UTC().Format(time.RFC3339))
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var b strings.Builder
+	i := 0
+	for rows.Next() {
+		var course, kind, starts, ends, room, note string
+		if err := rows.Scan(&course, &kind, &starts, &ends, &room, &note); err != nil {
+			return "", err
+		}
+		st, err := time.Parse(time.RFC3339Nano, starts)
+		if err != nil {
+			return "", err
+		}
+		en, err := time.Parse(time.RFC3339Nano, ends)
+		if err != nil {
+			return "", err
+		}
+		if i == 0 {
+			fmt.Fprintf(&b, "*PENGINGAT UJIAN BESOK (H-1)*\n%s\n", start.Format("02 Jan 2006"))
+		}
+		i++
+		fmt.Fprintf(&b, "\n%d. *%s* [%s]\n   - Waktu: %s - %s WIB\n   - Ruang: %s\n", i, course, strings.TrimPrefix(kind, "EXAM_"), st.In(start.Location()).Format("15:04"), en.In(start.Location()).Format("15:04"), room)
+		if note != "" {
+			fmt.Fprintf(&b, "   - Keterangan: %s\n", note)
+		}
+	}
+	return b.String(), rows.Err()
 }
 
 func (s *Service) classContext(ctx context.Context, classID int64) (*time.Location, int64, string, string, error) {
@@ -348,102 +417,130 @@ func reminderWindowOpen(local time.Time, hm string) bool {
 	return err == nil && !local.Before(due) && local.Before(due.Add(time.Hour))
 }
 
-// EnsureDailySummaries enqueues morning summaries for classes whose local time matches config.
+// EnsureDailySummaries enqueues morning summaries for eligible classes.
 func (s *Service) EnsureDailySummaries(ctx context.Context, now time.Time) (int, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.morning_reminder_time,'06:00'), COALESCE(cs.timezone,'Asia/Jakarta')
-		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
-		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	enqueued := 0
-	for rows.Next() {
-		var classID int64
-		var hm, tz string
-		if err := rows.Scan(&classID, &hm, &tz); err != nil {
-			continue
-		}
-		loc, err := time.LoadLocation(tz)
-		if err != nil {
-			loc = time.FixedZone("WIB", 7*3600)
-		}
-		local := now.In(loc)
-		if !reminderWindowOpen(local, hm) {
-			continue
-		}
-		date := local.Format("2006-01-02")
-		chID, _, _ := s.ChannelForClass(ctx, classID)
-		text, err := s.BuildDailyText(ctx, classID, date, "")
-		if err != nil {
-			continue
-		}
-		sched := now.UTC()
-		if _, created, err := s.Enqueue(ctx, classID, chID, "DAILY_SUMMARY", "CLASS", classID, dailyKey(classID, date), text, "", sched, nil); err == nil && created {
-			enqueued++
-		}
-	}
-	return enqueued, rows.Err()
+	return s.ensureClassReminders(ctx, now, true)
 }
 
-// EnsureTaskReminders enqueues afternoon reminders similarly.
+// EnsureTaskReminders enqueues afternoon reminders for eligible classes.
 func (s *Service) EnsureTaskReminders(ctx context.Context, now time.Time) (int, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.afternoon_reminder_time,'17:00'), COALESCE(cs.timezone,'Asia/Jakarta')
+	return s.ensureClassReminders(ctx, now, false)
+}
+
+func (s *Service) ensureClassReminders(ctx context.Context, now time.Time, daily bool) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT c.id, COALESCE(cs.morning_reminder_time,'06:00'),
+		COALESCE(cs.afternoon_reminder_time,'17:00'), COALESCE(cs.timezone,'Asia/Jakarta')
 		FROM classes c LEFT JOIN class_settings cs ON cs.class_id = c.id WHERE c.status='ACTIVE'
 		AND EXISTS (SELECT 1 FROM semesters sem WHERE sem.class_id=c.id AND sem.status='ACTIVE')`)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
-	enqueued := 0
+	type dueClass struct {
+		id   int64
+		date string
+	}
+	var due []dueClass
 	for rows.Next() {
 		var classID int64
-		var hm, tz string
-		if err := rows.Scan(&classID, &hm, &tz); err != nil {
-			continue
+		var morning, afternoon, zone string
+		if err := rows.Scan(&classID, &morning, &afternoon, &zone); err != nil {
+			return 0, err
 		}
-		loc, err := time.LoadLocation(tz)
+		loc, err := time.LoadLocation(zone)
 		if err != nil {
 			loc = time.FixedZone("WIB", 7*3600)
 		}
+		hm := afternoon
+		if daily {
+			hm = morning
+		}
 		local := now.In(loc)
-		if !reminderWindowOpen(local, hm) {
+		if reminderWindowOpen(local, hm) {
+			due = append(due, dueClass{classID, local.Format("2006-01-02")})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var failures error
+	enqueued := 0
+	for _, class := range due {
+		event, key := "TASK_REMINDER", taskKey(class.id, class.date)
+		if daily {
+			event, key = "DAILY_SUMMARY", dailyKey(class.id, class.date)
+		}
+		exists, err := s.hasReminder(ctx, key)
+		if err != nil {
+			failures = errors.Join(failures, err)
 			continue
 		}
-		date := local.Format("2006-01-02")
-		chID, _, _ := s.ChannelForClass(ctx, classID)
-		text, err := s.BuildTaskText(ctx, classID, "", now)
-		if err != nil || text == "" {
+		if exists {
 			continue
 		}
-		sched := now.UTC()
-		if _, created, err := s.Enqueue(ctx, classID, chID, "TASK_REMINDER", "CLASS", classID, taskKey(classID, date), text, "", sched, nil); err == nil && created {
+		var message string
+		if daily {
+			message, err = s.BuildDailyText(ctx, class.id, class.date, "")
+		} else {
+			message, err = s.BuildTaskText(ctx, class.id, "", now)
+		}
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+			continue
+		}
+		if message == "" {
+			continue
+		}
+		channelID, _, err := s.ChannelForClass(ctx, class.id)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			failures = errors.Join(failures, err)
+			continue
+		}
+		_, created, err := s.Enqueue(ctx, class.id, channelID, event, "CLASS", class.id, key, message, "", now, nil)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+		} else if created {
 			enqueued++
 		}
 	}
-	return enqueued, rows.Err()
+	return enqueued, failures
+}
+
+func (s *Service) hasReminder(ctx context.Context, key string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM notification_messages WHERE idempotency_key=?)`, key).Scan(&exists)
+	return exists, err
 }
 
 // EnsureReplacementReminders enqueues pre-event reminders for PUBLISHED REPLACEMENT events.
 func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time) (int, error) {
+	current := now.UTC().Format(time.RFC3339Nano)
 	rows, err := s.db.QueryContext(ctx, `SELECT te.id, sem.class_id, COALESCE(cs.replacement_reminder_minutes,60),
-		te.starts_at, ch.id FROM teaching_events te
-		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND teo.participation_role='OWNER'
+		te.starts_at, ch.id,teo.participation_role,COALESCE(cs.timezone,'Asia/Jakarta') FROM teaching_events te
+		JOIN teaching_event_offerings teo ON teo.teaching_event_id = te.id AND (teo.participation_role='OWNER' OR (teo.participation_role='PARTICIPANT' AND teo.participation_status='ACCEPTED'))
 		JOIN course_offerings co ON co.id = teo.course_offering_id
 		JOIN semesters sem ON sem.id = co.semester_id
 		LEFT JOIN class_settings cs ON cs.class_id = sem.class_id
 		JOIN whatsapp_channels ch ON ch.class_id = sem.class_id AND ch.status='ACTIVE'
-		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED' AND sem.status='ACTIVE'`)
+		WHERE te.event_kind='REPLACEMENT' AND te.lifecycle_status='PUBLISHED' AND sem.status='ACTIVE'
+		  AND julianday(te.starts_at) >= julianday(?)
+		  AND julianday(te.starts_at) <= julianday(?, printf('+%d minutes', COALESCE(cs.replacement_reminder_minutes,60)+60))`, current, current)
 	if err != nil {
 		return 0, err
 	}
 	defer rows.Close()
-	enqueued := 0
+	type reminder struct {
+		eventID, classID, channelID int64
+		key, zone                   string
+		starts, remindAt            time.Time
+	}
+	var due []reminder
 	for rows.Next() {
 		var eventID, classID, minutes, chID int64
-		var startsAt string
-		if err := rows.Scan(&eventID, &classID, &minutes, &startsAt, &chID); err != nil {
-			continue
+		var startsAt, participationRole, zone string
+		if err := rows.Scan(&eventID, &classID, &minutes, &startsAt, &chID, &participationRole, &zone); err != nil {
+			return 0, err
 		}
 		starts, err := time.Parse(time.RFC3339Nano, startsAt)
 		if err != nil {
@@ -456,12 +553,41 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 		if now.Before(remindAt.Add(-time.Hour)) || now.After(starts) {
 			continue
 		}
-		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", eventID, starts.Format("02-01-2006 15:04"))
-		if _, created, err := s.Enqueue(ctx, classID, chID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", eventID, replacementKey(eventID), text, "", remindAt, nil); err == nil && created {
+		key := replacementKey(eventID)
+		if participationRole == "PARTICIPANT" {
+			key += fmt.Sprintf(":class:%d", classID)
+		}
+		due = append(due, reminder{eventID, classID, chID, key, zone, starts, remindAt})
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	var failures error
+	enqueued := 0
+	for _, item := range due {
+		exists, err := s.hasReminder(ctx, item.key)
+		if err != nil {
+			failures = errors.Join(failures, err)
+			continue
+		}
+		if exists {
+			continue
+		}
+		loc, err := time.LoadLocation(item.zone)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", item.key, err))
+			continue
+		}
+		text := fmt.Sprintf("*PENGINGAT KELAS PENGGANTI*\nEvent #%d dimulai %s. Siapkan kehadiran tepat waktu.", item.eventID, item.starts.In(loc).Format("02-01-2006 15:04 MST"))
+		_, created, err := s.Enqueue(ctx, item.classID, item.channelID, "REPLACEMENT_REMINDER", "TEACHING_EVENT", item.eventID, item.key, text, "", item.remindAt, nil)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("%s: %w", item.key, err))
+		} else if created {
 			enqueued++
 		}
 	}
-	return enqueued, rows.Err()
+	return enqueued, failures
 }
 
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
@@ -511,113 +637,218 @@ func (s *Service) EnqueueEventRevoked(ctx context.Context, classID, eventID int6
 // (e.g. worker crash between claim and attempt write) before requeue.
 const staleProcessingTimeout = 10 * time.Minute
 
-// ReapStaleProcessing returns stuck PROCESSING rows to PENDING.
+// ReapStaleProcessing only requeues claims that never started a send.
+// An unfinished attempt may have reached the provider and needs explicit reconciliation.
 func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64, error) {
 	cutoff := now.Add(-staleProcessingTimeout).UTC().Format(time.RFC3339Nano)
-	res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PENDING',
-		updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE status='PROCESSING' AND datetime(updated_at) < datetime(?)`, cutoff)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	n, _ := res.RowsAffected()
-	return n, nil
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE notification_attempts SET finished_at=?,result='FAILED',error_message='DELIVERY_UNCERTAIN: worker stopped before finalization',updated_at=? WHERE result IS NULL AND notification_message_id IN (SELECT id FROM notification_messages WHERE status='PROCESSING' AND julianday(updated_at)<julianday(?))`, nowStr(), nowStr(), cutoff); err != nil {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status=CASE WHEN EXISTS(SELECT 1 FROM notification_attempts a WHERE a.notification_message_id=notification_messages.id AND a.error_message LIKE 'DELIVERY_UNCERTAIN:%') THEN 'FAILED' ELSE 'PENDING' END,updated_at=? WHERE status='PROCESSING' AND julianday(updated_at)<julianday(?)`, nowStr(), cutoff)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
 }
 
-// ProcessDue claims and sends due messages. Returns (sent, failed).
-// Hanya mengklaim baris PENDING/FAILED yang memiliki channel aktif,
-// scheduled_at terisi, dan sudah jatuh tempo. Pesan tanpa channel
-// (menunggu konfigurasi) tidak pernah diklaim.
+// ProcessDue owns claiming, durable attempts, delivery and finalization for every caller.
 func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now time.Time) (int, int, error) {
-	// Reap rows stuck in PROCESSING by a crashed worker before claiming.
-	_, _ = s.ReapStaleProcessing(ctx, now)
-	_, _ = s.ReconcilePendingChannels(ctx, nil)
+	if _, err := s.ReapStaleProcessing(ctx, now); err != nil {
+		return 0, 0, err
+	}
+	if _, err := s.ReconcilePendingChannels(ctx, nil); err != nil {
+		return 0, 0, err
+	}
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT m.id, m.whatsapp_channel_id, m.payload_json FROM notification_messages m
-		JOIN whatsapp_channels ch ON ch.id = m.whatsapp_channel_id AND ch.status = 'ACTIVE'
-		WHERE m.status IN ('PENDING','FAILED') AND m.scheduled_at IS NOT NULL AND m.scheduled_at <= ?
-		ORDER BY m.scheduled_at ASC, m.id ASC LIMIT ?`,
-		now.UTC().Format(time.RFC3339Nano), limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT m.id FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' WHERE m.status='PENDING' AND m.scheduled_at IS NOT NULL AND julianday(m.scheduled_at)<=julianday(?) ORDER BY m.scheduled_at,m.id LIMIT ?`, now.UTC().Format(time.RFC3339Nano), limit)
 	if err != nil {
 		return 0, 0, err
 	}
-	type item struct {
-		id, chID int64
-		payload  string
-	}
-	var items []item
+	var ids []int64
 	for rows.Next() {
-		var it item
-		if err := rows.Scan(&it.id, &it.chID, &it.payload); err != nil {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
 			rows.Close()
 			return 0, 0, err
 		}
-		items = append(items, it)
+		ids = append(ids, id)
 	}
+	err = rows.Err()
 	rows.Close()
-	if err := rows.Err(); err != nil {
+	if err != nil {
 		return 0, 0, err
 	}
 	sent, failed := 0, 0
-	for _, it := range items {
-		res, err := s.db.ExecContext(ctx, `UPDATE notification_messages SET status='PROCESSING',
-			updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-			WHERE id=? AND status IN ('PENDING','FAILED')`, it.id)
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return sent, failed, err
+		}
+		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
-			failed++
-			continue
+			return sent, failed, err
+		}
+		res, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='PROCESSING',updated_at=? WHERE id=? AND status='PENDING'`, nowStr(), id)
+		if err != nil {
+			tx.Rollback()
+			return sent, failed, err
 		}
 		if n, _ := res.RowsAffected(); n != 1 {
+			tx.Rollback()
+			continue
+		}
+		var jid, payload, eventType, slug, key, zone string
+		var classID int64
+		err = tx.QueryRowContext(ctx, `SELECT ch.jid,m.payload_json,m.event_type,c.slug,m.idempotency_key,m.class_id,COALESCE(cs.timezone,'Asia/Jakarta') FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' JOIN classes c ON c.id=m.class_id LEFT JOIN class_settings cs ON cs.class_id=m.class_id WHERE m.id=?`, id).Scan(&jid, &payload, &eventType, &slug, &key, &classID, &zone)
+		if err != nil {
+			tx.Rollback()
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return sent, failed, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		if (eventType == "DAILY_SUMMARY" || eventType == "TASK_REMINDER") && (strings.HasPrefix(key, "daily:") || strings.HasPrefix(key, "tasks:")) && !strings.HasSuffix(key, now.In(loc).Format("2006-01-02")) {
+			if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED',updated_at=? WHERE id=?`, nowStr(), id); err != nil {
+				tx.Rollback()
+				return sent, failed, err
+			}
+			if err := tx.Commit(); err != nil {
+				return sent, failed, err
+			}
 			continue
 		}
 		var attempt int
-		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(attempt_number),0)+1 FROM notification_attempts WHERE notification_message_id=?`, it.id).Scan(&attempt)
-		started := nowStr()
-		var jid string
-		_ = s.db.QueryRowContext(ctx, `SELECT jid FROM whatsapp_channels WHERE id=?`, it.chID).Scan(&jid)
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(attempt_number),0)+1 FROM notification_attempts WHERE notification_message_id=?`, id).Scan(&attempt); err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		hash := sha256.Sum256([]byte(key + "\x00" + jid))
+		stableID := fmt.Sprintf("3EB0%X", hash[:14])
+		if _, err := tx.ExecContext(ctx, `INSERT INTO notification_attempts(notification_message_id,attempt_number,started_at,provider_message_id) VALUES(?,?,?,?)`, id, attempt, nowStr(), stableID); err != nil {
+			tx.Rollback()
+			return sent, failed, err
+		}
+		if err := tx.Commit(); err != nil {
+			return sent, failed, err
+		}
+		var active bool
+		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM notification_messages m JOIN whatsapp_channels ch ON ch.id=m.whatsapp_channel_id AND ch.status='ACTIVE' WHERE m.id=? AND m.status='PROCESSING' AND ch.jid=?)`, id, jid).Scan(&active); err != nil {
+			return sent, failed, err
+		}
+		if !active {
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			err := s.finishAttempt(finalCtx, id, attempt, false, "intent superseded or channel revoked", "")
+			cancel()
+			if err != nil {
+				return sent, failed, err
+			}
+			continue
+		}
 		var p Payload
-		_ = json.Unmarshal([]byte(it.payload), &p)
-		if sender == nil || strings.TrimSpace(jid) == "" {
-			_ = s.finishAttempt(ctx, it.id, attempt, started, false, "pengirim WhatsApp tidak tersedia (bot offline)", "")
-			failed++
-			continue
+		if err := json.Unmarshal([]byte(payload), &p); err != nil {
+			return sent, failed, err
 		}
-		providerID, err := sender.SendText(ctx, jid, p.Text)
+		text := p.Text
+		if s.messageFormatter != nil {
+			text = s.messageFormatter(eventType, payload, slug)
+		}
+		if eventType == "DAILY_SUMMARY" && strings.HasPrefix(key, "daily:") {
+			freshText, freshErr := s.BuildDailyText(ctx, classID, now.In(loc).Format("2006-01-02"), "")
+			if freshErr == nil && freshText != "" {
+				text = freshText
+			}
+		}
+		if eventType == "TASK_REMINDER" && strings.HasPrefix(key, "tasks:") {
+			freshText, freshErr := s.BuildTaskText(ctx, classID, "", now)
+			if freshErr == nil && freshText != "" {
+				text = freshText
+			}
+		}
 		if err != nil {
-			_ = s.finishAttempt(ctx, it.id, attempt, started, false, err.Error(), "")
-			failed++
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			finishErr := s.finishAttempt(finalCtx, id, attempt, false, err.Error(), "")
+			cancel()
+			if finishErr != nil {
+				return sent, failed, finishErr
+			}
+			return sent, failed, err
+		}
+		if strings.TrimSpace(text) == "" {
+			finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			err := s.finishAttempt(finalCtx, id, attempt, true, "", "")
+			cancel()
+			if err != nil {
+				return sent, failed, err
+			}
 			continue
 		}
-		_ = s.finishAttempt(ctx, it.id, attempt, started, true, "", providerID)
-		sent++
+		var providerID string
+		var sendErr error
+		if sender == nil {
+			sendErr = errors.New("pengirim WhatsApp tidak tersedia (bot offline)")
+		} else if stable, ok := sender.(StableSender); ok {
+			providerID, sendErr = stable.SendTextWithID(ctx, jid, text, stableID)
+		} else {
+			providerID, sendErr = sender.SendText(ctx, jid, text)
+		}
+		errMsg := ""
+		if sendErr != nil {
+			errMsg = sendErr.Error()
+		}
+		finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		err = s.finishAttempt(finalCtx, id, attempt, sendErr == nil, errMsg, providerID)
+		cancel()
+		if err != nil {
+			return sent, failed, fmt.Errorf("delivery %d finalization failed (provider success=%t): %w", id, sendErr == nil, err)
+		}
+		if sendErr != nil {
+			failed++
+		} else {
+			sent++
+		}
 	}
 	return sent, failed, nil
 }
 
-func (s *Service) finishAttempt(ctx context.Context, messageID int64, attempt int, started string, ok bool, errMsg, providerID string) error {
-	finished := nowStr()
-	result := "FAILED"
-	status := "FAILED"
-	if ok {
-		result = "SUCCESS"
-		status = "SENT"
-	}
+func (s *Service) finishAttempt(ctx context.Context, messageID int64, attempt int, ok bool, errMsg, providerID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO notification_attempts
-		(notification_message_id, attempt_number, started_at, finished_at, result, error_message, provider_message_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, messageID, attempt, started, finished, result, nullIfEmpty(errMsg), nullIfEmpty(providerID)); err != nil {
+	result, status := "FAILED", "FAILED"
+	if ok {
+		result, status = "SUCCESS", "SENT"
+	}
+	finished := nowStr()
+	res, err := tx.ExecContext(ctx, `UPDATE notification_attempts SET finished_at=?,result=?,error_message=?,provider_message_id=COALESCE(?,provider_message_id),updated_at=? WHERE notification_message_id=? AND attempt_number=? AND result IS NULL`, finished, result, nullIfEmpty(errMsg), nullIfEmpty(providerID), finished, messageID, attempt)
+	if err != nil {
 		return err
 	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return errors.New("attempt finalization conflict")
+	}
+	var sentAt any
 	if ok {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, sent_at=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, finished, messageID)
-	} else {
-		_, _ = tx.ExecContext(ctx, `UPDATE notification_messages SET status=?, updated_at=? WHERE id=? AND status='PROCESSING'`, status, finished, messageID)
+		sentAt = finished
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status=?,sent_at=?,updated_at=? WHERE id=? AND status='PROCESSING'`, status, sentAt, finished, messageID); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

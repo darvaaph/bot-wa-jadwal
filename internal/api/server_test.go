@@ -142,6 +142,20 @@ func TestAPIServer_WebStatic(t *testing.T) {
 		t.Errorf("Expected status 200 for /c/kelas-coba (portal index.html), got %d", rrPortal.Code)
 	}
 
+	reqPortalRoot := httptest.NewRequest("GET", "/c/", nil)
+	rrPortalRoot := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrPortalRoot, reqPortalRoot)
+	if rrPortalRoot.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /c/ (portal index.html), got %d", rrPortalRoot.Code)
+	}
+
+	reqPortalNoSlash := httptest.NewRequest("GET", "/c", nil)
+	rrPortalNoSlash := httptest.NewRecorder()
+	server.httpServer.Handler.ServeHTTP(rrPortalNoSlash, reqPortalNoSlash)
+	if rrPortalNoSlash.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for /c (portal index.html), got %d", rrPortalNoSlash.Code)
+	}
+
 	reqJS := httptest.NewRequest("GET", "/js/vendor/alpine.cdn.min.js", nil)
 	rrJS := httptest.NewRecorder()
 	server.httpServer.Handler.ServeHTTP(rrJS, reqJS)

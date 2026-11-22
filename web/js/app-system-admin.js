@@ -67,7 +67,7 @@ function systemAdminApp() {
     kelasAktif: '',
     kelasAktifObj: null,
     modalBuatTerbuka: false,
-    kelasForm: { prodi: 'D4 Teknik Informatika', angkatan: '2025', rombel: 'A', nama: 'D4-TI 1A', slug: 'd4-ti-1a', portal_access_mode: 'LINK', kustom: false },
+    kelasForm: { prodi: 'D4 Teknik Informatika', angkatan: String(new Date().getFullYear()), rombel: 'A', nama: '', slug: '', portal_access_mode: 'LINK', kustom: false },
     kelasError: '',
     kelasSaving: false,
     kelasStatusConfirm: null,
@@ -172,7 +172,7 @@ function systemAdminApp() {
     penugasanList: [],
     penugasanLoading: false,
     penugasanError: '',
-    penugasanStatus: '',
+    penugasanStatus: 'ACTIVE',
     penugasanRole: '',
     penugasanKelas: '',
     penugasanAksi: null,
@@ -219,7 +219,7 @@ function systemAdminApp() {
     ruangList: [],
     ruangLoading: false,
     ruangError: '',
-    ruangForm: { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' },
+    ruangForm: { kode: '', nama: '', gedung: 'Gedung Utama', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' },
     ruangFormError: '',
     ruangFormLoading: false,
     ruangQ: '',
@@ -710,6 +710,13 @@ function systemAdminApp() {
     },
 
     metricTotalUsers() {
+      const u = this.botStatusDetails?.users_summary;
+      if (u) {
+        if (u.active_roles != null) return u.active_roles;
+        if (u.km_count != null || u.pj_count != null || u.admin_count != null) {
+          return (u.km_count || 0) + (u.pj_count || 0) + (u.admin_count || 0);
+        }
+      }
       return this.botStatusDetails?.users_summary?.total || 0;
     },
 
@@ -744,10 +751,15 @@ function systemAdminApp() {
       return (this.backupRequests || []).filter(r => String(r.status || '').toUpperCase() === 'PENDING').length;
     },
 
+    usulanPendingCount() {
+      return (this.usulanList || []).filter(u => String(u.status || '').toUpperCase() === 'PENDING').length;
+    },
+
     perluTindakanCount() {
       let n = 0;
       if ((this.failedCount || 0) > 0) n++;
       if (this.backupPendingCount() > 0) n++;
+      if (this.usulanPendingCount() > 0) n++;
       return n;
     },
 
@@ -798,16 +810,25 @@ function systemAdminApp() {
         ['sa-banner', '/partials/system-admin/support-banner.html']
       ]);
 
-      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests(), this.muatDukunganAktif()]);
+      await Promise.all([this.checkBot(), this.loadKelas(), this.loadFailedCount(), this.loadMatkul(), this.loadRuang(), this.loadDosen(), this.loadBackupRequests(), this.loadUsulan(''), this.muatDukunganAktif()]);
       await this.muatSemesterSemua();
       this.dashboardLoading = false;
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
 
       setInterval(() => {
-        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.muatDukunganAktif(); }
+        if (this.currentUser) { this.checkBot(); this.loadFailedCount(); this.loadUsulan(''); this.muatDukunganAktif(); }
       }, 30000);
       setInterval(() => {
         this.dukunganSekarang = Date.now();
+        if (this.dukunganAktif && !this.dukunganMasihAktif()) {
+          this.dukunganAktif = null;
+        }
       }, 1000);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'sa_support_sync') this.dukunganAktif = null;
+      });
     },
 
     async loadPartials(slots) {
@@ -851,9 +872,10 @@ function systemAdminApp() {
     },
 
     contextLabel(a) {
-      const role = String(a && a.role || '').toUpperCase();
-      const scope = a && (a.offering_name || a.class_slug) || 'Global';
-      return `${role === 'SYSTEM_ADMIN' ? 'System Admin' : role} · ${scope}`;
+      if (!a) return '-';
+      const title = typeof this.humanRoleTitle === 'function' ? this.humanRoleTitle(a) : (a.role || 'Pengurus');
+      const sub = typeof this.humanRoleSubtitle === 'function' ? this.humanRoleSubtitle(a) : (a.class_slug || '');
+      return sub ? `${title} · ${sub}` : title;
     },
 
     async switchContextById(id) {
@@ -1425,7 +1447,11 @@ function systemAdminApp() {
     },
 
     penggunaAktifCount() {
-      return (this.penggunaList || []).filter(u => String(u.status || '').toUpperCase() === 'ACTIVE').length;
+      const activeAssignments = (this.penugasanList || []).filter(a => String(a.status || '').toUpperCase() === 'ACTIVE');
+      if (activeAssignments.length > 0) {
+        return activeAssignments.length;
+      }
+      return (this.penggunaList || []).filter(u => String(u.status || '').toUpperCase() === 'ACTIVE' && String(u.identity_key || '').indexOf('system:') !== 0).length;
     },
 
     undanganMenungguCount() {
@@ -1438,12 +1464,16 @@ function systemAdminApp() {
 
     semuaBarisPengguna() {
       const rows = [];
-      (this.filteredPenugasan() || []).forEach(a => {
-        rows.push({ id: 'a-' + a.id, kind: 'assignment', data: a });
-      });
-      (this.filteredUndangan() || []).forEach(u => {
-        rows.push({ id: 'u-' + u.id, kind: 'invitation', data: u });
-      });
+      if (this.penugasanStatus !== 'PENDING') {
+        (this.filteredPenugasan() || []).forEach(a => {
+          rows.push({ id: 'a-' + a.id, kind: 'assignment', data: a });
+        });
+      }
+      if (this.penugasanStatus === '' || this.penugasanStatus === 'PENDING') {
+        (this.filteredUndangan() || []).forEach(u => {
+          rows.push({ id: 'u-' + u.id, kind: 'invitation', data: u });
+        });
+      }
       return rows;
     },
 
@@ -1551,7 +1581,7 @@ function systemAdminApp() {
 
     resetSemuaFilterPengguna() {
       this.penggunaQ = '';
-      this.penugasanStatus = '';
+      this.penugasanStatus = 'ACTIVE';
       this.penugasanRole = '';
       this.penugasanKelas = '';
       this.undanganStatus = '';
@@ -1603,7 +1633,7 @@ function systemAdminApp() {
     },
 
     resetPenugasanFilter() {
-      this.penugasanStatus = '';
+      this.penugasanStatus = 'ACTIVE';
       this.penugasanRole = '';
       this.penugasanKelas = '';
     },
@@ -1661,13 +1691,16 @@ function systemAdminApp() {
         return;
       }
       try {
-        const res = await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), this.penugasanForce);
+        await API.changeAssignmentStatus(a.id, a.aksi, this.penugasanAlasan.trim(), this.penugasanForce);
         const sesi = res && res.revoked_sessions != null ? ` (${res.revoked_sessions} sesi dicabut)` : '';
         this.showToast(a.aksi === 'cabut' ? `Penugasan ${a.nama} dicabut${sesi}.` : `Penugasan ${a.nama} ditangguhkan${sesi}.`);
         this.penugasanAksi = null;
         this.penugasanForce = false;
         this.penugasanGuard = false;
-        await this.loadPenugasan();
+        await Promise.all([this.loadPenugasan(), this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
+        if (this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatKMPenugasan(this.kelasAktifObj.slug);
+        }
       } catch (err) {
         if (err && err.status === 409 && /seluruh KM/i.test(err.message || '')) {
           this.penugasanGuard = true;
@@ -1715,7 +1748,7 @@ function systemAdminApp() {
         await API.revokeInvitation(a.id, this.undanganAlasan.trim());
         this.showToast(`Undangan ${a.nama} dicabut. Buat tautan baru via Daftar Kelas bila masih dibutuhkan.`);
         this.undanganAksi = null;
-        await this.loadUndangan();
+        await Promise.all([this.loadUndangan(), this.loadKelas()]);
       } catch (err) {
         this.showToast(err.message || 'Gagal mencabut undangan.');
       }
@@ -1850,17 +1883,22 @@ function systemAdminApp() {
     },
 
     async aktifkanCepatPengguna(a) {
-      const u = this.penggunaUntukPenugasan(a);
-      if (u) {
-        try {
-          await API.recoverUser(u.id, 'Diaktifkan kembali oleh Administrator');
-          this.showToast('Akun ' + (u.display_name || u.identity_key) + ' berhasil diaktifkan kembali.');
-          await this.muatPenggunaSemua();
-        } catch (err) {
-          this.showToast(err.message || 'Gagal mengaktifkan akun.');
+      if (!a) return;
+      try {
+        if (a.id && a.role) {
+          await API.changeAssignmentStatus(a.id, 'aktifkan', 'Diaktifkan kembali oleh Administrator', false);
         }
-      } else {
-        this.mulaiAksiPenugasan(a, 'cabut');
+        const u = this.penggunaUntukPenugasan(a);
+        if (u && String(u.status || '').toUpperCase() === 'SUSPENDED') {
+          await API.recoverUser(u.id, 'Diaktifkan kembali oleh Administrator');
+        }
+        this.showToast('Penugasan ' + (a.display_name || a.nama || a.identity_key) + ' berhasil diaktifkan kembali.');
+        await Promise.all([this.loadPenugasan(), this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
+        if (this.kelasAktifObj && this.kelasAktifObj.slug) {
+          await this.muatKMPenugasan(this.kelasAktifObj.slug);
+        }
+      } catch (err) {
+        this.showToast(err.message || 'Gagal mengaktifkan kembali penugasan.');
       }
     },
 
@@ -1987,12 +2025,14 @@ function systemAdminApp() {
         this.ubahPeranError = 'Alasan perubahan peran wajib diisi untuk catatan audit.';
         return;
       }
+      if (f.role === 'PJ') {
+        this.ubahPeranError = 'Penugasan PJ ditetapkan langsung per mata kuliah pada jadwal kelas masing-masing.';
+        return;
+      }
       this.ubahPeranLoading = true;
       this.ubahPeranError = '';
       try {
-        // Cabut penugasan lama terlebih dahulu
-        await API.changeAssignmentStatus(a.id, 'cabut', f.reason.trim(), false);
-        // Buat undangan / penugasan baru dengan peran dan kelas baru
+        // Buat undangan / penugasan baru terlebih dahulu agar jika ada guard (misal target kelas sudah ber-KM), penugasan lama tidak hilang
         const payload = {
           role: f.role,
           invited_identity_key: a.identity_key
@@ -2001,9 +2041,13 @@ function systemAdminApp() {
           payload.class_slug = f.class_slug;
         }
         await API.createInvitation(payload);
-        this.showToast(`Penugasan ${a.display_name || a.identity_key} dirotasi ke ${this.labelPeran(f.role)}.`);
+
+        // Setelah undangan baru berhasil terbit, cabut penugasan lama
+        await API.changeAssignmentStatus(a.id, 'cabut', f.reason.trim(), true);
+
+        this.showToast(`Undangan rotasi ke ${this.labelPeran(f.role)} berhasil dibuat untuk ${a.display_name || a.identity_key}.`);
         this.modalUbahPeran = false;
-        await this.muatPenggunaSemua();
+        await Promise.all([this.muatPenggunaSemua(), this.loadKelas(), this.checkBot()]);
       } catch (err) {
         this.ubahPeranError = err.message || 'Gagal merotasi peran pengguna.';
       } finally {
@@ -2105,11 +2149,12 @@ function systemAdminApp() {
     daftarGedungRuang() {
       const list = this.ruangList || [];
       const set = new Set();
-      set.add('Gedung D');
-      set.add('Gedung H');
       list.forEach(r => {
         if (r.building && r.building.trim()) set.add(r.building.trim());
       });
+      if (set.size === 0) {
+        set.add('Gedung Utama');
+      }
       return Array.from(set).sort();
     },
 
@@ -2218,7 +2263,8 @@ function systemAdminApp() {
     },
 
     bukaModalTambahRuang() {
-      this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
+      const defGedung = this.daftarGedungRuang()[0] || 'Gedung Utama';
+      this.ruangForm = { kode: '', nama: '', gedung: defGedung, tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
       this.ruangFormError = '';
       this.ruangFormLoading = false;
       this.modalTambahRuang = true;
@@ -2449,7 +2495,8 @@ function systemAdminApp() {
         if ((f.kapasitas || '') !== '') payload.capacity = Number(String(f.kapasitas).trim());
 
         await API.createMasterRoom(payload);
-        this.ruangForm = { kode: '', nama: '', gedung: 'Gedung D', tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
+        const defGedung = this.daftarGedungRuang()[0] || 'Gedung Utama';
+        this.ruangForm = { kode: '', nama: '', gedung: defGedung, tipe: 'Laboratorium', kapasitas: '32', status: true, gedungKustom: '' };
         await this.loadRuang();
         this.modalTambahRuang = false;
         this.showToast('Ruangan baru berhasil ditambahkan.');
@@ -2471,7 +2518,7 @@ function systemAdminApp() {
         id: r.id,
         kode: r.code,
         nama: r.name || '',
-        gedung: isKnown ? buildingVal : (buildingVal ? '__custom__' : (knownBuildings[0] || 'Gedung D')),
+        gedung: isKnown ? buildingVal : (buildingVal ? '__custom__' : (knownBuildings[0] || 'Gedung Utama')),
         gedungKustom: isKnown ? '' : buildingVal,
         tipe: r.room_type || 'Laboratorium',
         kapasitas: (cap === null || cap === undefined || cap === '') ? '' : String(cap),
@@ -3334,13 +3381,13 @@ function systemAdminApp() {
     unduhTemplateJsonDosen() {
       const template = [
         {
-          "code": "AD",
-          "name": "Dr. Ade Chandra Nugraha, S.Si., M.T.",
+          "code": "DS1",
+          "name": "Dr. Dosen Pengampu, M.T.",
           "status": "ACTIVE"
         },
         {
-          "code": "BW",
-          "name": "Bambang Wisnuadhi, S.Si., M.T.",
+          "code": "DS2",
+          "name": "Dosen Pendamping, S.Kom., M.Kom.",
           "status": "ACTIVE"
         }
       ];
@@ -4240,7 +4287,7 @@ function systemAdminApp() {
             slug: k.slug,
             nama: k.code,
             prodi: k.program || 'Teknik Informatika',
-            angkatan: String(k.cohort || '2024'),
+            angkatan: String(k.cohort || new Date().getFullYear()),
             group: k.group || 'A',
             status: k.status || 'ACTIVE',
             statusKM: k.status_km || (k.km_name ? 'active' : (k.pending_phone ? 'pending' : 'none')),
@@ -4580,8 +4627,8 @@ function systemAdminApp() {
       this.kmPenugasanLoading = true;
       this.kmPenugasan = null;
       try {
-        const list = await API.getAdminAssignments('ACTIVE', 'KM', slug).catch(() => []);
-        this.kmPenugasan = (list || [])[0] || null;
+        const list = await API.getAdminAssignments('', 'KM', slug).catch(() => []);
+        this.kmPenugasan = (list || []).find(a => a.status === 'ACTIVE') || (list || [])[0] || null;
       } catch (e) {
         this.kmPenugasan = null;
       } finally {
@@ -5055,21 +5102,21 @@ function systemAdminApp() {
           { code: "25TI1102", name: "Komputasi Kognitif" }
         ],
         lecturers: [
-          { code: "AB", full_name: "Akhmad Bakhrun, S.Kom, M.T." },
-          { code: "AD", full_name: "Dr. Ade Chandra Nugraha, S.Si., M.T." }
+          { code: "DS1", full_name: "Dr. Dosen Pengampu, M.T." },
+          { code: "DS2", full_name: "Dosen Pendamping, S.Kom., M.Kom." }
         ],
         offerings: [
           {
             course_code: "25TI1101",
             activity_type: "TEORI",
             display_name: "Dasar-Dasar Pemrograman (Teori)",
-            lecturer_codes: ["AB"]
+            lecturer_codes: ["DS1"]
           },
           {
             course_code: "25TI1102",
             activity_type: "TEORI",
             display_name: "Komputasi Kognitif (Teori)",
-            lecturer_codes: ["AD"]
+            lecturer_codes: ["DS2"]
           }
         ],
         schedule_patterns: [
@@ -5456,8 +5503,8 @@ function systemAdminApp() {
     },
 
     portalURLPreview() {
-      const host = window.location.host || 'domain.com';
-      const slug = (this.kelasForm && this.kelasForm.slug) ? this.kelasForm.slug : 'd4-ti-1a';
+      const host = window.location.host || window.location.hostname || 'localhost:8080';
+      const slug = (this.kelasForm && this.kelasForm.slug) ? this.kelasForm.slug : ':slug';
       return host + '/c/' + slug;
     },
 
@@ -5482,12 +5529,13 @@ function systemAdminApp() {
     },
 
     resetKelasForm() {
+      const currentYear = String(new Date().getFullYear());
       this.kelasForm = {
         prodi: 'D4 Teknik Informatika',
-        angkatan: '2025',
+        angkatan: currentYear,
         rombel: 'A',
-        nama: 'D4-TI 1A',
-        slug: 'd4-ti-1a',
+        nama: '',
+        slug: '',
         portal_access_mode: 'LINK',
         kustom: false
       };
@@ -5528,7 +5576,7 @@ function systemAdminApp() {
         await this.muatSemesterSemua();
 
         if (res && res.portal_code) {
-          this.showToast('Kelas ' + (res.code || payload.name) + ' dibuat! Kode PIN Portal: ' + res.portal_code, 7000);
+          this.showToast('Kelas ' + (res.code || payload.name) + ' dibuat! Kode PIN Akses: ' + res.portal_code, 7000);
         } else {
           this.showToast('Kelas baru berhasil ditambahkan.');
         }
@@ -5564,7 +5612,7 @@ function systemAdminApp() {
       try {
         await API.updateClassStatus(this.kelasAktifObj.slug, targetStatus);
         this.kelasAktifObj.status = targetStatus;
-        await this.loadKelas();
+        await Promise.all([this.loadKelas(), this.checkBot()]);
         this.showToast(`Status kelas ${this.kelasAktifObj.nama} berhasil diubah ke ${targetStatus}.`);
       } catch (err) {
         this.showToast(err.message || 'Gagal memperbarui status kelas.');
@@ -5580,13 +5628,13 @@ function systemAdminApp() {
         if (res && res.portal_code) {
           this.portalCodeReveal = res.portal_code;
           this.portalCodeRevealTimer = setTimeout(() => { this.portalCodeReveal = ''; }, 60000);
-          this.showToast('Kode portal hanya tampil selama 60 detik. Salin sekarang.');
+          this.showToast('Kode akses hanya tampil selama 60 detik. Salin sekarang.');
         } else {
-          this.showToast('Kode portal kelas berhasil dirotasi.');
+          this.showToast('Kode akses kelas berhasil dirotasi.');
         }
         await this.loadDetailSettings(this.kelasAktifObj.slug);
       } catch (err) {
-        this.showToast(err.message || 'Gagal merotasi kode portal.');
+        this.showToast(err.message || 'Gagal merotasi kode akses.');
       }
     },
 
@@ -5663,7 +5711,7 @@ function systemAdminApp() {
       if (!this.kelasAktifObj || !this.kelasAktifObj.slug) return;
       const dari = this.detailSettings ? this.detailSettings.portal_access_mode : '?';
       if (dari === mode) {
-        this.showToast(`Mode portal sudah ${mode}.`);
+        this.showToast(`Mode akses sudah ${mode}.`);
         return;
       }
       this.portalModeConfirm = { ke: mode, dari, nama: this.kelasAktifObj.nama };
@@ -5687,13 +5735,23 @@ function systemAdminApp() {
       try {
         const res = await API.setPortalMode(this.kelasAktifObj.slug, mode, alasan);
         if (res && res.changed === false) {
-          this.showToast(`Mode portal sudah ${mode}.`);
+          this.showToast(`Mode akses sudah ${mode}.`);
         } else {
           this.showToast(mode === 'LINK' ? 'Mode tautan aktif. Kode lama tak berlaku.' : 'Mode kode aktif.');
         }
         await this.loadDetailSettings(this.kelasAktifObj.slug);
       } catch (err) {
-        this.showToast(err.message || 'Gagal mengubah mode portal.');
+        if (mode === 'CODE' && /rotasi|kode/i.test(String(err.message || ''))) {
+          try {
+            await this.rotasiKodePortal();
+            this.showToast('Kode akses dibuat dan mode kode aktif.');
+            return;
+          } catch (err2) {
+            this.showToast(err2.message || 'Gagal membuat kode akses.');
+            return;
+          }
+        }
+        this.showToast(err.message || 'Gagal mengubah mode akses.');
       }
     },
 
@@ -5871,13 +5929,14 @@ function systemAdminApp() {
       this.dukunganLoading = true;
       try {
         await API.supportExit('');
-        this.dukunganAktif = null;
-        this.dukunganAlasan = '';
         this.showToast('Mode Dukungan dimatikan.');
       } catch (err) {
-        this.showToast(err.message || 'Gagal keluar Mode Dukungan.');
+        this.showToast(err.status === 404 ? 'Mode Dukungan telah berakhir.' : (err.message || 'Gagal keluar Mode Dukungan.'));
       } finally {
+        this.dukunganAktif = null;
+        this.dukunganAlasan = '';
         this.dukunganLoading = false;
+        try { localStorage.setItem('sa_support_sync', String(Date.now())); } catch (_) {}
       }
     },
 
@@ -5903,11 +5962,50 @@ function systemAdminApp() {
     },
 
     copyText(text, okMsg) {
+      const clean = String(text || '').trim();
+      if (!clean) return;
       const done = () => this.showToast(okMsg || 'Tersalin ke clipboard.');
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(() => this.showToast('Gagal menyalin otomatis.'));
+        navigator.clipboard.writeText(clean).then(done).catch(() => {
+          if (this.fallbackCopyText(clean)) {
+            done();
+          } else {
+            this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+          }
+        });
+        return;
+      }
+      if (this.fallbackCopyText(clean)) {
+        done();
       } else {
-        this.showToast('Clipboard tidak didukung browser ini.');
+        this.showToast('Gagal menyalin otomatis. Silakan salin teks secara manual.');
+      }
+    },
+
+    fallbackCopyText(text) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.width = '2em';
+        ta.style.height = '2em';
+        ta.style.padding = '0';
+        ta.style.border = 'none';
+        ta.style.outline = 'none';
+        ta.style.boxShadow = 'none';
+        ta.style.background = 'transparent';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
       }
     },
 
@@ -5929,6 +6027,9 @@ function systemAdminApp() {
       } catch (e) {}
       localStorage.removeItem('access_token');
       localStorage.removeItem('token');
+      if ('clearAppBadge' in navigator) {
+        navigator.clearAppBadge().catch(() => {});
+      }
       this.currentUser = null;
       this.kelasList = [];
       this.totalKelas = 0;

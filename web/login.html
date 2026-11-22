@@ -3,6 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#3965FB" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Asterisk" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png" />
   <title>Asterisk — Masuk Pengurus</title>
   <script src="/js/theme-init.js?v=20261014"></script>
   
@@ -13,10 +23,10 @@
   <link rel="stylesheet" href="/css/fonts.css?v=20261013" />
   <link rel="stylesheet" href="/css/style.css?v=20261003" />
   <link rel="stylesheet" href="/css/tokens.css?v=20261003-2" />
-  <link rel="stylesheet" href="/css/components.css?v=20261015" />
+  <link rel="stylesheet" href="/css/components.css?v=20261026" />
   <script defer src="/js/vendor/alpine.cdn.min.js?v=3.14.3"></script>
-  <script src="/js/api.js?v=20261003"></script>
-  <script src="/js/app-login.js?v=20261014c"></script>
+  <script src="/js/api.js?v=20261103"></script>
+  <script src="/js/app-login.js?v=20261103"></script>
 </head>
 <body class="bg-[#F8FAFC] text-[#1D1B3A] min-h-screen flex flex-col justify-center items-center p-4 relative" x-data="loginApp()" x-init="initLogin()">
 
@@ -62,6 +72,14 @@
     <!-- 2. KARTU LOGIN UTAMA (Tampil mulus setelah Alpine.js siap) -->
     <div x-show="ready" x-cloak class="login-card">
       
+      <!-- Tombol Kembali ke Portal Mahasiswa -->
+      <div class="mb-4">
+        <a href="/c/" @click.prevent="bukaPortalMahasiswa()" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#64748B] hover:text-[#3965FB] transition-colors" title="Kembali ke Jadwal & Tugas Kelas">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Kembali ke Jadwal Kelas</span>
+        </a>
+      </div>
+
       <!-- Logo Asterisk Resmi -->
       <div class="flex justify-center">
         <img src="/assets/icons/logo.svg" alt="Asterisk" width="136" height="33" class="login-logo" />
@@ -107,7 +125,7 @@
                        placeholder="Contoh: +62 812-3456-7890 atau 0812..."
                        @keydown.enter="masuk()"
                        :aria-invalid="fieldError === 'nomor'"
-                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
                        :class="fieldError === 'nomor' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
               </div>
               <p class="text-[12px] text-[#64748B] mt-1.5 leading-normal">
@@ -131,7 +149,7 @@
                        autocomplete="current-password"
                        @keydown.enter="masuk()"
                        :aria-invalid="fieldError === 'sandi'"
-                       class="w-full h-[44px] pl-3.5 pr-11 rounded-[10px] border text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
+                       class="w-full h-[44px] pl-3.5 pr-11 rounded-[10px] border text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] transition-all focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20"
                        :class="fieldError === 'sandi' ? 'border-red-400 bg-red-50/20' : 'border-[#CBD5E1]'" />
                 <button type="button" @click="lihat = !lihat"
                         :aria-label="lihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
@@ -162,7 +180,7 @@
               <path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
             </svg>
             <p class="text-[12px] leading-[18px] text-[#475569] text-center">
-              Mahasiswa tidak memerlukan akun pengurus. <a href="/c/d4-ti-smt3-a" class="text-[#3965FB] font-semibold hover:underline">Kunjungi tautan portal kelas Anda</a> untuk melihat jadwal dan tugas kuliah.
+              Mahasiswa tidak memerlukan akun pengurus. <a href="/c/" @click.prevent="bukaPortalMahasiswa()" class="text-[#3965FB] font-semibold hover:underline">Lihat Jadwal & Tugas Kelas Anda</a> tanpa perlu login.
             </p>
           </div>
         </div>
@@ -176,7 +194,7 @@
               Pilih Ruang Kerja
             </h1>
             <p class="text-[13px] text-[#64748B] mt-1.5 leading-normal">
-              Akun Anda terdaftar pada beberapa peran. Pilih ruang kerja yang ingin Anda kelola:
+              Akun Anda memiliki beberapa peran aktif. Pilih ruang kerja yang ingin Anda kelola:
             </p>
           </div>
 
@@ -184,22 +202,33 @@
 
           <div class="mt-6 space-y-3">
             <template x-for="a in ruangKerja" :key="a.id">
-              <div class="p-4 rounded-[14px] border border-[#CBD5E1] bg-white hover:border-[#3965FB] transition-all">
-                <div class="flex items-center justify-between">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-[#E9EAFF] text-[#3965FB]" x-text="labelPeran(a.role)">-</span>
+              <div @click="pilihRuangKerja(a)"
+                   class="group relative p-4 rounded-[14px] border border-[#CBD5E1] bg-white cursor-pointer transition-all shadow-xs hover:shadow-md flex items-center gap-3.5"
+                   :class="roleCardBorderClass(a.role)">
+                <!-- Ikon Kustom Peran -->
+                <div class="w-12 h-12 rounded-[12px] flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105"
+                     :class="roleBadgeClasses(a.role)">
+                  <span x-html="roleIconSvg(a.role)"></span>
                 </div>
-                <p class="text-[14px] font-semibold text-[#1D1B3A] mt-2" x-text="deskripsiPenugasan(a)">-</p>
-                <button type="button" @click="pilihRuangKerja(a)" :disabled="loading"
-                        class="w-full h-[40px] mt-3 rounded-[10px] bg-[#3965FB] hover:bg-[#2f54d6] text-white text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
-                  <span x-show="loading" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  <span>Buka Ruang Kerja</span>
-                </button>
+                <!-- Detail Peran -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[11px] font-bold tracking-wide uppercase border"
+                          :class="roleBadgeClasses(a.role)" x-text="labelPeran(a.role)"></span>
+                  </div>
+                  <p class="text-[14px] font-semibold text-[#1D1B3A] mt-1 truncate group-hover:text-primary transition-colors" x-text="deskripsiPenugasan(a)"></p>
+                </div>
+                <!-- Panah / Action Indicator -->
+                <div class="shrink-0 text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
               </div>
             </template>
           </div>
 
-          <button type="button" @click="mode = 'masuk'; formError = ''" class="w-full h-[44px] mt-4 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] text-[13px] font-semibold transition-colors">
-            Kembali ke Masuk
+          <button type="button" @click="mode = 'masuk'; formError = ''" class="w-full h-[44px] mt-5 rounded-[12px] border border-[#CBD5E1] bg-white text-[#64748B] hover:text-[#1D1B3A] hover:bg-slate-50 text-[13px] font-semibold transition-colors flex items-center justify-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+            <span>Masuk dengan Nomor Lain</span>
           </button>
         </div>
       </template>
@@ -238,7 +267,7 @@
                 <input id="recovery-nomor" type="text" x-model="nomor" inputmode="tel" autocomplete="tel"
                        placeholder="Contoh: 081234567890"
                        @keydown.enter="mintaPemulihan()"
-                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                       class="w-full h-[44px] pl-10 pr-3 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
               </div>
             </div>
 
@@ -293,7 +322,7 @@
                 Kata Sandi Baru (Min. 12 Karakter) <span class="text-red-500">*</span>
               </label>
               <input id="recovery-password" type="password" x-model="recoveryPassword" minlength="12" autocomplete="new-password"
-                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
             </div>
 
             <div>
@@ -302,7 +331,7 @@
               </label>
               <input id="recovery-confirm" type="password" x-model="recoveryConfirm" minlength="12" autocomplete="new-password"
                      @keydown.enter="aturUlangSandi()"
-                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
+                     class="w-full h-[44px] mt-2 px-3.5 rounded-[10px] border border-[#CBD5E1] text-[16px] sm:text-[13px] bg-white text-[#1D1B3A] placeholder-[#94A3B8] focus:outline-none focus:border-[#3965FB] focus:ring-2 focus:ring-[#3965FB]/20" />
             </div>
 
             <button type="button" @click="aturUlangSandi()" :disabled="loading"

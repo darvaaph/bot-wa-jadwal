@@ -6,7 +6,7 @@
       <nav class="flex items-center gap-1.5 text-[12px] text-slate-500 mb-1" aria-label="Breadcrumb">
         <span>Sistem</span>
         <span class="text-slate-400">/</span>
-        <span x-text="selectedClass || (meCache && meCache.active_assignment && meCache.active_assignment.offering_name) || 'D4-TI 1A'">D4-TI 1A</span>
+        <span x-text="selectedClass || (meCache && meCache.active_assignment && meCache.active_assignment.offering_name) || '-'">-</span>
         <span class="text-slate-400">/</span>
         <span class="text-slate-800 font-medium">Materi</span>
       </nav>
@@ -205,7 +205,7 @@
           <!-- Judul Materi -->
           <div class="w-full flex flex-col gap-1.5">
             <label class="text-[12px] font-semibold text-[#334155]">Judul Materi *</label>
-            <input type="text" x-model="materiForm.title" placeholder="Contoh: Slide Normalisasi Database"
+            <input type="text" x-model="materiForm.title" placeholder="Contoh: Modul Pertemuan 1"
               class="w-full h-[42px] px-3 bg-white border border-[#CBD5E1] rounded-[12px] text-[13px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600" />
           </div>
 
@@ -298,7 +298,7 @@
                 <div class="flex items-center gap-2">
                   <span class="inline-flex px-2 py-0.5 rounded-[6px] bg-[#EFF6FF] border border-[#BFDBFE] text-[11px] font-semibold text-[#1D4ED8] uppercase tracking-wide"
                     x-text="materiOfferingBadge(selectedMateri)">
-                    SISTEM BASIS DATA
+                    -
                   </span>
                 </div>
                 <h3 id="modal-detail-title" class="text-[18px] leading-[23px] font-bold text-[#0F172A] break-words" x-text="selectedMateri.title">-</h3>

@@ -77,7 +77,7 @@
         <div>
           <h1 class="text-[22px] lg:text-[26px] font-bold text-white leading-tight font-display">
             <span x-text="dashboardData?.offering?.display_name || pjMatkul || 'Mata Kuliah Anda'"></span>
-            <span class="text-[#A5B4FC] text-[16px] font-normal" x-show="dashboardData?.offering?.course_code" x-text="'(' + dashboardData.offering.course_code + ')'"></span>
+            <span class="text-[#A5B4FC] text-[16px] font-normal" x-show="dashboardData?.offering?.course_code" x-text="dashboardData?.offering?.course_code ? '(' + dashboardData.offering.course_code + ')' : ''"></span>
           </h1>
         </div>
 

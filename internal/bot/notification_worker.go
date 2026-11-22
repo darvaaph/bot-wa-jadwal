@@ -38,6 +38,9 @@ type NotificationWorker struct {
 }
 
 func (w *NotificationWorker) SetScheduleService(service *notify.Service) {
+	if service != nil {
+		service.SetMessageFormatter(func(eventType, payload, slug string) string { return FormatNotificationText(eventType, payload, slug) })
+	}
 	w.scheduleService = service
 }
 
@@ -92,6 +95,7 @@ func (w *NotificationWorker) loop() {
 	defer w.wg.Done()
 	ticker := time.NewTicker(w.pollInterval)
 	defer ticker.Stop()
+	var nextReminderCheck time.Time
 
 	for {
 		select {
@@ -99,29 +103,45 @@ func (w *NotificationWorker) loop() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			if w.scheduleService != nil {
-				now := time.Now()
-				_, _ = w.scheduleService.EnsureDailySummaries(ctx, now)
-				_, _ = w.scheduleService.EnsureTaskReminders(ctx, now)
-				_, _ = w.scheduleService.EnsureReplacementReminders(ctx, now)
+			now := time.Now()
+			if w.scheduleService != nil && !now.Before(nextReminderCheck) {
+				if release, allowed := maintenance.EnterMutation(); allowed {
+					nextReminderCheck = now.Add(time.Minute)
+					for _, check := range []func(context.Context, time.Time) (int, error){
+						w.scheduleService.EnsureDailySummaries,
+						w.scheduleService.EnsureTaskReminders,
+						w.scheduleService.EnsureReplacementReminders,
+					} {
+						if _, err := check(ctx, now); err != nil {
+							fmt.Printf("[Notification Worker] Pengingat: %v\n", err)
+						}
+					}
+					release()
+				}
 			}
-			_, _ = w.ProcessPending(ctx)
+			if _, err := w.ProcessPending(ctx); err != nil {
+				fmt.Printf("[Notification Worker] %v\n", err)
+			}
 			cancel()
 		}
 	}
 }
 
-// PendingNotificationItem menampung data notifikasi yang siap diproses
-type PendingNotificationItem struct {
-	ID          int64
-	ClassID     int64
-	EventType   string
-	PayloadJSON string
-	ChannelJID  string
-	ClassSlug   string
+type notificationSender struct{ sender WhatsAppSender }
+
+func (s notificationSender) SendText(ctx context.Context, jid, text string) (string, error) {
+	return s.SendTextWithID(ctx, jid, text, "")
 }
 
-// ProcessPending memproses hingga N pesan notifikasi dengan status PENDING
+func (s notificationSender) SendTextWithID(ctx context.Context, jid, text, id string) (string, error) {
+	target, err := types.ParseJID(jid)
+	if err != nil {
+		return "", err
+	}
+	resp, err := s.sender.SendMessage(ctx, target, &waE2E.Message{Conversation: proto.String(text)}, whatsmeow.SendRequestExtra{ID: types.MessageID(id)})
+	return string(resp.ID), err
+}
+
 func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 	release, allowed := maintenance.EnterMutation()
 	if !allowed {
@@ -131,151 +151,20 @@ func (w *NotificationWorker) ProcessPending(ctx context.Context) (int, error) {
 	if w.db == nil {
 		return 0, fmt.Errorf("database nil")
 	}
-	service := notify.NewService(w.db)
-	if _, err := service.ReapStaleProcessing(ctx, time.Now()); err != nil {
-		return 0, err
+	service := w.scheduleService
+	if service == nil {
+		service = notify.NewService(w.db)
+		service.SetMessageFormatter(func(eventType, payload, slug string) string { return FormatNotificationText(eventType, payload, slug) })
 	}
-	if _, err := service.ReconcilePendingChannels(ctx, nil); err != nil {
-		return 0, err
-	}
-
-	query := `
-		SELECT nm.id, nm.class_id, nm.event_type, nm.payload_json,
-		       COALESCE(wc.jid, '') AS channel_jid,
-		       COALESCE(c.slug, '') AS class_slug
-		FROM notification_messages nm
-		JOIN whatsapp_channels wc ON nm.whatsapp_channel_id = wc.id AND wc.status = 'ACTIVE'
-		LEFT JOIN classes c ON nm.class_id = c.id
-		WHERE nm.status = 'PENDING'
-		  AND nm.whatsapp_channel_id IS NOT NULL
-		  AND nm.scheduled_at IS NOT NULL
-		  AND datetime(nm.scheduled_at) <= datetime('now')
-		ORDER BY nm.created_at ASC
-		LIMIT 10;
-	`
-
-	rows, err := w.db.QueryContext(ctx, query)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	var pending []PendingNotificationItem
-	for rows.Next() {
-		var item PendingNotificationItem
-		if err := rows.Scan(&item.ID, &item.ClassID, &item.EventType, &item.PayloadJSON, &item.ChannelJID, &item.ClassSlug); err != nil {
+	if w.sender == nil || !w.sender.IsConnected() {
+		if _, err := service.ReapStaleProcessing(ctx, time.Now()); err != nil {
 			return 0, err
 		}
-		pending = append(pending, item)
-	}
-	if err := rows.Err(); err != nil {
+		_, err := service.ReconcilePendingChannels(ctx, nil)
 		return 0, err
 	}
-
-	processedCount := 0
-	for _, item := range pending {
-		select {
-		case <-ctx.Done():
-			return processedCount, ctx.Err()
-		default:
-		}
-
-		// 1. Transisi status atomik: PENDING -> PROCESSING
-		res, err := w.db.ExecContext(ctx, `
-			UPDATE notification_messages
-			SET status = 'PROCESSING', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-			WHERE id = ? AND status = 'PENDING';
-		`, item.ID)
-		if err != nil {
-			continue
-		}
-		affected, _ := res.RowsAffected()
-		if affected == 0 {
-			continue // Sudah diambil oleh goroutine lain
-		}
-
-		// 2. Tentukan nomor percobaan (attempt_number)
-		var attemptNum int
-		_ = w.db.QueryRowContext(ctx, `
-			SELECT COALESCE(MAX(attempt_number), 0) + 1
-			FROM notification_attempts
-			WHERE notification_message_id = ?;
-		`, item.ID).Scan(&attemptNum)
-
-		// Recheck after claiming: dashboard may revoke a channel during polling.
-		var channelJID string
-		_ = w.db.QueryRowContext(ctx, `SELECT wc.jid FROM notification_messages nm
-			JOIN whatsapp_channels wc ON wc.id=nm.whatsapp_channel_id AND wc.status='ACTIVE'
-			WHERE nm.id=?`, item.ID).Scan(&channelJID)
-
-		if channelJID == "" {
-			// BE-005: tanpa kanal aktif pesan tetap PENDING menunggu rekonsiliasi.
-			// Kembalikan ke PENDING tanpa attempt agar tidak dianggap gagal kirim.
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'PENDING', whatsapp_channel_id=NULL, scheduled_at=NULL WHERE id = ?;
-			`, item.ID)
-			continue
-		}
-
-		targetJID, err := types.ParseJID(channelJID)
-		if err != nil {
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'FAILED' WHERE id = ?;
-			`, item.ID)
-			_, _ = w.db.ExecContext(ctx, `
-				INSERT INTO notification_attempts (
-					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', ?);
-			`, item.ID, attemptNum, fmt.Sprintf("Format JID tidak valid: %v", err))
-			processedCount++
-			continue
-		}
-
-		// 4. Format pesan berdasarkan event_type, payload_json, dan slug portal kelas
-		msgText := FormatNotificationText(item.EventType, item.PayloadJSON, item.ClassSlug)
-
-		// 5. Cek kesiapan klien WhatsApp
-		if w.sender == nil || !w.sender.IsConnected() {
-			// Jika bot offline, kembalikan ke PENDING agar dicoba ulang otomatis saat online
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'PENDING' WHERE id = ?;
-			`, item.ID)
-			continue
-		}
-
-		// 6. Kirim pesan ke WhatsApp
-		msgToSend := &waE2E.Message{
-			Conversation: proto.String(msgText),
-		}
-
-		resp, err := w.sender.SendMessage(ctx, targetJID, msgToSend)
-		if err != nil {
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages SET status = 'FAILED' WHERE id = ?;
-			`, item.ID)
-			_, _ = w.db.ExecContext(ctx, `
-				INSERT INTO notification_attempts (
-					notification_message_id, attempt_number, started_at, finished_at, result, error_message
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'FAILED', ?);
-			`, item.ID, attemptNum, err.Error())
-		} else {
-			providerID := string(resp.ID)
-			_, _ = w.db.ExecContext(ctx, `
-				UPDATE notification_messages
-				SET status = 'SENT', sent_at = CURRENT_TIMESTAMP
-				WHERE id = ?;
-			`, item.ID)
-			_, _ = w.db.ExecContext(ctx, `
-				INSERT INTO notification_attempts (
-					notification_message_id, attempt_number, started_at, finished_at, result, provider_message_id
-				) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SUCCESS', ?);
-			`, item.ID, attemptNum, providerID)
-		}
-
-		processedCount++
-	}
-
-	return processedCount, nil
+	sent, failed, err := service.ProcessDue(ctx, notificationSender{w.sender}, 10, time.Now())
+	return sent + failed, err
 }
 
 // FormatNotificationText menyusun teks siaran WhatsApp yang rapi dan profesional
@@ -307,13 +196,25 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		if slug != "" {
 			portalURL = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), slug)
 		} else {
-			portalURL = util.PublicBaseURL()
+			portalURL = util.PublicBaseURL() + "/c/"
 		}
+	}
+
+	className := getString("class_name")
+	if className == "" {
+		className = getString("class_code")
+	}
+
+	withHeader := func(title string) string {
+		if className != "" {
+			return fmt.Sprintf("*%s • %s*\n─────────────\n", title, className)
+		}
+		return fmt.Sprintf("*%s*\n─────────────\n", title)
 	}
 
 	switch strings.ToUpper(eventType) {
 	case "ACADEMIC_RESTORE_CORRECTION":
-		return fmt.Sprintf("*KOREKSI INFORMASI AKADEMIK*\n────────────────────\nData akademik kelas telah dipulihkan. Jadwal, tugas, dan materi yang berlaku dapat dilihat kembali di Portal Mahasiswa.\n\n- Alasan: %s\n\n_Lihat selengkapnya melalui Portal Mahasiswa:_\n%s", getString("reason"), portalURL)
+		return fmt.Sprintf("%sData akademik kelas telah dipulihkan. Jadwal, tugas, dan materi yang berlaku dapat dilihat kembali di Web Jadwal & Tugas Kelas.\n\n- Alasan: %s\n\nDetail lengkap:\n%s", withHeader("KOREKSI INFORMASI AKADEMIK"), getString("reason"), portalURL)
 
 	case "TASK_PUBLISHED":
 		course := getString("course")
@@ -321,28 +222,49 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			course = getString("course_name")
 		}
 		title := getString("title")
+		taskType := getString("task_type")
+		isQuiz := util.IsQuizTaskType(taskType)
 		deadline := getString("deadline")
 		instructions := getString("instructions")
-		url := getString("submission_url")
+		subText := getString("submission_text")
+		if subText == "" {
+			candidate := getString("submission_url")
+			if candidate == "" {
+				candidate = getString("submission")
+			}
+			// Hanya gunakan jika bukan URL mentah
+			if !strings.HasPrefix(strings.ToLower(candidate), "http://") && !strings.HasPrefix(strings.ToLower(candidate), "https://") {
+				subText = candidate
+			}
+		}
 
 		var b strings.Builder
-		b.WriteString("*TUGAS BARU DITERBITKAN*\n────────────────────\n")
+		if isQuiz {
+			b.WriteString(withHeader("INFORMASI KUIS BARU"))
+		} else {
+			b.WriteString(withHeader("TUGAS BARU DITERBITKAN"))
+		}
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
 		if title != "" {
-			b.WriteString(fmt.Sprintf("- Judul: %s\n", title))
+			b.WriteString(fmt.Sprintf("- Judul: %s\n", util.FormatTaskTitle(title, taskType)))
 		}
 		if deadline != "" {
-			b.WriteString(fmt.Sprintf("- Tenggat Waktu: %s\n", deadline))
+			if isQuiz {
+				b.WriteString(fmt.Sprintf("- Waktu: %s\n", deadline))
+			} else {
+				b.WriteString(fmt.Sprintf("- Tenggat: %s\n", deadline))
+			}
 		}
-		if instructions != "" {
-			b.WriteString(fmt.Sprintf("- Instruksi: %s\n", instructions))
+		if subText != "" {
+			b.WriteString(fmt.Sprintf("- %s: %s\n", util.TaskSubmissionLabel(taskType), subText))
 		}
-		if url != "" {
-			b.WriteString(fmt.Sprintf("- Pengumpulan: %s\n", url))
+		// Catatan ringkas hanya jika 1 baris dan singkat
+		if instructions != "" && !strings.Contains(instructions, "\n") && len(instructions) <= 80 {
+			b.WriteString(fmt.Sprintf("- Catatan: %s\n", instructions))
 		}
-		b.WriteString(fmt.Sprintf("\n_Lihat selengkapnya melalui Portal Mahasiswa:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail instruksi & lampiran lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "TASK_UPDATED":
@@ -351,7 +273,7 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		deadline := getString("deadline")
 
 		var b strings.Builder
-		b.WriteString("*PEMBARUAN INFORMASI TUGAS*\n────────────────────\n")
+		b.WriteString(withHeader("PEMBARUAN TUGAS"))
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
@@ -361,7 +283,7 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		if deadline != "" {
 			b.WriteString(fmt.Sprintf("- Tenggat Baru: %s\n", deadline))
 		}
-		b.WriteString(fmt.Sprintf("\n_Lihat selengkapnya melalui Portal Mahasiswa:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail instruksi & lampiran lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "SCHEDULE_REPLACEMENT", "TEACHING_EVENT_PUBLISHED":
@@ -371,7 +293,12 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		reason := getString("reason")
 
 		var b strings.Builder
-		b.WriteString("*PENGUMUMAN KULIAH PENGGANTI*\n────────────────────\n")
+		kind := getString("event_kind")
+		if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
+			b.WriteString(withHeader("PENGUMUMAN UJIAN [" + strings.TrimPrefix(kind, "EXAM_") + "]"))
+		} else {
+			b.WriteString(withHeader("PENGUMUMAN KULIAH PENGGANTI"))
+		}
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
@@ -379,12 +306,12 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			b.WriteString(fmt.Sprintf("- Waktu Pelaksanaan: %s\n", startsAt))
 		}
 		if room != "" {
-			b.WriteString(fmt.Sprintf("- Ruangan: %s\n", room))
+			b.WriteString(fmt.Sprintf("- Ruang: %s\n", room))
 		}
 		if reason != "" {
 			b.WriteString(fmt.Sprintf("- Keterangan: %s\n", reason))
 		}
-		b.WriteString(fmt.Sprintf("\n_Jadwal efektif perkuliahan telah diperbarui di Portal Mahasiswa:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nDetail jadwal lengkap:\n%s", portalURL))
 		return b.String()
 
 	case "SCHEDULE_REVOKED", "TEACHING_EVENT_REVOKED":
@@ -392,14 +319,14 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 		reason := getString("reason")
 
 		var b strings.Builder
-		b.WriteString("*PEMBATALAN KULIAH PENGGANTI*\n────────────────────\n")
+		b.WriteString(withHeader("PEMBATALAN KULIAH PENGGANTI"))
 		if course != "" {
 			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
 		}
 		if reason != "" {
 			b.WriteString(fmt.Sprintf("- Alasan: %s\n", reason))
 		}
-		b.WriteString(fmt.Sprintf("\n_Perkuliahan pengganti dibatalkan. Jadwal kembali mengikuti pola perkuliahan reguler:_\n%s", portalURL))
+		b.WriteString(fmt.Sprintf("\nJadwal kembali mengikuti pola perkuliahan reguler:\n%s", portalURL))
 		return b.String()
 
 	default:
@@ -408,8 +335,8 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			msg = getString("text")
 		}
 		if msg != "" {
-			return fmt.Sprintf("*PENGUMUMAN KELAS*\n────────────────────\n%s\n\n_Lihat selengkapnya melalui Portal Mahasiswa:_\n%s", msg, portalURL)
+			return fmt.Sprintf("%s%s\n\nDetail lengkap:\n%s", withHeader("PENGUMUMAN KELAS"), msg, portalURL)
 		}
-		return fmt.Sprintf("*PEMBERITAHUAN KELAS (%s)*\n────────────────────\nSilakan cek Portal Mahasiswa untuk informasi terbaru:\n%s", eventType, portalURL)
+		return fmt.Sprintf("%sSilakan cek Web Portal untuk informasi terbaru:\n%s", withHeader(fmt.Sprintf("PEMBERITAHUAN KELAS (%s)", eventType)), portalURL)
 	}
 }

@@ -100,6 +100,7 @@ func printHumanReport(report *seed.SeedReport, dbPath string) {
 		fmt.Println("   📊 Rekonsiliasi Sumber vs Target:")
 		fmt.Printf("      - Mata Kuliah        : Sumber = %-3d | Target Master = %-3d\n", c.SourceCounts.Courses, c.TargetCounts.Courses)
 		fmt.Printf("      - Dosen Pengampu     : Sumber = %-3d | Target Master = %-3d\n", c.SourceCounts.Lecturers, c.TargetCounts.Lecturers)
+		fmt.Printf("      - Master Ruangan     : Target Master = %-3d\n", c.TargetCounts.Rooms)
 		fmt.Printf("      - Course Offerings   : Target = %-3d\n", c.TargetCounts.CourseOfferings)
 		fmt.Printf("      - Offering Lecturers : Target = %-3d\n", c.TargetCounts.OfferingLecturers)
 		fmt.Printf("      - Pola Jadwal Reguler: Sumber = %-3d | Target Pola   = %-3d\n", c.SourceCounts.Schedules, c.TargetCounts.SchedulePatterns)
@@ -162,7 +163,11 @@ func seedDemoUsers(db *sql.DB) error {
 
 	// 3. Pastikan role assignment KM dan PJ ada
 	var classID, semesterID int64
-	err = db.QueryRow(`SELECT id FROM classes WHERE slug = 'd4-ti-2024-a' LIMIT 1;`).Scan(&classID)
+	err = db.QueryRow(`SELECT id FROM classes WHERE status = 'ACTIVE' ORDER BY id ASC LIMIT 1;`).Scan(&classID)
+	if err != nil {
+		// Fallback ke kelas apa pun yang tersedia
+		err = db.QueryRow(`SELECT id FROM classes ORDER BY id ASC LIMIT 1;`).Scan(&classID)
+	}
 	if err != nil {
 		return nil
 	}

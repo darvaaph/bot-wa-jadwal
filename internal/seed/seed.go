@@ -56,6 +56,7 @@ type TargetCounts struct {
 	Semesters         int `json:"semesters"`
 	Courses           int `json:"courses"`
 	Lecturers         int `json:"lecturers"`
+	Rooms             int `json:"rooms"`
 	CourseOfferings   int `json:"course_offerings"`
 	OfferingLecturers int `json:"offering_lecturers"`
 	SchedulePatterns  int `json:"schedule_patterns"`
@@ -569,13 +570,12 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 			continue
 		}
 
-		// Cari room_id jika terdaftar di master rooms, jangan buat baru (User Story 13)
+		// Daftarkan atau cari master ruangan (rooms) secara idempoten
 		var roomID sql.NullInt64
 		cleanRoom := strings.TrimSpace(item.Ruang)
 		if cleanRoom != "" {
-			var rID int64
-			err = tx.QueryRow(`SELECT id FROM rooms WHERE code = ?;`, cleanRoom).Scan(&rID)
-			if err == nil {
+			rID, rErr := resolveOrInsertRoom(tx, cleanRoom)
+			if rErr == nil && rID > 0 {
 				roomID = sql.NullInt64{Int64: rID, Valid: true}
 			}
 		}
@@ -625,6 +625,7 @@ func seedSingleClass(cm ClassMapping, targetDB *sql.DB, legacyDBPath string) (*C
 	_ = tx.QueryRow(`SELECT COUNT(*) FROM semesters WHERE id = ?;`, semesterID).Scan(&classReport.TargetCounts.Semesters)
 	_ = tx.QueryRow(`SELECT COUNT(*) FROM courses;`).Scan(&classReport.TargetCounts.Courses)
 	_ = tx.QueryRow(`SELECT COUNT(*) FROM lecturers;`).Scan(&classReport.TargetCounts.Lecturers)
+	_ = tx.QueryRow(`SELECT COUNT(*) FROM rooms;`).Scan(&classReport.TargetCounts.Rooms)
 	_ = tx.QueryRow(`SELECT COUNT(*) FROM course_offerings WHERE semester_id = ?;`, semesterID).Scan(&classReport.TargetCounts.CourseOfferings)
 	_ = tx.QueryRow(`
 		SELECT COUNT(*) FROM offering_lecturers ol
@@ -959,4 +960,55 @@ func mapCategoryToMaterialType(cat string) string {
 	default:
 		return "OTHER"
 	}
+}
+
+// resolveOrInsertRoom memastikan master ruangan (rooms) terdaftar secara idempoten.
+func resolveOrInsertRoom(tx *sql.Tx, cleanRoom string) (int64, error) {
+	cleanRoom = strings.TrimSpace(cleanRoom)
+	if cleanRoom == "" {
+		return 0, nil
+	}
+
+	// 1. Cek apakah ruangan sudah terdaftar di master rooms
+	var rID int64
+	err := tx.QueryRow(`SELECT id FROM rooms WHERE code = ?;`, cleanRoom).Scan(&rID)
+	if err == nil {
+		return rID, nil
+	}
+
+	// 2. Turunkan nama, gedung, dan jenis ruangan secara otomatis
+	name := cleanRoom
+	building := ""
+	roomType := "Ruang Kuliah"
+
+	parts := strings.SplitN(cleanRoom, "-", 2)
+	if len(parts) == 2 {
+		name = strings.TrimSpace(parts[1])
+		firstLetter := strings.ToUpper(string(parts[0][0]))
+		if firstLetter >= "A" && firstLetter <= "Z" {
+			building = "Gedung " + firstLetter
+		}
+	} else if len(cleanRoom) > 0 {
+		firstLetter := strings.ToUpper(string(cleanRoom[0]))
+		if firstLetter >= "A" && firstLetter <= "Z" {
+			building = "Gedung " + firstLetter
+		}
+	}
+
+	lowerName := strings.ToLower(cleanRoom)
+	if strings.Contains(lowerName, "lab") {
+		roomType = "Laboratorium"
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	err = tx.QueryRow(`
+		INSERT INTO rooms (code, name, building, room_type, capacity, status, source_updated_at)
+		VALUES (?, ?, ?, ?, 32, 'ACTIVE', ?)
+		ON CONFLICT(code) DO UPDATE SET status = 'ACTIVE'
+		RETURNING id;
+	`, cleanRoom, name, building, roomType, now).Scan(&rID)
+	if err != nil {
+		return 0, err
+	}
+	return rID, nil
 }

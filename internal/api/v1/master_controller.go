@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -120,9 +119,8 @@ func (c *MasterController) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 
@@ -189,9 +187,8 @@ func (c *MasterController) BulkCreateRooms(w http.ResponseWriter, r *http.Reques
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 	var bulkCheck struct {
@@ -432,9 +429,8 @@ func (c *MasterController) CreateCourse(w http.ResponseWriter, r *http.Request) 
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 
@@ -514,9 +510,8 @@ func (c *MasterController) BulkCreateCourses(w http.ResponseWriter, r *http.Requ
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 	var bulkCheck struct {
@@ -817,9 +812,8 @@ func (c *MasterController) CreateLecturer(w http.ResponseWriter, r *http.Request
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 
@@ -991,9 +985,8 @@ func (c *MasterController) BulkCreateLecturers(w http.ResponseWriter, r *http.Re
 		common.WriteV1Error(w, http.StatusInternalServerError, "SERVER_ERROR", "Database v1 belum siap")
 		return
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		common.WriteV1Error(w, http.StatusBadRequest, common.CodeValidation, "Gagal membaca payload request")
+	bodyBytes, ok := readBufferedJSON(w, r)
+	if !ok {
 		return
 	}
 	var bulkCheck struct {

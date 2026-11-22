@@ -57,6 +57,19 @@ $env:BOT_JADWAL_ADMIN_PASSWORD = "password-minimal-12-karakter"
 go run ./cmd/provision-admin -identity "admin@example.test" -display-name "System Admin"
 ```
 
+### 6. Pembaruan ke Server Azure (Update Produksi)
+Jika sudah ada server yang berjalan dan ingin memperbarui kode/biner:
+```powershell
+# Di laptop (PowerShell):
+$env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"; go build -ldflags="-s -w" -o bot-jadwal ./cmd/bot
+scp bot-jadwal user@ip-server:~/bot-jadwal.new
+
+# Di server Azure (SSH):
+mv ~/bot-jadwal.new ~/bot-jadwal && chmod +x ~/bot-jadwal && sudo systemctl restart bot-jadwal
+```
+*Panduan lengkap arsitektur server, Nginx, SSL, dan domain ada di [docs/ops/DEPLOYMENT_GUIDE.md](docs/ops/DEPLOYMENT_GUIDE.md).*
+
+
 ---
 
 ## Aturan Pengembangan

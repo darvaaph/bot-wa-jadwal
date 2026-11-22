@@ -264,8 +264,8 @@
             <!-- Baris 1: Tag Mata Kuliah, Tag Sesi, & Tanggal -->
             <div class="w-full flex items-center justify-between gap-2">
               <div class="flex items-center gap-1.5 min-w-0">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200 max-w-[130px] sm:max-w-none truncate"
-                  x-text="m.course_name || 'UMUM KELAS'">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200 truncate"
+                  x-text="cleanCourseName(m.course_name) || 'UMUM KELAS'">
                   MATA KULIAH
                 </span>
                 <span class="inline-flex items-center px-2 py-0.5 rounded-[6px] text-[10px] font-bold tracking-wider uppercase shrink-0"
@@ -311,7 +311,7 @@
               <div class="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
                 <span class="font-semibold text-slate-700" x-text="getMateriType(m)">Slide</span>
                 <span>•</span>
-                <span x-text="m.url && m.url.includes('drive.google.com') ? 'Google Drive' : (m.url && m.url.includes('github.com') ? 'GitHub' : 'Tautan')">Google Drive</span>
+                <span x-text="getMateriSourceLabel(m)">GitHub</span>
               </div>
 
               <!-- Aksi Cepat: Buka Langsung (Stop Propagation) -->
@@ -384,7 +384,7 @@
               <!-- Kategori & Sesi Pill -->
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200"
-                  x-text="(selectedMateri.course_name || 'UMUM KELAS').toUpperCase()">
+                  x-text="(cleanCourseName(selectedMateri.course_name) || 'UMUM KELAS').toUpperCase()">
                   MATA KULIAH
                 </span>
                 <span class="inline-flex items-center px-2.5 py-1 rounded-[6px] text-[10px] font-bold tracking-wider uppercase"
@@ -430,49 +430,41 @@
               </div>
             </div>
 
-            <!-- AKSES BERKAS -->
-            <div class="w-full flex flex-col gap-[7px]" x-show="selectedMateri.url">
-              <div
-                class="text-[10px] text-[#64748B] font-bold tracking-[0.5px] uppercase">
+            <!-- AKSES BERKAS (Tautan Sumber) -->
+            <div class="w-full flex flex-col gap-1.5" x-show="selectedMateri.url">
+              <div class="text-[10px] text-[#64748B] font-bold tracking-[0.5px] uppercase">
                 AKSES BERKAS
               </div>
-              <div
-                class="w-full p-[12px] bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px] flex flex-row gap-[9px] items-center">
-                <!-- Cloud Icon -->
-                <svg class="w-[20px] h-[20px] text-[#64748B] shrink-0" viewBox="0 0 14 14" fill="currentColor">
-                  <path
-                    d="M3.79 11.08a2.6 2.6 0 0 1-1.86-.76 2.61 2.61 0 0 1-.77-1.85c0-1 .69-1.78 1.71-1.84.2-1.27 1.17-2.1 2.27-2.1a3.5 3.5 0 0 1 2.48 1.02c1.02 1.02 1.02 2.48 1.02 2.48l0 .58.36 0c.84.03 1.4.62 1.4 1.43 0 .86-.59 1.45-1.45 1.45l-7 0zm0-.58h7a.86.86 0 0 0 .86-.86c0-.48-.38-.86-.86-.86l-.88 0v-1.17c0-1.21-.85-2.06-2.06-2.06-1.21 0-2.06.85-2.06 2.06l-.3 0c-.84 0-1.44.6-1.44 1.45 0 .84.6 1.44 1.44 1.44z" />
+              <div class="w-full px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-[10px] flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                 </svg>
-                <!-- Alamat URL -->
-                <div class="text-[10px] text-[#475569] font-mono font-medium truncate flex-1"
-                  x-text="cleanUrlDisplay(selectedMateri.url)">
-                  Alamat berkas
-                </div>
-                <!-- Tombol Salin -->
-                <button type="button" @click="salinTautanMateri(selectedMateri.url)"
-                  class="h-[36px] md:h-[44px] px-[12px] bg-[#FFFFFF] [outline:1px_solid_#CBD5E1] [outline-offset:-0.5px] rounded-[8px] text-[11px] text-[#334155] font-bold hover:bg-slate-50 transition-colors cursor-pointer shrink-0">
-                  Salin
-                </button>
+                <span class="text-[11px] font-mono text-slate-600 truncate flex-1" x-text="cleanUrlDisplay(selectedMateri.url)">Alamat berkas</span>
               </div>
             </div>
 
           </div>
 
-          <!-- Aksi detail materi -->
-          <div class="w-full flex flex-col gap-2 mt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <!-- Aksi detail materi (Side-by-side Primary & Secondary Action) -->
+          <div class="w-full flex items-center gap-2 mt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]" x-show="selectedMateri.url">
+            <!-- Tombol Utama: Buka Tautan Berkas Langsung -->
             <button type="button" @click="bukaTautanLangsung(selectedMateri.url)"
-              class="w-full h-[48px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] flex items-center justify-center gap-[8px] text-[13px] font-bold shadow-xs transition-all active:scale-[0.99] cursor-pointer">
-              <span
-                x-text="selectedMateri.url && selectedMateri.url.includes('drive.google.com') ? 'Buka Berkas di Google Drive' : (selectedMateri.url && selectedMateri.url.includes('github.com') ? 'Buka Repositori di GitHub' : 'Buka Berkas')">Buka
-                Berkas di Google Drive</span>
-              <svg class="w-[17px] h-[17px] text-white" viewBox="0 0 14 14" fill="currentColor">
-                <path
-                  d="M3.27 11.67a.94.94 0 0 1-.94-.94V3.27c0-.52.42-.94.94-.94h2.98a.29.29 0 0 1 .21.09.29.29 0 0 1 .08.2.29.29 0 0 1-.08.21.29.29 0 0 1-.21.08H3.27a.36.36 0 0 0-.36.36v7.46c0 .2.16.36.36.36h7.45a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .09-.21.29.29 0 0 1 .2-.08.29.29 0 0 1 .21.08.29.29 0 0 1 .08.21v2.98a.94.94 0 0 1-.94.94H3.27zm7.81-8.34L5.88 8.52a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.2-5.2H8.46a.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21.29.29 0 0 1 .08-.2.29.29 0 0 1 .21-.09h2.74c.2 0 .34.14.34.34v2.74a.29.29 0 0 1-.09.21.29.29 0 0 1-.2.08.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21V3.33z" />
+              class="flex-1 h-[46px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[12px] flex items-center justify-center gap-2 text-[13px] font-bold shadow-xs transition-all active:scale-[0.99] cursor-pointer">
+              <span x-text="getMateriOpenLabel(selectedMateri)">Buka Berkas</span>
+              <svg class="w-4 h-4 text-white" viewBox="0 0 14 14" fill="currentColor">
+                <path d="M3.27 11.67a.94.94 0 0 1-.94-.94V3.27c0-.52.42-.94.94-.94h2.98a.29.29 0 0 1 .21.09.29.29 0 0 1 .08.2.29.29 0 0 1-.08.21.29.29 0 0 1-.21.08H3.27a.36.36 0 0 0-.36.36v7.46c0 .2.16.36.36.36h7.45a.36.36 0 0 0 .36-.36V7.75a.29.29 0 0 1 .09-.21.29.29 0 0 1 .2-.08.29.29 0 0 1 .21.08.29.29 0 0 1 .08.21v2.98a.94.94 0 0 1-.94.94H3.27zm7.81-8.34L5.88 8.52a.29.29 0 0 1-.41 0 .29.29 0 0 1 0-.41l5.2-5.2H8.46a.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21.29.29 0 0 1 .08-.2.29.29 0 0 1 .21-.09h2.74c.2 0 .34.14.34.34v2.74a.29.29 0 0 1-.09.21.29.29 0 0 1-.2.08.29.29 0 0 1-.21-.08.29.29 0 0 1-.08-.21V3.33z" />
               </svg>
             </button>
-            <button type="button" @click="tutupDetailMateri()"
-              class="w-full h-[42px] flex items-center justify-center text-[12px] text-[#64748B] font-bold hover:text-[#0F172A] transition-colors cursor-pointer">
-              Tutup
+
+            <!-- Tombol Kedua: Salin Tautan Berkas -->
+            <button type="button" @click="salinTautanMateri(selectedMateri.url)"
+              class="h-[46px] px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-[12px] flex items-center justify-center gap-1.5 text-[12px] font-bold transition-all active:scale-95 cursor-pointer shrink-0">
+              <svg class="w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Salin</span>
             </button>
           </div>
 

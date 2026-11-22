@@ -1,5 +1,11 @@
 /* Identitas visual dan ukuran bersama. Lihat DESIGN.md. */
 :root {
+  --exam-uts-bg: #FEF3C7;
+  --exam-uts-text: #B45309;
+  --exam-uts-border: #FDE68A;
+  --exam-uas-bg: #FEE2E2;
+  --exam-uas-text: #B91C1C;
+  --exam-uas-border: #FECACA;
   --primary: #3965FB;
   --primary-hover: #2f54d6;
   --primary-soft: #E9EAFF;
