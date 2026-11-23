@@ -247,3 +247,173 @@ test('system admin settings rejects empty attendance minutes and bubble avoids s
   assert.equal(bubble.title, 'PENGINGAT ABSEN KULIAH');
   assert.equal(bubble.title.includes('📋'), false);
 });
+
+test('km toggleAbsen flips state cleanly and pengaturanDirty detects unsaved or cleared values without "" -> 0 coercion', async () => {
+  const ctx = appContext({
+    AsteriskShell: { behavior: () => ({}) },
+    examSessionBehavior: () => ({}),
+    localStorage: { getItem: () => '' },
+    API: {}
+  });
+  vm.runInContext(source('web/js/app-km.js'), ctx);
+  const app = ctx.kmApp();
+
+  assert.equal(app.pengaturanDirty, false);
+
+  const baseSettings = {
+    version: 1,
+    morning_reminder_time: '06:00',
+    afternoon_reminder_time: '17:00',
+    replacement_reminder_minutes: 60,
+    timezone: 'Asia/Jakarta',
+    attendance_reminder_minutes: 25
+  };
+  app.classSettings = { ...baseSettings };
+  assert.equal(app.pengaturanDirty, false);
+
+  app.toggleAbsen();
+  assert.equal(app.pengaturan.absenAktif, false);
+  assert.equal(app.pengaturanDirty, true);
+
+  app.toggleAbsen();
+  assert.equal(app.pengaturan.absenAktif, true);
+  assert.equal(app.pengaturan.absenMenit, 25);
+  assert.equal(app.pengaturanDirty, false);
+
+  app.classSettings = { ...baseSettings, attendance_reminder_minutes: 0 };
+  app.pengaturan.absenAktif = false;
+  app.pengaturan.absenMenit = 25;
+  assert.equal(app.pengaturanDirty, false);
+
+  app.toggleAbsen();
+  app.pengaturan.absenMenit = '';
+  assert.equal(app.pengaturanDirty, true);
+});
+
+test('html entrypoints bump immutable cache buster for modified KM and System Admin scripts', () => {
+  const kmHtml = source('web/km.html');
+  const saHtml = source('web/system-admin.html');
+  const kmMatch = kmHtml.match(/\/js\/app-km\.js\?v=(\d{8})/);
+  const saMatch = saHtml.match(/\/js\/app-system-admin\.js\?v=(\d{8})/);
+  assert.ok(kmMatch && Number(kmMatch[1]) >= 20261123, 'web/km.html must bump app-km.js cache buster >= 20261123');
+  assert.ok(saMatch && Number(saMatch[1]) >= 20261123, 'web/system-admin.html must bump app-system-admin.js cache buster >= 20261123');
+});
+
+test('attendance reminder UI uses compiled switch classes, high-contrast colors, clean copy, and loading guard', () => {
+  const kmHtml = source('web/partials/km/view-pengaturan.html');
+  const saHtml = source('web/partials/system-admin/view-kelas.html');
+  const twCss = source('web/css/tailwind.css');
+  const customCss = source('web/css/tokens.css') + '\n' + source('web/css/components.css') + '\n' + source('web/css/style.css');
+
+  const gridLine = kmHtml.match(/<div[^>]*lg:grid-cols-2[^>]*>/);
+  assert.ok(gridLine, 'KM settings 2-column grid must exist');
+  assert.match(gridLine[0], /x-show="!settingsLoading && !settingsError && classSettings"/);
+
+  const kmStart = kmHtml.indexOf('<!-- Row Pengingat Absen -->');
+  const kmEnd = kmHtml.indexOf('<!-- Card Kanan:');
+  assert.ok(kmStart !== -1 && kmEnd > kmStart, 'KM attendance reminder section boundaries must exist');
+  const kmBlock = kmHtml.slice(kmStart, kmEnd);
+
+  assert.match(kmBlock, /<button[^>]*id="km-absen-aktif"[^>]*role="switch"/s);
+  assert.match(kmBlock, /:aria-checked="String\(pengaturan\.absenAktif\)"/);
+  assert.match(kmBlock, /@click="toggleAbsen\(\)"/);
+  assert.match(kmBlock, /min-h-\[44px\]/);
+  assert.match(kmBlock, /min-w-\[44px\]/);
+  assert.match(kmBlock, /bg-\[#3965FB\]/);
+  assert.match(kmBlock, /bg-\[#64748B\]/);
+  assert.match(kmBlock, /focus-visible:outline-2/);
+  assert.match(kmBlock, /x-show="pengaturan\.absenAktif"/);
+  assert.match(kmBlock, /<input[^>]*id="km-absen-menit"[^>]*placeholder="25"/s);
+  assert.match(kmBlock, />\s*menit\s*<\/span>/);
+  assert.match(kmBlock, /x-show="pengaturanDirty"/);
+  assert.match(kmBlock, /Ada perubahan belum disimpan\./);
+
+  for (const forbidden of ['peer', 'after:', 'sm:w-40', 'sm:ml-auto', 'cek akademik', 'Menit setelah kuliah dimulai', '\u2014']) {
+    assert.equal(kmBlock.includes(forbidden), false, `disallowed token found in KM attendance block: ${forbidden}`);
+  }
+  const switchBtnMatch = kmBlock.match(/<button[^>]*id="km-absen-aktif"[^>]*>/s);
+  assert.ok(switchBtnMatch && !/(?:^|\s)h-\[44px\](?=\s|")/.test(switchBtnMatch[0]), 'switch button must not lock fixed h-[44px]');
+
+  const saStart = saHtml.indexOf('aria-labelledby="sa-pengingat-title"');
+  const saEnd = saHtml.indexOf('</section>', saStart);
+  assert.ok(saStart !== -1 && saEnd > saStart, 'System Admin reminder section must exist');
+  const saBlock = saHtml.slice(saStart, saEnd);
+  assert.match(saBlock, /\(0 = nonaktif, 1-60 menit\)/);
+  const saErrorLine = saBlock.match(/<p[^>]*x-show="pengingatError"[^>]*>/);
+  assert.ok(saErrorLine, 'System Admin pengingatError alert element must exist');
+  assert.match(saErrorLine[0], /text-\[#B42318\]/);
+  assert.equal(saErrorLine[0].includes('text-danger'), false, 'System Admin error must not use low-contrast text-danger');
+
+  const twEscape = cls => '.' + cls.replace(/[:/\[\].#'"]/g, ch => '\\' + ch);
+  const extractClassTokens = fragment => {
+    const tokens = new Set();
+    for (const m of fragment.matchAll(/(?<!:)\bclass="([^"]+)"/g)) {
+      for (const tok of m[1].trim().split(/\s+/)) if (tok) tokens.add(tok);
+    }
+    for (const m of fragment.matchAll(/:class="([^"]+)"/g)) {
+      for (const q of m[1].matchAll(/'([^']+)'/g)) {
+        for (const tok of q[1].trim().split(/\s+/)) if (tok) tokens.add(tok);
+      }
+    }
+    return [...tokens];
+  };
+
+  for (const tok of [...extractClassTokens(kmBlock), ...extractClassTokens(saErrorLine[0])]) {
+    const sel = twEscape(tok);
+    const inTw = twCss.includes(sel + '{') || twCss.includes(sel + ':');
+    const inCustom = customCss.includes(sel + ' ') || customCss.includes(sel + '{') || customCss.includes(sel + ':');
+    assert.ok(inTw || inCustom, `CSS class not found in precompiled stylesheets: ${tok}`);
+  }
+});
+
+test('km loadPengaturanKelas keeps existing settings visible on background refresh or refresh failure and sets error when slug missing', async () => {
+  let resolveRefresh;
+  let callCount = 0;
+  const toasts = [];
+  const ctx = appContext({
+    AsteriskShell: { behavior: () => ({}) },
+    examSessionBehavior: () => ({}),
+    localStorage: { getItem: () => '' },
+    API: {
+      getClassSettings: async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            slug: 'd4-ti-2025-a',
+            version: 1,
+            morning_reminder_time: '06:00',
+            afternoon_reminder_time: '17:00',
+            replacement_reminder_minutes: 60,
+            attendance_reminder_minutes: 25,
+            timezone: 'Asia/Jakarta'
+          };
+        }
+        return new Promise((resolve, reject) => {
+          resolveRefresh = reject;
+        });
+      }
+    }
+  });
+  vm.runInContext(source('web/js/app-km.js'), ctx);
+  const app = ctx.kmApp();
+  app.showToast = msg => toasts.push(msg);
+
+  await app.loadPengaturanKelas();
+  assert.ok(app.settingsError, 'missing slug with no cached settings must set settingsError');
+
+  app.classSlug = 'd4-ti-2025-a';
+  await app.loadPengaturanKelas();
+  assert.equal(app.settingsError, '');
+  assert.equal(app.settingsLoading, false);
+  assert.equal(app.classSettings.version, 1);
+
+  const refreshPromise = app.loadPengaturanKelas();
+  assert.equal(app.settingsLoading, false, 'background refresh must not set settingsLoading and collapse grid');
+  assert.ok(app.classSettings, 'existing classSettings must stay intact during refresh');
+
+  resolveRefresh(new Error('offline'));
+  await refreshPromise;
+  assert.equal(app.classSettings.version, 1, 'failed refresh must preserve existing classSettings');
+  assert.equal(app.settingsError, '', 'failed background refresh must not blank out loaded screen');
+  assert.ok(toasts.length > 0, 'failed background refresh should notify user via toast');
+});

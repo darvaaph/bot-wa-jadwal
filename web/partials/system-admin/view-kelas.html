@@ -877,8 +877,8 @@
           <label class="text-[13px] font-semibold text-deep-ink">Jam pagi<input type="time" x-model="pengingatForm.morning_reminder_time" required class="ui-field mt-1 w-full"></label>
           <label class="text-[13px] font-semibold text-deep-ink">Jam sore<input type="time" x-model="pengingatForm.afternoon_reminder_time" required class="ui-field mt-1 w-full"></label>
           <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Kuliah pengganti, menit sebelumnya<input type="number" x-model.number="pengingatForm.replacement_reminder_minutes" min="0" max="1440" step="1" required class="ui-field mt-1 w-full"></label>
-          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Pengingat absen kuliah, menit setelah mulai (0 = nonaktif, 1–60 menit)<input type="number" x-model.number="pengingatForm.attendance_reminder_minutes" min="0" max="60" step="1" required class="ui-field mt-1 w-full"></label>
-          <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-danger sm:col-span-2" role="alert"></p>
+          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Pengingat absen kuliah, menit setelah mulai (0 = nonaktif, 1-60 menit)<input type="number" x-model.number="pengingatForm.attendance_reminder_minutes" min="0" max="60" step="1" required class="ui-field mt-1 w-full"></label>
+          <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-[#B42318] sm:col-span-2" role="alert"></p>
           <div class="flex flex-wrap gap-2 sm:col-span-2">
             <button type="submit" :disabled="pengingatSaving" class="ui-button ui-button--primary" x-text="pengingatSaving ? 'Menyimpan...' : 'Simpan pengingat'"></button>
             <button type="button" :disabled="pengingatSaving" @click="pengingatFormTerbuka = false; pengingatError = ''" class="ui-button ui-button--secondary">Batal</button>
