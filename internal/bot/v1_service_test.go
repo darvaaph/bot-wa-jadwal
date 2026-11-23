@@ -449,6 +449,28 @@ func TestV1BotService_GetCoursePJs(t *testing.T) {
 				t.Errorf("filter %q menghasilkan daftar tidak sesuai: %s", tc.query, resp)
 			}
 		}
+
+		if _, err := svc.db.Exec(`UPDATE course_offerings SET display_name = 'Aljabar Linear (Teori)' WHERE id = 2;`); err != nil {
+			t.Fatalf("ubah nama matkul gagal: %v", err)
+		}
+		resp, err := svc.GetCoursePJs(context.Background(), 1, "aljabar linear teori")
+		if err != nil {
+			t.Fatalf("GetCoursePJs dengan kata kunci terpisah gagal: %v", err)
+		}
+		if !strings.Contains(resp, "Aljabar Linear (Teori)") || strings.Contains(resp, "Algoritma") {
+			t.Errorf("kata kunci terpisah harus cocok dengan nama matkul ber-tanda kurung: %s", resp)
+		}
+
+		if _, err := svc.db.Exec(`UPDATE course_offerings SET display_name = 'Komunikasi Data dan Jaringan' WHERE id = 2;`); err != nil {
+			t.Fatalf("ubah nama matkul gagal: %v", err)
+		}
+		resp, err = svc.GetCoursePJs(context.Background(), 1, "komunikasi data dan jaringan")
+		if err != nil {
+			t.Fatalf("GetCoursePJs untuk komunikasi data dan jaringan gagal: %v", err)
+		}
+		if !strings.Contains(resp, "Komunikasi Data dan Jaringan") || strings.Contains(resp, "Algoritma") {
+			t.Errorf("query komunikasi data dan jaringan seharusnya hanya cocok dengan matkul tersebut: %s", resp)
+		}
 	})
 
 	t.Run("no active semester", func(t *testing.T) {
