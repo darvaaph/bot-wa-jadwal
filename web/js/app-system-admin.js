@@ -1243,7 +1243,7 @@ function systemAdminApp() {
       else if (event === 'SCHEDULE_REVOKED' || event === 'TEACHING_EVENT_REVOKED') title = '⚠️ PEMBATALAN KULIAH PENGGANTI';
       else if (event === 'ACADEMIC_RESTORE_CORRECTION') title = '📌 KOREKSI INFORMASI AKADEMIK';
       else if (event === 'DAILY_DIGEST') title = '📅 JADWAL KULIAH HARI INI';
-      else if (event === 'ATTENDANCE_REMINDER') title = '📋 PENGINGAT ABSEN KULIAH';
+      else if (event === 'ATTENDANCE_REMINDER') title = 'PENGINGAT ABSEN KULIAH';
       else if (event === 'PORTAL_ACCESS') title = '🔑 KODE AKSES PORTAL KELAS';
 
       const course = payload.course || payload.course_name || '';
@@ -5679,8 +5679,10 @@ function systemAdminApp() {
       if (!slug || !this.detailSettings || this.pengingatSaving) return;
       const f = this.pengingatForm;
       const validJam = value => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-      const menit = Number(f.replacement_reminder_minutes);
-      const att = Number(f.attendance_reminder_minutes);
+      const replRaw = String(f.replacement_reminder_minutes ?? '').trim();
+      const attRaw = String(f.attendance_reminder_minutes ?? '').trim();
+      const menit = replRaw === '' ? NaN : Number(replRaw);
+      const att = attRaw === '' ? NaN : Number(attRaw);
       if (!validJam(f.morning_reminder_time) || !validJam(f.afternoon_reminder_time) || !Number.isInteger(menit) || menit < 0 || menit > 1440 || !Number.isInteger(att) || att < 0 || att > 60) {
         this.pengingatError = 'Isi jam format HH:MM, pengganti 0–1440 menit, dan absen 0–60 menit.';
         return;

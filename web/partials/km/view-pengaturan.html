@@ -189,7 +189,7 @@
         <div class="pt-5 mt-4 border-t border-[#EEEEEE] flex justify-end">
           <button type="button"
                   @click="simpanPengaturan()"
-                  :disabled="pengaturanSaving"
+                  :disabled="pengaturanSaving || settingsLoading || !!settingsError || !classSettings"
                   class="w-full sm:w-auto h-[44px] px-6 bg-[#3965FB] hover:bg-[#2F54D8] text-white text-[13px] font-semibold rounded-[10px] shadow-xs flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
             <svg x-show="pengaturanSaving" class="animate-spin w-4 h-4 text-white mr-2" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

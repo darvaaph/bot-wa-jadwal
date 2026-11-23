@@ -110,6 +110,23 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 			continue
 		}
 
+		if item.version == 18 {
+			exists, err := hasColumn(ctx, db, "class_settings", "attendance_reminder_minutes")
+			if err != nil {
+				return fmt.Errorf("migration %d (%s): %w", item.version, item.name, err)
+			}
+			if exists {
+				if _, err := db.ExecContext(ctx,
+					"INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+					item.version,
+					item.name,
+				); err != nil {
+					return fmt.Errorf("gagal mencatat migration %d: %w", item.version, err)
+				}
+				continue
+			}
+		}
+
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("gagal memulai migration %d: %w", item.version, err)
@@ -131,6 +148,28 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func hasColumn(ctx context.Context, db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s);", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if strings.EqualFold(name, column) {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func rebuildReferencedTable(ctx context.Context, db *sql.DB, item migration, table string) (err error) {

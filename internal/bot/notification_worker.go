@@ -107,15 +107,7 @@ func (w *NotificationWorker) loop() {
 			if w.scheduleService != nil && !now.Before(nextReminderCheck) {
 				if release, allowed := maintenance.EnterMutation(); allowed {
 					nextReminderCheck = now.Add(time.Minute)
-					for _, check := range []func(context.Context, time.Time) (int, error){
-						w.scheduleService.EnsureDailySummaries,
-						w.scheduleService.EnsureTaskReminders,
-						w.scheduleService.EnsureReplacementReminders,
-					} {
-						if _, err := check(ctx, now); err != nil {
-							fmt.Printf("[Notification Worker] Pengingat: %v\n", err)
-						}
-					}
+					w.checkReminders(ctx, now)
 					release()
 				}
 			}
@@ -123,6 +115,22 @@ func (w *NotificationWorker) loop() {
 				fmt.Printf("[Notification Worker] %v\n", err)
 			}
 			cancel()
+		}
+	}
+}
+
+func (w *NotificationWorker) checkReminders(ctx context.Context, now time.Time) {
+	if w.scheduleService == nil {
+		return
+	}
+	for _, check := range []func(context.Context, time.Time) (int, error){
+		w.scheduleService.EnsureDailySummaries,
+		w.scheduleService.EnsureTaskReminders,
+		w.scheduleService.EnsureReplacementReminders,
+		w.scheduleService.EnsureAttendanceReminders,
+	} {
+		if _, err := check(ctx, now); err != nil {
+			fmt.Printf("[Notification Worker] Pengingat: %v\n", err)
 		}
 	}
 }
@@ -327,6 +335,34 @@ func FormatNotificationText(eventType, payloadJSON string, classSlug ...string) 
 			b.WriteString(fmt.Sprintf("- Alasan: %s\n", reason))
 		}
 		b.WriteString(fmt.Sprintf("\nJadwal kembali mengikuti pola perkuliahan reguler:\n%s", portalURL))
+		return b.String()
+
+	case "ATTENDANCE_REMINDER":
+		course := getString("course")
+		if course == "" {
+			course = getString("course_name")
+		}
+		startsAt := getString("starts_at")
+		room := getString("room")
+		msg := getString("message")
+
+		var b strings.Builder
+		b.WriteString(withHeader("PENGINGAT ABSEN KULIAH"))
+		if course != "" {
+			b.WriteString(fmt.Sprintf("- Mata Kuliah: %s\n", course))
+		}
+		if startsAt != "" {
+			b.WriteString(fmt.Sprintf("- Waktu: %s\n", startsAt))
+		}
+		if room != "" {
+			b.WriteString(fmt.Sprintf("- Ruang: %s\n", room))
+		}
+		if msg != "" {
+			b.WriteString(fmt.Sprintf("\n%s\n", msg))
+		} else {
+			b.WriteString("\nJangan lupa absen dan cek portal akademik.\n")
+		}
+		b.WriteString(fmt.Sprintf("\nDetail jadwal kelas:\n%s", portalURL))
 		return b.String()
 
 	default:

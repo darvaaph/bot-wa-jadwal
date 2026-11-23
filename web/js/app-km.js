@@ -4879,7 +4879,15 @@ function kmApp() {
             this.pengaturan.absenAktif = true;
             this.pengaturan.absenMenit = att;
             this.pengaturan.absenMenitTerakhir = att;
+          } else {
+            this.pengaturan.absenAktif = true;
+            this.pengaturan.absenMenit = 25;
+            this.pengaturan.absenMenitTerakhir = 25;
           }
+        } else {
+          this.pengaturan.absenAktif = true;
+          this.pengaturan.absenMenit = 25;
+          this.pengaturan.absenMenitTerakhir = 25;
         }
         if (s.timezone) this.pengaturan.zona = s.timezone;
       } catch (e) {
@@ -4891,20 +4899,26 @@ function kmApp() {
 
     async simpanPengaturan() {
       const slug = this.classSlug || this.selectedClass;
-      if (!slug) return;
+      if (!slug || this.pengaturanSaving) return;
+      if (!this.classSettings) {
+        this.pengaturanFormError = 'Pengaturan kelas belum berhasil dimuat. Muat ulang sebelum menyimpan.';
+        return;
+      }
       const hhmm = (v) => /^\d{2}:\d{2}$/.test(String(v || '')) && Number(String(v).slice(0, 2)) <= 23 && Number(String(v).slice(3)) <= 59;
       if (!hhmm(this.pengaturan.pagi) || !hhmm(this.pengaturan.sore)) {
         this.pengaturanFormError = 'Jam pengingat harus HH:MM (00:00-23:59).';
         return;
       }
-      const menit = Number(this.pengaturan.gantiMenit);
+      const gantiRaw = String(this.pengaturan.gantiMenit ?? '').trim();
+      const menit = gantiRaw === '' ? NaN : Number(gantiRaw);
       if (!Number.isInteger(menit) || menit < 0 || menit > 1440) {
         this.pengaturanFormError = 'Pengingat pengganti harus 0-1440 menit.';
         return;
       }
       let attMenit = 0;
       if (this.pengaturan.absenAktif) {
-        attMenit = Number(this.pengaturan.absenMenit);
+        const attRaw = String(this.pengaturan.absenMenit ?? '').trim();
+        attMenit = attRaw === '' ? NaN : Number(attRaw);
         if (!Number.isInteger(attMenit) || attMenit < 1 || attMenit > 60) {
           this.pengaturanFormError = 'Pengingat absen harus 1-60 menit setelah kuliah dimulai.';
           return;

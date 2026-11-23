@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bot-jadwal/internal/database"
+	"bot-jadwal/internal/notify"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -238,6 +239,7 @@ func TestFormatNotificationText(t *testing.T) {
 		{"TASK_UPDATED", `{"course":"Basis Data","title":"Kuis 1","deadline":"Besok 10:00"}`, "Tenggat Baru"},
 		{"SCHEDULE_REPLACEMENT", `{"course":"Jaringan Komputer","starts_at":"Senin 08:00","room":"LAB-1"}`, "PENGUMUMAN KULIAH PENGGANTI"},
 		{"SCHEDULE_REVOKED", `{"course":"Jaringan Komputer","reason":"Dosen hadir jadwal normal"}`, "PEMBATALAN KULIAH PENGGANTI"},
+		{"ATTENDANCE_REMINDER", `{"course":"Basis Data (T)","starts_at":"08:00 - 10:00 WIB","room":"LAB-1"}`, "PENGINGAT ABSEN KULIAH"},
 	}
 
 	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️"}
@@ -256,6 +258,71 @@ func TestFormatNotificationText(t *testing.T) {
 		}
 		if !strings.Contains(text, "http") {
 			t.Errorf("FormatNotificationText(%s) harus memuat link portal mahasiswa: %s", tc.eventType, text)
+		}
+	}
+}
+
+func TestNotificationWorker_AttendanceReminder_CheckAndDeliver(t *testing.T) {
+	db, err := database.InitDB(filepath.Join(t.TempDir(), "worker_attendance.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(loc)
+	starts := now.Add(-30 * time.Minute)
+	ends := now.Add(30 * time.Minute)
+	if starts.Format("2006-01-02") != now.Format("2006-01-02") {
+		// Jika test dijalankan tepat antara 00:00-00:30 WIB, gunakan sesi mulai 00:00 agar masih di hari yang sama.
+		starts = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+		ends = starts.Add(60 * time.Minute)
+		now = starts.Add(30 * time.Minute)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, identity_key, display_name, password_hash) VALUES (1, 'user:test', 'KM', 'disabled');
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label, status)
+		VALUES (1, 'D4-TI-2024-A', 'd4-ti-2024-a', 'TI', 2024, 'A', 'ACTIVE');
+		INSERT INTO class_settings (class_id, timezone, portal_access_mode, attendance_reminder_minutes)
+		VALUES (1, 'Asia/Jakarta', 'LINK', 25);
+		INSERT INTO semesters (id, class_id, academic_year, term, starts_on, ends_on, status, published_at, activated_at)
+		VALUES (1, 1, '2026/2027', 'GANJIL', '2020-01-01', '2035-12-31', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+		INSERT INTO whatsapp_channels (id, class_id, jid, channel_type, display_name, status)
+		VALUES (1, 1, '120363001234567890@g.us', 'GROUP', 'Grup TI-24A', 'ACTIVE');
+		INSERT INTO rooms (id, code, name) VALUES (1, 'LAB-2', 'Lab 2');
+		INSERT INTO courses (id, code, name) VALUES (1, 'CS201', 'Sistem Operasi');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name)
+		VALUES (1, 1, 1, 'THEORY', 'Sistem Operasi (Teori)');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, room_id, lifecycle_status, published_by_user_id, published_at)
+		VALUES (1, 'EXTRA', ?, ?, 1, 'PUBLISHED', 1, CURRENT_TIMESTAMP);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status)
+		VALUES (1, 1, 'OWNER', 'ACCEPTED');
+	`, starts.UTC().Format(time.RFC3339), ends.UTC().Format(time.RFC3339)); err != nil {
+		t.Fatalf("seed attendance worker gagal: %v", err)
+	}
+
+	mock := &mockWhatsAppSender{connected: true}
+	worker := NewNotificationWorker(db, mock)
+	svc := notify.NewService(db)
+	worker.SetScheduleService(svc)
+
+	worker.checkReminders(context.Background(), now)
+
+	n, err := worker.ProcessPending(context.Background())
+	if err != nil {
+		t.Fatalf("ProcessPending gagal: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 delivered attendance reminder, got %d", n)
+	}
+	if mock.sentMessage == nil {
+		t.Fatalf("expected mockWhatsAppSender to receive message")
+	}
+	got := mock.sentMessage.GetConversation()
+	for _, want := range []string{"PENGINGAT ABSEN", "Sistem Operasi", "LAB-2", "absen"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("pesan terkirim tidak memuat %q: %s", want, got)
 		}
 	}
 }

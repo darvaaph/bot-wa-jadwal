@@ -180,3 +180,70 @@ test('portal loads schedule and tasks in two requests and ignores a stale week r
   assert.equal(app.fullSchedule[0].title, 'latest');
   assert.equal(app.jadwalLoading, false);
 });
+
+test('km settings refuses submit before classSettings loads and restores attendance minutes on toggle', async () => {
+  let updateCalls = 0;
+  const ctx = appContext({
+    AsteriskShell: { behavior: () => ({}) },
+    examSessionBehavior: () => ({}),
+    localStorage: { getItem: () => '' },
+    API: {
+      getClassSettings: async () => { throw new Error('network error'); },
+      updateClassSettings: async () => { updateCalls++; }
+    }
+  });
+  vm.runInContext(source('web/js/app-km.js'), ctx);
+  const app = ctx.kmApp();
+  app.classSlug = 'd4-ti-2024-a';
+  app.showToast = () => {};
+
+  await app.loadPengaturanKelas();
+  assert.equal(app.classSettings, null);
+  assert.ok(app.settingsError);
+
+  await app.simpanPengaturan();
+  assert.equal(updateCalls, 0);
+  assert.ok(app.pengaturanFormError);
+
+  app.pengaturan.absenMenit = 40;
+  app.onAbsenMenitInput();
+  app.pengaturan.absenAktif = false;
+  app.onToggleAbsen();
+  app.pengaturan.absenMenit = '';
+  app.pengaturan.absenAktif = true;
+  app.onToggleAbsen();
+  assert.equal(app.pengaturan.absenMenit, 40);
+});
+
+test('system admin settings rejects empty attendance minutes and bubble avoids slop emoji', async () => {
+  let updateCalls = 0;
+  const ctx = appContext({
+    AsteriskShell: { behavior: () => ({}) },
+    localStorage: { getItem: () => '' },
+    API: {
+      updateClassSettings: async () => { updateCalls++; }
+    }
+  });
+  vm.runInContext(source('web/js/app-system-admin.js'), ctx);
+  const app = ctx.systemAdminApp();
+  app.kelasAktifObj = { slug: 'd4-ti-2024-a' };
+  app.detailSettings = { version: 1 };
+  app.pengingatForm = {
+    morning_reminder_time: '06:00',
+    afternoon_reminder_time: '17:00',
+    replacement_reminder_minutes: 60,
+    attendance_reminder_minutes: ''
+  };
+
+  await app.simpanPengingat();
+  assert.equal(updateCalls, 0);
+  assert.ok(app.pengingatError);
+
+  const bubble = app.getNotifBubbleData({
+    event_type: 'ATTENDANCE_REMINDER',
+    payload_json: JSON.stringify({ course: 'Basis Data', starts_at: '08:00 - 10:00 WIB', room: 'LAB-1' }),
+    scheduled_at: '2026-10-06T01:25:00Z'
+  });
+  assert.equal(bubble.title, 'PENGINGAT ABSEN KULIAH');
+  assert.equal(bubble.title.includes('📋'), false);
+});
