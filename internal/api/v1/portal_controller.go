@@ -463,8 +463,35 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Kelas tidak ditemukan")
 		return
 	}
+	buildSettingsSnapshot := func(tz string, morning, afternoon sql.NullString, repl int64, att int64) map[string]any {
+		snap := map[string]any{
+			"timezone":                     tz,
+			"replacement_reminder_minutes": repl,
+			"attendance_reminder_minutes":  att,
+		}
+		if morning.Valid {
+			snap["morning_reminder_time"] = morning.String
+		}
+		if afternoon.Valid {
+			snap["afternoon_reminder_time"] = afternoon.String
+		}
+		return snap
+	}
+	curReplVal := int64(60)
+	if curRepl.Valid {
+		curReplVal = curRepl.Int64
+	}
+	curAttVal := int64(25)
+	if curAtt.Valid {
+		curAttVal = curAtt.Int64
+	}
 	if req.Version != nil && *req.Version != curVersion {
-		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{"current_version": curVersion})
+		curData := buildSettingsSnapshot(curTz, curMorning, curAfternoon, curReplVal, curAttVal)
+		curData["version"] = curVersion
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data tidak cocok", map[string]any{
+			"current_version": curVersion,
+			"current_data":    curData,
+		})
 		return
 	}
 	sets := []string{}
@@ -478,6 +505,10 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		return herr == nil && merr == nil && h >= 0 && h <= 23 && m >= 0 && m <= 59
 	}
 	newTz := curTz
+	newMorning := curMorning
+	newAfternoon := curAfternoon
+	newReplVal := curReplVal
+	newAttVal := curAttVal
 	if req.Timezone != nil {
 		tz := strings.TrimSpace(*req.Timezone)
 		if _, err := time.LoadLocation(tz); err != nil {
@@ -496,6 +527,7 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		}
 		sets = append(sets, "morning_reminder_time = ?")
 		args = append(args, t)
+		newMorning = sql.NullString{String: t, Valid: true}
 	}
 	if req.AfternoonReminderTime != nil {
 		t := strings.TrimSpace(*req.AfternoonReminderTime)
@@ -505,6 +537,7 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		}
 		sets = append(sets, "afternoon_reminder_time = ?")
 		args = append(args, t)
+		newAfternoon = sql.NullString{String: t, Valid: true}
 	}
 	if req.ReplacementReminderMinutes != nil {
 		if *req.ReplacementReminderMinutes < 0 || *req.ReplacementReminderMinutes > 1440 {
@@ -513,6 +546,7 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		}
 		sets = append(sets, "replacement_reminder_minutes = ?")
 		args = append(args, *req.ReplacementReminderMinutes)
+		newReplVal = int64(*req.ReplacementReminderMinutes)
 	}
 	if req.AttendanceReminderMinutes != nil {
 		if *req.AttendanceReminderMinutes < 0 || *req.AttendanceReminderMinutes > 60 {
@@ -521,14 +555,23 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		}
 		sets = append(sets, "attendance_reminder_minutes = ?")
 		args = append(args, *req.AttendanceReminderMinutes)
+		newAttVal = int64(*req.AttendanceReminderMinutes)
 	}
 	if len(sets) == 0 {
 		common.WriteV1Error(w, http.StatusUnprocessableEntity, common.CodeValidation, "Tidak ada field yang diubah")
 		return
 	}
-	sets = append(sets, "version = version + 1")
+	sets = append(sets, "version = version + 1", "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')")
 	args = append(args, classID, curVersion)
-	res, err := c.db.Exec(`UPDATE class_settings SET `+strings.Join(sets, ", ")+` WHERE class_id = ? AND version = ?;`, args...)
+
+	tx, err := c.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memulai transaksi pengaturan kelas")
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(r.Context(), `UPDATE class_settings SET `+strings.Join(sets, ", ")+` WHERE class_id = ? AND version = ?;`, args...)
 	if err != nil {
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan pengaturan kelas")
 		return
@@ -537,15 +580,25 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Versi data berubah saat menyimpan")
 		return
 	}
-	beforeJSON := fmt.Sprintf(`{"timezone":%q}`, curTz)
-	afterJSON := fmt.Sprintf(`{"timezone":%q}`, newTz)
+	beforeBytes, err := json.Marshal(buildSettingsSnapshot(curTz, curMorning, curAfternoon, curReplVal, curAttVal))
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyusun log perubahan")
+		return
+	}
+	afterBytes, err := json.Marshal(buildSettingsSnapshot(newTz, newMorning, newAfternoon, newReplVal, newAttVal))
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyusun log perubahan")
+		return
+	}
+	beforeJSON := string(beforeBytes)
+	afterJSON := string(afterBytes)
 	uid := u.UserID
 	var raid *int64
 	if u.ActiveAssignmentID != 0 {
 		v := u.ActiveAssignmentID
 		raid = &v
 	}
-	_ = audit.Write(r.Context(), c.db, audit.Entry{
+	if err := audit.Write(r.Context(), tx, audit.Entry{
 		Actor:         audit.Actor{Type: "USER", UserID: &uid, RoleAssignmentID: raid},
 		ClassID:       &classID,
 		Action:        "UPDATE_CLASS_SETTINGS",
@@ -554,7 +607,14 @@ func (c *PortalController) UpdateClassSettings(w http.ResponseWriter, r *http.Re
 		BeforeJSON:    &beforeJSON,
 		AfterJSON:     &afterJSON,
 		CorrelationID: fmt.Sprintf("class-settings-%d-%d", classID, time.Now().UnixNano()),
-	})
+	}); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal mencatat audit pengaturan kelas")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyelesaikan transaksi pengaturan kelas")
+		return
+	}
 	common.WriteV1Success(w, http.StatusOK, map[string]any{"slug": slug, "version": curVersion + 1})
 }
 

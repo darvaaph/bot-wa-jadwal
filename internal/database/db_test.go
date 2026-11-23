@@ -294,6 +294,26 @@ func TestInitDBAppliesPendingMigration(t *testing.T) {
 	if triggerCount != 4 {
 		t.Fatalf("Trigger append-only berjumlah %d, diharapkan 4", triggerCount)
 	}
+
+	if _, err := db.Exec(`
+		INSERT INTO classes (id, code, slug, study_program, cohort_year, group_label)
+		VALUES (99, 'TEST-018', 'test-018', 'TI', 2026, 'A');
+		INSERT INTO class_settings (class_id, timezone) VALUES (99, 'Asia/Jakarta');
+	`); err != nil {
+		t.Fatalf("Gagal menyisipkan data uji class_settings pasca migrasi 018: %v", err)
+	}
+	var defAtt int
+	if err := db.QueryRow(`SELECT attendance_reminder_minutes FROM class_settings WHERE class_id = 99;`).Scan(&defAtt); err != nil {
+		t.Fatalf("Gagal membaca default attendance_reminder_minutes: %v", err)
+	}
+	if defAtt != 25 {
+		t.Fatalf("Default attendance_reminder_minutes setelah migrasi = %d, ingin 25", defAtt)
+	}
+	for _, invalidVal := range []int{-1, 61} {
+		if _, err := db.Exec(`UPDATE class_settings SET attendance_reminder_minutes = ? WHERE class_id = 99;`, invalidVal); err == nil {
+			t.Fatalf("Constraint CHECK seharusnya menolak attendance_reminder_minutes=%d", invalidVal)
+		}
+	}
 }
 
 func TestAppendOnlyTablesRejectMutation(t *testing.T) {

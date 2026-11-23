@@ -48,21 +48,32 @@ func (s *Service) SetDailyTextBuilder(builder func(context.Context, int64, time.
 func nowStr() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
 type Payload struct {
-	Text string `json:"text"`
-	Link string `json:"link,omitempty"`
+	Text     string `json:"text"`
+	Link     string `json:"link,omitempty"`
+	Course   string `json:"course,omitempty"`
+	StartsAt string `json:"starts_at,omitempty"`
+	EndsAt   string `json:"ends_at,omitempty"`
+	Room     string `json:"room,omitempty"`
 }
 
 // Enqueue inserts a message idempotently. Returns (id, created).
 // channelID <= 0 menyimpan pesan durable tanpa channel (PENDING, NULL, NULL)
 // menunggu ReconcilePendingChannels; tidak lagi membuang intent.
 func (s *Service) Enqueue(ctx context.Context, classID, channelID int64, eventType, entityType string, entityID int64, key, text, link string, scheduledAt time.Time, triggeredBy *int64) (int64, bool, error) {
+	if strings.TrimSpace(text) == "" {
+		return 0, false, ErrInvalidInput
+	}
+	return s.enqueuePayload(ctx, classID, channelID, eventType, entityType, entityID, key, Payload{Text: text, Link: link}, scheduledAt, triggeredBy)
+}
+
+func (s *Service) enqueuePayload(ctx context.Context, classID, channelID int64, eventType, entityType string, entityID int64, key string, p Payload, scheduledAt time.Time, triggeredBy *int64) (int64, bool, error) {
 	eventType = strings.TrimSpace(eventType)
 	entityType = strings.TrimSpace(entityType)
 	key = strings.TrimSpace(key)
-	if classID <= 0 || eventType == "" || entityType == "" || entityID <= 0 || key == "" || strings.TrimSpace(text) == "" {
+	if classID <= 0 || eventType == "" || entityType == "" || entityID <= 0 || key == "" || strings.TrimSpace(p.Text) == "" {
 		return 0, false, ErrInvalidInput
 	}
-	payload, _ := json.Marshal(Payload{Text: text, Link: link})
+	payload, _ := json.Marshal(p)
 	var chArg any
 	var schedArg any
 	if channelID > 0 {
@@ -590,6 +601,210 @@ func (s *Service) EnsureReplacementReminders(ctx context.Context, now time.Time)
 	return enqueued, failures
 }
 
+func attendanceKey(classID int64, date, entityKind string, entityID int64) string {
+	return fmt.Sprintf("attendance:%d:%s:%s:%d", classID, date, entityKind, entityID)
+}
+
+func tzAbbrev(zone string, ref time.Time) string {
+	switch strings.TrimSpace(zone) {
+	case "Asia/Jakarta", "Asia/Pontianak":
+		return "WIB"
+	case "Asia/Makassar", "Asia/Ujung_Pandang":
+		return "WITA"
+	case "Asia/Jayapura":
+		return "WIT"
+	}
+	abbr := ref.Format("MST")
+	if abbr == "" || strings.HasPrefix(abbr, "+") || strings.HasPrefix(abbr, "-") {
+		return "WIB"
+	}
+	return abbr
+}
+
+func buildAttendanceReminderText(classLabel, courseDisplay, startsAt, room, portalURL string) string {
+	var b strings.Builder
+	if strings.TrimSpace(classLabel) != "" {
+		fmt.Fprintf(&b, "*PENGINGAT ABSEN KULIAH • %s*\n", strings.TrimSpace(classLabel))
+	} else {
+		b.WriteString("*PENGINGAT ABSEN KULIAH*\n")
+	}
+	b.WriteString("─────────────\n")
+	if strings.TrimSpace(courseDisplay) != "" {
+		fmt.Fprintf(&b, "- Mata Kuliah: %s\n", strings.TrimSpace(courseDisplay))
+	}
+	if strings.TrimSpace(startsAt) != "" {
+		fmt.Fprintf(&b, "- Waktu: %s\n", strings.TrimSpace(startsAt))
+	}
+	if strings.TrimSpace(room) != "" {
+		fmt.Fprintf(&b, "- Ruang: %s\n", strings.TrimSpace(room))
+	}
+	b.WriteString("\nJangan lupa absen dan cek portal akademik.")
+	if strings.TrimSpace(portalURL) != "" {
+		fmt.Fprintf(&b, "\n\nDetail jadwal kelas:\n%s", strings.TrimSpace(portalURL))
+	}
+	return b.String()
+}
+
+// EnsureAttendanceReminders mengantrekan pengingat absen per sesi kuliah aktif yang telah melewati jeda (menit setelah mulai)
+// namun belum melewati waktu berakhirnya sesi.
+func (s *Service) EnsureAttendanceReminders(ctx context.Context, now time.Time) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, COALESCE(c.code, ''), COALESCE(c.slug, ''), sem.id,
+		       COALESCE(cs.timezone, 'Asia/Jakarta'), COALESCE(cs.attendance_reminder_minutes, 25)
+		FROM classes c
+		JOIN semesters sem ON sem.class_id = c.id AND sem.status = 'ACTIVE'
+		LEFT JOIN class_settings cs ON cs.class_id = c.id
+		WHERE c.status = 'ACTIVE'
+		  AND COALESCE(cs.attendance_reminder_minutes, 25) > 0
+	`)
+	if err != nil {
+		return 0, err
+	}
+
+	type classConfig struct {
+		classID   int64
+		code      string
+		slug      string
+		semID     int64
+		zone      string
+		delayMins int
+	}
+	var classes []classConfig
+	for rows.Next() {
+		var cfg classConfig
+		if err := rows.Scan(&cfg.classID, &cfg.code, &cfg.slug, &cfg.semID, &cfg.zone, &cfg.delayMins); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if cfg.delayMins > 0 {
+			classes = append(classes, cfg)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
+
+	var failures error
+	enqueued := 0
+	for _, cfg := range classes {
+		loc, err := time.LoadLocation(cfg.zone)
+		if err != nil {
+			loc = time.FixedZone("WIB", 7*3600)
+		}
+		localNow := now.In(loc)
+		dateStr := localNow.Format("2006-01-02")
+
+		sessions, err := schedule.ResolveEffective(ctx, s.db, cfg.classID, cfg.semID, localNow)
+		if err != nil {
+			failures = errors.Join(failures, fmt.Errorf("class %d: %w", cfg.classID, err))
+			continue
+		}
+		if len(sessions) == 0 {
+			continue
+		}
+
+		channelID, _, chErr := s.ChannelForClass(ctx, cfg.classID)
+		if errors.Is(chErr, ErrNotFound) {
+			continue
+		}
+		if chErr != nil {
+			failures = errors.Join(failures, fmt.Errorf("class %d channel: %w", cfg.classID, chErr))
+			continue
+		}
+
+		portalLink := util.PublicBaseURL() + "/c/"
+		if strings.TrimSpace(cfg.slug) != "" {
+			portalLink = fmt.Sprintf("%s/c/%s", util.PublicBaseURL(), strings.TrimSpace(cfg.slug))
+		}
+
+		for _, sess := range sessions {
+			var entityType, keyKind string
+			var entityID int64
+			switch sess.Kind {
+			case "REGULAR":
+				if sess.PatternID <= 0 {
+					continue
+				}
+				entityType, keyKind, entityID = "SCHEDULE_PATTERN", "pattern", sess.PatternID
+			case "REPLACEMENT", "EXTRA":
+				if sess.EventID <= 0 {
+					continue
+				}
+				entityType, keyKind, entityID = "TEACHING_EVENT", "event", sess.EventID
+			default:
+				continue
+			}
+
+			sessionStart, err := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+sess.StartTime, loc)
+			if err != nil {
+				continue
+			}
+			sessionEnd, err := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+sess.EndTime, loc)
+			if err != nil {
+				continue
+			}
+			if !sessionEnd.After(sessionStart) {
+				if sess.EndTime == "00:00" || sessionEnd.Before(sessionStart) {
+					sessionEnd = sessionEnd.Add(24 * time.Hour)
+				}
+			}
+			if !sessionEnd.After(sessionStart) {
+				continue
+			}
+
+			remindAt := sessionStart.Add(time.Duration(cfg.delayMins) * time.Minute)
+			if !remindAt.Before(sessionEnd) {
+				continue
+			}
+			if localNow.Before(remindAt) || !localNow.Before(sessionEnd) {
+				continue
+			}
+
+			key := attendanceKey(cfg.classID, dateStr, keyKind, entityID)
+			exists, err := s.hasReminder(ctx, key)
+			if err != nil {
+				failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+				continue
+			}
+			if exists {
+				continue
+			}
+
+			courseName := strings.TrimSpace(sess.Offering)
+			if courseName == "" {
+				courseName = strings.TrimSpace(sess.Title)
+			}
+			courseDisplay := util.FormatCourseWithActivity(courseName, sess.ActivityType)
+			if courseDisplay == "" {
+				courseDisplay = courseName
+			}
+
+			tz := tzAbbrev(cfg.zone, sessionStart)
+			startsAtLabel := fmt.Sprintf("%s - %s %s", sess.StartTime, sess.EndTime, tz)
+			room := strings.TrimSpace(sess.Room)
+			text := buildAttendanceReminderText(cfg.code, courseDisplay, startsAtLabel, room, portalLink)
+
+			p := Payload{
+				Text:     text,
+				Link:     portalLink,
+				Course:   courseDisplay,
+				StartsAt: startsAtLabel,
+				EndsAt:   sessionEnd.UTC().Format(time.RFC3339),
+				Room:     room,
+			}
+			_, created, err := s.enqueuePayload(ctx, cfg.classID, channelID, "ATTENDANCE_REMINDER", entityType, entityID, key, p, remindAt, nil)
+			if err != nil {
+				failures = errors.Join(failures, fmt.Errorf("%s: %w", key, err))
+			} else if created {
+				enqueued++
+			}
+		}
+	}
+	return enqueued, failures
+}
+
 // EnqueueEventRevoked creates a correction message and supersedes pending change messages.
 // Both writes happen in one transaction so a crash cannot leave duplicates.
 // Durable: tetap tersimpan tanpa channel ketika kelas belum punya kanal aktif.
@@ -660,6 +875,31 @@ func (s *Service) ReapStaleProcessing(ctx context.Context, now time.Time) (int64
 	return n, tx.Commit()
 }
 
+func isStaleReminder(eventType, key, payloadJSON string, now time.Time, loc *time.Location) bool {
+	today := now.In(loc).Format("2006-01-02")
+	switch strings.ToUpper(strings.TrimSpace(eventType)) {
+	case "DAILY_SUMMARY", "TASK_REMINDER":
+		return (strings.HasPrefix(key, "daily:") || strings.HasPrefix(key, "tasks:")) && !strings.HasSuffix(key, today)
+	case "ATTENDANCE_REMINDER":
+		var p Payload
+		if err := json.Unmarshal([]byte(payloadJSON), &p); err == nil && strings.TrimSpace(p.EndsAt) != "" {
+			if endsAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(p.EndsAt)); err == nil {
+				return !now.Before(endsAt)
+			}
+			if endsAt, err := time.Parse(time.RFC3339, strings.TrimSpace(p.EndsAt)); err == nil {
+				return !now.Before(endsAt)
+			}
+		}
+		if strings.HasPrefix(key, "attendance:") {
+			parts := strings.Split(key, ":")
+			if len(parts) >= 3 && parts[2] != "" && parts[2] != today {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // ProcessDue owns claiming, durable attempts, delivery and finalization for every caller.
 func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now time.Time) (int, int, error) {
 	if _, err := s.ReapStaleProcessing(ctx, now); err != nil {
@@ -722,7 +962,7 @@ func (s *Service) ProcessDue(ctx context.Context, sender Sender, limit int, now 
 			tx.Rollback()
 			return sent, failed, err
 		}
-		if (eventType == "DAILY_SUMMARY" || eventType == "TASK_REMINDER") && (strings.HasPrefix(key, "daily:") || strings.HasPrefix(key, "tasks:")) && !strings.HasSuffix(key, now.In(loc).Format("2006-01-02")) {
+		if isStaleReminder(eventType, key, payload, now, loc) {
 			if _, err := tx.ExecContext(ctx, `UPDATE notification_messages SET status='SUPERSEDED',updated_at=? WHERE id=?`, nowStr(), id); err != nil {
 				tx.Rollback()
 				return sent, failed, err

@@ -45,6 +45,8 @@ CREATE TABLE class_settings (
     afternoon_reminder_time TEXT,
     replacement_reminder_minutes INTEGER NOT NULL DEFAULT 60
         CHECK (replacement_reminder_minutes >= 0),
+    attendance_reminder_minutes INTEGER NOT NULL DEFAULT 25
+        CHECK (attendance_reminder_minutes BETWEEN 0 AND 60),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

@@ -350,3 +350,173 @@ func TestFormatTaskDeadline(t *testing.T) {
 		})
 	}
 }
+
+func TestNotify_EnsureAttendanceReminders_WindowAndIdempotency(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO rooms (id, code, name) VALUES (1, 'LAB-1', 'Lab Komputer 1');
+		INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name)
+		VALUES (1, 1, 1, 'THEORY', 'Pemrograman (Teori)');
+		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, status)
+		VALUES (1, 1, 1, 2, '08:00', '10:00', 'ACTIVE');
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	loc := time.FixedZone("WIB", 7*3600)
+	// Selasa 2026-10-06 08:24 WIB -> belum mencapai 08:00 + 25 menit (08:25)
+	before := time.Date(2026, 10, 6, 8, 24, 0, 0, loc)
+	if n, err := svc.EnsureAttendanceReminders(ctx, before); err != nil || n != 0 {
+		t.Fatalf("sebelum 08:25 WIB harus 0, got n=%d err=%v", n, err)
+	}
+
+	// Tepat 08:25 WIB -> mengantrekan 1 pengingat
+	at25 := time.Date(2026, 10, 6, 8, 25, 0, 0, loc)
+	if n, err := svc.EnsureAttendanceReminders(ctx, at25); err != nil || n != 1 {
+		t.Fatalf("pada 08:25 WIB harus 1, got n=%d err=%v", n, err)
+	}
+
+	var eventType, entityType, payload string
+	var entityID int64
+	if err := svc.db.QueryRowContext(ctx, `
+		SELECT event_type, entity_type, entity_id, payload_json
+		FROM notification_messages
+		WHERE idempotency_key = 'attendance:1:2026-10-06:pattern:1';
+	`).Scan(&eventType, &entityType, &entityID, &payload); err != nil {
+		t.Fatalf("baris outbox pengingat absen tidak ditemukan: %v", err)
+	}
+	if eventType != "ATTENDANCE_REMINDER" || entityType != "SCHEDULE_PATTERN" || entityID != 1 {
+		t.Fatalf("metadata outbox tidak sesuai: event=%s entity=%s:%d", eventType, entityType, entityID)
+	}
+	for _, want := range []string{"PENGINGAT ABSEN", "D4-TI-2024-A", "Pemrograman", "08:00 - 10:00", "LAB-1", "absen", "/c/d4-ti-2024-a-n"} {
+		if !strings.Contains(payload, want) {
+			t.Errorf("payload harus memuat %q, got: %s", want, payload)
+		}
+	}
+	slopEmojis := []string{"📅", "📌", "⏰", "🏢", "👨‍🏫", "🎉", "💬", "📋", "📚", "⏳", "📝", "🔗", "📍", "✏️", "📢", "⚠️", "🚨", "⌛", "👥", "📤"}
+	for _, emoji := range slopEmojis {
+		if strings.Contains(payload, emoji) {
+			t.Errorf("payload memuat emoji slop %s: %s", emoji, payload)
+		}
+	}
+
+	// Idempoten walau setelan diubah setelah sesi berjalan
+	if _, err := svc.db.ExecContext(ctx, `UPDATE class_settings SET attendance_reminder_minutes = 15 WHERE class_id = 1;`); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := svc.EnsureAttendanceReminders(ctx, at25.Add(5*time.Minute)); err != nil || n != 0 {
+		t.Fatalf("polling ulang harus idempoten (0), got n=%d err=%v", n, err)
+	}
+}
+
+func TestNotify_EnsureAttendanceReminders_KindsDisabledAndShortSession(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO users (id, identity_key, display_name, password_hash) VALUES (1, 'user:test', 'Test', 'disabled');
+		INSERT INTO rooms (id, code, name) VALUES (1, 'R-201', 'Ruang 201');
+		INSERT INTO courses (id, code, name) VALUES
+			(1, 'CS101', 'Basis Data'),
+			(2, 'CS102', 'Jaringan'),
+			(3, 'CS103', 'Kalkulus'),
+			(4, 'CS104', 'Agama');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name) VALUES
+			(1, 1, 1, 'THEORY', 'Basis Data (Teori)'),
+			(2, 1, 2, 'PRACTICE', 'Jaringan (Praktik)'),
+			(3, 1, 3, 'THEORY', 'Kalkulus (Teori)'),
+			(4, 1, 4, 'THEORY', 'Agama (Teori)');
+		-- Pattern 1: durasi 50 menit (08:00-08:50) -> dilewati jika jeda 60 menit
+		-- Pattern 2: dibatalkan oleh SESSION_CANCELLED pada 2026-10-06
+		-- Pattern 3: diganti oleh EXAM_UTS pada 2026-10-06
+		INSERT INTO schedule_patterns (id, course_offering_id, room_id, day_of_week, start_time, end_time, status) VALUES
+			(1, 1, 1, 2, '08:00', '08:50', 'ACTIVE'),
+			(2, 2, 1, 2, '09:00', '11:00', 'ACTIVE'),
+			(3, 3, 1, 2, '13:00', '15:00', 'ACTIVE');
+		INSERT INTO teaching_events (id, event_kind, starts_at, ends_at, origin_schedule_pattern_id, origin_occurrence_date, room_id, lifecycle_status, published_by_user_id, published_at) VALUES
+			(10, 'SESSION_CANCELLED', '2026-10-06T09:00:00+07:00', '2026-10-06T11:00:00+07:00', 2, '2026-10-06', 1, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+			(11, 'EXAM_UTS', '2026-10-06T13:00:00+07:00', '2026-10-06T15:00:00+07:00', 3, '2026-10-06', 1, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+			(12, 'REPLACEMENT', '2026-10-06T10:00:00+07:00', '2026-10-06T12:00:00+07:00', 2, '2026-10-06', 1, 'PUBLISHED', 1, CURRENT_TIMESTAMP),
+			(13, 'EXTRA', '2026-10-06T15:00:00+07:00', '2026-10-06T17:00:00+07:00', NULL, NULL, 1, 'PUBLISHED', 1, CURRENT_TIMESTAMP);
+		INSERT INTO teaching_event_offerings (teaching_event_id, course_offering_id, participation_role, participation_status) VALUES
+			(10, 2, 'OWNER', 'ACCEPTED'),
+			(11, 3, 'OWNER', 'ACCEPTED'),
+			(12, 2, 'OWNER', 'ACCEPTED'),
+			(13, 4, 'OWNER', 'ACCEPTED');
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	loc := time.FixedZone("WIB", 7*3600)
+	// 1. Jika nonaktif (0) -> 0
+	if _, err := svc.db.ExecContext(ctx, `UPDATE class_settings SET attendance_reminder_minutes = 0 WHERE class_id = 1;`); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 11, 0, 0, 0, loc)); err != nil || n != 0 {
+		t.Fatalf("saat nonaktif (0) harus 0, got n=%d err=%v", n, err)
+	}
+
+	// 2. Set jeda 60 menit -> sesi pendek 08:00-08:50 (remindAt 09:00 >= 08:50) dilewati; REPLACEMENT 10:00-12:00 di 11:10 WIB aktif!
+	if _, err := svc.db.ExecContext(ctx, `UPDATE class_settings SET attendance_reminder_minutes = 60 WHERE class_id = 1;`); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 8, 45, 0, 0, loc)); err != nil || n != 0 {
+		t.Fatalf("sesi lebih pendek dari jeda 60m harus dilewati, got n=%d err=%v", n, err)
+	}
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 11, 10, 0, 0, loc)); err != nil || n != 1 {
+		t.Fatalf("REPLACEMENT aktif di 11:10 WIB harus antrekan 1 pesan, got n=%d err=%v", n, err)
+	}
+	if exists, err := svc.hasReminder(ctx, "attendance:1:2026-10-06:event:12"); err != nil || !exists {
+		t.Fatalf("key event REPLACEMENT tidak ditemukan: exists=%v err=%v", exists, err)
+	}
+
+	// 3. EXAM_UTS di 14:10 WIB harus diabaikan (0)
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 14, 10, 0, 0, loc)); err != nil || n != 0 {
+		t.Fatalf("EXAM_UTS harus diabaikan, got n=%d err=%v", n, err)
+	}
+
+	// 4. EXTRA di 16:05 WIB aktif, namun pada 17:00 WIB (== ends_at) dilewati!
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 17, 0, 0, 0, loc)); err != nil || n != 0 {
+		t.Fatalf("setelah ends_at tidak boleh enqueue, got n=%d err=%v", n, err)
+	}
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 16, 5, 0, 0, loc)); err != nil || n != 1 {
+		t.Fatalf("EXTRA aktif di 16:05 WIB harus antrekan 1 pesan, got n=%d err=%v", n, err)
+	}
+	if exists, err := svc.hasReminder(ctx, "attendance:1:2026-10-06:event:13"); err != nil || !exists {
+		t.Fatalf("key event EXTRA tidak ditemukan: exists=%v err=%v", exists, err)
+	}
+}
+
+func TestNotify_ProcessDue_SupersedesStaleAttendanceReminder(t *testing.T) {
+	svc, ctx := newNotifyTestDB(t)
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO courses (id, code, name) VALUES (1, 'CS101', 'Pemrograman');
+		INSERT INTO course_offerings (id, semester_id, course_id, activity_type, display_name)
+		VALUES (1, 1, 1, 'THEORY', 'Pemrograman (Teori)');
+		INSERT INTO schedule_patterns (id, course_offering_id, day_of_week, start_time, end_time, status)
+		VALUES (1, 1, 2, '08:00', '10:00', 'ACTIVE');
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	loc := time.FixedZone("WIB", 7*3600)
+	if n, err := svc.EnsureAttendanceReminders(ctx, time.Date(2026, 10, 6, 8, 25, 0, 0, loc)); err != nil || n != 1 {
+		t.Fatalf("enqueue gagal: n=%d err=%v", n, err)
+	}
+
+	// Simulasikan bot baru online setelah kelas selesai (10:05 WIB)
+	sender := &fakeSender{}
+	sent, failed, err := svc.ProcessDue(ctx, sender, 10, time.Date(2026, 10, 6, 10, 5, 0, 0, loc))
+	if err != nil || sent != 0 || failed != 0 {
+		t.Fatalf("pesan basi tidak boleh dikirim: sent=%d failed=%d err=%v", sent, failed, err)
+	}
+	if len(sender.sent) != 0 {
+		t.Fatalf("sender tidak boleh dipanggil untuk pengingat absen kedaluwarsa, got: %v", sender.sent)
+	}
+	var status string
+	if err := svc.db.QueryRowContext(ctx, `SELECT status FROM notification_messages WHERE idempotency_key = 'attendance:1:2026-10-06:pattern:1'`).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "SUPERSEDED" {
+		t.Fatalf("status pesan basi harus SUPERSEDED, got %s", status)
+	}
+}

@@ -53,7 +53,7 @@ var v1Schema = []string{
 		morning_reminder_time TEXT,
 		afternoon_reminder_time TEXT,
 		replacement_reminder_minutes INTEGER,
-		attendance_reminder_minutes INTEGER DEFAULT 25,
+		attendance_reminder_minutes INTEGER NOT NULL DEFAULT 25 CHECK (attendance_reminder_minutes BETWEEN 0 AND 60),
 		version INTEGER NOT NULL DEFAULT 1
 	);`,
 	`CREATE TABLE IF NOT EXISTS semesters (
