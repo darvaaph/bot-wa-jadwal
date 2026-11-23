@@ -69,15 +69,6 @@ func NewHandler(classManager *schedule.ClassManager, taskManager *task.TaskManag
 	}
 }
 
-// RegisterRoutes mendaftarkan seluruh endpoint legacy ke ServeMux
-func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/classes", h.HandleClasses)
-	mux.HandleFunc("GET /api/schedule", h.HandleSchedule)
-	mux.HandleFunc("GET /api/tasks", h.HandleGetTasks)
-	mux.HandleFunc("POST /api/tasks", h.HandleCreateTask)
-	mux.HandleFunc("DELETE /api/tasks/{id}", h.HandleDeleteTask)
-}
-
 // HandleClasses menyajikan daftar seluruh kode kelas kanonikal beserta kelas default (Legacy Shim)
 func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Deprecation", "true")
@@ -90,6 +81,22 @@ func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 			classes = make([]string, 0)
 		}
 		defaultClass = h.classManager.GetDefaultClassID()
+	}
+
+	if len(classes) == 0 && h.v1DB != nil {
+		rows, err := h.v1DB.QueryContext(r.Context(), `SELECT code FROM classes WHERE status = 'ACTIVE' ORDER BY code;`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var code string
+				if err := rows.Scan(&code); err == nil {
+					classes = append(classes, code)
+				}
+			}
+			if len(classes) > 0 && defaultClass == "" {
+				defaultClass = classes[0]
+			}
+		}
 	}
 
 	resp := ClassesResponse{
@@ -107,6 +114,10 @@ func (h *Handler) HandleClasses(w http.ResponseWriter, r *http.Request) {
 // HandleSchedule menyajikan jadwal perkuliahan berdasarkan kelas dan filter hari (Legacy Shim)
 func (h *Handler) HandleSchedule(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Deprecation", "true")
+	if h.v1DB != nil {
+		common.WriteJSON(w, http.StatusGone, map[string]string{"error": "Gunakan jadwal portal /api/v1/portal/{slug}/schedule"})
+		return
+	}
 	if h.classManager == nil {
 		common.WriteJSON(w, http.StatusNotFound, map[string]string{
 			"status":  "error",
@@ -267,6 +278,9 @@ func (h *Handler) GetLegacyTaskViewFromV1(ctx context.Context, classQuery string
 		JOIN semesters sem ON sem.id = co.semester_id
 		JOIN classes cl ON cl.id = sem.class_id
 		WHERE t.publication_status = 'PUBLISHED'
+		  AND sem.status = 'ACTIVE' AND sem.published_at IS NOT NULL
+		  AND cl.status = 'ACTIVE'
+		  AND EXISTS (SELECT 1 FROM class_settings cs WHERE cs.class_id=cl.id AND cs.portal_access_mode='LINK')
 		  AND t.completed_at IS NULL
 		  AND t.archived_at IS NULL
 		  AND t.deleted_at IS NULL`

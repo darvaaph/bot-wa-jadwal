@@ -45,6 +45,8 @@ CREATE TABLE class_settings (
     afternoon_reminder_time TEXT,
     replacement_reminder_minutes INTEGER NOT NULL DEFAULT 60
         CHECK (replacement_reminder_minutes >= 0),
+    attendance_reminder_minutes INTEGER NOT NULL DEFAULT 25
+        CHECK (attendance_reminder_minutes BETWEEN 0 AND 60),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -367,7 +369,7 @@ CREATE TABLE teaching_events (
     origin_occurrence_date TEXT,
     result_schedule_pattern_id INTEGER,
     event_kind TEXT NOT NULL
-        CHECK (event_kind IN ('REPLACEMENT', 'EXTRA', 'HOLIDAY', 'SESSION_CANCELLED')),
+        CHECK (event_kind IN ('REPLACEMENT', 'EXTRA', 'HOLIDAY', 'SESSION_CANCELLED', 'EXAM_UTS', 'EXAM_UAS')),
     starts_at TEXT NOT NULL,
     ends_at TEXT NOT NULL,
     room_id INTEGER,
@@ -499,7 +501,7 @@ CREATE TABLE tasks (
     CHECK (publication_status = 'DRAFT' OR published_at IS NOT NULL),
     CHECK (
         (review_state = 'NOT_REVIEWED' AND reviewed_version IS NULL) OR
-        (review_state <> 'NOT_REVIEWED' AND reviewed_version = version)
+        (review_state <> 'NOT_REVIEWED' AND reviewed_version >= 1 AND reviewed_version <= version)
     ),
     CHECK (review_state <> 'APPROVED' OR publication_status = 'PUBLISHED'),
     CHECK (review_state <> 'CHANGES_REQUESTED' OR publication_status = 'DRAFT'),

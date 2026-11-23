@@ -428,6 +428,7 @@
   </div>
 
   <!-- MODAL 2: Usulkan Ruangan Baru / Koreksi (SCR-KM-ROOM-002) -->
+  <template x-if="roleLabel === 'KM'">
   <div x-show="usulanRuangModal.open"
        x-cloak
        x-transition:enter="transition ease-out duration-200"
@@ -686,4 +687,5 @@
       </div>
     </div>
   </div>
+  </template>
 </section>

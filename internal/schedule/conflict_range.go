@@ -1,15 +1,13 @@
-package v1
+package schedule
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
-
-	"bot-jadwal/internal/schedule"
 )
 
-func checkPatternRange(ctx context.Context, db *sql.DB, candidate schedule.Candidate, from, until string) ([]schedule.Conflict, error) {
+// CheckPatternRange checks each occurrence and reuses lecturer assignments across dates.
+func CheckPatternRange(ctx context.Context, db conflictReader, candidate Candidate, from, until string) ([]Conflict, error) {
 	start, err := time.Parse("2006-01-02", from)
 	if err != nil {
 		return nil, err
@@ -18,8 +16,9 @@ func checkPatternRange(ctx context.Context, db *sql.DB, candidate schedule.Candi
 	if err != nil {
 		return nil, err
 	}
+	lecturers := map[int64][]int64{}
 	seen := map[string]bool{}
-	out := []schedule.Conflict{}
+	out := []Conflict{}
 	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
 		weekday := int(day.Weekday())
 		if weekday == 0 {
@@ -29,7 +28,7 @@ func checkPatternRange(ctx context.Context, db *sql.DB, candidate schedule.Candi
 			continue
 		}
 		candidate.PatternDate = day.Format("2006-01-02")
-		conflicts, err := schedule.CheckConflicts(ctx, db, candidate)
+		conflicts, err := checkConflicts(ctx, db, candidate, lecturers)
 		if err != nil {
 			return nil, err
 		}

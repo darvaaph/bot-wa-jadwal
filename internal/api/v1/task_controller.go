@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"bot-jadwal/internal/api/common"
-	"bot-jadwal/internal/api/middleware"
 	"bot-jadwal/internal/audit"
 )
 
@@ -61,19 +60,6 @@ func NewTaskController(db *sql.DB) *TaskController {
 	return &TaskController{db: db}
 }
 
-// RegisterRoutes mendaftarkan seluruh endpoint tugas v1 ke ServeMux
-func (c *TaskController) RegisterRoutes(mux *http.ServeMux, auth *middleware.AuthManager) {
-	mux.HandleFunc("GET /api/v1/tasks", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTasks)))
-	mux.HandleFunc("POST /api/v1/tasks", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CreateTask)))
-	mux.HandleFunc("GET /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.GetTaskDetail)))
-	mux.HandleFunc("PATCH /api/v1/tasks/{id}", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.PatchTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/reviews", auth.RequireAuth(middleware.RequireRole("KM", "SYSTEM_ADMIN")(c.ReviewTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/complete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.CompleteTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/uncomplete", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.UncompleteTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/archive", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.ArchiveTask)))
-	mux.HandleFunc("POST /api/v1/tasks/{id}/restore", auth.RequireAuth(middleware.RequireRole("KM", "PJ", "SYSTEM_ADMIN")(c.RestoreTask)))
-}
-
 // GetTasks menangani GET /api/v1/tasks
 func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	u, ok := common.GetAuthContext(r)
@@ -109,7 +95,7 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		query += " AND t.course_offering_id = ?"
 		args = append(args, u.ActiveCourseOfferingID.Int64)
-	} else if u.ActiveRole == "KM" {
+	} else if u.ActiveRole == "KM" || (u.ActiveRole == "SYSTEM_ADMIN" && u.ActiveClassID.Valid) {
 		if !u.ActiveClassID.Valid {
 			common.WriteV1Error(w, http.StatusForbidden, common.CodeForbidden, "Konteks kelas KM tidak aktif")
 			return
@@ -128,6 +114,8 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	// Filter berdasarkan Tab
 	switch tab {
+	case "semua":
+		query += " AND (sem.status IN ('ACTIVE','DRAFT') OR t.archived_at IS NOT NULL)"
 	case "draf":
 		query += " AND sem.status IN ('ACTIVE', 'DRAFT') AND t.publication_status = 'DRAFT' AND t.archived_at IS NULL"
 	case "review":
@@ -151,7 +139,7 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var tasks []map[string]any
+	tasks := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, offID int64
 		var offName, title, instr, pubStatus, revState string
@@ -163,7 +151,10 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		var createdByUserID sql.NullInt64
 		var creatorName sql.NullString
 
-		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &createdAt, &createdByUserID, &creatorName); err == nil {
+		if err := rows.Scan(&id, &offID, &offName, &title, &instr, &deadlineAt, &taskType, &subText, &subURL, &pubStatus, &revState, &version, &completedAt, &archivedAt, &createdAt, &createdByUserID, &creatorName); err != nil {
+			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal membaca daftar tugas")
+			return
+		} else {
 			tasks = append(tasks, map[string]any{
 				"id":                 id,
 				"offering_id":        offID,
@@ -206,6 +197,10 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memuat daftar tugas")
+		return
+	}
 	common.WriteV1Success(w, http.StatusOK, tasks)
 }
 
@@ -299,6 +294,9 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	var taskID int64
+	if !common.GuardAcademicMutation(w, r, tx, classID, req.OfferingID) {
+		return
+	}
 	err = tx.QueryRow(`
 		INSERT INTO tasks (
 			course_offering_id, title, instructions, deadline_at, task_type,
@@ -362,41 +360,15 @@ func (c *TaskController) CreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
-		return
-	}
-
 	if publicationStatus == "PUBLISHED" && reviewState == "APPROVED" {
-		var offName, classSlug string
-		var classID int64
-		_ = c.db.QueryRow(`
-			SELECT co.display_name, sem.class_id, c.slug
-			FROM course_offerings co
-			JOIN semesters sem ON co.semester_id = sem.id
-			JOIN classes c ON sem.class_id = c.id
-			WHERE co.id = ?;
-		`, req.OfferingID).Scan(&offName, &classID, &classSlug)
-
-		sub := ""
-		if req.SubmissionURL != nil && *req.SubmissionURL != "" {
-			sub = *req.SubmissionURL
-		} else if req.SubmissionText != nil && *req.SubmissionText != "" {
-			sub = *req.SubmissionText
+		if err := queueTaskNotification(r.Context(), tx, taskID, "TASK_PUBLISHED", u.UserID); err != nil {
+			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan notifikasi")
+			return
 		}
-
-		loc, _ := time.LoadLocation("Asia/Jakarta")
-		if loc == nil {
-			loc = time.Local
-		}
-		common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
-			"course":         offName,
-			"title":          req.Title,
-			"deadline":       deadlineTime.In(loc).Format("02 Jan 2006 15:04 WIB"),
-			"instructions":   req.Instructions,
-			"submission_url": sub,
-			"class_slug":     classSlug,
-		}, u.UserID)
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit transaksi")
+		return
 	}
 
 	common.WriteV1Success(w, http.StatusCreated, map[string]any{
@@ -711,6 +683,9 @@ func (c *TaskController) PatchTask(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	if !common.GuardAcademicMutation(w, r, tx, curClassID, curOfferingID) {
+		return
+	}
 	res, err := tx.Exec(`
 		UPDATE tasks
 		SET title = ?, instructions = ?, deadline_at = ?, task_type = ?,
@@ -777,8 +752,18 @@ func (c *TaskController) PatchTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := common.SupersedeNotifications(r.Context(), tx, "TASK", taskID); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal mengganti notifikasi lama")
+		return
+	}
+	if curPubStatus == "PUBLISHED" && newPubStatus != "PUBLISHED" {
+		if err := common.QueueNotification(r.Context(), tx, curClassID, "TASK_REVOKED", "TASK", taskID, map[string]any{"text": "Publikasi tugas ditarik untuk koreksi. Periksa portal kelas untuk informasi terbaru.", "version": newVersion}, u.UserID); err != nil {
+			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan koreksi tugas")
+			return
+		}
+	}
 	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit transaksi")
 		return
 	}
 
@@ -824,16 +809,19 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var currentVersion int
-	var currentPubStatus string
-	var classID int64
+	var (
+		currentVersion   int
+		currentPubStatus string
+		currentRevState  string
+		classID          int64
+	)
 	err := c.db.QueryRow(`
-		SELECT t.version, t.publication_status, sem.class_id
+		SELECT t.version, t.publication_status, t.review_state, sem.class_id
 		FROM tasks t
 		JOIN course_offerings co ON t.course_offering_id = co.id
 		JOIN semesters sem ON co.semester_id = sem.id
 		WHERE t.id = ? AND t.deleted_at IS NULL;
-	`, taskID).Scan(&currentVersion, &currentPubStatus, &classID)
+	`, taskID).Scan(&currentVersion, &currentPubStatus, &currentRevState, &classID)
 
 	if err == sql.ErrNoRows {
 		common.WriteV1Error(w, http.StatusNotFound, common.CodeNotFound, "Tugas tidak ditemukan")
@@ -871,6 +859,14 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	var reviewOfferingID int64
+	if err := tx.QueryRow(`SELECT course_offering_id FROM tasks WHERE id=?`, taskID).Scan(&reviewOfferingID); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memeriksa offering")
+		return
+	}
+	if !common.GuardAcademicMutation(w, r, tx, classID, reviewOfferingID) {
+		return
+	}
 	res, err := tx.Exec(`
 		UPDATE tasks
 		SET publication_status = ?, review_state = ?, reviewed_version = ?, updated_at = CURRENT_TIMESTAMP
@@ -891,11 +887,33 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var existingReviewID int64
+	errReview := tx.QueryRow(`
+		SELECT id FROM task_reviews
+		WHERE task_id = ? AND task_version = ? AND decision = ? AND reviewer_role_assignment_id = ?
+	`, taskID, currentVersion, decision, u.ActiveAssignmentID).Scan(&existingReviewID)
+	if errReview == nil {
+		common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Keputusan pemeriksaan untuk versi tugas ini sudah pernah dicatat", map[string]any{
+			"current_version": currentVersion,
+			"current_data": map[string]any{
+				"publication_status": currentPubStatus,
+				"review_state":       currentRevState,
+			},
+		})
+		return
+	}
+
 	_, err = tx.Exec(`
 		INSERT INTO task_reviews (task_id, reviewer_user_id, reviewer_role_assignment_id, task_version, decision, note)
 		VALUES (?, ?, ?, ?, ?, ?);
 	`, taskID, u.UserID, u.ActiveAssignmentID, currentVersion, decision, req.Note)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			common.WriteV1Error(w, http.StatusConflict, common.CodeVersionConflict, "Keputusan pemeriksaan untuk versi tugas ini sudah pernah dicatat", map[string]any{
+				"current_version": currentVersion,
+			})
+			return
+		}
 		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal menyimpan catatan review")
 		return
 	}
@@ -923,49 +941,30 @@ func (c *TaskController) ReviewTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal melakukan commit transaksi")
+	if err := common.SupersedeNotifications(r.Context(), tx, "TASK", taskID); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal mengganti notifikasi lama")
 		return
 	}
-
 	if decision == "APPROVED" {
 		shouldBroadcast := true
 		if req.BroadcastWhatsApp != nil {
 			shouldBroadcast = *req.BroadcastWhatsApp
 		}
 		if shouldBroadcast {
-			var offName, title, instr, subURL, subText, classSlug string
-			var deadlineAt common.DBTimestamp
-			var classID int64
-			_ = c.db.QueryRow(`
-				SELECT co.display_name, t.title, COALESCE(t.instructions, ''),
-				       t.deadline_at, COALESCE(t.submission_url, ''), COALESCE(t.submission_text, ''),
-				       sem.class_id, c.slug
-				FROM tasks t
-				JOIN course_offerings co ON t.course_offering_id = co.id
-				JOIN semesters sem ON co.semester_id = sem.id
-				JOIN classes c ON sem.class_id = c.id
-				WHERE t.id = ?;
-			`, taskID).Scan(&offName, &title, &instr, &deadlineAt, &subURL, &subText, &classID, &classSlug)
-
-			sub := subURL
-			if sub == "" {
-				sub = subText
+			if err := queueTaskNotification(r.Context(), tx, taskID, "TASK_PUBLISHED", u.UserID); err != nil {
+				common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan notifikasi tugas")
+				return
 			}
-
-			loc, _ := time.LoadLocation("Asia/Jakarta")
-			if loc == nil {
-				loc = time.Local
-			}
-			common.QueueNotification(c.db, classID, "TASK_PUBLISHED", "TASK", taskID, map[string]any{
-				"course":         offName,
-				"title":          title,
-				"deadline":       deadlineAt.Time.In(loc).Format("02 Jan 2006 15:04 WIB"),
-				"instructions":   instr,
-				"submission_url": sub,
-				"class_slug":     classSlug,
-			}, u.UserID)
 		}
+	} else if currentPubStatus == "PUBLISHED" {
+		if err := common.QueueNotification(r.Context(), tx, classID, "TASK_REVOKED", "TASK", taskID, map[string]any{"text": "Publikasi tugas ditarik untuk koreksi. Periksa portal kelas untuk informasi terbaru.", "version": currentVersion, "decision": decision}, u.UserID); err != nil {
+			common.WriteV1Error(w, 500, "DB_ERROR", "Gagal menyimpan koreksi tugas")
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit transaksi")
+		return
 	}
 
 	common.WriteV1Success(w, http.StatusOK, map[string]any{
@@ -1066,18 +1065,25 @@ func (c *TaskController) handleTaskStateChange(w http.ResponseWriter, r *http.Re
 	defer tx.Rollback()
 
 	var updateQuery string
+	if !common.GuardAcademicMutation(w, r, tx, classID, offID) {
+		return
+	}
+	if _, err := tx.Exec(`UPDATE tasks SET review_state='NOT_REVIEWED',reviewed_version=NULL WHERE id=? AND review_state<>'NOT_REVIEWED' AND NOT EXISTS(SELECT 1 FROM task_reviews r WHERE r.task_id=tasks.id AND r.task_version=tasks.reviewed_version AND r.decision=tasks.review_state)`, taskID); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal memeriksa bukti review")
+		return
+	}
 	var auditAction string
 	if action == "complete" {
-		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		updateQuery = "UPDATE tasks SET completed_at = CURRENT_TIMESTAMP, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "COMPLETE_TASK"
 	} else if action == "uncomplete" {
-		updateQuery = "UPDATE tasks SET completed_at = NULL, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		updateQuery = "UPDATE tasks SET completed_at = NULL, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "UNCOMPLETE_TASK"
 	} else if action == "archive" {
-		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		updateQuery = "UPDATE tasks SET archived_at = CURRENT_TIMESTAMP, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "ARCHIVE_TASK"
 	} else if action == "restore" {
-		updateQuery = "UPDATE tasks SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, deleted_by_user_id = NULL, reviewed_version = CASE WHEN review_state = 'NOT_REVIEWED' THEN NULL ELSE version + 1 END, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
+		updateQuery = "UPDATE tasks SET archived_at = NULL, completed_at = NULL, deleted_at = NULL, deleted_by_user_id = NULL, version = version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ?;"
 		auditAction = "RESTORE_TASK"
 	}
 
@@ -1113,11 +1119,14 @@ func (c *TaskController) handleTaskStateChange(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", fmt.Sprintf("Gagal melakukan commit transaksi: %v", err))
+	if err := common.SupersedeNotifications(r.Context(), tx, "TASK", taskID); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal mengganti notifikasi status tugas")
 		return
 	}
-
+	if err := tx.Commit(); err != nil {
+		common.WriteV1Error(w, 500, "DB_ERROR", "Gagal commit transaksi")
+		return
+	}
 	if action == "restore" {
 		common.WriteV1Success(w, http.StatusOK, map[string]any{"restored": true, "version": curVersion + 1})
 	} else {

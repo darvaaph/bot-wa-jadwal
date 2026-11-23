@@ -21,7 +21,7 @@ var schemaSQL string
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-const LatestSchemaVersion = 15
+const LatestSchemaVersion = 18
 
 // SchemaSQL mengekspos string DDL SQL untuk keperluan inspeksi atau pengujian.
 var SchemaSQL = schemaSQL
@@ -99,6 +99,33 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		if applied {
 			continue
 		}
+		if item.version == 16 || item.version == 17 {
+			table := "teaching_events"
+			if item.version == 17 {
+				table = "tasks"
+			}
+			if err := rebuildReferencedTable(ctx, db, item, table); err != nil {
+				return fmt.Errorf("migration %d (%s): %w", item.version, item.name, err)
+			}
+			continue
+		}
+
+		if item.version == 18 {
+			exists, err := hasColumn(ctx, db, "class_settings", "attendance_reminder_minutes")
+			if err != nil {
+				return fmt.Errorf("migration %d (%s): %w", item.version, item.name, err)
+			}
+			if exists {
+				if _, err := db.ExecContext(ctx,
+					"INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+					item.version,
+					item.name,
+				); err != nil {
+					return fmt.Errorf("gagal mencatat migration %d: %w", item.version, err)
+				}
+				continue
+			}
+		}
 
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -121,6 +148,94 @@ func applyMigrations(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func hasColumn(ctx context.Context, db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s);", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if strings.EqualFold(name, column) {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+func rebuildReferencedTable(ctx context.Context, db *sql.DB, item migration, table string) (err error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	// SQLite ignores foreign_keys changes inside a transaction; pin the connection for the rebuild.
+	if _, err = conn.ExecContext(ctx, "PRAGMA foreign_keys=OFF"); err != nil {
+		return err
+	}
+	defer func() {
+		_, restoreErr := conn.ExecContext(context.Background(), "PRAGMA foreign_keys=ON")
+		if err == nil {
+			err = restoreErr
+		}
+	}()
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT sql FROM sqlite_master WHERE tbl_name=? AND type IN ('index','trigger') AND sql IS NOT NULL`, table)
+	if err != nil {
+		return err
+	}
+	var definitions []string
+	for rows.Next() {
+		var definition string
+		if err := rows.Scan(&definition); err != nil {
+			rows.Close()
+			return err
+		}
+		definitions = append(definitions, definition)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, item.sql); err != nil {
+		return err
+	}
+	for _, definition := range definitions {
+		if _, err = tx.ExecContext(ctx, definition); err != nil {
+			return err
+		}
+	}
+	check, err := tx.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return err
+	}
+	invalid := check.Next()
+	err = check.Err()
+	check.Close()
+	if err != nil {
+		return err
+	}
+	if invalid {
+		return fmt.Errorf("referensi foreign key tidak valid setelah rebuild %s", table)
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO schema_migrations (version, name) VALUES (?, ?)", item.version, item.name); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // CurrentSchemaVersion mengembalikan migration tertinggi yang sudah diterapkan.
@@ -151,7 +266,8 @@ func OpenPool(dbPath string) (*sql.DB, error) {
 	if dbPath != ":memory:" && !strings.HasPrefix(dbPath, "file:") {
 		// busy_timeout menunggu penulis lain hingga 5 detik; WAL memungkinkan baca-tulis bersamaan.
 		// foreign_keys menjaga referensi; synchronous NORMAL menyeimbangkan durabilitas dan throughput.
-		dsn = fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)", dbPath)
+		// cache_size mengalokasikan 32MB page cache; mmap_size 128MB I/O memori; temp_store MEMORY di RAM.
+		dsn = fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)&_pragma=cache_size(-32000)&_pragma=mmap_size(134217728)&_pragma=temp_store(MEMORY)", dbPath)
 	}
 
 	db, err := sql.Open("sqlite", dsn)
@@ -165,6 +281,9 @@ func OpenPool(dbPath string) (*sql.DB, error) {
 		PRAGMA busy_timeout = 5000;
 		PRAGMA foreign_keys = ON;
 		PRAGMA synchronous = NORMAL;
+		PRAGMA cache_size = -32000;
+		PRAGMA mmap_size = 134217728;
+		PRAGMA temp_store = MEMORY;
 	`)
 
 	if dbPath == ":memory:" {

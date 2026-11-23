@@ -11,7 +11,7 @@ import (
 // isWebPagePath melaporkan apakah path meminta halaman web.
 // Hanya untuk path ini 404 polos FileServer diganti halaman 404 kustom.
 func isWebPagePath(p string) bool {
-	if p == "" || p == "/" {
+	if p == "" || p == "/" || p == "/c" {
 		return false
 	}
 	if strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/c/") {

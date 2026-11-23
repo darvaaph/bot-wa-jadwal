@@ -145,16 +145,34 @@ func (s *SemesterService) createImportBatch(ctx context.Context, classID int64, 
 			defer tx.Rollback()
 			y, t, st, en := year, term, starts, ends
 			if y == "" {
-				y = "2026/2027"
+				now := time.Now()
+				curYear := now.Year()
+				if now.Month() >= time.August {
+					y = fmt.Sprintf("%d/%d", curYear, curYear+1)
+				} else {
+					y = fmt.Sprintf("%d/%d", curYear-1, curYear)
+				}
 			}
 			if t == "" {
-				t = "GANJIL"
+				if time.Now().Month() >= time.August || time.Now().Month() <= time.January {
+					t = "GANJIL"
+				} else {
+					t = "GENAP"
+				}
 			}
 			if st == "" {
-				st = "2026-09-01"
+				if t == "GANJIL" {
+					st = fmt.Sprintf("%d-09-01", time.Now().Year())
+				} else {
+					st = fmt.Sprintf("%d-02-01", time.Now().Year())
+				}
 			}
 			if en == "" {
-				en = "2027-01-31"
+				if t == "GANJIL" {
+					en = fmt.Sprintf("%d-01-31", time.Now().Year()+1)
+				} else {
+					en = fmt.Sprintf("%d-07-31", time.Now().Year())
+				}
 			}
 			var nid int64
 			if err := tx.QueryRowContext(ctx, `
@@ -330,7 +348,7 @@ func (s *SemesterService) applyImport(ctx context.Context, classID, semesterID i
 		var semStarts string
 		_ = tx.QueryRowContext(ctx, `SELECT starts_on FROM semesters WHERE id = ?`, semesterID).Scan(&semStarts)
 		if semStarts == "" {
-			semStarts = "2026-09-01"
+			semStarts = time.Now().Format("2006-01-02")
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO schedule_patterns

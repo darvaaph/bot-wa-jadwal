@@ -166,12 +166,23 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 		return "⏳ *TUGAS AKTIF*"
 	}
 
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	deadlineAt = deadlineAt.In(loc)
+
 	diff := deadlineAt.Sub(now)
 	if diff < 0 {
 		return "⌛ *LEWAT TENGGAT*"
 	}
 
-	if deadlineAt.Year() == now.Year() && deadlineAt.YearDay() == now.YearDay() {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	targetDay := time.Date(deadlineAt.Year(), deadlineAt.Month(), deadlineAt.Day(), 0, 0, 0, 0, loc)
+	days := int(targetDay.Sub(today) / (24 * time.Hour))
+
+	if days <= 0 {
 		hours := int(diff.Hours())
 		mins := int(diff.Minutes()) % 60
 		if hours > 0 {
@@ -180,15 +191,10 @@ func GetUrgencyBadge(deadlineAt time.Time, now time.Time) string {
 		return fmt.Sprintf("🚨 *DEADLINE HARI INI* (Sisa ~%d menit)", mins)
 	}
 
-	tomorrow := now.Add(24 * time.Hour)
-	if deadlineAt.Year() == tomorrow.Year() && deadlineAt.YearDay() == tomorrow.YearDay() {
+	if days == 1 {
 		return "⚠️ *DEADLINE BESOK (H-1)*"
 	}
 
-	days := int(diff.Hours() / 24)
-	if days <= 0 {
-		days = 1
-	}
 	if days <= 3 {
 		return fmt.Sprintf("⚠️ *H-%d* (%d hari lagi)", days, days)
 	}
@@ -455,16 +461,22 @@ func (tm *TaskManager) GetDueTasks(scopeJID string, filter string, now time.Time
 		return nil, err
 	}
 
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
 	var filtered []TaskItem
-	tomorrow := now.Add(24 * time.Hour)
+	tomorrow := now.AddDate(0, 0, 1)
 
 	for _, item := range all {
 		if item.DeadlineAt.IsZero() {
 			continue
 		}
+		dl := item.DeadlineAt.In(loc)
 
-		isToday := item.DeadlineAt.Year() == now.Year() && item.DeadlineAt.YearDay() == now.YearDay()
-		isTomorrow := item.DeadlineAt.Year() == tomorrow.Year() && item.DeadlineAt.YearDay() == tomorrow.YearDay()
+		isToday := dl.Year() == now.Year() && dl.YearDay() == now.YearDay()
+		isTomorrow := dl.Year() == tomorrow.Year() && dl.YearDay() == tomorrow.YearDay()
 
 		switch filter {
 		case "hari_ini", "today":
@@ -1048,14 +1060,20 @@ func (tm *TaskManager) readDueTasks(scopeJID, filter string, now time.Time, clas
 	if err != nil {
 		return nil, err
 	}
-	tomorrow := now.Add(24 * time.Hour)
+	loc := now.Location()
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	tomorrow := now.AddDate(0, 0, 1)
 	var filtered []TaskItem
 	for _, item := range all {
 		if item.DeadlineAt.IsZero() {
 			continue
 		}
-		isToday := item.DeadlineAt.Year() == now.Year() && item.DeadlineAt.YearDay() == now.YearDay()
-		isTomorrow := item.DeadlineAt.Year() == tomorrow.Year() && item.DeadlineAt.YearDay() == tomorrow.YearDay()
+		dl := item.DeadlineAt.In(loc)
+		isToday := dl.Year() == now.Year() && dl.YearDay() == now.YearDay()
+		isTomorrow := dl.Year() == tomorrow.Year() && dl.YearDay() == tomorrow.YearDay()
 		if filter == "hari_ini" && isToday {
 			filtered = append(filtered, item)
 		}

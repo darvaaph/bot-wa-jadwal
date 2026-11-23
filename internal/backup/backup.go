@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("backup tidak ditemukan")
-	ErrInvalidInput = errors.New("input tidak valid")
-	ErrMismatch     = errors.New("paket backup tidak cocok dengan tujuan")
+	ErrNotFound       = errors.New("backup tidak ditemukan")
+	ErrInvalidInput   = errors.New("input tidak valid")
+	ErrRequestDecided = errors.New("permintaan backup sudah diproses")
+	ErrMismatch       = errors.New("paket backup tidak cocok dengan tujuan")
 )
 
 type Service struct {
@@ -68,6 +69,14 @@ type dump struct {
 }
 
 func (s *Service) Create(ctx context.Context, classID int64, semesterID *int64, userID int64, reason string) (*Record, error) {
+	return s.create(ctx, classID, semesterID, userID, reason, nil)
+}
+
+func (s *Service) CreateForRequest(ctx context.Context, requestID, classID int64, semesterID *int64, userID int64, reason string) (*Record, error) {
+	return s.create(ctx, classID, semesterID, userID, reason, &requestID)
+}
+
+func (s *Service) create(ctx context.Context, classID int64, semesterID *int64, userID int64, reason string, requestID *int64) (*Record, error) {
 	if classID <= 0 || userID <= 0 || strings.TrimSpace(reason) == "" {
 		return nil, ErrInvalidInput
 	}
@@ -143,11 +152,31 @@ func (s *Service) Create(ctx context.Context, classID int64, semesterID *int64, 
 	}); err != nil {
 		return nil, err
 	}
+	if requestID != nil {
+		// PROCESSING is recoverable state left by older versions of the request handler.
+		res, err := tx.ExecContext(ctx, `UPDATE backup_requests SET status='EXECUTED', executed_by_user_id=?, backup_id=?, decided_at=?
+			WHERE id=? AND class_id=? AND semester_id IS ? AND status IN ('PENDING','PROCESSING') AND backup_id IS NULL`,
+			userID, id, now, *requestID, classID, semesterID)
+		if err != nil {
+			return nil, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if n != 1 {
+			return nil, ErrRequestDecided
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	committed = true
-	return s.Get(ctx, id)
+	return &Record{
+		ID: id, ClassID: classID, SemesterID: semesterID, ArtifactRef: path,
+		Checksum: check, Status: "READY", CreatedBy: userID, Reason: strings.TrimSpace(reason), CreatedAt: now,
+	}, nil
 }
 
 func (s *Service) Get(ctx context.Context, id int64) (*Record, error) {

@@ -160,7 +160,7 @@ func eventDateInTZ(startsUTC time.Time, tz string, semStarts, semEnds string) (s
 func (s *EventService) CreateDraft(ctx context.Context, actor EventActor, in CreateDraftInput) (*EventRow, error) {
 	kind := strings.ToUpper(strings.TrimSpace(in.Kind))
 	switch kind {
-	case "REPLACEMENT", "EXTRA", "HOLIDAY", "SESSION_CANCELLED":
+	case "REPLACEMENT", "EXTRA", "HOLIDAY", "SESSION_CANCELLED", "EXAM_UTS", "EXAM_UAS":
 	default:
 		return nil, ErrEventInvalidInput
 	}
@@ -193,8 +193,10 @@ func (s *EventService) CreateDraft(ctx context.Context, actor EventActor, in Cre
 	if needsOrigin && (in.OriginPatternID == nil || in.OriginDate == nil || strings.TrimSpace(*in.OriginDate) == "") {
 		return nil, errors.New("event pengganti/pembatalan wajib menunjuk pola dan tanggal asal")
 	}
-	if !needsOrigin && kind != "HOLIDAY" && in.OriginPatternID == nil {
-		// EXTRA without origin is allowed; HOLIDAY without origin allowed.
+	if kind == "EXAM_UTS" || kind == "EXAM_UAS" {
+		if in.IsPermanent || (in.OriginPatternID == nil) != (in.OriginDate == nil) {
+			return nil, ErrEventInvalidInput
+		}
 	}
 	if in.OriginPatternID != nil {
 		var patternOffering int64
@@ -839,17 +841,24 @@ func (s *EventService) AddParticipant(ctx context.Context, actor EventActor, eve
 
 // RespondParticipation lets participant KM accept/decline/remove.
 func (s *EventService) RespondParticipation(ctx context.Context, actor EventActor, eventID, offeringID int64, decision string) error {
-	decision = strings.ToUpper(strings.TrimSpace(decision))
-	if decision != "ACCEPTED" && decision != "DECLINED" && decision != "REMOVED" {
-		return ErrEventInvalidInput
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if err := RespondParticipationTx(ctx, tx, actor, eventID, offeringID, decision); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func RespondParticipationTx(ctx context.Context, tx *sql.Tx, actor EventActor, eventID, offeringID int64, decision string) error {
+	decision = strings.ToUpper(strings.TrimSpace(decision))
+	if decision != "ACCEPTED" && decision != "DECLINED" && decision != "REMOVED" {
+		return ErrEventInvalidInput
+	}
 	var role, status string
-	err = tx.QueryRowContext(ctx, `SELECT participation_role, participation_status FROM teaching_event_offerings
+	err := tx.QueryRowContext(ctx, `SELECT participation_role, participation_status FROM teaching_event_offerings
 		WHERE teaching_event_id = ? AND course_offering_id = ?`, eventID, offeringID).Scan(&role, &status)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrEventNotFound
@@ -870,23 +879,50 @@ func (s *EventService) RespondParticipation(ctx context.Context, actor EventActo
 	if !allowed {
 		return ErrEventInvalidState
 	}
+	var classID, semesterID int64
+	var semesterStatus, startsRaw, endsRaw, lifecycle string
+	if err := tx.QueryRowContext(ctx, `SELECT sem.class_id,sem.id,sem.status,te.starts_at,te.ends_at,te.lifecycle_status FROM course_offerings co JOIN semesters sem ON sem.id=co.semester_id JOIN teaching_events te ON te.id=? WHERE co.id=?`, eventID, offeringID).Scan(&classID, &semesterID, &semesterStatus, &startsRaw, &endsRaw, &lifecycle); err != nil {
+		return err
+	}
+	if semesterStatus == "ARCHIVED" || lifecycle == "REVOKED" {
+		return ErrEventInvalidState
+	}
+	var ownerArchived bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM teaching_event_offerings teo JOIN course_offerings co ON co.id=teo.course_offering_id JOIN semesters sem ON sem.id=co.semester_id WHERE teo.teaching_event_id=? AND teo.participation_role='OWNER' AND sem.status='ARCHIVED')`, eventID).Scan(&ownerArchived); err != nil {
+		return err
+	}
+	if ownerArchived {
+		return ErrEventInvalidState
+	}
+	if decision == "ACCEPTED" {
+		start, err := parseEventTime(startsRaw)
+		if err != nil {
+			return err
+		}
+		end, err := parseEventTime(endsRaw)
+		if err != nil {
+			return err
+		}
+		valid, err := OfferingPeriodContains(ctx, tx, offeringID, start, end)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return ErrEventInvalidInput
+		}
+	}
 	now := eventNow()
 	if _, err := tx.ExecContext(ctx, `UPDATE teaching_event_offerings SET participation_status=?,
 		responded_by_user_id=?, responded_at=?, updated_at=? WHERE teaching_event_id=? AND course_offering_id=?`,
 		decision, actor.UserID, now, now, eventID, offeringID); err != nil {
 		return err
 	}
-	d, err := s.getDetail(ctx, tx, eventID)
-	if err != nil {
-		return err
-	}
-	ownerSem := ownerSemester(ctx, tx, d.Event.OwnerOfferingID)
-	if err := insertEventAuditTx(ctx, tx, actor, d.Event.OwnerClassID, ownerSem, "RESPOND_PARTICIPANT", eventID,
+	if err := insertEventAuditTx(ctx, tx, actor, classID, semesterID, "RESPOND_PARTICIPANT", eventID,
 		str(fmt.Sprintf(`{"offering":%d,"from":"%s"}`, offeringID, status)),
 		str(fmt.Sprintf(`{"offering":%d,"to":"%s"}`, offeringID, decision)), nil); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 // RecordRoomConfirmation attaches a TU confirmation note to a draft.

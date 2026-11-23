@@ -142,6 +142,7 @@
         <select x-model="kelasFilter.statusKM" class="h-10 w-full appearance-none rounded-[8px] border border-[#CBD5E1] bg-white pl-3 pr-8 text-[12px] text-[#1D1B3A] cursor-pointer focus:outline-none focus:border-[#3965FB]">
           <option value="">KM: Semua</option>
           <option value="active">KM: Aktif</option>
+          <option value="suspended">KM: Ditangguhkan</option>
           <option value="pending">KM: Undangan menunggu</option>
           <option value="none">KM: Belum ditetapkan</option>
         </select>
@@ -215,6 +216,9 @@
                 <template x-if="k.statusKM === 'active'">
                   <p class="text-[11px] text-[#1D1B3A] truncate font-medium" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p>
                 </template>
+                <template x-if="k.statusKM === 'suspended'">
+                  <p class="text-[11px] text-[#B42318] truncate font-medium" :title="'KM Ditangguhkan: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || '') + ' (Ditangguhkan)'"></p>
+                </template>
                 <template x-if="k.statusKM === 'pending'">
                   <p class="text-[11px] text-[#92400E] font-medium truncate">Undangan menunggu</p>
                 </template>
@@ -248,7 +252,7 @@
                     <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false">
                       <path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/>
                     </svg>
-                    <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+                    <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : (k.statusKM === 'suspended' ? 'Ganti KM' : 'Undang KM')"></span>
                   </button>
                 </template>
 
@@ -316,6 +320,7 @@
 
           <div class="text-[11px]">
             <template x-if="k.statusKM === 'active'"><p class="text-[#1D1B3A] font-medium truncate" :title="'KM: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || 'Ketua Murid')"></p></template>
+            <template x-if="k.statusKM === 'suspended'"><p class="text-[#B42318] font-medium truncate" :title="'KM Ditangguhkan: ' + (k.kmName || '')" x-text="'KM: ' + (k.kmName || '') + ' (Ditangguhkan)'"></p></template>
             <template x-if="k.statusKM === 'pending'"><p class="text-[#92400E] font-medium">Undangan menunggu</p></template>
             <template x-if="k.statusKM === 'none'"><p class="text-[#92400E] font-medium">KM: Belum Ditetapkan</p></template>
           </div>
@@ -330,7 +335,7 @@
             <template x-if="k.statusKM !== 'active'">
               <button type="button" @click="bukaUndang(k)" class="flex-1 h-11 rounded-[9px] bg-[#3965FB] hover:bg-blue-600 text-white text-[12px] font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px] transition-colors" :aria-label="(k.statusKM === 'pending' ? 'Kirim ulang undangan KM ' : 'Undang KM ') + k.nama">
                 <svg width="17" height="17" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10.56152 6.2959l-1.11084 0q-0.25977 0-0.43408-0.17432-0.17432-0.17773-0.17431-0.4375 0-0.25977 0.17431-0.43408 0.17432-0.17773 0.43408-0.17773l1.11084 0 0-1.11084q0-0.25977 0.17432-0.43409 0.17773-0.17773 0.4375-0.17773 0.25976 0 0.43408 0.17773 0.17773 0.17432 0.17774 0.43409l0 1.11084 1.11084 0q0.25977 0 0.43408 0.17773 0.17773 0.17432 0.17773 0.43408 0 0.25977-0.17773 0.4375-0.17432 0.17432-0.43408 0.17432l-1.11084 0 0 1.11084q0 0.25977-0.17774 0.43408-0.17432 0.17432-0.43408 0.17432-0.25977 0-0.4375-0.17432-0.17432-0.17432-0.17432-0.43408l0-1.11084z m-5.30127 0.64599q-1.01514 0-1.73291-0.71777-0.71777-0.72119-0.71777-1.73633 0-1.01514 0.71777-1.72949 0.71777-0.71777 1.73291-0.71777 1.01514 0 1.73291 0.71777 0.71777 0.71436 0.71778 1.72949 0 1.01514-0.71778 1.73633-0.71777 0.71777-1.73291 0.71777z m-4.78515 3.5752l0-0.43066q0-0.52979 0.27344-0.97071 0.27344-0.44434 0.7246-0.67676 0.91602-0.45459 1.8628-0.68359 0.94678-0.23242 1.92431-0.23242 0.98438 0 1.93116 0.229 0.94678 0.229 1.85595 0.6836 0.45117 0.23242 0.72461 0.67334 0.27344 0.44092 0.27344 0.97754l0 0.43066q0 0.55029-0.38965 0.93994-0.38623 0.38623-0.93652 0.38623l-6.91797 0q-0.55029 0-0.93994-0.38623-0.38623-0.38965-0.38623-0.93994z m1.32617 0l6.91797 0 0-0.41357q0-0.15723-0.08203-0.2837-0.07861-0.12988-0.21192-0.20166-0.76563-0.37939-1.55859-0.5708-0.78955-0.19482-1.60645-0.19482-0.81006 0-1.60986 0.19482-0.79639 0.19141-1.55518 0.5708-0.1333 0.07178-0.21533 0.20166-0.07861 0.12646-0.07861 0.2837l0 0.41357z m3.45898-4.90479q0.46484 0 0.79297-0.32812 0.33154-0.33154 0.33155-0.79639 0-0.46143-0.33155-0.78955-0.32813-0.33154-0.79297-0.33154-0.46484 0-0.79638 0.33154-0.32813 0.32813-0.32813 0.78955 0 0.46484 0.32813 0.79639 0.33154 0.32813 0.79638 0.32812z"/></svg>
-                <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : 'Undang KM'"></span>
+                <span x-text="k.statusKM === 'pending' ? 'Kirim ulang' : (k.statusKM === 'suspended' ? 'Ganti KM' : 'Undang KM')"></span>
               </button>
             </template>
             <div class="relative" @click.outside="if (kelasMenu === 'm-' + k.slug) kelasMenu = null">
@@ -598,7 +603,7 @@
             <span class="text-[15px] font-jbmono font-bold text-[#1D1B3A]" x-text="kelasForm.nama || '-'"></span>
           </div>
           <div class="w-full flex items-center gap-2">
-            <span class="text-[12px] text-[#64748B] w-[130px] shrink-0">URL Portal Mahasiswa</span>
+            <span class="text-[12px] text-[#64748B] w-[130px] shrink-0">URL Jadwal Mahasiswa</span>
             <span class="text-[12px] text-[#94A3B8]">➔</span>
             <span class="text-[12px] font-jbmono font-medium text-[#3965FB] truncate" x-text="portalURLPreview()"></span>
           </div>
@@ -614,29 +619,29 @@
               id="sa-modal-custom-nama"
               type="text"
               x-model="kelasForm.nama"
-              placeholder="D4-TI 1A"
+              placeholder="Contoh: 1A atau TI-1A"
               class="w-full h-9 px-3 rounded-[6px] border border-[#CBD5E1] bg-white text-[13px] text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
             />
           </div>
           <div>
             <label for="sa-modal-custom-slug" class="block text-[12px] font-medium text-[#1D1B3A] mb-1">
-              Slug Portal URL
+              Slug URL Jadwal
             </label>
             <input
               id="sa-modal-custom-slug"
               type="text"
               x-model="kelasForm.slug"
-              placeholder="d4-ti-1a"
+              placeholder="contoh: 1a atau ti-1a"
               class="w-full h-9 px-3 rounded-[6px] border border-[#CBD5E1] bg-white text-[13px] font-jbmono text-[#1D1B3A] focus:outline-none focus:border-[#3965FB]"
             />
           </div>
         </div>
       </div>
 
-      <!-- 4. Keamanan Akses Portal Mahasiswa -->
+      <!-- 4. Keamanan Akses Jadwal & Tugas Mahasiswa -->
       <div class="w-full flex flex-col gap-[9px]">
         <label class="text-[13px] font-medium text-[#1D1B3A]">
-          Keamanan Akses Portal Mahasiswa <span class="text-red-500">*</span>
+          Keamanan Akses Jadwal Mahasiswa <span class="text-red-500">*</span>
         </label>
 
         <!-- Option LINK -->
@@ -660,7 +665,7 @@
           <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
             <span class="text-[12px] font-medium text-[#1D1B3A]">Tautan Langsung (LINK)</span>
             <span class="text-[11px] text-[#667085] leading-[15px]">
-              Mahasiswa dapat langsung membuka jadwal dan tugas melalui tautan portal.
+              Mahasiswa dapat langsung melihat jadwal dan tugas melalui tautan web kelas.
             </span>
           </div>
         </label>
@@ -686,7 +691,7 @@
           <div class="flex-1 min-w-0 flex flex-col gap-[2px]">
             <span class="text-[12px] font-medium text-[#1D1B3A]">Kode Akses 6-Digit (CODE)</span>
             <span class="text-[11px] text-[#667085] leading-[15px]">
-              Memerlukan kode PIN 6-karakter untuk membuka portal kelas.
+              Memerlukan kode PIN 6-karakter untuk membuka jadwal & tugas kelas.
             </span>
           </div>
         </label>
@@ -864,14 +869,16 @@
           <dt class="text-muted">Pengingat Jadwal Pagi</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.morning_reminder_time ? detailSettings.morning_reminder_time : 'Belum diatur'"></dd>
           <dt class="text-muted">Rekap Tugas Sore</dt><dd class="font-semibold text-deep-ink" x-text="detailSettings?.afternoon_reminder_time ? detailSettings.afternoon_reminder_time : 'Belum diatur'"></dd>
           <dt class="text-muted">Kuliah Pengganti</dt><dd class="text-right font-semibold text-deep-ink" x-text="detailSettings?.replacement_reminder_minutes != null ? detailSettings.replacement_reminder_minutes + ' menit sebelum sesi' : 'Belum diatur'"></dd>
+          <dt class="text-muted">Pengingat Absen</dt><dd class="text-right font-semibold text-deep-ink" x-text="detailSettings?.attendance_reminder_minutes != null ? (detailSettings.attendance_reminder_minutes > 0 ? detailSettings.attendance_reminder_minutes + ' menit setelah mulai' : 'Nonaktif') : 'Belum diatur'"></dd>
         </dl>
         <p x-show="detailSettings" class="mt-2 text-[12px] text-muted">Zona waktu: <span x-text="detailSettings?.timezone || '-'"></span></p>
         <button type="button" x-show="detailSettings && !pengingatFormTerbuka" @click="bukaPengingatForm()" class="ui-button ui-button--outline mt-4">Ubah Jam Pengingat</button>
         <form x-show="pengingatFormTerbuka" x-cloak @submit.prevent="simpanPengingat()" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="text-[13px] font-semibold text-deep-ink">Jam pagi<input type="time" x-model="pengingatForm.morning_reminder_time" required class="ui-field mt-1 w-full"></label>
           <label class="text-[13px] font-semibold text-deep-ink">Jam sore<input type="time" x-model="pengingatForm.afternoon_reminder_time" required class="ui-field mt-1 w-full"></label>
-          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Kuliah pengganti, menit sebelumnya<input type="number" x-model="pengingatForm.replacement_reminder_minutes" min="0" max="1440" step="1" required class="ui-field mt-1 w-full"></label>
-          <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-danger sm:col-span-2" role="alert"></p>
+          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Kuliah pengganti, menit sebelumnya<input type="number" x-model.number="pengingatForm.replacement_reminder_minutes" min="0" max="1440" step="1" required class="ui-field mt-1 w-full"></label>
+          <label class="text-[13px] font-semibold text-deep-ink sm:col-span-2">Pengingat absen kuliah, menit setelah mulai (0 = nonaktif, 1-60 menit)<input type="number" x-model.number="pengingatForm.attendance_reminder_minutes" min="0" max="60" step="1" required class="ui-field mt-1 w-full"></label>
+          <p x-show="pengingatError" x-text="pengingatError" class="text-[13px] text-[#B42318] sm:col-span-2" role="alert"></p>
           <div class="flex flex-wrap gap-2 sm:col-span-2">
             <button type="submit" :disabled="pengingatSaving" class="ui-button ui-button--primary" x-text="pengingatSaving ? 'Menyimpan...' : 'Simpan pengingat'"></button>
             <button type="button" :disabled="pengingatSaving" @click="pengingatFormTerbuka = false; pengingatError = ''" class="ui-button ui-button--secondary">Batal</button>
@@ -899,98 +906,98 @@
     <!-- Pengurus dan Akses Portal -->
     <div
       data-pencil-name="Pengurus dan Akses Portal"
-      class="box-border w-full flex flex-col lg:flex-row gap-[16px] justify-start items-stretch"
+      class="box-border w-full grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5 items-stretch"
     >
       <!-- Kartu 1: Ketua Murid (KM) -->
       <div
         data-pencil-name="Kartu Pengurus Kelas"
-        class="box-border flex-1 flex flex-col gap-[13px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]"
+        class="box-border w-full flex flex-col justify-between gap-4 p-5 bg-[#FFFFFF] border border-[#E2E8F0] rounded-[12px] shadow-xs"
       >
-        <div
-          data-pencil-name="Header Ketua Murid"
-          class="box-border w-full h-fit shrink-0 flex flex-row gap-[10px] justify-between items-center"
-        >
-          <h2 class="text-[16px]/[normal] text-[#1D1B3A] font-heading font-bold text-left">
-            Ketua Murid (KM)
-          </h2>
+        <div class="flex flex-col gap-3">
           <div
-            data-pencil-name="Status KM Aktif"
-            class="box-border w-fit shrink-0 h-fit flex flex-row gap-[6px] p-[5px_9px] justify-start items-center rounded-[7px]"
-            :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#DCFCE7]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]')"
+            data-pencil-name="Header Ketua Murid"
+            class="box-border w-full flex flex-row gap-2 justify-between items-center"
           >
+            <h2 class="text-[16px] text-[#1D1B3A] font-heading font-bold text-left whitespace-nowrap">
+              Ketua Murid (KM)
+            </h2>
             <div
-              class="box-border w-[6px] shrink-0 h-[6px] rounded-full"
-              :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#16A34A]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#F59E0B]' : 'bg-[#94A3B8]')"
-            ></div>
-            <span
-              class="text-[11px]/[normal] font-bold text-left"
-              :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'text-[#15803D]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'text-[#D97706]' : 'text-[#64748B]')"
-              x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan')"
-            >Aktif</span>
-          </div>
-        </div>
-
-        <div
-          data-pencil-name="Identitas Ketua Murid"
-          class="box-border w-full h-fit shrink-0 flex flex-col gap-[7px] justify-start items-start"
-        >
-          <div
-            data-pencil-name="Nama Ketua Murid"
-            class="text-[15px]/[normal] text-[#1D1B3A] font-semibold text-left"
-            x-text="kelasAktifObj && kelasAktifObj.kmName ? kelasAktifObj.kmName : 'Belum ada KM'"
-          >-</div>
-          <div
-            data-pencil-name="WhatsApp Ketua Murid"
-            class="box-border w-fit h-fit shrink-0 flex flex-row gap-[7px] justify-start items-center"
-          >
-            <svg
-              data-pencil-name="Ikon WhatsApp KM"
-              width="17"
-              height="17"
-              viewBox="0 0 14 14"
-              fill="#15803D"
-              class="w-[17px] h-[17px] shrink-0"
-              aria-hidden="true"
-              focusable="false"
+              data-pencil-name="Status KM Aktif"
+              class="box-border w-fit shrink-0 flex flex-row gap-1.5 px-2.5 py-1 justify-start items-center rounded-[7px]"
+              :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#DCFCE7]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'bg-[#FEF3F2]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#FEF3C7]' : 'bg-[#F1F5F9]'))"
             >
-              <path d="M3.54443 9.91553l-0.99463 0.99463q-0.21875 0.22217-0.50927 0.10254-0.29053-0.11963-0.29053-0.43409l0-7.88525q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l8.61328 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.67334 0.27002l-7.76221 0z m-0.24951-0.58106l8.01172 0q0.13672 0 0.24609-0.11279 0.11279-0.11279 0.1128-0.24609l0-6.28223q0-0.13672-0.1128-0.24609-0.10938-0.11279-0.24609-0.1128l-8.61328 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 7.59814 0.96045-0.95703z m-0.96045 0l0-6.64111q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z m1.75-1.45947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z"/>
-            </svg>
+              <div
+                class="box-border w-1.5 h-1.5 shrink-0 rounded-full"
+                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'bg-[#16A34A]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'bg-[#B42318]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'bg-[#F59E0B]' : 'bg-[#94A3B8]'))"
+              ></div>
+              <span
+                class="text-[11px] font-bold text-left whitespace-nowrap"
+                :class="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'text-[#15803D]' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'text-[#B42318]' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'text-[#D97706]' : 'text-[#64748B]'))"
+                x-text="kelasAktifObj && kelasAktifObj.statusKM === 'active' ? 'Aktif' : (kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'Ditangguhkan' : (kelasAktifObj && kelasAktifObj.statusKM === 'pending' ? 'Undangan Menunggu' : 'Belum Ditetapkan'))"
+              >Aktif</span>
+            </div>
+          </div>
+
+          <div
+            data-pencil-name="Identitas Ketua Murid"
+            class="box-border w-full flex flex-col gap-2 justify-start items-start"
+          >
             <div
-              data-pencil-name="Nomor WhatsApp KM"
-              class="text-[12px]/[normal] text-[#1D1B3A] font-jbmono font-normal text-left"
-              x-text="kelasAktifObj && kelasAktifObj.kmPhone ? kelasAktifObj.kmPhone : '-'"
+              data-pencil-name="Nama Ketua Murid"
+              class="text-[15px] text-[#1D1B3A] font-semibold text-left truncate"
+              x-text="kelasAktifObj && kelasAktifObj.kmName ? kelasAktifObj.kmName : 'Belum ada KM'"
             >-</div>
-          </div>
-          <div
-            data-pencil-name="Tanggal Penugasan KM"
-            class="text-[13px]/[normal] text-[#667085] font-normal text-left"
-            x-show="kmPenugasan && (kmPenugasan.valid_from || kmPenugasan.created_at)"
-          >
-            Aktif sejak <span x-text="fmtTanggalID(kmPenugasan.valid_from || kmPenugasan.created_at)"></span>
-          </div>
-          <div
-            class="text-[13px]/[normal] text-[#667085] font-normal text-left"
-            x-show="!kmPenugasan || (!kmPenugasan.valid_from && !kmPenugasan.created_at)"
-          >
-            <span x-text="kelasAktifObj && kelasAktifObj.kmName ? 'Status penugasan tercatat aktif' : 'Belum ada ketua murid yang ditugaskan'"></span>
+            <div
+              data-pencil-name="WhatsApp Ketua Murid"
+              class="box-border w-fit flex flex-row gap-2 justify-start items-center"
+            >
+              <svg
+                data-pencil-name="Ikon WhatsApp KM"
+                width="16"
+                height="16"
+                viewBox="0 0 14 14"
+                fill="#15803D"
+                class="w-4 h-4 shrink-0"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M3.54443 9.91553l-0.99463 0.99463q-0.21875 0.22217-0.50927 0.10254-0.29053-0.11963-0.29053-0.43409l0-7.88525q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l8.61328 0q0.40332 0 0.67334 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.67334 0.27002l-7.76221 0z m-0.24951-0.58106l8.01172 0q0.13672 0 0.24609-0.11279 0.11279-0.11279 0.1128-0.24609l0-6.28223q0-0.13672-0.1128-0.24609-0.10938-0.11279-0.24609-0.1128l-8.61328 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 7.59814 0.96045-0.95703z m-0.96045 0l0-6.64111q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z m1.75-1.45947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z"/>
+              </svg>
+              <div
+                data-pencil-name="Nomor WhatsApp KM"
+                class="text-[12px] text-[#1D1B3A] font-jbmono font-normal text-left"
+                x-text="kelasAktifObj && kelasAktifObj.kmPhone ? kelasAktifObj.kmPhone : '-'"
+              >-</div>
+            </div>
+            <div
+              data-pencil-name="Tanggal Penugasan KM"
+              class="text-[12px] text-[#667085] font-normal text-left"
+              x-show="kmPenugasan && (kmPenugasan.valid_from || kmPenugasan.created_at)"
+            >
+              Aktif sejak <span class="font-medium text-[#1D1B3A]" x-text="fmtTanggalID(kmPenugasan.valid_from || kmPenugasan.created_at)"></span>
+            </div>
+            <div
+              class="text-[12px] text-[#667085] font-normal text-left"
+              x-show="!kmPenugasan || (!kmPenugasan.valid_from && !kmPenugasan.created_at)"
+            >
+              <span x-text="kelasAktifObj && kelasAktifObj.statusKM === 'suspended' ? 'Penugasan KM saat ini ditangguhkan' : (kelasAktifObj && kelasAktifObj.kmName ? 'Status penugasan tercatat aktif' : 'Belum ada ketua murid yang ditugaskan')"></span>
+            </div>
           </div>
         </div>
 
-        <div class="flex-1 min-h-[14px]"></div>
-
-        <div class="pt-1">
+        <div class="pt-3 border-t border-slate-100 mt-auto">
           <button
             type="button"
             @click="bukaUndang(kelasAktifObj)"
-            class="box-border w-fit h-[36px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold"
+            class="box-border w-fit min-h-[38px] flex flex-row gap-2 px-3.5 py-1.5 justify-start items-center bg-[#FFFFFF] border border-[#BFDBFE] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold whitespace-nowrap"
           >
             <svg
               data-pencil-name="Ikon Ganti KM"
-              width="17"
-              height="17"
+              width="16"
+              height="16"
               viewBox="0 0 14 14"
-              fill="#3965FB"
-              class="w-[17px] h-[17px] shrink-0"
+              fill="currentColor"
+              class="w-4 h-4 shrink-0"
               aria-hidden="true"
               focusable="false"
             >
@@ -1001,150 +1008,150 @@
         </div>
       </div>
 
-      <!-- Kartu 2: Akses Portal Mahasiswa -->
+      <!-- Kartu 2: Akses Jadwal & Tugas Mahasiswa -->
       <div
-        data-pencil-name="Kartu Akses Portal Mahasiswa"
-        class="box-border flex-1 flex flex-col gap-[11px] p-[20px] justify-start items-start bg-[#FFFFFF] [outline:1px_solid_#E2E8F0] [outline-offset:-0.5px] rounded-[12px]"
+        data-pencil-name="Kartu Akses Jadwal & Tugas Mahasiswa"
+        class="box-border w-full flex flex-col justify-between gap-4 p-5 bg-[#FFFFFF] border border-[#E2E8F0] rounded-[12px] shadow-xs"
       >
-        <h2 class="text-[16px]/[normal] text-[#1D1B3A] font-heading font-bold text-left">
-          Akses Portal Mahasiswa
-        </h2>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-row gap-2 justify-between items-center">
+            <h2 class="text-[16px] text-[#1D1B3A] font-heading font-bold text-left whitespace-nowrap">
+              Akses Jadwal & Tugas Mahasiswa
+            </h2>
 
-        <!-- Segmented Control Mode -->
-        <div
-          data-pencil-name="Pilihan Mode Akses Portal"
-          class="box-border w-fit h-fit shrink-0 flex flex-row gap-[3px] p-[3px] justify-start items-start bg-[#F1F5F9] rounded-[9px]"
-          role="group"
-          aria-label="Pilihan mode akses portal"
-        >
-          <button
-            type="button"
-            @click="mintaKonfirmasiModePortal('LINK')"
-            class="box-border w-fit shrink-0 h-[29px] flex flex-row gap-0 px-[12px] justify-center items-center rounded-[7px] transition-colors cursor-pointer text-[11px]"
-            :class="!detailSettings || detailSettings.portal_access_mode !== 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-sm' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
-          >
-            Tautan Langsung
-          </button>
-          <button
-            type="button"
-            @click="mintaKonfirmasiModePortal('CODE')"
-            class="box-border w-fit shrink-0 h-[29px] flex flex-row gap-0 px-[12px] justify-center items-center rounded-[7px] transition-colors cursor-pointer text-[11px]"
-            :class="detailSettings && detailSettings.portal_access_mode === 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-sm' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
-          >
-            Kode Akses
-          </button>
-        </div>
+            <!-- Segmented Control Mode -->
+            <div
+              data-pencil-name="Pilihan Mode Akses Portal"
+              class="box-border w-fit h-fit shrink-0 flex flex-row gap-1 p-1 justify-start items-center bg-[#F1F5F9] rounded-[9px]"
+              role="group"
+              aria-label="Pilihan mode akses portal"
+            >
+              <button
+                type="button"
+                @click="mintaKonfirmasiModePortal('LINK')"
+                class="box-border w-fit shrink-0 min-h-[28px] px-3 py-1 flex items-center justify-center rounded-[7px] transition-colors cursor-pointer text-[11px] whitespace-nowrap"
+                :class="!detailSettings || detailSettings.portal_access_mode !== 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-xs' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
+              >
+                Tautan Langsung
+              </button>
+              <button
+                type="button"
+                @click="mintaKonfirmasiModePortal('CODE')"
+                class="box-border w-fit shrink-0 min-h-[28px] px-3 py-1 flex items-center justify-center rounded-[7px] transition-colors cursor-pointer text-[11px] whitespace-nowrap"
+                :class="detailSettings && detailSettings.portal_access_mode === 'CODE' ? 'bg-[#FFFFFF] text-[#3965FB] font-bold shadow-xs' : 'bg-transparent text-[#667085] font-normal hover:text-[#1D1B3A]'"
+              >
+                Kode Akses
+              </button>
+            </div>
+          </div>
 
-        <!-- Mode Tautan Langsung View -->
-        <template x-if="detailSettings && detailSettings.portal_access_mode !== 'CODE'">
+          <!-- Tautan Portal Publik (Selalu Tampil) -->
           <div class="w-full flex flex-col gap-1.5">
-            <div class="text-[12px]/[normal] text-[#667085] font-normal">Tautan Portal Publik:</div>
+            <div class="text-[12px] text-[#667085] font-normal">Tautan Jadwal Publik:</div>
             <div class="flex items-center gap-2">
               <span class="text-[13px] font-jbmono font-semibold text-[#3965FB] truncate" x-text="'/c/' + (kelasAktifObj ? kelasAktifObj.slug : '')"></span>
               <button
                 type="button"
-                @click="copyText(portalURL(), 'Tautan portal disalin.')"
-                title="Salin tautan portal"
-                aria-label="Salin tautan portal"
-                class="p-0.5 text-[#3965FB] hover:text-[#284FD9] transition-colors rounded flex items-center justify-center cursor-pointer"
+                @click="copyText(portalURL(), 'Tautan jadwal disalin.')"
+                title="Salin tautan jadwal"
+                aria-label="Salin tautan jadwal"
+                class="p-1 text-[#3965FB] hover:text-[#284FD9] hover:bg-blue-50 transition-colors rounded cursor-pointer"
               >
-                <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" focusable="false">
                   <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
                 </svg>
               </button>
             </div>
-            <div class="text-[11px]/[15px] text-[#667085] font-normal mt-1">
-              Mahasiswa membuka portal langsung tanpa kode sandi.
+            <div x-show="!detailSettings || detailSettings.portal_access_mode !== 'CODE'" class="text-[12px] text-[#667085] font-normal">
+              Mahasiswa membuka jadwal & tugas langsung tanpa kode sandi.
             </div>
           </div>
-        </template>
 
-        <!-- Mode Kode Akses View -->
-        <template x-if="detailSettings && detailSettings.portal_access_mode === 'CODE'">
-          <div class="w-full flex flex-col gap-1.5">
-            <div
-              data-pencil-name="Kode Akses Aktif"
-              class="box-border w-fit h-fit shrink-0 flex flex-row gap-[8px] justify-start items-center"
-            >
-              <div class="text-[12px]/[normal] text-[#667085] font-normal text-left">
-                Kode Akses Aktif:
+          <!-- Mode Kode Akses View -->
+          <template x-if="detailSettings && detailSettings.portal_access_mode === 'CODE'">
+            <div class="w-full flex flex-col gap-2 pt-2 border-t border-[#F1F5F9]">
+              <div
+                data-pencil-name="Kode Akses Aktif"
+                class="w-full flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200/70"
+              >
+                <div class="flex flex-col">
+                  <span class="text-[11px] text-[#667085] font-medium uppercase tracking-wider">Kode Akses Aktif</span>
+                  <span
+                    class="text-[18px] text-[#1D1B3A] font-jbmono font-bold tracking-wider"
+                    x-text="portalCodeReveal || '••••••••'"
+                  ></span>
+                </div>
+                <button
+                  type="button"
+                  x-show="portalCodeReveal"
+                  @click="copyText(portalCodeReveal, 'Kode akses disalin.')"
+                  title="Salin kode akses"
+                  aria-label="Salin kode akses"
+                  class="p-1.5 text-[#3965FB] hover:text-[#284FD9] hover:bg-blue-50 transition-colors rounded cursor-pointer"
+                >
+                  <svg width="16" height="16" viewBox="0 0 14 14" fill="currentColor" class="w-4 h-4 shrink-0" aria-hidden="true" focusable="false">
+                    <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 7.59814 0.96045-0.95703z m-0.96045 0l0-6.64111q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z m1.75-1.45947l3.5 0q0.12305 0 0.20508-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20508-0.08545l-3.5 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z m0-1.75l5.83106 0q0.12646 0 0.20849-0.08203 0.08545-0.08545 0.08545-0.2085 0-0.12646-0.08545-0.20849-0.08203-0.08545-0.20849-0.08545l-5.83106 0q-0.12646 0-0.21191 0.08545-0.08203 0.08203-0.08203 0.20849 0 0.12305 0.08203 0.2085 0.08545 0.08203 0.21191 0.08203z"/>
+                  </svg>
+                </button>
               </div>
               <div
-                class="text-[20px]/[normal] text-[#1D1B3A] font-jbmono font-bold text-left tracking-wide"
-                x-text="portalCodeReveal || '••••••••'"
-              ></div>
-              <button
-                type="button"
-                x-show="portalCodeReveal"
-                @click="copyText(portalCodeReveal, 'Kode portal disalin.')"
-                title="Salin kode akses"
-                aria-label="Salin kode akses"
-                class="p-0.5 text-[#3965FB] hover:text-[#284FD9] transition-colors rounded flex items-center justify-center cursor-pointer"
+                data-pencil-name="Keterangan Versi Kode"
+                class="text-[12px] text-[#667085] font-normal text-left"
               >
-                <svg width="17" height="17" viewBox="0 0 14 14" fill="#3965FB" class="w-[17px] h-[17px] shrink-0" aria-hidden="true" focusable="false">
-                  <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
-                </svg>
-              </button>
+                Versi kode: v<span x-text="detailSettings.portal_code_version ?? '-'"></span> • Kode asli hanya tampil selama 60 detik setelah rotasi. Mahasiswa memasukkannya untuk membuka jadwal kelas.
+              </div>
             </div>
-            <div
-              data-pencil-name="Keterangan Versi Kode"
-              class="text-[11px]/[15px] box-border w-full text-[#667085] font-normal text-left"
+          </template>
+
+          <p x-show="detailSettingsError" class="text-[12px] text-amber-800" x-text="detailSettingsError"></p>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 mt-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            @click="copyText(portalURL(), 'Tautan jadwal disalin.')"
+            class="box-border w-fit min-h-[38px] flex flex-row gap-2 px-3 py-1.5 justify-start items-center bg-[#FFFFFF] border border-[#BFDBFE] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold whitespace-nowrap"
+          >
+            <svg
+              data-pencil-name="Ikon Salin Tautan Jadwal"
+              width="15"
+              height="15"
+              viewBox="0 0 14 14"
+              fill="currentColor"
+              class="w-3.5 h-3.5 shrink-0"
+              aria-hidden="true"
+              focusable="false"
             >
-              Versi kode: v<span x-text="detailSettings.portal_code_version ?? '-'"></span> • Kode asli hanya tampil selama 60 detik setelah rotasi. Mahasiswa memasukkannya untuk membuka portal.
-            </div>
-          </div>
-        </template>
+              <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
+            </svg>
+            <span>Salin Tautan Jadwal</span>
+          </button>
 
-        <p x-show="detailSettingsError" class="text-[12px] text-amber-800" x-text="detailSettingsError"></p>
-
-        <div class="flex-1 min-h-[14px]"></div>
-
-        <div class="pt-1">
           <template x-if="detailSettings && detailSettings.portal_access_mode === 'CODE'">
             <button
               type="button"
               @click="rotasiKodePortal()"
-              class="box-border w-fit h-[36px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold"
+              class="box-border w-fit min-h-[38px] flex flex-row gap-2 px-3 py-1.5 justify-start items-center bg-[#FFFFFF] border border-[#BFDBFE] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold whitespace-nowrap"
             >
               <svg
                 data-pencil-name="Ikon Rotasi Kode"
-                width="17"
-                height="17"
+                width="16"
+                height="16"
                 viewBox="0 0 14 14"
-                fill="#3965FB"
-                class="w-[17px] h-[17px] shrink-0"
+                fill="currentColor"
+                class="w-4 h-4 shrink-0"
                 aria-hidden="true"
                 focusable="false"
               >
                 <path d="M7.04443 11.08447q-1.70898 0-2.89843-1.18603-1.18604-1.18604-1.18604-2.89502 0-1.7124 1.18604-2.89844 1.18945-1.18945 2.89843-1.18945 1.03906 0 1.94483 0.4956 0.90918 0.49219 1.46631 1.37744l0-1.5791q0-0.12646 0.08203-0.20849 0.08545-0.08545 0.20849-0.08545 0.12647 0 0.2085 0.08545 0.08545 0.08203 0.08545 0.20849l0 2.28662q0 0.20166-0.13672 0.33838-0.13672 0.1333-0.33496 0.1333l-2.29004 0q-0.12305 0-0.2085-0.08203-0.08203-0.08545-0.08203-0.20849 0-0.12646 0.08203-0.2085 0.08545-0.08545 0.2085-0.08545l1.86621 0q-0.45459-0.87158-1.28174-1.37744-0.82373-0.50586-1.81836-0.50586-1.45947 0-2.48144 1.02197-1.01855 1.01855-1.01856 2.47803 0 1.45947 1.01856 2.48145 1.02197 1.01855 2.48144 1.01855 1.04248 0 1.90723-0.56396 0.86816-0.56738 1.28516-1.50049 0.05127-0.11621 0.16064-0.16065 0.10938-0.04785 0.22559-0.00683 0.12305 0.0376 0.16406 0.16064 0.04102 0.11963-0.01026 0.23242-0.48535 1.10059-1.49365 1.76367-1.00488 0.65967-2.23877 0.65967z"/>
               </svg>
-              <span>Rotasi Kode Portal</span>
-            </button>
-          </template>
-          <template x-if="!detailSettings || detailSettings.portal_access_mode !== 'CODE'">
-            <button
-              type="button"
-              @click="copyText(portalURL(), 'Tautan portal disalin.')"
-              class="box-border w-fit h-[36px] shrink-0 flex flex-row gap-[7px] px-[12px] justify-start items-center bg-[#FFFFFF] [outline:1px_solid_#BFDBFE] [outline-offset:-0.5px] rounded-[8px] hover:bg-[#F0F5FF] text-[#3965FB] transition-colors cursor-pointer text-[12px] font-semibold"
-            >
-              <svg
-                data-pencil-name="Ikon Salin Tautan Portal"
-                width="16"
-                height="16"
-                viewBox="0 0 14 14"
-                fill="#3965FB"
-                class="w-[16px] h-[16px] shrink-0"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M5.31836 9.91553q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.28223q0-0.40332 0.27002-0.67334 0.27002-0.27002 0.67334-0.27002l4.53223 0q0.3999 0 0.66992 0.27002 0.27002 0.27002 0.27002 0.67334l0 6.28223q0 0.3999-0.27002 0.66992-0.27002 0.27002-0.66992 0.27002l-4.53223 0z m0-0.58106l4.53223 0q0.1333 0 0.24609-0.11279 0.11279-0.11279 0.11279-0.24609l0-6.28223q0-0.13672-0.11279-0.24609-0.11279-0.11279-0.24609-0.1128l-4.53223 0q-0.13672 0-0.24951 0.1128-0.10938 0.10938-0.10938 0.24609l0 6.28223q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279z m-1.75 2.33106q-0.40332 0-0.67334-0.27002-0.27002-0.27002-0.27002-0.66992l0-6.57618q0-0.12305 0.08203-0.20507 0.08545-0.08545 0.2085-0.08545 0.12646 0 0.20849 0.08545 0.08545 0.08203 0.08545 0.20507l0 6.57618q0 0.1333 0.10938 0.24609 0.11279 0.11279 0.24951 0.11279l4.82275 0q0.12305 0 0.20508 0.08545 0.08545 0.08203 0.08545 0.20508 0 0.12305-0.08545 0.2085-0.08203 0.08203-0.20508 0.08203l-4.82275 0z m1.39111-2.33106q0 0 0-0.11279 0-0.11279 0-0.24609l0-6.28223q0-0.13672 0-0.24609 0-0.11279 0-0.1128 0 0 0 0.1128 0 0.10938 0 0.24609l0 6.28223q0 0.1333 0 0.24609 0 0.11279 0 0.11279z"/>
-              </svg>
-              <span>Salin Tautan Portal</span>
+              <span>Rotasi Kode Akses</span>
             </button>
           </template>
         </div>
       </div>
     </div>
+    <!-- Akhir Pengurus dan Akses Portal -->
 
     <!-- Daftar Semester dan Jadwal Kuliah -->
     <div
@@ -1782,10 +1789,10 @@
             class="box-border w-full h-fit shrink-0 flex flex-row gap-0 pt-[8px] justify-between items-center"
           >
             <div
-              data-pencil-name="Format berkas JSON POLBAN"
+              data-pencil-name="Format berkas JSON Kurikulum"
               class="text-[11px]/[normal] text-[#667085] font-normal text-left"
             >
-              Format berkas: JSON Kurikulum POLBAN (.json)
+              Format berkas: JSON Kurikulum Kampus (.json)
             </div>
             <button
               type="button"
@@ -2184,9 +2191,12 @@
     <div x-show="portalModeConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/50" @click="batalKonfirmasiModePortal()"></div>
       <div class="ui-card relative max-w-md w-full p-6 shadow-2xl" role="dialog" aria-modal="true" aria-label="Konfirmasi mode portal">
-        <h3 class="text-[16px] font-bold text-ink">Ubah mode Portal Kelas?</h3>
+        <h3 class="text-[16px] font-bold text-ink">Ubah mode akses mahasiswa?</h3>
         <p class="text-[13px] text-muted mt-1">Kelas <span class="font-semibold text-ink" x-text="portalModeConfirm ? portalModeConfirm.nama : ''"></span> dari <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.dari : ''"></span> ke <span class="font-mono" x-text="portalModeConfirm ? portalModeConfirm.ke : ''"></span>.</p>
-        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">Mode tautan mencabut kode aktif: sesi portal versi lama tak berlaku. Mode kode butuh kode aktif, putar kode dulu bila belum ada.</p>
+        <p class="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">
+          <span x-show="portalModeConfirm && portalModeConfirm.ke === 'LINK'">Mode tautan mencabut kode aktif: sesi web kelas versi lama tak berlaku.</span>
+          <span x-show="portalModeConfirm && portalModeConfirm.ke === 'CODE'">Mode kode butuh kode aktif. Kode baru akan otomatis dibuat jika belum ada.</span>
+        </p>
         <div class="flex gap-2 mt-4">
           <button type="button" @click="jalankanUbahModePortal()" class="h-11 px-4 rounded-[10px] bg-primary text-white flex-1 text-[13px] font-semibold min-h-[44px]">Konfirmasi</button>
           <button type="button" @click="batalKonfirmasiModePortal()" class="h-11 px-5 rounded-xl border border-border bg-white text-[13px] min-h-[44px]">Batal</button>

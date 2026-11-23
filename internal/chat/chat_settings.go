@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -350,6 +351,14 @@ func (csm *ChatSettingsManager) SyncWithClassManager(classMgr *schedule.ClassMan
 	toUpdate := make(map[string]string)
 	for scopeJID, currentClass := range csm.cache {
 		canonical := classMgr.ResolveClassID(currentClass)
+		if canonical == "" {
+			// Jika ambigu (misal legacy "3A" atau "3B" dari v1 sebelum ada D3),
+			// gunakan kandidat pertama (D4) untuk menjaga kompatibilitas data lama.
+			candidates := classMgr.ResolveClassCandidates(currentClass)
+			if len(candidates) > 0 {
+				canonical = candidates[0]
+			}
+		}
 		if canonical != "" && canonical != currentClass {
 			toUpdate[scopeJID] = canonical
 		}
@@ -378,7 +387,7 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 		sb.WriteString("1. Ketik `!kanal` di grup ini untuk menyalin ID grup (JID).\n")
 		sb.WriteString("2. Buka Dashboard (KM / Admin) -> menu *Pengaturan Kelas*.\n")
 		sb.WriteString("3. Tempel ID pada bagian *Kanal WhatsApp Kelas* lalu simpan.\n\n")
-		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/\n\n")
+		sb.WriteString("Sementara itu info kelas bisa dibaca di portal: " + util.PublicBaseURL() + "/c/\n\n")
 		sb.WriteString("Ketik `!daftarkelas` untuk melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("_Catatan: Penautan grup WhatsApp dilakukan oleh Ketua Murid (KM) atau Admin melalui dashboard._")
@@ -387,7 +396,7 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 		sb.WriteString("Silakan tentukan kelas Anda terlebih dahulu agar bot dapat menampilkan jadwal kuliah, tugas, dan pengingat harian Anda.\n\n")
 		sb.WriteString("*Cara Memilih Kelas:*\n")
 		sb.WriteString("Ketik: `!setkelas [nama_kelas]`\n")
-		sb.WriteString("Contoh: `!setkelas D4-TI-SMT3-A` atau `!setkelas smt 3 a`\n\n")
+		sb.WriteString("Contoh: `!setkelas d4 3a` atau `!setkelas d3 3a`\n\n")
 		sb.WriteString("Ketik `!daftarkelas` untuk melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester).\n")
 		sb.WriteString("──────────\n")
 		sb.WriteString("_Di chat pribadi, Anda bebas mengganti kelas kapan saja sesuai kebutuhan._")
@@ -399,7 +408,11 @@ func (csm *ChatSettingsManager) GetOnboardingPrompt(isGroup bool) string {
 func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 	var sb strings.Builder
 	sb.WriteString("*JADWAL KULIAH MAHASISWA*\n")
-	sb.WriteString("Jurusan Teknik Komputer dan Informatika - POLBAN\n")
+	campusTitle := strings.TrimSpace(os.Getenv("BOT_JADWAL_CAMPUS_NAME"))
+	if campusTitle == "" {
+		campusTitle = "Sistem Informasi Perkuliahan Terpadu"
+	}
+	sb.WriteString(campusTitle + "\n")
 	sb.WriteString("──────────\n")
 	sb.WriteString("*STATUS: KELAS BELUM DIATUR*\n")
 	sb.WriteString("Chat ini belum memilih kelas perkuliahan aktif.\n\n")
@@ -413,7 +426,7 @@ func (csm *ChatSettingsManager) BuildUnconfiguredMenu(isGroup bool) string {
 		sb.WriteString("*LANGKAH AWAL (ONBOARDING):*\n")
 		sb.WriteString("1. Ketik `!daftarkelas` - Melihat seluruh pilihan kelas yang terdaftar (dikelompokkan per semester)\n")
 		sb.WriteString("2. Ketik `!setkelas [nama_kelas]` - Mengaktifkan kelas untuk chat pribadi ini\n")
-		sb.WriteString("   _Contoh: `!setkelas D4-TI-2025-A` atau `!setkelas 2a`_\n\n")
+		sb.WriteString("   _Contoh: `!setkelas d4 3a` atau `!setkelas d3 3a`_\n\n")
 	}
 
 	sb.WriteString("──────────\n")
@@ -493,7 +506,18 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		}
 
 		pName := "LAINNYA"
-		if strings.HasPrefix(c, "D4-TI-") || strings.HasPrefix(c, "D4-") {
+		parts := strings.Split(c, "-")
+		if len(parts) >= 2 {
+			codeP := strings.ToUpper(parts[0])
+			codeDept := strings.ToUpper(parts[1])
+			if (codeP == "D4" || codeP == "D3" || codeP == "D2" || codeP == "S1") && codeDept != "" {
+				if codeDept == "TI" {
+					pName = codeP + " TEKNIK INFORMATIKA"
+				} else {
+					pName = codeP + " " + codeDept
+				}
+			}
+		} else if strings.HasPrefix(c, "D4-TI-") || strings.HasPrefix(c, "D4-") {
 			pName = "D4 TEKNIK INFORMATIKA"
 		} else if strings.HasPrefix(c, "D3-TI-") || strings.HasPrefix(c, "D3-") {
 			pName = "D3 TEKNIK INFORMATIKA"
@@ -508,6 +532,11 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 		}
 
 		pBucket := progMap[pName]
+		if pBucket == nil {
+			pBucket = &programBucket{name: pName}
+			progMap[pName] = pBucket
+			progOrder = append(progOrder, pName)
+		}
 		var sBucket *semesterBucket
 		for _, sb := range pBucket.semesters {
 			if sb.semester == sem {
@@ -584,6 +613,52 @@ func (csm *ChatSettingsManager) FormatClassListMessage(classMgr *schedule.ClassM
 	return sb.String()
 }
 
+// FormatAmbiguousClassMessage menghasilkan pesan pilihan jika input kelas cocok dengan lebih dari satu kelas (misal D3 & D4).
+func (csm *ChatSettingsManager) FormatAmbiguousClassMessage(rawInput string, candidates []string, classMgr *schedule.ClassManager) string {
+	var sb strings.Builder
+	sb.WriteString("⚠️ *PILIHAN KELAS AMBIGU*\n")
+	sb.WriteString("──────────\n")
+	sb.WriteString(fmt.Sprintf("Input *%s* tersedia di beberapa program studi.\n", rawInput))
+	sb.WriteString("Silakan pilih kelas yang sesuai dengan mengetikkan perintah di bawah ini:\n\n")
+
+	for i, c := range candidates {
+		prodiName := "Teknik Informatika"
+		prodiCode := "D4"
+		parts := strings.Split(c, "-")
+		if len(parts) >= 2 {
+			prodiCode = parts[0]
+			deptCode := parts[1]
+			if deptCode == "TI" {
+				prodiName = prodiCode + " Teknik Informatika"
+			} else {
+				prodiName = prodiCode + " " + deptCode
+			}
+		} else if strings.HasPrefix(c, "D3") {
+			prodiCode = "D3"
+			prodiName = "D3 Teknik Informatika"
+		} else if strings.HasPrefix(c, "D4") {
+			prodiCode = "D4"
+			prodiName = "D4 Teknik Informatika"
+		}
+
+		var shortCmd string
+		if len(parts) >= 4 {
+			sem := strings.TrimPrefix(parts[2], "SMT")
+			rombel := parts[3]
+			shortCmd = fmt.Sprintf("!setkelas %s %s%s", strings.ToLower(prodiCode), sem, strings.ToLower(rombel))
+		} else {
+			shortCmd = fmt.Sprintf("!setkelas %s", c)
+		}
+
+		sb.WriteString(fmt.Sprintf("%d. *%s* (%s)\n", i+1, c, prodiName))
+		sb.WriteString(fmt.Sprintf("   Ketik: `%s`\n\n", shortCmd))
+	}
+
+	sb.WriteString("──────────\n")
+	sb.WriteString("_Ketik perintah di atas secara lengkap agar bot mengenali kelas Anda._")
+	return sb.String()
+}
+
 // HandleCommand memproses perintah pengaturan kelas (!setkelas, !pilihkelas, !daftarkelas, !kelas, !resetkelas)
 func (csm *ChatSettingsManager) HandleCommand(
 	chatJID string,
@@ -619,17 +694,24 @@ func (csm *ChatSettingsManager) HandleCommand(
 			return util.DashboardRedirectNotice("pengaturan kanal/kelas") + "\n\n👉 Minta admin menautkan grup ini via Dashboard → Kanal WhatsApp."
 		}
 		if len(fields) < 2 {
-			return "ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas D4-TI-SMT3-A` (atau cukup `!setkelas smt 3 a`)\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester."
+			return "ℹ️ *Panduan Penggunaan !setkelas:*\n──────────\nKetik: `!setkelas [nama_kelas]`\nContoh: `!setkelas d4 3a` atau `!setkelas d3 3a`\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester."
 		}
 
 		targetRaw := strings.TrimSpace(rawMsg[len(fields[0]):])
-		canonicalClass := classMgr.ResolveClassID(targetRaw)
+		candidates := classMgr.ResolveClassCandidates(targetRaw)
 
-		// Grup selalu dialihkan ke dashboard (cabang di atas); sisa alur ini
-		// hanya untuk preferensi pribadi di DM.
+		if len(candidates) > 1 {
+			return csm.FormatAmbiguousClassMessage(targetRaw, candidates, classMgr)
+		}
+
+		if len(candidates) == 0 {
+			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas d4 3a` atau `!setkelas d3 3a`.\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
+		}
+
+		canonicalClass := candidates[0]
 		cfg, exists := classMgr.GetClass(canonicalClass)
-		if !exists || canonicalClass == "" {
-			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas D4-TI-SMT3-A` (atau `!setkelas 2A`).\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
+		if !exists {
+			return fmt.Sprintf("⚠️ *Kelas '%s' Tidak Ditemukan!*\n──────────\nPastikan format penulisan benar, contoh: `!setkelas d4 3a` atau `!setkelas d3 3a`.\n\nKetik `!daftarkelas` untuk melihat seluruh pilihan kelas per semester.", targetRaw)
 		}
 
 		if err := csm.SetClass(chatJID, canonicalClass); err != nil {

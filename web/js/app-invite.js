@@ -1,7 +1,7 @@
 /**
  * web/js/app-invite.js — Aktivasi undangan pengurus (KM/PJ) dari tautan WhatsApp.
  * Backend: POST /api/v1/invitations/accept {token, password, display_name}.
- * Accept tidak mengembalikan sesi, jadi setelah berhasil pengguna diarahkan masuk.
+ * Akun existing menerima peran melalui sesi login penerima.
  */
 function inviteApp() {
   return {
@@ -14,11 +14,15 @@ function inviteApp() {
     loading: false,
     formError: '',
     done: false,
+    existingAccount: false,
+
+    loginUrl() { return '/login.html?invite_token=' + encodeURIComponent(this.token); },
 
     initInvite() {
       try {
         const params = new URLSearchParams(window.location.search);
         this.token = (params.get('token') || '').trim();
+        this.existingAccount = params.get('existing') === '1';
       } catch (e) {
         this.token = '';
       }
@@ -30,15 +34,15 @@ function inviteApp() {
         this.formError = 'Tautan undangan tidak lengkap. Minta tautan baru kepada pengundang.';
         return;
       }
-      if (!this.nama || this.nama.trim().length < 3) {
+      if (!this.existingAccount && (!this.nama || this.nama.trim().length < 3)) {
         this.formError = 'Isi nama lengkap (minimal 3 karakter).';
         return;
       }
-      if (!this.sandi || this.sandi.length < 12) {
-        this.formError = 'Kata sandi minimal 12 karakter.';
+      if (!this.existingAccount && (!this.sandi || this.sandi.length < 12)) {
+        this.formError = 'Kata sandi akun baru minimal 12 karakter.';
         return;
       }
-      if (this.sandi !== this.konfirmasi) {
+      if (!this.existingAccount && this.sandi !== this.konfirmasi) {
         this.formError = 'Konfirmasi kata sandi tidak sama.';
         return;
       }

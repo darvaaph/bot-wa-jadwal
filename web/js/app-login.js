@@ -11,6 +11,7 @@ function loginApp() {
     nomor: '',
     sandi: '',
     recoveryToken: '',
+    inviteToken: '',
     recoveryPassword: '',
     recoveryConfirm: '',
     recoverySent: false,
@@ -34,6 +35,7 @@ function loginApp() {
       this.initTheme();
       try {
         const params = new URLSearchParams(window.location.search);
+        this.inviteToken = params.get('invite_token') || '';
         const r = (params.get('role') || 'km').toLowerCase();
         if (['km', 'pj', 'sa'].includes(r)) this.role = r;
         this.recoveryToken = params.get('recovery_token') || params.get('token') || '';
@@ -129,6 +131,10 @@ function loginApp() {
         const clean = this.normalizedIdentity();
 
         const data = await API.login(clean, this.sandi);
+        if (this.inviteToken) {
+          window.location.href = '/invite.html?token=' + encodeURIComponent(this.inviteToken) + '&existing=1';
+          return;
+        }
         this.showToast('Berhasil masuk. Mengarahkan...');
 
         const daftar = (data && data.assignments) || [];
@@ -172,12 +178,50 @@ function loginApp() {
       return role || 'Pengurus';
     },
 
+    formatKelas(raw) {
+      if (!raw) return '';
+      const m = String(raw).trim().match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)-(\d{4})-([A-Za-z0-9]+)$/i);
+      if (m) {
+        const cohort = parseInt(m[3], 10);
+        const currentYear = new Date().getFullYear();
+        const tingkat = Math.max(1, Math.min(4, currentYear - cohort + 1));
+        return `${m[1].toUpperCase()}-${m[2].toUpperCase()} ${tingkat}${m[4].toUpperCase()}`;
+      }
+      return String(raw).toUpperCase();
+    },
+
     deskripsiPenugasan(a) {
       const bagian = [];
-      if (a.class_slug) bagian.push('Kelas ' + a.class_slug);
+      const kelas = this.formatKelas(a.class_name || a.class_slug);
+      if (kelas) bagian.push('Kelas ' + kelas);
       if (a.offering_name) bagian.push(a.offering_name);
-      else if (String(a.role || '').toUpperCase() === 'KM') bagian.push('Semua mata kuliah');
+      else if (String(a.role || '').toUpperCase() === 'KM') bagian.push('Koordinator Kelas');
       return bagian.join(' · ') || 'Ruang kerja pengurus';
+    },
+
+    roleIconSvg(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'KM') {
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17L5 7L9.5 12L12 5L14.5 12L19 7L21 17H3Z"/><path d="M3 17V20C3 20.6 3.4 21 4 21H20C20.6 21 21 20.6 21 20V17"/><circle cx="12" cy="13" r="1.25" fill="currentColor" stroke="none"/></svg>`;
+      }
+      if (r === 'PJ') {
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 8.5L12 14L22 8.5L12 3Z"/><path d="M6 11V16.5C6 18.5 8.7 20.5 12 20.5C15.3 20.5 18 18.5 18 16.5V11"/><path d="M22 8.5V15.5C22 16 21.6 16.5 21 16.5H20"/><circle cx="20" cy="17" r="1" fill="currentColor"/></svg>`;
+      }
+      return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L4 5.5V11.5C4 16.8 7.4 21.7 12 23C16.6 21.7 20 16.8 20 11.5V5.5L12 2Z"/><circle cx="12" cy="11.5" r="2.5"/><path d="M12 6.5V9M12 14V16.5M7 11.5H9.5M14.5 11.5H17"/></svg>`;
+    },
+
+    roleBadgeClasses(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'KM') return 'bg-blue-50 text-[#3965FB] border-blue-200';
+      if (r === 'PJ') return 'bg-emerald-50 text-[#059669] border-emerald-200';
+      return 'bg-indigo-50 text-[#6366F1] border-indigo-200';
+    },
+
+    roleCardBorderClass(role) {
+      const r = String(role || '').toUpperCase();
+      if (r === 'KM') return 'hover:border-[#3965FB] focus-visible:ring-[#3965FB]/20';
+      if (r === 'PJ') return 'hover:border-[#059669] focus-visible:ring-[#059669]/20';
+      return 'hover:border-[#6366F1] focus-visible:ring-[#6366F1]/20';
     },
 
     async pilihRuangKerja(a) {
@@ -192,6 +236,17 @@ function loginApp() {
       } finally {
         this.loading = false;
       }
+    },
+
+    bukaPortalMahasiswa() {
+      try {
+        const saved = localStorage.getItem('portal_class');
+        if (saved) {
+          window.location.href = '/c/' + encodeURIComponent(saved);
+          return;
+        }
+      } catch (e) { }
+      window.location.href = '/c/';
     },
 
     showToast(msg) {

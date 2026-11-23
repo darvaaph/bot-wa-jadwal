@@ -144,6 +144,8 @@ func (s *Service) ProvisionInitialSystemAdmin(ctx context.Context, in ProvisionI
 }
 
 func (s *Service) Authenticate(ctx context.Context, in LoginInput) (*AuthenticatedIdentity, error) {
+	unlock := LockLoginAttempts()
+	defer unlock()
 	identity := NormalizeIdentity(in.IdentityKey)
 	source := strings.TrimSpace(in.Source)
 	identityHash := keyedHash(s.hashKey, "identity", identity)
@@ -208,33 +210,8 @@ func (s *Service) Authenticate(ctx context.Context, in LoginInput) (*Authenticat
 }
 
 func (s *Service) loginBlocked(ctx context.Context, identityHash, sourceHash string, now time.Time) (bool, error) {
-	var failures int
-	windowStart := formatTime(now.Add(-loginWindow))
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM login_attempts
-		WHERE identity_hash = ? AND source_hash = ? AND outcome = 'FAILURE'
-		AND attempted_at >= ?
-		AND id > COALESCE((
-			SELECT MAX(id) FROM login_attempts
-			WHERE identity_hash = ? AND source_hash = ? AND outcome = 'SUCCESS'
-		), 0)`, identityHash, sourceHash, windowStart, identityHash, sourceHash).Scan(&failures)
-	if err != nil {
-		return false, err
-	}
-	if failures < maxLoginFailures {
-		return false, nil
-	}
-	var lastFailure string
-	err = s.db.QueryRowContext(ctx, `SELECT attempted_at FROM login_attempts
-		WHERE identity_hash = ? AND source_hash = ? AND outcome = 'FAILURE'
-		ORDER BY attempted_at DESC, id DESC LIMIT 1`, identityHash, sourceHash).Scan(&lastFailure)
-	if err != nil {
-		return false, err
-	}
-	parsed, err := parseTime(lastFailure)
-	if err != nil {
-		return false, err
-	}
-	return now.Before(parsed.Add(loginBlockPeriod)), nil
+	blocked, _, err := LoginBlocked(ctx, s.db, identityHash, sourceHash, now)
+	return blocked, err
 }
 
 func (s *Service) recordLoginAttempt(ctx context.Context, userID *int64, identityHash, sourceHash, outcome string, now time.Time) error {
@@ -438,6 +415,12 @@ func (s *Service) SwitchContext(ctx context.Context, token string, assignmentID 
 	return &SessionCredential{Token: newToken, Session: session}, nil
 }
 
+// RotateContext shares session rotation with HTTP without configuring password recovery.
+func RotateContext(ctx context.Context, db *sql.DB, token string, assignmentID int64) (*SessionCredential, error) {
+	s := &Service{db: db, clock: time.Now, random: rand.Reader}
+	return s.SwitchContext(ctx, token, assignmentID)
+}
+
 func (s *Service) RevokeSession(ctx context.Context, token, reason string) error {
 	if strings.TrimSpace(reason) == "" {
 		return ErrInvalidInput
@@ -521,32 +504,13 @@ func (s *Service) getAssignment(ctx context.Context, assignmentID int64) (*RoleA
 }
 
 func (s *Service) validateAssignmentScope(ctx context.Context, assignment RoleAssignment) error {
-	switch assignment.Role {
-	case RoleSystemAdmin:
-		if assignment.ScopeType == ScopeGlobal && assignment.ClassID == nil && assignment.SemesterID == nil && assignment.CourseOfferingID == nil {
-			return nil
+	nullableID := func(id *int64) sql.NullInt64 {
+		if id == nil {
+			return sql.NullInt64{}
 		}
-	case RoleKM:
-		if assignment.ScopeType == ScopeClass && assignment.ClassID != nil && assignment.SemesterID == nil && assignment.CourseOfferingID == nil {
-			return nil
-		}
-	case RolePJ:
-		if assignment.ScopeType == ScopeCourseOffering && assignment.ClassID != nil && assignment.SemesterID != nil && assignment.CourseOfferingID != nil {
-			var valid bool
-			err := s.db.QueryRowContext(ctx, `SELECT EXISTS(
-				SELECT 1 FROM course_offerings co
-				JOIN semesters sem ON sem.id = co.semester_id
-				WHERE co.id = ? AND co.semester_id = ? AND sem.class_id = ?
-			)`, *assignment.CourseOfferingID, *assignment.SemesterID, *assignment.ClassID).Scan(&valid)
-			if err != nil {
-				return fmt.Errorf("memvalidasi cakupan PJ: %w", err)
-			}
-			if valid {
-				return nil
-			}
-		}
+		return sql.NullInt64{Int64: *id, Valid: true}
 	}
-	return ErrAccessDenied
+	return ValidateScope(ctx, s.db, assignment.Role, assignment.ScopeType, nullableID(assignment.ClassID), nullableID(assignment.SemesterID), nullableID(assignment.CourseOfferingID))
 }
 
 func (s *Service) loadSessionContext(ctx context.Context, hash string) (Session, User, RoleAssignment, *time.Time, error) {
@@ -676,7 +640,12 @@ func formatTime(value time.Time) string {
 }
 
 func parseTime(value string) (time.Time, error) {
-	return time.Parse(time.RFC3339Nano, value)
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05"} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("format waktu tidak valid")
 }
 
 func nullInt64Ptr(value sql.NullInt64) *int64 {

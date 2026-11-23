@@ -42,12 +42,13 @@ type AdminStatusResponse struct {
 		Archived int `json:"archived"`
 	} `json:"classes_summary"`
 	UsersSummary struct {
-		Total      int `json:"total"`
-		Active     int `json:"active"`
-		Suspended  int `json:"suspended"`
-		KMCount    int `json:"km_count"`
-		PJCount    int `json:"pj_count"`
-		AdminCount int `json:"admin_count"`
+		Total       int `json:"total"`
+		Active      int `json:"active"`
+		Suspended   int `json:"suspended"`
+		KMCount     int `json:"km_count"`
+		PJCount     int `json:"pj_count"`
+		AdminCount  int `json:"admin_count"`
+		ActiveRoles int `json:"active_roles"`
 	} `json:"users_summary"`
 	TasksSummary struct {
 		Total     int `json:"total"`
@@ -104,7 +105,7 @@ func (c *AdminController) GetUsers(w http.ResponseWriter, r *http.Request) {
 		offset = o
 	}
 
-	query := `SELECT id, identity_key, display_name, status FROM users WHERE (1=1)`
+	query := `SELECT id, identity_key, display_name, status FROM users WHERE identity_key NOT LIKE 'system:%'`
 	var args []any
 	if statusFilter != "" {
 		query += " AND status = ?"
@@ -281,7 +282,8 @@ func (c *AdminController) GetAdminStatus(w http.ResponseWriter, r *http.Request)
 		SELECT COUNT(*),
 		       COALESCE(SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN status = 'SUSPENDED' THEN 1 ELSE 0 END), 0)
-		FROM users;
+		FROM users
+		WHERE identity_key NOT LIKE 'system:%';
 	`).Scan(&resp.UsersSummary.Total, &resp.UsersSummary.Active, &resp.UsersSummary.Suspended)
 
 	_ = c.db.QueryRow(`
@@ -290,6 +292,7 @@ func (c *AdminController) GetAdminStatus(w http.ResponseWriter, r *http.Request)
 		       COALESCE(SUM(CASE WHEN role = 'SYSTEM_ADMIN' AND status = 'ACTIVE' THEN 1 ELSE 0 END), 0)
 		FROM role_assignments;
 	`).Scan(&resp.UsersSummary.KMCount, &resp.UsersSummary.PJCount, &resp.UsersSummary.AdminCount)
+	resp.UsersSummary.ActiveRoles = resp.UsersSummary.KMCount + resp.UsersSummary.PJCount + resp.UsersSummary.AdminCount
 
 	// Hitung Tugas
 	_ = c.db.QueryRow(`

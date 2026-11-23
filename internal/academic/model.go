@@ -33,6 +33,7 @@ type ClassSettings struct {
 	MorningReminderTime        *string   `json:"morning_reminder_time,omitempty"`
 	AfternoonReminderTime      *string   `json:"afternoon_reminder_time,omitempty"`
 	ReplacementReminderMinutes int       `json:"replacement_reminder_minutes"`
+	AttendanceReminderMinutes  int       `json:"attendance_reminder_minutes"`
 	Version                    int       `json:"version"`
 	CreatedAt                  time.Time `json:"created_at"`
 	UpdatedAt                  time.Time `json:"updated_at"`

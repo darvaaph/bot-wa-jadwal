@@ -123,8 +123,12 @@ func (c *ScheduleController) PreviewPattern(w http.ResponseWriter, r *http.Reque
 	if room.Valid {
 		roomID = &room.Int64
 	}
-	lecturerIDs := lecturersForOfferingCtx(r.Context(), c.db, offID)
-	conflicts, err := checkPatternRange(r.Context(), c.db, schedule.Candidate{
+	lecturerIDs, err := schedule.LecturersForOffering(r.Context(), c.db, offID)
+	if err != nil {
+		common.WriteV1Error(w, http.StatusInternalServerError, "DB_ERROR", "Gagal memeriksa dosen")
+		return
+	}
+	conflicts, err := schedule.CheckPatternRange(r.Context(), c.db, schedule.Candidate{
 		OwnerClassID: classID, OwnerOfferingID: offID, RoomID: roomID,
 		LecturerIDs: lecturerIDs,
 		PatternDay:  newDay, PatternStart: newStart, PatternEnd: newEnd,
