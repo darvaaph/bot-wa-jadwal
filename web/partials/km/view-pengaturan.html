@@ -63,7 +63,7 @@
     </div>
 
     <!-- Grid 2 Kolom: Waktu Pengingat & Akses Portal (Tinggi Seimbang) -->
-    <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-[20px] items-stretch">
+    <div x-show="!settingsLoading && !settingsError && classSettings" x-cloak class="w-full grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-[20px] items-stretch">
 
       <!-- Card Kiri: Waktu Pengingat & Zona -->
       <div class="bg-white border border-[#D7DDE7] rounded-[12px] p-5 sm:p-6 shadow-xs flex flex-col justify-between">
@@ -143,54 +143,65 @@
             </div>
 
             <!-- Row Pengingat Absen -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div class="flex flex-col gap-1.5">
-                <span class="text-[12px] font-semibold text-[#1D1B3A]">Pengingat Absen Kuliah</span>
-                <label for="km-absen-aktif"
-                       class="w-full h-[44px] px-3 flex items-center justify-between bg-white border border-[#D7DDE7] rounded-[10px] cursor-pointer hover:bg-slate-50 transition-all min-h-[44px] focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20">
-                  <span class="text-[12px] font-medium text-[#1D1B3A] select-none">Aktifkan pengingat absen otomatis</span>
-                  <div class="relative inline-flex items-center shrink-0">
-                    <input id="km-absen-aktif"
-                           type="checkbox"
-                           x-model="pengaturan.absenAktif"
-                           @change="onToggleAbsen()"
-                           class="sr-only peer" />
-                    <div class="w-11 h-6 bg-slate-200 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-[#3965FB] peer-focus-visible:outline-offset-2 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3965FB]"></div>
-                  </div>
-                </label>
-                <span class="text-[11px] leading-relaxed"
-                      :class="pengaturan.absenAktif ? 'text-[#667085]' : 'text-amber-700 font-medium'"
-                      x-text="pengaturan.absenAktif ? 'Mengirim pengingat cek akademik ke grup WhatsApp setelah sesi dimulai (1-60 menit).' : 'Nonaktif (tidak mengirim pengingat absen)'">
-                  Mengirim pengingat cek akademik ke grup WhatsApp setelah sesi dimulai (1-60 menit).
-                </span>
+            <div class="pt-4 border-t border-[#EEEEEE] flex flex-col gap-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <span id="km-absen-label" class="text-[12px] font-semibold text-[#1D1B3A]">Pengingat Absen Kuliah</span>
+                  <p id="km-absen-desc"
+                     class="text-[11px] leading-relaxed mt-0.5"
+                     :class="pengaturan.absenAktif ? 'text-[#667085]' : 'text-[#B45309] font-medium'"
+                     x-text="pengaturan.absenAktif ? 'Kirim pengingat presensi otomatis ke grup WhatsApp saat kuliah berlangsung.' : 'Nonaktif. Pengingat presensi otomatis tidak dikirim.'">
+                    Kirim pengingat presensi otomatis ke grup WhatsApp saat kuliah berlangsung.
+                  </p>
+                </div>
+                <button type="button"
+                        id="km-absen-aktif"
+                        role="switch"
+                        :aria-checked="String(pengaturan.absenAktif)"
+                        aria-labelledby="km-absen-label"
+                        aria-describedby="km-absen-desc"
+                        @click="toggleAbsen()"
+                        class="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] -mr-2 rounded-[10px] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB] focus-visible:outline-offset-2">
+                  <span class="relative inline-flex items-center h-[24px] w-[40px] rounded-full p-[2px] transition-colors duration-200 ease-in-out"
+                        :class="pengaturan.absenAktif ? 'bg-[#3965FB]' : 'bg-[#64748B]'">
+                    <span aria-hidden="true"
+                          class="pointer-events-none inline-block h-[20px] w-[20px] transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out"
+                          :class="pengaturan.absenAktif ? 'translate-x-4' : 'translate-x-0'"></span>
+                  </span>
+                </button>
               </div>
 
-              <div class="flex flex-col gap-1.5">
-                <label for="km-absen-menit" class="text-[12px] font-semibold text-[#1D1B3A]">Jeda Waktu Pengingat Absen</label>
-                <div class="w-full h-[44px] px-3 flex items-center justify-between bg-white border border-[#D7DDE7] rounded-[10px] focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all min-h-[44px]"
-                     :class="!pengaturan.absenAktif ? 'bg-[#F8FAFC] opacity-60 cursor-not-allowed' : ''">
+              <div x-show="pengaturan.absenAktif" x-cloak class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                <div class="min-w-0">
+                  <label for="km-absen-menit" class="text-[12px] font-semibold text-[#1D1B3A]">Jeda Pengingat</label>
+                  <p id="km-absen-menit-help" class="text-[11px] text-[#667085] leading-relaxed">Dikirim 1-60 menit setelah sesi kuliah dimulai.</p>
+                </div>
+                <div class="w-full sm:w-[170px] min-h-[44px] px-3 flex items-center justify-between gap-2 bg-white border border-[#D7DDE7] rounded-[10px] focus-within:border-[#3965FB] focus-within:ring-2 focus-within:ring-[#3965FB]/20 transition-all shrink-0">
                   <input id="km-absen-menit"
                          type="number"
                          min="1"
                          max="60"
                          step="1"
+                         placeholder="25"
+                         aria-describedby="km-absen-menit-help"
                          x-model.number="pengaturan.absenMenit"
                          @input="onAbsenMenitInput()"
-                         :disabled="!pengaturan.absenAktif"
-                         class="w-16 sm:w-20 font-mono text-[13px] font-medium text-[#1D1B3A] bg-transparent border-none p-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed" />
-                  <span class="text-[11px] text-[#667085] whitespace-nowrap select-none font-medium">Menit setelah kuliah dimulai</span>
+                         class="w-16 min-w-0 font-mono text-[13px] font-medium text-[#1D1B3A] bg-transparent border-none p-0 focus:outline-none focus:ring-0" />
+                  <span class="text-[11px] text-[#667085] whitespace-nowrap select-none font-medium">menit</span>
                 </div>
-                <span class="text-[11px] text-[#667085]">Jeda pengiriman setelah sesi kuliah dimulai (1–60)</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="pt-5 mt-4 border-t border-[#EEEEEE] flex justify-end">
+        <div class="pt-5 mt-4 border-t border-[#EEEEEE] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <span x-show="pengaturanDirty" x-cloak role="status" class="text-[12px] font-medium text-[#B45309]">
+            Ada perubahan belum disimpan.
+          </span>
           <button type="button"
                   @click="simpanPengaturan()"
                   :disabled="pengaturanSaving || settingsLoading || !!settingsError || !classSettings"
-                  class="w-full sm:w-auto h-[44px] px-6 bg-[#3965FB] hover:bg-[#2F54D8] text-white text-[13px] font-semibold rounded-[10px] shadow-xs flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
+                  class="w-full sm:w-auto ml-auto h-[44px] px-6 bg-[#3965FB] hover:bg-[#2F54D8] text-white text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3965FB]">
             <svg x-show="pengaturanSaving" class="animate-spin w-4 h-4 text-white mr-2" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

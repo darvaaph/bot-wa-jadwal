@@ -4838,6 +4838,36 @@ function kmApp() {
       }
     },
 
+    get pengaturanDirty() {
+      const s = this.classSettings;
+      if (!s) return false;
+      const toNum = (v) => {
+        const raw = String(v ?? '').trim();
+        return raw === '' ? NaN : Number(raw);
+      };
+      const savedPagi = String(s.morning_reminder_time || '06:00');
+      const savedSore = String(s.afternoon_reminder_time || '17:00');
+      const savedGanti = (s.replacement_reminder_minutes !== undefined && s.replacement_reminder_minutes !== null)
+        ? Number(s.replacement_reminder_minutes)
+        : 60;
+      const savedZona = String(s.timezone || 'Asia/Jakarta');
+      const attRaw = (s.attendance_reminder_minutes !== undefined && s.attendance_reminder_minutes !== null)
+        ? Number(s.attendance_reminder_minutes)
+        : 25;
+      const savedAtt = (Number.isInteger(attRaw) && attRaw >= 0 && attRaw <= 60) ? attRaw : 25;
+      const curAtt = this.pengaturan.absenAktif ? toNum(this.pengaturan.absenMenit) : 0;
+      return String(this.pengaturan.pagi || '') !== savedPagi
+        || String(this.pengaturan.sore || '') !== savedSore
+        || toNum(this.pengaturan.gantiMenit) !== savedGanti
+        || String(this.pengaturan.zona || '') !== savedZona
+        || curAtt !== savedAtt;
+    },
+
+    toggleAbsen() {
+      this.pengaturan.absenAktif = !this.pengaturan.absenAktif;
+      this.onToggleAbsen();
+    },
+
     onToggleAbsen() {
       if (this.pengaturan.absenAktif) {
         const v = Number(this.pengaturan.absenMenit);
@@ -4858,12 +4888,19 @@ function kmApp() {
 
     async loadPengaturanKelas() {
       const slug = this.classSlug || this.selectedClass;
-      if (!slug) return;
-      this.settingsLoading = true; this.settingsError = '';
+      if (!slug) {
+        if (!this.classSettings) {
+          this.settingsError = 'Kelas aktif belum ditemukan untuk memuat pengaturan.';
+        }
+        return;
+      }
+      const isInitialLoad = !this.classSettings;
+      if (isInitialLoad) this.settingsLoading = true;
+      this.settingsError = '';
       try {
-        const s = await API.getClassSettings(slug).catch(() => null);
+        const s = await API.getClassSettings(slug);
+        if (!s) throw new Error('Pengaturan kelas belum dapat dimuat.');
         this.classSettings = s;
-        if (!s) { this.settingsError = 'Pengaturan kelas belum dapat dimuat.'; return; }
         if (s.slug) this.classSlug = s.slug;
         if (s.morning_reminder_time) this.pengaturan.pagi = s.morning_reminder_time;
         if (s.afternoon_reminder_time) this.pengaturan.sore = s.afternoon_reminder_time;
@@ -4891,7 +4928,12 @@ function kmApp() {
         }
         if (s.timezone) this.pengaturan.zona = s.timezone;
       } catch (e) {
-        this.settingsError = 'Pengaturan kelas belum dapat dimuat.';
+        if (isInitialLoad) {
+          this.classSettings = null;
+          this.settingsError = 'Pengaturan kelas belum dapat dimuat.';
+        } else {
+          this.showToast('Gagal menyegarkan pengaturan kelas terbaru.');
+        }
       } finally {
         this.settingsLoading = false;
       }
