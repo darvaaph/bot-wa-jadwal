@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"bot-jadwal/internal/maintenance"
 	"bot-jadwal/internal/schedule"
@@ -1053,8 +1054,9 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	}
 
 	cleanQuery := strings.ToLower(strings.TrimSpace(query))
+	queryTerms := normalizeCourseSearchTerms(cleanQuery)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT co.id, COALESCE(co.display_name, ''), COALESCE(c.name, ''),
+		SELECT co.id, COALESCE(co.display_name, ''), COALESCE(c.name, ''), COALESCE(c.code, ''),
 		       CASE
 		           WHEN u.id IS NULL THEN NULL
 		           WHEN TRIM(u.display_name) = '' OR LOWER(TRIM(u.display_name)) = LOWER(TRIM(u.identity_key)) THEN 'PJ (nama belum diatur)'
@@ -1072,14 +1074,8 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 		LEFT JOIN users u ON u.id = ra.user_id AND u.status = 'ACTIVE'
 		WHERE co.semester_id = ?
 			AND co.status = 'ACTIVE'
-			AND (
-				? = ''
-				OR instr(LOWER(COALESCE(co.display_name, '')), ?) > 0
-				OR instr(LOWER(COALESCE(c.name, '')), ?) > 0
-				OR instr(LOWER(COALESCE(c.code, '')), ?) > 0
-			)
 		ORDER BY COALESCE(NULLIF(TRIM(co.display_name), ''), c.name) ASC, co.id ASC, LOWER(TRIM(u.display_name)) ASC, u.display_name ASC;
-	`, semesterID, cleanQuery, cleanQuery, cleanQuery, cleanQuery)
+	`, semesterID)
 	if err != nil {
 		return "", err
 	}
@@ -1096,10 +1092,13 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	courseIndexes := make(map[int64]int)
 	for rows.Next() {
 		var id int64
-		var displayName, courseName string
+		var displayName, courseName, courseCode string
 		var pjName sql.NullString
-		if err := rows.Scan(&id, &displayName, &courseName, &pjName); err != nil {
+		if err := rows.Scan(&id, &displayName, &courseName, &courseCode, &pjName); err != nil {
 			return "", err
+		}
+		if !matchesCourseSearch(queryTerms, displayName, courseName, courseCode) {
+			continue
 		}
 
 		index, exists := courseIndexes[id]
@@ -1158,6 +1157,38 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	b.WriteString("\n─────────────\n")
 	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), slug))
 	return b.String(), nil
+}
+
+func matchesCourseSearch(queryTerms []string, values ...string) bool {
+	if len(queryTerms) == 0 {
+		return true
+	}
+
+	var searchable strings.Builder
+	for _, value := range values {
+		searchable.WriteString(normalizeCourseSearchText(value))
+		searchable.WriteByte(' ')
+	}
+	searchText := searchable.String()
+	for _, term := range queryTerms {
+		if !strings.Contains(searchText, term) {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeCourseSearchTerms(query string) []string {
+	return strings.Fields(normalizeCourseSearchText(query))
+}
+
+func normalizeCourseSearchText(value string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return unicode.ToLower(r)
+		}
+		return ' '
+	}, value)
 }
 
 // SearchDosen mencari jadwal mengajar dosen pada kelas ini
