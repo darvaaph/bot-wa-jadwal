@@ -137,6 +137,31 @@ func InvalidateGroupAdminCache(groupJID types.JID) {
 	defaultGroupAdminResolver.Invalidate(groupJID)
 }
 
+// handlePJCommand memproses perintah read-only !pj / !daftarpj / !listpj untuk grup dan DM.
+func handlePJCommand(ctx context.Context, msgText string, isGroup bool, activeClassID string, chatSettingsManager *chat.ChatSettingsManager, v1Service *V1BotService, v1Class *V1ClassInfo) (string, string, bool) {
+	if !util.MatchCommandPrefix(msgText, isGroup, "pj", "daftarpj", "listpj") {
+		return "", "", false
+	}
+	if activeClassID == "" && chatSettingsManager != nil {
+		return chatSettingsManager.GetOnboardingPrompt(isGroup), "👋", true
+	}
+	if v1Class == nil || v1Service == nil {
+		return "Daftar PJ hanya tersedia untuk kelas yang terdaftar pada sistem v1.", "⚠️", true
+	}
+
+	parts := strings.Fields(msgText)
+	query := ""
+	if len(parts) > 1 {
+		query = strings.Join(parts[1:], " ")
+	}
+	pjReply, err := v1Service.GetCoursePJs(ctx, v1Class.ID, query)
+	if err != nil {
+		fmt.Printf("⚠️ [GetCoursePJs Error] gagal memuat daftar PJ untuk kelas %d: %v\n", v1Class.ID, err)
+		return "Terjadi kendala saat memuat daftar PJ. Silakan coba beberapa saat lagi.", "⚠️", true
+	}
+	return pjReply, "👥", true
+}
+
 // HandleIncomingMessage memproses setiap pesan masuk secara asinkron di dalam goroutine independen
 func HandleIncomingMessage(
 	client *whatsmeow.Client,
@@ -254,28 +279,8 @@ func HandleIncomingMessage(
 		return
 	}
 
-	if util.MatchCommandPrefix(msgText, v.Info.IsGroup, "pj", "daftarpj", "listpj") {
-		if activeClassID == "" && chatSettingsManager != nil {
-			reply(chatSettingsManager.GetOnboardingPrompt(v.Info.IsGroup), "👋", 600*time.Millisecond, "onboarding daftar pj")
-			return
-		}
-		if v1Class == nil || v1Service == nil {
-			reply("Daftar PJ hanya tersedia untuk kelas yang terdaftar pada sistem v1.", "⚠️", 600*time.Millisecond, "daftar pj tidak tersedia")
-			return
-		}
-
-		parts := strings.Fields(msgText)
-		query := ""
-		if len(parts) > 1 {
-			query = strings.Join(parts[1:], " ")
-		}
-		pjReply, err := v1Service.GetCoursePJs(context.Background(), v1Class.ID, query)
-		if err != nil {
-			fmt.Printf("⚠️ [GetCoursePJs Error] gagal memuat daftar PJ untuk kelas %d: %v\n", v1Class.ID, err)
-			reply("Terjadi kendala saat memuat daftar PJ. Silakan coba beberapa saat lagi.", "⚠️", 600*time.Millisecond, "daftar pj v1")
-			return
-		}
-		reply(pjReply, "👥", 600*time.Millisecond, "daftar pj v1")
+	if pjReply, pjEmoji, handled := handlePJCommand(context.Background(), msgText, v.Info.IsGroup, activeClassID, chatSettingsManager, v1Service, v1Class); handled {
+		reply(pjReply, pjEmoji, 600*time.Millisecond, "daftar pj v1")
 		return
 	}
 

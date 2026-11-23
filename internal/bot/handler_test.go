@@ -1,9 +1,12 @@
 package bot
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
+
+	"bot-jadwal/internal/chat"
 
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
@@ -107,10 +110,83 @@ func TestKanalCommand_StaysReadable(t *testing.T) {
 }
 
 func TestPJCommand_StaysReadable(t *testing.T) {
-	for _, text := range []string{"!pj", "/pj"} {
+	for _, text := range []string{"!pj", "/pj", "#pj", "!daftarpj", "!listpj", "!pj basis data"} {
 		if entity, ok := MutationRedirectEntity(text, true); ok {
-			t.Fatalf("%s dialihkan sebagai %s, seharusnya tidak", text, entity)
+			t.Fatalf("%s (grup) dialihkan sebagai %s, seharusnya tidak", text, entity)
 		}
+		if entity, ok := MutationRedirectEntity(text, false); ok {
+			t.Fatalf("%s (DM) dialihkan sebagai %s, seharusnya tidak", text, entity)
+		}
+	}
+	for _, text := range []string{"pj", "daftarpj", "listpj", "pj ti2101"} {
+		if entity, ok := MutationRedirectEntity(text, false); ok {
+			t.Fatalf("%s (DM tanpa prefix) dialihkan sebagai %s, seharusnya tidak", text, entity)
+		}
+	}
+}
+
+func TestHandlePJCommand_Routing(t *testing.T) {
+	svc := setupTestV1DB(t)
+	ctx := context.Background()
+	if _, err := svc.db.ExecContext(ctx, `
+		INSERT INTO users (id, identity_key, display_name, password_hash, status)
+		VALUES (2, 'private:pj-2', 'Budi Santoso', 'disabled', 'ACTIVE');
+		INSERT INTO role_assignments (user_id, role, scope_type, class_id, semester_id, course_offering_id)
+		VALUES (2, 'PJ', 'COURSE_OFFERING', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed PJ gagal: %v", err)
+	}
+
+	csm, err := chat.NewChatSettingsManager(svc.db)
+	if err != nil {
+		t.Fatalf("NewChatSettingsManager gagal: %v", err)
+	}
+	v1Class, err := svc.FindClass(ctx, "d4-ti-2024-a")
+	if err != nil || v1Class == nil {
+		t.Fatalf("FindClass gagal: %v", err)
+	}
+
+	// 1. Chat belum terikat kelas -> balas onboarding, dan BuildUnconfiguredMenu memuat !pj
+	reply, _, handled := handlePJCommand(ctx, "!pj", true, "", csm, svc, nil)
+	if !handled || !strings.Contains(reply, "KELAS BELUM DIATUR") {
+		t.Fatalf("chat belum terikat kelas seharusnya balas onboarding, got handled=%v reply=%s", handled, reply)
+	}
+	if menu := csm.BuildUnconfiguredMenu(true); !strings.Contains(menu, "!pj") {
+		t.Fatalf("BuildUnconfiguredMenu(true) seharusnya memuat !pj: %s", menu)
+	}
+	if menu := csm.BuildUnconfiguredMenu(false); !strings.Contains(menu, "!pj") {
+		t.Fatalf("BuildUnconfiguredMenu(false) seharusnya memuat !pj: %s", menu)
+	}
+
+	// 2. Kelas legacy (non-v1) -> pesan informatif v1-only
+	reply, _, handled = handlePJCommand(ctx, "!pj", true, "D4-TI-LEGACY", csm, svc, nil)
+	if !handled || !strings.Contains(reply, "sistem v1") {
+		t.Fatalf("kelas non-v1 seharusnya mendapat pesan v1-only, got handled=%v reply=%s", handled, reply)
+	}
+
+	// 3. Grup dengan prefix !, /, # dan alias + filter argumen
+	for _, cmd := range []string{"!pj", "/pj", "#pj", "!daftarpj", "!listpj"} {
+		reply, _, handled = handlePJCommand(ctx, cmd, true, "D4-TI-2024-A", csm, svc, v1Class)
+		if !handled || !strings.Contains(reply, "Budi Santoso") {
+			t.Fatalf("perintah grup %q gagal: handled=%v reply=%s", cmd, handled, reply)
+		}
+	}
+	reply, _, handled = handlePJCommand(ctx, "!pj Struktur", true, "D4-TI-2024-A", csm, svc, v1Class)
+	if !handled || !strings.Contains(reply, "Struktur Data") || strings.Contains(reply, "Algoritma") {
+		t.Fatalf("filter !pj Struktur gagal: handled=%v reply=%s", handled, reply)
+	}
+
+	// 4. DM tanpa prefix maupun dengan prefix
+	for _, cmd := range []string{"pj", "!pj", "/pj", "pj TI2101"} {
+		reply, _, handled = handlePJCommand(ctx, cmd, false, "D4-TI-2024-A", csm, svc, v1Class)
+		if !handled || !strings.Contains(reply, "Budi Santoso") {
+			t.Fatalf("perintah DM %q gagal: handled=%v reply=%s", cmd, handled, reply)
+		}
+	}
+
+	// 5. Perintah lain tidak ditangkap
+	if _, _, handled = handlePJCommand(ctx, "!jadwal", true, "D4-TI-2024-A", csm, svc, v1Class); handled {
+		t.Fatalf("!jadwal tidak boleh ditangani oleh handlePJCommand")
 	}
 }
 

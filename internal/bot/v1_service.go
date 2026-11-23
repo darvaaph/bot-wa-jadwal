@@ -1026,7 +1026,7 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	var code, slug, groupLabel, semYear string
 	var cohortYear int
 	if err := s.db.QueryRowContext(ctx, `
-		SELECT code, slug, cohort_year, group_label
+		SELECT COALESCE(code, ''), COALESCE(slug, ''), cohort_year, COALESCE(group_label, '')
 		FROM classes
 		WHERE id = ?;
 	`, classID).Scan(&code, &slug, &cohortYear, &groupLabel); err != nil {
@@ -1034,14 +1034,16 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	}
 
 	var semesterID int64
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM semesters WHERE class_id = ? AND status = 'ACTIVE' LIMIT 1;`, classID).Scan(&semesterID)
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, COALESCE(academic_year, '')
+		FROM semesters
+		WHERE class_id = ? AND status = 'ACTIVE'
+		LIMIT 1;
+	`, classID).Scan(&semesterID, &semYear)
 	if err == sql.ErrNoRows {
 		return "Belum ada semester aktif untuk kelas ini.", nil
 	}
 	if err != nil {
-		return "", err
-	}
-	if err := s.db.QueryRowContext(ctx, `SELECT academic_year FROM semesters WHERE id = ?;`, semesterID).Scan(&semYear); err != nil {
 		return "", err
 	}
 
@@ -1052,7 +1054,12 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 
 	cleanQuery := strings.ToLower(strings.TrimSpace(query))
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT co.id, co.display_name, c.name, u.display_name
+		SELECT co.id, COALESCE(co.display_name, ''), COALESCE(c.name, ''),
+		       CASE
+		           WHEN u.id IS NULL THEN NULL
+		           WHEN TRIM(u.display_name) = '' OR LOWER(TRIM(u.display_name)) = LOWER(TRIM(u.identity_key)) THEN 'PJ (nama belum diatur)'
+		           ELSE TRIM(u.display_name)
+		       END
 		FROM course_offerings co
 		JOIN courses c ON c.id = co.course_id
 		LEFT JOIN role_assignments ra
@@ -1060,17 +1067,18 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 			AND ra.scope_type = 'COURSE_OFFERING'
 			AND ra.course_offering_id = co.id
 			AND ra.status = 'ACTIVE'
+			AND (ra.valid_from IS NULL OR julianday(ra.valid_from) <= julianday('now'))
 			AND (ra.valid_until IS NULL OR julianday(ra.valid_until) > julianday('now'))
 		LEFT JOIN users u ON u.id = ra.user_id AND u.status = 'ACTIVE'
 		WHERE co.semester_id = ?
 			AND co.status = 'ACTIVE'
 			AND (
 				? = ''
-				OR instr(LOWER(co.display_name), ?) > 0
-				OR instr(LOWER(c.name), ?) > 0
-				OR instr(LOWER(c.code), ?) > 0
+				OR instr(LOWER(COALESCE(co.display_name, '')), ?) > 0
+				OR instr(LOWER(COALESCE(c.name, '')), ?) > 0
+				OR instr(LOWER(COALESCE(c.code, '')), ?) > 0
 			)
-		ORDER BY co.display_name ASC, co.id ASC, LOWER(u.display_name) ASC, u.display_name ASC;
+		ORDER BY COALESCE(NULLIF(TRIM(co.display_name), ''), c.name) ASC, co.id ASC, LOWER(TRIM(u.display_name)) ASC, u.display_name ASC;
 	`, semesterID, cleanQuery, cleanQuery, cleanQuery, cleanQuery)
 	if err != nil {
 		return "", err
@@ -1125,29 +1133,30 @@ func (s *V1BotService) GetCoursePJs(ctx context.Context, classID int64, query st
 	b.WriteString("─────────────\n")
 	if len(courses) == 0 {
 		if cleanQuery == "" {
-			b.WriteString("Belum ada mata kuliah aktif pada semester ini.")
+			b.WriteString("Belum ada mata kuliah yang terdaftar untuk semester aktif ini.")
 		} else {
 			b.WriteString(fmt.Sprintf("Tidak ada mata kuliah yang cocok dengan kata kunci \"%s\".", strings.TrimSpace(query)))
 		}
-	} else {
-		for i, course := range courses {
-			if i > 0 {
-				b.WriteString("\n")
-			}
-			title := course.displayName
-			if strings.TrimSpace(title) == "" {
-				title = course.courseName
-			}
-			b.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, title))
-			pjList := "Belum ditetapkan"
-			if len(course.pjs) > 0 {
-				pjList = strings.Join(course.pjs, ", ")
-			}
-			b.WriteString("   - PJ: " + pjList + "\n")
-		}
+		return b.String(), nil
 	}
-	b.WriteString("─────────────\n")
-	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas: %s/c/%s", util.PublicBaseURL(), slug))
+
+	for i, course := range courses {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		title := course.displayName
+		if strings.TrimSpace(title) == "" {
+			title = course.courseName
+		}
+		b.WriteString(fmt.Sprintf("%d. *%s*\n", i+1, title))
+		pjList := "Belum ditetapkan"
+		if len(course.pjs) > 0 {
+			pjList = strings.Join(course.pjs, ", ")
+		}
+		b.WriteString("   - PJ: " + pjList + "\n")
+	}
+	b.WriteString("\n─────────────\n")
+	b.WriteString(fmt.Sprintf("Detail jadwal dan tugas:\n%s/c/%s", util.PublicBaseURL(), slug))
 	return b.String(), nil
 }
 
